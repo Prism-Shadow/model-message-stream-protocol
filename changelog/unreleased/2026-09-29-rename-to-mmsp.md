@@ -3,14 +3,14 @@
 - **Date:** 2026-09-29
 - **Type:** process
 - **Scope:** `mmsp`, `errors`, `integration`, `skills`
-- **PR:** [#223](https://github.com/Prism-Shadow/mmsp/pull/223)
+- **PR:** [#223](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/223)
 - **Breaking:** yes — the packages, the Python module, the error base class and the environment variables changed names
 
 [中文版](2026-09-29-rename-to-mmsp.zh.md)
 
 ## What changed
 
-- The project was renamed from AgentHub to MMSP, the Model Message Stream Protocol: one message format and one streaming grammar for every model provider. The repository moved to `https://github.com/Prism-Shadow/mmsp`.
+- The project was renamed from AgentHub to MMSP, the Model Message Stream Protocol: one message format and one streaming grammar for every model provider. The repository moved to `https://github.com/Prism-Shadow/model-message-stream-protocol`.
 - The Python package `agenthub-python` became `mmsp`, and its module `agenthub` became `mmsp`: `from mmsp import AutoLLMClient`.
 - The npm package `@prismshadow/agenthub` became `@prismshadow/mmsp`: `import { AutoLLMClient } from "@prismshadow/mmsp"`.
 - `AgentHubError`, the base class of every error the packages raise, became `MMSPError`.

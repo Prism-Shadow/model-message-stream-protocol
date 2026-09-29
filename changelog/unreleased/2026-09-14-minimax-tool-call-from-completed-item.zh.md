@@ -3,7 +3,7 @@
 - **Date:** 2026-09-14
 - **Type:** fix
 - **Scope:** `minimax_m3`, `tests`, `skills`
-- **PR:** [#221](https://github.com/Prism-Shadow/mmsp/pull/221)
+- **PR:** [#221](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/221)
 
 [English](2026-09-14-minimax-tool-call-from-completed-item.md)
 

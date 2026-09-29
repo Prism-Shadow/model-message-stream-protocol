@@ -3,7 +3,7 @@
 - **Date:** 2026-09-16
 - **Type:** feature
 - **Scope:** `types`, `base_client`, `errors`, `integration`, `skills`
-- **PR:** [#223](https://github.com/Prism-Shadow/mmsp/pull/223)
+- **PR:** [#223](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/223)
 - **Breaking:** yes — 每种内容项类型都加上了 `.delta` 或 `.done` 后缀，`start` 与 `unused` 事件类型以及 `partial_tool_call` 内容项被移除，客户端改为返回以内部 `fidelity.item_id` 标识的 `.delta` / `.done` 内容项，不再返回原有的内容项类型
 
 [English](2026-09-16-streaming-protocol-v2.md)

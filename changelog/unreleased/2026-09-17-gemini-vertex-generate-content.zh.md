@@ -3,7 +3,7 @@
 - **Date:** 2026-09-17
 - **Type:** feature
 - **Scope:** `gemini3_8_generate_content`, `gemini3_8`, `auto_client`, `tests`, `llmsdk_docs`
-- **PR:** [#223](https://github.com/Prism-Shadow/mmsp/pull/223)
+- **PR:** [#223](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/223)
 
 [English](2026-09-17-gemini-vertex-generate-content.md)
 

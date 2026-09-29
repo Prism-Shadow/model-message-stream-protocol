@@ -2,11 +2,11 @@
 
 # MMSP - Model Message Stream Protocol
 
-[![GitHub Repo stars](https://img.shields.io/github/stars/Prism-Shadow/mmsp?style=social)](https://github.com/Prism-Shadow/mmsp/stargazers)
-[![GitHub last commit](https://img.shields.io/github/last-commit/Prism-Shadow/mmsp)](https://github.com/Prism-Shadow/mmsp/commits/main)
-[![GitHub contributors](https://img.shields.io/github/contributors/Prism-Shadow/mmsp?color=orange)](https://github.com/Prism-Shadow/mmsp/graphs/contributors)
-[![Python tests](https://github.com/Prism-Shadow/mmsp/actions/workflows/pytest.yml/badge.svg)](https://github.com/Prism-Shadow/mmsp/actions/workflows/pytest.yml)
-[![Javascript tests](https://github.com/Prism-Shadow/mmsp/actions/workflows/jest.yml/badge.svg)](https://github.com/Prism-Shadow/mmsp/actions/workflows/jest.yml)
+[![GitHub Repo stars](https://img.shields.io/github/stars/Prism-Shadow/model-message-stream-protocol?style=social)](https://github.com/Prism-Shadow/model-message-stream-protocol/stargazers)
+[![GitHub last commit](https://img.shields.io/github/last-commit/Prism-Shadow/model-message-stream-protocol)](https://github.com/Prism-Shadow/model-message-stream-protocol/commits/main)
+[![GitHub contributors](https://img.shields.io/github/contributors/Prism-Shadow/model-message-stream-protocol?color=orange)](https://github.com/Prism-Shadow/model-message-stream-protocol/graphs/contributors)
+[![Python tests](https://github.com/Prism-Shadow/model-message-stream-protocol/actions/workflows/pytest.yml/badge.svg)](https://github.com/Prism-Shadow/model-message-stream-protocol/actions/workflows/pytest.yml)
+[![Javascript tests](https://github.com/Prism-Shadow/model-message-stream-protocol/actions/workflows/jest.yml/badge.svg)](https://github.com/Prism-Shadow/model-message-stream-protocol/actions/workflows/jest.yml)
 [![PyPI](https://img.shields.io/pypi/v/mmsp)](https://pypi.org/project/mmsp/)
 [![NPM](https://img.shields.io/npm/v/@prismshadow/mmsp)](https://www.npmjs.com/package/@prismshadow/mmsp)
 

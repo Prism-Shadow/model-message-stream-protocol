@@ -12,9 +12,9 @@ authors = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/Prism-Shadow/mmsp"
-Repository = "https://github.com/Prism-Shadow/mmsp"
-Issues = "https://github.com/Prism-Shadow/mmsp/issues"
+Homepage = "https://github.com/Prism-Shadow/model-message-stream-protocol"
+Repository = "https://github.com/Prism-Shadow/model-message-stream-protocol"
+Issues = "https://github.com/Prism-Shadow/model-message-stream-protocol/issues"
 
 [project.optional-dependencies]
 dev = ["httpx[socks]", "pytest>=8.4.2", "pytest-asyncio>=0.23.0", "pytest-xdist>=3.6.0", "pytest-rerunfailures>=15.0", "ruff>=0.14.3", "pillow>=10.0.0"]

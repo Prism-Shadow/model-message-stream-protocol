@@ -3,14 +3,14 @@
 - **Date:** 2026-09-29
 - **Type:** process
 - **Scope:** `mmsp`, `errors`, `integration`, `skills`
-- **PR:** [#223](https://github.com/Prism-Shadow/mmsp/pull/223)
+- **PR:** [#223](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/223)
 - **Breaking:** yes — 软件包、Python 模块、错误基类与环境变量都换了名字
 
 [English](2026-09-29-rename-to-mmsp.md)
 
 ## 变更内容
 
-- 项目从 AgentHub 更名为 MMSP，即 Model Message Stream Protocol：面向所有模型服务商的同一套消息格式与同一套流式语法。仓库迁至 `https://github.com/Prism-Shadow/mmsp`。
+- 项目从 AgentHub 更名为 MMSP，即 Model Message Stream Protocol：面向所有模型服务商的同一套消息格式与同一套流式语法。仓库迁至 `https://github.com/Prism-Shadow/model-message-stream-protocol`。
 - Python 包 `agenthub-python` 更名为 `mmsp`，其模块 `agenthub` 更名为 `mmsp`：`from mmsp import AutoLLMClient`。
 - npm 包 `@prismshadow/agenthub` 更名为 `@prismshadow/mmsp`：`import { AutoLLMClient } from "@prismshadow/mmsp"`。
 - 两个包抛出的所有错误的基类 `AgentHubError` 更名为 `MMSPError`。

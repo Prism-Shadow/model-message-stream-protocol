@@ -159,7 +159,7 @@ def create_chat_app() -> Flask:
         <div class="bg-gray-900 text-white px-6 py-4 border-b border-gray-700 flex justify-between items-center">
             <h1 class="text-xl font-semibold">MMSP</h1>
             <div class="flex items-center gap-4">
-                <a href="https://github.com/Prism-Shadow/mmsp" target="_blank" rel="noopener noreferrer" class="text-gray-400 hover:text-white text-sm transition-colors">GitHub</a>
+                <a href="https://github.com/Prism-Shadow/model-message-stream-protocol" target="_blank" rel="noopener noreferrer" class="text-gray-400 hover:text-white text-sm transition-colors">GitHub</a>
                 <a href="/tracer/" target="_blank" rel="noopener noreferrer" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm transition-colors">Open Tracer</a>
                 <button class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm transition-colors" onclick="toggleConfig()">
                     ⚙️ Config
