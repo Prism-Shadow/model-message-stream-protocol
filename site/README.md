@@ -19,9 +19,9 @@ Node 22.12 or newer.
 | --- | --- |
 | `src/pages/index.astro` | The overview page |
 | `src/docs/*.md` | The documentation, one file per page |
-| `src/lib/site.ts` | The sidebar and the top bar: add a page here after writing it |
+| `src/shared/site.ts` | The sidebar and the top bar: add a page here after writing it |
 | `src/pages/changelog.astro` | Renders the repository's `CHANGELOG.md` |
-| `src/lib/stream-demo.ts` | The streams the overview page replays |
+| `src/shared/stream-demo.ts` | The streams the overview page replays |
 | `src/styles/global.css` | The theme: the visual language of penguin.ooo/docs with the violet of the MMSP artwork |
 | `public/CNAME` | The custom domain |
 | `artwork/` | The sources of the images in `.github/images/` |
