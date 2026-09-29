@@ -432,7 +432,7 @@ function collectedTexts(events: UniEvent[]): string[] {
 }
 
 afterEach(() => {
-  delete process.env.AGENTHUB_DEBUG;
+  delete process.env.MMSP_DEBUG;
 });
 
 describe.each(RESPONSES_STREAM_CASES)(
@@ -499,9 +499,9 @@ describe.each(RESPONSES_STREAM_CASES)(
     });
 
     test.each(unknownResponsesEvents)(
-      "rejects an unknown event that is %s with AGENTHUB_DEBUG set",
+      "rejects an unknown event that is %s with MMSP_DEBUG set",
       async (_label, unknownEvent) => {
-        process.env.AGENTHUB_DEBUG = "1";
+        process.env.MMSP_DEBUG = "1";
         const client = createAutoClient(testCase);
         installFakeResponsesStream(client, [
           unknownEvent(),
@@ -609,9 +609,9 @@ describe.each(MESSAGES_STREAM_CASES)(
     });
 
     test.each(unknownMessagesEvents)(
-      "rejects an unknown event that is %s with AGENTHUB_DEBUG set",
+      "rejects an unknown event that is %s with MMSP_DEBUG set",
       async (_label, unknownEvent) => {
-        process.env.AGENTHUB_DEBUG = "1";
+        process.env.MMSP_DEBUG = "1";
         const client = createAutoClient(testCase);
         installFakeMessagesStream(client, [
           unknownEvent(),
@@ -649,8 +649,8 @@ describe.each(GEMINI_STREAM_CASES)(
       expect(events[events.length - 1].finish_reason).toBe("stop");
     });
 
-    test("rejects an unknown delta with AGENTHUB_DEBUG set", async () => {
-      process.env.AGENTHUB_DEBUG = "1";
+    test("rejects an unknown delta with MMSP_DEBUG set", async () => {
+      process.env.MMSP_DEBUG = "1";
       const client = createAutoClient(testCase);
       installFakeGeminiStream(client, [
         geminiUnknownDeltaEvent(),
@@ -817,8 +817,8 @@ describe.each(GENERATE_CONTENT_STREAM_CASES)(
       expect(events[events.length - 1].finish_reason).toBe("stop");
     });
 
-    test("rejects an unknown part with AGENTHUB_DEBUG set", async () => {
-      process.env.AGENTHUB_DEBUG = "1";
+    test("rejects an unknown part with MMSP_DEBUG set", async () => {
+      process.env.MMSP_DEBUG = "1";
       const client = createAutoClient(testCase);
       installFakeGenerateContentStream(client, [
         generateContentUnknownPartChunk(),
@@ -914,7 +914,7 @@ describe.each(IGNORABLE_EVENT_CASES)(
   ({ testCase, install, stream }) => {
     test("turns an ignorable event into an empty event and streams only deltas and a stop", async () => {
       // with the debug guard on, an event the client did not know would throw instead of passing
-      process.env.AGENTHUB_DEBUG = "1";
+      process.env.MMSP_DEBUG = "1";
       const client = createAutoClient(testCase);
       const [ignorableEvent] = stream();
       expect(client.transformModelOutputToUniEvent(ignorableEvent)).toEqual(

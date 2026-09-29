@@ -3,7 +3,7 @@
 - **Date:** 2026-09-16
 - **Type:** feature
 - **Scope:** `types`, `base_client`, `errors`, `integration`, `skills`
-- **PR:** [#223](https://github.com/Prism-Shadow/agenthub/pull/223)
+- **PR:** [#223](https://github.com/Prism-Shadow/mmsp/pull/223)
 - **Breaking:** yes — every content item type gained a `.delta` or `.done` suffix, the `start` and `unused` event types and the `partial_tool_call` item were removed, and clients return `.delta` / `.done` items identified by an internal `fidelity.item_id` instead of the previous item types
 
 [中文版](2026-09-16-streaming-protocol-v2.zh.md)
@@ -16,12 +16,12 @@
 - `minimax_m3` streams each tool call read from the completed output item as one `tool_call.delta` carrying the name, id, and whole arguments, then the `tool_call.done`.
 - `ToolCallArgumentParseError` is raised in place of the `tool_call.done` of a call whose arguments do not parse to a JSON object.
 - `EmptyResponseError` is raised in place of the `stop` event and gained `usage_metadata` / `usageMetadata`. A stream that ends without usage or a finish reason also raises in place of the `stop` event.
-- `StreamProtocolError` (an `AgentHubError` carrying `client`) was added and exported from the package. It is raised in every mode when a client's output breaks the protocol: a content item that is not a `.delta`, a second different fidelity within one item, a first `tool_call.delta` without a name or id (arguments with no call streaming included), or a `delta` event carrying `usage_metadata` or `finish_reason`.
+- `StreamProtocolError` (an `MMSPError` carrying `client`) was added and exported from the package. It is raised in every mode when a client's output breaks the protocol: a content item that is not a `.delta`, a second different fidelity within one item, a first `tool_call.delta` without a name or id (arguments with no call streaming included), or a `delta` event carrying `usage_metadata` or `finish_reason`.
 - `streaming_response` / `streamingResponse` saves the `trace_id` trace, and `streaming_response_stateful` / `streamingResponseStateful` records the turn in history, before yielding the `stop` event.
 - `concat_uni_events_to_uni_message` / `concatUniEventsToUniMessage` collects the `.done` items in stream order and takes `usage_metadata`, `finish_reason`, and `created_at` from the `stop` event; its merge heuristics were removed.
 - The tracer and playground read and render the new item types; the playground streams on `.delta` items and the `stop` event.
 - The test helpers `assert_stream_grammar` / `assertStreamGrammar` were added; the shared e2e tests check every model's stream with them and read tool calls from `tool_call.done`.
-- The READMEs, the `skills/agenthub-python` and `skills/agenthub-typescript` references, the examples, and the dev skill were rewritten for the new protocol.
+- The READMEs, the `skills/mmsp-python` and `skills/mmsp-typescript` references, the examples, and the dev skill were rewritten for the new protocol.
 
 ## Client events
 

@@ -23,7 +23,7 @@ import httpx
 import pytest
 from stream_grammar import assert_stream_grammar
 
-from agenthub import AutoLLMClient, ThinkingLevel, list_supported_models
+from mmsp import AutoLLMClient, ThinkingLevel, list_supported_models
 
 
 IMAGE = "https://sghimages.shobserver.com/img/catch/2022/01/22/c1ae0300-9402-4128-a7e6-1244d3874167.jpg"

@@ -21,7 +21,7 @@ This example shows how to use the AutoLLMClient with automatic conversation hist
 import asyncio
 import os
 
-from agenthub import AutoLLMClient, ThinkingLevel
+from mmsp import AutoLLMClient, ThinkingLevel
 
 
 async def main():

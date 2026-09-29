@@ -91,7 +91,7 @@ describe("Playground", () => {
 
     expect(response.status).toBe(200);
     expect(response.text).toContain(
-      '<h1 class="text-xl font-semibold">AgentHub</h1>',
+      '<h1 class="text-xl font-semibold">MMSP</h1>',
     );
     expect(response.text).toContain('id="modelCombobox"');
     expect(response.text).toContain('id="thinkingLevelCombobox"');
@@ -161,7 +161,7 @@ describe("Playground", () => {
     expect(response.text).toContain(
       "assistantCard.insertAdjacentHTML('beforeend', metadataHtml)",
     );
-    expect(response.text).toContain("agenthub.playground.config");
+    expect(response.text).toContain("mmsp.playground.config");
     expect(response.text).toContain("restoreConfig()");
     expect(response.text).not.toContain("pcmBase64ToWavDataUrl");
     expect(response.text).not.toContain("assistantCard.innerHTML +=");
@@ -243,7 +243,7 @@ describe("Playground", () => {
           model: "gpt-5.5",
           api_key: "test-key",
           base_url: "https://example.test/v1",
-          default_headers: { "X-Title": "AgentHub" },
+          default_headers: { "X-Title": "MMSP" },
           thinking_level: "low",
         },
       });
@@ -254,7 +254,7 @@ describe("Playground", () => {
       model: "gpt-5.5",
       apiKey: "test-key",
       baseUrl: "https://example.test/v1",
-      defaultHeaders: { "X-Title": "AgentHub" },
+      defaultHeaders: { "X-Title": "MMSP" },
     });
     expect(mockLastStreamingOptions?.config).toEqual({
       thinking_level: "low",

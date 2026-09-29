@@ -138,7 +138,7 @@ export function createChatApp(): Express {
   <!DOCTYPE html>
   <html>
   <head>
-      <title>AgentHub Playground</title>
+      <title>MMSP Playground</title>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1">
       <script src="https://cdn.tailwindcss.com"></script>
@@ -168,9 +168,9 @@ export function createChatApp(): Express {
   </head>
   <body class="bg-gray-50 flex flex-col h-screen">
       <div class="bg-gray-900 text-white px-6 py-4 border-b border-gray-700 flex justify-between items-center">
-          <h1 class="text-xl font-semibold">AgentHub</h1>
+          <h1 class="text-xl font-semibold">MMSP</h1>
           <div class="flex items-center gap-4">
-              <a href="https://github.com/Prism-Shadow/AgentHub" target="_blank" rel="noopener noreferrer" class="text-gray-400 hover:text-white text-sm transition-colors">GitHub</a>
+              <a href="https://github.com/Prism-Shadow/mmsp" target="_blank" rel="noopener noreferrer" class="text-gray-400 hover:text-white text-sm transition-colors">GitHub</a>
               <a href="/tracer/" target="_blank" rel="noopener noreferrer" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm transition-colors">Open Tracer</a>
               <button class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm transition-colors" onclick="toggleConfig()">
                   ⚙️ Config
@@ -296,7 +296,7 @@ export function createChatApp(): Express {
               </div>
               <div class="flex flex-col">
                   <label class="text-sm font-semibold text-gray-900 mb-1" for="extraHeadersInput">Extra Headers</label>
-                  <textarea id="extraHeadersInput" rows="2" spellcheck="false" placeholder='JSON, e.g. {"X-Title": "AgentHub"} — for endpoints that demand their own' class="px-3 py-2 border border-gray-300 rounded-md text-xs font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
+                  <textarea id="extraHeadersInput" rows="2" spellcheck="false" placeholder='JSON, e.g. {"X-Title": "MMSP"} — for endpoints that demand their own' class="px-3 py-2 border border-gray-300 rounded-md text-xs font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
               </div>
           </div>
           <div class="flex items-center gap-3 mb-2">
@@ -953,7 +953,7 @@ export function createChatApp(): Express {
               return config;
           }
 
-          const CONFIG_STORAGE_KEY = 'agenthub.playground.config';
+          const CONFIG_STORAGE_KEY = 'mmsp.playground.config';
           // saved as typed rather than as parsed values, so an unfinished JSON edit survives too
           const CONFIG_TEXT_INPUTS = [
               'apiKeyInput', 'baseUrlInput', 'extraHeadersInput', 'systemPromptInput', 'toolsInput', 'traceIdInput'
@@ -1542,7 +1542,7 @@ export function startPlaygroundServer(
 ): void {
   // the playground exists to show what a model and its endpoint actually send, so unknown
   // stream output fails loudly here unless the caller says otherwise
-  process.env.AGENTHUB_DEBUG = process.env.AGENTHUB_DEBUG ?? "1";
+  process.env.MMSP_DEBUG = process.env.MMSP_DEBUG ?? "1";
   const app = createChatApp();
   app.listen(port, host, () => {
     console.log(`Starting LLM Playground at http://${host}:${port}`);

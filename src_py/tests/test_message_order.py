@@ -19,7 +19,7 @@ from typing import Any
 
 import pytest
 
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 
 # The Gemini SDK holds a thought signature as bytes and takes it as base64 text, the form a

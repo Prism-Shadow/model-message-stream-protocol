@@ -27,7 +27,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from agenthub import AutoLLMClient, ThinkingLevel
+from mmsp import AutoLLMClient, ThinkingLevel
 
 
 CAT_IMAGE_URL = "https://images.unsplash.com/photo-1519052537078-e6302a4968d4?auto=format&fit=crop&w=800&q=80"

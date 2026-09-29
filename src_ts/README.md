@@ -1,6 +1,6 @@
-# AgentHub TypeScript Implementation
+# MMSP TypeScript Implementation
 
-This directory contains the TypeScript implementation of AgentHub, mirroring the Python implementation in `src_py/`.
+This directory contains the TypeScript implementation of MMSP, mirroring the Python implementation in `src_py/`.
 
 ## Building
 
@@ -16,7 +16,7 @@ make test     # Run tests
 ### Basic Client Usage
 
 ```typescript
-import { AutoLLMClient } from "@prismshadow/agenthub";
+import { AutoLLMClient } from "@prismshadow/mmsp";
 
 process.env.OPENAI_API_KEY = "your-openai-api-key";
 
@@ -65,7 +65,7 @@ Messages hold complete items only, typed with a `.done` suffix. Item types witho
 Save and browse conversation history with a web interface:
 
 ```typescript
-import { Tracer } from "@prismshadow/agenthub/integration/tracer";
+import { Tracer } from "@prismshadow/mmsp/integration/tracer";
 
 // Create a tracer instance
 const tracer = new Tracer("./cache");
@@ -92,7 +92,7 @@ tracer.startWebServer("127.0.0.1", 25750);
 Interactive web interface for chatting with LLMs:
 
 ```typescript
-import { startPlaygroundServer } from "@prismshadow/agenthub/integration/playground";
+import { startPlaygroundServer } from "@prismshadow/mmsp/integration/playground";
 
 // Start the playground server
 startPlaygroundServer("127.0.0.1", 25751);

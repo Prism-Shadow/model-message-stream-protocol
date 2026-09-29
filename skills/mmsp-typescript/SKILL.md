@@ -1,16 +1,16 @@
 ---
-name: agenthub-typescript
-description: Guidance for using the AgentHub TypeScript SDK (`@prismshadow/agenthub`). Use when developing agents that call different LLM APIs, need a unified interface for LLM providers, mention AgentHub, request `@prismshadow/agenthub`, or already import it.
+name: mmsp-typescript
+description: Guidance for using the MMSP TypeScript SDK (`@prismshadow/mmsp`). Use when developing agents that call different LLM APIs, need a unified interface for LLM providers, mention MMSP, request `@prismshadow/mmsp`, or already import it.
 ---
 
-# AgentHub TypeScript
+# MMSP TypeScript
 
-AgentHub is a unified SDK for calling LLMs across providers with shared data models, tool calling, tracing, and playground support.
+MMSP is a unified SDK for calling LLMs across providers with shared data models, tool calling, tracing, and playground support.
 
 ## Installation
 
 ```bash
-npm install @prismshadow/agenthub
+npm install @prismshadow/mmsp
 ```
 
 For model IDs, API keys, and base URLs, see [Model selection](reference/models.md).
@@ -20,7 +20,7 @@ For model IDs, API keys, and base URLs, see [Model selection](reference/models.m
 This example asks GPT to call a weather tool, runs the tool, then sends the result back.
 
 ```typescript
-import { AutoLLMClient, ToolCallDoneItem } from "@prismshadow/agenthub";
+import { AutoLLMClient, ToolCallDoneItem } from "@prismshadow/mmsp";
 
 function getWeather(location: string): string {
   return `Temperature in ${location}: 22 C`;
@@ -106,7 +106,7 @@ Keep these points in mind for agent loops:
 
 - Read tool calls from `tool_call.done` items. `tool_call.delta` items are argument fragments for live display only.
 - Send every tool result with the exact `tool_call_id` from its originating `tool_call.done`. Do not invent, normalize, or reuse IDs across unrelated tool calls.
-- If streamed tool-call arguments cannot be parsed, AgentHub throws `ToolCallArgumentParseError` in place of the `tool_call.done`. Do not execute the tool from partial arguments; let the agent runtime retry or re-prompt the model.
+- If streamed tool-call arguments cannot be parsed, MMSP throws `ToolCallArgumentParseError` in place of the `tool_call.done`. Do not execute the tool from partial arguments; let the agent runtime retry or re-prompt the model.
 - Read usage and the finish reason from the `stop` event: it is always the last event, arrives exactly once, and always carries both. `delta` events carry `null` for both. A thinking-only response throws `EmptyResponseError` instead of the `stop` event; its `usageMetadata` still reports the tokens.
 - Write message items with the `.done` types (`text.done`, `tool_result.done`, …). Types without the suffix are still accepted, with a deprecation warning, until 0.6.0.
 - Preserve `thinking.done` and `inline_thinking.done` items. Do not strip or modify `fidelity` fields.

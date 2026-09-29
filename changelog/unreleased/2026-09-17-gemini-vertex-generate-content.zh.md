@@ -3,7 +3,7 @@
 - **Date:** 2026-09-17
 - **Type:** feature
 - **Scope:** `gemini3_8_generate_content`, `gemini3_8`, `auto_client`, `tests`, `llmsdk_docs`
-- **PR:** [#223](https://github.com/Prism-Shadow/agenthub/pull/223)
+- **PR:** [#223](https://github.com/Prism-Shadow/mmsp/pull/223)
 
 [English](2026-09-17-gemini-vertex-generate-content.md)
 
@@ -17,7 +17,7 @@
 - 不带 signature 的连续文本 part 合为一个内容项，音频片段合为一个 `inline_data` 内容项，mime type 保持原样（`audio/l16; rate=24000; channels=1`）。
 - `functionCall` part 以一个 `tool_call.delta` 流出，携带名称、调用 id（API 未给 id 时取名称）、JSON 参数与 signature，随后是其 done 内容项。
 - 携带 signature 的空文本 part（文本回答的最后一个片段）以带该 signature 的空 `text.delta` 流出；不带 signature 的空文本 part 被跳过。
-- 无法识别的 part（空 part、`executableCode`、`fileData`）被跳过，在 `AGENTHUB_DEBUG` 下抛出异常；既没有 candidates 也没有用量的 chunk（网关心跳）不产生任何内容。
+- 无法识别的 part（空 part、`executableCode`、`fileData`）被跳过，在 `MMSP_DEBUG` 下抛出异常；既没有 candidates 也没有用量的 chunk（网关心跳）不产生任何内容。
 - 流出过函数调用的响应以 `tool_call` 结束，尽管 API 报告的是 `STOP`。用量取自 `usageMetadata` 带有 `promptTokenCount` 的 chunk。
 - Python 客户端把 `thoughtSignature` 记录为 base64 文本，与 TypeScript 客户端记录的字符串相同；以 bytes 记录的 signature 仍可回放。
 - 消息以 contents 发送，每个内容项对应一个 part：文本（保留空文本）；图像以 base64 内联，URL 先行下载；内联数据；思考为 `thought` 文本 part；内联思考为 `thought` 内联数据 part；工具调用为 `functionCall`（id 等于函数名时不带 `id`）；工具结果为 `functionResponse`，函数名取自对应的调用，图像作为其 parts 附带。part 把所属内容项的 `fidelity.signature` 作为 `thoughtSignature` 携带。
@@ -26,7 +26,7 @@
 - `Gemini3_8Client`（Interactions API）：某个内容项的 `fidelity.signature` 转为 `thought` step、而该轮次以一个不带 signature 的 `thought` step 开头时，这个开头的 step 也带上同一个 signature（未签名的开头思考后接已签名思考会被以 400 拒绝）。
 - embedding 模型对每条消息依次发送一次 `embedContent` 请求，每次产生一个 `embedding.done` 内容项；`prompt_tokens` 为各 embedding 的 `statistics.tokenCount` 之和（响应改为携带 `metadata.billableCharacterCount` 时取该值）。
 - 共享单元测试 `unknown-events`、`message-order`、`reasoning-fidelity`、`reasoning-replay-without-thinking`、`thinking-level-mapping`、`list-models` 与 `default-headers` 增加了 `Gemini3_8GenerateContentClient` 的行与用例，e2e 测试的 Vertex AI 模型增加了 `gemini-embedding-2`。
-- `README.md`、`src_py/README.md` 与 `src_ts/README.md` 说明了 Vertex AI 密钥与这两个 client type；skills 的模型参考注明了服务账号密钥；`agenthub-dev` skill 记录了 `gemini3_8_generate_content` 如何为内容项编号；`llmsdk_docs/gemini_interactions/README.md` 新增 Vertex AI 一节，`llmsdk_docs/gemini3_8/README.md` 链接到该节。
+- `README.md`、`src_py/README.md` 与 `src_ts/README.md` 说明了 Vertex AI 密钥与这两个 client type；skills 的模型参考注明了服务账号密钥；`mmsp-dev` skill 记录了 `gemini3_8_generate_content` 如何为内容项编号；`llmsdk_docs/gemini_interactions/README.md` 新增 Vertex AI 一节，`llmsdk_docs/gemini3_8/README.md` 链接到该节。
 
 ## 配置行为
 

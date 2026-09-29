@@ -20,7 +20,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 
 @dataclass

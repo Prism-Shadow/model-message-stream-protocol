@@ -18,9 +18,9 @@ from typing import Any, AsyncIterator
 
 import pytest
 
-from agenthub.abort_signal import AbortSignal, run_with_abort
-from agenthub.base_client import LLMClient
-from agenthub.types import UniConfig, UniEvent, UniMessage
+from mmsp.abort_signal import AbortSignal, run_with_abort
+from mmsp.base_client import LLMClient
+from mmsp.types import UniConfig, UniEvent, UniMessage
 
 
 class SlowStreamingClient(LLMClient):

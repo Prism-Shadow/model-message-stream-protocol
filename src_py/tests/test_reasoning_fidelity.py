@@ -24,8 +24,8 @@ import pytest
 from google.genai import types
 from stream_grammar import assert_stream_grammar
 
-from agenthub import AutoLLMClient
-from agenthub.types import UniEvent
+from mmsp import AutoLLMClient
+from mmsp.types import UniEvent
 
 
 @dataclass

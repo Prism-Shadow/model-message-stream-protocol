@@ -43,7 +43,7 @@ def fix_openrouter_usage_metadata(usage_metadata: UsageMetadata, base_url: str) 
 
 def is_debug_enabled() -> bool:
     """
-    Whether AGENTHUB_DEBUG asks the clients to fail loudly on output they do not recognize.
+    Whether MMSP_DEBUG asks the clients to fail loudly on output they do not recognize.
 
     Streaming clients skip an unrecognized event so that a gateway's own frames cannot kill a
     long generation. The same silence hides a genuinely new provider event, so the guards stay
@@ -52,7 +52,7 @@ def is_debug_enabled() -> bool:
     Returns:
         bool: Whether debug mode is on.
     """
-    return os.getenv("AGENTHUB_DEBUG", "").strip().lower() not in ("", "0", "false", "no", "off")
+    return os.getenv("MMSP_DEBUG", "").strip().lower() not in ("", "0", "false", "no", "off")
 
 
 def image_dimensions(data: bytes) -> tuple[int, int] | None:

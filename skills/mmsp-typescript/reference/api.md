@@ -65,7 +65,7 @@ function normalizeLegacyMessages(messages: UniMessage[]): UniMessage[];
 
 ## Errors
 
-All AgentHub errors subclass `AgentHubError`. Unsupported `UniConfig` values (e.g.
+All MMSP errors subclass `MMSPError`. Unsupported `UniConfig` values (e.g.
 `temperature` or `tool_choice` on models that reject them) throw
 `UnsupportedParameterError`, which carries `client` and `parameter` fields. Thinking
 levels never throw: every client maps each `ThinkingLevel` to the closest supported level.

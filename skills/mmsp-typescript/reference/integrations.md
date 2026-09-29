@@ -7,7 +7,7 @@ Tracer saves trace files and serves a local UI for inspecting conversations.
 Set `trace_id` to save trace files:
 
 ```typescript
-import { AutoLLMClient } from "@prismshadow/agenthub";
+import { AutoLLMClient } from "@prismshadow/mmsp";
 
 const client = new AutoLLMClient({ model: "gpt-5.5" });
 
@@ -24,7 +24,7 @@ for await (const event of client.streamingResponseStateful({
 }
 ```
 
-Default cache dir: `cache`, or `AGENTHUB_CACHE_DIR`. For `trace_id="agent1/conversation_001"`, AgentHub writes:
+Default cache dir: `cache`, or `MMSP_CACHE_DIR`. For `trace_id="agent1/conversation_001"`, MMSP writes:
 
 - `cache/agent1/conversation_001.json`: Structured trace data with the full history and config.
 - `cache/agent1/conversation_001.txt`: Human-readable conversation transcript.
@@ -34,7 +34,7 @@ Trace files saved before 0.5.0 still load: their legacy item types are converted
 Browse traces:
 
 ```typescript
-import { Tracer } from "@prismshadow/agenthub/integration/tracer";
+import { Tracer } from "@prismshadow/mmsp/integration/tracer";
 
 const tracer = new Tracer();
 tracer.startWebServer("127.0.0.1", 25750);
@@ -49,7 +49,7 @@ Playground starts a local chat UI for manual model checks.
 Start Playground for manual chat:
 
 ```typescript
-import { startPlaygroundServer } from "@prismshadow/agenthub/integration/playground";
+import { startPlaygroundServer } from "@prismshadow/mmsp/integration/playground";
 
 startPlaygroundServer("127.0.0.1", 25751);
 ```

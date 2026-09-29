@@ -19,7 +19,7 @@ from types import SimpleNamespace
 import pytest
 from stream_grammar import assert_stream_grammar
 
-from agenthub import AgentHubError, AutoLLMClient, EmptyResponseError, ToolCallArgumentParseError
+from mmsp import AutoLLMClient, EmptyResponseError, MMSPError, ToolCallArgumentParseError
 
 
 @dataclass
@@ -220,7 +220,7 @@ async def test_reasoning_clients_accept_response_with_text_content(case: Reasoni
     assert texts == ["Here is the memo."]
 
 
-def test_agenthub_error_hierarchy():
-    assert issubclass(AgentHubError, ValueError)
-    assert issubclass(EmptyResponseError, AgentHubError)
-    assert issubclass(ToolCallArgumentParseError, AgentHubError)
+def test_mmsp_error_hierarchy():
+    assert issubclass(MMSPError, ValueError)
+    assert issubclass(EmptyResponseError, MMSPError)
+    assert issubclass(ToolCallArgumentParseError, MMSPError)

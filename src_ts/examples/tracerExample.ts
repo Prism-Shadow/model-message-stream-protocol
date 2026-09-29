@@ -13,7 +13,7 @@
 // limitations under the License.
 
 /**
- * Example demonstrating the AgentHub Tracer.
+ * Example demonstrating the MMSP Tracer.
  *
  * This example shows how to:
  * 1. Create a tracer instance
@@ -25,7 +25,7 @@ import { Tracer } from "../src/integration/tracer";
 import { UniMessage } from "../src/types";
 
 console.log("=".repeat(60));
-console.log("AgentHub Tracer Example");
+console.log("MMSP Tracer Example");
 console.log("=".repeat(60));
 
 const tracer = new Tracer();

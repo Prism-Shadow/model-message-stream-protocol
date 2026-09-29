@@ -20,7 +20,7 @@ from types import SimpleNamespace
 import pytest
 from stream_grammar import assert_stream_grammar
 
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 
 @dataclass
@@ -409,7 +409,7 @@ async def test_responses_clients_skip_unknown_events(case: StreamCase, event_fac
 async def test_responses_clients_reject_unknown_events_in_debug_mode(
     case: StreamCase, event_factory: Callable[[], object], monkeypatch
 ):
-    monkeypatch.setenv("AGENTHUB_DEBUG", "1")
+    monkeypatch.setenv("MMSP_DEBUG", "1")
     client = _create_auto_client(case)
     _install_fake_responses_stream(
         client, [event_factory(), *[_responses_text_delta_event("Here is"), _responses_completed_event()]]
@@ -513,7 +513,7 @@ async def test_messages_clients_skip_unknown_events(case: StreamCase, event_fact
 async def test_messages_clients_reject_unknown_events_in_debug_mode(
     case: StreamCase, event_factory: Callable[[], object], monkeypatch
 ):
-    monkeypatch.setenv("AGENTHUB_DEBUG", "1")
+    monkeypatch.setenv("MMSP_DEBUG", "1")
     client = _create_auto_client(case)
     _install_fake_messages_stream(
         client,
@@ -569,7 +569,7 @@ async def test_gemini_client_skips_unknown_deltas(case: StreamCase):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("case", GEMINI_STREAM_CASES, ids=[case.client_type for case in GEMINI_STREAM_CASES])
 async def test_gemini_client_rejects_unknown_deltas_in_debug_mode(case: StreamCase, monkeypatch):
-    monkeypatch.setenv("AGENTHUB_DEBUG", "1")
+    monkeypatch.setenv("MMSP_DEBUG", "1")
     client = _create_auto_client(case)
     _install_fake_gemini_stream(client, [_gemini_unknown_delta_event(), _gemini_completed_event()])
 
@@ -712,7 +712,7 @@ async def test_generate_content_client_skips_unknown_parts(case: StreamCase):
     "case", GENERATE_CONTENT_STREAM_CASES, ids=[case.client_type for case in GENERATE_CONTENT_STREAM_CASES]
 )
 async def test_generate_content_client_rejects_unknown_parts_in_debug_mode(case: StreamCase, monkeypatch):
-    monkeypatch.setenv("AGENTHUB_DEBUG", "1")
+    monkeypatch.setenv("MMSP_DEBUG", "1")
     client = _create_auto_client(case)
     _install_fake_generate_content_stream(
         client, [_generate_content_unknown_part_chunk(), _generate_content_stop_chunk()]
@@ -783,7 +783,7 @@ async def test_clients_turn_ignorable_events_into_empty_events(
     case: StreamCase, installer: Callable[[AutoLLMClient, list[object]], None], stream: list[object], monkeypatch
 ):
     # with the debug guard on, an event the client did not know would raise instead of passing
-    monkeypatch.setenv("AGENTHUB_DEBUG", "1")
+    monkeypatch.setenv("MMSP_DEBUG", "1")
     client = _create_auto_client(case)
     assert client.transform_model_output_to_uni_event(stream[0]) == EMPTY_EVENT
     installer(client, stream)

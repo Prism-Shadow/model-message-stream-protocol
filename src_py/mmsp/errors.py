@@ -27,11 +27,11 @@ def _preview_tool_call_arguments(raw: str) -> str:
     return f"{raw[:edge_length]}...[truncated]...{raw[-edge_length:]}"
 
 
-class AgentHubError(ValueError):
-    """Base class for errors raised by AgentHub clients."""
+class MMSPError(ValueError):
+    """Base class for errors raised by MMSP clients."""
 
 
-class UnsupportedParameterError(AgentHubError):
+class UnsupportedParameterError(MMSPError):
     """Raised when a UniConfig parameter value is not supported by the target model client.
 
     Thinking levels never raise this by design: every client maps each ThinkingLevel
@@ -45,7 +45,7 @@ class UnsupportedParameterError(AgentHubError):
         super().__init__(message)
 
 
-class UnsupportedOperationError(AgentHubError):
+class UnsupportedOperationError(MMSPError):
     """Raised when a client cannot perform an operation at all, whatever it is passed.
 
     Distinct from UnsupportedParameterError, which rejects a UniConfig parameter value:
@@ -59,7 +59,7 @@ class UnsupportedOperationError(AgentHubError):
         super().__init__(message)
 
 
-class EmptyResponseError(AgentHubError):
+class EmptyResponseError(MMSPError):
     """Raised when a completed response carries no non-thinking content and no tool calls.
 
     Models occasionally finish a turn with thinking output only (reasoning models in
@@ -75,7 +75,7 @@ class EmptyResponseError(AgentHubError):
         super().__init__(f"{client} returned no content other than thinking (finish_reason={finish_reason!r}).")
 
 
-class StreamProtocolError(AgentHubError):
+class StreamProtocolError(MMSPError):
     """Raised when a client produces a stream that breaks the streaming protocol.
 
     Examples are a content item that is not a delta, a second different fidelity within one
@@ -91,7 +91,7 @@ class StreamProtocolError(AgentHubError):
         super().__init__(f"{client} broke the streaming protocol: {message}")
 
 
-class ToolCallArgumentParseError(AgentHubError):
+class ToolCallArgumentParseError(MMSPError):
     def __init__(self, client: str, tool_name: str, tool_call_id: str, raw_arguments: str, reason: str) -> None:
         self.client = client
         self.tool_name = tool_name

@@ -41,7 +41,7 @@ export function fixOpenrouterUsageMetadata(
 }
 
 /**
- * Whether AGENTHUB_DEBUG asks the clients to fail loudly on output they do not recognize.
+ * Whether MMSP_DEBUG asks the clients to fail loudly on output they do not recognize.
  *
  * Streaming clients skip an unrecognized event so that a gateway's own frames cannot
  * kill a long generation. The same silence hides a genuinely new provider event, so the
@@ -50,7 +50,7 @@ export function fixOpenrouterUsageMetadata(
  * @returns Whether debug mode is on.
  */
 export function isDebugEnabled(): boolean {
-  const flag = (process.env.AGENTHUB_DEBUG || "").trim().toLowerCase();
+  const flag = (process.env.MMSP_DEBUG || "").trim().toLowerCase();
   return !["", "0", "false", "no", "off"].includes(flag);
 }
 

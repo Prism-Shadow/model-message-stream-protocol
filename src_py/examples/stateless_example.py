@@ -21,7 +21,7 @@ This example shows how to use the AutoLLMClient without maintaining conversation
 import asyncio
 import os
 
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 
 async def main():

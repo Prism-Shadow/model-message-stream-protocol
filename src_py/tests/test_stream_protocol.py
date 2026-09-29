@@ -18,11 +18,11 @@ from typing import AsyncIterator
 import pytest
 from stream_grammar import assert_stream_grammar
 
-from agenthub import legacy
-from agenthub.base_client import LLMClient
-from agenthub.errors import EmptyResponseError, StreamProtocolError, ToolCallArgumentParseError
-from agenthub.legacy import normalize_legacy_messages
-from agenthub.types import EventContentItem, FinishReason, UniConfig, UniEvent, UniMessage, UsageMetadata
+from mmsp import legacy
+from mmsp.base_client import LLMClient
+from mmsp.errors import EmptyResponseError, StreamProtocolError, ToolCallArgumentParseError
+from mmsp.legacy import normalize_legacy_messages
+from mmsp.types import EventContentItem, FinishReason, UniConfig, UniEvent, UniMessage, UsageMetadata
 
 
 USAGE: UsageMetadata = {"cached_tokens": None, "prompt_tokens": 10, "thoughts_tokens": None, "response_tokens": 5}

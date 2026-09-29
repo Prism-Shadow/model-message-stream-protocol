@@ -14,8 +14,8 @@
 
 from .auto_client import AutoLLMClient
 from .errors import (
-    AgentHubError,
     EmptyResponseError,
+    MMSPError,
     StreamProtocolError,
     ToolCallArgumentParseError,
     UnsupportedOperationError,
@@ -27,10 +27,10 @@ from .types import PromptCaching, ThinkingLevel
 
 
 __all__ = [
-    "AgentHubError",
     "AutoLLMClient",
     "Currency",
     "EmptyResponseError",
+    "MMSPError",
     "Modality",
     "ModelPricing",
     "PromptCaching",

@@ -1,22 +1,22 @@
 ![Header](.github/images/header.png)
 
-# AgentHub SDK - Unified and Precise LLM SDK
+# MMSP - Model Message Stream Protocol
 
-[![GitHub Repo stars](https://img.shields.io/github/stars/Prism-Shadow/AgentHub?style=social)](https://github.com/Prism-Shadow/AgentHub/stargazers)
-[![GitHub last commit](https://img.shields.io/github/last-commit/Prism-Shadow/AgentHub)](https://github.com/Prism-Shadow/AgentHub/commits/main)
-[![GitHub contributors](https://img.shields.io/github/contributors/Prism-Shadow/AgentHub?color=orange)](https://github.com/Prism-Shadow/AgentHub/graphs/contributors)
-[![Python tests](https://github.com/Prism-Shadow/AgentHub/actions/workflows/pytest.yml/badge.svg)](https://github.com/Prism-Shadow/AgentHub/actions/workflows/pytest.yml)
-[![Javascript tests](https://github.com/Prism-Shadow/AgentHub/actions/workflows/jest.yml/badge.svg)](https://github.com/Prism-Shadow/AgentHub/actions/workflows/jest.yml)
-[![PyPI](https://img.shields.io/pypi/v/agenthub-python)](https://pypi.org/project/agenthub-python/)
-[![NPM](https://img.shields.io/npm/v/@prismshadow/agenthub)](https://www.npmjs.com/package/@prismshadow/agenthub)
+[![GitHub Repo stars](https://img.shields.io/github/stars/Prism-Shadow/mmsp?style=social)](https://github.com/Prism-Shadow/mmsp/stargazers)
+[![GitHub last commit](https://img.shields.io/github/last-commit/Prism-Shadow/mmsp)](https://github.com/Prism-Shadow/mmsp/commits/main)
+[![GitHub contributors](https://img.shields.io/github/contributors/Prism-Shadow/mmsp?color=orange)](https://github.com/Prism-Shadow/mmsp/graphs/contributors)
+[![Python tests](https://github.com/Prism-Shadow/mmsp/actions/workflows/pytest.yml/badge.svg)](https://github.com/Prism-Shadow/mmsp/actions/workflows/pytest.yml)
+[![Javascript tests](https://github.com/Prism-Shadow/mmsp/actions/workflows/jest.yml/badge.svg)](https://github.com/Prism-Shadow/mmsp/actions/workflows/jest.yml)
+[![PyPI](https://img.shields.io/pypi/v/mmsp)](https://pypi.org/project/mmsp/)
+[![NPM](https://img.shields.io/npm/v/@prismshadow/mmsp)](https://www.npmjs.com/package/@prismshadow/mmsp)
 
-AgentHub is the LLM API Hub for the Agent era, built for high-precision autonomous agents.
+MMSP, the Model Message Stream Protocol: one message format and one streaming grammar for every model provider, in Python and TypeScript.
 
-Using a coding agent? Install the AgentHub SKILL files from [`skills/`](skills/) so it can use AgentHub correctly in generated code.
+Using a coding agent? Install the MMSP SKILL files from [`skills/`](skills/) so it can use MMSP correctly in generated code.
 
 📢 Follow us on X: [![Twitter](https://img.shields.io/twitter/follow/prismshadow_ai)](https://twitter.com/prismshadow_ai) or join our [Discord Community](https://discord.gg/4TQ2bsSb)
 
-## Why AgentHub?
+## Why MMSP?
 
 - 🔗 **Unified**: A consistent and intuitive interface for developing **agents** across different LLMs.
 
@@ -30,7 +30,7 @@ Using a coding agent? Install the AgentHub SKILL files from [`skills/`](skills/)
 
 Switch different LLMs with **zero code changes** and **no performance loss**.
 
-![AgentHub](.github/images/agenthub.png)
+![MMSP](.github/images/mmsp.png)
 
 ### Built-in Observability
 
@@ -75,13 +75,13 @@ The full machine-readable list — model, base URL, client, input/output modalit
 window, and per-million-token list pricing in USD or CNY:
 
 ```python
-from agenthub import list_supported_models
+from mmsp import list_supported_models
 
 models = list_supported_models(currency="CNY")  # "USD" by default
 ```
 
 ```typescript
-import { listSupportedModels } from "@prismshadow/agenthub";
+import { listSupportedModels } from "@prismshadow/mmsp";
 
 const models = listSupportedModels("CNY"); // "USD" by default
 ```
@@ -93,9 +93,9 @@ const models = listSupportedModels("CNY"); // "USD" by default
 Install from PyPI:
 
 ```bash
-uv add agenthub-python
+uv add mmsp
 # or
-pip install agenthub-python
+pip install mmsp
 ```
 
 Build from source:
@@ -111,7 +111,7 @@ See [src_py/README.md](src_py/README.md) for comprehensive usage examples and AP
 Install from npm:
 
 ```bash
-npm install @prismshadow/agenthub
+npm install @prismshadow/mmsp
 ```
 
 Build from source:
@@ -124,14 +124,14 @@ See [src_ts/README.md](src_ts/README.md) for comprehensive usage examples and AP
 
 ## Agent Skills
 
-AgentHub provides Codex/Claude Code skill files for assistants that need to help users consume the SDK packages:
+MMSP provides Codex/Claude Code skill files for assistants that need to help users consume the SDK packages:
 
-- Python skill: [`skills/agenthub-python/SKILL.md`](skills/agenthub-python/SKILL.md)
-- TypeScript skill: [`skills/agenthub-typescript/SKILL.md`](skills/agenthub-typescript/SKILL.md)
+- Python skill: [`skills/mmsp-python/SKILL.md`](skills/mmsp-python/SKILL.md)
+- TypeScript skill: [`skills/mmsp-typescript/SKILL.md`](skills/mmsp-typescript/SKILL.md)
 
 ## APIs
 
-`AutoLLMClient` is the main class for interacting with the AgentHub SDK. It is constructed with `model`, plus optional `api_key`, `base_url`, `client_type`, and `default_headers` — headers sent with every request, for endpoints that demand their own. It provides the following methods:
+`AutoLLMClient` is the main class for interacting with the MMSP SDK. It is constructed with `model`, plus optional `api_key`, `base_url`, `client_type`, and `default_headers` — headers sent with every request, for endpoints that demand their own. It provides the following methods:
 
 - `(async) streaming_response(messages, config)`: Streams the response of LLMs in a stateless manner.
 - `(async) streaming_response_stateful(message, config)`: Streams the response of LLMs in a stateful manner.
@@ -142,12 +142,12 @@ AgentHub provides Codex/Claude Code skill files for assistants that need to help
 
 Both streaming methods yield `delta` events, each carrying one content item, followed by exactly one `stop` event that carries the usage and the finish reason (see [UniEvent](#unievent)).
 
-Streaming clients skip output they do not recognize, so a gateway's own frames cannot end a generation. Set `AGENTHUB_DEBUG` to anything other than `0`, `false`, `no` or `off` to make it raise instead.
+Streaming clients skip output they do not recognize, so a gateway's own frames cannot end a generation. Set `MMSP_DEBUG` to anything other than `0`, `false`, `no` or `off` to make it raise instead.
 
 ## Basic Usage
 
 > [!NOTE]
-> We recommend using the **stateful interface** when calling the AgentHub SDK.
+> We recommend using the **stateful interface** when calling the MMSP SDK.
 
 ### OpenAI GPT-5.6
 
@@ -156,7 +156,7 @@ Python Example:
 ```python
 import asyncio
 import os
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 os.environ["OPENAI_API_KEY"] = "your-openai-api-key"
 
@@ -183,7 +183,7 @@ asyncio.run(main())
 TypeScript Example:
 
 ```typescript
-import { AutoLLMClient } from "@prismshadow/agenthub";
+import { AutoLLMClient } from "@prismshadow/mmsp";
 
 process.env.OPENAI_API_KEY = "your-openai-api-key";
 
@@ -216,7 +216,7 @@ main().catch(console.error);
 ```python
 import asyncio
 import os
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 os.environ["ANTHROPIC_API_KEY"] = "your-anthropic-api-key"
 
@@ -239,7 +239,7 @@ asyncio.run(main())
 <details><summary><strong>TypeScript Example</strong></summary>
 
 ```typescript
-import { AutoLLMClient } from "@prismshadow/agenthub";
+import { AutoLLMClient } from "@prismshadow/mmsp";
 
 process.env.ANTHROPIC_API_KEY = "your-anthropic-api-key";
 
@@ -268,7 +268,7 @@ main().catch(console.error);
 ```python
 import asyncio
 import os
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 os.environ["ZAI_API_KEY"] = "your-openrouter-api-key"
 os.environ["ZAI_BASE_URL"] = "https://openrouter.ai/api/v1"
@@ -291,7 +291,7 @@ asyncio.run(main())
 <details><summary><strong>TypeScript Example</strong></summary>
 
 ```typescript
-import { AutoLLMClient } from "@prismshadow/agenthub";
+import { AutoLLMClient } from "@prismshadow/mmsp";
 
 process.env.ZAI_API_KEY = "your-openrouter-api-key";
 process.env.ZAI_BASE_URL = "https://openrouter.ai/api/v1";
@@ -320,7 +320,7 @@ main().catch(console.error);
 ```python
 import asyncio
 import os
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 os.environ["OPENAI_API_KEY"] = "your-siliconflow-api-key"
 os.environ["OPENAI_BASE_URL"] = "https://api.siliconflow.cn/v1"
@@ -343,7 +343,7 @@ asyncio.run(main())
 <details><summary><strong>TypeScript Example</strong></summary>
 
 ```typescript
-import { AutoLLMClient } from "@prismshadow/agenthub";
+import { AutoLLMClient } from "@prismshadow/mmsp";
 
 process.env.OPENAI_API_KEY = "your-siliconflow-api-key";
 process.env.OPENAI_BASE_URL = "https://api.siliconflow.cn/v1";
@@ -375,7 +375,7 @@ main().catch(console.error);
 ```python
 import asyncio
 import os
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 os.environ["OPENAI_API_KEY"] = "your-siliconflow-api-key"
 os.environ["OPENAI_BASE_URL"] = "https://api.siliconflow.cn/v1"
@@ -399,7 +399,7 @@ asyncio.run(main())
 <details><summary><strong>TypeScript Example</strong></summary>
 
 ```typescript
-import { AutoLLMClient } from "@prismshadow/agenthub";
+import { AutoLLMClient } from "@prismshadow/mmsp";
 
 process.env.OPENAI_API_KEY = "your-siliconflow-api-key";
 process.env.OPENAI_BASE_URL = "https://api.siliconflow.cn/v1";
@@ -435,7 +435,7 @@ URL for that protocol:
 ```python
 import asyncio
 import os
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 async def main():
     client = AutoLLMClient(
@@ -460,7 +460,7 @@ asyncio.run(main())
 <details><summary><strong>TypeScript Example</strong></summary>
 
 ```typescript
-import { AutoLLMClient } from "@prismshadow/agenthub";
+import { AutoLLMClient } from "@prismshadow/mmsp";
 
 async function main() {
   const client = new AutoLLMClient({
@@ -491,7 +491,7 @@ main();
 ```python
 import asyncio
 import os
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 async def main():
     client = AutoLLMClient(
@@ -516,7 +516,7 @@ asyncio.run(main())
 <details><summary><strong>TypeScript Example</strong></summary>
 
 ```typescript
-import { AutoLLMClient } from "@prismshadow/agenthub";
+import { AutoLLMClient } from "@prismshadow/mmsp";
 
 async function main() {
   const client = new AutoLLMClient({
@@ -625,7 +625,7 @@ Read complete items, such as tool calls, from the `.done` items, and the usage f
 
 ## Token Usage
 
-AgentHub provides detailed token usage information through the `usage_metadata` field of the `stop` event, the last event of every stream.
+MMSP provides detailed token usage information through the `usage_metadata` field of the `stop` event, the last event of every stream.
 
 The `usage_metadata` object contains four fields:
 - `cached_tokens`: Cached input tokens
@@ -662,7 +662,7 @@ async for event in client.streaming_response_stateful(
 ```
 
 ```bash
-cd src_py && uv run python -m agenthub.integration.tracer --host 127.0.0.1 --port 25750
+cd src_py && uv run python -m mmsp.integration.tracer --host 127.0.0.1 --port 25750
 ```
 
 ```bash
@@ -678,7 +678,7 @@ Then you can view the tracing output in the dashboard at `http://localhost:25750
 We provide a LLM playground to help you test your LLMs.
 
 ```bash
-cd src_py && uv run python -m agenthub.integration.playground --host 127.0.0.1 --port 25751
+cd src_py && uv run python -m mmsp.integration.playground --host 127.0.0.1 --port 25751
 ```
 
 ```bash
@@ -719,6 +719,6 @@ Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for detai
 
 ## Used By
 
-Projects built on AgentHub:
+Projects built on MMSP:
 
 - [PenguinHarness](https://github.com/Prism-Shadow/penguin-harness)

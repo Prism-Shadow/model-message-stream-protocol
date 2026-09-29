@@ -21,7 +21,7 @@ This example shows how to use function calling with AutoLLMClient to query weath
 import asyncio
 import os
 
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 
 def get_current_temperature(location: str) -> str:

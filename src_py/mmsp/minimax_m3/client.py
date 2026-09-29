@@ -64,7 +64,7 @@ class MiniMaxM3Client(LLMClient):
         self._history: list[UniMessage] = []
 
     def _convert_thinking_level_to_effort(self, thinking_level: ThinkingLevel) -> str:
-        """Map AgentHub thinking levels to the MiniMax reasoning effort vocabulary."""
+        """Map MMSP thinking levels to the MiniMax reasoning effort vocabulary."""
         mapping = {
             ThinkingLevel.NONE: "none",
             ThinkingLevel.LOW: "low",

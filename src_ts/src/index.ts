@@ -14,7 +14,7 @@
 
 export { AutoLLMClient } from "./autoClient";
 export {
-  AgentHubError,
+  MMSPError,
   EmptyResponseError,
   StreamProtocolError,
   ToolCallArgumentParseError,

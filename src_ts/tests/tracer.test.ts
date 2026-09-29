@@ -435,8 +435,8 @@ describe("Tracer", () => {
   });
 
   test("should save a traced response before its stop event is yielded", async () => {
-    const previousCacheDir = process.env.AGENTHUB_CACHE_DIR;
-    process.env.AGENTHUB_CACHE_DIR = tempCacheDir;
+    const previousCacheDir = process.env.MMSP_CACHE_DIR;
+    process.env.MMSP_CACHE_DIR = tempCacheDir;
     const client = new ScriptedClient([
       delta({ type: "text.delta", text: "Hello ", fidelity: { item_id: "0" } }),
       delta({ type: "text.delta", text: "there!", fidelity: { item_id: "0" } }),
@@ -466,9 +466,9 @@ describe("Tracer", () => {
       }
     } finally {
       if (previousCacheDir === undefined) {
-        delete process.env.AGENTHUB_CACHE_DIR;
+        delete process.env.MMSP_CACHE_DIR;
       } else {
-        process.env.AGENTHUB_CACHE_DIR = previousCacheDir;
+        process.env.MMSP_CACHE_DIR = previousCacheDir;
       }
     }
 
@@ -481,8 +481,8 @@ describe("Tracer", () => {
   });
 
   test("should save a traced response's fidelity without its item_id", async () => {
-    const previousCacheDir = process.env.AGENTHUB_CACHE_DIR;
-    process.env.AGENTHUB_CACHE_DIR = tempCacheDir;
+    const previousCacheDir = process.env.MMSP_CACHE_DIR;
+    process.env.MMSP_CACHE_DIR = tempCacheDir;
     const client = new ScriptedClient([
       delta({
         type: "text.delta",
@@ -506,9 +506,9 @@ describe("Tracer", () => {
       }
     } finally {
       if (previousCacheDir === undefined) {
-        delete process.env.AGENTHUB_CACHE_DIR;
+        delete process.env.MMSP_CACHE_DIR;
       } else {
-        process.env.AGENTHUB_CACHE_DIR = previousCacheDir;
+        process.env.MMSP_CACHE_DIR = previousCacheDir;
       }
     }
 

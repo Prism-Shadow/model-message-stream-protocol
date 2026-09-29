@@ -22,7 +22,7 @@ with a specified output dimensionality.
 import asyncio
 import os
 
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 
 async def main():

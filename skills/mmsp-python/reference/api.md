@@ -57,7 +57,7 @@ def normalize_legacy_messages(messages: list[UniMessage]) -> list[UniMessage]:
 
 ## Errors
 
-All AgentHub errors subclass `AgentHubError` (a `ValueError`). Unsupported `UniConfig`
+All MMSP errors subclass `MMSPError` (a `ValueError`). Unsupported `UniConfig`
 values (e.g. `temperature` or `tool_choice` on models that reject them) raise
 `UnsupportedParameterError`, which carries `client` and `parameter` attributes. Thinking
 levels never raise: every client maps each `ThinkingLevel` to the closest supported level.

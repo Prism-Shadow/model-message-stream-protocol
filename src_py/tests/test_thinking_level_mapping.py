@@ -16,7 +16,7 @@ from typing import Any
 
 import pytest
 
-from agenthub import AutoLLMClient, ThinkingLevel
+from mmsp import AutoLLMClient, ThinkingLevel
 
 
 # Not every Gemini model accepts every thinking level (verified live 2026-07-24;

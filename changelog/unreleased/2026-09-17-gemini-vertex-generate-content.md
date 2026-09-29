@@ -3,7 +3,7 @@
 - **Date:** 2026-09-17
 - **Type:** feature
 - **Scope:** `gemini3_8_generate_content`, `gemini3_8`, `auto_client`, `tests`, `llmsdk_docs`
-- **PR:** [#223](https://github.com/Prism-Shadow/agenthub/pull/223)
+- **PR:** [#223](https://github.com/Prism-Shadow/mmsp/pull/223)
 
 [中文版](2026-09-17-gemini-vertex-generate-content.zh.md)
 
@@ -17,7 +17,7 @@
 - Consecutive text parts without a signature join one item, and audio chunks join one `inline_data` item with the mime type as sent (`audio/l16; rate=24000; channels=1`).
 - A `functionCall` part streams as one `tool_call.delta` carrying the name, the call id (the name when the API sends no id), the JSON arguments, and the signature, followed by its done item.
 - An empty text part carrying a signature (the last chunk of a text answer) streams as an empty `text.delta` with the signature; an empty text part without one is skipped.
-- Unrecognized parts (an empty part, `executableCode`, `fileData`) are skipped, or raised under `AGENTHUB_DEBUG`; a chunk carrying neither candidates nor usage (a gateway heartbeat) yields nothing.
+- Unrecognized parts (an empty part, `executableCode`, `fileData`) are skipped, or raised under `MMSP_DEBUG`; a chunk carrying neither candidates nor usage (a gateway heartbeat) yields nothing.
 - A response that streamed a function call finishes with `tool_call` although the API reports `STOP`. Usage is read from the chunks whose `usageMetadata` carries `promptTokenCount`.
 - The Python client records a `thoughtSignature` as base64 text, the same string the TypeScript client records; a signature recorded as bytes still replays.
 - Messages are sent as contents with one part per item: text (empty text kept), images inlined as base64 with URLs fetched, inline data, thinking as a `thought` text part, inline thinking as a `thought` inline-data part, tool calls as `functionCall` (without `id` when the id is the function name), and tool results as `functionResponse` with the name looked up from the call and images attached as parts. A part carries its item's `fidelity.signature` as `thoughtSignature`.
@@ -26,7 +26,7 @@
 - `Gemini3_8Client` (Interactions API): when an item's `fidelity.signature` becomes a `thought` step and the turn opens with a `thought` step carrying no signature, that first step carries the same signature (an unsigned leading thought followed by a signed one was rejected with 400).
 - Embedding models send one `embedContent` request per message, in order, each yielding one `embedding.done` item; `prompt_tokens` is the sum of the embeddings' `statistics.tokenCount` (`metadata.billableCharacterCount` when a response carries that instead).
 - Rows and cases for `Gemini3_8GenerateContentClient` were added to the shared unit tests `unknown-events`, `message-order`, `reasoning-fidelity`, `reasoning-replay-without-thinking`, `thinking-level-mapping`, `list-models`, and `default-headers`, and `gemini-embedding-2` to the Vertex AI models of the e2e tests.
-- `README.md`, `src_py/README.md`, and `src_ts/README.md` describe the Vertex AI key and the two client types; the skills' model references name the service-account key; the `agenthub-dev` skill records how `gemini3_8_generate_content` numbers its items; `llmsdk_docs/gemini_interactions/README.md` gained a Vertex AI section, which `llmsdk_docs/gemini3_8/README.md` links.
+- `README.md`, `src_py/README.md`, and `src_ts/README.md` describe the Vertex AI key and the two client types; the skills' model references name the service-account key; the `mmsp-dev` skill records how `gemini3_8_generate_content` numbers its items; `llmsdk_docs/gemini_interactions/README.md` gained a Vertex AI section, which `llmsdk_docs/gemini3_8/README.md` links.
 
 ## Configuration behavior
 

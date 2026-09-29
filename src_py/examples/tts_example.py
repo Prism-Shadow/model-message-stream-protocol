@@ -24,7 +24,7 @@ import os
 import wave
 from pathlib import Path
 
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 
 async def main():
@@ -41,7 +41,7 @@ async def main():
     prompt = """Synthesize speech for the transcript below using a single speaker.
 
 ### TRANSCRIPT
-[excitedly] Welcome to AgentHub! We just added Gemini text-to-speech support.
+[excitedly] Welcome to MMSP! We just added Gemini text-to-speech support.
 [very slow] This demo saves the generated audio as a WAV file so you can play it back right away.
 [whispers] And yes, prompt tags like this can shape the performance.
 """

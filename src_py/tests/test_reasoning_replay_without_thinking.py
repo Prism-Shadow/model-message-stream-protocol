@@ -27,7 +27,7 @@ from typing import Any
 
 import pytest
 
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 
 THINKING = "I should call the tool."

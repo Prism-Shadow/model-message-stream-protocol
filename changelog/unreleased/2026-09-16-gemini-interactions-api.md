@@ -3,7 +3,7 @@
 - **Date:** 2026-09-16
 - **Type:** feature
 - **Scope:** `gemini3_8`, `tests`, `llmsdk_docs`
-- **PR:** [#223](https://github.com/Prism-Shadow/agenthub/pull/223)
+- **PR:** [#223](https://github.com/Prism-Shadow/mmsp/pull/223)
 - **Breaking:** yes — the Gemini SDKs moved to a new major version (`@google/genai` 2.x, `google-genai` 2.x), a Gemini turn that calls tools now finishes with `tool_call` instead of `stop`, and `fast_mode` on Gemini sends the priority tier instead of raising
 
 [中文版](2026-09-16-gemini-interactions-api.zh.md)
@@ -15,7 +15,7 @@
 - Streamed items are identified by the step `index`. A step whose content switches kind streams one item per run of a kind, identified as `<index>.<run>`, so an image model's thought summary that goes text, image, text is three items; every image is an item of its own, while audio chunks join into one.
 - A `thought` step streams `thought_summary` text as `thinking.delta` and summary images as `inline_thinking.delta`; its `thought_signature` goes out as `fidelity.signature` on an empty delta of the item the step ends with (an empty `thinking.delta` when the step has no summary). Every Gemini text response therefore carries a `thinking.done` item holding the signature, with empty `thinking` when summaries are off.
 - A `function_call` step opens its `tool_call.delta` with the call's name and id and streams the arguments as fragments. `model_output` steps stream `text.delta` and `inline_data.delta` for images and audio; TTS audio carries the mime type `audio/l16; rate=<sample_rate>; channels=<channels>`.
-- `interaction.completed` sets the finish reason and usage; an `error` event carrying an error raises an error naming the provider's code and message; unknown events, steps, and deltas are skipped, or raised under `AGENTHUB_DEBUG`.
+- `interaction.completed` sets the finish reason and usage; an `error` event carrying an error raises an error naming the provider's code and message; unknown events, steps, and deltas are skipped, or raised under `MMSP_DEBUG`.
 - Messages are sent as Interactions steps: user text and images as `user_input` steps, with images inlined as base64 and URLs fetched; assistant text and media as `model_output` steps; thinking items as one `thought` step per run, carrying the summary and the signature of the item that ends the run; `tool_call.done` as `function_call`; `tool_result.done` as `function_result` with the function `name` looked up from the call, a plain string result for text only, and a text-and-image content list when images are attached. Empty text blocks are left out.
 - Histories recorded through the generateContent client carry `fidelity.signature` on text, inline-data, or tool-call items; such an item replays behind a `thought` step carrying its signature. A signature recorded as bytes by the generateContent Python SDK, on thinking items as on the rest, is sent as base64.
 - Calls recorded with the function name as their id replay without `id` and `call_id`.
@@ -54,6 +54,6 @@
 
 ## Compatibility
 
-- Install `@google/genai` 2.x (TypeScript) or `google-genai` 2.x (Python) alongside AgentHub; a project pinned to the 1.x SDKs has to lift the pin.
+- Install `@google/genai` 2.x (TypeScript) or `google-genai` 2.x (Python) alongside MMSP; a project pinned to the 1.x SDKs has to lift the pin.
 - A Gemini response that calls tools finishes with `finish_reason: "tool_call"` instead of `"stop"`; a tool loop that keys on `"stop"` has to accept `"tool_call"`.
 - `fast_mode: true` on a Gemini model no longer raises `UnsupportedParameterError`; it requests the priority tier, which is billed above the standard tier. Leave `fast_mode` unset to keep standard pricing.

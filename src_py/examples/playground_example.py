@@ -13,7 +13,7 @@
 # limitations under the License.
 
 """
-Example demonstrating the AgentHub Playground.
+Example demonstrating the MMSP Playground.
 
 This example shows how to start the playground server for interactive
 chat with LLMs. The playground supports:
@@ -23,12 +23,12 @@ chat with LLMs. The playground supports:
 - Integrated tracer at /tracer
 """
 
-from agenthub.integration.playground import start_playground_server
+from mmsp.integration.playground import start_playground_server
 
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("AgentHub LLM Playground")
+    print("MMSP LLM Playground")
     print("=" * 60)
     print("\nStarting web server...")
     print("\nOpen http://127.0.0.1:25751 in your browser to start chatting!")

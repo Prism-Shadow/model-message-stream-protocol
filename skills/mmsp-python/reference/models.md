@@ -1,6 +1,6 @@
 # Model Selection
 
-Use exact model IDs. If a model ID is not listed, ask the user to confirm the exact ID before using it. The supported model entries (base URL, client, modalities, context window, USD/CNY pricing) are also available at runtime via `agenthub.list_supported_models()`.
+Use exact model IDs. If a model ID is not listed, ask the user to confirm the exact ID before using it. The supported model entries (base URL, client, modalities, context window, USD/CNY pricing) are also available at runtime via `mmsp.list_supported_models()`.
 
 | Family | Provider | Model IDs | API Key | Base URL |
 | --- | --- | --- | --- | --- |

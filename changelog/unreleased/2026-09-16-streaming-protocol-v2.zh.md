@@ -3,7 +3,7 @@
 - **Date:** 2026-09-16
 - **Type:** feature
 - **Scope:** `types`, `base_client`, `errors`, `integration`, `skills`
-- **PR:** [#223](https://github.com/Prism-Shadow/agenthub/pull/223)
+- **PR:** [#223](https://github.com/Prism-Shadow/mmsp/pull/223)
 - **Breaking:** yes — 每种内容项类型都加上了 `.delta` 或 `.done` 后缀，`start` 与 `unused` 事件类型以及 `partial_tool_call` 内容项被移除，客户端改为返回以内部 `fidelity.item_id` 标识的 `.delta` / `.done` 内容项，不再返回原有的内容项类型
 
 [English](2026-09-16-streaming-protocol-v2.md)
@@ -16,12 +16,12 @@
 - `minimax_m3` 把从已完成输出 item 读取的每个工具调用，以一个携带名称、id 与完整参数的 `tool_call.delta` 流出，随后是 `tool_call.done`。
 - 工具调用的参数无法解析为 JSON 对象时，`ToolCallArgumentParseError` 在该调用的 `tool_call.done` 位置抛出。
 - `EmptyResponseError` 在 `stop` 事件的位置抛出，并新增 `usage_metadata` / `usageMetadata`。流结束时缺少用量或结束原因，同样在 `stop` 事件的位置抛出异常。
-- 新增 `StreamProtocolError`（携带 `client` 的 `AgentHubError`），并从包中导出。客户端的输出违反协议时，它在任何模式下都会抛出：内容项不是 `.delta`、同一内容项中出现第二个不同的 fidelity、第一个 `tool_call.delta` 缺少名称或 id（包括没有任何调用在流式输出时送来的参数片段）、`delta` 事件携带了 `usage_metadata` 或 `finish_reason`。
+- 新增 `StreamProtocolError`（携带 `client` 的 `MMSPError`），并从包中导出。客户端的输出违反协议时，它在任何模式下都会抛出：内容项不是 `.delta`、同一内容项中出现第二个不同的 fidelity、第一个 `tool_call.delta` 缺少名称或 id（包括没有任何调用在流式输出时送来的参数片段）、`delta` 事件携带了 `usage_metadata` 或 `finish_reason`。
 - `streaming_response` / `streamingResponse` 保存 `trace_id` 对应的 trace、`streaming_response_stateful` / `streamingResponseStateful` 把本轮记入历史，都在产出 `stop` 事件之前完成。
 - `concat_uni_events_to_uni_message` / `concatUniEventsToUniMessage` 按流中顺序收集 `.done` 项，并从 `stop` 事件取 `usage_metadata`、`finish_reason` 与 `created_at`；其合并启发式规则被移除。
 - tracer 与 playground 读取并渲染新的内容项类型；playground 按 `.delta` 项与 `stop` 事件进行流式展示。
 - 新增测试辅助函数 `assert_stream_grammar` / `assertStreamGrammar`；共享 e2e 测试用它们检查每个模型的流，并从 `tool_call.done` 读取工具调用。
-- README、`skills/agenthub-python` 与 `skills/agenthub-typescript` 参考文档、示例以及开发 skill 均按新协议重写。
+- README、`skills/mmsp-python` 与 `skills/mmsp-typescript` 参考文档、示例以及开发 skill 均按新协议重写。
 
 ## 客户端事件
 

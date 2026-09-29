@@ -1,6 +1,6 @@
-# AgentHub Python Implementation
+# MMSP Python Implementation
 
-This document demonstrates how to use `AutoLLMClient` for unified LLM interactions in AgentHub.
+This document demonstrates how to use `AutoLLMClient` for unified LLM interactions in MMSP.
 
 ## Building
 
@@ -20,7 +20,7 @@ make test     # Run tests
 Create a client by specifying the model name:
 
 ```python
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 # Initialize with model name
 client = AutoLLMClient(model="gpt-5.5")
@@ -47,7 +47,7 @@ Stateless method that requires passing the full message history on each call:
 
 ```python
 import asyncio
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 
 async def main():
@@ -70,7 +70,7 @@ Stateful method that maintains conversation history internally:
 
 ```python
 import asyncio
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 
 async def main():
@@ -140,7 +140,7 @@ When using tools, you must handle `tool_call_id` correctly:
 ```python
 import asyncio
 import json
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 
 def get_weather(location: str) -> str:
@@ -248,7 +248,7 @@ When responding to a tool call, include the `tool_call_id` in the result content
 ## Configuration Options
 
 ```python
-from agenthub import PromptCaching, ThinkingLevel
+from mmsp import PromptCaching, ThinkingLevel
 
 config = {
     "max_tokens": 500,
@@ -265,12 +265,12 @@ config = {
 
 ## Conversation Tracing
 
-AgentHub provides a built-in `Tracer` to save and browse conversation history. When you specify a `trace_id` in the config, conversations are automatically saved to both JSON and TXT formats.
+MMSP provides a built-in `Tracer` to save and browse conversation history. When you specify a `trace_id` in the config, conversations are automatically saved to both JSON and TXT formats.
 
 ### Basic Usage
 
 ```python
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 client = AutoLLMClient(model="gpt-5.5")
 
@@ -283,7 +283,7 @@ async for event in client.streaming_response_stateful(
     pass  # Conversation is automatically saved
 ```
 
-The default cache directory is `cache`, you can change it by setting `AGENTHUB_CACHE_DIR` environment variable.
+The default cache directory is `cache`, you can change it by setting `MMSP_CACHE_DIR` environment variable.
 
 This creates two files in the `cache` directory:
 - `cache/agent1/conversation_001.json` - Structured data with full history and config
@@ -294,7 +294,7 @@ This creates two files in the `cache` directory:
 Start a web server to browse and view saved conversations:
 
 ```python
-from agenthub.integration.tracer import Tracer
+from mmsp.integration.tracer import Tracer
 
 # Start web server
 Tracer("path/to/cache").start_web_server(host="127.0.0.1", port=25750)
@@ -303,7 +303,7 @@ Tracer("path/to/cache").start_web_server(host="127.0.0.1", port=25750)
 Or use the CLI:
 
 ```bash
-python -m agenthub.integration.tracer --cache_dir ./cache --host 127.0.0.1 --port 25750
+python -m mmsp.integration.tracer --cache_dir ./cache --host 127.0.0.1 --port 25750
 ```
 
 Then visit `http://127.0.0.1:25750` in your browser to browse saved conversations.
@@ -313,7 +313,7 @@ Then visit `http://127.0.0.1:25750` in your browser to browse saved conversation
 Start a web server to test with the playground:
 
 ```python
-from agenthub.integration.playground import start_playground_server
+from mmsp.integration.playground import start_playground_server
 
 start_playground_server()
 ```
@@ -321,7 +321,7 @@ start_playground_server()
 Or use the CLI:
 
 ```bash
-python -m agenthub.integration.playground --host 127.0.0.1 --port 25751
+python -m mmsp.integration.playground --host 127.0.0.1 --port 25751
 ```
 
 Then visit `http://127.0.0.1:25751` in your browser to test with the playground.

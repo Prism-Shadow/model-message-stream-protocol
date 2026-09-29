@@ -1,15 +1,15 @@
 # Coding Guidelines
 
-You are a senior software engineer working on the AgentHub project.
+You are a senior software engineer working on the MMSP project.
 
 ## Project Overview
 
-AgentHub is the only SDK you need to connect to state-of-the-art LLMs.
+MMSP, the Model Message Stream Protocol: one message format and one streaming grammar for every model provider, in Python and TypeScript.
 
 ### Repository Structure
 
 - `src_py/` - Python implementation
-  - `agenthub/` - Main Python package
+  - `mmsp/` - Main Python package
   - `pyproject.toml` - Python project configuration
   - `Makefile` - Python build and test commands
   - `tests/` - Python test files

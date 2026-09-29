@@ -16,9 +16,9 @@ import json
 
 from flask import Flask
 
-from agenthub.abort_signal import AbortSignal
-from agenthub.integration import playground
-from agenthub.integration.playground import create_chat_app
+from mmsp.abort_signal import AbortSignal
+from mmsp.integration import playground
+from mmsp.integration.playground import create_chat_app
 
 
 EVENTS = [
@@ -67,8 +67,8 @@ def test_chat_app_index_route():
     with app.test_client() as client:
         response = client.get("/")
         assert response.status_code == 200
-        assert b"AgentHub Playground" in response.data
-        assert b'<h1 class="text-xl font-semibold">AgentHub</h1>' in response.data
+        assert b"MMSP Playground" in response.data
+        assert b'<h1 class="text-xl font-semibold">MMSP</h1>' in response.data
         assert b"messagesContainer" in response.data
         assert b"messageInput" in response.data
         assert b'id="modelCombobox"' in response.data
@@ -125,7 +125,7 @@ def test_chat_app_index_route():
         assert b"finalizeAudioStream(audioStream, true)" in response.data
         assert b"audioStream.container.querySelector('audio').play()" in response.data
         assert b"assistantCard.insertAdjacentHTML('beforeend', metadataHtml)" in response.data
-        assert b"agenthub.playground.config" in response.data
+        assert b"mmsp.playground.config" in response.data
         assert b"restoreConfig()" in response.data
         assert b"pcmBase64ToWavDataUrl" not in response.data
         assert b"assistantCard.innerHTML +=" not in response.data
@@ -257,7 +257,7 @@ def test_chat_app_uses_client_connection_options(monkeypatch):
                     "api_key": "test-key",
                     "base_url": "https://example.test/v1",
                     "client_type": "gpt-5.5",
-                    "default_headers": {"X-Title": "AgentHub"},
+                    "default_headers": {"X-Title": "MMSP"},
                     "thinking_level": "low",
                 },
             },
@@ -271,7 +271,7 @@ def test_chat_app_uses_client_connection_options(monkeypatch):
         "api_key": "test-key",
         "base_url": "https://example.test/v1",
         "client_type": "gpt-5.5",
-        "default_headers": {"X-Title": "AgentHub"},
+        "default_headers": {"X-Title": "MMSP"},
     }
     assert captured["request_config"] == {"thinking_level": "low"}
     assert isinstance(captured["signal"], AbortSignal)

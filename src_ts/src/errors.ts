@@ -23,10 +23,10 @@ function previewToolCallArguments(raw: string): string {
   return `${raw.slice(0, edgeLength)}...[truncated]...${raw.slice(-edgeLength)}`;
 }
 
-export class AgentHubError extends Error {
+export class MMSPError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = "AgentHubError";
+    this.name = "MMSPError";
   }
 }
 
@@ -37,7 +37,7 @@ export class AgentHubError extends Error {
  * onto the closest level the model supports. Parameters such as temperature and
  * tool_choice may reject unsupported values with this error.
  */
-export class UnsupportedParameterError extends AgentHubError {
+export class UnsupportedParameterError extends MMSPError {
   readonly client: string;
   readonly parameter: string;
 
@@ -63,7 +63,7 @@ export class UnsupportedParameterError extends AgentHubError {
  * this one reports a capability the routed client does not have, such as listing models
  * through an SDK client that carries no models endpoint.
  */
-export class UnsupportedOperationError extends AgentHubError {
+export class UnsupportedOperationError extends MMSPError {
   readonly client: string;
   readonly operation: string;
 
@@ -75,7 +75,7 @@ export class UnsupportedOperationError extends AgentHubError {
   }
 }
 
-export class EmptyResponseError extends AgentHubError {
+export class EmptyResponseError extends MMSPError {
   readonly client: string;
   readonly finishReason: string | null;
   // the tokens the rejected response still cost, since no stop event carries them
@@ -105,7 +105,7 @@ export class EmptyResponseError extends AgentHubError {
  * It always reports a bug in the client rather than in the provider's output, so it is
  * raised in every mode instead of being repaired into a stream that breaks the contract.
  */
-export class StreamProtocolError extends AgentHubError {
+export class StreamProtocolError extends MMSPError {
   readonly client: string;
 
   constructor(args: { client: string; message: string }) {
@@ -115,7 +115,7 @@ export class StreamProtocolError extends AgentHubError {
   }
 }
 
-export class ToolCallArgumentParseError extends AgentHubError {
+export class ToolCallArgumentParseError extends MMSPError {
   readonly client: string;
   readonly toolName: string;
   readonly toolCallId: string;

@@ -20,7 +20,7 @@ from ..types import ThinkingLevel, UniConfig
 
 # vLLM passes chat_template_kwargs straight to the served model's chat template, so the
 # switch that turns thinking on is whatever that template happens to read. Each profile
-# below maps an AgentHub level onto one family's kwargs; an empty mapping means the
+# below maps an MMSP level onto one family's kwargs; an empty mapping means the
 # request carries no chat_template_kwargs at all.
 #
 # The upstream artifacts these profiles are read off, and the clamping those artifacts
@@ -111,7 +111,7 @@ class OpenaiChatVllmAdapterClient(OpenaiChatClient):
         return dict(_QWEN3_THINKING[thinking_level])
 
     def transform_uni_config_to_model_config(self, config: UniConfig) -> dict[str, Any]:
-        """Map AgentHub's level onto the thinking switch this model's chat template reads."""
+        """Map MMSP's level onto the thinking switch this model's chat template reads."""
         vllm_config = super().transform_uni_config_to_model_config(config)
 
         if config.get("thinking_level") is not None:

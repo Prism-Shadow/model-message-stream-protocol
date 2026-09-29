@@ -20,8 +20,8 @@ from types import SimpleNamespace
 import pytest
 from stream_grammar import assert_stream_grammar
 
-from agenthub import AutoLLMClient, ToolCallArgumentParseError
-from agenthub.types import UniEvent
+from mmsp import AutoLLMClient, ToolCallArgumentParseError
+from mmsp.types import UniEvent
 
 
 @dataclass

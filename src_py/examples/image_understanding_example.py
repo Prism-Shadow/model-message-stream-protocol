@@ -21,7 +21,7 @@ This example shows how to use the AutoLLMClient to analyze images.
 import asyncio
 import os
 
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 
 async def main():

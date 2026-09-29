@@ -21,7 +21,7 @@ import pytest
 from google.auth.credentials import AnonymousCredentials
 from google.oauth2 import service_account
 
-from agenthub import AutoLLMClient, UnsupportedOperationError
+from mmsp import AutoLLMClient, UnsupportedOperationError
 
 
 @dataclass

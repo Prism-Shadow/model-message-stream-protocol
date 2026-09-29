@@ -21,8 +21,8 @@ from pathlib import Path
 import pytest
 from flask import Flask
 
-from agenthub.base_client import LLMClient
-from agenthub.integration.tracer import Tracer
+from mmsp.base_client import LLMClient
+from mmsp.integration.tracer import Tracer
 
 
 @pytest.fixture
@@ -315,7 +315,7 @@ def _fake_llm_client() -> ScriptedClient:
 async def test_monitoring_integration(temp_cache_dir):
     """Test monitoring integration with a client stream (scripted parts, no real model)."""
 
-    os.environ["AGENTHUB_CACHE_DIR"] = temp_cache_dir
+    os.environ["MMSP_CACHE_DIR"] = temp_cache_dir
     client = _fake_llm_client()
     config = {"trace_id": "integration_test/conversation.txt"}
 
@@ -338,7 +338,7 @@ async def test_monitoring_integration(temp_cache_dir):
 async def test_monitoring_updates_on_multiple_messages(temp_cache_dir):
     """Test that monitoring file is updated with each new message."""
 
-    os.environ["AGENTHUB_CACHE_DIR"] = temp_cache_dir
+    os.environ["MMSP_CACHE_DIR"] = temp_cache_dir
     client = _fake_llm_client()
     config = {"trace_id": "multi_message_test/conversation.txt"}
 
@@ -364,7 +364,7 @@ async def test_monitoring_updates_on_multiple_messages(temp_cache_dir):
 @pytest.mark.asyncio
 async def test_traced_response_is_saved_before_its_stop_event(temp_cache_dir, monkeypatch):
     """Test that the trace is on disk by the time the stop event reaches the caller."""
-    monkeypatch.setenv("AGENTHUB_CACHE_DIR", temp_cache_dir)
+    monkeypatch.setenv("MMSP_CACHE_DIR", temp_cache_dir)
     client = _fake_llm_client()
     message = {"role": "user", "content_items": [{"type": "text.done", "text": "Say hello"}]}
 
@@ -391,7 +391,7 @@ async def test_traced_response_is_saved_before_its_stop_event(temp_cache_dir, mo
 @pytest.mark.asyncio
 async def test_traced_response_saves_its_fidelity_without_the_item_id(temp_cache_dir, monkeypatch):
     """Test that the trace keeps a response's fidelity but not the item_id its client identified the item with."""
-    monkeypatch.setenv("AGENTHUB_CACHE_DIR", temp_cache_dir)
+    monkeypatch.setenv("MMSP_CACHE_DIR", temp_cache_dir)
     client = ScriptedClient(
         [
             _delta({"type": "text.delta", "text": "Hello", "fidelity": {"item_id": "0", "signature": "s"}}),

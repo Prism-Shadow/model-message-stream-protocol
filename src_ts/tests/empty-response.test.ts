@@ -14,7 +14,7 @@
 
 import { expect, describe, test } from "@jest/globals";
 import {
-  AgentHubError,
+  MMSPError,
   AutoLLMClient,
   EmptyResponseError,
   EventContentItem,
@@ -287,12 +287,12 @@ describe.each(REASONING_STREAM_CASES)(
   },
 );
 
-test("AgentHub errors share the AgentHubError base class", () => {
+test("MMSP errors share the MMSPError base class", () => {
   const emptyError = new EmptyResponseError({
     client: "OpenaiChatClient",
     finishReason: "stop",
   });
-  expect(emptyError).toBeInstanceOf(AgentHubError);
+  expect(emptyError).toBeInstanceOf(MMSPError);
   const parseError = new ToolCallArgumentParseError({
     client: "OpenaiChatClient",
     toolName: "exec_command",
@@ -300,5 +300,5 @@ test("AgentHub errors share the AgentHubError base class", () => {
     rawArguments: "[]",
     reason: "Expected a JSON object.",
   });
-  expect(parseError).toBeInstanceOf(AgentHubError);
+  expect(parseError).toBeInstanceOf(MMSPError);
 });

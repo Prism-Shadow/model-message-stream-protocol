@@ -14,7 +14,7 @@
 
 import json
 
-from agenthub.types import EventContentItem, UniEvent
+from mmsp.types import EventContentItem, UniEvent
 
 
 def assert_stream_grammar(events: list[UniEvent]) -> None:

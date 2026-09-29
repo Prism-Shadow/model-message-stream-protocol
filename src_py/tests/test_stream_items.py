@@ -14,8 +14,8 @@
 
 import pytest
 
-from agenthub.errors import StreamProtocolError, ToolCallArgumentParseError
-from agenthub.stream_items import StreamItems
+from mmsp.errors import StreamProtocolError, ToolCallArgumentParseError
+from mmsp.stream_items import StreamItems
 
 
 def with_id(item_id, item, fidelity=None):
