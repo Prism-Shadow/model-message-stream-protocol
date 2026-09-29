@@ -269,8 +269,8 @@ class DeepSeekV4Client(LLMClient):
             )
 
         elif deepseek_event_type == "response.output_item.added":
-            # every item is announced with a delta, empty unless it carries the call, so a fragment
-            # a server sends without its item id belongs to the item announced last
+            # an item begins: a delta under its id, empty unless it carries the call's name, ends
+            # the item before it
             item = model_output.item
             if item.type == "function_call":
                 content_items.append(

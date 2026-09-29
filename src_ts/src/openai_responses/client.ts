@@ -361,8 +361,8 @@ export class OpenaiResponsesClient extends LLMClient {
         fidelity: { item_id: modelOutput.item_id },
       });
     } else if (openaiEventType === "response.output_item.added") {
-      // every item is announced with a delta, empty unless it carries the call or the phase,
-      // so a fragment a server sends without its item id belongs to the item announced last
+      // an item begins: a delta under its id, empty unless it carries the call's name or the
+      // message's phase, ends the item before it
       const item = modelOutput.item;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const phase = (item as any).phase as string | undefined;

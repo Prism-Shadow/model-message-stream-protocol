@@ -271,8 +271,7 @@ export class MiniMaxM3Client extends LLMClient {
         fidelity: { item_id: modelOutput.item_id },
       });
     } else if (minimaxEventType === "response.output_item.added") {
-      // a message or reasoning item is announced with an empty delta, so a fragment a server
-      // sends without its item id belongs to the item announced last
+      // a message or reasoning item begins: an empty delta under its id ends the item before it
       if (modelOutput.item.type === "message") {
         contentItems.push({
           type: "text.delta",

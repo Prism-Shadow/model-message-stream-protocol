@@ -225,8 +225,7 @@ class MiniMaxM3Client(LLMClient):
             )
 
         elif minimax_event_type == "response.output_item.added":
-            # a message or reasoning item is announced with an empty delta, so a fragment a server
-            # sends without its item id belongs to the item announced last
+            # a message or reasoning item begins: an empty delta under its id ends the item before it
             if model_output.item.type == "message":
                 content_items.append(
                     {"type": "text.delta", "text": "", "fidelity": {"item_id": getattr(model_output.item, "id", None)}}

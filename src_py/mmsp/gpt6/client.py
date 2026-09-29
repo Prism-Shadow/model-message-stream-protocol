@@ -281,8 +281,8 @@ class GPT6Client(LLMClient):
             )
 
         elif openai_event_type == "response.output_item.added":
-            # every item is announced with a delta, empty unless it carries the call or the phase,
-            # so a fragment a server sends without its item id belongs to the item announced last
+            # an item begins: a delta under its id, empty unless it carries the call's name or the
+            # message's phase, ends the item before it
             item = model_output.item
             if item.type == "function_call":
                 content_items.append(
