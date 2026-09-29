@@ -7,7 +7,7 @@ switch that turns thinking on, the effort levels that are accepted, and the defa
 applies when a key is omitted are all readable here rather than inferred from vendor prose.
 
 The per-model thinking-switch table these artifacts back is
-[`_MODEL_THINKING_PROFILES`](../../src_py/agenthub/openai_chat_vllm_adapter/client.py)
+[`_MODEL_THINKING_PROFILES`](../../src_py/mmsp/openai_chat_vllm_adapter/client.py)
 (and its TypeScript twin in
 [`src_ts/src/openai_chat_vllm_adapter/client.ts`](../../src_ts/src/openai_chat_vllm_adapter/client.ts)).
 
