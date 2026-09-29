@@ -1,0 +1,29 @@
+---
+import Base from "../layouts/Base.astro";
+import { REPO_URL } from "../lib/site";
+// the repository's own changelog, so the page cannot fall behind it
+import * as changelog from "../../../CHANGELOG.md";
+
+const html = (await changelog.compiledContent())
+  // the title and the introduction are the page's, and the file's links are relative to the
+  // repository
+  .replace(/^.*?(?=<ul>)/s, "")
+  .replaceAll('href="changelog/', `href="${REPO_URL}/blob/main/changelog/`);
+---
+
+<Base
+  title="Changelog"
+  description="Every MMSP release in one line, linking to the entries that describe it."
+  active="changelog"
+>
+  <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+    <article class="w-full max-w-3xl">
+      <h1 class="text-3xl font-semibold tracking-tight">Changelog</h1>
+      <p class="mt-3 text-[15px] text-gray-600 dark:text-gray-400">
+        One line per release. Each links to the release's entries in the repository, where every
+        change records what it did and, when it breaks something, how to migrate.
+      </p>
+      <div class="md-body mt-6 text-[15px] text-gray-800 dark:text-gray-200" set:html={html} />
+    </article>
+  </div>
+</Base>

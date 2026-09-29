@@ -21,6 +21,8 @@ MMSP, the Model Message Stream Protocol: one message format and one streaming gr
   - `Makefile` - TypeScript build and test commands
   - `tests/` - TypeScript test files
 
+- `site/` - The site at mmsp.penguin.ooo (Astro): the overview page, the documentation, and the sources of the artwork in `.github/images/`
+
 - `llmsdk_docs/` - **Reference documentation for AI model SDKs**
   - See this directory for detailed development guidelines and code conventions
 

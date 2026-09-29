@@ -1,0 +1,60 @@
+<!doctype html>
+<!-- README header, 1500 x 500 rendered at 2x. Render: see README.md in this folder. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="artwork.css" />
+    <style>
+      .canvas {
+        width: 1500px;
+        height: 500px;
+        text-align: center;
+      }
+      .mark {
+        position: absolute;
+        left: 50%;
+        top: 74px;
+        transform: translateX(-50%);
+      }
+      h1 {
+        position: absolute;
+        inset: 112px 0 auto 0;
+        font-size: 150px;
+        font-weight: 300;
+        letter-spacing: -0.02em;
+        line-height: 1;
+      }
+      .name {
+        position: absolute;
+        inset: 288px 0 auto 0;
+        font-family: var(--mono);
+        font-size: 31px;
+        font-weight: 500;
+      }
+      .line {
+        position: absolute;
+        inset: 350px 0 auto 0;
+        font-family: var(--mono);
+        font-size: 22px;
+        color: var(--ink-soft);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="canvas">
+      <div class="hatch" style="right: -160px; top: -300px; width: 720px; height: 720px"></div>
+      <div class="hatch flip" style="left: -120px; bottom: -420px; width: 700px; height: 700px"></div>
+
+      <div class="stream mark">
+        <i class="delta" style="width: 22px"></i>
+        <i class="delta" style="width: 38px"></i>
+        <i class="delta" style="width: 30px"></i>
+        <i style="width: 120px"></i>
+        <i class="stop"></i>
+      </div>
+      <h1>MMSP</h1>
+      <p class="name">Model Message Stream Protocol</p>
+      <p class="line">One message format and one streaming grammar for every model provider.</p>
+    </div>
+  </body>
+</html>

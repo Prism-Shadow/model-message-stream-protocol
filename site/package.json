@@ -1,0 +1,23 @@
+{
+  "name": "mmsp-site",
+  "type": "module",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The MMSP site (Astro + Tailwind CSS): the overview page and the documentation, deployed to GitHub Pages at mmsp.penguin.ooo.",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "astro": "^7.3.5",
+    "tailwindcss": "^4.3.3"
+  },
+  "allowScripts": {
+    "esbuild": true
+  }
+}
