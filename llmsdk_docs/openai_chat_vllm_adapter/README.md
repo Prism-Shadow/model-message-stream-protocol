@@ -67,7 +67,7 @@ The 3.8 templates additionally read `preserve_thinking` (default true), which ke
 
 Every profile in `_MODEL_THINKING_PROFILES` follows the artifact it is read off; no profile
 sends a value its model rejects. What the artifacts do force is coarser granularity than
-AgentHub's six levels, in two places:
+MMSP's six levels, in two places:
 
 - **`DeepSeek-V4-Pro` and `DeepSeek-V4-Flash` render `LOW` through `XHIGH` identically.** Their
   encoding module asserts `reasoning_effort in ['max', None, 'high']`, so `low` is not an option

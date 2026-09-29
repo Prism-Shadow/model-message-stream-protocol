@@ -1,6 +1,6 @@
 # OpenAI Responses Protocol Documentation
 
-This directory contains the official-documentation snapshot used to implement AgentHub's
+This directory contains the official-documentation snapshot used to implement MMSP's
 generic `openai_responses` client - the OpenAI Responses-compatible protocol as served by
 OpenAI, OpenRouter, DeepSeek, Z.AI, and MiniMax.
 
