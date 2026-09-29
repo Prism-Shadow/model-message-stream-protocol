@@ -14,15 +14,17 @@
 
 import { expect, describe, test } from "@jest/globals";
 import {
-  AgentHubError,
+  MMSPError,
   AutoLLMClient,
   EmptyResponseError,
-  TextContentItem,
+  EventContentItem,
+  TextDeltaItem,
   ToolCallArgumentParseError,
   UniConfig,
   UniEvent,
   UniMessage,
 } from "../src";
+import { assertStreamGrammar } from "./streamGrammar";
 
 type FakeCreateEndpoint = {
   create: () => Promise<AsyncIterable<unknown>>;
@@ -82,7 +84,7 @@ const REASONING_STREAM_CASES: ReasoningStreamCase[] = [
 const messages: UniMessage[] = [
   {
     role: "user",
-    content_items: [{ type: "text", text: "Create a memo." }],
+    content_items: [{ type: "text.done", text: "Create a memo." }],
   },
 ];
 
@@ -275,22 +277,22 @@ describe.each(REASONING_STREAM_CASES)(
       const events = await collectEvents(
         client.streamingResponse({ messages, config: {} }),
       );
-      const texts = events.flatMap((event) =>
-        event.content_items
-          .filter((item): item is TextContentItem => item.type === "text")
-          .map((item) => item.text),
-      );
+      assertStreamGrammar(events);
+      const texts = events
+        .flatMap((event): EventContentItem[] => event.content_items)
+        .filter((item): item is TextDeltaItem => item.type === "text.delta")
+        .map((item) => item.text);
       expect(texts).toEqual(["Here is the memo."]);
     });
   },
 );
 
-test("AgentHub errors share the AgentHubError base class", () => {
+test("MMSP errors share the MMSPError base class", () => {
   const emptyError = new EmptyResponseError({
     client: "OpenaiChatClient",
     finishReason: "stop",
   });
-  expect(emptyError).toBeInstanceOf(AgentHubError);
+  expect(emptyError).toBeInstanceOf(MMSPError);
   const parseError = new ToolCallArgumentParseError({
     client: "OpenaiChatClient",
     toolName: "exec_command",
@@ -298,5 +300,5 @@ test("AgentHub errors share the AgentHubError base class", () => {
     rawArguments: "[]",
     reason: "Expected a JSON object.",
   });
-  expect(parseError).toBeInstanceOf(AgentHubError);
+  expect(parseError).toBeInstanceOf(MMSPError);
 });

@@ -24,7 +24,7 @@ import os
 import wave
 from pathlib import Path
 
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 
 async def main():
@@ -41,7 +41,7 @@ async def main():
     prompt = """Synthesize speech for the transcript below using a single speaker.
 
 ### TRANSCRIPT
-[excitedly] Welcome to AgentHub! We just added Gemini text-to-speech support.
+[excitedly] Welcome to MMSP! We just added Gemini text-to-speech support.
 [very slow] This demo saves the generated audio as a WAV file so you can play it back right away.
 [whispers] And yes, prompt tags like this can shape the performance.
 """
@@ -51,11 +51,11 @@ async def main():
 
     audio_chunks: list[bytes] = []
     async for event in client.streaming_response(
-        messages=[{"role": "user", "content_items": [{"type": "text", "text": prompt}]}],
+        messages=[{"role": "user", "content_items": [{"type": "text.done", "text": prompt}]}],
         config={"tts_config": [{"voice": "Kore"}]},
     ):
         for item in event["content_items"]:
-            if item["type"] == "inline_data":
+            if item["type"] == "inline_data.done":
                 audio_chunks.append(item["data"])
 
     if not audio_chunks:

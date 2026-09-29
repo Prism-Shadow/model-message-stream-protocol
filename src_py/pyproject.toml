@@ -1,20 +1,20 @@
 [project]
-name = "agenthub-python"
+name = "mmsp"
 version = "0.4.15"
-description = "AgentHub is the LLM API Hub for the Agent era, built for high-precision autonomous agents."
-keywords = ["agent", "llm", "gemini", "claude", "gpt"]
+description = "MMSP, the Model Message Stream Protocol: one message format and one streaming grammar for every model provider, in Python and TypeScript."
+keywords = ["mmsp", "llm", "stream", "gemini", "claude", "gpt"]
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.11"
-dependencies = ["google-genai>=1.70.0", "anthropic[bedrock]>=0.87.0", "flask>=3.0.0", "openai>=2.30.0", "httpx>=0.27.0"]
+dependencies = ["google-genai>=2.23.0", "anthropic[bedrock]>=0.87.0", "flask>=3.0.0", "openai>=2.30.0", "httpx>=0.27.0"]
 authors = [
   {name = "PrismShadow"},
 ]
 
 [project.urls]
-Homepage = "https://github.com/Prism-Shadow/agenthub"
-Repository = "https://github.com/Prism-Shadow/agenthub"
-Issues = "https://github.com/Prism-Shadow/agenthub/issues"
+Homepage = "https://github.com/Prism-Shadow/model-message-stream-protocol"
+Repository = "https://github.com/Prism-Shadow/model-message-stream-protocol"
+Issues = "https://github.com/Prism-Shadow/model-message-stream-protocol/issues"
 
 [project.optional-dependencies]
 dev = ["httpx[socks]", "pytest>=8.4.2", "pytest-asyncio>=0.23.0", "pytest-xdist>=3.6.0", "pytest-rerunfailures>=15.0", "ruff>=0.14.3", "pillow>=10.0.0"]
@@ -25,7 +25,7 @@ build-backend = "uv_build"
 
 [tool.uv.build-backend]
 module-root = ""
-module-name = "agenthub"
+module-name = "mmsp"
 
 [tool.ruff]
 target-version = "py311"

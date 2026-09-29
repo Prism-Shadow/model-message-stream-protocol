@@ -138,7 +138,7 @@ export function createChatApp(): Express {
   <!DOCTYPE html>
   <html>
   <head>
-      <title>AgentHub Playground</title>
+      <title>MMSP Playground</title>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1">
       <script src="https://cdn.tailwindcss.com"></script>
@@ -168,9 +168,9 @@ export function createChatApp(): Express {
   </head>
   <body class="bg-gray-50 flex flex-col h-screen">
       <div class="bg-gray-900 text-white px-6 py-4 border-b border-gray-700 flex justify-between items-center">
-          <h1 class="text-xl font-semibold">AgentHub</h1>
+          <h1 class="text-xl font-semibold">MMSP</h1>
           <div class="flex items-center gap-4">
-              <a href="https://github.com/Prism-Shadow/AgentHub" target="_blank" rel="noopener noreferrer" class="text-gray-400 hover:text-white text-sm transition-colors">GitHub</a>
+              <a href="https://github.com/Prism-Shadow/model-message-stream-protocol" target="_blank" rel="noopener noreferrer" class="text-gray-400 hover:text-white text-sm transition-colors">GitHub</a>
               <a href="/tracer/" target="_blank" rel="noopener noreferrer" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm transition-colors">Open Tracer</a>
               <button class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm transition-colors" onclick="toggleConfig()">
                   ⚙️ Config
@@ -296,7 +296,7 @@ export function createChatApp(): Express {
               </div>
               <div class="flex flex-col">
                   <label class="text-sm font-semibold text-gray-900 mb-1" for="extraHeadersInput">Extra Headers</label>
-                  <textarea id="extraHeadersInput" rows="2" spellcheck="false" placeholder='JSON, e.g. {"X-Title": "AgentHub"} — for endpoints that demand their own' class="px-3 py-2 border border-gray-300 rounded-md text-xs font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
+                  <textarea id="extraHeadersInput" rows="2" spellcheck="false" placeholder='JSON, e.g. {"X-Title": "MMSP"} — for endpoints that demand their own' class="px-3 py-2 border border-gray-300 rounded-md text-xs font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
               </div>
           </div>
           <div class="flex items-center gap-3 mb-2">
@@ -566,6 +566,13 @@ export function createChatApp(): Express {
               const values = Array.isArray(item.embedding) ? item.embedding.slice(0, 5) : [];
               const preview = escapeHtml(\`[\${values.join(', ')}]\`);
               return \`<div class="embedding-content mb-2 rounded-md border-l-4 border-indigo-500 bg-indigo-50 p-3 whitespace-normal"><div class="flex items-start gap-2 text-sm"><strong class="shrink-0 text-gray-900">Embedding:</strong><code class="font-mono text-xs text-gray-800 break-all">\${preview}</code></div></div>\`;
+          }
+
+          function openStreamItem(contentDiv, className) {
+              const container = document.createElement('div');
+              container.className = className;
+              contentDiv.appendChild(container);
+              return { container, text: '', name: '' };
           }
 
           function handleImageSelect(event) {
@@ -946,7 +953,7 @@ export function createChatApp(): Express {
               return config;
           }
 
-          const CONFIG_STORAGE_KEY = 'agenthub.playground.config';
+          const CONFIG_STORAGE_KEY = 'mmsp.playground.config';
           // saved as typed rather than as parsed values, so an unfinished JSON edit survives too
           const CONFIG_TEXT_INPUTS = [
               'apiKeyInput', 'baseUrlInput', 'extraHeadersInput', 'systemPromptInput', 'toolsInput', 'traceIdInput'
@@ -1138,19 +1145,21 @@ export function createChatApp(): Express {
 
               const assistantCard = addMessageCard('assistant', '');
               const contentDiv = assistantCard.querySelector('.message-content');
+              // items never interleave in a stream, so every delta belongs to the one item still open
+              let openItem = null;
               // a spoken response streams as many small chunks that only play as one clip
-              const audioStream = { mimeType: '', chunks: [], bytes: 0, container: null, finalized: false };
+              let audioStream = null;
 
               try {
                   const config = getConfig();
                   const content_items = [];
 
                   if (message) {
-                      content_items.push({ type: 'text', text: message });
+                      content_items.push({ type: 'text.done', text: message });
                   }
 
                   currentImages.forEach(img => {
-                      content_items.push({ type: 'image_url', image_url: img });
+                      content_items.push({ type: 'image_url.done', image_url: img });
                   });
 
                   const response = await fetch('/api/chat', {
@@ -1187,10 +1196,6 @@ export function createChatApp(): Express {
 
                   const reader = response.body.getReader();
                   const decoder = new TextDecoder();
-                  let fullResponse = '';
-                  let fullThinking = '';
-                  let fullToolName = '';
-                  let fullToolArgs = '';
                   let metadata = null;
                   let lastCreatedAt = null;
                   let buffer = '';
@@ -1213,66 +1218,15 @@ export function createChatApp(): Express {
                               try {
                                   const event = JSON.parse(data);
 
-                                  for (const item of event.content_items || []) {
-                                      if (item.type === 'text') {
-                                          fullResponse += item.text;
-                                          let textContainer = contentDiv.querySelector('.text-content');
-                                          if (!textContainer) {
-                                              textContainer = document.createElement('div');
-                                              textContainer.className = 'text-content';
-                                              contentDiv.appendChild(textContainer);
-                                          }
-                                          textContainer.textContent = fullResponse;
-                                      } else if (item.type === 'thinking') {
-                                          fullThinking += item.thinking;
-                                          let thinkingContainer = contentDiv.querySelector('.thinking-content');
-                                          if (!thinkingContainer) {
-                                            thinkingContainer = document.createElement('div');
-                                            thinkingContainer.className = 'thinking-content bg-blue-50 p-3 rounded-md border-l-4 border-blue-500 mb-2 italic';
-                                            // Always insert thinking before any text content so it appears on top
-                                            const textContainer = contentDiv.querySelector('.text-content');
-                                            contentDiv.insertBefore(thinkingContainer, textContainer || contentDiv.firstChild);
-                                          }
-                                          thinkingContainer.textContent = \`💭 \${fullThinking}\`;
-                                      } else if (item.type === 'inline_thinking') {
-                                          // Ignore thinking inline data
-                                          continue;
-                                      } else if (item.type === 'partial_tool_call') {
-                                          fullToolName += item.name || '';
-                                          fullToolArgs += item.arguments || '';
-                                          let toolcallContainer = contentDiv.querySelector('.toolcall-content');
-                                          if (!toolcallContainer) {
-                                              toolcallContainer = document.createElement('div');
-                                              toolcallContainer.className = 'toolcall-content bg-yellow-50 p-3 rounded-md border-l-4 border-yellow-500 mb-2';
-                                              contentDiv.appendChild(toolcallContainer);
-                                          }
-                                          toolcallContainer.innerHTML = \`<strong class="text-sm">🛠️ Tool Call:</strong> \${escapeHtml(fullToolName || '...')}<br><div class="mt-1 text-xs whitespace-pre-wrap">\${escapeHtml(fullToolArgs || '')}</div>\`;
-                                      } else if (item.type === 'tool_result') {
-                                          const toolResultDiv = document.createElement('div');
-                                          toolResultDiv.className = 'bg-green-50 p-3 rounded-md border-l-4 border-green-500 mb-2';
-                                          toolResultDiv.innerHTML = \`<strong class="text-sm">✅ Tool Result:</strong><br><div class="mt-1 text-xs whitespace-pre-wrap">\${escapeHtml(item.text)}</div>\`;
-                                          contentDiv.appendChild(toolResultDiv);
-                                      } else if (item.type === 'inline_data') {
-                                          if (isAudioMimeType(item.mime_type)) {
-                                              appendAudioChunk(contentDiv, item, audioStream);
-                                          } else {
-                                              const inlineDataDiv = document.createElement('div');
-                                              inlineDataDiv.innerHTML = renderInlineData(item);
-                                              if (inlineDataDiv.firstChild) {
-                                                  contentDiv.appendChild(inlineDataDiv.firstChild);
-                                              }
-                                          }
-                                      } else if (item.type === 'embedding') {
-                                          const embeddingDiv = document.createElement('div');
-                                          embeddingDiv.innerHTML = renderEmbedding(item);
-                                          if (embeddingDiv.firstChild) {
-                                              contentDiv.appendChild(embeddingDiv.firstChild);
-                                          }
-                                      }
+                                  if (event.error) {
+                                      const errorDiv = document.createElement('div');
+                                      errorDiv.className = 'mt-2 text-sm text-red-600';
+                                      errorDiv.textContent = \`Error: \${event.error}\`;
+                                      contentDiv.appendChild(errorDiv);
+                                      continue;
                                   }
 
-                                  container.scrollTop = container.scrollHeight;
-                                  if (event.usage_metadata) {
+                                  if (event.event_type === 'stop') {
                                       const usage = event.usage_metadata;
                                       const inputTokens = (usage.cached_tokens || 0) + (usage.prompt_tokens || 0);
                                       const outputTokens = (usage.thoughts_tokens || 0) + (usage.response_tokens || 0);
@@ -1282,24 +1236,64 @@ export function createChatApp(): Express {
                                           prompt_tokens: usage.prompt_tokens || 0,
                                           thoughts_tokens: usage.thoughts_tokens || 0,
                                           response_tokens: usage.response_tokens || 0,
-                                          total_tokens: totalTokens
+                                          total_tokens: totalTokens,
+                                          finish_reason: event.finish_reason
                                       };
-                                  }
-                                  if (event.finish_reason) {
-                                      metadata = metadata || {};
-                                      metadata.finish_reason = event.finish_reason;
-                                  }
-                                  if (event.created_at) {
                                       lastCreatedAt = event.created_at;
+                                      continue;
                                   }
+
+                                  // a delta event carries a fragment of the open item or its done item, whose complete
+                                  // content replaces the fragments shown so far; an image or an embedding shows once
+                                  // done, and thinking inline data not at all
+                                  for (const item of event.content_items) {
+                                      if (item.type === 'text.delta' || item.type === 'text.done') {
+                                          openItem = openItem || openStreamItem(contentDiv, 'text-content');
+                                          openItem.text = item.type === 'text.done' ? item.text : openItem.text + item.text;
+                                          openItem.container.textContent = openItem.text;
+                                      } else if (item.type === 'thinking.delta' || item.type === 'thinking.done') {
+                                          openItem = openItem || openStreamItem(contentDiv, 'thinking-content bg-blue-50 p-3 rounded-md border-l-4 border-blue-500 mb-2 italic');
+                                          openItem.text = item.type === 'thinking.done' ? item.thinking : openItem.text + item.thinking;
+                                          openItem.container.textContent = \`💭 \${openItem.text}\`;
+                                      } else if (item.type === 'tool_call.delta' || item.type === 'tool_call.done') {
+                                          openItem = openItem || openStreamItem(contentDiv, 'toolcall-content bg-yellow-50 p-3 rounded-md border-l-4 border-yellow-500 mb-2');
+                                          // only the first delta names the call, and only the done item has parsed arguments
+                                          openItem.name = item.name || openItem.name;
+                                          openItem.text = item.type === 'tool_call.done' ? JSON.stringify(item.arguments) : openItem.text + item.arguments;
+                                          openItem.container.innerHTML = \`<strong class="text-sm">🛠️ Tool Call:</strong> \${escapeHtml(openItem.name)}<br><div class="mt-1 text-xs whitespace-pre-wrap">\${escapeHtml(openItem.text)}</div>\`;
+                                      } else if (item.type === 'inline_data.delta' && isAudioMimeType(item.mime_type)) {
+                                          audioStream = audioStream || { mimeType: '', chunks: [], bytes: 0, container: null, finalized: false };
+                                          appendAudioChunk(contentDiv, item, audioStream);
+                                      } else if (item.type === 'inline_data.done' && isAudioMimeType(item.mime_type)) {
+                                          audioStream.chunks = [item.data];
+                                          finalizeAudioStream(audioStream, true);
+                                          audioStream = null;
+                                      } else if (item.type === 'inline_data.done') {
+                                          const inlineDataDiv = document.createElement('div');
+                                          inlineDataDiv.innerHTML = renderInlineData(item);
+                                          if (inlineDataDiv.firstChild) {
+                                              contentDiv.appendChild(inlineDataDiv.firstChild);
+                                          }
+                                      } else if (item.type === 'embedding.done') {
+                                          const embeddingDiv = document.createElement('div');
+                                          embeddingDiv.innerHTML = renderEmbedding(item);
+                                          if (embeddingDiv.firstChild) {
+                                              contentDiv.appendChild(embeddingDiv.firstChild);
+                                          }
+                                      }
+
+                                      if (item.type.endsWith('.done')) {
+                                          openItem = null;
+                                      }
+                                  }
+
+                                  container.scrollTop = container.scrollHeight;
                               } catch (e) {
                                   console.error('Error parsing event:', e);
                               }
                           }
                       }
                   }
-
-                  finalizeAudioStream(audioStream, true);
 
                   if (lastCreatedAt) {
                       const timestampEl = assistantCard.querySelector('.msg-timestamp');
@@ -1335,7 +1329,9 @@ export function createChatApp(): Express {
 
               } catch (error) {
                   if (error.name === 'AbortError') {
-                      finalizeAudioStream(audioStream);
+                      if (audioStream) {
+                          finalizeAudioStream(audioStream);
+                      }
                       markInterrupted(contentDiv);
                   } else {
                       contentDiv.textContent = \`Error: \${error.message}\`;
@@ -1466,10 +1462,13 @@ export function createChatApp(): Express {
         return;
       }
 
+      // a failed response has no stop event, so the page gets the error as an event of its own,
+      // named by its class when it carries no message, since the page shows no empty error
       const errorEvent = {
-        role: "assistant",
-        content_items: [{ type: "text", text: `Error: ${error}` }],
-        finish_reason: "error",
+        error:
+          error instanceof Error
+            ? error.message || error.constructor.name
+            : String(error),
       };
       completed = true;
       res.write(`data: ${JSON.stringify(errorEvent)}\n\n`);
@@ -1543,7 +1542,7 @@ export function startPlaygroundServer(
 ): void {
   // the playground exists to show what a model and its endpoint actually send, so unknown
   // stream output fails loudly here unless the caller says otherwise
-  process.env.AGENTHUB_DEBUG = process.env.AGENTHUB_DEBUG ?? "1";
+  process.env.MMSP_DEBUG = process.env.MMSP_DEBUG ?? "1";
   const app = createChatApp();
   app.listen(port, host, () => {
     console.log(`Starting LLM Playground at http://${host}:${port}`);

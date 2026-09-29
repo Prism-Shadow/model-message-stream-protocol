@@ -16,7 +16,7 @@ export type Modality = "Text" | "Image" | "Video" | "Audio" | "Embed";
 export type Currency = "USD" | "CNY";
 
 /**
- * List prices per million tokens for AgentHub's usage buckets.
+ * List prices per million tokens for MMSP's usage buckets.
  *
  * Keys mirror `usage_metadata`: `cached_tokens` (cache-hit price, absent when
  * the platform publishes none), `prompt_tokens` (non-cached input), and
@@ -62,7 +62,7 @@ const OPENROUTER = "https://openrouter.ai/api/v1";
 const SILICONFLOW = "https://api.siliconflow.cn/v1";
 const MINIMAX = "https://api.minimax.io/v1";
 
-// Display convention shared with the AgentHub apps: prices are stored in USD
+// Display convention shared with the MMSP apps: prices are stored in USD
 // (official CNY list prices pre-converted at 7 CNY/USD), so requesting CNY
 // shows the vendor's numbers.
 const CNY_PER_USD = 7.0;
@@ -719,7 +719,7 @@ function convertPricing(pricing: ModelPricing, currency: Currency): ModelPricing
  *
  * Covers the official vendor endpoints plus the OpenRouter and SiliconFlow
  * platforms; `client` is the `clientType` token that routes the model to its
- * protocol client. Prices are per million tokens for AgentHub's usage buckets
+ * protocol client. Prices are per million tokens for MMSP's usage buckets
  * (cached_tokens, prompt_tokens, thoughts_tokens, response_tokens), stored in
  * USD and converted to `currency` at 7 CNY/USD on request.
  */

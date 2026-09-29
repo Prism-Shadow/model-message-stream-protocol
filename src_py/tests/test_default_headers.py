@@ -20,7 +20,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 
 @dataclass
@@ -42,6 +42,13 @@ HEADER_CASES = [
         base_url_suffix="",
         # the Gemini client is deduced from the model id, so its listing keeps only ids that
         # deduce back to it
+        expected=["gemini-3.8-flash", "gemini-3.8-pro"],
+    ),
+    # the generateContent client builds its own SDK client, and lists the Gemini family's ids
+    HeaderCase(
+        client_type="gemini-generate-content",
+        model="gemini-3.8-flash",
+        base_url_suffix="",
         expected=["gemini-3.8-flash", "gemini-3.8-pro"],
     ),
 ]

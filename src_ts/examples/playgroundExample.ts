@@ -13,7 +13,7 @@
 // limitations under the License.
 
 /**
- * Example demonstrating the AgentHub Playground.
+ * Example demonstrating the MMSP Playground.
  *
  * This example shows how to start the playground server for interactive
  * chat with LLMs. The playground supports:
@@ -26,7 +26,7 @@
 import { startPlaygroundServer } from "../src/integration/playground";
 
 console.log("=".repeat(60));
-console.log("AgentHub LLM Playground");
+console.log("MMSP LLM Playground");
 console.log("=".repeat(60));
 console.log("\nStarting web server...");
 console.log("\nOpen http://127.0.0.1:25751 in your browser to start chatting!");

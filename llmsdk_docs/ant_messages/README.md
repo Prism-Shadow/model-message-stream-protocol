@@ -1,6 +1,6 @@
 # Anthropic Messages Protocol Documentation
 
-This directory contains the official-documentation snapshot used to implement AgentHub's
+This directory contains the official-documentation snapshot used to implement MMSP's
 generic `ant_messages` client - the Anthropic Messages-compatible protocol as served by
 Anthropic, OpenRouter, DeepSeek, Z.AI, and MiniMax.
 

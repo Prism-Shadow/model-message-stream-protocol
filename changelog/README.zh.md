@@ -20,8 +20,8 @@
 - **Date:** YYYY-MM-DD
 - **Type:** feature
 - **Scope:** `module`, `module`
-- **PR:** [#N](https://github.com/Prism-Shadow/agenthub/pull/N)
-- **Issue:** [#N](https://github.com/Prism-Shadow/agenthub/issues/N)
+- **PR:** [#N](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/N)
+- **Issue:** [#N](https://github.com/Prism-Shadow/model-message-stream-protocol/issues/N)
 - **Breaking:** yes — <一句话说明坏在哪>
 
 [English](<name>.md)
@@ -83,7 +83,7 @@
 每项变更一行，最新的在最上面：
 
 ```markdown
-- [YYYY-MM-DD] 一句话描述。([详情](YYYY-MM-DD-slug.zh.md), [#N](https://github.com/Prism-Shadow/agenthub/pull/N))
+- [YYYY-MM-DD] 一句话描述。([详情](YYYY-MM-DD-slug.zh.md), [#N](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/N))
 ```
 
 这里重复 PR 链接是刻意的：读发布摘要时不打开详情文件也能回答"这是哪个 PR 发布的"。

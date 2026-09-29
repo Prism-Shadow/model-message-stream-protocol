@@ -21,7 +21,7 @@ This example shows how to use the AutoLLMClient with automatic conversation hist
 import asyncio
 import os
 
-from agenthub import AutoLLMClient, ThinkingLevel
+from mmsp import AutoLLMClient, ThinkingLevel
 
 
 async def main():
@@ -42,7 +42,7 @@ async def main():
     print("User:", query1)
     print("Assistant:")
     async for event in client.streaming_response_stateful(
-        message={"role": "user", "content_items": [{"type": "text", "text": query1}]}, config=config
+        message={"role": "user", "content_items": [{"type": "text.done", "text": query1}]}, config=config
     ):
         print(event)
 
@@ -51,7 +51,7 @@ async def main():
     print("User:", query2)
     print("Assistant:")
     async for event in client.streaming_response_stateful(
-        message={"role": "user", "content_items": [{"type": "text", "text": query2}]}, config=config
+        message={"role": "user", "content_items": [{"type": "text.done", "text": query2}]}, config=config
     ):
         print(event)
 

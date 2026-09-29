@@ -21,8 +21,8 @@ from urllib.parse import quote
 
 import pytest
 
-from agenthub import AutoLLMClient
-from agenthub.utils import exceeds_openai_patch_limit, image_dimensions
+from mmsp import AutoLLMClient
+from mmsp.utils import exceeds_openai_patch_limit, image_dimensions
 
 
 # Header builders. Only the bytes the parser reads have to be right, so none of these is a
@@ -208,21 +208,26 @@ MESSAGES: list[dict[str, Any]] = [
     {
         "role": "user",
         "content_items": [
-            {"type": "text", "text": "What is in these?"},
-            {"type": "image_url", "image_url": OVERSIZED},
-            {"type": "image_url", "image_url": SMALL},
+            {"type": "text.done", "text": "What is in these?"},
+            {"type": "image_url.done", "image_url": OVERSIZED},
+            {"type": "image_url.done", "image_url": SMALL},
         ],
     },
     {
         "role": "assistant",
         "content_items": [
-            {"type": "tool_call", "name": "read_image", "arguments": {"path": "shot.png"}, "tool_call_id": "call_1"}
+            {
+                "type": "tool_call.done",
+                "name": "read_image",
+                "arguments": {"path": "shot.png"},
+                "tool_call_id": "call_1",
+            }
         ],
     },
     {
         "role": "user",
         "content_items": [
-            {"type": "tool_result", "text": "image/png", "images": [OVERSIZED, SMALL], "tool_call_id": "call_1"}
+            {"type": "tool_result.done", "text": "image/png", "images": [OVERSIZED, SMALL], "tool_call_id": "call_1"}
         ],
     },
 ]
