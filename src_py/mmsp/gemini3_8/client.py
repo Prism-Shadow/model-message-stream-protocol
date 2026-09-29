@@ -402,12 +402,13 @@ class Gemini3_8Client(LLMClient):
                 else:
                     raise ValueError(f"Unknown item: {item}")
 
-            # An image model sometimes streams its text before its first thought step, but the API
-            # takes a turn holding a thought back only when the turn opens with one: "Model turns with
-            # images must start with a thought block" (verified live 2026-09-16). A turn another
-            # provider produced holds no signed thought at all, which the API rejects once the turn
-            # continues with its tool results (verified live 2026-09-16). Both open with the
-            # placeholder signature Google documents for thoughts it did not produce.
+            # An image generation model (gemini-*-image) sometimes streams its text before its first
+            # thought step, but the API takes a turn holding a thought back only when the turn opens
+            # with one: "Model turns with images must start with a thought block" (verified live
+            # 2026-09-16). A turn another provider produced holds no signed thought at all, which the
+            # API rejects once the turn continues with its tool results (verified live 2026-09-16).
+            # Both open with the placeholder signature Google documents for thoughts it did not
+            # produce.
             turn = steps[message_start:]
             if (any(step["type"] == "thought" for step in turn) and turn[0]["type"] != "thought") or (
                 any(step["type"] in ("model_output", "function_call") for step in turn)
@@ -421,9 +422,9 @@ class Gemini3_8Client(LLMClient):
         """
         Transform one Interactions API stream event into a universal event, its items identified by step index.
 
-        A step streams one item per run of a content kind: an image model's thought summary can go text,
-        image, text, which is three items. Every image delta is a whole image and an item of its own,
-        while audio streams in chunks of one item.
+        A step streams one item per run of a content kind: an image generation model's thought summary can
+        go text, image, text, which is three items. Every image delta is a whole image and an item of its
+        own, while audio streams in chunks of one item.
 
         Args:
             model_output: Interactions API stream event
@@ -464,7 +465,7 @@ class Gemini3_8Client(LLMClient):
                     {"type": "thinking.delta", "thinking": delta.content.text, "fidelity": {"item_id": item_id}}
                 )
             elif delta.type == "thought_summary" and delta.content is not None and delta.content.type == "image":
-                # image models summarize their thinking with interim images too
+                # image generation models summarize their thinking with interim images too
                 content_items.append(
                     {
                         "type": "inline_thinking.delta",

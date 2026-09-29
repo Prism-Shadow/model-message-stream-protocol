@@ -537,12 +537,13 @@ export class Gemini3_8Client extends LLMClient {
         }
       }
 
-      // An image model sometimes streams its text before its first thought step, but the API
-      // takes a turn holding a thought back only when the turn opens with one: "Model turns with
-      // images must start with a thought block" (verified live 2026-09-16). A turn another
-      // provider produced holds no signed thought at all, which the API rejects once the turn
-      // continues with its tool results (verified live 2026-09-16). Both open with the
-      // placeholder signature Google documents for thoughts it did not produce.
+      // An image generation model (gemini-*-image) sometimes streams its text before its first
+      // thought step, but the API takes a turn holding a thought back only when the turn opens
+      // with one: "Model turns with images must start with a thought block" (verified live
+      // 2026-09-16). A turn another provider produced holds no signed thought at all, which the
+      // API rejects once the turn continues with its tool results (verified live 2026-09-16).
+      // Both open with the placeholder signature Google documents for thoughts it did not
+      // produce.
       const turn = steps.slice(messageStart);
       if (
         (turn.some((step) => step.type === "thought") &&
@@ -565,9 +566,9 @@ export class Gemini3_8Client extends LLMClient {
 
   /**
    * Transform one Interactions API stream event into a universal event, its items identified by
-   * step index. A step streams one item per run of a content kind: an image model's thought
-   * summary can go text, image, text, which is three items. Every image delta is a whole image
-   * and an item of its own, while audio streams in chunks of one item.
+   * step index. A step streams one item per run of a content kind: an image generation model's
+   * thought summary can go text, image, text, which is three items. Every image delta is a whole
+   * image and an item of its own, while audio streams in chunks of one item.
    */
   transformModelOutputToUniEvent(
     modelOutput: Interactions.InteractionSSEEvent,
@@ -610,7 +611,7 @@ export class Gemini3_8Client extends LLMClient {
         delta.type === "thought_summary" &&
         delta.content?.type === "image"
       ) {
-        // image models summarize their thinking with interim images too
+        // image generation models summarize their thinking with interim images too
         contentItems.push({
           type: "inline_thinking.delta",
           data: Buffer.from(delta.content.data || "", "base64"),
