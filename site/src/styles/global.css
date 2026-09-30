@@ -1,0 +1,209 @@
+/**
+ * Site styles: one Tailwind CSS 4 entry point in the visual language of penguin.ooo/docs
+ * (solid backgrounds, 1px borders, system type, one accent), with the violet of the MMSP
+ * artwork as that accent. The dark theme is toggled by the html.dark class.
+ */
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-brand-25: #fbfaff;
+  --color-brand-50: #f3efff;
+  --color-brand-100: #e6deff;
+  --color-brand-200: #cfc0ff;
+  --color-brand-300: #b199ff;
+  --color-brand-400: #9572ff;
+  --color-brand-500: #7c4dff;
+  --color-brand-600: #6a35f0;
+  --color-brand-700: #5a27d1;
+  --color-brand-800: #4820a8;
+  --color-brand-900: #331a78;
+  --color-brand-950: #1d0e4a;
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+  .dark {
+    color-scheme: dark;
+    /* pure-black dark base with true-neutral grays, as on penguin.ooo */
+    --color-gray-950: #000000;
+    --color-gray-900: #0d0d0d;
+    --color-gray-800: #1f1f1f;
+    --color-gray-700: #303030;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-white text-gray-900 antialiased dark:bg-gray-950 dark:text-gray-100;
+    font-family:
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      "Segoe UI",
+      Roboto,
+      "PingFang SC",
+      "Microsoft YaHei",
+      sans-serif;
+  }
+  code,
+  pre,
+  kbd,
+  .mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  button:focus-visible,
+  a:focus-visible,
+  summary:focus-visible {
+    outline: 3px solid rgb(107 114 128 / 0.4);
+    outline-offset: 2px;
+  }
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+  ::selection {
+    background: rgb(124 77 255 / 0.22);
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(60 64 67 / 0.28) transparent;
+  }
+  .dark * {
+    scrollbar-color: rgb(232 234 237 / 0.2) transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------- Code: Shiki renders both palettes, the theme picks one ---------- */
+
+.astro-code {
+  @apply overflow-x-auto rounded-lg border border-gray-200 bg-gray-50 p-3 text-[13px] leading-6 dark:border-gray-800 dark:bg-gray-900;
+  background-color: var(--color-gray-50) !important;
+}
+html.dark .astro-code {
+  background-color: var(--color-gray-900) !important;
+}
+html.dark .astro-code,
+html.dark .astro-code span {
+  color: var(--shiki-dark) !important;
+  font-style: var(--shiki-dark-font-style) !important;
+  font-weight: var(--shiki-dark-font-weight) !important;
+}
+
+/* ---------- Typography for Markdown bodies ---------- */
+
+.md-body {
+  overflow-wrap: break-word;
+}
+.md-body :is(p, ul, ol, pre, blockquote, table) {
+  margin: 0.625rem 0;
+}
+.md-body li {
+  margin: 0.3rem 0;
+}
+.md-body p,
+.md-body li {
+  line-height: 1.75;
+}
+.md-body :is(h1, h2, h3, h4) {
+  font-weight: 600;
+  margin: 1.75rem 0 0.5rem;
+  scroll-margin-top: 5rem;
+}
+.md-body h2 {
+  font-size: 1.1875rem;
+  @apply border-b border-gray-200 pb-1.5 dark:border-gray-800;
+}
+.md-body h3 {
+  font-size: 1.0625rem;
+}
+.md-body ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+}
+.md-body ol {
+  list-style: decimal;
+  padding-left: 1.25rem;
+}
+.md-body a {
+  @apply text-brand-700 underline decoration-brand-300 underline-offset-2 transition-colors hover:text-brand-600 dark:text-brand-300 dark:decoration-brand-700;
+  overflow-wrap: anywhere;
+}
+.md-body code {
+  @apply text-[0.85em];
+}
+.md-body :not(pre) > code {
+  @apply rounded-md border border-brand-200/60 bg-brand-50/40 px-[0.3em] py-[0.1em] text-[0.875em] text-gray-900 dark:border-brand-900/70 dark:bg-brand-950/50 dark:text-gray-100;
+  overflow-wrap: anywhere;
+}
+.md-body pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+}
+.md-body blockquote {
+  @apply rounded-lg border border-brand-200 bg-brand-50/50 px-3.5 py-2 text-gray-700 dark:border-brand-900 dark:bg-brand-950/40 dark:text-gray-300;
+}
+.md-body blockquote > :first-child {
+  margin-top: 0;
+}
+.md-body blockquote > :last-child {
+  margin-bottom: 0;
+}
+.md-body table {
+  border-collapse: collapse;
+  display: block;
+  overflow-x: auto;
+}
+.md-body :is(th, td) {
+  @apply border border-gray-200 px-2.5 py-1.5 text-sm dark:border-gray-800;
+}
+.md-body th {
+  @apply bg-gray-50 text-left dark:bg-gray-900;
+}
+/* an identifier in a table stays whole: the table scrolls sideways instead */
+.md-body :is(th, td) code {
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+.md-body hr {
+  @apply my-4 border-gray-200 dark:border-gray-800;
+}
+
+/* ---------- Tabbed code groups: <div class="code-group"> around fenced blocks ---------- */
+
+.code-group {
+  @apply my-2.5 overflow-hidden rounded-lg border border-gray-200 dark:border-gray-800;
+}
+.code-group .tab-strip {
+  @apply flex flex-wrap gap-1 border-b border-gray-200 bg-gray-50 px-1.5 pt-1.5 dark:border-gray-800 dark:bg-gray-900;
+}
+.code-group .tab-strip button {
+  @apply rounded-t-md px-2.5 py-1 text-[13px] text-gray-500 transition-colors hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100;
+  border-bottom: 2px solid transparent;
+}
+.code-group .tab-strip button[aria-selected="true"] {
+  @apply border-b-brand-600 font-medium text-brand-700 dark:border-b-brand-400 dark:text-brand-300;
+}
+.code-group .astro-code {
+  @apply my-0 rounded-none border-0;
+}
+/* before the script runs, and without it, every block shows under a hairline */
+.code-group:not([data-ready]) .astro-code + .astro-code {
+  @apply border-t border-gray-200 dark:border-gray-800;
+}
+.code-group[data-ready] .astro-code[hidden] {
+  display: none;
+}

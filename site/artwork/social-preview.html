@@ -1,0 +1,102 @@
+<!doctype html>
+<!-- GitHub social preview, 1280 x 640. Render: see README.md in this folder. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="artwork.css" />
+    <style>
+      .canvas {
+        width: 1280px;
+        height: 640px;
+      }
+      .mark {
+        position: absolute;
+        left: 96px;
+        top: 96px;
+      }
+      h1 {
+        position: absolute;
+        left: 92px;
+        top: 168px;
+        font-size: 168px;
+        font-weight: 300;
+        letter-spacing: -0.02em;
+        line-height: 1;
+      }
+      .name {
+        position: absolute;
+        left: 98px;
+        top: 356px;
+        font-family: var(--mono);
+        font-size: 34px;
+        font-weight: 500;
+      }
+      .line {
+        position: absolute;
+        left: 98px;
+        top: 418px;
+        width: 760px;
+        font-family: var(--mono);
+        font-size: 23px;
+        line-height: 1.5;
+        color: var(--ink-soft);
+      }
+      .events {
+        position: absolute;
+        right: 96px;
+        top: 150px;
+        width: 330px;
+        font-family: var(--mono);
+        font-size: 19px;
+        line-height: 1;
+      }
+      .events div {
+        display: flex;
+        justify-content: space-between;
+        padding: 13px 18px;
+        border: 1.5px solid var(--violet-dim);
+        border-radius: 10px;
+        margin-bottom: 12px;
+        color: var(--ink-soft);
+      }
+      .events div b {
+        font-weight: 400;
+        color: var(--string);
+      }
+      .events div.done {
+        border-color: var(--violet);
+        background: rgba(124, 77, 255, 0.16);
+        color: var(--ink);
+      }
+      .events div.stop {
+        border-color: var(--ink-faint);
+        color: var(--ink);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="canvas">
+      <div class="hatch" style="right: -220px; top: -260px; width: 760px; height: 760px"></div>
+      <div class="hatch flip" style="left: -300px; bottom: -420px; width: 820px; height: 820px"></div>
+
+      <div class="stream mark">
+        <i class="delta" style="width: 22px"></i>
+        <i class="delta" style="width: 38px"></i>
+        <i class="delta" style="width: 30px"></i>
+        <i style="width: 120px"></i>
+        <i class="stop"></i>
+      </div>
+      <h1>MMSP</h1>
+      <p class="name">Model Message Stream Protocol</p>
+      <p class="line">One message format and one streaming grammar for every model provider.</p>
+
+      <div class="events">
+        <div><span>delta</span><b>text.delta</b></div>
+        <div><span>delta</span><b>text.delta</b></div>
+        <div><span>delta</span><b>text.delta</b></div>
+        <div class="done"><span>delta</span><b>text.done</b></div>
+        <div class="stop"><span>stop</span><span>usage</span></div>
+      </div>
+    </div>
+  </body>
+</html>

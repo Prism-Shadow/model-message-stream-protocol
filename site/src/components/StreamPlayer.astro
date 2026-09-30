@@ -1,0 +1,120 @@
+---
+// The overview's opening: a recorded stream replayed event by event, next to the message it
+// adds up to. Built with the finished state, so it reads without JavaScript or motion.
+import { SCENARIOS, renderEvent, renderMessage } from "../shared/stream-demo";
+
+const first = SCENARIOS[0];
+---
+
+<div
+  class="overflow-hidden rounded-xl border border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900"
+  data-stream-player
+>
+  <div
+    class="flex flex-wrap items-center gap-1 border-b border-gray-200 px-2 pt-2 dark:border-gray-800"
+    role="tablist"
+    aria-label="Recorded stream"
+  >
+    {
+      SCENARIOS.map((scenario, index) => (
+        <button
+          type="button"
+          role="tab"
+          data-scenario={scenario.id}
+          aria-selected={index === 0 ? "true" : "false"}
+          class="rounded-t-md border-b-2 border-transparent px-2.5 py-1.5 text-[13px] text-gray-500 transition-colors hover:text-gray-900 aria-selected:border-brand-600 aria-selected:font-medium aria-selected:text-brand-700 dark:text-gray-400 dark:hover:text-gray-100 dark:aria-selected:border-brand-400 dark:aria-selected:text-brand-300"
+        >
+          {scenario.label}
+        </button>
+      ))
+    }
+    <button
+      type="button"
+      data-replay
+      class="mb-1.5 ml-auto rounded-md border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-300 dark:hover:bg-gray-800"
+    >
+      Replay
+    </button>
+  </div>
+
+  <p class="mono border-b border-gray-200 px-3 py-2 text-[12.5px] text-gray-600 dark:border-gray-800 dark:text-gray-400">
+    <span class="font-medium text-gray-900 dark:text-gray-100" data-model>{first.model}</span>
+    <span class="text-gray-400 dark:text-gray-500">, asked{" "}</span>
+    <span data-prompt>{JSON.stringify(first.prompt)}</span>
+  </p>
+
+  <div class="grid gap-px bg-gray-200 lg:grid-cols-[1.35fr_1fr] dark:bg-gray-800">
+    <div class="min-w-0 bg-gray-50 p-3 dark:bg-gray-900">
+      <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400">Events, as they arrive</h3>
+      <ol class="mt-2 min-h-[15.5rem] space-y-px" data-events set:html={first.events.map(renderEvent).join("")} />
+    </div>
+    <div class="min-w-0 bg-gray-50 p-3 dark:bg-gray-900">
+      <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400">The message they add up to</h3>
+      <div class="mono mt-2 text-[12.5px] leading-5" data-message set:html={renderMessage(first.events, first.events.length)} />
+    </div>
+  </div>
+</div>
+
+<script>
+  import { SCENARIOS, renderEvent, renderMessage } from "../shared/stream-demo";
+
+  const STEP_MS = 420;
+
+  for (const player of document.querySelectorAll<HTMLElement>("[data-stream-player]")) {
+    const events = player.querySelector<HTMLElement>("[data-events]")!;
+    const message = player.querySelector<HTMLElement>("[data-message]")!;
+    const model = player.querySelector<HTMLElement>("[data-model]")!;
+    const prompt = player.querySelector<HTMLElement>("[data-prompt]")!;
+    const tabs = [...player.querySelectorAll<HTMLButtonElement>("[data-scenario]")];
+    const still = matchMedia("(prefers-reduced-motion: reduce)");
+    let scenario = SCENARIOS[0];
+    let timer: number | undefined;
+
+    const show = (count: number) => {
+      events.innerHTML = scenario.events.slice(0, count).map(renderEvent).join("");
+      message.innerHTML = renderMessage(scenario.events, count);
+    };
+
+    const play = () => {
+      window.clearInterval(timer);
+      if (still.matches) {
+        show(scenario.events.length);
+        return;
+      }
+      let count = 0;
+      show(count);
+      timer = window.setInterval(() => {
+        count += 1;
+        show(count);
+        if (count >= scenario.events.length) {
+          window.clearInterval(timer);
+        }
+      }, STEP_MS);
+    };
+
+    for (const tab of tabs) {
+      tab.addEventListener("click", () => {
+        scenario = SCENARIOS.find((candidate) => candidate.id === tab.dataset.scenario)!;
+        for (const other of tabs) {
+          other.setAttribute("aria-selected", String(other === tab));
+        }
+        model.textContent = scenario.model;
+        prompt.textContent = JSON.stringify(scenario.prompt);
+        play();
+      });
+    }
+    player.querySelector("[data-replay]")!.addEventListener("click", play);
+
+    // the one motion of the page: the stream plays once, when it first comes into view
+    const seen = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          seen.disconnect();
+          play();
+        }
+      },
+      { threshold: 0.4 },
+    );
+    seen.observe(player);
+  }
+</script>

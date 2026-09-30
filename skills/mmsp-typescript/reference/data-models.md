@@ -148,7 +148,7 @@ group  := K.delta+ K.done            K = text | thinking | tool_call | inline_da
 
 - **One item per delta event.** Taken in order, the items of the `delta` events form groups: one or more `K.delta` fragments, then one `K.done` holding the complete item — the concatenated text, thinking, or bytes; the parsed tool call; the vector.
 - **The `.done` items are the message.** In stream order, with the `stop` event's `usage_metadata` and `finish_reason`, they form the assistant message that `streamingResponseStateful` records in history.
-- **Groups never interleave.** A group's `.done` arrives before the next group's first `.delta`, so every fragment belongs to the group currently open and no id is needed to attribute it. When a provider streams several items at once, such as parallel tool calls, MMSP holds the later item back until the earlier one is done.
+- **Groups never interleave.** A group's `.done` arrives before the next group's first `.delta`, so every fragment belongs to the group currently open and no id is needed to attribute it.
 - **`stop` is always last.** It arrives exactly once, carries no content items, and always carries non-null `usage_metadata` and `finish_reason`. While events are `delta`, the response is still running; after `stop`, it has finished and nothing follows. Read usage from the `stop` event; do not add it up across events.
 - **Fidelity appears at most once per item.** Within a group at most one `.delta` carries a non-empty `fidelity`, and it equals the `.done` item's `fidelity`; when no fragment carries one, neither does the `.done` item. That fragment may be otherwise empty, such as a thinking signature arriving after the thinking text.
 

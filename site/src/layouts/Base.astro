@@ -1,0 +1,110 @@
+---
+import "../styles/global.css";
+import Nav from "../components/Nav.astro";
+import Footer from "../components/Footer.astro";
+import { SITE_DESCRIPTION, SITE_NAME } from "../shared/site";
+
+interface Props {
+  title: string;
+  description?: string;
+  // the entry of the top bar the page belongs to
+  active: string;
+}
+
+const { title, description = SITE_DESCRIPTION, active } = Astro.props;
+const pageTitle = title === SITE_NAME ? `${SITE_NAME}: Model Message Stream Protocol` : `${title} | ${SITE_NAME}`;
+const canonical = new URL(Astro.url.pathname, Astro.site);
+const image = new URL("/social-preview.png", Astro.site);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+    <title>{pageTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={image} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <!-- the stored or system theme, applied before first paint -->
+    <script is:inline>
+      try {
+        var stored = localStorage.getItem("mmsp-site.theme");
+        if (stored === "dark" || (stored !== "light" && matchMedia("(prefers-color-scheme: dark)").matches))
+          document.documentElement.classList.add("dark");
+      } catch {}
+    </script>
+  </head>
+  <body class="flex min-h-screen flex-col">
+    <Nav active={active} />
+    <main class="flex-1">
+      <slot />
+    </main>
+    <Footer />
+    <script>
+      for (const toggle of document.querySelectorAll("[data-theme-toggle]")) {
+        toggle.addEventListener("click", () => {
+          const dark = document.documentElement.classList.toggle("dark");
+          try {
+            localStorage.setItem("mmsp-site.theme", dark ? "dark" : "light");
+          } catch {}
+        });
+      }
+
+      // <div class="code-group"> around fenced blocks: one tab per block, named by its language,
+      // or by data-labels="Python,TypeScript" where the language does not tell the blocks apart
+      const LABELS: Record<string, string> = {
+        python: "Python",
+        typescript: "TypeScript",
+        bash: "Shell",
+        json: "JSON",
+      };
+      for (const group of document.querySelectorAll<HTMLElement>(".code-group")) {
+        const blocks = [...group.querySelectorAll<HTMLElement>(":scope > pre")];
+        if (blocks.length < 2) continue;
+        const named = group.dataset.labels?.split(",") ?? [];
+        const labels = blocks.map((block, index) => {
+          const language = block.dataset.language ?? "";
+          return named[index] ?? LABELS[language] ?? language;
+        });
+        const strip = document.createElement("div");
+        strip.className = "tab-strip";
+        strip.setAttribute("role", "tablist");
+        const select = (chosen: number) => {
+          blocks.forEach((block, index) => (block.hidden = index !== chosen));
+          [...strip.children].forEach((tab, index) =>
+            tab.setAttribute("aria-selected", String(index === chosen)),
+          );
+        };
+        labels.forEach((label, index) => {
+          const tab = document.createElement("button");
+          tab.type = "button";
+          tab.setAttribute("role", "tab");
+          tab.textContent = label;
+          tab.addEventListener("click", () => {
+            // the language chosen in one group is chosen in every group of the page
+            for (const other of document.querySelectorAll<HTMLElement>(".code-group")) {
+              other.dispatchEvent(new CustomEvent("choose", { detail: label }));
+            }
+          });
+          strip.append(tab);
+        });
+        group.addEventListener("choose", (event) => {
+          const chosen = labels.indexOf((event as CustomEvent).detail);
+          if (chosen >= 0) select(chosen);
+        });
+        group.prepend(strip);
+        group.dataset.ready = "";
+        select(0);
+      }
+    </script>
+  </body>
+</html>

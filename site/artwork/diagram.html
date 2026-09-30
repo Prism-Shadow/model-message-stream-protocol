@@ -1,0 +1,179 @@
+<!doctype html>
+<!-- Concept diagram for the README, 1500 x 780 rendered at 2x. Render: see README.md in this folder. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="artwork.css" />
+    <style>
+      .canvas {
+        width: 1500px;
+        height: 780px;
+        font-family: var(--mono);
+      }
+      svg.lens {
+        position: absolute;
+        inset: 0;
+      }
+      .pill {
+        position: absolute;
+        padding: 15px 26px;
+        border: 2px solid var(--violet);
+        border-radius: 999px;
+        background: linear-gradient(90deg, #1b1140, #000 70%);
+        font-size: 25px;
+        font-weight: 500;
+        line-height: 1;
+      }
+      pre {
+        position: absolute;
+        font-family: var(--mono);
+        font-size: 14.5px;
+        line-height: 1.45;
+        color: #e6e6ee;
+      }
+      pre .n {
+        color: var(--number);
+      }
+      pre .s {
+        color: var(--string);
+      }
+      pre .d {
+        color: var(--ink-faint);
+      }
+      .title {
+        position: absolute;
+        inset: 100px 0 auto 0;
+        text-align: center;
+        font-size: 60px;
+        font-weight: 700;
+        line-height: 1;
+      }
+      .subtitle {
+        position: absolute;
+        inset: 176px 0 auto 0;
+        text-align: center;
+        font-size: 16px;
+        color: var(--ink-soft);
+      }
+      .call {
+        position: absolute;
+        inset: 312px 0 auto 0;
+        text-align: center;
+        font-size: 22px;
+      }
+      .call em {
+        font-style: italic;
+      }
+      .providers {
+        position: absolute;
+        left: 50%;
+        top: 392px;
+        width: 520px;
+        transform: translateX(-50%);
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 12px 14px;
+        font-size: 17px;
+      }
+      .providers span {
+        padding: 8px 15px;
+        border: 1.5px solid rgba(255, 255, 255, 0.55);
+        border-radius: 999px;
+        line-height: 1;
+      }
+      .events {
+        position: absolute;
+        right: 72px;
+        top: 186px;
+        width: 250px;
+        font-size: 16px;
+      }
+      .events div {
+        display: flex;
+        justify-content: space-between;
+        padding: 11px 16px;
+        border: 1.5px solid var(--violet-dim);
+        border-radius: 9px;
+        margin-bottom: 10px;
+        line-height: 1;
+        color: var(--ink-soft);
+        background: #000;
+      }
+      .events div b {
+        font-weight: 400;
+        color: var(--string);
+      }
+      .events div.done {
+        border-color: var(--violet);
+        background: #1b1140;
+        color: var(--ink);
+      }
+      .events div.stop {
+        border-color: var(--ink-faint);
+        color: var(--ink);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="canvas">
+      <svg class="lens" viewBox="0 0 1500 780" width="1500" height="780" aria-hidden="true">
+        <defs>
+          <linearGradient id="band" x1="0" x2="1" y1="0" y2="0">
+            <stop offset="0" stop-color="#000" />
+            <stop offset="0.3" stop-color="#4a2bb0" />
+            <stop offset="0.5" stop-color="#6a41dc" />
+            <stop offset="0.7" stop-color="#4a2bb0" />
+            <stop offset="1" stop-color="#000" />
+          </linearGradient>
+        </defs>
+        <path
+          fill="url(#band)"
+          d="M 270 90 C 470 90, 590 262, 750 262 C 910 262, 1030 90, 1210 90 L 1210 640 C 1030 640, 910 506, 750 506 C 590 506, 470 640, 270 640 Z"
+        />
+      </svg>
+
+      <div class="pill" style="left: 72px; top: 96px">UniConfig</div>
+      <pre style="left: 84px; top: 176px">{
+  "max_tokens": <span class="n">1024</span>,
+  "tools": [<span class="d">...</span>],
+  "thinking_level": <span class="s">"high"</span>
+}</pre>
+
+      <div class="pill" style="left: 72px; top: 420px">UniMessage</div>
+      <pre style="left: 84px; top: 500px">{
+  "role": <span class="s">"user"</span>,
+  "content_items": [{
+    "type": <span class="s">"text.done"</span>,
+    "text": <span class="s">"Who am I"</span>
+  }]
+}</pre>
+
+      <p class="title">MMSP</p>
+      <p class="subtitle">Model Message Stream Protocol</p>
+      <p class="call"><em>async for</em> event <em>in</em> client.streaming_response_stateful</p>
+      <div class="providers">
+        <span>Claude</span><span>GPT</span><span>Gemini</span><span>DeepSeek</span>
+        <span>Kimi</span><span>GLM</span><span>MiniMax</span><span>Qwen</span>
+      </div>
+
+      <div class="pill" style="right: 72px; top: 96px">UniEvent</div>
+      <div class="events">
+        <div><span>delta</span><b>text.delta</b></div>
+        <div><span>delta</span><b>text.delta</b></div>
+        <div><span>delta</span><b>text.delta</b></div>
+        <div class="done"><span>delta</span><b>text.done</b></div>
+        <div class="stop"><span>stop</span><span>usage</span></div>
+      </div>
+      <pre style="right: 72px; top: 468px; width: 250px">{
+  "event_type": <span class="s">"stop"</span>,
+  "content_items": [],
+  "usage_metadata": {
+    "prompt_tokens": <span class="n">12</span>,
+    "response_tokens": <span class="n">8</span>
+  },
+  "finish_reason": <span class="s">"stop"</span>
+}</pre>
+    </div>
+  </body>
+</html>
