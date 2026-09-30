@@ -27,7 +27,6 @@ import {
   EventType,
   FinishReason,
   PromptCaching,
-  ThinkingDeltaItem,
   ThinkingLevel,
   ToolChoice,
   UniConfig,
@@ -432,10 +431,20 @@ export class GeminiOfficialClient extends LLMClient {
 
         thought = null;
         if ("fidelity" in item && item.fidelity?.signature) {
-          // Histories recorded through generateContent carry the signature on the text,
-          // image or call it came with and hold no thinking item; the Interactions API takes
-          // it back as a thought step in front of that item (verified live 2026-09-16).
-          steps.push({ type: "thought", signature: item.fidelity.signature });
+          // A signature rides on the text, image or call its thought step signs. The summary of
+          // that step, when the history holds one, is the unsigned thought right in front, which
+          // takes it back; otherwise the Interactions API takes it as a thought step of its own in
+          // front of the item (verified live 2026-09-16).
+          const last = steps[steps.length - 1];
+          if (
+            steps.length > messageStart &&
+            last.type === "thought" &&
+            !last.signature
+          ) {
+            last.signature = item.fidelity.signature;
+          } else {
+            steps.push({ type: "thought", signature: item.fidelity.signature });
+          }
           content = null;
           // A thought summary such a history holds is unsigned, and a turn opening with an unsigned
           // thought is rejected ("Request contains an invalid argument") while the same signature
@@ -619,12 +628,15 @@ export class GeminiOfficialClient extends LLMClient {
           fidelity: { item_id: itemId },
         });
       } else if (delta.type === "thought_signature") {
-        // the signature is the last delta of its thought step, and belongs to the item the
-        // step ends with, an image one included
+        // A thought step's signature signs the step after it, which a call step shows by repeating
+        // it, so it goes to that step's item as generateContent puts it on the part after the thought.
         contentItems.push({
           type: "thinking.delta",
           thinking: "",
-          fidelity: { item_id: itemId, signature: delta.signature },
+          fidelity: {
+            item_id: String(modelOutput.index + 1),
+            signature: delta.signature,
+          },
         });
       } else if (delta.type === "arguments_delta") {
         contentItems.push({
@@ -818,52 +830,8 @@ export class GeminiOfficialClient extends LLMClient {
       { signal: options.signal },
     );
 
-    // A thought step that summarized nothing streams its signature alone, and every response opens with one
-    // when no summary is asked for (verified live 2026-09-30). Its signature rides on the first delta of the
-    // text, image or call the next step opens instead of making an empty thinking item; the history transform
-    // takes it back as a thought step in front of that item.
-    let summarizedStep: number | undefined;
-    let held: ThinkingDeltaItem | undefined;
     for await (const event of stream) {
-      const uniEvent = this.transformModelOutputToUniEvent(event);
-      if (
-        event.event_type === "step.delta" &&
-        event.delta.type === "thought_summary"
-      ) {
-        summarizedStep = event.index;
-      } else if (
-        event.event_type === "step.delta" &&
-        event.delta.type === "thought_signature" &&
-        event.index !== summarizedStep
-      ) {
-        held = uniEvent.content_items[0] as ThinkingDeltaItem;
-        continue;
-      }
-
-      const contentItems = uniEvent.content_items;
-      if (held !== undefined && contentItems.length > 0) {
-        const first = contentItems[0];
-        if (
-          first.type === "text.delta" ||
-          first.type === "inline_data.delta" ||
-          first.type === "tool_call.delta"
-        ) {
-          first.fidelity = {
-            ...first.fidelity,
-            signature: held.fidelity?.signature,
-          };
-        } else {
-          // a thought step follows, which signs its own summary
-          contentItems.unshift(held);
-        }
-        held = undefined;
-      } else if (held !== undefined && uniEvent.event_type === "stop") {
-        // nothing followed the thought, so its signature stays on a thinking item of its own
-        contentItems.unshift(held);
-        held = undefined;
-      }
-
-      yield uniEvent;
+      yield this.transformModelOutputToUniEvent(event);
     }
   }
 

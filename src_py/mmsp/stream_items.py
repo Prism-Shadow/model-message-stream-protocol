@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from .errors import StreamProtocolError, parse_tool_call_arguments
-from .types import ContentItem, DeltaContentItem, EventContentItem, Fidelity
+from .types import DeltaContentItem, EventContentItem, Fidelity
 
 
 @dataclass(frozen=True)
@@ -78,6 +78,8 @@ class _Item:
     # the growing field of every delta that went out
     chunks: list[Any] = field(default_factory=list)
     fidelity: Fidelity | None = None
+    # a delta that carried nothing but fidelity ahead of the item's content, without its fidelity
+    ahead: dict[str, Any] | None = None
 
 
 def _is_empty(kind: _Kind, fields: dict[str, Any]) -> bool:
@@ -94,7 +96,9 @@ class StreamItems:
     A delta belongs to the next item when it carries another `fidelity.item_id`, is of another kind,
     or begins an item by itself (a call's name, an image, a vector). Otherwise it continues the item
     streaming now: a delta without an id does, and so do a call's arguments whatever id a gateway
-    puts on them. Fidelity sent alone under the item's id is that item's, whatever kind carries it.
+    puts on them. Fidelity sent alone under the item's id is that item's, whatever kind carries it,
+    and fidelity sent alone ahead of the item's content waits for it; with no content under its id,
+    it goes out as an item of the kind that carried it.
 
     Every delta goes out as it arrives, without its `item_id`. A done item is the item's first delta
     with the growing field replaced by the join of every delta's, plus the item's fidelity.
@@ -122,7 +126,10 @@ class StreamItems:
 
         out: list[EventContentItem] = []
         item = self._item
-        if (
+        if item is not None and item.first is None and item.ahead is not None and item_id and item_id == item.id:
+            # the content that fidelity sent ahead of under this id waited for, whatever kind it is
+            item.kind = kind
+        elif (
             item is not None
             and item.first is not None
             and item.kind != kind
@@ -155,27 +162,41 @@ class StreamItems:
             # carries nothing; the item is streaming all the same
             return out
 
-        if item.first is None:
+        if item.first is None and item.ahead is not None and item.ahead["type"] == fields["type"]:
+            # content of the kind that carried the fidelity: the fidelity goes out first, as it came
+            out.append(self._release(item))
+        elif item.first is None:
+            if _is_empty(spec, fields) and not spec.header:
+                # fidelity alone waits for the content it came ahead of
+                item.ahead = fields
+                return out
+
             if not all(fields[header] for header in spec.header):
                 raise self._protocol_error(
                     f"the first {fields['type']} of {name} must carry the {' and the '.join(spec.header)}"
                 )
 
             item.first = fields
+            fidelity = item.fidelity or {}
 
         item.chunks.append(fields[spec.field])
         out.append({**fields, "fidelity": fidelity} if fidelity else fields)
         return out
 
-    def end(self) -> list[ContentItem]:
+    def end(self) -> list[EventContentItem]:
         """The next item began, or the stream ended.
 
-        Returns the done item of the item streaming now, or nothing when no delta of it went out.
+        Returns the done item of the item streaming now, or nothing when no delta of it went out; fidelity
+        that no content followed goes out first, as a delta of the kind that carried it.
         """
         item = self._item
         self._item = None
+        out: list[EventContentItem] = []
+        if item is not None and item.first is None and item.ahead is not None:
+            out.append(self._release(item))
+
         if item is None or item.first is None:
-            return []
+            return out
 
         spec = _KINDS[item.kind]
         joined = spec.join(item.chunks)
@@ -187,7 +208,16 @@ class StreamItems:
         if item.fidelity is not None:
             done["fidelity"] = item.fidelity
 
-        return [done]
+        return [*out, done]
+
+    @staticmethod
+    def _release(item: _Item) -> EventContentItem:
+        """Sends the fidelity an item held ahead of its content as the item's first delta, of the kind that carried it."""
+        ahead = item.ahead
+        item.kind = ahead["type"].partition(".")[0]
+        item.first = ahead
+        item.chunks.append(ahead[_KINDS[item.kind].field])
+        return {**ahead, "fidelity": item.fidelity}
 
     def _begins(self, item: _Item, kind: str, item_id: str | None, fields: dict[str, Any]) -> bool:
         """Whether a delta begins the next item rather than continuing the one streaming now."""

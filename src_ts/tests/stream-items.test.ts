@@ -242,7 +242,7 @@ describe("fidelity", () => {
   });
 
   test("fidelity sent alone under the item's id is that item's, whatever kind carries it", () => {
-    // an Interactions thought step: an image, then the signature the step ends with
+    // an image thought, then the signature that closes it
     const items = new StreamItems("Test");
     items.delta(data("0", "draft", "image/png", "inline_thinking.delta"));
     expect(items.delta(thinking("0", "", { signature: "sig" }))).toEqual([
@@ -260,6 +260,49 @@ describe("fidelity", () => {
         mime_type: "image/png",
         fidelity: { signature: "sig" },
       },
+    ]);
+  });
+
+  test("fidelity sent alone ahead of an item's content waits for it, whatever kind it is", () => {
+    // an Interactions thought signature, sent under the id of the step it signs
+    const items = new StreamItems("Test");
+    expect(items.delta(thinking("1", "", { signature: "sig" }))).toEqual([]);
+    expect(items.delta(call("1", "get_weather", "call_1", "{}"))).toEqual([
+      {
+        type: "tool_call.delta",
+        name: "get_weather",
+        arguments: "{}",
+        tool_call_id: "call_1",
+        fidelity: { signature: "sig" },
+      },
+    ]);
+    expect(items.end()).toEqual([
+      {
+        type: "tool_call.done",
+        name: "get_weather",
+        arguments: {},
+        tool_call_id: "call_1",
+        fidelity: { signature: "sig" },
+      },
+    ]);
+  });
+
+  test("fidelity sent ahead of no content goes out as an item of the kind that carried it", () => {
+    // a reasoning item with no summary, then the message
+    let items = new StreamItems("Test");
+    const fidelity = { encrypted_content: "x" };
+    expect(items.delta(thinking("rs_1", "", fidelity))).toEqual([]);
+    expect(items.delta(text("msg_1", "a"))).toEqual([
+      { type: "thinking.delta", thinking: "", fidelity },
+      { type: "thinking.done", thinking: "", fidelity },
+      { type: "text.delta", text: "a" },
+    ]);
+
+    items = new StreamItems("Test");
+    items.delta(thinking("1", "", { signature: "sig" }));
+    expect(items.end()).toEqual([
+      { type: "thinking.delta", thinking: "", fidelity: { signature: "sig" } },
+      { type: "thinking.done", thinking: "", fidelity: { signature: "sig" } },
     ]);
   });
 });

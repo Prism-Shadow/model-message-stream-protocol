@@ -201,7 +201,7 @@ def test_two_different_fidelity_payloads_in_one_item_raise_naming_the_item():
 
 
 def test_fidelity_sent_alone_under_the_items_id_is_that_items_whatever_kind_carries_it():
-    # an Interactions thought step: an image, then the signature the step ends with
+    # an image thought, then the signature that closes it
     items = StreamItems("Test")
     items.delta(data("0", "draft", "image/png", "inline_thinking.delta"))
     assert items.delta(thinking("0", "", {"signature": "sig"})) == [
@@ -209,6 +209,49 @@ def test_fidelity_sent_alone_under_the_items_id_is_that_items_whatever_kind_carr
     ]
     assert items.end() == [
         {"type": "inline_thinking.done", "data": b"draft", "mime_type": "image/png", "fidelity": {"signature": "sig"}}
+    ]
+
+
+def test_fidelity_sent_alone_ahead_of_an_items_content_waits_for_it_whatever_kind_it_is():
+    # an Interactions thought signature, sent under the id of the step it signs
+    items = StreamItems("Test")
+    assert items.delta(thinking("1", "", {"signature": "sig"})) == []
+    assert items.delta(call("1", "get_weather", "call_1", "{}")) == [
+        {
+            "type": "tool_call.delta",
+            "name": "get_weather",
+            "arguments": "{}",
+            "tool_call_id": "call_1",
+            "fidelity": {"signature": "sig"},
+        }
+    ]
+    assert items.end() == [
+        {
+            "type": "tool_call.done",
+            "name": "get_weather",
+            "arguments": {},
+            "tool_call_id": "call_1",
+            "fidelity": {"signature": "sig"},
+        }
+    ]
+
+
+def test_fidelity_sent_ahead_of_no_content_goes_out_as_an_item_of_the_kind_that_carried_it():
+    # a reasoning item with no summary, then the message
+    items = StreamItems("Test")
+    fidelity = {"encrypted_content": "x"}
+    assert items.delta(thinking("rs_1", "", fidelity)) == []
+    assert items.delta(text("msg_1", "a")) == [
+        {"type": "thinking.delta", "thinking": "", "fidelity": fidelity},
+        {"type": "thinking.done", "thinking": "", "fidelity": fidelity},
+        {"type": "text.delta", "text": "a"},
+    ]
+
+    items = StreamItems("Test")
+    items.delta(thinking("1", "", {"signature": "sig"}))
+    assert items.end() == [
+        {"type": "thinking.delta", "thinking": "", "fidelity": {"signature": "sig"}},
+        {"type": "thinking.done", "thinking": "", "fidelity": {"signature": "sig"}},
     ]
 
 

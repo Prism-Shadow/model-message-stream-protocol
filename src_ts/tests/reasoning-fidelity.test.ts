@@ -569,6 +569,42 @@ function generateContentStopChunk(parts: object[]): unknown {
   };
 }
 
+// A thought step's signature streams onto the item it signs, and the summary in front takes it back.
+test("gemini replays a signed item behind its summary as one signed thought", async () => {
+  const client = new AutoLLMClient({
+    model: "gemini-3.8-flash",
+    apiKey: "test-key",
+  });
+  expect(
+    (client as unknown as { _client: object })._client.constructor.name,
+  ).toBe("GeminiOfficialClient");
+  const modelInput = await transformHistory(client, [
+    userMessage(),
+    {
+      role: "assistant",
+      content_items: [
+        { type: "thinking.done", thinking: "Let me think." },
+        {
+          type: "text.done",
+          text: "Here is the memo.",
+          fidelity: { signature: "sig-1" },
+        },
+      ],
+    },
+  ]);
+  expect(modelInput.slice(1)).toEqual([
+    {
+      type: "thought",
+      summary: [{ type: "text", text: "Let me think." }],
+      signature: "sig-1",
+    },
+    {
+      type: "model_output",
+      content: [{ type: "text", text: "Here is the memo." }],
+    },
+  ]);
+});
+
 function createGenerateContentClient(): AutoLLMClient {
   const client = new AutoLLMClient({
     model: "gemini-3.8-flash",

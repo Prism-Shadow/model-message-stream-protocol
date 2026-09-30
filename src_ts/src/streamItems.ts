@@ -94,6 +94,8 @@ interface Item {
   // the growing field of every delta that went out
   chunks: unknown[];
   fidelity?: Fidelity;
+  // a delta that carried nothing but fidelity ahead of the item's content, without its fidelity
+  ahead?: Fields;
 }
 
 /**
@@ -116,7 +118,8 @@ function isEmpty(kind: Kind, fields: Fields): boolean {
  * kind, or begins an item by itself (a call's name, an image, a vector). Otherwise it continues
  * the item streaming now: a delta without an id does, and so do a call's arguments whatever id a
  * gateway puts on them. Fidelity sent alone under the item's id is that item's, whatever kind
- * carries it.
+ * carries it, and fidelity sent alone ahead of the item's content waits for it; with no content
+ * under its id, it goes out as an item of the kind that carried it.
  *
  * Every delta goes out as it arrives, without its `item_id`. A done item is the item's first
  * delta with the growing field replaced by the join of every delta's, plus the item's fidelity.
@@ -148,6 +151,14 @@ export class StreamItems {
     const out: EventContentItem[] = [];
     let item = this.item;
     if (
+      item?.first === undefined &&
+      item?.ahead !== undefined &&
+      itemId &&
+      itemId === item.id
+    ) {
+      // the content that fidelity sent ahead of under this id waited for, whatever kind it is
+      item.kind = kind;
+    } else if (
       item?.first !== undefined &&
       item.kind !== kind &&
       itemId &&
@@ -182,13 +193,22 @@ export class StreamItems {
       // carries nothing; the item is streaming all the same
       return out;
     }
-    if (item.first === undefined) {
+    if (item.first === undefined && item.ahead?.type === fields.type) {
+      // content of the kind that carried the fidelity: the fidelity goes out first, as it came
+      out.push(this.release(item));
+    } else if (item.first === undefined) {
+      if (isEmpty(spec, fields) && spec.header.length === 0) {
+        // fidelity alone waits for the content it came ahead of
+        item.ahead = fields;
+        return out;
+      }
       if (!spec.header.every((field) => fields[field])) {
         throw this.protocolError(
           `the first ${fields.type} of ${name} must carry the ${spec.header.join(" and the ")}`,
         );
       }
       item.first = fields;
+      fidelity = item.fidelity;
     }
     item.chunks.push(fields[spec.field]);
     out.push((fidelity ? { ...fields, fidelity } : fields) as EventContentItem);
@@ -197,13 +217,18 @@ export class StreamItems {
 
   /**
    * The next item began, or the stream ended: returns the done item of the item streaming now,
-   * or nothing when no delta of it went out.
+   * or nothing when no delta of it went out; fidelity that no content followed goes out first, as
+   * a delta of the kind that carried it.
    */
-  end(): ContentItem[] {
+  end(): EventContentItem[] {
     const item = this.item;
     this.item = null;
+    const out: EventContentItem[] = [];
+    if (item?.first === undefined && item?.ahead !== undefined) {
+      out.push(this.release(item));
+    }
     if (item === null || item.first === undefined) {
-      return [];
+      return out;
     }
 
     const spec = KINDS[item.kind];
@@ -218,7 +243,19 @@ export class StreamItems {
     if (item.fidelity !== undefined) {
       done.fidelity = item.fidelity;
     }
-    return [done as ContentItem];
+    return [...out, done as ContentItem];
+  }
+
+  /**
+   * Sends the fidelity an item held ahead of its content as the item's first delta, of the kind
+   * that carried it.
+   */
+  private release(item: Item): EventContentItem {
+    const ahead = item.ahead as Fields;
+    item.kind = ahead.type.slice(0, -".delta".length);
+    item.first = ahead;
+    item.chunks.push(ahead[KINDS[item.kind].field]);
+    return { ...ahead, fidelity: item.fidelity } as EventContentItem;
   }
 
   /**

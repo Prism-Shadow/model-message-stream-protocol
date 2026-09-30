@@ -485,6 +485,29 @@ async def test_gemini_replays_a_bytes_signature_on_a_thinking_item_as_base64():
     }
 
 
+@pytest.mark.asyncio
+async def test_gemini_replays_a_signed_item_behind_its_summary_as_one_signed_thought():
+    """A thought step's signature streams onto the item it signs, and the summary in front takes it back."""
+    client = AutoLLMClient(model="gemini-3.8-flash", api_key="test-key")
+    assert client._client.__class__.__name__ == "GeminiOfficialClient"  # noqa: SLF001
+    history = [
+        _user_message(),
+        {
+            "role": "assistant",
+            "content_items": [
+                {"type": "thinking.done", "thinking": "Let me think."},
+                {"type": "text.done", "text": "Here is the memo.", "fidelity": {"signature": "sig-1"}},
+            ],
+        },
+    ]
+
+    model_input = await _transform_history(client, history)
+    assert model_input[1:] == [
+        {"type": "thought", "summary": [{"type": "text", "text": "Let me think."}], "signature": "sig-1"},
+        {"type": "model_output", "content": [{"type": "text", "text": "Here is the memo."}]},
+    ]
+
+
 class _FakeGenerateContentModels:
     """Stands in for the Gemini SDK's models resource, whose generate_content_stream() returns a stream."""
 

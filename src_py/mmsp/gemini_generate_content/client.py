@@ -373,8 +373,8 @@ class GeminiGenerateContentClient(LLMClient):
             if msg["role"] == "assistant":
                 # generateContent validates a single signature, the one on the first function call of a step
                 # (llmsdk_docs/gemini3/docs/thought-signatures.md); a response without a call signs a later
-                # part, which goes back unvalidated. The Interactions client records a signature on the thinking
-                # item in front of what it signs instead, so a text thought's signature moves onto the first
+                # part, which goes back unvalidated. Interactions histories recorded before 2026-09-30 hold a signature on
+                # the thinking item in front of what it signs instead, so a text thought's signature moves onto the first
                 # call, or onto the next part when the turn makes no call, and a thought left empty is dropped;
                 # an image thought keeps its own. A call nobody signed, one another provider made, carries the
                 # placeholder Google documents for calls the API did not produce.

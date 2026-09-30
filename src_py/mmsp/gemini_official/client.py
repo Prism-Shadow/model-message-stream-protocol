@@ -324,10 +324,18 @@ class GeminiOfficialClient(LLMClient):
 
                 thought = None
                 if signature:
-                    # Histories recorded through generateContent carry the signature on the text,
-                    # image or call it came with and hold no thinking item; the Interactions API takes
-                    # it back as a thought step in front of that item (verified live 2026-09-16).
-                    steps.append({"type": "thought", "signature": signature})
+                    # A signature rides on the text, image or call its thought step signs. The summary of that
+                    # step, when the history holds one, is the unsigned thought right in front, which takes it
+                    # back; otherwise the Interactions API takes it as a thought step of its own in front of the
+                    # item (verified live 2026-09-16).
+                    if (
+                        len(steps) > message_start
+                        and steps[-1]["type"] == "thought"
+                        and not steps[-1].get("signature")
+                    ):
+                        steps[-1]["signature"] = signature
+                    else:
+                        steps.append({"type": "thought", "signature": signature})
                     content = None
                     # A thought summary such a history holds is unsigned, and a turn opening with an unsigned thought
                     # is rejected ("Request contains an invalid argument") while the same signature on two thoughts
@@ -475,13 +483,13 @@ class GeminiOfficialClient(LLMClient):
                     }
                 )
             elif delta.type == "thought_signature":
-                # the signature is the last delta of its thought step, and belongs to the item the
-                # step ends with, an image one included
+                # A thought step's signature signs the step after it, which a call step shows by repeating it,
+                # so it goes to that step's item as generateContent puts it on the part after the thought.
                 content_items.append(
                     {
                         "type": "thinking.delta",
                         "thinking": "",
-                        "fidelity": {"item_id": item_id, "signature": delta.signature},
+                        "fidelity": {"item_id": str(model_output.index + 1), "signature": delta.signature},
                     }
                 )
             elif delta.type == "arguments_delta":
@@ -640,39 +648,8 @@ class GeminiOfficialClient(LLMClient):
 
         stream = await self._client.aio.interactions.create(**gemini_config, input=steps)
 
-        # A thought step that summarized nothing streams its signature alone, and every response opens with one
-        # when no summary is asked for (verified live 2026-09-30). Its signature rides on the first delta of the
-        # text, image or call the next step opens instead of making an empty thinking item; the history transform
-        # takes it back as a thought step in front of that item.
-        summarized_step: int | None = None
-        held: EventContentItem | None = None
         async for event in stream:
-            uni_event = self.transform_model_output_to_uni_event(event)
-            if event.event_type == "step.delta" and event.delta.type == "thought_summary":
-                summarized_step = event.index
-            elif (
-                event.event_type == "step.delta"
-                and event.delta.type == "thought_signature"
-                and event.index != summarized_step
-            ):
-                held = uni_event["content_items"][0]
-                continue
-
-            content_items = uni_event["content_items"]
-            if held is not None and content_items:
-                first = content_items[0]
-                if first["type"] in ("text.delta", "inline_data.delta", "tool_call.delta"):
-                    first["fidelity"] = {**(first.get("fidelity") or {}), "signature": held["fidelity"]["signature"]}
-                else:
-                    # a thought step follows, which signs its own summary
-                    content_items.insert(0, held)
-                held = None
-            elif held is not None and uni_event["event_type"] == "stop":
-                # nothing followed the thought, so its signature stays on a thinking item of its own
-                content_items.insert(0, held)
-                held = None
-
-            yield uni_event
+            yield self.transform_model_output_to_uni_event(event)
 
     async def list_models(self) -> list[str]:
         """

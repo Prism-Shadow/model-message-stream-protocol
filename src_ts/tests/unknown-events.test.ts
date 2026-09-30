@@ -704,7 +704,7 @@ describe.each(GEMINI_STREAM_CASES)(
       const data = (text: string) => Buffer.from(text).toString("base64");
       const client = createAutoClient(testCase);
       installFakeGeminiStream(client, [
-        // an image model's thought summary showing two drafts in a row, closed by its signature
+        // an image model's thought summary showing two drafts in a row, then the signature of the image
         geminiDeltaEvent(0, {
           type: "thought_summary",
           content: {
@@ -771,12 +771,12 @@ describe.each(GEMINI_STREAM_CASES)(
           type: "inline_thinking.done",
           data: Buffer.from("draft 2"),
           mime_type: "image/png",
-          fidelity: { signature: "sig-1" },
         },
         {
           type: "inline_data.done",
           data: Buffer.from("image 1"),
           mime_type: "image/png",
+          fidelity: { signature: "sig-1" },
         },
         {
           type: "inline_data.done",
@@ -792,9 +792,9 @@ describe.each(GEMINI_STREAM_CASES)(
     });
 
     test.each(["text", "call", "summary", "thoughts"])(
-      "puts a bare thought signature on the item it signs (%s)",
+      "puts a thought signature on the item it signs (%s)",
       async (stream) => {
-        const [eventsIn, expected] = bareSignatureStreams()[stream];
+        const [eventsIn, expected] = thoughtSignatureStreams()[stream];
         const client = createAutoClient(testCase);
         installFakeGeminiStream(client, eventsIn);
 
@@ -813,7 +813,7 @@ describe.each(GEMINI_STREAM_CASES)(
 );
 
 // Streams opening with a thought step, each with the done items it should yield.
-function bareSignatureStreams(): Record<string, [unknown[], object[]]> {
+function thoughtSignatureStreams(): Record<string, [unknown[], object[]]> {
   const thoughtStart = {
     event_type: "step.start",
     index: 0,
@@ -823,13 +823,17 @@ function bareSignatureStreams(): Record<string, [unknown[], object[]]> {
     type: "thought_signature",
     signature: "sig-1",
   });
+  const summary = geminiDeltaEvent(0, {
+    type: "thought_summary",
+    content: { type: "text", text: "Checking." },
+  });
   const thoughtStop = { event_type: "step.stop", index: 0 };
   const answer = [
     { event_type: "step.start", index: 1, step: { type: "model_output" } },
     geminiDeltaEvent(1, { type: "text", text: "Yes." }),
   ];
   return {
-    // a thought step that summarized nothing signs the answer that follows it
+    // a thought step signs the step after it
     text: [
       [thoughtStart, signature, thoughtStop, ...answer, geminiCompletedEvent()],
       [{ type: "text.done", text: "Yes.", fidelity: { signature: "sig-1" } }],
@@ -861,29 +865,21 @@ function bareSignatureStreams(): Record<string, [unknown[], object[]]> {
         },
       ],
     ],
-    // a summary keeps the signature of its step
     summary: [
       [
         thoughtStart,
-        geminiDeltaEvent(0, {
-          type: "thought_summary",
-          content: { type: "text", text: "Checking." },
-        }),
+        summary,
         signature,
         thoughtStop,
         ...answer,
         geminiCompletedEvent(),
       ],
       [
-        {
-          type: "thinking.done",
-          thinking: "Checking.",
-          fidelity: { signature: "sig-1" },
-        },
-        { type: "text.done", text: "Yes." },
+        { type: "thinking.done", thinking: "Checking." },
+        { type: "text.done", text: "Yes.", fidelity: { signature: "sig-1" } },
       ],
     ],
-    // a thought step that follows signs its own summary, so the bare signature keeps a thinking item
+    // a thought step after a thought step takes the signature of the first
     thoughts: [
       [
         thoughtStart,
@@ -900,15 +896,10 @@ function bareSignatureStreams(): Record<string, [unknown[], object[]]> {
       [
         {
           type: "thinking.done",
-          thinking: "",
+          thinking: "Checking.",
           fidelity: { signature: "sig-1" },
         },
-        {
-          type: "thinking.done",
-          thinking: "Checking.",
-          fidelity: { signature: "sig-2" },
-        },
-        { type: "text.done", text: "Yes." },
+        { type: "text.done", text: "Yes.", fidelity: { signature: "sig-2" } },
       ],
     ],
   };
