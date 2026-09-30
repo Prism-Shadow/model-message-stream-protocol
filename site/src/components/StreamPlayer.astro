@@ -70,10 +70,7 @@ const themes = { light: "github-light", dark: "github-dark" } as const;
   </div>
 
   <div class="border-b border-gray-200 px-3 py-2.5 dark:border-gray-800">
-    <div class="flex items-baseline justify-between gap-3">
-      <h3 class={label}>{s.input}</h3>
-      <span class="text-[11px] text-gray-400 dark:text-gray-500">{s.inputNote}</span>
-    </div>
+    <h3 class={label}>{s.input}</h3>
     <div class="player-code mt-1.5">
       {SCENARIOS.map((scenario, index) => <Code code={inputCode(scenario)} lang="typescript" themes={themes} data-input-for={scenario.id} hidden={index !== 0 ? true : undefined} />)}
     </div>

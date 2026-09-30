@@ -450,12 +450,12 @@ def test_web_app_shows_trace_files_saved_before_0_5_with_current_item_types(temp
         html = response.data.decode()
 
     for item_type in ["text.done", "thinking.done", "tool_call.done", "tool_result.done"]:
-        assert f'mb-2">{item_type}</div>' in html
+        assert f'class="item-type">{item_type}</div>' in html
     assert "Weather in Paris?" in html
     assert "Look it up." in html
     assert 'get_weather(city="Paris")' in html
     assert "22 C" in html
-    assert "• 2 item(s)" in html
+    assert "<span>2 items</span>" in html
     assert "partial_tool_call" not in html
 
 

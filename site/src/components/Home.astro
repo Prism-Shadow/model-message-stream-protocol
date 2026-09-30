@@ -1,320 +1,164 @@
 ---
-import { Code } from "astro:components";
+import Logo from "./Logo.astro";
+import ModelLogos from "./ModelLogos.astro";
 import StreamPlayer from "./StreamPlayer.astro";
 import { localePath, type Locale } from "../shared/i18n";
-import { DISCORD_URL, REPO_URL, X_URL } from "../shared/site";
+import { REPO_URL, SITE_NAME } from "../shared/site";
 
 interface Props {
   locale: Locale;
 }
 const { locale } = Astro.props;
 const href = (path: string) => localePath(locale, path);
-const themes = { light: "github-light", dark: "github-dark" } as const;
 
-const python = `import asyncio
-from mmsp import AutoLLMClient
-
-async def main():
-    client = AutoLLMClient(model="claude-opus-5-5")
-    async for event in client.streaming_response_stateful(
-        message={
-            "role": "user",
-            "content_items": [{"type": "text.done", "text": "Say 'Hello, World!'"}],
-        },
-        config={},
-    ):
-        print(event)
-
-asyncio.run(main())`;
-
-const typescript = `import { AutoLLMClient } from "@prismshadow/mmsp";
-
-const client = new AutoLLMClient({ model: "claude-opus-5-5" });
-for await (const event of client.streamingResponseStateful({
-  message: {
-    role: "user",
-    content_items: [{ type: "text.done", text: "Say 'Hello, World!'" }],
-  },
-  config: {},
-})) {
-  console.log(event);
-}`;
-
-const grammar = `stream := delta_event* stop_event
-items  := group*
-group  := K.delta+ K.done
-K      := text | thinking | tool_call
-        | inline_data | inline_thinking | embedding`;
-
-// one line installs a skill folder, reference files included, from the repository's tarball
-const skillInstall = (skill: string) =>
-  `mkdir -p ~/.claude/skills && curl -fsSL ${REPO_URL}/archive/main.tar.gz | tar -xz -C ~/.claude/skills --strip-components=2 model-message-stream-protocol-main/skills/${skill}`;
-
-// what the hero button copies: a prompt that has a coding agent install both skills
+// what the skill button copies: a prompt that has a coding agent install both skills
 const installPrompt = `Install the two skills in ${REPO_URL}/tree/main/skills, mmsp-python and mmsp-typescript, into my skills directory: ~/.claude/skills for Claude Code, .agents/skills for Codex. For Claude Code this does it: mkdir -p ~/.claude/skills && curl -fsSL ${REPO_URL}/archive/main.tar.gz | tar -xz -C ~/.claude/skills --strip-components=2 model-message-stream-protocol-main/skills. Then use them whenever you write code that calls a model through MMSP.`;
 
 const COPY = {
   en: {
-    h1: "Model Message Stream Protocol",
-    slogan: "Integrate every model the same way, and keep one API in your head instead of one per provider.",
-    lede: "MMSP is one message format and one streaming grammar for every model provider. Write your agent once, and Claude, GPT, Gemini, DeepSeek, Kimi, GLM, MiniMax and Qwen all read and stream the same way, in Python and TypeScript.",
-    quickstart: "Read the quickstart",
+    // the slogan's verb turns between the words, as penguin.ooo's does
+    slogan: ["One protocol to ", ["reach", "observe"], " 1000+ models"],
+    sloganLabel: "One protocol to reach and observe 1000+ models",
+    subSlogan: "Less for developers to keep in mind, and no more tax on protocol adapters.",
+    quickstart: "Quickstart",
     copyPrompt: "Install Agent Skill",
+    copyHint: "Copies a prompt for Claude Code, Codex or any coding agent to install the MMSP skills",
     copied: "Copied",
     copyFailed: "Copy failed",
-    copyHint: "Copies a prompt. Paste it into Claude Code, Codex or any coding agent, and it installs the MMSP skills and writes MMSP code from them.",
-    why: "Why MMSP",
-    whyText1:
-      "Model APIs have settled on the same building blocks: messages, thinking, tool calls, streaming. Every provider still encodes them its own way. Anthropic streams content blocks, OpenAI streams output items, Gemini streams steps, and Chat Completions streams chunks that name nothing. An agent written against one of them is rewritten for the next.",
-    whyText2: "MMSP puts one shape in front of all of them:",
-    goals: [
-      ["Three types", "One UniConfig, one UniMessage, one UniEvent. Switching models is changing the model id, with no code written per provider."],
-      ["A stream that says when it ends", "Every stream is delta events closed by exactly one stop event, and every item is .delta fragments closed by its .done item. A consumer never guesses whether a response has finished."],
-      ["Thinking that survives tool calls", "Thinking signatures, phases and encrypted reasoning travel with each item as fidelity and go back to the provider unchanged, so interleaved thinking survives multi-step tool calls."],
-      ["Traces without a database", "Add a trace_id to the config and every turn is saved to disk, with a local viewer to read it."],
-    ],
-    grammarTitle: "One grammar for every stream",
-    grammarText1: ["A stream is ", " events, each carrying one content item, closed by exactly one ", " event that carries the usage and the finish reason. Items arrive one at a time: fragments first, then the complete item."],
-    grammarText2: ["The complete items, in order, are the assistant message. Read tool calls from ", ", with the arguments already parsed, and treat the fragments as live progress. ", "The streaming page", " has every rule."],
-    modelsTitle: "Models it speaks to",
-    modelsText: ["Each vendor has an official client that speaks its own API and knows its models, and compatible clients call any endpoint that serves Chat Completions, Responses, Anthropic Messages, OpenAI embeddings or Gemini generateContent. ", "Models and endpoints", " lists the clients, the ids, the keys and the base URLs."],
-    modelsHead: ["Model", "Served by", "Example id", "Output"],
-    startTitle: "Get started",
-    startText1: "Set the provider's API key in the environment, name a model, and iterate the stream. The stateful call keeps the conversation, thinking included, so the next turn only sends the new message.",
-    startText2: ["The quickstart", " continues with a tool call and its result."],
-    agentTitle: "Hand it to your coding agent",
-    agentText1: "The repository ships skill files that teach Claude Code, Codex and any assistant that reads skills how to write MMSP code: the install command, a tool-call loop that works, the data models, the model ids. One line installs a skill with its reference files.",
-    agentText2: "The skill lands in ~/.claude/skills. Use .claude/skills for one project, or .agents/skills for Codex. An assistant that takes no skills can read the same file from a link:",
-    agentPrompt: `Read ${REPO_URL}/blob/main/skills/mmsp-python/SKILL.md and the reference files it links, then write an agent that calls get_weather with MMSP.`,
-    agentLinks: ["The skill files", "on GitHub", "what a skill holds"],
-    contributingTitle: "Contributing",
-    contributingText1: ["MMSP is built in the open. A new model, a gateway that streams differently, a stream that breaks the grammar: ", "open an issue", " or send a pull request. The repository carries the provider documentation snapshots and the workflow a client is built by."],
-    contributingText2: ["Questions and releases are on ", "Discord", " and ", "X", ". MMSP is what ", "PenguinHarness", " talks to models with."],
+    more: "+992 more",
   },
   zh: {
-    h1: "Model Message Stream Protocol",
-    slogan: "用同一种方式接入所有模型，减轻开发者接入不同模型的心智负担。",
-    lede: "MMSP 为所有模型服务商提供统一的消息格式和流式语法。你的 agent 只需写一次，Claude、GPT、Gemini、DeepSeek、Kimi、GLM、MiniMax 和 Qwen 都能以相同的方式读取和流式输出，支持 Python 和 TypeScript。",
-    quickstart: "阅读快速开始",
+    slogan: ["用同一种协议", ["接入", "观测"], " 1000+ 种模型"],
+    sloganLabel: "用同一种协议接入、观测 1000+ 种模型",
+    subSlogan: "减轻开发者的心智负担，不再为协议适配交税",
+    quickstart: "快速开始",
     copyPrompt: "Install Agent Skill",
+    copyHint: "复制一段指令，交给 Claude Code、Codex 等编码助手安装 MMSP skill",
     copied: "已复制",
     copyFailed: "复制失败",
-    copyHint: "复制这段指令。粘贴到 Claude Code、Codex 或任何编码助手，它会安装 MMSP skill 并据此编写 MMSP 代码。",
-    why: "为什么选择 MMSP",
-    whyText1: "模型 API 的核心组件已经趋同：消息、思考、工具调用、流式输出。但每家服务商的编码方式依然各异。Anthropic 流式输出 content block，OpenAI 输出 output item，Gemini 输出 step，而 Chat Completions 输出的 chunk 甚至没有命名。为一个服务商编写的 agent，换一个就得重写。",
-    whyText2: "MMSP 将它们统一为一种形态：",
-    goals: [
-      ["三种类型", "一个 UniConfig、一个 UniMessage、一个 UniEvent。切换模型只需更换模型 id，无需为任何服务商单独编码。"],
-      ["流会告诉你何时结束", "每条流由多个 delta 事件和恰好一个 stop 事件组成，每个内容项由多个 .delta 片段和收尾的 .done 项组成。调用方无需猜测响应是否结束。"],
-      ["工具调用间保留思考", "思考签名、阶段和加密推理内容作为 fidelity 随内容项传递，并原样返回给服务商，确保多步工具调用间的交错思考不会丢失。"],
-      ["无需数据库的追踪", "在配置中添加 trace_id，每一轮对话都会保存到磁盘，并附带本地查看器。"],
-    ],
-    grammarTitle: "所有流共用一套语法",
-    grammarText1: ["一条流包含多个 ", " 事件，每个事件携带一个内容项，最后由恰好一个携带用量和结束原因的 ", " 事件收尾。内容项逐个到达：先片段，后完整项。"],
-    grammarText2: ["完整的项按顺序组成 assistant 消息。从 ", " 读取工具调用，参数已解析完毕；片段则视为实时进度。", "流式文档", "列出了全部规则。"],
-    modelsTitle: "支持的模型",
-    modelsText: ["每个厂商都有一个官方客户端，讲自家的 API，了解自家的模型；兼容客户端可调用任何提供 Chat Completions、Responses、Anthropic Messages、OpenAI embeddings 或 Gemini generateContent 的端点。", "模型与端点", "列出了客户端、id、密钥和 base URL。"],
-    modelsHead: ["模型", "提供方", "示例 id", "输出"],
-    startTitle: "开始使用",
-    startText1: "将服务商的 API key 设为环境变量，指定模型，然后迭代流。有状态的调用会保存对话（包括思考），下一轮只需发送新消息。",
-    startText2: ["快速开始", "接着演示一次工具调用及其结果。"],
-    agentTitle: "交给你的编码助手",
-    agentText1: "仓库附带了 skill 文件，可指导 Claude Code、Codex 及任何支持 skill 的助手编写正确的 MMSP 代码：安装命令、可运行的工具调用循环、数据模型、模型 id。一行命令即可安装 skill 及其参考文件。",
-    agentText2: "skill 会安装到 ~/.claude/skills。单项目使用可装到 .claude/skills，Codex 则用 .agents/skills。不支持 skill 的助手可直接读取链接：",
-    agentPrompt: `读取 ${REPO_URL}/blob/main/skills/mmsp-python/SKILL.md 及其链接的参考文件，然后用 MMSP 编写一个调用 get_weather 的 agent。`,
-    agentLinks: ["skill 文件", "在 GitHub 上", "skill 内容"],
-    contributingTitle: "参与贡献",
-    contributingText1: ["MMSP 是开源项目。新增模型、流式方式不同的网关、破坏语法的流：", "提交 issue", " 或直接发起 pull request。仓库包含各服务商文档的快照，以及构建客户端的开发流程。"],
-    contributingText2: ["问题讨论和版本发布请关注 ", "Discord", " 和 ", "X", "。", "PenguinHarness", " 正是使用 MMSP 与模型对话的。"],
+    more: "+992 种",
   },
 }[locale];
-
-const models = [
-  ["Gemini 3 to 3.8", "Official, Google Vertex AI", "gemini-3.8-flash", "Text, image, speech, embedding"],
-  ["Claude 4.6 to 5.5", "Official, Amazon Bedrock, UModelVerse", "claude-opus-5-5", "Text"],
-  ["GPT-5.4 to 6.1", "Official, OpenRouter, UModelVerse", "gpt-6.1-sol", "Text, embedding"],
-  ["Kimi K2.5, K2.6, K3", "Official, OpenRouter, SiliconFlow", "kimi-k3", "Text"],
-  ["DeepSeek V4", "Official, OpenRouter, SiliconFlow", "deepseek-flash", "Text"],
-  ["GLM-5.1 to 5.3", "Official, OpenRouter, SiliconFlow", "glm-5.3", "Text"],
-  ["MiniMax-M3", "Official", "MiniMax-M3", "Text"],
-  ["Qwen3.6", "OpenRouter, SiliconFlow, vLLM", "qwen/qwen3.6-35b-a3b", "Text, embedding"],
-];
-const modelsZh: Record<string, string> = {
-  "Gemini 3 to 3.8": "Gemini 3 至 3.8",
-  "Claude 4.6 to 5.5": "Claude 4.6 至 5.5",
-  "GPT-5.4 to 6.1": "GPT-5.4 至 6.1",
-  "Kimi K2.5, K2.6, K3": "Kimi K2.5、K2.6、K3",
-  "GLM-5.1 to 5.3": "GLM-5.1 至 5.3",
-  "Official, Google Vertex AI": "官方、Google Vertex AI",
-  "Official, Amazon Bedrock, UModelVerse": "官方、Amazon Bedrock、UModelVerse",
-  "Official, OpenRouter, UModelVerse": "官方、OpenRouter、UModelVerse",
-  "Official, OpenRouter, SiliconFlow": "官方、OpenRouter、SiliconFlow",
-  Official: "官方",
-  "OpenRouter, SiliconFlow, vLLM": "OpenRouter、SiliconFlow、vLLM",
-  "Text, image, speech, embedding": "文本、图片、语音、embedding",
-  "Text, embedding": "文本、embedding",
-  Text: "文本",
-};
-const t = (text: string) => (locale === "zh" ? (modelsZh[text] ?? text) : text);
-
-const section = "border-t border-gray-200 dark:border-gray-800";
-const inner = "mx-auto max-w-7xl px-4 py-14 sm:px-6";
-const heading = "text-2xl font-semibold tracking-tight";
-const prose = "mt-4 max-w-3xl text-[15px] leading-7 text-gray-700 dark:text-gray-300";
-const textLink =
-  "text-brand-700 underline decoration-brand-300 underline-offset-2 hover:text-brand-600 dark:text-brand-300 dark:decoration-brand-700";
-const code = "mono text-[0.9em]";
+const [before, verbs, after] = COPY.slogan as [string, string[], string];
 ---
 
 <section>
-  <div class="mx-auto grid max-w-7xl grid-cols-1 items-start gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:py-20">
+  <div class="relative mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:py-16">
     <div>
-      <h1 class="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">{COPY.h1}</h1>
-      <p class="mt-5 text-xl leading-8 font-medium text-balance text-gray-900 sm:text-2xl sm:leading-9 dark:text-gray-100">{COPY.slogan}</p>
-      <p class="mt-4 text-[17px] leading-8 text-gray-700 dark:text-gray-300">{COPY.lede}</p>
-
-      <div class="code-group mt-7" data-labels="Python,TypeScript">
-        <pre class="astro-code"><code>pip install mmsp</code></pre>
-        <pre class="astro-code"><code>npm install @prismshadow/mmsp</code></pre>
+      <div class="rise flex items-center gap-2.5">
+        <Logo class="h-10 w-10 rounded-[10px] shadow-sm" />
+        <span class="text-2xl font-semibold tracking-tight">{SITE_NAME}</span>
       </div>
 
-      <div class="mt-6 flex flex-wrap gap-2.5">
+      <h1
+        class="rise mt-7 text-4xl leading-[1.18] font-semibold tracking-tight text-balance sm:text-5xl"
+        style="animation-delay: 60ms"
+        aria-label={COPY.sloganLabel}
+      >
+        <span aria-hidden="true">
+          {before}<span class="rotator">{verbs.map((verb, index) => <span class="rotator-word" style={`--i: ${index}`}>{verb}</span>)}</span>{after}
+        </span>
+      </h1>
+      <p class="rise mt-5 text-lg text-balance text-gray-600 sm:text-xl dark:text-gray-400" style="animation-delay: 120ms">
+        {COPY.subSlogan}
+      </p>
+
+      <div class="rise mt-8 flex flex-wrap gap-3" style="animation-delay: 180ms">
         <a
           href={href("/docs/quickstart/")}
-          class="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200"
+          class="inline-flex h-11 items-center gap-2 rounded-lg bg-black px-5 text-[15px] font-medium text-white transition-colors hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200"
         >
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"></path>
+          </svg>
           {COPY.quickstart}
         </a>
         <button
           type="button"
+          title={COPY.copyHint}
           data-copy-prompt={installPrompt}
           data-copied={COPY.copied}
           data-failed={COPY.copyFailed}
-          class="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-800 transition-colors hover:bg-gray-50 dark:border-gray-800 dark:text-gray-200 dark:hover:bg-gray-900"
+          class="inline-flex h-11 items-center gap-2 rounded-lg border border-gray-200 bg-white px-5 text-[15px] font-medium text-gray-900 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:hover:bg-gray-900"
         >
           <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <rect x="8" y="8" width="14" height="14" rx="2"></rect>
-            <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
+            <path d="m4 17 6-6-6-6"></path>
+            <path d="M12 19h8"></path>
           </svg>
           <span>{COPY.copyPrompt}</span>
         </button>
       </div>
-      <p class="mt-3 text-[13px] leading-6 text-gray-500 dark:text-gray-400">{COPY.copyHint}</p>
-    </div>
 
-    <StreamPlayer locale={locale} />
-  </div>
-</section>
-
-<section class={section} id="why">
-  <div class={inner}>
-    <h2 class={heading}>{COPY.why}</h2>
-    <p class={prose}>{COPY.whyText1}</p>
-    <p class={prose}>{COPY.whyText2}</p>
-    <dl class="mt-8 grid max-w-5xl gap-x-12 gap-y-7 sm:grid-cols-2">
-      {
-        COPY.goals.map(([name, text]) => (
-          <div>
-            <dt class="font-semibold">{name}</dt>
-            <dd class="mt-1 text-[15px] leading-7 text-gray-700 dark:text-gray-300">{text}</dd>
-          </div>
-        ))
-      }
-    </dl>
-  </div>
-</section>
-
-<section class={section} id="grammar">
-  <div class:list={[inner, "grid grid-cols-1 gap-10 lg:grid-cols-2"]}>
-    <div>
-      <h2 class={heading}>{COPY.grammarTitle}</h2>
-      <p class={prose}>
-        {COPY.grammarText1[0]}<code class={code}>delta</code>{COPY.grammarText1[1]}<code class={code}>stop</code>{COPY.grammarText1[2]}
-      </p>
-      <p class={prose}>
-        {COPY.grammarText2[0]}<code class={code}>tool_call.done</code>{COPY.grammarText2[1]}<a href={href("/docs/streaming/")} class={textLink}>{COPY.grammarText2[2]}</a>{COPY.grammarText2[3]}
-      </p>
-    </div>
-    <pre class="mono self-start overflow-x-auto rounded-lg border border-gray-200 bg-gray-50 p-4 text-[13px] leading-6 dark:border-gray-800 dark:bg-gray-900">{grammar}</pre>
-  </div>
-</section>
-
-<section class={section} id="models">
-  <div class={inner}>
-    <h2 class={heading}>{COPY.modelsTitle}</h2>
-    <p class={prose}>
-      {COPY.modelsText[0]}<a href={href("/docs/models/")} class={textLink}>{COPY.modelsText[1]}</a>{COPY.modelsText[2]}
-    </p>
-    <div class="md-body mt-6">
-      <table>
-        <thead>
-          <tr>{COPY.modelsHead.map((head) => <th>{head}</th>)}</tr>
-        </thead>
-        <tbody>
-          {
-            models.map(([model, vendor, id, output]) => (
-              <tr>
-                <td>{t(model)}</td>
-                <td>{t(vendor)}</td>
-                <td><code>{id}</code></td>
-                <td>{t(output)}</td>
-              </tr>
-            ))
-          }
-        </tbody>
-      </table>
-    </div>
-  </div>
-</section>
-
-<section class={section} id="start">
-  <div class:list={[inner, "grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]"]}>
-    <div>
-      <h2 class={heading}>{COPY.startTitle}</h2>
-      <p class={prose}>{COPY.startText1}</p>
-      <p class={prose}>
-        <a href={href("/docs/quickstart/")} class={textLink}>{COPY.startText2[0]}</a>{COPY.startText2[1]}
-      </p>
-    </div>
-    <div class="code-group self-start">
-      <Code code={python} lang="python" themes={themes} />
-      <Code code={typescript} lang="typescript" themes={themes} />
-    </div>
-  </div>
-</section>
-
-<section class={section} id="agents">
-  <div class:list={[inner, "grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]"]}>
-    <div>
-      <h2 class={heading}>{COPY.agentTitle}</h2>
-      <p class={prose}>{COPY.agentText1}</p>
-      <p class={prose}>{COPY.agentText2}</p>
-      <p class={prose}>
-        <a href={`${REPO_URL}/tree/main/skills`} class={textLink}>{COPY.agentLinks[0]}</a>{" "}{COPY.agentLinks[1]}, {" "}
-        <a href={href("/docs/skills/")} class={textLink}>{COPY.agentLinks[2]}</a>
-      </p>
-    </div>
-    <div class="self-start">
-      <div class="code-group" data-labels="Python skill,TypeScript skill">
-        <Code code={skillInstall("mmsp-python")} lang="bash" themes={themes} />
-        <Code code={skillInstall("mmsp-typescript")} lang="bash" themes={themes} />
+      <div class="rise mt-10" style="animation-delay: 240ms">
+        <ModelLogos more={COPY.more} class="justify-start" />
       </div>
-      <pre class="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3 text-[13px] leading-6 whitespace-pre-wrap text-gray-700 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">{COPY.agentPrompt}</pre>
+    </div>
+
+    <div class="rise min-w-0" style="animation-delay: 120ms">
+      <StreamPlayer locale={locale} />
     </div>
   </div>
 </section>
 
-<section class={section} id="contributing">
-  <div class={inner}>
-    <h2 class={heading}>{COPY.contributingTitle}</h2>
-    <p class={prose}>
-      {COPY.contributingText1[0]}<a href={`${REPO_URL}/issues`} class={textLink}>{COPY.contributingText1[1]}</a>{COPY.contributingText1[2]}
-    </p>
-    <p class={prose}>
-      {COPY.contributingText2[0]}<a href={DISCORD_URL} class={textLink}>{COPY.contributingText2[1]}</a>{COPY.contributingText2[2]}<a href={X_URL} class={textLink}>{COPY.contributingText2[3]}</a>{COPY.contributingText2[4]}<a href="https://penguin.ooo/" class={textLink}>{COPY.contributingText2[5]}</a>{COPY.contributingText2[6]}
-    </p>
-  </div>
-</section>
+<style>
+  .rise {
+    animation: rise 0.6s cubic-bezier(0.23, 1, 0.32, 1) both;
+  }
+
+  /* the verb of the slogan: the words share one cell, and each rises out as the next rises in */
+  .rotator {
+    display: inline-grid;
+    justify-items: start;
+    overflow: hidden;
+    vertical-align: bottom;
+    color: var(--color-brand-500);
+  }
+
+  .rotator-word {
+    grid-area: 1 / 1;
+    animation: turn 5s cubic-bezier(0.23, 1, 0.32, 1) infinite;
+    animation-delay: calc(var(--i) * -2.5s);
+  }
+
+  @keyframes turn {
+    0%,
+    42% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    50% {
+      opacity: 0;
+      transform: translateY(-75%);
+    }
+    51%,
+    92% {
+      opacity: 0;
+      transform: translateY(75%);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rise,
+    .rotator-word {
+      animation: none;
+    }
+
+    .rotator-word + .rotator-word {
+      visibility: hidden;
+    }
+  }
+</style>
 
 <script>
   // the prompt for a coding agent, copied from the hero

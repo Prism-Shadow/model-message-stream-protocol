@@ -68,7 +68,7 @@ def test_chat_app_index_route():
         response = client.get("/")
         assert response.status_code == 200
         assert b"MMSP Playground" in response.data
-        assert b'<h1 class="text-xl font-semibold">MMSP</h1>' in response.data
+        assert b'<h1 class="brand-name">MMSP</h1>' in response.data
         assert b"messagesContainer" in response.data
         assert b"messageInput" in response.data
         assert b'id="modelCombobox"' in response.data
@@ -140,7 +140,7 @@ def test_chat_app_index_route():
         assert b'href="/tracer/"' in response.data
         assert b'target="_blank"' in response.data
         assert b"Open Tracer" in response.data
-        assert response.data.index(b'<h1 class="text-xl font-semibold">') < response.data.index(b">GitHub<")
+        assert response.data.index(b'<h1 class="brand-name">') < response.data.index(b">GitHub<")
         assert response.data.index(b">GitHub<") < response.data.index(b">Open Tracer<")
         assert b"temperatureInput" not in response.data
         assert b"maxTokensInput" not in response.data
