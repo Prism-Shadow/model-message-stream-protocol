@@ -183,289 +183,1539 @@ export function createChatApp(): Express {
 
   const CHAT_TEMPLATE = `
   <!DOCTYPE html>
-  <html>
+  <html lang="en">
   <head>
       <title>MMSP Playground</title>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1">
-      <script src="https://cdn.tailwindcss.com"></script>
+      <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='1' y='1' width='6' height='6' rx='1.5' fill='%232f6fed'/%3E%3Crect x='9' y='1' width='6' height='6' rx='1.5' fill='%2316945b'/%3E%3Crect x='1' y='9' width='6' height='6' rx='1.5' fill='%23b16a0a'/%3E%3Crect x='9' y='9' width='6' height='6' rx='1.5' fill='%23d23b3b'/%3E%3C/svg%3E">
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+      <script>
+          // the stored theme applies before the first paint; without one the page follows the system
+          try {
+              const theme = localStorage.getItem('mmsp.playground.theme');
+              if (theme === 'light' || theme === 'dark') {
+                  document.documentElement.dataset.theme = theme;
+              }
+          } catch (error) {
+              // storage refused: the system theme it is
+          }
+      </script>
       <style>
-          [data-combobox-menu] [data-combobox-option] {
-              font-size: 0.875rem;
-              line-height: 1.25rem;
+          :root {
+              --bg: #f5f5f6;
+              --panel: #fafafa;
+              --surface: #ffffff;
+              --raised: #f0f0f2;
+              --hover: rgba(20, 22, 28, 0.05);
+              --ring: rgba(20, 22, 28, 0.09);
+              --ring-strong: rgba(20, 22, 28, 0.17);
+              --text: #16181d;
+              --muted: #5c616c;
+              --subtle: #8a8f99;
+              --accent: #2f6fed;
+              --accent-soft: rgba(47, 111, 237, 0.14);
+              --on-accent: #ffffff;
+              --green: #16945b;
+              --green-soft: rgba(22, 148, 91, 0.12);
+              --amber: #b16a0a;
+              --amber-soft: rgba(177, 106, 10, 0.12);
+              --red: #d23b3b;
+              --red-soft: rgba(210, 59, 59, 0.1);
+              --shadow-card: 0 0 0 1px var(--ring), 0 1px 2px rgba(20, 22, 28, 0.04);
+              --shadow-menu: 0 0 0 1px var(--ring), 0 12px 32px -10px rgba(20, 22, 28, 0.22);
+              --shadow-composer: 0 0 0 1px var(--ring), 0 10px 30px -14px rgba(20, 22, 28, 0.25);
+              --ease: cubic-bezier(0.23, 1, 0.32, 1);
+              --font: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+              --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+              color-scheme: light;
           }
 
-          [data-combobox-menu] [data-combobox-option] span {
-              font-size: inherit;
-              line-height: inherit;
+          @media (prefers-color-scheme: dark) {
+              :root:not([data-theme="light"]) {
+                  --bg: #1b1c1f;
+                  --panel: #18191c;
+                  --surface: #222327;
+                  --raised: #28292e;
+                  --hover: rgba(255, 255, 255, 0.05);
+                  --ring: rgba(255, 255, 255, 0.08);
+                  --ring-strong: rgba(255, 255, 255, 0.15);
+                  --text: #eceef1;
+                  --muted: #a3a8b1;
+                  --subtle: #6f747e;
+                  --accent: #4d8ef7;
+                  --accent-soft: rgba(77, 142, 247, 0.2);
+                  --green: #43c283;
+                  --green-soft: rgba(67, 194, 131, 0.14);
+                  --amber: #e3a646;
+                  --amber-soft: rgba(227, 166, 70, 0.14);
+                  --red: #f06a6a;
+                  --red-soft: rgba(240, 106, 106, 0.14);
+                  --shadow-card: 0 0 0 1px var(--ring), 0 1px 2px rgba(0, 0, 0, 0.3);
+                  --shadow-menu: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 16px 36px -10px rgba(0, 0, 0, 0.65);
+                  --shadow-composer: 0 0 0 1px rgba(255, 255, 255, 0.09), 0 14px 36px -14px rgba(0, 0, 0, 0.7);
+                  color-scheme: dark;
+              }
           }
 
-          [data-combobox-menu] [data-combobox-option]::after {
-              content: attr(data-description);
+          :root[data-theme="dark"] {
+              --bg: #1b1c1f;
+              --panel: #18191c;
+              --surface: #222327;
+              --raised: #28292e;
+              --hover: rgba(255, 255, 255, 0.05);
+              --ring: rgba(255, 255, 255, 0.08);
+              --ring-strong: rgba(255, 255, 255, 0.15);
+              --text: #eceef1;
+              --muted: #a3a8b1;
+              --subtle: #6f747e;
+              --accent: #4d8ef7;
+              --accent-soft: rgba(77, 142, 247, 0.2);
+              --green: #43c283;
+              --green-soft: rgba(67, 194, 131, 0.14);
+              --amber: #e3a646;
+              --amber-soft: rgba(227, 166, 70, 0.14);
+              --red: #f06a6a;
+              --red-soft: rgba(240, 106, 106, 0.14);
+              --shadow-card: 0 0 0 1px var(--ring), 0 1px 2px rgba(0, 0, 0, 0.3);
+              --shadow-menu: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 16px 36px -10px rgba(0, 0, 0, 0.65);
+              --shadow-composer: 0 0 0 1px rgba(255, 255, 255, 0.09), 0 14px 36px -14px rgba(0, 0, 0, 0.7);
+              color-scheme: dark;
+          }
+
+          *, *::before, *::after {
+              box-sizing: border-box;
+          }
+
+          html, body {
+              height: 100%;
+              margin: 0;
+          }
+
+          body {
+              background: var(--bg);
+              color: var(--text);
+              font: 14px/1.55 var(--font);
+              -webkit-font-smoothing: antialiased;
+              text-rendering: optimizeLegibility;
+          }
+
+          button, input, textarea {
+              font: inherit;
+              color: inherit;
+          }
+
+          button {
+              cursor: pointer;
+              background: none;
+              border: 0;
+              padding: 0;
+          }
+
+          button:disabled {
+              cursor: not-allowed;
+          }
+
+          a {
+              color: inherit;
+              text-decoration: none;
+          }
+
+          svg {
+              flex: none;
+          }
+
+          .hidden {
+              display: none !important;
+          }
+
+          .mono {
+              font-family: var(--mono);
+          }
+
+          :focus-visible {
+              outline: 2px solid var(--accent);
+              outline-offset: 2px;
+          }
+
+          ::selection {
+              background: var(--accent-soft);
+          }
+
+          /* layout */
+
+          .app {
+              display: flex;
+              height: 100vh;
+              height: 100dvh;
+              overflow: hidden;
+          }
+
+          .sidebar {
+              width: 320px;
+              flex: none;
+              display: flex;
+              flex-direction: column;
+              background: var(--panel);
+              box-shadow: 1px 0 0 var(--ring);
+              z-index: 20;
+              transition: margin-left 0.3s var(--ease);
+          }
+
+          .app.sidebar-collapsed .sidebar {
+              margin-left: -321px;
+          }
+
+          .sidebar-head {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 12px;
+              height: 56px;
+              padding: 0 16px 0 20px;
+              flex: none;
+          }
+
+          .brand {
+              display: flex;
+              align-items: baseline;
+              gap: 8px;
+              min-width: 0;
+          }
+
+          .brand-name {
+              margin: 0;
+              font-size: 15px;
+              font-weight: 600;
+              letter-spacing: -0.01em;
+          }
+
+          .brand-sub {
+              color: var(--subtle);
+              font-size: 13px;
+          }
+
+          .sidebar-scroll {
+              flex: 1;
+              overflow-y: auto;
+              padding: 4px 20px 28px;
+              scrollbar-gutter: stable;
+          }
+
+          .group + .group {
+              margin-top: 28px;
+          }
+
+          .group-title {
+              display: flex;
+              align-items: center;
+              gap: 10px;
+              margin-bottom: 14px;
+              color: var(--subtle);
+              font-size: 12px;
+              font-weight: 500;
+          }
+
+          .group-title::after {
+              content: "";
+              flex: 1;
+              height: 1px;
+              background: var(--ring);
+          }
+
+          .field + .field {
+              margin-top: 14px;
+          }
+
+          .field-head {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 8px;
+              margin-bottom: 6px;
+              min-height: 18px;
+          }
+
+          .field-label {
+              color: var(--muted);
+              font-size: 12.5px;
+              font-weight: 500;
+          }
+
+          .field-note {
+              margin: 6px 0 0;
+              color: var(--subtle);
+              font-size: 12px;
+              line-height: 1.45;
+          }
+
+          .field-error {
+              margin: 6px 0 0;
+              color: var(--red);
+              font-size: 12px;
+              line-height: 1.45;
+              overflow-wrap: anywhere;
+          }
+
+          .link-btn {
+              color: var(--accent);
+              font-size: 12px;
+              font-weight: 500;
+              border-radius: 4px;
+              transition: opacity 0.15s;
+          }
+
+          .link-btn:hover {
+              opacity: 0.8;
+          }
+
+          .link-btn:disabled {
+              opacity: 0.5;
+          }
+
+          .status-text {
+              color: var(--subtle);
+              font-size: 12px;
+          }
+
+          .control {
               display: block;
-              margin-top: 0.125rem;
+              width: 100%;
+              min-height: 34px;
+              padding: 7px 10px;
+              background: var(--surface);
+              border: 0;
+              border-radius: 8px;
+              box-shadow: 0 0 0 1px var(--ring);
+              font-size: 13px;
+              line-height: 20px;
+              transition: box-shadow 0.15s var(--ease), background-color 0.15s;
+          }
+
+          .control::placeholder {
+              color: var(--subtle);
+          }
+
+          .control:hover {
+              box-shadow: 0 0 0 1px var(--ring-strong);
+          }
+
+          .control:focus, .control:focus-visible {
+              outline: none;
+              box-shadow: 0 0 0 1px var(--accent), 0 0 0 4px var(--accent-soft);
+          }
+
+          .control.invalid {
+              box-shadow: 0 0 0 1px var(--red), 0 0 0 4px var(--red-soft);
+          }
+
+          textarea.control {
+              resize: vertical;
+              min-height: 64px;
+          }
+
+          .control.code {
+              font-family: var(--mono);
+              font-size: 12px;
+              line-height: 18px;
+          }
+
+          .input-wrap {
+              position: relative;
+          }
+
+          .input-wrap .control {
+              padding-right: 40px;
+          }
+
+          .input-action {
+              position: absolute;
+              top: 3px;
+              right: 3px;
+              width: 28px;
+              height: 28px;
+              display: grid;
+              place-items: center;
+              border-radius: 6px;
+              color: var(--subtle);
+              transition: color 0.15s, background-color 0.15s;
+          }
+
+          .input-action:hover {
+              color: var(--text);
+              background: var(--hover);
+          }
+
+          .input-tag {
+              position: absolute;
+              top: 50%;
+              right: 8px;
+              transform: translateY(-50%);
+              padding: 1px 6px;
+              border-radius: 999px;
+              background: var(--raised);
+              color: var(--subtle);
+              font-size: 11px;
+              pointer-events: none;
+          }
+
+          /* comboboxes */
+
+          [data-combobox] {
+              position: relative;
+          }
+
+          .combo-button {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 8px;
+              text-align: left;
+          }
+
+          .combo-button[aria-expanded="true"] {
+              box-shadow: 0 0 0 1px var(--accent), 0 0 0 4px var(--accent-soft);
+          }
+
+          .combo-button [data-combobox-label] {
               overflow: hidden;
               text-overflow: ellipsis;
               white-space: nowrap;
-              font-size: 0.75rem;
-              line-height: 1rem;
-              color: rgb(107 114 128);
+          }
+
+          .combo-button svg {
+              color: var(--subtle);
+              transition: transform 0.2s var(--ease);
+          }
+
+          .combo-button[aria-expanded="true"] svg {
+              transform: rotate(180deg);
+          }
+
+          [data-combobox-menu] {
+              position: absolute;
+              z-index: 30;
+              top: calc(100% + 6px);
+              left: 0;
+              right: 0;
+              max-height: 320px;
+              overflow-y: auto;
+              padding: 4px;
+              background: var(--surface);
+              border-radius: 10px;
+              box-shadow: var(--shadow-menu);
+              transform-origin: top center;
+              animation: menu-in 0.18s var(--ease);
+          }
+
+          @keyframes menu-in {
+              from {
+                  opacity: 0;
+                  transform: translateY(-4px) scale(0.98);
+              }
+          }
+
+          .menu-search {
+              position: sticky;
+              top: -4px;
+              margin: -4px -4px 4px;
+              padding: 8px 8px 6px;
+              background: var(--surface);
+              box-shadow: 0 1px 0 var(--ring);
+              z-index: 1;
+          }
+
+          .menu-search input {
+              width: 100%;
+              height: 30px;
+              padding: 0 8px;
+              border: 0;
+              border-radius: 6px;
+              background: var(--raised);
+              font-size: 13px;
+          }
+
+          .menu-search input:focus {
+              outline: none;
+              box-shadow: 0 0 0 1px var(--accent);
+          }
+
+          .menu-heading {
+              padding: 8px 8px 4px;
+              color: var(--subtle);
+              font-size: 11.5px;
+              font-weight: 500;
+          }
+
+          .menu-empty {
+              padding: 10px 8px;
+              color: var(--subtle);
+              font-size: 12.5px;
+          }
+
+          .combo-option {
+              position: relative;
+              display: block;
+              width: 100%;
+              padding: 6px 28px 6px 8px;
+              border-radius: 6px;
+              text-align: left;
+              font-size: 13px;
+              line-height: 18px;
+              transition: background-color 0.1s;
+          }
+
+          .combo-option span {
+              display: block;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+          }
+
+          .combo-option::after {
+              content: attr(data-description);
+              display: block;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+              color: var(--subtle);
+              font-family: var(--mono);
+              font-size: 11px;
+              line-height: 16px;
+          }
+
+          .combo-option[data-description=""]::after {
+              display: none;
+          }
+
+          .combo-option:hover, .combo-option:focus-visible {
+              outline: none;
+              background: var(--hover);
+          }
+
+          .combo-option[aria-selected="true"] {
+              background: var(--accent-soft);
+          }
+
+          .combo-option[aria-selected="true"]::before {
+              content: "";
+              position: absolute;
+              right: 9px;
+              top: 50%;
+              width: 10px;
+              height: 6px;
+              margin-top: -5px;
+              border-left: 1.75px solid var(--accent);
+              border-bottom: 1.75px solid var(--accent);
+              transform: rotate(-45deg);
+          }
+
+          /* segmented controls */
+
+          .segmented {
+              position: relative;
+              display: flex;
+              padding: 3px;
+              border-radius: 9px;
+              background: var(--raised);
+              box-shadow: inset 0 0 0 1px var(--ring);
+          }
+
+          .segmented button {
+              position: relative;
+              z-index: 1;
+              flex: 1;
+              min-width: 0;
+              height: 26px;
+              padding: 0 6px;
+              border-radius: 6px;
+              color: var(--muted);
+              font-size: 12.5px;
+              font-weight: 500;
+              white-space: nowrap;
+              transition: color 0.15s;
+          }
+
+          .segmented button:hover {
+              color: var(--text);
+          }
+
+          .segmented button[aria-checked="true"] {
+              color: var(--text);
+          }
+
+          .seg-thumb {
+              position: absolute;
+              top: 3px;
+              bottom: 3px;
+              left: 0;
+              width: 0;
+              border-radius: 6px;
+              background: var(--surface);
+              box-shadow: 0 0 0 1px var(--ring), 0 1px 2px rgba(0, 0, 0, 0.12);
+              transition: transform 0.25s var(--ease), width 0.25s var(--ease);
+          }
+
+          .theme-toggle {
+              width: 64px;
+              flex: none;
+          }
+
+          .theme-toggle button {
+              display: grid;
+              place-items: center;
+              padding: 0;
+          }
+
+          /* main column */
+
+          .main {
+              position: relative;
+              flex: 1;
+              min-width: 0;
+              display: flex;
+              flex-direction: column;
+          }
+
+          .topbar {
+              display: flex;
+              align-items: center;
+              gap: 10px;
+              height: 56px;
+              padding: 0 14px;
+              flex: none;
+              box-shadow: 0 1px 0 var(--ring);
+          }
+
+          .topbar-model {
+              display: flex;
+              align-items: baseline;
+              gap: 8px;
+              min-width: 0;
+          }
+
+          .topbar-model #headerModel {
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+              font-weight: 500;
+          }
+
+          .topbar-model #headerClientType {
+              color: var(--subtle);
+              font-size: 12px;
+              white-space: nowrap;
+          }
+
+          .topbar-actions {
+              display: flex;
+              align-items: center;
+              gap: 4px;
+              margin-left: auto;
+          }
+
+          .icon-btn {
+              display: inline-grid;
+              place-items: center;
+              width: 32px;
+              height: 32px;
+              border-radius: 8px;
+              color: var(--muted);
+              transition: color 0.15s, background-color 0.15s;
+          }
+
+          .icon-btn:hover {
+              color: var(--text);
+              background: var(--hover);
+          }
+
+          .ghost-btn {
+              display: inline-flex;
+              align-items: center;
+              gap: 6px;
+              height: 32px;
+              padding: 0 10px;
+              border-radius: 8px;
+              color: var(--muted);
+              font-size: 13px;
+              font-weight: 500;
+              white-space: nowrap;
+              transition: color 0.15s, background-color 0.15s;
+          }
+
+          .ghost-btn:hover {
+              color: var(--text);
+              background: var(--hover);
+          }
+
+          .messages {
+              flex: 1;
+              overflow-y: auto;
+              scrollbar-gutter: stable both-edges;
+          }
+
+          .thread {
+              max-width: 760px;
+              margin: 0 auto;
+              padding: 32px 20px 24px;
+          }
+
+          .empty-state {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              gap: 6px;
+              min-height: 100%;
+              padding: 40px 20px;
+              text-align: center;
+          }
+
+          .empty-state h2 {
+              margin: 0;
+              font-size: 20px;
+              font-weight: 600;
+              letter-spacing: -0.015em;
+          }
+
+          .empty-state p {
+              margin: 0;
+              color: var(--muted);
+          }
+
+          /* messages */
+
+          .msg {
+              margin-bottom: 28px;
+              animation: msg-in 0.35s var(--ease);
+          }
+
+          @keyframes msg-in {
+              from {
+                  opacity: 0;
+                  transform: translateY(6px);
+              }
+          }
+
+          .msg-head {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              margin-bottom: 8px;
+              color: var(--subtle);
+              font-size: 12px;
+          }
+
+          .msg-model {
+              color: var(--muted);
+              font-weight: 500;
+          }
+
+          .msg-user {
+              display: flex;
+              flex-direction: column;
+              align-items: flex-end;
+          }
+
+          .msg-user .msg-head {
+              margin-bottom: 6px;
+          }
+
+          .bubble {
+              max-width: min(85%, 600px);
+              padding: 10px 14px;
+              border-radius: 18px 18px 6px 18px;
+              background: var(--raised);
+              box-shadow: inset 0 0 0 1px var(--ring);
+          }
+
+          .bubble-images {
+              display: flex;
+              flex-wrap: wrap;
+              justify-content: flex-end;
+              gap: 6px;
+              margin-bottom: 6px;
+          }
+
+          .bubble-images img {
+              max-width: 220px;
+              max-height: 220px;
+              border-radius: 12px;
+              object-fit: cover;
+          }
+
+          .bubble-images:last-child {
+              margin-bottom: 0;
+          }
+
+          .message-content {
+              white-space: pre-wrap;
+              overflow-wrap: anywhere;
+          }
+
+          .message-content:empty {
+              display: none;
+          }
+
+          .msg-assistant .message-content {
+              white-space: normal;
+          }
+
+          .msg-assistant .message-content:empty {
+              display: block;
+          }
+
+          .text-content {
+              white-space: pre-wrap;
+              overflow-wrap: anywhere;
+              line-height: 1.65;
+          }
+
+          .text-content + *, * + .text-content {
+              margin-top: 10px;
+          }
+
+          .pending {
+              display: inline-flex;
+              align-items: center;
+              gap: 8px;
+              color: var(--muted);
+              font-size: 13px;
+          }
+
+          .pending-grid {
+              display: grid;
+              grid-template-columns: repeat(3, 3px);
+              gap: 2px;
+          }
+
+          .pending-grid i {
+              width: 3px;
+              height: 3px;
+              border-radius: 1px;
+              background: var(--subtle);
+              animation: pixel 1.2s infinite ease-in-out;
+          }
+
+          .pending-grid i:nth-child(2), .pending-grid i:nth-child(4) { animation-delay: 0.15s; }
+          .pending-grid i:nth-child(3), .pending-grid i:nth-child(5), .pending-grid i:nth-child(7) { animation-delay: 0.3s; }
+          .pending-grid i:nth-child(6), .pending-grid i:nth-child(8) { animation-delay: 0.45s; }
+          .pending-grid i:nth-child(9) { animation-delay: 0.6s; }
+
+          @keyframes pixel {
+              0%, 100% { opacity: 0.25; }
+              50% { opacity: 1; background: var(--text); }
+          }
+
+          .shimmer {
+              background: linear-gradient(90deg, var(--subtle) 0%, var(--subtle) 35%, var(--text) 50%, var(--subtle) 65%, var(--subtle) 100%);
+              background-size: 250% 100%;
+              -webkit-background-clip: text;
+              background-clip: text;
+              color: transparent;
+              animation: shimmer 1.8s linear infinite;
+          }
+
+          @keyframes shimmer {
+              from { background-position: 100% 0; }
+              to { background-position: -150% 0; }
+          }
+
+          .elapsed {
+              color: var(--subtle);
+              font-family: var(--mono);
+              font-size: 12px;
+              font-variant-numeric: tabular-nums;
+          }
+
+          .thinking {
+              margin: 2px 0 12px;
+          }
+
+          .thinking-head {
+              display: inline-flex;
+              align-items: center;
+              gap: 7px;
+              padding: 2px 0;
+              color: var(--muted);
+              font-size: 13px;
+              transition: color 0.15s;
+          }
+
+          .thinking-head:hover {
+              color: var(--text);
+          }
+
+          .thinking-head .chevron {
+              transition: transform 0.25s var(--ease);
+          }
+
+          .thinking.open .thinking-head .chevron {
+              transform: rotate(180deg);
+          }
+
+          .thinking-body {
+              display: grid;
+              grid-template-rows: 0fr;
+              opacity: 0;
+              transition: grid-template-rows 0.35s var(--ease), opacity 0.25s var(--ease);
+          }
+
+          .thinking.open .thinking-body {
+              grid-template-rows: 1fr;
+              opacity: 1;
+          }
+
+          .thinking-inner {
+              overflow: hidden;
+          }
+
+          .thinking-text strong {
+              color: var(--text);
+              font-weight: 500;
+          }
+
+          .thinking-text {
+              margin: 8px 0 2px 6px;
+              padding: 2px 0 2px 16px;
+              box-shadow: inset 1px 0 0 var(--ring-strong);
+              color: var(--muted);
+              font-size: 13px;
+              line-height: 1.6;
+              white-space: pre-wrap;
+              overflow-wrap: anywhere;
+          }
+
+          .tool {
+              margin: 4px 0 12px;
+              border-radius: 12px;
+              background: var(--surface);
+              box-shadow: var(--shadow-card);
+              overflow: hidden;
+          }
+
+          .tool-head {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              padding: 8px 12px;
+              font-size: 13px;
+          }
+
+          .tool-icon {
+              display: grid;
+              place-items: center;
+              width: 22px;
+              height: 22px;
+              border-radius: 6px;
+              background: var(--amber-soft);
+              color: var(--amber);
+          }
+
+          .tool-name {
+              font-family: var(--mono);
+              font-size: 12.5px;
+              font-weight: 500;
+          }
+
+          .tool-state {
+              margin-left: auto;
+              color: var(--subtle);
+              font-size: 12px;
+          }
+
+          .tool-args {
+              margin: 0;
+              padding: 10px 12px;
+              max-height: 280px;
+              overflow: auto;
+              background: var(--raised);
+              box-shadow: inset 0 1px 0 var(--ring);
+              font-family: var(--mono);
+              font-size: 12px;
+              line-height: 1.6;
+              white-space: pre-wrap;
+              overflow-wrap: anywhere;
+          }
+
+          .tool-args:empty {
+              display: none;
+          }
+
+          .media {
+              margin: 4px 0 12px;
+          }
+
+          .media img {
+              display: block;
+              max-width: min(100%, 420px);
+              border-radius: 12px;
+              box-shadow: var(--shadow-card);
+          }
+
+          .audio-box {
+              display: inline-flex;
+              align-items: center;
+              gap: 10px;
+              margin: 4px 0 12px;
+              padding: 8px 12px;
+              border-radius: 12px;
+              background: var(--surface);
+              box-shadow: var(--shadow-card);
+              color: var(--muted);
+              font-size: 13px;
+          }
+
+          .audio-box {
+              max-width: 100%;
+          }
+
+          .audio-box audio {
+              flex: 1 1 auto;
+              min-width: 0;
+              height: 36px;
+              max-width: 320px;
+          }
+
+          .inline-data {
+              display: inline-block;
+              margin: 4px 0 12px;
+              padding: 6px 10px;
+              border-radius: 8px;
+              background: var(--raised);
+              color: var(--muted);
+              font-family: var(--mono);
+              font-size: 12px;
+          }
+
+          .embedding-content {
+              margin: 4px 0 12px;
+              border-radius: 12px;
+              background: var(--surface);
+              box-shadow: var(--shadow-card);
+              overflow: hidden;
+          }
+
+          .embedding-head {
+              display: flex;
+              justify-content: space-between;
+              gap: 8px;
+              padding: 8px 12px;
+              color: var(--muted);
+              font-size: 12.5px;
+          }
+
+          .embedding-content code {
+              display: block;
+              padding: 10px 12px;
+              background: var(--raised);
+              box-shadow: inset 0 1px 0 var(--ring);
+              font-family: var(--mono);
+              font-size: 12px;
+              overflow-wrap: anywhere;
+          }
+
+          .error-banner {
+              margin: 4px 0 12px;
+              padding: 8px 12px;
+              border-radius: 10px;
+              background: var(--red-soft);
+              color: var(--red);
+              font-size: 13px;
+              white-space: pre-wrap;
+              overflow-wrap: anywhere;
+          }
+
+          .interrupted {
+              display: inline-flex;
+              align-items: center;
+              gap: 6px;
+              margin-top: 8px;
+              color: var(--amber);
+              font-size: 12.5px;
+              font-weight: 500;
+          }
+
+          .msg-foot {
+              display: flex;
+              flex-wrap: wrap;
+              align-items: center;
+              gap: 6px 14px;
+              margin-top: 12px;
+              color: var(--subtle);
+              font-size: 12px;
+          }
+
+          .reason {
+              display: inline-flex;
+              align-items: center;
+              gap: 6px;
+              height: 22px;
+              padding: 0 8px;
+              border-radius: 999px;
+              background: var(--raised);
+              color: var(--muted);
+              font-family: var(--mono);
+              font-size: 11.5px;
+          }
+
+          .reason::before {
+              content: "";
+              width: 6px;
+              height: 6px;
+              border-radius: 50%;
+              background: currentColor;
+          }
+
+          .reason-stop { background: var(--green-soft); color: var(--green); }
+          .reason-tool_call { background: var(--amber-soft); color: var(--amber); }
+          .reason-length, .reason-unknown { background: var(--red-soft); color: var(--red); }
+
+          .usage {
+              display: inline-flex;
+              flex-wrap: wrap;
+              gap: 4px 12px;
+              font-family: var(--mono);
+              font-size: 11.5px;
+              font-variant-numeric: tabular-nums;
+          }
+
+          .usage b {
+              color: var(--muted);
+              font-weight: 500;
+          }
+
+          .copy-btn {
+              width: 26px;
+              height: 26px;
+              margin-left: auto;
+              border-radius: 6px;
+          }
+
+          /* composer */
+
+          .composer-wrap {
+              flex: none;
+              padding: 0 20px 20px;
+          }
+
+          .composer {
+              max-width: 760px;
+              margin: 0 auto;
+              padding: 10px 10px 8px 14px;
+              border-radius: 20px;
+              background: var(--surface);
+              box-shadow: var(--shadow-composer);
+              transition: box-shadow 0.2s var(--ease);
+          }
+
+          .composer:focus-within {
+              box-shadow: 0 0 0 1px var(--ring-strong), 0 0 0 4px var(--accent-soft), 0 14px 36px -14px rgba(0, 0, 0, 0.3);
+          }
+
+          .composer.dragging {
+              box-shadow: 0 0 0 1.5px var(--accent), 0 0 0 5px var(--accent-soft);
+          }
+
+          .previews {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 8px;
+              padding: 2px 0 10px;
+          }
+
+          .preview {
+              position: relative;
+              animation: msg-in 0.25s var(--ease);
+          }
+
+          .preview img {
+              display: block;
+              width: 56px;
+              height: 56px;
+              object-fit: cover;
+              border-radius: 10px;
+              box-shadow: 0 0 0 1px var(--ring);
+          }
+
+          .preview button {
+              position: absolute;
+              top: -6px;
+              right: -6px;
+              display: grid;
+              place-items: center;
+              width: 20px;
+              height: 20px;
+              border-radius: 50%;
+              background: var(--text);
+              color: var(--bg);
+              box-shadow: 0 0 0 2px var(--surface);
+              opacity: 0;
+              transition: opacity 0.15s;
+          }
+
+          .preview:hover button, .preview button:focus-visible {
+              opacity: 1;
+          }
+
+          #messageInput {
+              display: block;
+              width: 100%;
+              min-height: 24px;
+              max-height: 200px;
+              padding: 4px 0;
+              border: 0;
+              outline: none;
+              resize: none;
+              background: transparent;
+              font-size: 14.5px;
+              line-height: 22px;
+          }
+
+          #messageInput::placeholder {
+              color: var(--subtle);
+          }
+
+          .composer-bar {
+              display: flex;
+              align-items: center;
+              gap: 6px;
+              margin-top: 6px;
+          }
+
+          .composer-hint {
+              color: var(--subtle);
+              font-size: 12px;
+          }
+
+          .send-btn {
+              display: grid;
+              place-items: center;
+              width: 32px;
+              height: 32px;
+              margin-left: auto;
+              border-radius: 50%;
+              background: var(--text);
+              color: var(--bg);
+              transition: transform 0.2s var(--ease), opacity 0.15s, background-color 0.15s;
+          }
+
+          .send-btn:hover:not(:disabled) {
+              transform: scale(1.06);
+          }
+
+          .send-btn:active:not(:disabled) {
+              transform: scale(0.94);
+          }
+
+          .send-btn:disabled {
+              opacity: 0.25;
+          }
+
+          .scrim {
+              display: none;
+          }
+
+          @media (max-width: 900px) {
+              .sidebar {
+                  position: fixed;
+                  top: 0;
+                  bottom: 0;
+                  left: 0;
+                  width: min(340px, 88vw);
+                  margin-left: 0 !important;
+                  transform: translateX(-102%);
+                  transition: transform 0.32s var(--ease);
+                  box-shadow: var(--shadow-menu);
+                  z-index: 40;
+              }
+
+              .app.sidebar-open .sidebar {
+                  transform: none;
+              }
+
+              .scrim {
+                  display: block;
+                  position: fixed;
+                  inset: 0;
+                  z-index: 35;
+                  background: rgba(0, 0, 0, 0.35);
+                  opacity: 0;
+                  pointer-events: none;
+                  transition: opacity 0.3s var(--ease);
+              }
+
+              .app.sidebar-open .scrim {
+                  opacity: 1;
+                  pointer-events: auto;
+              }
+
+              .ghost-btn .label-wide, .composer-hint {
+                  display: none;
+              }
+
+              .thread {
+                  padding: 24px 16px 16px;
+              }
+
+              .composer-wrap {
+                  padding: 0 12px 12px;
+              }
+          }
+
+          @media (prefers-reduced-motion: reduce) {
+              *, *::before, *::after {
+                  animation-duration: 0.01ms !important;
+                  animation-iteration-count: 1 !important;
+                  transition-duration: 0.01ms !important;
+              }
           }
       </style>
   </head>
-  <body class="bg-gray-50 flex flex-col h-screen">
-      <div class="bg-gray-900 text-white px-6 py-4 border-b border-gray-700 flex justify-between items-center">
-          <h1 class="text-xl font-semibold">MMSP</h1>
-          <div class="flex items-center gap-4">
-              <a href="https://github.com/Prism-Shadow/model-message-stream-protocol" target="_blank" rel="noopener noreferrer" class="text-gray-400 hover:text-white text-sm transition-colors">GitHub</a>
-              <a href="/tracer/" target="_blank" rel="noopener noreferrer" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm transition-colors">Open Tracer</a>
-              <button class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm transition-colors" onclick="toggleConfig()">
-                  ⚙️ Config
-              </button>
-          </div>
-      </div>
+  <body>
+      <div class="app" id="app">
+          <aside class="sidebar" id="configPanel" aria-label="Settings">
+              <div class="sidebar-head">
+                  <div class="brand">
+                      <h1 class="brand-name">MMSP</h1>
+                      <span class="brand-sub">Playground</span>
+                  </div>
+                  <div class="segmented theme-toggle" id="themeToggle" role="radiogroup" aria-label="Theme">
+                      <span class="seg-thumb" aria-hidden="true"></span>
+                      <button type="button" role="radio" aria-checked="false" aria-label="Light theme" title="Light" data-theme-choice="light" onclick="setTheme('light')">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>
+                      </button>
+                      <button type="button" role="radio" aria-checked="false" aria-label="Dark theme" title="Dark" data-theme-choice="dark" onclick="setTheme('dark')">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.1A8.5 8.5 0 1 1 9.9 3.5a6.6 6.6 0 0 0 10.6 10.6Z"></path></svg>
+                      </button>
+                  </div>
+              </div>
 
-      <div class="bg-white border-b border-gray-200 px-6 py-4" id="configPanel">
-          <div class="flex items-center gap-3 mb-2">
-              <span class="text-xs font-semibold uppercase tracking-wider text-gray-500">Connection</span>
-              <span class="h-px flex-1 bg-gray-200"></span>
-          </div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-x-4 gap-y-3 mb-4">
-              <div class="flex flex-col">
-                  <div class="flex items-center justify-between mb-1">
-                      <label class="text-sm font-semibold text-gray-900" for="modelComboboxButton">Model</label>
-                      <div class="flex items-center gap-2">
-                          <span id="listModelsStatus" class="text-xs text-gray-500"></span>
-                          <button type="button" id="listModelsButton" class="text-xs font-medium text-blue-600 transition hover:text-blue-700 focus:outline-none focus:underline disabled:opacity-50" onclick="listModels()">List models</button>
-                      </div>
-                  </div>
-                  <div id="modelCombobox" class="relative" data-combobox>
-                      <input id="modelSelect" type="hidden" value="gpt-6.1-sol" data-combobox-value>
-                      <button
-                          id="modelComboboxButton"
-                          type="button"
-                          role="combobox"
-                          aria-controls="modelComboboxMenu"
-                          aria-expanded="false"
-                          class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-left shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          onclick="toggleCombobox('modelCombobox')"
-                          onkeydown="handleComboboxKeydown(event, 'modelCombobox')"
-                          data-combobox-button
-                      >
-                          <span class="flex items-center justify-between gap-3">
-                              <span class="min-w-0">
-                                  <span class="block truncate text-sm font-medium text-gray-900" data-combobox-label>GPT 6.1 Sol</span>
-                              </span>
-                              <svg class="h-4 w-4 flex-none text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                  <path d="m6 9 6 6 6-6"></path>
-                              </svg>
-                          </span>
-                      </button>
-                      <div id="modelComboboxMenu" class="hidden absolute z-30 mt-2 max-h-72 w-full overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg" role="listbox" aria-labelledby="modelComboboxButton" data-combobox-menu>
-                          <button type="button" role="option" aria-selected="true" class="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none bg-blue-50" data-combobox-option data-value="gpt-6.1-sol" data-label="GPT 6.1 Sol" data-description="gpt-6.1-sol" onclick="selectComboboxOption('modelCombobox', this)">
-                              <span class="block truncate text-sm font-medium text-gray-900">GPT 6.1 Sol</span>
-                          </button>
-                          <button type="button" role="option" aria-selected="false" class="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none" data-combobox-option data-value="text-embedding-3-large" data-label="Text Embedding 3 Large" data-description="text-embedding-3-large" onclick="selectComboboxOption('modelCombobox', this)">
-                              <span class="block truncate text-sm font-medium text-gray-900">Text Embedding 3 Large</span>
-                          </button>
-                          <button type="button" role="option" aria-selected="false" class="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none" data-combobox-option data-value="gemini-3.8-flash" data-label="Gemini 3.8 Flash" data-description="gemini-3.8-flash" onclick="selectComboboxOption('modelCombobox', this)">
-                              <span class="block truncate text-sm font-medium text-gray-900">Gemini 3.8 Flash</span>
-                          </button>
-                          <button type="button" role="option" aria-selected="false" class="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none" data-combobox-option data-value="gemini-3.1-flash-image" data-label="Gemini 3.1 Flash Image" data-description="gemini-3.1-flash-image" onclick="selectComboboxOption('modelCombobox', this)">
-                              <span class="block truncate text-sm font-medium text-gray-900">Gemini 3.1 Flash Image</span>
-                          </button>
-                          <button type="button" role="option" aria-selected="false" class="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none" data-combobox-option data-value="gemini-3.8-flash-tts" data-label="Gemini 3.8 Flash TTS" data-description="gemini-3.8-flash-tts" onclick="selectComboboxOption('modelCombobox', this)">
-                              <span class="block truncate text-sm font-medium text-gray-900">Gemini 3.8 Flash TTS</span>
-                          </button>
-                          <button type="button" role="option" aria-selected="false" class="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none" data-combobox-option data-value="gemini-embedding-2" data-label="Gemini Embedding 2" data-description="gemini-embedding-2" onclick="selectComboboxOption('modelCombobox', this)">
-                              <span class="block truncate text-sm font-medium text-gray-900">Gemini Embedding 2</span>
-                          </button>
-                          <button type="button" role="option" aria-selected="false" class="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none" data-combobox-option data-value="claude-sonnet-5-5" data-label="Claude Sonnet 5.5" data-description="claude-sonnet-5-5" onclick="selectComboboxOption('modelCombobox', this)">
-                              <span class="block truncate text-sm font-medium text-gray-900">Claude Sonnet 5.5</span>
-                          </button>
-                          <button type="button" role="option" aria-selected="false" class="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none" data-combobox-option data-value="claude-opus-5-5" data-label="Claude Opus 5.5" data-description="claude-opus-5-5" onclick="selectComboboxOption('modelCombobox', this)">
-                              <span class="block truncate text-sm font-medium text-gray-900">Claude Opus 5.5</span>
-                          </button>
-                          <button type="button" role="option" aria-selected="false" class="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none" data-combobox-option data-value="claude-fable-5-1" data-label="Claude Fable 5.1" data-description="claude-fable-5-1" onclick="selectComboboxOption('modelCombobox', this)">
-                              <span class="block truncate text-sm font-medium text-gray-900">Claude Fable 5.1</span>
-                          </button>
-                          <button type="button" role="option" aria-selected="false" class="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none" data-combobox-option data-value="glm-5.3-flash" data-label="GLM 5.3 Flash" data-description="glm-5.3-flash" onclick="selectComboboxOption('modelCombobox', this)">
-                              <span class="block truncate text-sm font-medium text-gray-900">GLM 5.3 Flash</span>
-                          </button>
-                          <button type="button" role="option" aria-selected="false" class="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none" data-combobox-option data-value="kimi-k3" data-label="Kimi K3" data-description="kimi-k3" onclick="selectComboboxOption('modelCombobox', this)">
-                              <span class="block truncate text-sm font-medium text-gray-900">Kimi K3</span>
-                          </button>
-                          <button type="button" role="option" aria-selected="false" class="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none" data-combobox-option data-value="MiniMax-M3" data-label="MiniMax M3" data-description="MiniMax-M3" onclick="selectComboboxOption('modelCombobox', this)">
-                              <span class="block truncate text-sm font-medium text-gray-900">MiniMax M3</span>
-                          </button>
-                          <button type="button" role="option" aria-selected="false" class="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none" data-combobox-option data-value="deepseek-flash" data-label="DeepSeek Flash" data-description="deepseek-flash" onclick="selectComboboxOption('modelCombobox', this)">
-                              <span class="block truncate text-sm font-medium text-gray-900">DeepSeek Flash</span>
-                          </button>
-                          <button type="button" role="option" aria-selected="false" class="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none" data-combobox-option data-value="__custom__" data-label="Custom model" data-description="Enter a model id" onclick="selectComboboxOption('modelCombobox', this)">
-                              <span class="block truncate text-sm font-medium text-gray-900">Custom model</span>
-                          </button>
-                      </div>
-                  </div>
-                  <p id="listModelsError" class="hidden mt-1 text-xs text-red-600 break-words"></p>
-                  <div id="customModelWrapper" class="hidden mt-2">
-                      <input
-                          id="customModelInput"
-                          type="text"
-                          autocomplete="off"
-                          placeholder="Custom model id"
-                          class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                  </div>
-              </div>
-              <div class="flex flex-col">
-                  <label class="text-sm font-semibold text-gray-900 mb-1" for="clientTypeComboboxButton">Client Type</label>
-                  <div id="clientTypeCombobox" class="relative" data-combobox>
-                      <input id="clientTypeSelect" type="hidden" value="" data-combobox-value>
-                      <button id="clientTypeComboboxButton" type="button" role="combobox" aria-controls="clientTypeComboboxMenu" aria-expanded="false" class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-left shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500" onclick="toggleCombobox('clientTypeCombobox')" onkeydown="handleComboboxKeydown(event, 'clientTypeCombobox')" data-combobox-button>
-                          <span class="flex items-center justify-between gap-3">
-                              <span class="min-w-0">
-                                  <span class="block truncate text-sm font-medium font-mono text-gray-900" data-combobox-label>Auto</span>
-                              </span>
-                              <svg class="h-4 w-4 flex-none text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                  <path d="m6 9 6 6 6-6"></path>
-                              </svg>
-                          </span>
-                      </button>
-                      <div id="clientTypeComboboxMenu" class="hidden absolute z-30 mt-2 max-h-72 w-full overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg" role="listbox" aria-labelledby="clientTypeComboboxButton" data-combobox-menu></div>
-                  </div>
-              </div>
-              <div class="flex flex-col">
-                  <label class="text-sm font-semibold text-gray-900 mb-1" for="apiKeyInput">API Key</label>
-                  <div class="relative">
-                      <input type="password" id="apiKeyInput" autocomplete="off" placeholder="Use environment variable when empty" class="w-full px-3 py-2 pr-12 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                      <button type="button" id="apiKeyVisibilityToggle" aria-label="Show API key" title="Show API key" class="absolute inset-y-0 right-1 my-1 px-3 text-gray-500 hover:text-gray-900 rounded focus:outline-none focus:ring-2 focus:ring-blue-500" onclick="toggleApiKeyVisibility()">
-                          <svg id="apiKeyVisibilityShowIcon" class="hidden" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                              <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"></path>
-                              <circle cx="12" cy="12" r="3"></circle>
-                          </svg>
-                          <svg id="apiKeyVisibilityHideIcon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                              <path d="M10.7 5.1A10.9 10.9 0 0 1 12 5c6.5 0 10 7 10 7a18.5 18.5 0 0 1-3.3 4.3"></path>
-                              <path d="M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7a10.9 10.9 0 0 0 5.4-1.4"></path>
-                              <path d="M9.9 9.9A3 3 0 0 0 14.1 14.1"></path>
-                              <path d="M3 3l18 18"></path>
-                          </svg>
-                      </button>
-                  </div>
-              </div>
-              <div class="flex flex-col">
-                  <label class="text-sm font-semibold text-gray-900 mb-1" for="baseUrlInput">Base URL</label>
-                  <input type="url" id="baseUrlInput" oninput="handleBaseUrlInput()" placeholder="Use provider default when empty" class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-              </div>
-              <div class="flex flex-col">
-                  <label class="text-sm font-semibold text-gray-900 mb-1" for="extraHeadersInput">Extra Headers</label>
-                  <textarea id="extraHeadersInput" rows="2" spellcheck="false" placeholder='JSON, e.g. {"X-Title": "MMSP"} — for endpoints that demand their own' class="px-3 py-2 border border-gray-300 rounded-md text-xs font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
-              </div>
-          </div>
-          <div class="flex items-center gap-3 mb-2">
-              <span class="text-xs font-semibold uppercase tracking-wider text-gray-500">Generation</span>
-              <span class="h-px flex-1 bg-gray-200"></span>
-          </div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-x-4 gap-y-3">
-              <div class="flex flex-col">
-                  <label class="text-sm font-semibold text-gray-900 mb-1" for="thinkingLevelComboboxButton">Thinking Level</label>
-                  <div id="thinkingLevelCombobox" class="relative" data-combobox>
-                      <input id="thinkingLevelSelect" type="hidden" value="" data-combobox-value>
-                      <button id="thinkingLevelComboboxButton" type="button" role="combobox" aria-controls="thinkingLevelComboboxMenu" aria-expanded="false" class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-left shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500" onclick="toggleCombobox('thinkingLevelCombobox')" onkeydown="handleComboboxKeydown(event, 'thinkingLevelCombobox')" data-combobox-button>
-                          <span class="flex items-center justify-between gap-3">
-                              <span class="min-w-0">
-                                  <span class="block truncate text-sm font-medium text-gray-900" data-combobox-label>Unspecified</span>
-                              </span>
-                              <svg class="h-4 w-4 flex-none text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                  <path d="m6 9 6 6 6-6"></path>
-                              </svg>
-                          </span>
-                      </button>
-                      <div id="thinkingLevelComboboxMenu" class="hidden absolute z-30 mt-2 max-h-72 w-full overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg" role="listbox" aria-labelledby="thinkingLevelComboboxButton" data-combobox-menu>
-                          <button type="button" role="option" aria-selected="true" class="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none bg-blue-50" data-combobox-option data-value="" data-label="Unspecified" data-description="Provider default" onclick="selectComboboxOption('thinkingLevelCombobox', this)">Unspecified</button>
-                          <button type="button" role="option" aria-selected="false" class="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none" data-combobox-option data-value="none" data-label="None" data-description="Disable thinking" onclick="selectComboboxOption('thinkingLevelCombobox', this)">None</button>
-                          <button type="button" role="option" aria-selected="false" class="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none" data-combobox-option data-value="low" data-label="Low" data-description="Low thinking budget" onclick="selectComboboxOption('thinkingLevelCombobox', this)">Low</button>
-                          <button type="button" role="option" aria-selected="false" class="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none" data-combobox-option data-value="medium" data-label="Medium" data-description="Medium thinking budget" onclick="selectComboboxOption('thinkingLevelCombobox', this)">Medium</button>
-                          <button type="button" role="option" aria-selected="false" class="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none" data-combobox-option data-value="high" data-label="High" data-description="High thinking budget" onclick="selectComboboxOption('thinkingLevelCombobox', this)">High</button>
-                          <button type="button" role="option" aria-selected="false" class="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none" data-combobox-option data-value="xhigh" data-label="XHigh" data-description="Extended thinking budget" onclick="selectComboboxOption('thinkingLevelCombobox', this)">XHigh</button>
-                          <button type="button" role="option" aria-selected="false" class="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none" data-combobox-option data-value="max" data-label="Max" data-description="Maximum thinking budget" onclick="selectComboboxOption('thinkingLevelCombobox', this)">Max</button>
-                      </div>
-                  </div>
-              </div>
-              <div class="flex flex-col">
-                  <label class="text-sm font-semibold text-gray-900 mb-1" for="thinkingSummaryComboboxButton">Thinking Summary</label>
-                  <div id="thinkingSummaryCombobox" class="relative" data-combobox>
-                      <input id="thinkingSummaryCheckbox" type="hidden" value="" data-combobox-value>
-                      <button id="thinkingSummaryComboboxButton" type="button" role="combobox" aria-controls="thinkingSummaryComboboxMenu" aria-expanded="false" class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-left shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500" onclick="toggleCombobox('thinkingSummaryCombobox')" onkeydown="handleComboboxKeydown(event, 'thinkingSummaryCombobox')" data-combobox-button>
-                          <span class="flex items-center justify-between gap-3">
-                              <span class="min-w-0">
-                                  <span class="block truncate text-sm font-medium text-gray-900" data-combobox-label>Unspecified</span>
-                              </span>
-                              <svg class="h-4 w-4 flex-none text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                  <path d="m6 9 6 6 6-6"></path>
-                              </svg>
-                          </span>
-                      </button>
-                      <div id="thinkingSummaryComboboxMenu" class="hidden absolute z-30 mt-2 max-h-72 w-full overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg" role="listbox" aria-labelledby="thinkingSummaryComboboxButton" data-combobox-menu>
-                          <button type="button" role="option" aria-selected="true" class="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none bg-blue-50" data-combobox-option data-value="" data-label="Unspecified" data-description="Provider default" onclick="selectComboboxOption('thinkingSummaryCombobox', this)">Unspecified</button>
-                          <button type="button" role="option" aria-selected="false" class="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none" data-combobox-option data-value="true" data-label="True" data-description="Request summaries" onclick="selectComboboxOption('thinkingSummaryCombobox', this)">True</button>
-                          <button type="button" role="option" aria-selected="false" class="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none" data-combobox-option data-value="false" data-label="False" data-description="Hide summaries" onclick="selectComboboxOption('thinkingSummaryCombobox', this)">False</button>
-                      </div>
-                  </div>
-              </div>
-              <div class="flex flex-col">
-                  <label class="text-sm font-semibold text-gray-900 mb-1" for="toolChoiceComboboxButton">Tool Choice</label>
-                  <div id="toolChoiceCombobox" class="relative" data-combobox>
-                      <input id="toolChoiceSelect" type="hidden" value="" data-combobox-value>
-                      <button id="toolChoiceComboboxButton" type="button" role="combobox" aria-controls="toolChoiceComboboxMenu" aria-expanded="false" class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-left shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500" onclick="toggleCombobox('toolChoiceCombobox')" onkeydown="handleComboboxKeydown(event, 'toolChoiceCombobox')" data-combobox-button>
-                          <span class="flex items-center justify-between gap-3">
-                              <span class="min-w-0">
-                                  <span class="block truncate text-sm font-medium text-gray-900" data-combobox-label>Unspecified</span>
-                              </span>
-                              <svg class="h-4 w-4 flex-none text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                  <path d="m6 9 6 6 6-6"></path>
-                              </svg>
-                          </span>
-                      </button>
-                      <div id="toolChoiceComboboxMenu" class="hidden absolute z-30 mt-2 max-h-72 w-full overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg" role="listbox" aria-labelledby="toolChoiceComboboxButton" data-combobox-menu>
-                          <button type="button" role="option" aria-selected="true" class="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none bg-blue-50" data-combobox-option data-value="" data-label="Unspecified" data-description="SDK default" onclick="selectComboboxOption('toolChoiceCombobox', this)">Unspecified</button>
-                          <button type="button" role="option" aria-selected="false" class="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none" data-combobox-option data-value="auto" data-label="Auto" data-description="Model may call tools" onclick="selectComboboxOption('toolChoiceCombobox', this)">Auto</button>
-                          <button type="button" role="option" aria-selected="false" class="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none" data-combobox-option data-value="required" data-label="Required" data-description="Model must call tools" onclick="selectComboboxOption('toolChoiceCombobox', this)">Required</button>
-                          <button type="button" role="option" aria-selected="false" class="w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none" data-combobox-option data-value="none" data-label="None" data-description="Do not call tools" onclick="selectComboboxOption('toolChoiceCombobox', this)">None</button>
-                      </div>
-                  </div>
-              </div>
-              <div class="flex flex-col">
-                  <label class="text-sm font-semibold text-gray-900 mb-1" for="traceIdInput">Trace ID</label>
-                  <input type="text" id="traceIdInput" placeholder="e.g., session_001" class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-              </div>
-              <div class="flex flex-col sm:col-span-2">
-                  <label class="text-sm font-semibold text-gray-900 mb-1" for="systemPromptInput">System Prompt</label>
-                  <textarea id="systemPromptInput" rows="3" class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y"></textarea>
-              </div>
-              <div class="flex flex-col sm:col-span-2">
-                  <label class="text-sm font-semibold text-gray-900 mb-1" for="toolsInput">Tools (JSON Array)</label>
-                  <textarea id="toolsInput" rows="3" placeholder='[{"name": "function_name", "description": "...", "parameters": {...}}]' class="px-3 py-2 border border-gray-300 rounded-md text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y"></textarea>
-              </div>
-          </div>
-      </div>
+              <div class="sidebar-scroll">
+                  <section class="group">
+                      <div class="group-title"><span>Connection</span></div>
 
-      <div class="flex-1 overflow-y-auto px-6 py-6" id="messagesContainer">
-          <div class="text-center text-gray-500 py-10">
-              <h2 class="text-2xl font-semibold mb-2">Start a conversation</h2>
-              <p class="text-sm">Type your message below to begin chatting with the AI.</p>
-          </div>
-      </div>
+                      <div class="field">
+                          <div class="field-head">
+                              <label class="field-label" for="modelComboboxButton">Model</label>
+                              <span>
+                                  <span id="listModelsStatus" class="status-text"></span>
+                                  <button type="button" id="listModelsButton" class="link-btn" onclick="listModels()">List models</button>
+                              </span>
+                          </div>
+                          <div id="modelCombobox" data-combobox>
+                              <input id="modelSelect" type="hidden" value="gpt-6.1-sol" data-combobox-value>
+                              <button id="modelComboboxButton" type="button" role="combobox" aria-controls="modelComboboxMenu" aria-expanded="false" class="control combo-button" onclick="toggleCombobox('modelCombobox')" onkeydown="handleComboboxKeydown(event, 'modelCombobox')" data-combobox-button>
+                                  <span data-combobox-label>GPT 6.1 Sol</span>
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+                              </button>
+                              <div id="modelComboboxMenu" class="hidden" role="listbox" aria-labelledby="modelComboboxButton" data-combobox-menu onkeydown="handleMenuKeydown(event, 'modelCombobox')">
+                                  <div class="menu-search">
+                                      <input id="modelFilterInput" type="text" autocomplete="off" spellcheck="false" placeholder="Filter models" aria-label="Filter models" oninput="filterModelOptions()">
+                                  </div>
+                                  <button type="button" role="option" aria-selected="true" class="combo-option" data-combobox-option data-value="gpt-6.1-sol" data-label="GPT 6.1 Sol" data-description="gpt-6.1-sol" onclick="selectComboboxOption('modelCombobox', this)"><span>GPT 6.1 Sol</span></button>
+                                  <button type="button" role="option" aria-selected="false" class="combo-option" data-combobox-option data-value="text-embedding-3-large" data-label="Text Embedding 3 Large" data-description="text-embedding-3-large" onclick="selectComboboxOption('modelCombobox', this)"><span>Text Embedding 3 Large</span></button>
+                                  <button type="button" role="option" aria-selected="false" class="combo-option" data-combobox-option data-value="gemini-3.8-flash" data-label="Gemini 3.8 Flash" data-description="gemini-3.8-flash" onclick="selectComboboxOption('modelCombobox', this)"><span>Gemini 3.8 Flash</span></button>
+                                  <button type="button" role="option" aria-selected="false" class="combo-option" data-combobox-option data-value="gemini-3.1-flash-image" data-label="Gemini 3.1 Flash Image" data-description="gemini-3.1-flash-image" onclick="selectComboboxOption('modelCombobox', this)"><span>Gemini 3.1 Flash Image</span></button>
+                                  <button type="button" role="option" aria-selected="false" class="combo-option" data-combobox-option data-value="gemini-3.8-flash-tts" data-label="Gemini 3.8 Flash TTS" data-description="gemini-3.8-flash-tts" onclick="selectComboboxOption('modelCombobox', this)"><span>Gemini 3.8 Flash TTS</span></button>
+                                  <button type="button" role="option" aria-selected="false" class="combo-option" data-combobox-option data-value="gemini-embedding-2" data-label="Gemini Embedding 2" data-description="gemini-embedding-2" onclick="selectComboboxOption('modelCombobox', this)"><span>Gemini Embedding 2</span></button>
+                                  <button type="button" role="option" aria-selected="false" class="combo-option" data-combobox-option data-value="claude-sonnet-5-5" data-label="Claude Sonnet 5.5" data-description="claude-sonnet-5-5" onclick="selectComboboxOption('modelCombobox', this)"><span>Claude Sonnet 5.5</span></button>
+                                  <button type="button" role="option" aria-selected="false" class="combo-option" data-combobox-option data-value="claude-opus-5-5" data-label="Claude Opus 5.5" data-description="claude-opus-5-5" onclick="selectComboboxOption('modelCombobox', this)"><span>Claude Opus 5.5</span></button>
+                                  <button type="button" role="option" aria-selected="false" class="combo-option" data-combobox-option data-value="claude-fable-5-1" data-label="Claude Fable 5.1" data-description="claude-fable-5-1" onclick="selectComboboxOption('modelCombobox', this)"><span>Claude Fable 5.1</span></button>
+                                  <button type="button" role="option" aria-selected="false" class="combo-option" data-combobox-option data-value="glm-5.3-flash" data-label="GLM 5.3 Flash" data-description="glm-5.3-flash" onclick="selectComboboxOption('modelCombobox', this)"><span>GLM 5.3 Flash</span></button>
+                                  <button type="button" role="option" aria-selected="false" class="combo-option" data-combobox-option data-value="kimi-k3" data-label="Kimi K3" data-description="kimi-k3" onclick="selectComboboxOption('modelCombobox', this)"><span>Kimi K3</span></button>
+                                  <button type="button" role="option" aria-selected="false" class="combo-option" data-combobox-option data-value="MiniMax-M3" data-label="MiniMax M3" data-description="MiniMax-M3" onclick="selectComboboxOption('modelCombobox', this)"><span>MiniMax M3</span></button>
+                                  <button type="button" role="option" aria-selected="false" class="combo-option" data-combobox-option data-value="deepseek-flash" data-label="DeepSeek Flash" data-description="deepseek-flash" onclick="selectComboboxOption('modelCombobox', this)"><span>DeepSeek Flash</span></button>
+                                  <button type="button" role="option" aria-selected="false" class="combo-option" data-combobox-option data-value="__custom__" data-label="Custom model" data-description="Type any model id" onclick="selectComboboxOption('modelCombobox', this)"><span>Custom model</span></button>
+                                  <div id="modelFilterEmpty" class="menu-empty hidden">No model matches</div>
+                              </div>
+                          </div>
+                          <p id="listModelsError" class="field-error hidden"></p>
+                          <div id="customModelWrapper" class="hidden" style="margin-top: 8px;">
+                              <input id="customModelInput" type="text" autocomplete="off" spellcheck="false" placeholder="Model id" class="control code" oninput="updateHeader()">
+                          </div>
+                      </div>
 
-      <div class="bg-white border-t border-gray-200 px-6 py-4">
-          <div id="imagePreviewContainer" class="mb-3 max-w-5xl mx-auto hidden"></div>
-          <div class="flex gap-3 max-w-5xl mx-auto">
-              <input type="file" id="imageInput" accept="image/*" multiple class="hidden" onchange="handleImageSelect(event)">
-              <button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-md text-sm font-semibold whitespace-nowrap transition-colors" onclick="document.getElementById('imageInput').click()">📎 Image</button>
-              <textarea id="messageInput" class="flex-1 px-4 py-3 border border-gray-300 rounded-md text-sm resize-none overflow-y-hidden focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Type your message here..." rows="1"></textarea>
-              <button class="bg-green-600 hover:bg-green-700 disabled:bg-green-300 disabled:cursor-not-allowed text-white px-6 py-3 rounded-md text-sm font-semibold whitespace-nowrap transition-colors" id="sendButton" onclick="sendMessage()">Send</button>
-              <button class="hidden bg-orange-600 hover:bg-orange-700 disabled:bg-orange-300 disabled:cursor-not-allowed text-white px-6 py-3 rounded-md text-sm font-semibold whitespace-nowrap transition-colors" id="stopButton" onclick="stopGeneration()" disabled>Stop</button>
-              <button class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-md text-sm font-semibold transition-colors" onclick="clearChat()">Clear</button>
-          </div>
+                      <div class="field">
+                          <div class="field-head">
+                              <label class="field-label" for="clientTypeComboboxButton">Client type</label>
+                          </div>
+                          <div id="clientTypeCombobox" data-combobox>
+                              <input id="clientTypeSelect" type="hidden" value="" data-combobox-value>
+                              <button id="clientTypeComboboxButton" type="button" role="combobox" aria-controls="clientTypeComboboxMenu" aria-expanded="false" class="control combo-button" onclick="toggleCombobox('clientTypeCombobox')" onkeydown="handleComboboxKeydown(event, 'clientTypeCombobox')" data-combobox-button>
+                                  <span class="mono" data-combobox-label>Auto</span>
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+                              </button>
+                              <div id="clientTypeComboboxMenu" class="hidden" role="listbox" aria-labelledby="clientTypeComboboxButton" data-combobox-menu onkeydown="handleMenuKeydown(event, 'clientTypeCombobox')"></div>
+                          </div>
+                      </div>
+
+                      <div class="field">
+                          <div class="field-head">
+                              <label class="field-label" for="apiKeyInput">API key</label>
+                          </div>
+                          <div class="input-wrap">
+                              <input type="password" id="apiKeyInput" autocomplete="off" spellcheck="false" placeholder="From the environment when empty" class="control">
+                              <button type="button" id="apiKeyVisibilityToggle" aria-label="Show API key" title="Show API key" class="input-action" onclick="toggleApiKeyVisibility()">
+                                  <svg id="apiKeyVisibilityShowIcon" class="hidden" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                  <svg id="apiKeyVisibilityHideIcon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.7 5.1A10.9 10.9 0 0 1 12 5c6.5 0 10 7 10 7a18.5 18.5 0 0 1-3.3 4.3"></path><path d="M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7a10.9 10.9 0 0 0 5.4-1.4"></path><path d="M9.9 9.9A3 3 0 0 0 14.1 14.1"></path><path d="M3 3l18 18"></path></svg>
+                              </button>
+                          </div>
+                      </div>
+
+                      <div class="field">
+                          <div class="field-head">
+                              <label class="field-label" for="baseUrlInput">Base URL</label>
+                          </div>
+                          <div class="input-wrap">
+                              <input type="url" id="baseUrlInput" spellcheck="false" oninput="handleBaseUrlInput()" placeholder="The provider's own endpoint" class="control" style="padding-right: 68px;">
+                              <span id="baseUrlDefaultTag" class="input-tag hidden">default</span>
+                          </div>
+                      </div>
+
+                      <div class="field">
+                          <div class="field-head">
+                              <label class="field-label" for="extraHeadersInput">Extra headers</label>
+                          </div>
+                          <textarea id="extraHeadersInput" rows="2" spellcheck="false" placeholder='{"X-Title": "MMSP"}' class="control code" oninput="getExtraHeaders()"></textarea>
+                          <p class="field-note">A JSON object, for endpoints that ask for headers of their own.</p>
+                      </div>
+                  </section>
+
+                  <section class="group">
+                      <div class="group-title"><span>Generation</span></div>
+
+                      <div class="field">
+                          <div class="field-head">
+                              <label class="field-label" for="thinkingLevelComboboxButton">Thinking level</label>
+                          </div>
+                          <div id="thinkingLevelCombobox" data-combobox>
+                              <input id="thinkingLevelSelect" type="hidden" value="" data-combobox-value>
+                              <button id="thinkingLevelComboboxButton" type="button" role="combobox" aria-controls="thinkingLevelComboboxMenu" aria-expanded="false" class="control combo-button" onclick="toggleCombobox('thinkingLevelCombobox')" onkeydown="handleComboboxKeydown(event, 'thinkingLevelCombobox')" data-combobox-button>
+                                  <span data-combobox-label>Default</span>
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+                              </button>
+                              <div id="thinkingLevelComboboxMenu" class="hidden" role="listbox" aria-labelledby="thinkingLevelComboboxButton" data-combobox-menu onkeydown="handleMenuKeydown(event, 'thinkingLevelCombobox')">
+                                  <button type="button" role="option" aria-selected="true" class="combo-option" data-combobox-option data-value="" data-label="Default" data-description="The provider's default" onclick="selectComboboxOption('thinkingLevelCombobox', this)"><span>Default</span></button>
+                                  <button type="button" role="option" aria-selected="false" class="combo-option" data-combobox-option data-value="none" data-label="None" data-description="No thinking" onclick="selectComboboxOption('thinkingLevelCombobox', this)"><span>None</span></button>
+                                  <button type="button" role="option" aria-selected="false" class="combo-option" data-combobox-option data-value="low" data-label="Low" data-description="low" onclick="selectComboboxOption('thinkingLevelCombobox', this)"><span>Low</span></button>
+                                  <button type="button" role="option" aria-selected="false" class="combo-option" data-combobox-option data-value="medium" data-label="Medium" data-description="medium" onclick="selectComboboxOption('thinkingLevelCombobox', this)"><span>Medium</span></button>
+                                  <button type="button" role="option" aria-selected="false" class="combo-option" data-combobox-option data-value="high" data-label="High" data-description="high" onclick="selectComboboxOption('thinkingLevelCombobox', this)"><span>High</span></button>
+                                  <button type="button" role="option" aria-selected="false" class="combo-option" data-combobox-option data-value="xhigh" data-label="XHigh" data-description="xhigh" onclick="selectComboboxOption('thinkingLevelCombobox', this)"><span>XHigh</span></button>
+                                  <button type="button" role="option" aria-selected="false" class="combo-option" data-combobox-option data-value="max" data-label="Max" data-description="max" onclick="selectComboboxOption('thinkingLevelCombobox', this)"><span>Max</span></button>
+                              </div>
+                          </div>
+                      </div>
+
+                      <div class="field">
+                          <div class="field-head">
+                              <span class="field-label" id="thinkingSummaryLabel">Thinking summary</span>
+                          </div>
+                          <div id="thinkingSummaryCombobox" class="segmented" role="radiogroup" aria-labelledby="thinkingSummaryLabel" data-segmented>
+                              <input id="thinkingSummaryCheckbox" type="hidden" value="" data-combobox-value>
+                              <span class="seg-thumb" aria-hidden="true"></span>
+                              <button type="button" role="radio" aria-checked="true" data-combobox-option data-value="" data-label="Default" onclick="selectComboboxOption('thinkingSummaryCombobox', this)">Default</button>
+                              <button type="button" role="radio" aria-checked="false" data-combobox-option data-value="true" data-label="On" onclick="selectComboboxOption('thinkingSummaryCombobox', this)">On</button>
+                              <button type="button" role="radio" aria-checked="false" data-combobox-option data-value="false" data-label="Off" onclick="selectComboboxOption('thinkingSummaryCombobox', this)">Off</button>
+                          </div>
+                      </div>
+
+                      <div class="field">
+                          <div class="field-head">
+                              <span class="field-label" id="toolChoiceLabel">Tool choice</span>
+                          </div>
+                          <div id="toolChoiceCombobox" class="segmented" role="radiogroup" aria-labelledby="toolChoiceLabel" data-segmented>
+                              <input id="toolChoiceSelect" type="hidden" value="" data-combobox-value>
+                              <span class="seg-thumb" aria-hidden="true"></span>
+                              <button type="button" role="radio" aria-checked="true" data-combobox-option data-value="" data-label="Default" onclick="selectComboboxOption('toolChoiceCombobox', this)">Default</button>
+                              <button type="button" role="radio" aria-checked="false" data-combobox-option data-value="auto" data-label="Auto" onclick="selectComboboxOption('toolChoiceCombobox', this)">Auto</button>
+                              <button type="button" role="radio" aria-checked="false" data-combobox-option data-value="required" data-label="Required" onclick="selectComboboxOption('toolChoiceCombobox', this)">Required</button>
+                              <button type="button" role="radio" aria-checked="false" data-combobox-option data-value="none" data-label="None" onclick="selectComboboxOption('toolChoiceCombobox', this)">None</button>
+                          </div>
+                      </div>
+
+                      <div class="field">
+                          <div class="field-head">
+                              <label class="field-label" for="systemPromptInput">System prompt</label>
+                          </div>
+                          <textarea id="systemPromptInput" rows="3" class="control" placeholder="You are a helpful assistant."></textarea>
+                      </div>
+
+                      <div class="field">
+                          <div class="field-head">
+                              <label class="field-label" for="toolsInput">Tools</label>
+                          </div>
+                          <textarea id="toolsInput" rows="4" spellcheck="false" placeholder='[{"name": "get_weather", "description": "...", "parameters": {...}}]' class="control code" oninput="validateTools()"></textarea>
+                          <p id="toolsError" class="field-error hidden">Not valid JSON. The request goes out without tools.</p>
+                      </div>
+
+                      <div class="field">
+                          <div class="field-head">
+                              <label class="field-label" for="traceIdInput">Trace ID</label>
+                          </div>
+                          <input type="text" id="traceIdInput" spellcheck="false" placeholder="session_001" class="control">
+                          <p class="field-note">Requests with a trace ID are recorded for the tracer.</p>
+                      </div>
+                  </section>
+              </div>
+          </aside>
+          <div class="scrim" onclick="toggleConfig()"></div>
+
+          <main class="main">
+              <header class="topbar">
+                  <button type="button" class="icon-btn" onclick="toggleConfig()" aria-label="Toggle settings" title="Settings">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"></rect><path d="M9 4v16"></path></svg>
+                  </button>
+                  <div class="topbar-model">
+                      <span id="headerModel">gpt-6.1-sol</span>
+                      <span id="headerClientType" class="mono"></span>
+                  </div>
+                  <div class="topbar-actions">
+                      <a href="https://github.com/Prism-Shadow/model-message-stream-protocol" target="_blank" rel="noopener noreferrer" class="ghost-btn" title="GitHub">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.08 2.91.83.09-.65.35-1.08.63-1.33-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.6 9.6 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"></path></svg>
+                          <span class="label-wide">GitHub</span>
+                      </a>
+                      <a href="/tracer/" target="_blank" rel="noopener noreferrer" class="ghost-btn" title="Open Tracer">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"></path></svg>
+                          <span class="label-wide">Open Tracer</span>
+                      </a>
+                      <button type="button" class="ghost-btn" onclick="clearChat()" title="New chat">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
+                          <span class="label-wide">New chat</span>
+                      </button>
+                  </div>
+              </header>
+
+              <div class="messages" id="messagesContainer">
+                  <div class="empty-state" id="emptyState">
+                      <h2>Start a conversation</h2>
+                      <p>Messages go to <span class="mono" id="emptyStateModel">gpt-6.1-sol</span>, and every stream item shows as it arrives.</p>
+                  </div>
+                  <div class="thread hidden" id="thread"></div>
+              </div>
+
+              <div class="composer-wrap">
+                  <div class="composer" id="composer">
+                      <div id="imagePreviewContainer" class="previews hidden"></div>
+                      <textarea id="messageInput" rows="1" placeholder="Message gpt-6.1-sol" aria-label="Message"></textarea>
+                      <div class="composer-bar">
+                          <input type="file" id="imageInput" accept="image/*" multiple class="hidden" onchange="handleImageSelect(event)">
+                          <button type="button" class="icon-btn" onclick="document.getElementById('imageInput').click()" aria-label="Attach images" title="Attach images">
+                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.4 11.1-8.8 8.8a5.5 5.5 0 0 1-7.8-7.8l8.8-8.8a3.7 3.7 0 0 1 5.2 5.2l-8.8 8.8a1.8 1.8 0 0 1-2.6-2.6l8.1-8.1"></path></svg>
+                          </button>
+                          <span class="composer-hint">Enter to send, Shift+Enter for a new line</span>
+                          <button type="button" class="send-btn" id="sendButton" onclick="sendMessage()" aria-label="Send" title="Send" disabled>
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"></path></svg>
+                          </button>
+                          <button type="button" class="send-btn hidden" id="stopButton" onclick="stopGeneration()" aria-label="Stop" title="Stop" disabled>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"></rect></svg>
+                          </button>
+                      </div>
+                  </div>
+              </div>
+          </main>
       </div>
 
       <script>
@@ -474,6 +1724,16 @@ export function createChatApp(): Express {
           let selectedImages = [];
           let lastMessageTimestamp = null;
           let currentAbortController = null;
+
+          const ICONS = {
+              sparkle: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c.4 4.6 2.4 7.4 10 10-7.6 2.6-9.6 5.4-10 10-.4-4.6-2.4-7.4-10-10 7.6-2.6 9.6-5.4 10-10Z"></path></svg>',
+              chevron: '<svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>',
+              tool: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0 5 5L22 14l-8 8-2.3-2.3a4 4 0 0 0-5-5L2 10l8-8Z"></path></svg>',
+              copy: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"></rect><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"></path></svg>',
+              check: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>',
+              audio: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5Z"></path><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"></path></svg>',
+              close: '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg>'
+          };
 
           function escapeHtml(text) {
               const div = document.createElement('div');
@@ -486,6 +1746,23 @@ export function createChatApp(): Express {
               const d = new Date(ms);
               const pad = n => n.toString().padStart(2, '0');
               return \`\${d.getFullYear()}-\${pad(d.getMonth()+1)}-\${pad(d.getDate())} \${pad(d.getHours())}:\${pad(d.getMinutes())}:\${pad(d.getSeconds())}\`;
+          }
+
+          function formatClock(ms) {
+              if (!ms) return '';
+              const d = new Date(ms);
+              const pad = n => n.toString().padStart(2, '0');
+              return \`\${pad(d.getHours())}:\${pad(d.getMinutes())}\`;
+          }
+
+          function formatDuration(ms) {
+              if (ms < 1000) return \`\${Math.round(ms)} ms\`;
+              if (ms < 60000) return \`\${(ms / 1000).toFixed(ms < 10000 ? 2 : 1)} s\`;
+              return \`\${Math.floor(ms / 60000)} min \${Math.round((ms % 60000) / 1000)} s\`;
+          }
+
+          function formatCount(n) {
+              return Number(n).toLocaleString('en-US');
           }
 
           const AUDIO_MIME_TYPES = ['audio/wav', 'audio/x-wav', 'audio/mpeg', 'audio/mp3', 'audio/ogg', 'audio/webm', 'audio/flac', 'audio/aac', 'audio/mp4'];
@@ -569,36 +1846,37 @@ export function createChatApp(): Express {
           function renderAudioPlayer(mimeType, chunks) {
               const bytes = concatBase64Chunks(chunks);
               if (AUDIO_MIME_TYPES.includes(mimeType)) {
-                  return \`<audio controls preload="metadata" class="max-w-xs"><source src="data:\${mimeType};base64,\${bytesToBase64(bytes)}" type="\${mimeType}"></audio>\`;
+                  return \`\${ICONS.audio}<audio controls preload="metadata"><source src="data:\${mimeType};base64,\${bytesToBase64(bytes)}" type="\${mimeType}"></audio>\`;
               }
 
               const format = pcmFormatFromMimeType(mimeType);
               const wavDataUrl = pcmBytesToWavDataUrl(bytes, format.sampleRate, format.channels);
-              return \`<audio controls preload="metadata" class="max-w-xs"><source src="\${wavDataUrl}" type="audio/wav"></audio>\`;
+              return \`\${ICONS.audio}<audio controls preload="metadata"><source src="\${wavDataUrl}" type="audio/wav"></audio>\`;
           }
 
           function audioProgressLabel(audioStream) {
               if (AUDIO_MIME_TYPES.includes(audioStream.mimeType)) {
-                  return \`🔊 Receiving audio... \${Math.round(audioStream.bytes / 1024)} KB\`;
+                  return \`Receiving audio, \${Math.round(audioStream.bytes / 1024)} KB\`;
               }
 
               // raw PCM carries no duration, so 16-bit samples turn the byte count into seconds
               const format = pcmFormatFromMimeType(audioStream.mimeType);
               const seconds = audioStream.bytes / (format.sampleRate * format.channels * 2);
-              return \`🔊 Receiving audio... \${seconds.toFixed(1)}s\`;
+              return \`Receiving audio, \${seconds.toFixed(1)} s\`;
           }
 
           function appendAudioChunk(contentDiv, item, audioStream) {
               if (!audioStream.container) {
                   audioStream.mimeType = (item.mime_type || '').toLowerCase();
                   audioStream.container = document.createElement('div');
-                  audioStream.container.className = 'mb-3 text-sm text-gray-500';
+                  audioStream.container.className = 'audio-box';
+                  audioStream.container.innerHTML = \`\${ICONS.audio}<span class="shimmer"></span>\`;
                   contentDiv.appendChild(audioStream.container);
               }
 
               audioStream.chunks.push(item.data);
               audioStream.bytes += Math.floor(item.data.length * 3 / 4);
-              audioStream.container.textContent = audioProgressLabel(audioStream);
+              audioStream.container.querySelector('span').textContent = audioProgressLabel(audioStream);
           }
 
           function finalizeAudioStream(audioStream, autoplay = false) {
@@ -607,7 +1885,6 @@ export function createChatApp(): Express {
               }
 
               audioStream.finalized = true;
-              audioStream.container.className = 'mb-3';
               audioStream.container.innerHTML = renderAudioPlayer(audioStream.mimeType, audioStream.chunks);
               if (autoplay) {
                   // a browser that blocks autoplay leaves the player sitting there ready to press
@@ -618,29 +1895,87 @@ export function createChatApp(): Express {
           function renderInlineData(item) {
               const mimeType = (item.mime_type || '').toLowerCase();
               if (mimeType.startsWith('image/')) {
-                  return \`<div class="mb-3"><img src="data:\${mimeType || 'image/png'};base64,\${item.data}" class="max-w-xs rounded border border-gray-300"></div>\`;
+                  return \`<figure class="media"><img src="data:\${mimeType || 'image/png'};base64,\${item.data}" alt="Generated image"></figure>\`;
               }
 
-              return \`<div class="mb-3 rounded border border-gray-300 bg-gray-50 px-3 py-2 text-xs text-gray-600">Inline data: \${escapeHtml(item.mime_type || 'application/octet-stream')}</div>\`;
+              return \`<div class="inline-data">Inline data: \${escapeHtml(item.mime_type || 'application/octet-stream')}</div>\`;
           }
 
           function renderEmbedding(item) {
               const values = Array.isArray(item.embedding) ? item.embedding.slice(0, 5) : [];
-              const preview = escapeHtml(\`[\${values.join(', ')}]\`);
-              return \`<div class="embedding-content mb-2 rounded-md border-l-4 border-indigo-500 bg-indigo-50 p-3 whitespace-normal"><div class="flex items-start gap-2 text-sm"><strong class="shrink-0 text-gray-900">Embedding:</strong><code class="font-mono text-xs text-gray-800 break-all">\${preview}</code></div></div>\`;
+              const size = Array.isArray(item.embedding) ? item.embedding.length : 0;
+              const preview = escapeHtml(\`[\${values.join(', ')}\${size > values.length ? ', …' : ''}]\`);
+              return \`<div class="embedding-content"><div class="embedding-head"><span>Embedding</span><span class="mono">\${formatCount(size)} dimensions</span></div><code>\${preview}</code></div>\`;
           }
 
-          function openStreamItem(contentDiv, className) {
-              const container = document.createElement('div');
-              container.className = className;
-              contentDiv.appendChild(container);
-              return { container, text: '', name: '' };
+          // Every stream item gets the element its kind reads best in; the stream loop only feeds it text.
+          function openStreamItem(contentDiv, kind, started = performance.now()) {
+              const item = { kind, text: '', name: '', started, root: null, container: null };
+              if (kind === 'thinking') {
+                  item.root = document.createElement('div');
+                  item.root.className = 'thinking open';
+                  item.root.innerHTML = \`<button type="button" class="thinking-head" onclick="toggleThinking(this)" aria-expanded="true">\${ICONS.sparkle}<span class="thinking-label shimmer">Thinking</span>\${ICONS.chevron}</button><div class="thinking-body"><div class="thinking-inner"><div class="thinking-text"></div></div></div>\`;
+                  item.container = item.root.querySelector('.thinking-text');
+              } else if (kind === 'tool_call') {
+                  item.root = document.createElement('div');
+                  item.root.className = 'tool';
+                  item.root.innerHTML = \`<div class="tool-head"><span class="tool-icon">\${ICONS.tool}</span><span class="tool-name"></span><span class="tool-state shimmer">Calling</span></div><pre class="tool-args"></pre>\`;
+                  item.container = item.root.querySelector('.tool-args');
+              } else {
+                  item.root = document.createElement('div');
+                  item.root.className = 'text-content';
+                  item.container = item.root;
+              }
+              contentDiv.appendChild(item.root);
+              return item;
           }
 
-          function handleImageSelect(event) {
-              const files = event.target.files;
-              if (!files || files.length === 0) return;
+          function finishStreamItem(item) {
+              if (!item) {
+                  return;
+              }
+              if (item.kind === 'thinking') {
+                  // a thinking item that carries only a signature has nothing to show
+                  if (!item.text.trim()) {
+                      item.root.remove();
+                      return;
+                  }
+                  const label = item.root.querySelector('.thinking-label');
+                  label.classList.remove('shimmer');
+                  label.textContent = \`Thought for \${formatDuration(performance.now() - item.started)}\`;
+                  // the answer matters more once it starts; the thinking stays one click away
+                  setThinkingOpen(item.root, false);
+              } else if (item.kind === 'tool_call') {
+                  const state = item.root.querySelector('.tool-state');
+                  state.classList.remove('shimmer');
+                  state.textContent = 'Tool call';
+              }
+          }
 
+          function setThinkingOpen(root, open) {
+              root.classList.toggle('open', open);
+              root.querySelector('.thinking-head').setAttribute('aria-expanded', open ? 'true' : 'false');
+          }
+
+          function toggleThinking(button) {
+              const root = button.closest('.thinking');
+              setThinkingOpen(root, !root.classList.contains('open'));
+          }
+
+          // summaries title their paragraphs in **bold**, the only markdown worth reading here
+          function renderThinking(text) {
+              return escapeHtml(text.trim()).replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>');
+          }
+
+          function prettyArguments(text) {
+              try {
+                  return JSON.stringify(JSON.parse(text), null, 2);
+              } catch (error) {
+                  return text;
+              }
+          }
+
+          function addImageFiles(files) {
               const maxFileSize = 10 * 1024 * 1024;
               const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
 
@@ -665,12 +2000,18 @@ export function createChatApp(): Express {
                   };
                   reader.readAsDataURL(file);
               });
+          }
 
+          function handleImageSelect(event) {
+              const files = event.target.files;
+              if (!files || files.length === 0) return;
+              addImageFiles(files);
               event.target.value = '';
           }
 
           function updateImagePreview() {
               const container = document.getElementById('imagePreviewContainer');
+              updateSendState();
               if (selectedImages.length === 0) {
                   container.classList.add('hidden');
                   container.innerHTML = '';
@@ -679,9 +2020,9 @@ export function createChatApp(): Express {
 
               container.classList.remove('hidden');
               container.innerHTML = selectedImages.map((img, idx) => \`
-                  <div class="inline-block relative mr-2 mb-2">
-                      <img src="\${img}" class="h-20 w-20 object-cover rounded border border-gray-300">
-                      <button onclick="removeImage(\${idx})" class="absolute -top-2 -right-2 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-700">×</button>
+                  <div class="preview">
+                      <img src="\${img}" alt="Attached image \${idx + 1}">
+                      <button type="button" onclick="removeImage(\${idx})" aria-label="Remove image \${idx + 1}">\${ICONS.close}</button>
                   </div>
               \`).join('');
           }
@@ -691,9 +2032,52 @@ export function createChatApp(): Express {
               updateImagePreview();
           }
 
+          function isNarrowScreen() {
+              return window.matchMedia('(max-width: 900px)').matches;
+          }
+
           function toggleConfig() {
-              const panel = document.getElementById('configPanel');
-              panel.classList.toggle('hidden');
+              const app = document.getElementById('app');
+              if (isNarrowScreen()) {
+                  app.classList.toggle('sidebar-open');
+              } else {
+                  app.classList.toggle('sidebar-collapsed');
+              }
+              requestAnimationFrame(updateAllSegmentThumbs);
+          }
+
+          function setTheme(theme) {
+              document.documentElement.dataset.theme = theme;
+              try {
+                  localStorage.setItem('mmsp.playground.theme', theme);
+              } catch (error) {
+                  // a browser that refuses storage keeps the choice for this page only
+              }
+              updateThemeToggle();
+          }
+
+          function updateThemeToggle() {
+              const stored = document.documentElement.dataset.theme;
+              const theme = stored || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+              document.querySelectorAll('#themeToggle [data-theme-choice]').forEach((button) => {
+                  button.setAttribute('aria-checked', button.dataset.themeChoice === theme ? 'true' : 'false');
+              });
+              updateSegmentThumb(document.getElementById('themeToggle'));
+          }
+
+          // the thumb glides under the checked segment of a segmented control
+          function updateSegmentThumb(root) {
+              const thumb = root && root.querySelector('.seg-thumb');
+              const checked = root && root.querySelector('[aria-checked="true"]');
+              if (!thumb || !checked || !checked.offsetWidth) {
+                  return;
+              }
+              thumb.style.width = checked.offsetWidth + 'px';
+              thumb.style.transform = \`translateX(\${checked.offsetLeft}px)\`;
+          }
+
+          function updateAllSegmentThumbs() {
+              document.querySelectorAll('.segmented').forEach(updateSegmentThumb);
           }
 
           function closeCombobox(comboboxId) {
@@ -703,6 +2087,9 @@ export function createChatApp(): Express {
               }
               const menu = root.querySelector('[data-combobox-menu]');
               const button = root.querySelector('[data-combobox-button]');
+              if (!menu || !button) {
+                  return;
+              }
               menu.classList.add('hidden');
               button.setAttribute('aria-expanded', 'false');
           }
@@ -713,6 +2100,10 @@ export function createChatApp(): Express {
                       closeCombobox(root.id);
                   }
               });
+          }
+
+          function visibleOptions(menu) {
+              return Array.from(menu.querySelectorAll('[data-combobox-option]')).filter((option) => !option.classList.contains('hidden'));
           }
 
           function toggleCombobox(comboboxId) {
@@ -726,30 +2117,48 @@ export function createChatApp(): Express {
               }
               menu.classList.remove('hidden');
               root.querySelector('[data-combobox-button]').setAttribute('aria-expanded', 'true');
+
+              const filter = menu.querySelector('.menu-search input');
+              if (filter) {
+                  filter.value = '';
+                  filterModelOptions();
+                  filter.focus();
+              }
+              const selected = menu.querySelector('[data-combobox-option][aria-selected="true"]');
+              if (selected) {
+                  selected.scrollIntoView({ block: 'nearest' });
+                  if (!filter) {
+                      selected.focus();
+                  }
+              }
           }
 
           function selectComboboxOption(comboboxId, option) {
               const root = document.getElementById(comboboxId);
               root.querySelector('[data-combobox-value]').value = option.dataset.value || '';
-              root.querySelector('[data-combobox-label]').textContent = option.dataset.label || 'Unspecified';
-              const description = root.querySelector('[data-combobox-description]');
-              if (description) {
-                  description.textContent = option.dataset.description || option.dataset.value || 'Default';
+              const label = root.querySelector('[data-combobox-label]');
+              if (label) {
+                  label.textContent = option.dataset.label || 'Default';
               }
 
               root.querySelectorAll('[data-combobox-option]').forEach((item) => {
                   const isSelected = item === option;
-                  item.setAttribute('aria-selected', isSelected ? 'true' : 'false');
-                  item.classList.toggle('bg-blue-50', isSelected);
+                  item.setAttribute(item.getAttribute('role') === 'radio' ? 'aria-checked' : 'aria-selected', isSelected ? 'true' : 'false');
               });
+              updateSegmentThumb(root.classList.contains('segmented') ? root : null);
 
+              const wasOpen = root.querySelector('[data-combobox-button][aria-expanded="true"]');
               closeCombobox(comboboxId);
+              if (wasOpen) {
+                  wasOpen.focus();
+              }
               if (comboboxId === 'modelCombobox') {
                   handleModelSelectChange();
               } else if (comboboxId === 'clientTypeCombobox' && !settingClientType) {
                   handleClientTypeChange();
               }
 
+              updateHeader();
               saveConfig();
           }
 
@@ -760,6 +2169,44 @@ export function createChatApp(): Express {
               } else if (event.key === 'Escape') {
                   closeCombobox(comboboxId);
               }
+          }
+
+          // arrows walk the open menu, Escape hands focus back to its button
+          function handleMenuKeydown(event, comboboxId) {
+              const root = document.getElementById(comboboxId);
+              const menu = root.querySelector('[data-combobox-menu]');
+              const options = visibleOptions(menu);
+              const index = options.indexOf(document.activeElement);
+              if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                  event.preventDefault();
+                  const step = event.key === 'ArrowDown' ? 1 : -1;
+                  const next = index < 0 ? (step > 0 ? 0 : options.length - 1) : Math.min(Math.max(index + step, 0), options.length - 1);
+                  if (options[next]) {
+                      options[next].focus();
+                  }
+              } else if (event.key === 'Enter' && index < 0 && options.length) {
+                  event.preventDefault();
+                  selectComboboxOption(comboboxId, options[0]);
+              } else if (event.key === 'Escape') {
+                  event.preventDefault();
+                  closeCombobox(comboboxId);
+                  root.querySelector('[data-combobox-button]').focus();
+              }
+          }
+
+          function filterModelOptions() {
+              const input = document.getElementById('modelFilterInput');
+              const query = input.value.trim().toLowerCase();
+              let shown = 0;
+              document.querySelectorAll('#modelComboboxMenu [data-combobox-option]').forEach((option) => {
+                  const text = \`\${option.dataset.label} \${option.dataset.value}\`.toLowerCase();
+                  const match = !query || option.dataset.value === '__custom__' || text.includes(query);
+                  option.classList.toggle('hidden', !match);
+                  if (match && option.dataset.value !== '__custom__') {
+                      shown += 1;
+                  }
+              });
+              document.getElementById('modelFilterEmpty').classList.toggle('hidden', shown > 0);
           }
 
           document.addEventListener('click', (event) => {
@@ -801,12 +2248,17 @@ export function createChatApp(): Express {
               option.type = 'button';
               option.setAttribute('role', 'option');
               option.setAttribute('aria-selected', 'false');
-              option.className = 'w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none';
+              option.className = 'combo-option';
               option.setAttribute('data-combobox-option', '');
               option.dataset.value = value;
               option.dataset.label = label;
               option.dataset.description = description;
-              option.textContent = label;
+              const text = document.createElement('span');
+              text.textContent = label;
+              if (value) {
+                  text.className = 'mono';
+              }
+              option.appendChild(text);
               option.onclick = () => selectComboboxOption('clientTypeCombobox', option);
               return option;
           }
@@ -814,9 +2266,9 @@ export function createChatApp(): Express {
           function populateClientTypes() {
               const menu = document.getElementById('clientTypeComboboxMenu');
               menu.appendChild(clientTypeOption('', 'Auto', 'The official client the model id names'));
-              [['Official: the vendor\u2019s own API', PLAYGROUND.official], ['Compatible: any endpoint serving the protocol', PLAYGROUND.compatible]].forEach(([title, types]) => {
+              [['Official: the vendor’s own API', PLAYGROUND.official], ['Compatible: any endpoint serving the protocol', PLAYGROUND.compatible]].forEach(([title, types]) => {
                   const header = document.createElement('div');
-                  header.className = 'px-3 pt-2 pb-1 text-xs font-semibold text-gray-500';
+                  header.className = 'menu-heading';
                   header.textContent = title;
                   menu.appendChild(header);
                   types.forEach((type) => menu.appendChild(clientTypeOption(type, type, CLIENT_TYPE_DESCRIPTIONS[type] || '')));
@@ -860,9 +2312,25 @@ export function createChatApp(): Express {
               return getSelectedClientType() || familyClientType(getSelectedModel());
           }
 
+          function updateBaseUrlTag() {
+              const value = document.getElementById('baseUrlInput').value.trim();
+              document.getElementById('baseUrlDefaultTag').classList.toggle('hidden', !value || value !== filledBaseUrl);
+          }
+
           function fillBaseUrl(value) {
               document.getElementById('baseUrlInput').value = value;
               filledBaseUrl = value;
+              updateBaseUrlTag();
+          }
+
+          // the top bar, the empty state and the composer name the model a message goes to
+          function updateHeader() {
+              const model = getSelectedModel() || 'a custom model';
+              const clientType = effectiveClientType();
+              document.getElementById('headerModel').textContent = model;
+              document.getElementById('headerClientType').textContent = clientType || 'client type required';
+              document.getElementById('emptyStateModel').textContent = model;
+              document.getElementById('messageInput').placeholder = \`Message \${model}\`;
           }
 
           function handleModelSelectChange() {
@@ -881,6 +2349,7 @@ export function createChatApp(): Express {
               const defaultUrl = PLAYGROUND.baseUrls[effectiveClientType()] || '';
               fillBaseUrl((option && option.dataset.baseUrl) || defaultUrl);
               filledBaseUrl = defaultUrl;
+              updateBaseUrlTag();
           }
 
           function handleClientTypeChange() {
@@ -897,6 +2366,7 @@ export function createChatApp(): Express {
                   }
               } else {
                   filledBaseUrl = PLAYGROUND.baseUrls[effectiveClientType()] || '';
+                  updateBaseUrlTag();
               }
               saveConfig();
           }
@@ -906,6 +2376,7 @@ export function createChatApp(): Express {
               if (option) {
                   option.dataset.baseUrl = document.getElementById('baseUrlInput').value.trim();
               }
+              updateBaseUrlTag();
           }
 
           function getSelectedModel() {
@@ -950,11 +2421,11 @@ export function createChatApp(): Express {
                   option.type = 'button';
                   option.setAttribute('role', 'option');
                   option.setAttribute('aria-selected', 'false');
-                  option.className = 'w-full px-3 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none';
+                  option.className = 'combo-option';
                   option.setAttribute('data-combobox-option', '');
                   option.dataset.value = modelId;
                   option.dataset.label = modelId;
-                  option.dataset.description = modelId;
+                  option.dataset.description = clientType ? \`listed through \${clientType}\` : 'listed';
                   option.dataset.listed = 'true';
                   if (clientType) {
                       option.dataset.clientType = clientType;
@@ -965,7 +2436,6 @@ export function createChatApp(): Express {
                   option.onclick = () => selectComboboxOption('modelCombobox', option);
 
                   const label = document.createElement('span');
-                  label.className = 'block truncate text-sm font-medium text-gray-900';
                   label.textContent = modelId;
                   option.appendChild(label);
                   menu.insertBefore(option, customOption);
@@ -982,7 +2452,7 @@ export function createChatApp(): Express {
               const error = document.getElementById('listModelsError');
 
               button.disabled = true;
-              status.textContent = 'Listing...';
+              status.textContent = 'Listing…';
               error.classList.add('hidden');
               try {
                   const response = await fetch('/api/models', {
@@ -1009,7 +2479,7 @@ export function createChatApp(): Express {
           function getExtraHeaders() {
               const input = document.getElementById('extraHeadersInput');
               const raw = input.value.trim();
-              input.classList.remove('border-red-500');
+              input.classList.remove('invalid');
               if (!raw) {
                   return null;
               }
@@ -1021,8 +2491,26 @@ export function createChatApp(): Express {
               } catch (error) {
                   // the invalid marker below covers both a parse failure and a non-object
               }
-              input.classList.add('border-red-500');
+              input.classList.add('invalid');
               return null;
+          }
+
+          // the tools as typed, or null when the field is empty or not JSON, which marks it
+          function validateTools() {
+              const input = document.getElementById('toolsInput');
+              const raw = input.value.trim();
+              let tools = null;
+              let valid = true;
+              if (raw) {
+                  try {
+                      tools = JSON.parse(raw);
+                  } catch (error) {
+                      valid = false;
+                  }
+              }
+              input.classList.toggle('invalid', !valid);
+              document.getElementById('toolsError').classList.toggle('hidden', valid);
+              return tools;
           }
 
           function getConfig() {
@@ -1073,14 +2561,9 @@ export function createChatApp(): Express {
                   config.system_prompt = systemPrompt;
               }
 
-              const toolsInput = document.getElementById('toolsInput').value.trim();
-              if (toolsInput) {
-                  try {
-                      config.tools = JSON.parse(toolsInput);
-                  } catch (e) {
-                      console.error('Invalid JSON in tools field:', e);
-                      alert('Invalid JSON format in Tools field. Please check your syntax.');
-                  }
+              const tools = validateTools();
+              if (tools) {
+                  config.tools = tools;
               }
 
               const traceId = document.getElementById('traceIdInput').value.trim();
@@ -1169,66 +2652,143 @@ export function createChatApp(): Express {
                   if (document.getElementById('baseUrlInput').value.trim() !== filledBaseUrl) {
                       handleBaseUrlInput();
                   }
+                  updateBaseUrlTag();
+                  validateTools();
+                  getExtraHeaders();
+                  updateHeader();
               } finally {
                   restoringConfig = false;
               }
           }
 
-          function addMessageCard(role, content, metadata = null, images = [], timestamp = null, tookMs = null) {
+          // follows the stream only while the reader is at the bottom, so scrolling up to read stays put
+          function isNearBottom() {
               const container = document.getElementById('messagesContainer');
+              return container.scrollHeight - container.scrollTop - container.clientHeight < 80;
+          }
 
-              if (container.children.length === 1 && container.children[0].className.includes('text-center')) {
-                  container.innerHTML = '';
+          function scrollToBottom(force = false) {
+              const container = document.getElementById('messagesContainer');
+              if (force || stickToBottom) {
+                  container.scrollTop = container.scrollHeight;
               }
+          }
+
+          let stickToBottom = true;
+          document.getElementById('messagesContainer').addEventListener('scroll', () => {
+              stickToBottom = isNearBottom();
+          });
+
+          function showThread() {
+              document.getElementById('emptyState').classList.add('hidden');
+              document.getElementById('thread').classList.remove('hidden');
+          }
+
+          function addMessageCard(role, content, metadata = null, images = [], timestamp = null, tookMs = null) {
+              const thread = document.getElementById('thread');
+              showThread();
 
               const card = document.createElement('div');
               const isUser = role === 'user';
-              card.className = \`max-w-3xl rounded-lg shadow-sm border p-4 mb-4 \${isUser ? 'ml-auto bg-blue-50 border-blue-200' : 'mr-auto bg-white border-gray-200'}\`;
+              card.className = \`msg \${isUser ? 'msg-user' : 'msg-assistant'}\`;
 
-              let html = \`
-                  <div class="flex justify-between items-center mb-3">
-                      <span class="font-semibold text-sm uppercase \${isUser ? 'text-blue-600' : 'text-green-600'}">\${role}</span>
-                      <div class="flex items-center gap-2">
-                          <span class="msg-took text-xs text-gray-400">\${tookMs !== null ? 'Took ' + tookMs + ' ms' : ''}</span>
-                          <span class="text-xs text-gray-400 msg-timestamp">\${timestamp ? formatTimestamp(timestamp) : ''}</span>
-                      </div>
-                  </div>
-              \`;
-
-              if (images && images.length > 0) {
-                  html += '<div class="mb-3 flex flex-wrap gap-2">';
-                  images.forEach(img => {
-                      html += \`<img src="\${img}" class="max-w-xs rounded border border-gray-300">\`;
-                  });
-                  html += '</div>';
+              let html = '';
+              if (isUser) {
+                  html += \`<div class="msg-head"><span class="msg-timestamp" title="\${timestamp ? formatTimestamp(timestamp) : ''}">\${formatClock(timestamp)}</span></div>\`;
+                  html += '<div class="bubble">';
+                  if (images && images.length > 0) {
+                      html += '<div class="bubble-images">';
+                      images.forEach((img, idx) => {
+                          html += \`<img src="\${img}" alt="Image \${idx + 1}">\`;
+                      });
+                      html += '</div>';
+                  }
+                  html += \`<div class="message-content">\${escapeHtml(content || '')}</div></div>\`;
+              } else {
+                  html += \`<div class="msg-head"><span class="msg-model">\${escapeHtml(getSelectedModel())}</span><span class="msg-took">\${tookMs !== null ? formatDuration(tookMs) : ''}</span><span class="msg-timestamp">\${timestamp ? formatClock(timestamp) : ''}</span></div>\`;
+                  html += \`<div class="message-content">\${escapeHtml(content || '')}</div>\`;
               }
 
-              html += \`<div class="message-content text-sm leading-relaxed whitespace-pre-wrap">\${escapeHtml(content || '')}</div>\`;
-
               if (metadata) {
-                  html += '<div class="flex justify-end gap-3 mt-3 pt-3 border-t border-gray-200 text-xs text-gray-500">';
-                  if (metadata.tokens) {
-                      html += \`<div class="flex items-center gap-1">📊 \${metadata.tokens} tokens</div>\`;
-                  }
-                  if (metadata.finish_reason) {
-                      html += \`<div class="flex items-center gap-1">🏁 \${metadata.finish_reason}</div>\`;
-                  }
-                  html += '</div>';
+                  html += renderMetadata(metadata);
               }
 
               card.innerHTML = html;
-              container.appendChild(card);
-              container.scrollTop = container.scrollHeight;
+              thread.appendChild(card);
+              scrollToBottom(true);
 
               return card;
+          }
+
+          function renderMetadata(metadata, tookMs = null, copyable = false) {
+              let metadataHtml = '<div class="msg-foot">';
+              if (metadata.finish_reason) {
+                  metadataHtml += \`<span class="reason reason-\${escapeHtml(metadata.finish_reason)}" title="Finish reason">\${escapeHtml(metadata.finish_reason)}</span>\`;
+              }
+              const parts = [];
+              if (metadata.cached_tokens) parts.push(\`<span>Cached <b>\${formatCount(metadata.cached_tokens)}</b></span>\`);
+              if (metadata.prompt_tokens) parts.push(\`<span>Prompt <b>\${formatCount(metadata.prompt_tokens)}</b></span>\`);
+              if (metadata.thoughts_tokens) parts.push(\`<span>Thoughts <b>\${formatCount(metadata.thoughts_tokens)}</b></span>\`);
+              if (metadata.response_tokens) parts.push(\`<span>Response <b>\${formatCount(metadata.response_tokens)}</b></span>\`);
+              if (metadata.total_tokens) parts.push(\`<span>Total <b>\${formatCount(metadata.total_tokens)}</b></span>\`);
+              if (parts.length) {
+                  metadataHtml += \`<span class="usage" title="Token usage">\${parts.join('')}</span>\`;
+              }
+              if (tookMs !== null) {
+                  metadataHtml += \`<span class="usage"><span>Took <b>\${formatDuration(tookMs)}</b></span></span>\`;
+              }
+              if (copyable) {
+                  metadataHtml += \`<button type="button" class="icon-btn copy-btn" onclick="copyMessage(this)" aria-label="Copy the text" title="Copy the text">\${ICONS.copy}</button>\`;
+              }
+              metadataHtml += '</div>';
+              return metadataHtml;
+          }
+
+          async function copyMessage(button) {
+              const card = button.closest('.msg');
+              const text = Array.from(card.querySelectorAll('.text-content')).map((node) => node.textContent).join('\\n\\n');
+              try {
+                  await navigator.clipboard.writeText(text);
+                  button.innerHTML = ICONS.check;
+                  setTimeout(() => {
+                      button.innerHTML = ICONS.copy;
+                  }, 1400);
+              } catch (error) {
+                  console.error('Copy failed:', error);
+              }
+          }
+
+          // shown until the first delta arrives, with the time the model has taken so far
+          function showPending(contentDiv) {
+              const pending = document.createElement('div');
+              pending.className = 'pending';
+              pending.innerHTML = \`<span class="pending-grid" aria-hidden="true">\${'<i></i>'.repeat(9)}</span><span class="shimmer">Waiting for the model</span><span class="elapsed">0.0 s</span>\`;
+              contentDiv.appendChild(pending);
+              const started = performance.now();
+              const elapsed = pending.querySelector('.elapsed');
+              const timer = setInterval(() => {
+                  elapsed.textContent = \`\${((performance.now() - started) / 1000).toFixed(1)} s\`;
+              }, 100);
+              return {
+                  clear() {
+                      clearInterval(timer);
+                      pending.remove();
+                  }
+              };
           }
 
           function setStreamingControls(streaming) {
               const sendButton = document.getElementById('sendButton');
               const stopButton = document.getElementById('stopButton');
-              sendButton.disabled = streaming;
+              sendButton.classList.toggle('hidden', streaming);
               stopButton.disabled = !streaming;
               stopButton.classList.toggle('hidden', !streaming);
+              updateSendState();
+          }
+
+          function updateSendState() {
+              const input = document.getElementById('messageInput');
+              document.getElementById('sendButton').disabled = isStreaming || (!input.value.trim() && selectedImages.length === 0);
           }
 
           function stopGeneration() {
@@ -1253,20 +2813,21 @@ export function createChatApp(): Express {
           }
 
           function markInterrupted(contentDiv) {
-              if (!contentDiv.textContent.trim() && contentDiv.children.length === 0) {
-                  contentDiv.textContent = 'Interrupted.';
-                  return;
-              }
-
               const interruptedDiv = document.createElement('div');
-              interruptedDiv.className = 'mt-3 text-xs font-semibold text-orange-600';
+              interruptedDiv.className = 'interrupted';
               interruptedDiv.textContent = 'Interrupted';
               contentDiv.appendChild(interruptedDiv);
           }
 
+          function showError(contentDiv, message) {
+              const errorDiv = document.createElement('div');
+              errorDiv.className = 'error-banner';
+              errorDiv.textContent = message;
+              contentDiv.appendChild(errorDiv);
+          }
+
           async function sendMessage() {
               const input = document.getElementById('messageInput');
-              const container = document.getElementById('messagesContainer');
               const message = input.value.trim();
 
               if ((!message && selectedImages.length === 0) || isStreaming) return;
@@ -1282,15 +2843,17 @@ export function createChatApp(): Express {
               updateImagePreview();
 
               const userSendTime = Date.now();
-              const timeSinceLastResponse = lastMessageTimestamp !== null ? userSendTime - lastMessageTimestamp : null;
-              addMessageCard('user', message, null, currentImages, userSendTime, timeSinceLastResponse);
+              addMessageCard('user', message, null, currentImages, userSendTime);
 
               const assistantCard = addMessageCard('assistant', '');
               const contentDiv = assistantCard.querySelector('.message-content');
+              const pending = showPending(contentDiv);
               // items never interleave in a stream, so every delta belongs to the one item still open
               let openItem = null;
               // a spoken response streams as many small chunks that only play as one clip
               let audioStream = null;
+              // where the next item's time starts: the request, then the end of the item before it
+              let itemMark = performance.now();
 
               try {
                   const config = getConfig();
@@ -1361,10 +2924,8 @@ export function createChatApp(): Express {
                                   const event = JSON.parse(data);
 
                                   if (event.error) {
-                                      const errorDiv = document.createElement('div');
-                                      errorDiv.className = 'mt-2 text-sm text-red-600';
-                                      errorDiv.textContent = \`Error: \${event.error}\`;
-                                      contentDiv.appendChild(errorDiv);
+                                      pending.clear();
+                                      showError(contentDiv, \`Error: \${event.error}\`);
                                       continue;
                                   }
 
@@ -1385,24 +2946,29 @@ export function createChatApp(): Express {
                                       continue;
                                   }
 
+                                  if (event.content_items.length) {
+                                      pending.clear();
+                                  }
+
                                   // a delta event carries a fragment of the open item or its done item, whose complete
                                   // content replaces the fragments shown so far; an image or an embedding shows once
                                   // done, and thinking inline data not at all
                                   for (const item of event.content_items) {
                                       if (item.type === 'text.delta' || item.type === 'text.done') {
-                                          openItem = openItem || openStreamItem(contentDiv, 'text-content');
+                                          openItem = openItem || openStreamItem(contentDiv, 'text', itemMark);
                                           openItem.text = item.type === 'text.done' ? item.text : openItem.text + item.text;
                                           openItem.container.textContent = openItem.text;
                                       } else if (item.type === 'thinking.delta' || item.type === 'thinking.done') {
-                                          openItem = openItem || openStreamItem(contentDiv, 'thinking-content bg-blue-50 p-3 rounded-md border-l-4 border-blue-500 mb-2 italic');
+                                          openItem = openItem || openStreamItem(contentDiv, 'thinking', itemMark);
                                           openItem.text = item.type === 'thinking.done' ? item.thinking : openItem.text + item.thinking;
-                                          openItem.container.textContent = \`💭 \${openItem.text}\`;
+                                          openItem.container.innerHTML = renderThinking(openItem.text);
                                       } else if (item.type === 'tool_call.delta' || item.type === 'tool_call.done') {
-                                          openItem = openItem || openStreamItem(contentDiv, 'toolcall-content bg-yellow-50 p-3 rounded-md border-l-4 border-yellow-500 mb-2');
+                                          openItem = openItem || openStreamItem(contentDiv, 'tool_call', itemMark);
                                           // only the first delta names the call, and only the done item has parsed arguments
                                           openItem.name = item.name || openItem.name;
-                                          openItem.text = item.type === 'tool_call.done' ? JSON.stringify(item.arguments) : openItem.text + item.arguments;
-                                          openItem.container.innerHTML = \`<strong class="text-sm">🛠️ Tool Call:</strong> \${escapeHtml(openItem.name)}<br><div class="mt-1 text-xs whitespace-pre-wrap">\${escapeHtml(openItem.text)}</div>\`;
+                                          openItem.text = item.type === 'tool_call.done' ? JSON.stringify(item.arguments, null, 2) : openItem.text + item.arguments;
+                                          openItem.root.querySelector('.tool-name').textContent = openItem.name;
+                                          openItem.container.textContent = item.type === 'tool_call.done' ? openItem.text : prettyArguments(openItem.text);
                                       } else if (item.type === 'inline_data.delta' && isAudioMimeType(item.mime_type)) {
                                           audioStream = audioStream || { mimeType: '', chunks: [], bytes: 0, container: null, finalized: false };
                                           appendAudioChunk(contentDiv, item, audioStream);
@@ -1411,25 +2977,19 @@ export function createChatApp(): Express {
                                           finalizeAudioStream(audioStream, true);
                                           audioStream = null;
                                       } else if (item.type === 'inline_data.done') {
-                                          const inlineDataDiv = document.createElement('div');
-                                          inlineDataDiv.innerHTML = renderInlineData(item);
-                                          if (inlineDataDiv.firstChild) {
-                                              contentDiv.appendChild(inlineDataDiv.firstChild);
-                                          }
+                                          contentDiv.insertAdjacentHTML('beforeend', renderInlineData(item));
                                       } else if (item.type === 'embedding.done') {
-                                          const embeddingDiv = document.createElement('div');
-                                          embeddingDiv.innerHTML = renderEmbedding(item);
-                                          if (embeddingDiv.firstChild) {
-                                              contentDiv.appendChild(embeddingDiv.firstChild);
-                                          }
+                                          contentDiv.insertAdjacentHTML('beforeend', renderEmbedding(item));
                                       }
 
                                       if (item.type.endsWith('.done')) {
+                                          finishStreamItem(openItem);
                                           openItem = null;
+                                          itemMark = performance.now();
                                       }
                                   }
 
-                                  container.scrollTop = container.scrollHeight;
+                                  scrollToBottom();
                               } catch (e) {
                                   console.error('Error parsing event:', e);
                               }
@@ -1440,7 +3000,8 @@ export function createChatApp(): Express {
                   if (lastCreatedAt) {
                       const timestampEl = assistantCard.querySelector('.msg-timestamp');
                       if (timestampEl) {
-                          timestampEl.textContent = formatTimestamp(lastCreatedAt);
+                          timestampEl.textContent = formatClock(lastCreatedAt);
+                          timestampEl.title = formatTimestamp(lastCreatedAt);
                       }
                   }
 
@@ -1449,22 +3010,11 @@ export function createChatApp(): Express {
                   lastMessageTimestamp = endTime;
                   const tookEl = assistantCard.querySelector('.msg-took');
                   if (tookEl) {
-                      tookEl.textContent = \`Took \${responseTimeMs} ms\`;
+                      tookEl.textContent = formatDuration(responseTimeMs);
                   }
 
                   if (metadata) {
-                      let metadataHtml = '<div class="flex justify-end gap-3 mt-3 pt-3 border-t border-gray-200 text-xs text-gray-500">';
-                      const parts = [];
-                      if (metadata.cached_tokens) parts.push(\`Cached: \${metadata.cached_tokens}\`);
-                      if (metadata.prompt_tokens) parts.push(\`Prompt: \${metadata.prompt_tokens}\`);
-                      if (metadata.thoughts_tokens) parts.push(\`Thoughts: \${metadata.thoughts_tokens}\`);
-                      if (metadata.response_tokens) parts.push(\`Response: \${metadata.response_tokens}\`);
-                      if (metadata.total_tokens) parts.push(\`Total: \${metadata.total_tokens}\`);
-                      metadataHtml += \`<div class="flex items-center gap-1">📊 \${parts.join(' | ')}</div>\`;
-                      if (metadata.finish_reason) {
-                          metadataHtml += \`<div class="flex items-center gap-1">🏁 \${metadata.finish_reason}</div>\`;
-                      }
-                      metadataHtml += '</div>';
+                      const metadataHtml = renderMetadata(metadata, responseTimeMs, Boolean(contentDiv.querySelector('.text-content')));
                       // appended rather than re-parsed into the card, which would restart a playing clip
                       assistantCard.insertAdjacentHTML('beforeend', metadataHtml);
                   }
@@ -1476,41 +3026,51 @@ export function createChatApp(): Express {
                       }
                       markInterrupted(contentDiv);
                   } else {
-                      contentDiv.textContent = \`Error: \${error.message}\`;
+                      showError(contentDiv, \`Error: \${error.message}\`);
                       console.error('Error:', error);
                   }
                   lastMessageTimestamp = Date.now();
               } finally {
+                  pending.clear();
+                  finishStreamItem(openItem);
                   isStreaming = false;
                   currentAbortController = null;
                   setStreamingControls(false);
+                  scrollToBottom();
+                  input.focus();
               }
           }
 
+          function resetThread() {
+              sessionId = Math.random().toString(36).substring(7);
+              lastMessageTimestamp = null;
+              document.getElementById('thread').innerHTML = '';
+              document.getElementById('thread').classList.add('hidden');
+              document.getElementById('emptyState').classList.remove('hidden');
+          }
+
           function clearChat() {
-              if (confirm('Are you sure you want to clear the conversation?')) {
-                  fetch('/api/clear', {
-                      method: 'POST',
-                      headers: {
-                          'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({
-                          session_id: sessionId
-                      })
-                  }).then(() => {
-                      sessionId = Math.random().toString(36).substring(7);
-                      lastMessageTimestamp = null;
-                      const container = document.getElementById('messagesContainer');
-                      container.innerHTML = \`
-                          <div class="text-center text-gray-500 py-10">
-                              <h2 class="text-2xl font-semibold mb-2">Start a conversation</h2>
-                              <p class="text-sm">Type your message below to begin chatting with the AI.</p>
-                          </div>
-                      \`;
-                  }).catch(error => {
-                      console.error('Error clearing chat:', error);
-                  });
+              const hasMessages = document.getElementById('thread').children.length > 0;
+              if (isStreaming) {
+                  stopGeneration();
               }
+              if (hasMessages && !confirm('Start a new chat? This conversation will be cleared.')) {
+                  return;
+              }
+              fetch('/api/clear', {
+                  method: 'POST',
+                  headers: {
+                      'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                      session_id: sessionId
+                  })
+              }).then(() => {
+                  resetThread();
+                  document.getElementById('messageInput').focus();
+              }).catch(error => {
+                  console.error('Error clearing chat:', error);
+              });
           }
 
           document.getElementById('messageInput').addEventListener('keydown', function(e) {
@@ -1527,9 +3087,31 @@ export function createChatApp(): Express {
               const nextHeight = Math.min(textarea.scrollHeight, maxHeight);
               textarea.style.height = nextHeight + 'px';
               textarea.style.overflowY = textarea.scrollHeight > maxHeight ? 'auto' : 'hidden';
+              updateSendState();
           }
           textarea.addEventListener('input', resizeMessageInput);
-          resizeMessageInput();
+
+          // images pasted or dropped onto the composer attach like picked ones
+          textarea.addEventListener('paste', (event) => {
+              const files = Array.from(event.clipboardData ? event.clipboardData.files : []);
+              if (files.length) {
+                  event.preventDefault();
+                  addImageFiles(files);
+              }
+          });
+          const composer = document.getElementById('composer');
+          composer.addEventListener('dragover', (event) => {
+              event.preventDefault();
+              composer.classList.add('dragging');
+          });
+          composer.addEventListener('dragleave', () => composer.classList.remove('dragging'));
+          composer.addEventListener('drop', (event) => {
+              event.preventDefault();
+              composer.classList.remove('dragging');
+              if (event.dataTransfer && event.dataTransfer.files.length) {
+                  addImageFiles(event.dataTransfer.files);
+              }
+          });
 
           document.getElementById('configPanel').addEventListener('input', saveConfig);
           // setting up the page selects its defaults, which is not a change to save over the stored one
@@ -1538,7 +3120,18 @@ export function createChatApp(): Express {
           handleModelSelectChange();
           restoringConfig = false;
           restoreConfig();
+          updateHeader();
+          resizeMessageInput();
 
+          updateThemeToggle();
+          window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', updateThemeToggle);
+          window.addEventListener('resize', updateAllSegmentThumbs);
+          // the thumbs measure their segments, which the web font changes once it loads
+          document.fonts.ready.then(updateAllSegmentThumbs);
+          updateAllSegmentThumbs();
+          if (!isNarrowScreen()) {
+              textarea.focus();
+          }
       </script>
   </body>
   </html>
