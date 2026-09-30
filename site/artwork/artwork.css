@@ -1,17 +1,17 @@
 /* Shared by the three pieces of artwork: the README header, the social preview and the
-   concept diagram. Black ground, one fennel-flower blue, JetBrains Mono for anything that is code. */
+   concept diagram. Black ground, one pure blue, JetBrains Mono for anything that is code. */
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=block");
 
 :root {
   --ground: #000000;
-  --accent: #7aa2f7;
-  --accent-deep: #4169c5;
-  --accent-dim: #1c2f5c;
+  --accent: #477dfb;
+  --accent-deep: #184bd7;
+  --accent-dim: #102d79;
   --ink: #ffffff;
   --ink-soft: #a3a3ad;
   --ink-faint: #5c5c66;
   --number: #4ade80;
-  --string: #c7dafe;
+  --string: #c9dafa;
   --mono: "JetBrains Mono", ui-monospace, monospace;
   --sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
@@ -43,7 +43,7 @@ body {
   background: repeating-linear-gradient(
     135deg,
     transparent 0 13px,
-    rgba(122, 162, 247, 0.5) 13px 14.5px
+    rgba(71, 125, 251, 0.5) 13px 14.5px
   );
   -webkit-mask-image: radial-gradient(closest-side, #000 20%, transparent 100%);
   mask-image: radial-gradient(closest-side, #000 20%, transparent 100%);
@@ -52,7 +52,7 @@ body {
   background: repeating-linear-gradient(
     45deg,
     transparent 0 13px,
-    rgba(122, 162, 247, 0.5) 13px 14.5px
+    rgba(71, 125, 251, 0.5) 13px 14.5px
   );
 }
 
