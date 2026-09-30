@@ -1,0 +1,14 @@
+---
+import type { MarkdownInstance } from "astro";
+import DocPage from "../../../layouts/DocPage.astro";
+import { ALL_DOCS } from "../../../shared/site";
+
+export function getStaticPaths() {
+  const pages = import.meta.glob<MarkdownInstance<{ description: string }>>("../../../docs/*.zh.md", { eager: true });
+  return ALL_DOCS.map((doc) => ({ params: { slug: doc.slug }, props: { doc, page: pages[`../../../docs/${doc.slug}.zh.md`] } }));
+}
+
+const { doc, page } = Astro.props;
+---
+
+<DocPage locale="zh" doc={doc} page={page} />

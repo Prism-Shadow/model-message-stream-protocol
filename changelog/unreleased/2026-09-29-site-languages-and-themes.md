@@ -1,0 +1,28 @@
+# The site follows the system's language and theme, and hands MMSP to a coding agent
+
+- **Date:** 2026-09-29
+- **Type:** process
+- **Scope:** `site`, `docs`
+
+[中文版](2026-09-29-site-languages-and-themes.zh.md)
+
+## What changed
+
+- The site is in English at `/` and in Chinese at `/zh/`, with the twelve documentation pages and the changelog in both. The home page and the docs landing open in the browser's language; the language menu in the top bar switches, the choice is kept in the browser, and a chosen language applies to every page. A link to any other page keeps its language, and every page names its counterpart in the other language for search engines.
+- The theme follows the system, light or dark, and the theme menu in the top bar pins one. Both choices apply before the first paint, so a page never flashes the other language or the other theme.
+- The overview page gained a section that hands MMSP to a coding agent: one line installs the `mmsp-python` or `mmsp-typescript` skill from the repository's tarball, and a prompt points an assistant that takes no skills at the same file. The agent skills page has the same lines.
+- The stream on the overview page now shows the input with the output: the TypeScript that sends one message and one tool to Claude, GPT or Gemini, with the model id the only line that changes, above each model's stream replayed event by event next to the message it adds up to. The stop event is rendered as a `finish_reason` pill and a bar per `usage_metadata` count with the total. The stream loops while it is on screen, and a Pause button holds it.
+- An Install Agent Skill button stands next to the quickstart button in the hero. It copies a prompt that has a coding agent install the `mmsp-python` and `mmsp-typescript` skills from the repository.
+- The agent loop page draws the loop as a flowchart: a start and an end terminal, three process steps, one decision on whether the response holds a `tool_call.done`, and the edge back for the next turn. Screen readers and the page's Markdown get the same steps as a numbered list.
+- The site drops the generic AI-template look, after killaislop.com: violet is kept for the selected tab and the output bars instead of every inline code span, the "Why MMSP" list loses its colored left borders and names concrete properties, docs pages lose the uppercase kicker above the title, the top bar is solid instead of blurred glass, and the icons are Lucide's instead of hand-drawn.
+- The Chinese pages and interface strings were polished for natural technical Chinese, with the English as the source of every fact. `site/scripts/polish-zh.mjs` does it through a DeepSeek model on the TokenDance gateway; code blocks and HTML are restored from the original, and an answer that changes inline code, a link or the page's structure is refused.
+- The player's pause button now switches between the pause and play icons.
+- The player keeps one height while a stream plays and when the model tab changes, so the page below it no longer jumps.
+- The home page and the README state MMSP's purpose as a slogan under the title: integrate every model the same way, and keep one API in your head instead of one per provider.
+- The Discord and X links on the site and in the README point to the community penguin-harness uses: `discord.gg/eFHKqqcU3D` and `x.com/code_hiyouga`.
+- The mark is the four letters on a two-by-two checkerboard, two squares violet, with no gap between them. The favicon, the README header and the social preview use it.
+- A new page, The agent loop, describes the loop every agent runs on MMSP and gives a complete implementation in Python and TypeScript: stream, run every tool the turn asked for, send the results back in one message, stop when a turn asks for none.
+- On every documentation page the table of contents follows the reader, and a Copy Markdown button copies the page as Markdown. Every page is also served as Markdown at its own URL plus `.md`, and `/llms.txt` indexes them.
+- Search engines get `/sitemap.xml` with both languages of every page, `/robots.txt`, a `favicon.ico`, complete Open Graph and Twitter tags, and structured data: `WebSite` on the home page, `TechArticle` on the others.
+- The GitHub button in the top bar shows the repository's star count, read from the GitHub API and kept in the browser for an hour.
+- The documentation files moved from `site/src/docs/<page>.md` to `site/src/docs/<page>.en.md` and `<page>.zh.md`.

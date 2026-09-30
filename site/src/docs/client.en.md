@@ -47,10 +47,12 @@ const withType = new AutoLLMClient({ model: "custom-model", clientType: "openai-
 | Option | Python | TypeScript | Meaning |
 | --- | --- | --- | --- |
 | Model | `model` | `model` | The exact model id. |
-| Key | `api_key` | `apiKey` | Defaults to the provider's environment variable. |
+| Key | `api_key` | `apiKey` | Defaults to the provider's environment variable, but only when the endpoint comes from the environment too. |
 | Endpoint | `base_url` | `baseUrl` | Defaults to the provider's environment variable, then to its official endpoint. |
 | Protocol | `client_type` | `clientType` | Names the client instead of deducing it from the model id. See [Models and endpoints](/docs/models/). |
 | Headers | `default_headers` | `defaultHeaders` | Sent with every request, for endpoints that demand their own. |
+
+A key goes only where it was given for. A client that reads `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` from the environment sends it to the endpoint the environment names, `OPENAI_BASE_URL` or `ANTHROPIC_BASE_URL`, or the provider's own. Given a `base_url` and no `api_key`, it raises at construction rather than send that key to another endpoint: pass the key next to the URL. A vendor client such as `deepseek-v4` reads its own variable, `DEEPSEEK_API_KEY`, whatever endpoint it is given.
 
 ## Methods
 

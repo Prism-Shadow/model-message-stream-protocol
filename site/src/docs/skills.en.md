@@ -11,11 +11,24 @@ A coding agent that has never seen MMSP guesses at it. The repository ships skil
 
 ## Install a skill
 
-Copy the folder into the place your assistant reads skills from. For Claude Code that is `.claude/skills/` in the project, or `~/.claude/skills/` for every project.
+Put the folder where your assistant reads skills from: `~/.claude/skills/` for every project, `.claude/skills/` in one project, `.agents/skills/` for Codex. One line takes the folder, reference files included, out of the repository's tarball:
+
+<div class="code-group" data-labels="Python skill,TypeScript skill">
 
 ```bash
-git clone https://github.com/Prism-Shadow/model-message-stream-protocol.git
-cp -r model-message-stream-protocol/skills/mmsp-python .claude/skills/
+mkdir -p ~/.claude/skills && curl -fsSL https://github.com/Prism-Shadow/model-message-stream-protocol/archive/main.tar.gz | tar -xz -C ~/.claude/skills --strip-components=2 model-message-stream-protocol-main/skills/mmsp-python
+```
+
+```bash
+mkdir -p ~/.claude/skills && curl -fsSL https://github.com/Prism-Shadow/model-message-stream-protocol/archive/main.tar.gz | tar -xz -C ~/.claude/skills --strip-components=2 model-message-stream-protocol-main/skills/mmsp-typescript
+```
+
+</div>
+
+An assistant that takes no skills can read the same file from a link. Paste this, and it has what the skill holds:
+
+```text
+Read https://github.com/Prism-Shadow/model-message-stream-protocol/blob/main/skills/mmsp-python/SKILL.md and the reference files it links, then write an agent that calls get_weather with MMSP.
 ```
 
 ## What a skill holds

@@ -41,7 +41,7 @@ const models = listSupportedModels("CNY"); // "USD" by default
 
 ## Any compatible endpoint
 
-Four generic clients call any endpoint that serves their protocol. Name one with `client_type`, and set `OPENAI_API_KEY` and `OPENAI_BASE_URL`, or the `ANTHROPIC_` pair for `ant-messages`.
+Four generic clients call any endpoint that serves their protocol. Name one with `client_type`, and give it the endpoint and its key together: as `base_url` and `api_key`, or as `OPENAI_BASE_URL` and `OPENAI_API_KEY` in the environment (the `ANTHROPIC_` pair for `ant-messages`). A `base_url` without an `api_key` raises: the environment's key is not sent to an endpoint named in code.
 
 | `client_type` | Protocol | Served by |
 | --- | --- | --- |
@@ -60,6 +60,7 @@ client = AutoLLMClient(
     model="qwen/qwen3.6-35b-a3b",
     client_type="openai-responses",
     base_url="https://openrouter.ai/api/v1",
+    api_key=os.environ["OPENROUTER_API_KEY"],
 )
 ```
 
@@ -68,6 +69,7 @@ const client = new AutoLLMClient({
   model: "qwen/qwen3.6-35b-a3b",
   clientType: "openai-responses",
   baseUrl: "https://openrouter.ai/api/v1",
+  apiKey: process.env.OPENROUTER_API_KEY,
 });
 ```
 

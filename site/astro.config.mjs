@@ -5,7 +5,7 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   site: "https://mmsp.penguin.ooo",
   trailingSlash: "always",
-  redirects: { "/docs/": "/docs/introduction/" },
+  redirects: { "/docs/": "/docs/introduction/", "/zh/docs/": "/zh/docs/introduction/" },
   markdown: {
     // straight quotes stay straight, as they are written in code and in the README
     smartypants: false,

@@ -1,8 +1,8 @@
 ---
-description: Install MMSP, stream a first response, then let the model call a tool.
+description: 安装 MMSP，流式输出第一条响应，然后让模型调用一个工具。
 ---
 
-## Install
+## 安装
 
 <div class="code-group" data-labels="Python,TypeScript">
 
@@ -16,13 +16,13 @@ npm install @prismshadow/mmsp
 
 </div>
 
-The Python package needs Python 3.11 or newer. `uv add mmsp` works as well.
+Python 包需要 Python 3.11 或更高版本。`uv add mmsp` 同样可用。
 
-## Set the API key
+## 设置 API key
 
-MMSP reads the provider's key from the environment: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `DEEPSEEK_API_KEY`, `MOONSHOT_API_KEY`, `ZAI_API_KEY` or `MINIMAX_API_KEY`. You can also pass `api_key` and `base_url` to the client. [Models and endpoints](/docs/models/) has the full list.
+MMSP 从环境变量读取服务商的 API key，支持 `ANTHROPIC_API_KEY`、`OPENAI_API_KEY`、`GEMINI_API_KEY`、`DEEPSEEK_API_KEY`、`MOONSHOT_API_KEY`、`ZAI_API_KEY` 和 `MINIMAX_API_KEY`。你也可以在创建客户端时直接传入 `api_key` 和 `base_url`。完整列表见[模型与端点](/zh/docs/models/)。
 
-## Stream a response
+## 流式输出响应
 
 <div class="code-group">
 
@@ -61,7 +61,7 @@ for await (const event of client.streamingResponseStateful({
 
 </div>
 
-The stream prints four fragments, the complete text, then the one event that ends it:
+流式输出会依次打印四个文本片段、一个完整文本，最后是一个结束事件：
 
 ```json
 {"role": "assistant", "event_type": "delta", "content_items": [{"type": "text.delta", "text": "Hello"}], "usage_metadata": null, "finish_reason": null}
@@ -72,11 +72,11 @@ The stream prints four fragments, the complete text, then the one event that end
 {"role": "assistant", "event_type": "stop", "content_items": [], "usage_metadata": {"cached_tokens": 0, "prompt_tokens": 12, "thoughts_tokens": 0, "response_tokens": 8}, "finish_reason": "stop"}
 ```
 
-Change the model id to `claude-opus-5` or `gemini-3.8-flash` and the same code prints the same shapes.
+将模型 id 改为 `claude-opus-5` 或 `gemini-3.8-flash`，同样的代码会输出相同结构的事件。
 
-## Call a tool
+## 调用工具
 
-The model asks for a tool with a `tool_call.done` item. Run the tool, then send its result back with the same `tool_call_id`.
+模型通过 `tool_call.done` 内容项请求工具。你需要运行该工具，并使用相同的 `tool_call_id` 将结果返回。
 
 <div class="code-group">
 
@@ -192,10 +192,12 @@ if (toolCall) {
 
 </div>
 
-## Rules for an agent loop
+## Agent 循环规则
 
-- Read tool calls from `tool_call.done` items. `tool_call.delta` items are fragments of the arguments, good for showing progress and nothing else.
-- Send every tool result with the exact `tool_call_id` of its `tool_call.done`.
-- Read the usage and the finish reason from the `stop` event. It is always the last event and arrives exactly once.
-- Keep `thinking.done` items and every `fidelity` field as they arrived. The stateful call does this for you.
-- When the arguments of a call do not parse, MMSP raises `ToolCallArgumentParseError` in place of the `tool_call.done`. Retry or re-prompt; never run a tool from partial arguments.
+[Agent 循环](/zh/docs/agent-loop/)文档将这些规则整合为一份完整实现。
+
+- 从 `tool_call.done` 项读取工具调用。`tool_call.delta` 项只是参数的片段，仅用于展示进度。
+- 返回工具结果时，必须使用对应 `tool_call.done` 中完全相同的 `tool_call_id`。
+- 用量和结束原因从 `stop` 事件读取。该事件总是最后一个，且只出现一次。
+- 保持 `thinking.done` 项和所有 `fidelity` 字段不变。有状态调用会自动处理。
+- 当工具调用的参数无法解析时，MMSP 会抛出 `ToolCallArgumentParseError` 而非返回 `tool_call.done`。此时应重试或重新提示，切勿使用不完整的参数运行工具。
