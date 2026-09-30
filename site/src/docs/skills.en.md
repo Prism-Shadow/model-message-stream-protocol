@@ -13,14 +13,14 @@ A coding agent that has never seen MMSP guesses at it. The repository ships skil
 
 Put the folder where your assistant reads skills from: `~/.claude/skills/` for every project, `.claude/skills/` in one project, `.agents/skills/` for Codex. One line takes the folder, reference files included, out of the repository's tarball:
 
-<div class="code-group" data-labels="Python skill,TypeScript skill">
-
-```bash
-mkdir -p ~/.claude/skills && curl -fsSL https://github.com/Prism-Shadow/model-message-stream-protocol/archive/main.tar.gz | tar -xz -C ~/.claude/skills --strip-components=2 model-message-stream-protocol-main/skills/mmsp-python
-```
+<div class="code-group" data-labels="TypeScript skill,Python skill">
 
 ```bash
 mkdir -p ~/.claude/skills && curl -fsSL https://github.com/Prism-Shadow/model-message-stream-protocol/archive/main.tar.gz | tar -xz -C ~/.claude/skills --strip-components=2 model-message-stream-protocol-main/skills/mmsp-typescript
+```
+
+```bash
+mkdir -p ~/.claude/skills && curl -fsSL https://github.com/Prism-Shadow/model-message-stream-protocol/archive/main.tar.gz | tar -xz -C ~/.claude/skills --strip-components=2 model-message-stream-protocol-main/skills/mmsp-python
 ```
 
 </div>

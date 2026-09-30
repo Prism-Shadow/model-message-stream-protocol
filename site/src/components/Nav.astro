@@ -2,7 +2,7 @@
 import Logo from "./Logo.astro";
 import Menu from "./Menu.astro";
 import { STRINGS, type Locale } from "../shared/i18n";
-import { REPO_URL, SITE_NAME, navLinks } from "../shared/site";
+import { REPO_URL, SITE_NAME, formatStars, navLinks, repoStars } from "../shared/site";
 
 interface Props {
   locale: Locale;
@@ -13,6 +13,7 @@ interface Props {
 const { locale, active } = Astro.props;
 const s = STRINGS[locale];
 const links = navLinks(locale);
+const stars = await repoStars();
 const link = "shrink-0 whitespace-nowrap rounded-md px-2 py-1.5 text-[13px] transition-colors";
 const current =
   "bg-black text-white dark:bg-black dark:text-white dark:ring-1 dark:ring-gray-600";
@@ -99,8 +100,9 @@ const icon = "h-[18px] w-[18px]";
           ></path>
         </svg>
         <span class="sr-only">{s.nav.github}</span>
-        <span class="tabular-nums" data-stars={REPO_URL} hidden>
-          <span data-stars-count></span>
+        <!-- the count holds its width from the first paint, so the buttons beside it never move -->
+        <span class="min-w-[3ch] text-left tabular-nums" data-stars={REPO_URL}>
+          <span data-stars-count>{stars === null ? "" : formatStars(stars)}</span>
         </span>
       </a>
     </div>

@@ -8,29 +8,6 @@ description: AutoLLMClient, its methods, and the helpers exported next to it.
 
 <div class="code-group">
 
-```python
-from mmsp import AutoLLMClient
-
-# the official OpenAI client, named by the model id's family
-client = AutoLLMClient(model="gpt-5.5")
-
-# the same, spelled out, with the key and the endpoint given in code
-client = AutoLLMClient(
-    model="gpt-5.5",
-    client_type="openai-official",
-    api_key="your-openai-api-key",
-    base_url="https://api.openai.com/v1",
-)
-
-# a compatible client, for any endpoint that serves OpenAI Chat Completions
-client = AutoLLMClient(
-    model="custom-model",
-    client_type="openai-chat",
-    base_url="http://127.0.0.1:8000/v1/",
-    api_key="none",
-)
-```
-
 ```typescript
 import { AutoLLMClient } from "@prismshadow/mmsp";
 
@@ -54,6 +31,29 @@ const withType = new AutoLLMClient({
 });
 ```
 
+```python
+from mmsp import AutoLLMClient
+
+# the official OpenAI client, named by the model id's family
+client = AutoLLMClient(model="gpt-5.5")
+
+# the same, spelled out, with the key and the endpoint given in code
+client = AutoLLMClient(
+    model="gpt-5.5",
+    client_type="openai-official",
+    api_key="your-openai-api-key",
+    base_url="https://api.openai.com/v1",
+)
+
+# a compatible client, for any endpoint that serves OpenAI Chat Completions
+client = AutoLLMClient(
+    model="custom-model",
+    client_type="openai-chat",
+    base_url="http://127.0.0.1:8000/v1/",
+    api_key="none",
+)
+```
+
 </div>
 
 | Option | Python | TypeScript | Meaning |
@@ -70,6 +70,18 @@ A key goes only where it was given for. A client that reads `OPENAI_API_KEY` or 
 
 <div class="code-group">
 
+```typescript
+streamingResponse(options: { messages: UniMessage[]; config: UniConfig }): AsyncGenerator<UniEvent>;
+
+streamingResponseStateful(options: { message: UniMessage; config: UniConfig }): AsyncGenerator<UniEvent>;
+
+listModels(): Promise<string[]>;
+
+getHistory(): UniMessage[];
+setHistory(history: UniMessage[]): void;
+clearHistory(): void;
+```
+
 ```python
 async def streaming_response(messages: list[UniMessage], config: UniConfig) -> AsyncIterator[UniEvent]:
     """Stream one response from a full message list. Keeps nothing."""
@@ -85,18 +97,6 @@ def set_history(history: list[UniMessage]) -> None: ...
 def clear_history() -> None: ...
 ```
 
-```typescript
-streamingResponse(options: { messages: UniMessage[]; config: UniConfig }): AsyncGenerator<UniEvent>;
-
-streamingResponseStateful(options: { message: UniMessage; config: UniConfig }): AsyncGenerator<UniEvent>;
-
-listModels(): Promise<string[]>;
-
-getHistory(): UniMessage[];
-setHistory(history: UniMessage[]): void;
-clearHistory(): void;
-```
-
 </div>
 
 Both streaming methods yield `delta` events, then exactly one `stop` event. The stateful method records the turn before it yields the `stop` event, so you may stop iterating as soon as you see it.
@@ -109,18 +109,18 @@ Both streaming methods yield `delta` events, then exactly one `stop` event. The 
 
 <div class="code-group">
 
-```python
-from mmsp import list_supported_models, normalize_legacy_messages
-
-models = list_supported_models(currency="CNY")  # "USD" by default
-messages = normalize_legacy_messages(stored_messages)
-```
-
 ```typescript
 import { listSupportedModels, normalizeLegacyMessages } from "@prismshadow/mmsp";
 
 const models = listSupportedModels("CNY"); // "USD" by default
 const messages = normalizeLegacyMessages(storedMessages);
+```
+
+```python
+from mmsp import list_supported_models, normalize_legacy_messages
+
+models = list_supported_models(currency="CNY")  # "USD" by default
+messages = normalize_legacy_messages(stored_messages)
 ```
 
 </div>

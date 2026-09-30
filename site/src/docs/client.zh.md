@@ -8,29 +8,6 @@ description: AutoLLMClient、它的方法，以及随它一起导出的辅助函
 
 <div class="code-group">
 
-```python
-from mmsp import AutoLLMClient
-
-# OpenAI 官方客户端，由模型 id 的系列指名
-client = AutoLLMClient(model="gpt-5.5")
-
-# 同样的客户端，写全，key 和端点在代码里给出
-client = AutoLLMClient(
-    model="gpt-5.5",
-    client_type="openai-official",
-    api_key="your-openai-api-key",
-    base_url="https://api.openai.com/v1",
-)
-
-# 兼容客户端，对接任何提供 OpenAI Chat Completions 的端点
-client = AutoLLMClient(
-    model="custom-model",
-    client_type="openai-chat",
-    base_url="http://127.0.0.1:8000/v1/",
-    api_key="none",
-)
-```
-
 ```typescript
 import { AutoLLMClient } from "@prismshadow/mmsp";
 
@@ -54,6 +31,29 @@ const withType = new AutoLLMClient({
 });
 ```
 
+```python
+from mmsp import AutoLLMClient
+
+# OpenAI 官方客户端，由模型 id 的系列指名
+client = AutoLLMClient(model="gpt-5.5")
+
+# 同样的客户端，写全，key 和端点在代码里给出
+client = AutoLLMClient(
+    model="gpt-5.5",
+    client_type="openai-official",
+    api_key="your-openai-api-key",
+    base_url="https://api.openai.com/v1",
+)
+
+# 兼容客户端，对接任何提供 OpenAI Chat Completions 的端点
+client = AutoLLMClient(
+    model="custom-model",
+    client_type="openai-chat",
+    base_url="http://127.0.0.1:8000/v1/",
+    api_key="none",
+)
+```
+
 </div>
 
 | 选项 | Python | TypeScript | 含义 |
@@ -70,6 +70,18 @@ API key 只会发送到它被指定的地方。从环境变量读取 `OPENAI_API
 
 <div class="code-group">
 
+```typescript
+streamingResponse(options: { messages: UniMessage[]; config: UniConfig }): AsyncGenerator<UniEvent>;
+
+streamingResponseStateful(options: { message: UniMessage; config: UniConfig }): AsyncGenerator<UniEvent>;
+
+listModels(): Promise<string[]>;
+
+getHistory(): UniMessage[];
+setHistory(history: UniMessage[]): void;
+clearHistory(): void;
+```
+
 ```python
 async def streaming_response(messages: list[UniMessage], config: UniConfig) -> AsyncIterator[UniEvent]:
     """用完整的消息列表流式输出一条响应。不保存任何东西。"""
@@ -85,18 +97,6 @@ def set_history(history: list[UniMessage]) -> None: ...
 def clear_history() -> None: ...
 ```
 
-```typescript
-streamingResponse(options: { messages: UniMessage[]; config: UniConfig }): AsyncGenerator<UniEvent>;
-
-streamingResponseStateful(options: { message: UniMessage; config: UniConfig }): AsyncGenerator<UniEvent>;
-
-listModels(): Promise<string[]>;
-
-getHistory(): UniMessage[];
-setHistory(history: UniMessage[]): void;
-clearHistory(): void;
-```
-
 </div>
 
 两个流式方法都会先产出 `delta` 事件，最后产出恰好一个 `stop` 事件。有状态方法在产出 `stop` 事件前就已记录本轮对话，因此你可以在看到 `stop` 事件后立即停止迭代。
@@ -109,18 +109,18 @@ clearHistory(): void;
 
 <div class="code-group">
 
-```python
-from mmsp import list_supported_models, normalize_legacy_messages
-
-models = list_supported_models(currency="CNY")  # 默认 "USD"
-messages = normalize_legacy_messages(stored_messages)
-```
-
 ```typescript
 import { listSupportedModels, normalizeLegacyMessages } from "@prismshadow/mmsp";
 
 const models = listSupportedModels("CNY"); // 默认 "USD"
 const messages = normalizeLegacyMessages(storedMessages);
+```
+
+```python
+from mmsp import list_supported_models, normalize_legacy_messages
+
+models = list_supported_models(currency="CNY")  # 默认 "USD"
+messages = normalize_legacy_messages(stored_messages)
 ```
 
 </div>
