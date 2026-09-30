@@ -16,7 +16,17 @@ pip install mmsp
 
 </div>
 
+<div data-code-lang="TypeScript">
+
+The TypeScript package needs Node.js 20 or newer.
+
+</div>
+
+<div data-code-lang="Python">
+
 The Python package needs Python 3.11 or newer. `uv add mmsp` works as well.
+
+</div>
 
 ## Set the API key
 

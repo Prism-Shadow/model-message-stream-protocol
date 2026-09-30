@@ -16,7 +16,17 @@ pip install mmsp
 
 </div>
 
+<div data-code-lang="TypeScript">
+
+TypeScript 包需要 Node.js 20 或更高版本。
+
+</div>
+
+<div data-code-lang="Python">
+
 Python 包需要 Python 3.11 或更高版本。`uv add mmsp` 同样可用。
+
+</div>
 
 ## 设置 API key
 

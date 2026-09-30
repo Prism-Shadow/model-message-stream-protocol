@@ -203,7 +203,14 @@ const structured = JSON.stringify(
 
       // ---------- <div class="code-group"> around fenced blocks: one tab per block, named by
       // its language, or by data-labels="Python,TypeScript" where the language does not tell
-      // the blocks apart
+      // the blocks apart. Text for one language, in <div data-code-lang="Python">, shows while
+      // that language is chosen.
+      const notes = [...document.querySelectorAll<HTMLElement>("[data-code-lang]")];
+      const noteLanguages = new Set(notes.map((note) => note.dataset.codeLang));
+      const showNotes = (label: string) => {
+        if (!noteLanguages.has(label)) return;
+        for (const note of notes) note.hidden = note.dataset.codeLang !== label;
+      };
       const LABELS: Record<string, string> = {
         python: "Python",
         typescript: "TypeScript",
@@ -241,6 +248,7 @@ const structured = JSON.stringify(
             for (const other of document.querySelectorAll<HTMLElement>(".code-group")) {
               other.dispatchEvent(new CustomEvent("choose", { detail: label }));
             }
+            showNotes(label);
           });
           strip.append(tab);
         });
@@ -254,6 +262,8 @@ const structured = JSON.stringify(
         const remembered = labels.indexOf(stored("mmsp-site.code") ?? "");
         select(remembered >= 0 ? remembered : 0);
       }
+      const rememberedLanguage = stored("mmsp-site.code") ?? "";
+      showNotes(noteLanguages.has(rememberedLanguage) ? rememberedLanguage : "TypeScript");
     </script>
   </body>
 </html>
