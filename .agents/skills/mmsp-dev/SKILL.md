@@ -110,7 +110,7 @@ The system they share:
 
 - Neutral tokens (`--bg`, `--surface`, `--raised`, `--text`, `--muted`, `--subtle`, `--ring`) with one accent; color carries meaning only (a stop reason, an item's kind). Light and dark follow the system through `prefers-color-scheme` and a `data-theme` override; the playground and the tracer share the `mmsp.playground.theme` key, the site uses `mmsp-site.theme`.
 - Inter for the interface, JetBrains Mono only for ids, JSON, paths of data and token counts. Depth from 1px rings, not large shadows. Motion 150–250 ms on `cubic-bezier(0.23, 1, 0.32, 1)`, only where something changes, and off under `prefers-reduced-motion`.
-- One mark everywhere: the four-tile MMSP logo of `site/src/components/Logo.astro`, also the favicon of all three pages.
+- One mark everywhere: the four-tile MMSP logo of `site/src/components/Logo.astro` (fennel flower `#7aa2f7` tiles with dark letters, dark tiles with white ones), also the favicon of all three pages. The site's brand scale in `site/src/styles/global.css` is built around `#7aa2f7` as `brand-500`; text on white uses `brand-600` or darker. The README and social images are rendered from `site/artwork/` with `render.sh`.
 
 What the owner has asked for, and keeps asking for:
 

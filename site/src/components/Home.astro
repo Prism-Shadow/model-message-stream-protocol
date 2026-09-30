@@ -43,8 +43,9 @@ const COPY = {
 const [before, verbs, after] = COPY.slogan as [string, string[], string];
 ---
 
-<section>
-  <div class="relative mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:py-16">
+<!-- on a desktop the hero fills the window under the top bar, so the home page reads without scrolling -->
+<section class="lg:flex lg:min-h-[calc(100dvh-3.5rem-1px)] lg:items-center">
+  <div class="relative mx-auto grid w-full max-w-7xl grid-cols-1 items-center gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:py-8">
     <div>
       <!-- the full name, its initials in the mark's color, so the acronym spells itself out -->
       <div class="rise flex items-center gap-3">
@@ -106,7 +107,7 @@ const [before, verbs, after] = COPY.slogan as [string, string[], string];
       </div>
     </div>
 
-    <div class="rise min-w-0" style="animation-delay: 120ms">
+    <div class="rise min-w-0" style="animation-delay: 120ms" data-player-fit>
       <StreamPlayer locale={locale} />
     </div>
   </div>
@@ -173,6 +174,24 @@ const [before, verbs, after] = COPY.slogan as [string, string[], string];
 </style>
 
 <script>
+  // The recorded streams shrink to the window's height on a desktop, so the whole hero fits on one
+  // screen. zoom lays the panel out again at the smaller size, so it still fills its column. Phones,
+  // short windows, and anything that would need more than a 30% shrink scroll instead.
+  const fit = document.querySelector<HTMLElement>("[data-player-fit]");
+  if (fit) {
+    const desktop = matchMedia("(min-width: 1024px) and (min-height: 600px)");
+    const resize = () => {
+      fit.style.removeProperty("zoom");
+      if (!desktop.matches) return;
+      const header = document.querySelector("header")?.offsetHeight ?? 0;
+      const room = window.innerHeight - header - 64;
+      const scale = room / fit.offsetHeight;
+      if (scale < 1 && scale >= 0.7) fit.style.setProperty("zoom", scale.toFixed(3));
+    };
+    resize();
+    window.addEventListener("resize", resize);
+  }
+
   // the prompt for a coding agent, copied from the hero
   const copy = document.querySelector<HTMLButtonElement>("[data-copy-prompt]");
   if (copy) {

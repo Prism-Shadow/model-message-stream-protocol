@@ -1,25 +1,25 @@
 /**
  * Site styles: one Tailwind CSS 4 entry point in the visual language of penguin.ooo/docs
- * (solid backgrounds, 1px borders, system type, one accent), with the violet of the MMSP
- * artwork as that accent. The dark theme is toggled by the html.dark class.
+ * (solid backgrounds, 1px borders, system type, one accent), with fennel flower (#7aa2f7), the
+ * blue of the MMSP mark, as that accent. The dark theme is toggled by the html.dark class.
  */
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --color-brand-25: #fbfaff;
-  --color-brand-50: #f3efff;
-  --color-brand-100: #e6deff;
-  --color-brand-200: #cfc0ff;
-  --color-brand-300: #b199ff;
-  --color-brand-400: #9572ff;
-  --color-brand-500: #7c4dff;
-  --color-brand-600: #6a35f0;
-  --color-brand-700: #5a27d1;
-  --color-brand-800: #4820a8;
-  --color-brand-900: #331a78;
-  --color-brand-950: #1d0e4a;
+  --color-brand-25: #f8fafe;
+  --color-brand-50: #f1f5fe;
+  --color-brand-100: #e0eafe;
+  --color-brand-200: #c7dafe;
+  --color-brand-300: #aac6fe;
+  --color-brand-400: #92b5fd;
+  --color-brand-500: #7aa2f7;
+  --color-brand-600: #5782e0;
+  --color-brand-700: #4169c5;
+  --color-brand-800: #3253a0;
+  --color-brand-900: #243d74;
+  --color-brand-950: #15274d;
 }
 
 @layer base {
