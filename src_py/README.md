@@ -29,7 +29,9 @@ client = AutoLLMClient(model="gpt-5.5")
 client = AutoLLMClient(model="gpt-5.5", client_type="openai-official", api_key="your-openai-api-key")
 
 # A compatible client, for any endpoint that serves OpenAI Chat Completions
-client = AutoLLMClient(model="custom-model", client_type="openai-chat", base_url="http://127.0.0.1:8000/v1/", api_key="none")
+client = AutoLLMClient(
+    model="custom-model", client_type="openai-chat", base_url="http://127.0.0.1:8000/v1/", api_key="none"
+)
 
 # Gemini on Google Vertex AI: the service-account JSON key is the API key
 client = AutoLLMClient(model="gemini-3.8-flash", api_key=open("service-account.json").read())

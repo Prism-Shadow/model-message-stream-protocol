@@ -224,6 +224,8 @@ if (process.env.BEDROCK_API_KEY) {
     supportImageGeneration: false,
     supportAudioGeneration: false,
     supportEmbedding: false,
+    // a Bedrock id begins with no model family, so the client is named
+    clientType: "anthropic-official",
     provider: "bedrock",
   });
 }

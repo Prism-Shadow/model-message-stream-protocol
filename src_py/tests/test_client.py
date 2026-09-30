@@ -143,7 +143,10 @@ if os.getenv("DEEPSEEK_API_KEY"):
         )
 
 if os.getenv("BEDROCK_API_KEY"):
-    AVAILABLE_MODELS.append(Model(name="global.anthropic.claude-sonnet-4-6", provider="bedrock"))
+    # a Bedrock id begins with no model family, so the client is named
+    AVAILABLE_MODELS.append(
+        Model(name="global.anthropic.claude-sonnet-4-6", provider="bedrock", client_type="anthropic-official")
+    )
 
 if os.getenv("VERTEX_API_KEY"):
     AVAILABLE_MODELS.append(Model(name="gemini-3.8-flash", provider="vertex"))
