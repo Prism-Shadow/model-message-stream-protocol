@@ -32,7 +32,11 @@ import {
   UniMessage,
   UsageMetadata,
 } from "../types";
-import { fixOpenrouterUsageMetadata, isDebugEnabled } from "../utils";
+import {
+  fixOpenrouterUsageMetadata,
+  isDebugEnabled,
+  resolveCredentials,
+} from "../utils";
 
 const REDACTED_THINKING = "_REDACTED_THINKING";
 
@@ -55,8 +59,11 @@ export class AntMessagesClient extends LLMClient {
   }) {
     super();
     this._model = options.model;
-    const key = options.apiKey || process.env.ANTHROPIC_API_KEY || undefined;
-    const url = options.baseUrl || process.env.ANTHROPIC_BASE_URL || undefined;
+    const { apiKey: key, baseUrl: url } = resolveCredentials(
+      this.constructor.name,
+      options,
+      { key: "ANTHROPIC_API_KEY", baseUrl: "ANTHROPIC_BASE_URL" },
+    );
     // send the credential through both header conventions: Anthropic and DeepSeek read
     // x-api-key while gateways such as OpenRouter and Z.AI read Authorization: Bearer. With no
     // credential the token has to be null, not undefined, or the SDK fills it from

@@ -18,7 +18,7 @@ from typing import Any
 
 import pytest
 
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 
 # Each case builds a client under a controlled environment and reads the credential its vendor
@@ -156,6 +156,38 @@ def test_openai_protocol_client_reads_openai_api_key_and_base_url(case: OpenaiCa
     assert str(_sdk(client).base_url) == "https://gateway.example/v1/"
 
 
+@pytest.mark.parametrize("case", OPENAI_CASES, ids=[case.expected_client for case in OPENAI_CASES])
+def test_openai_protocol_client_with_a_base_url_refuses_to_build_on_openai_api_key(
+    case: OpenaiCase, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-openai-PROBE")
+    message = (
+        f"api_key is required for {case.expected_client} with a base_url: "
+        "OPENAI_API_KEY is not sent to another endpoint."
+    )
+
+    with pytest.raises(ValueError, match=re.escape(message)):
+        AutoLLMClient(model=case.model, client_type=case.client_type, base_url="https://gateway.example/v1/")
+
+
+@pytest.mark.parametrize("case", OPENAI_CASES, ids=[case.expected_client for case in OPENAI_CASES])
+def test_openai_protocol_client_with_a_base_url_and_a_key_uses_both_over_the_environment(
+    case: OpenaiCase, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-openai-PROBE")
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://env.example/v1/")
+
+    client = AutoLLMClient(
+        model=case.model,
+        client_type=case.client_type,
+        api_key="sk-explicit-PROBE",
+        base_url="https://gateway.example/v1/",
+    )
+
+    assert _sdk(client).api_key == "sk-explicit-PROBE"
+    assert str(_sdk(client).base_url) == "https://gateway.example/v1/"
+
+
 @dataclass
 class AnthropicCase:
     expected_client: str
@@ -218,6 +250,20 @@ def test_anthropic_client_without_a_key_does_not_send_anthropic_auth_token(
     client = AutoLLMClient(model=case.model, client_type=case.client_type)
 
     assert _anthropic_auth_headers(client) == {}
+
+
+@pytest.mark.parametrize("case", ANTHROPIC_CASES, ids=ANTHROPIC_IDS)
+def test_anthropic_client_with_a_base_url_refuses_to_build_on_anthropic_api_key(
+    case: AnthropicCase, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-PROBE")
+    message = (
+        f"api_key is required for {case.expected_client} with a base_url: "
+        "ANTHROPIC_API_KEY is not sent to another endpoint."
+    )
+
+    with pytest.raises(ValueError, match=re.escape(message)):
+        AutoLLMClient(model=case.model, client_type=case.client_type, base_url="https://proxy.example/anthropic")
 
 
 def test_claude5_client_on_bedrock_sends_no_anthropic_credential_to_aws(monkeypatch: pytest.MonkeyPatch):

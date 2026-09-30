@@ -1,10 +1,10 @@
-# DeepSeek、GLM 与 Kimi 客户端不再回退到 `OPENAI_API_KEY`，Anthropic 客户端不再发送 `ANTHROPIC_AUTH_TOKEN`
+# 客户端只把环境变量里的密钥发往环境变量指定的端点
 
 - **Date:** 2026-09-18
 - **Type:** fix
-- **Scope:** `deepseek_v4`, `glm5_3`, `kimi_k3`, `claude5`, `ant_messages`
-- **PR:** [#224](https://github.com/Prism-Shadow/agenthub/pull/224)
-- **Breaking:** yes — 没有自身密钥的 DeepSeek、GLM 或 Kimi 客户端改为抛出异常，不再使用 `OPENAI_API_KEY`；任何客户端都不再读取 `ANTHROPIC_AUTH_TOKEN`
+- **Scope:** `utils`, `openai_chat`, `openai_responses`, `openai_embedding`, `gpt6`, `claude5`, `ant_messages`, `deepseek_v4`, `glm5_3`, `kimi_k3`
+- **PR:** [#224](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/224)
+- **Breaking:** yes — 指定了 `base_url` 却没有 `api_key` 的客户端改为抛出异常，不再把 `OPENAI_API_KEY` 或 `ANTHROPIC_API_KEY` 发往该地址；没有自身密钥的 DeepSeek、GLM 或 Kimi 客户端改为抛出异常，不再使用 `OPENAI_API_KEY`；任何客户端都不再读取 `ANTHROPIC_AUTH_TOKEN`
 
 [English](2026-09-18-env-credential-fallbacks.md)
 
@@ -23,14 +23,22 @@
 - 在 TypeScript 中，走 Bedrock（`bedrock://<region>`）的 `Claude5Client` 把其 `AnthropicBedrock` 客户端的
   `apiKey` 与 `authToken` 设为 `null`，因此发往 AWS 的请求不再在 SigV4 签名之外携带作为 `x-api-key` 的
   `ANTHROPIC_API_KEY` 或作为 Bearer 请求头的 `ANTHROPIC_AUTH_TOKEN`。
-- `OPENAI_API_KEY` 与 `OPENAI_BASE_URL` 继续配置 OpenAI 协议客户端（`gpt-6`、`openai-chat`、
-  `openai-responses`、`openai-embedding`、`openai-chat-vllm-adapter`），`ANTHROPIC_API_KEY` 与
-  `ANTHROPIC_BASE_URL` 继续配置 Anthropic 客户端。
+- 读取 `OPENAI_API_KEY` 的客户端（`gpt-6`、`openai-chat`、`openai-responses`、`openai-embedding`、
+  `openai-chat-vllm-adapter`）与读取 `ANTHROPIC_API_KEY` 的客户端（`claude-*`、`ant-messages`）只把该密钥发往
+  环境变量指定的端点。作为 `api_key` 传入的密钥原样使用。没有传入密钥时，指定了 `base_url` 的客户端在构造时抛出
+  `api_key is required for OpenaiChatClient with a base_url: OPENAI_API_KEY is not sent to another
+  endpoint.`（消息里是该客户端自己的名字），而不是把环境变量里的密钥发往那个地址；没有指定 `base_url` 的客户端读取
+  `OPENAI_BASE_URL` / `ANTHROPIC_BASE_URL` 或使用服务商自己的端点，并随之读取环境变量里的密钥。这条规则实现在
+  `utils` 的 `resolve_credentials` / `resolveCredentials` 里，上述每个客户端都调用它。各厂商客户端无论被指定
+  什么 base URL 都继续读取自己的变量，因为那把密钥本来就是该厂商的。
 - 离线测试（`tests/env-credentials.test.ts`、`tests/test_env_credentials.py`）在受控环境下构造上述客户端、
   `MiniMaxM3Client` 与各 OpenAI 协议客户端，并断言厂商 SDK 实例持有的凭据。
 
 ## 兼容性
 
+- 此前指定了 `base_url`、并通过 `OPENAI_API_KEY` 或 `ANTHROPIC_API_KEY` 认证的客户端——代码里写了网关或本地服务
+  的地址，密钥放在环境变量里——现在会在构造时抛出异常。请把密钥作为 `api_key` 与 `base_url` 一起传入，或改为在环境
+  变量里设置 `OPENAI_BASE_URL` / `ANTHROPIC_BASE_URL` 而不传 `base_url`，让密钥和端点待在一起。
 - 此前通过 `OPENAI_API_KEY` 认证的 DeepSeek、GLM 或 Kimi 客户端——例如把网关密钥导出为 `OPENAI_API_KEY`，
   再配合由 `deepseek-v4`、`glm-5.x` 或 `kimi-k*` 提供服务的注册表条目使用——现在会在构造时抛出异常。请把密钥作为
   `api_key` 传入，或设置 `DEEPSEEK_API_KEY`、`ZAI_API_KEY` 或 `MOONSHOT_API_KEY`。

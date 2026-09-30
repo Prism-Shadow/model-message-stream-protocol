@@ -1,10 +1,10 @@
-# DeepSeek, GLM and Kimi clients no longer fall back to `OPENAI_API_KEY`, and the Anthropic clients no longer send `ANTHROPIC_AUTH_TOKEN`
+# A client sends the environment's key only to the environment's endpoint
 
 - **Date:** 2026-09-18
 - **Type:** fix
-- **Scope:** `deepseek_v4`, `glm5_3`, `kimi_k3`, `claude5`, `ant_messages`
-- **PR:** [#224](https://github.com/Prism-Shadow/agenthub/pull/224)
-- **Breaking:** yes — a DeepSeek, GLM or Kimi client without its own key now raises instead of using `OPENAI_API_KEY`, and no client reads `ANTHROPIC_AUTH_TOKEN` any more
+- **Scope:** `utils`, `openai_chat`, `openai_responses`, `openai_embedding`, `gpt6`, `claude5`, `ant_messages`, `deepseek_v4`, `glm5_3`, `kimi_k3`
+- **PR:** [#224](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/224)
+- **Breaking:** yes — a client given a `base_url` but no `api_key` now raises instead of sending `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` there; a DeepSeek, GLM or Kimi client without its own key now raises instead of using `OPENAI_API_KEY`; no client reads `ANTHROPIC_AUTH_TOKEN` any more
 
 [中文版](2026-09-18-env-credential-fallbacks.zh.md)
 
@@ -27,16 +27,28 @@
   `authToken` to `null` on its `AnthropicBedrock` client, so requests to AWS no longer carry
   `ANTHROPIC_API_KEY` as `x-api-key` or `ANTHROPIC_AUTH_TOKEN` as a Bearer header beside the
   SigV4 signature.
-- `OPENAI_API_KEY` and `OPENAI_BASE_URL` keep configuring the OpenAI protocol clients
-  (`gpt-6`, `openai-chat`, `openai-responses`, `openai-embedding`,
-  `openai-chat-vllm-adapter`), and `ANTHROPIC_API_KEY` and `ANTHROPIC_BASE_URL` the
-  Anthropic ones.
+- The clients that read `OPENAI_API_KEY` (`gpt-6`, `openai-chat`, `openai-responses`,
+  `openai-embedding`, `openai-chat-vllm-adapter`) and `ANTHROPIC_API_KEY` (`claude-*`,
+  `ant-messages`) send that key only to the endpoint the environment names. A key passed as
+  `api_key` is used as it is. Without one, a client given a `base_url` raises at construction,
+  `api_key is required for OpenaiChatClient with a base_url: OPENAI_API_KEY is not sent to
+  another endpoint.` (with the client's own name), instead of sending the environment's key to
+  that URL; a client given no `base_url` reads `OPENAI_BASE_URL` / `ANTHROPIC_BASE_URL` or
+  uses the provider's own endpoint, and reads the environment's key with it. The rule lives in
+  `resolve_credentials` / `resolveCredentials` in `utils`, which every one of these clients
+  calls. A vendor client keeps reading its own variable whatever base URL it is given, because
+  that key is the vendor's.
 - Offline tests (`tests/env-credentials.test.ts`, `tests/test_env_credentials.py`) build
   each of these clients, `MiniMaxM3Client` and the OpenAI protocol clients under a
   controlled environment and assert which credential the vendor SDK instance holds.
 
 ## Compatibility
 
+- A client that was given a `base_url` and authenticated through `OPENAI_API_KEY` or
+  `ANTHROPIC_API_KEY` — a gateway or a local server named in code, with the key exported in
+  the environment — now raises at construction. Pass the key as `api_key` next to the
+  `base_url`, or set `OPENAI_BASE_URL` / `ANTHROPIC_BASE_URL` in the environment instead of
+  passing `base_url`, which keeps the key and the endpoint together.
 - A DeepSeek, GLM or Kimi client that authenticated through `OPENAI_API_KEY` — for example a
   gateway key exported as `OPENAI_API_KEY` and used with a registry row served by
   `deepseek-v4`, `glm-5.x` or `kimi-k*` — now raises at construction. Pass the key as

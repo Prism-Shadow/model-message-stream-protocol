@@ -36,7 +36,7 @@ import {
   UniMessage,
   UsageMetadata,
 } from "../types";
-import { isDebugEnabled } from "../utils";
+import { isDebugEnabled, resolveCredentials } from "../utils";
 
 const REDACTED_THINKING = "_REDACTED_THINKING";
 
@@ -60,8 +60,11 @@ export class Claude5Client extends LLMClient {
   }) {
     super();
     this._model = options.model;
-    const key = options.apiKey || process.env.ANTHROPIC_API_KEY || undefined;
-    const url = options.baseUrl || process.env.ANTHROPIC_BASE_URL || undefined;
+    const { apiKey: key, baseUrl: url } = resolveCredentials(
+      this.constructor.name,
+      options,
+      { key: "ANTHROPIC_API_KEY", baseUrl: "ANTHROPIC_BASE_URL" },
+    );
 
     if (url && url.startsWith("bedrock://")) {
       // example: bedrock://us-east-1

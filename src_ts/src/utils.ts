@@ -49,6 +49,39 @@ export function fixOpenrouterUsageMetadata(
  *
  * @returns Whether debug mode is on.
  */
+/**
+ * The key and the endpoint of a client that reads the environment's OPENAI_API_KEY or
+ * ANTHROPIC_API_KEY. A key passed in is used as it is. Without one, the environment's key goes
+ * out only to the endpoint the environment names: a base URL passed in is another endpoint,
+ * which that key was not given for, so it needs a key of its own.
+ *
+ * @param client - The client's class name, for the error
+ * @param options - The key and the base URL passed to the client
+ * @param env - The environment variables that hold the key and the base URL
+ * @returns The key and the base URL to build the SDK client with, either of which may be undefined
+ */
+export function resolveCredentials(
+  client: string,
+  options: { apiKey?: string; baseUrl?: string | null },
+  env: { key: string; baseUrl: string },
+): { apiKey: string | undefined; baseUrl: string | undefined } {
+  if (options.apiKey) {
+    return {
+      apiKey: options.apiKey,
+      baseUrl: options.baseUrl || process.env[env.baseUrl] || undefined,
+    };
+  }
+  if (options.baseUrl) {
+    throw new Error(
+      `apiKey is required for ${client} with a baseUrl: ${env.key} is not sent to another endpoint.`,
+    );
+  }
+  return {
+    apiKey: process.env[env.key] || undefined,
+    baseUrl: process.env[env.baseUrl] || undefined,
+  };
+}
+
 export function isDebugEnabled(): boolean {
   const flag = (process.env.MMSP_DEBUG || "").trim().toLowerCase();
   return !["", "0", "false", "no", "off"].includes(flag);

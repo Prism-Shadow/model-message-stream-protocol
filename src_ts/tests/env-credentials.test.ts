@@ -196,6 +196,38 @@ describe.each(OPENAI_CASES)("$expectedClient credentials", (testCase) => {
       baseURL: "https://gateway.example/v1/",
     });
   });
+
+  test("with a baseUrl passed in, refuses to build on OPENAI_API_KEY", () => {
+    process.env.OPENAI_API_KEY = "sk-openai-PROBE";
+
+    expect(
+      () =>
+        new AutoLLMClient({
+          model: testCase.model,
+          clientType: testCase.clientType,
+          baseUrl: "https://gateway.example/v1/",
+        }),
+    ).toThrow(
+      `apiKey is required for ${testCase.expectedClient} with a baseUrl: OPENAI_API_KEY is not sent to another endpoint.`,
+    );
+  });
+
+  test("with a baseUrl and a key passed in, uses both over the environment", () => {
+    process.env.OPENAI_API_KEY = "sk-openai-PROBE";
+    process.env.OPENAI_BASE_URL = "https://env.example/v1/";
+
+    const client = new AutoLLMClient({
+      model: testCase.model,
+      clientType: testCase.clientType,
+      apiKey: "sk-explicit-PROBE",
+      baseUrl: "https://gateway.example/v1/",
+    });
+
+    expect(openaiCredentialOf(client)).toEqual({
+      apiKey: "sk-explicit-PROBE",
+      baseURL: "https://gateway.example/v1/",
+    });
+  });
 });
 
 interface AnthropicCase {
@@ -270,6 +302,21 @@ describe.each(ANTHROPIC_CASES)("$expectedClient credentials", (testCase) => {
     });
 
     expect(await anthropicAuthHeadersOf(client)).toEqual({});
+  });
+
+  test("with a baseUrl passed in, refuses to build on ANTHROPIC_API_KEY", () => {
+    process.env.ANTHROPIC_API_KEY = "sk-ant-PROBE";
+
+    expect(
+      () =>
+        new AutoLLMClient({
+          model: testCase.model,
+          clientType: testCase.clientType,
+          baseUrl: "https://proxy.example/anthropic",
+        }),
+    ).toThrow(
+      `apiKey is required for ${testCase.expectedClient} with a baseUrl: ANTHROPIC_API_KEY is not sent to another endpoint.`,
+    );
   });
 });
 

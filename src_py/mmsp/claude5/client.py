@@ -14,7 +14,6 @@
 
 import base64
 import mimetypes
-import os
 import re
 from typing import Any, AsyncIterator
 
@@ -36,7 +35,7 @@ from ..types import (
     UniMessage,
     UsageMetadata,
 )
-from ..utils import is_debug_enabled
+from ..utils import is_debug_enabled, resolve_credentials
 
 
 REDACTED_THINKING = "_REDACTED_THINKING"
@@ -54,8 +53,9 @@ class Claude5Client(LLMClient):
     ):
         """Initialize Claude 5 client with model and API key."""
         self._model = model
-        api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
-        base_url = base_url or os.getenv("ANTHROPIC_BASE_URL")
+        api_key, base_url = resolve_credentials(
+            self.__class__.__name__, api_key, base_url, "ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL"
+        )
         if base_url and base_url.startswith("bedrock://"):  # example: bedrock://us-east-1
             region = base_url.replace("bedrock://", "")
             access_key, secret_key = api_key.split(",")

@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import re
 from typing import Any, AsyncIterator
 
@@ -33,7 +32,7 @@ from ..types import (
     UniMessage,
     UsageMetadata,
 )
-from ..utils import fix_openrouter_usage_metadata, is_debug_enabled
+from ..utils import fix_openrouter_usage_metadata, is_debug_enabled, resolve_credentials
 
 
 REDACTED_THINKING = "_REDACTED_THINKING"
@@ -51,8 +50,9 @@ class AntMessagesClient(LLMClient):
     ):
         """Initialize Anthropic Messages-compatible client with model, API key, and base URL."""
         self._model = model
-        api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
-        base_url = base_url or os.getenv("ANTHROPIC_BASE_URL")
+        api_key, base_url = resolve_credentials(
+            self.__class__.__name__, api_key, base_url, "ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL"
+        )
         # send the credential through both header conventions: Anthropic and DeepSeek read
         # x-api-key while gateways such as OpenRouter and Z.AI read Authorization: Bearer
         self._client = AsyncAnthropic(
