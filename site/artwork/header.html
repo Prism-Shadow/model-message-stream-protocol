@@ -10,15 +10,15 @@
         height: 500px;
         text-align: center;
       }
-      .mark {
+      .lockup {
         position: absolute;
-        left: 50%;
-        top: 74px;
-        transform: translateX(-50%);
+        inset: 104px 0 auto 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 40px;
       }
       h1 {
-        position: absolute;
-        inset: 112px 0 auto 0;
         font-size: 150px;
         font-weight: 300;
         letter-spacing: -0.02em;
@@ -26,14 +26,14 @@
       }
       .name {
         position: absolute;
-        inset: 288px 0 auto 0;
+        inset: 306px 0 auto 0;
         font-family: var(--mono);
         font-size: 31px;
         font-weight: 500;
       }
       .line {
         position: absolute;
-        inset: 350px 0 auto 0;
+        inset: 368px 0 auto 0;
         font-family: var(--mono);
         font-size: 22px;
         color: var(--ink-soft);
@@ -45,14 +45,20 @@
       <div class="hatch" style="right: -160px; top: -300px; width: 720px; height: 720px"></div>
       <div class="hatch flip" style="left: -120px; bottom: -420px; width: 700px; height: 700px"></div>
 
-      <div class="stream mark">
-        <i class="delta" style="width: 22px"></i>
-        <i class="delta" style="width: 38px"></i>
-        <i class="delta" style="width: 30px"></i>
-        <i style="width: 120px"></i>
-        <i class="stop"></i>
+      <div class="lockup">
+        <svg class="mark" viewBox="0 0 32 32" width="116" height="116" aria-hidden="true">
+        <rect width="32" height="32" rx="7" fill="#1c1c24" />
+        <rect x="3" y="16" width="13" height="13" fill="#7c4dff" />
+        <path d="M16 3v26M3 16h26" stroke="#3a3a44" stroke-width="1" />
+        <g fill="#fff" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="10.5" font-weight="600" text-anchor="middle" dominant-baseline="central">
+          <text x="9.5" y="9.5">M</text>
+          <text x="22.5" y="9.5">M</text>
+          <text x="9.5" y="22.5">S</text>
+          <text x="22.5" y="22.5">P</text>
+        </g>
+      </svg>
+        <h1>MMSP</h1>
       </div>
-      <h1>MMSP</h1>
       <p class="name">Model Message Stream Protocol</p>
       <p class="line">One message format and one streaming grammar for every model provider.</p>
     </div>

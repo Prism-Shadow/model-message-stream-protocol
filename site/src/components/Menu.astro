@@ -1,0 +1,48 @@
+---
+// A small menu in the top bar: a button that names what is in effect, and a list of options
+// that closes on choice or on a click outside. What choosing does is wired by the page script
+// through data-menu.
+interface Props {
+  id: string;
+  label: string;
+  // what is in effect, as the button shows it
+  current: string;
+  options: { value: string; label: string }[];
+  // the option chosen, which may be to follow the system
+  selected: string;
+}
+const { id, label, current, options, selected } = Astro.props;
+---
+
+<div class="relative" data-menu={id}>
+  <button
+    type="button"
+    aria-haspopup="menu"
+    aria-expanded="false"
+    aria-label={label}
+    title={label}
+    class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-950 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
+  >
+    <slot name="icon" />
+    <span class="hidden sm:inline" data-menu-current>{current}</span>
+  </button>
+  <div
+    role="menu"
+    hidden
+    class="absolute right-0 z-40 mt-1 w-40 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-900"
+  >
+    {
+      options.map((option) => (
+        <button
+          type="button"
+          role="menuitemradio"
+          aria-checked={option.value === selected ? "true" : "false"}
+          data-value={option.value}
+          class="flex w-full items-center justify-between px-3 py-1.5 text-left text-sm text-gray-700 hover:bg-gray-50 aria-checked:font-medium aria-checked:text-brand-700 dark:text-gray-300 dark:hover:bg-gray-800 dark:aria-checked:text-brand-300"
+        >
+          {option.label}
+        </button>
+      ))
+    }
+  </div>
+</div>

@@ -15,10 +15,16 @@ export interface DemoEvent {
 
 export interface Scenario {
   id: string;
-  label: string;
   model: string;
   prompt: string;
   events: DemoEvent[];
+}
+
+// the words of the message column, in the page's language
+export interface PlayerWords {
+  nothing: string;
+  running: string;
+  streaming: string;
 }
 
 const delta = (item: DemoItem): DemoEvent => ({ event_type: "delta", item });
@@ -26,7 +32,6 @@ const delta = (item: DemoItem): DemoEvent => ({ event_type: "delta", item });
 export const SCENARIOS: Scenario[] = [
   {
     id: "text",
-    label: "Text",
     model: "gpt-5.6-sol",
     prompt: "Say 'Hello, World!'",
     events: [
@@ -49,7 +54,6 @@ export const SCENARIOS: Scenario[] = [
   },
   {
     id: "tool",
-    label: "Thinking, then a tool call",
     model: "claude-opus-5",
     prompt: "What's the weather in Paris?",
     events: [
@@ -144,7 +148,7 @@ export function renderEvent(event: DemoEvent): string {
  * The assistant message after the first `count` events: the done items that arrived, and the
  * item still streaming, which is not part of the message until its done item arrives.
  */
-export function renderMessage(events: DemoEvent[], count: number): string {
+export function renderMessage(events: DemoEvent[], count: number, words: PlayerWords): string {
   const done: DemoItem[] = [];
   let open: { kind: string; value: string } | null = null;
   let stop: DemoEvent | null = null;
@@ -172,16 +176,16 @@ export function renderMessage(events: DemoEvent[], count: number): string {
   if (open !== null) {
     rows.push(
       `<li class="rounded-md border border-dashed border-gray-300 px-2.5 py-1.5 text-gray-500 dark:border-gray-700 dark:text-gray-400">` +
-        `<span>${open.kind}, still streaming</span>` +
+        `<span>${open.kind}, ${words.streaming}</span>` +
         `<span class="mt-0.5 block break-all">${json(open.value)}</span></li>`,
     );
   }
   if (rows.length === 0) {
-    rows.push(`<li class="px-0.5 py-1.5 text-gray-400 dark:text-gray-500">Nothing yet.</li>`);
+    rows.push(`<li class="px-0.5 py-1.5 text-gray-400 dark:text-gray-500">${words.nothing}</li>`);
   }
   const meta =
     stop === null
-      ? `<p class="mt-2 px-0.5 text-gray-400 dark:text-gray-500">The response is still running.</p>`
+      ? `<p class="mt-2 px-0.5 text-gray-400 dark:text-gray-500">${words.running}</p>`
       : `<p class="mt-2 px-0.5 break-all text-gray-700 dark:text-gray-300">finish_reason ${json(stop.finish_reason)}<br />usage_metadata ${json(stop.usage_metadata)}</p>`;
   return `<ul class="space-y-1.5">${rows.join("")}</ul>${meta}`;
 }

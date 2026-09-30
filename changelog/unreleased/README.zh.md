@@ -2,6 +2,7 @@
 
 [English](README.md)
 
+- [2026-09-29] 站点跟随系统语言（中文或英文）与主题（亮色或暗色），新增一行安装 skill 的“交给你的编码助手”一节，首页的流循环播放，标志改为四宫格四字母。([详情](2026-09-29-site-languages-and-themes.zh.md))
 - [2026-09-29] 新增站点 mmsp.penguin.ooo，包含首页与文档；README 的 header、概念图与 social preview 以 MMSP 之名重绘。([详情](2026-09-29-site-and-artwork.zh.md), [#226](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/226))
 - [2026-09-29] AgentHub 更名为 MMSP，即 Model Message Stream Protocol：软件包为 `mmsp` 与 `@prismshadow/mmsp`，模块为 `mmsp`，错误基类为 `MMSPError`，环境变量为 `MMSP_DEBUG` 与 `MMSP_CACHE_DIR`。([详情](2026-09-29-rename-to-mmsp.zh.md), [#223](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/223))
 - [2026-09-17] Vertex AI 服务账号密钥把 Gemini 路由到新增的 generateContent 客户端 `Gemini3_8GenerateContentClient`，`gemini-generate-content` / `gemini-interactions` 可显式指定线上协议。([详情](2026-09-17-gemini-vertex-generate-content.zh.md), [#223](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/223))

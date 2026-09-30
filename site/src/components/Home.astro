@@ -1,0 +1,298 @@
+---
+import { Code } from "astro:components";
+import StreamPlayer from "./StreamPlayer.astro";
+import { localePath, type Locale } from "../shared/i18n";
+import { DISCORD_URL, REPO_URL, X_URL } from "../shared/site";
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const href = (path: string) => localePath(locale, path);
+const themes = { light: "github-light", dark: "github-dark" } as const;
+
+const python = `import asyncio
+from mmsp import AutoLLMClient
+
+async def main():
+    client = AutoLLMClient(model="claude-opus-5")
+    async for event in client.streaming_response_stateful(
+        message={
+            "role": "user",
+            "content_items": [{"type": "text.done", "text": "Say 'Hello, World!'"}],
+        },
+        config={},
+    ):
+        print(event)
+
+asyncio.run(main())`;
+
+const typescript = `import { AutoLLMClient } from "@prismshadow/mmsp";
+
+const client = new AutoLLMClient({ model: "claude-opus-5" });
+for await (const event of client.streamingResponseStateful({
+  message: {
+    role: "user",
+    content_items: [{ type: "text.done", text: "Say 'Hello, World!'" }],
+  },
+  config: {},
+})) {
+  console.log(event);
+}`;
+
+const grammar = `stream := delta_event* stop_event
+items  := group*
+group  := K.delta+ K.done
+K      := text | thinking | tool_call
+        | inline_data | inline_thinking | embedding`;
+
+// one line installs a skill folder, reference files included, from the repository's tarball
+const skillInstall = (skill: string) =>
+  `mkdir -p ~/.claude/skills && curl -fsSL ${REPO_URL}/archive/main.tar.gz | tar -xz -C ~/.claude/skills --strip-components=2 model-message-stream-protocol-main/skills/${skill}`;
+
+const COPY = {
+  en: {
+    h1: "Model Message Stream Protocol",
+    lede: "MMSP is one message format and one streaming grammar for every model provider. Write your agent once, and Claude, GPT, Gemini, DeepSeek, Kimi, GLM, MiniMax and Qwen all read and stream the same way, in Python and TypeScript.",
+    quickstart: "Read the quickstart",
+    stream: "See how a stream reads",
+    why: "Why MMSP",
+    whyText1:
+      "Model APIs have settled on the same building blocks: messages, thinking, tool calls, streaming. Every provider still encodes them its own way. Anthropic streams content blocks, OpenAI streams output items, Gemini streams steps, and Chat Completions streams chunks that name nothing. An agent written against one of them is rewritten for the next.",
+    whyText2: "MMSP puts one shape in front of all of them. It is designed to be:",
+    goals: [
+      ["Unified", "One UniConfig, one UniMessage, one UniEvent. Switching models is changing the model id, with no code written per provider."],
+      ["Streamed by one grammar", "Every stream is delta events closed by exactly one stop event, and every item is .delta fragments closed by its .done item. A consumer never guesses whether a response has finished."],
+      ["Precise", "Thinking signatures, phases and encrypted reasoning travel with each item as fidelity and go back to the provider unchanged, so interleaved thinking survives multi-step tool calls."],
+      ["Traceable", "Add a trace_id to the config and every turn is saved to disk, with a local viewer to read it. No database."],
+    ],
+    grammarTitle: "One grammar for every stream",
+    grammarText1: ["A stream is ", " events, each carrying one content item, closed by exactly one ", " event that carries the usage and the finish reason. Items arrive one at a time: fragments first, then the complete item."],
+    grammarText2: ["The complete items, in order, are the assistant message. Read tool calls from ", ", with the arguments already parsed, and treat the fragments as live progress. ", "The streaming page", " has every rule."],
+    modelsTitle: "Models it speaks to",
+    modelsText: ["Each model is reached through its provider's own wire protocol, and four generic clients call any endpoint that serves Chat Completions, Responses, Anthropic Messages or OpenAI embeddings. ", "Models and endpoints", " lists the ids, keys and base URLs."],
+    modelsHead: ["Model", "Served by", "Example id", "Output"],
+    startTitle: "Get started",
+    startText1: "Set the provider's API key in the environment, name a model, and iterate the stream. The stateful call keeps the conversation, thinking included, so the next turn only sends the new message.",
+    startText2: ["The quickstart", " continues with a tool call and its result."],
+    agentTitle: "Hand it to your coding agent",
+    agentText1: "The repository ships skill files that teach Claude Code, Codex and any assistant that reads skills how to write MMSP code: the install command, a tool-call loop that works, the data models, the model ids. One line installs a skill with its reference files.",
+    agentText2: "The skill lands in ~/.claude/skills. Use .claude/skills for one project, or .agents/skills for Codex. An assistant that takes no skills can read the same file from a link:",
+    agentPrompt: `Read ${REPO_URL}/blob/main/skills/mmsp-python/SKILL.md and the reference files it links, then write an agent that calls get_weather with MMSP.`,
+    agentLinks: ["The skill files", "on GitHub", "what a skill holds"],
+    contributingTitle: "Contributing",
+    contributingText1: ["MMSP is built in the open. A new model, a gateway that streams differently, a stream that breaks the grammar: ", "open an issue", " or send a pull request. The repository carries the provider documentation snapshots and the workflow a client is built by."],
+    contributingText2: ["Questions and releases are on ", "Discord", " and ", "X", ". MMSP is what ", "PenguinHarness", " talks to models with."],
+  },
+  zh: {
+    h1: "Model Message Stream Protocol",
+    lede: "MMSP 为所有模型服务商提供同一套消息格式与同一套流式语法。agent 只写一次，Claude、GPT、Gemini、DeepSeek、Kimi、GLM、MiniMax 与 Qwen 读到的消息、流出的事件都是同一个样子，Python 与 TypeScript 两种实现。",
+    quickstart: "阅读快速开始",
+    stream: "看看一条流长什么样",
+    why: "为什么是 MMSP",
+    whyText1:
+      "各家模型 API 早已用上同样的积木：消息、思考、工具调用、流式输出。可每家的编码方式仍然各不相同：Anthropic 流出 content block，OpenAI 流出 output item，Gemini 流出 step，Chat Completions 流出的 chunk 连名字都没有。照着一家写的 agent，换下一家就得重写。",
+    whyText2: "MMSP 在它们前面放上同一个形状。它的设计目标是：",
+    goals: [
+      ["统一", "一个 UniConfig、一个 UniMessage、一个 UniEvent。切换模型只是换一个模型 id，不用为任何服务商单独写代码。"],
+      ["同一套流式语法", "每条流都是若干 delta 事件加上恰好一个 stop 事件，每个内容项都是若干 .delta 片段加上收尾的 .done 项。调用方永远不用猜回复结束了没有。"],
+      ["精确", "思考签名、phase、加密的推理内容作为 fidelity 随内容项一起走，原样送回服务商，多步工具调用之间的交错思考因此不会丢。"],
+      ["可追踪", "在配置里加一个 trace_id，每一轮都会存到磁盘，附带一个本地查看器。不需要数据库。"],
+    ],
+    grammarTitle: "所有流共用一套语法",
+    grammarText1: ["一条流是若干 ", " 事件，每个恰好带一个内容项，最后由恰好一个携带用量与结束原因的 ", " 事件收尾。内容项逐个到达：先是片段，再是完整的项。"],
+    grammarText2: ["完整的项按顺序拼起来就是 assistant 消息。从 ", " 读取工具调用，参数已经解析好，片段只当作实时进度。", "流式一页", "写有全部规则。"],
+    modelsTitle: "它能对话的模型",
+    modelsText: ["每个模型都通过其服务商自己的线路协议访问；另有四个通用客户端可以调用任何提供 Chat Completions、Responses、Anthropic Messages 或 OpenAI embeddings 的端点。", "模型与端点", "列出了 id、密钥与 base URL。"],
+    modelsHead: ["模型", "提供方", "示例 id", "输出"],
+    startTitle: "开始使用",
+    startText1: "把服务商的 API key 放进环境变量，指定一个模型，迭代这条流。带状态的调用会保存对话（包括思考），下一轮只需发送新消息。",
+    startText2: ["快速开始", "接着演示一次工具调用及其结果。"],
+    agentTitle: "交给你的编码助手",
+    agentText1: "仓库自带 skill 文件，教 Claude Code、Codex 以及任何读取 skill 的助手写出正确的 MMSP 代码：安装命令、一个能跑的工具调用循环、数据模型、模型 id。一行命令就能把 skill 连同参考文件装好。",
+    agentText2: "skill 会装到 ~/.claude/skills。只在一个项目里用就装到 .claude/skills，Codex 用 .agents/skills。不支持 skill 的助手可以直接读链接：",
+    agentPrompt: `读取 ${REPO_URL}/blob/main/skills/mmsp-python/SKILL.md 及其链接的参考文件，然后用 MMSP 写一个会调用 get_weather 的 agent。`,
+    agentLinks: ["skill 文件", "在 GitHub 上", "skill 里有什么"],
+    contributingTitle: "参与贡献",
+    contributingText1: ["MMSP 公开开发。新的模型、流式方式不同的网关、破坏语法的流：", "提一个 issue", " 或者直接发 pull request。仓库里有各服务商文档的快照，也有实现一个客户端所遵循的流程。"],
+    contributingText2: ["提问和发版信息在 ", "Discord", " 和 ", "X", "。", "PenguinHarness", " 就是用 MMSP 和模型对话的。"],
+  },
+}[locale];
+
+const models = [
+  ["Gemini 3 to 3.8", "Official, Google Vertex AI", "gemini-3.8-flash", "Text, image, speech, embedding"],
+  ["Claude 4.6 to 5", "Official, Amazon Bedrock, UModelVerse", "claude-opus-5", "Text"],
+  ["GPT-5.4 to 6", "Official, OpenRouter, UModelVerse", "gpt-6-astra", "Text, embedding"],
+  ["Kimi K2.5, K2.6, K3", "Official, OpenRouter, SiliconFlow", "kimi-k3", "Text"],
+  ["DeepSeek V4", "Official, OpenRouter, SiliconFlow", "deepseek-v4-pro", "Text"],
+  ["GLM-5.1 to 5.3", "Official, OpenRouter, SiliconFlow", "glm-5.3", "Text"],
+  ["MiniMax-M3", "Official", "MiniMax-M3", "Text"],
+  ["Qwen3.6", "OpenRouter, SiliconFlow, vLLM", "qwen/qwen3.6-35b-a3b", "Text, embedding"],
+];
+const modelsZh: Record<string, string> = {
+  "Gemini 3 to 3.8": "Gemini 3 至 3.8",
+  "Claude 4.6 to 5": "Claude 4.6 至 5",
+  "GPT-5.4 to 6": "GPT-5.4 至 6",
+  "Kimi K2.5, K2.6, K3": "Kimi K2.5、K2.6、K3",
+  "GLM-5.1 to 5.3": "GLM-5.1 至 5.3",
+  "Official, Google Vertex AI": "官方、Google Vertex AI",
+  "Official, Amazon Bedrock, UModelVerse": "官方、Amazon Bedrock、UModelVerse",
+  "Official, OpenRouter, UModelVerse": "官方、OpenRouter、UModelVerse",
+  "Official, OpenRouter, SiliconFlow": "官方、OpenRouter、SiliconFlow",
+  Official: "官方",
+  "OpenRouter, SiliconFlow, vLLM": "OpenRouter、SiliconFlow、vLLM",
+  "Text, image, speech, embedding": "文本、图片、语音、embedding",
+  "Text, embedding": "文本、embedding",
+  Text: "文本",
+};
+const t = (text: string) => (locale === "zh" ? (modelsZh[text] ?? text) : text);
+
+const section = "border-t border-gray-200 dark:border-gray-800";
+const inner = "mx-auto max-w-7xl px-4 py-14 sm:px-6";
+const heading = "text-2xl font-semibold tracking-tight";
+const prose = "mt-4 max-w-3xl text-[15px] leading-7 text-gray-700 dark:text-gray-300";
+const textLink =
+  "text-brand-700 underline decoration-brand-300 underline-offset-2 hover:text-brand-600 dark:text-brand-300 dark:decoration-brand-700";
+const code = "mono text-[0.9em]";
+---
+
+<section>
+  <div class="mx-auto grid max-w-7xl items-start gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:py-20">
+    <div>
+      <h1 class="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">{COPY.h1}</h1>
+      <p class="mt-5 text-[17px] leading-8 text-gray-700 dark:text-gray-300">{COPY.lede}</p>
+
+      <div class="code-group mt-7" data-labels="Python,TypeScript">
+        <pre class="astro-code"><code>pip install mmsp</code></pre>
+        <pre class="astro-code"><code>npm install @prismshadow/mmsp</code></pre>
+      </div>
+
+      <div class="mt-6 flex flex-wrap gap-2.5">
+        <a
+          href={href("/docs/quickstart/")}
+          class="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200"
+        >
+          {COPY.quickstart}
+        </a>
+        <a
+          href={href("/docs/streaming/")}
+          class="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-800 transition-colors hover:bg-gray-50 dark:border-gray-800 dark:text-gray-200 dark:hover:bg-gray-900"
+        >
+          {COPY.stream}
+        </a>
+      </div>
+    </div>
+
+    <StreamPlayer locale={locale} />
+  </div>
+</section>
+
+<section class={section} id="why">
+  <div class={inner}>
+    <h2 class={heading}>{COPY.why}</h2>
+    <p class={prose}>{COPY.whyText1}</p>
+    <p class={prose}>{COPY.whyText2}</p>
+    <dl class="mt-6 grid max-w-5xl gap-x-10 gap-y-6 sm:grid-cols-2">
+      {
+        COPY.goals.map(([name, text]) => (
+          <div class="border-l-2 border-brand-500 pl-4">
+            <dt class="font-semibold">{name}</dt>
+            <dd class="mt-1 text-[15px] leading-7 text-gray-700 dark:text-gray-300">{text}</dd>
+          </div>
+        ))
+      }
+    </dl>
+  </div>
+</section>
+
+<section class={section} id="grammar">
+  <div class:list={[inner, "grid gap-10 lg:grid-cols-2"]}>
+    <div>
+      <h2 class={heading}>{COPY.grammarTitle}</h2>
+      <p class={prose}>
+        {COPY.grammarText1[0]}<code class={code}>delta</code>{COPY.grammarText1[1]}<code class={code}>stop</code>{COPY.grammarText1[2]}
+      </p>
+      <p class={prose}>
+        {COPY.grammarText2[0]}<code class={code}>tool_call.done</code>{COPY.grammarText2[1]}<a href={href("/docs/streaming/")} class={textLink}>{COPY.grammarText2[2]}</a>{COPY.grammarText2[3]}
+      </p>
+    </div>
+    <pre class="mono self-start overflow-x-auto rounded-lg border border-gray-200 bg-gray-50 p-4 text-[13px] leading-6 dark:border-gray-800 dark:bg-gray-900">{grammar}</pre>
+  </div>
+</section>
+
+<section class={section} id="models">
+  <div class={inner}>
+    <h2 class={heading}>{COPY.modelsTitle}</h2>
+    <p class={prose}>
+      {COPY.modelsText[0]}<a href={href("/docs/models/")} class={textLink}>{COPY.modelsText[1]}</a>{COPY.modelsText[2]}
+    </p>
+    <div class="md-body mt-6">
+      <table>
+        <thead>
+          <tr>{COPY.modelsHead.map((head) => <th>{head}</th>)}</tr>
+        </thead>
+        <tbody>
+          {
+            models.map(([model, vendor, id, output]) => (
+              <tr>
+                <td>{t(model)}</td>
+                <td>{t(vendor)}</td>
+                <td><code>{id}</code></td>
+                <td>{t(output)}</td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class={section} id="start">
+  <div class:list={[inner, "grid gap-10 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]"]}>
+    <div>
+      <h2 class={heading}>{COPY.startTitle}</h2>
+      <p class={prose}>{COPY.startText1}</p>
+      <p class={prose}>
+        <a href={href("/docs/quickstart/")} class={textLink}>{COPY.startText2[0]}</a>{COPY.startText2[1]}
+      </p>
+    </div>
+    <div class="code-group self-start">
+      <Code code={python} lang="python" themes={themes} />
+      <Code code={typescript} lang="typescript" themes={themes} />
+    </div>
+  </div>
+</section>
+
+<section class={section} id="agents">
+  <div class:list={[inner, "grid gap-10 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]"]}>
+    <div>
+      <h2 class={heading}>{COPY.agentTitle}</h2>
+      <p class={prose}>{COPY.agentText1}</p>
+      <p class={prose}>{COPY.agentText2}</p>
+      <p class={prose}>
+        <a href={`${REPO_URL}/tree/main/skills`} class={textLink}>{COPY.agentLinks[0]}</a>{" "}{COPY.agentLinks[1]}, {" "}
+        <a href={href("/docs/skills/")} class={textLink}>{COPY.agentLinks[2]}</a>
+      </p>
+    </div>
+    <div class="self-start">
+      <div class="code-group" data-labels="Python skill,TypeScript skill">
+        <Code code={skillInstall("mmsp-python")} lang="bash" themes={themes} />
+        <Code code={skillInstall("mmsp-typescript")} lang="bash" themes={themes} />
+      </div>
+      <pre class="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3 text-[13px] leading-6 whitespace-pre-wrap text-gray-700 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">{COPY.agentPrompt}</pre>
+    </div>
+  </div>
+</section>
+
+<section class={section} id="contributing">
+  <div class={inner}>
+    <h2 class={heading}>{COPY.contributingTitle}</h2>
+    <p class={prose}>
+      {COPY.contributingText1[0]}<a href={`${REPO_URL}/issues`} class={textLink}>{COPY.contributingText1[1]}</a>{COPY.contributingText1[2]}
+    </p>
+    <p class={prose}>
+      {COPY.contributingText2[0]}<a href={DISCORD_URL} class={textLink}>{COPY.contributingText2[1]}</a>{COPY.contributingText2[2]}<a href={X_URL} class={textLink}>{COPY.contributingText2[3]}</a>{COPY.contributingText2[4]}<a href="https://penguin.ooo/" class={textLink}>{COPY.contributingText2[5]}</a>{COPY.contributingText2[6]}
+    </p>
+  </div>
+</section>

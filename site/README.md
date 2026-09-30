@@ -1,6 +1,6 @@
 # The MMSP site
 
-The site at [mmsp.penguin.ooo](https://mmsp.penguin.ooo): the overview page, the documentation and the changelog. It is an [Astro](https://astro.build) project styled with Tailwind CSS, built and deployed to GitHub Pages by `.github/workflows/pages.yml` on every push to `main` that touches it.
+The site at [mmsp.penguin.ooo](https://mmsp.penguin.ooo): the overview page, the documentation and the changelog, in English at `/` and in Chinese at `/zh/`. It is an [Astro](https://astro.build) project styled with Tailwind CSS, built and deployed to GitHub Pages by `.github/workflows/pages.yml` on every push to `main` that touches it.
 
 ## Develop
 
@@ -17,16 +17,22 @@ Node 22.12 or newer.
 
 | Path | Holds |
 | --- | --- |
-| `src/pages/index.astro` | The overview page |
-| `src/docs/*.md` | The documentation, one file per page |
-| `src/shared/site.ts` | The sidebar and the top bar: add a page here after writing it |
-| `src/pages/changelog.astro` | Renders the repository's `CHANGELOG.md` |
+| `src/components/Home.astro` | The overview page, with its copy in both languages |
+| `src/docs/<page>.en.md`, `<page>.zh.md` | The documentation, one file per page and language |
+| `src/shared/site.ts` | The sidebar and the top bar: add a page here after writing it, with its title in both languages |
+| `src/shared/i18n.ts` | The two locales, their paths, and the strings of the chrome |
+| `src/pages/`, `src/pages/zh/` | The routes of each language; a page under `zh/` renders the same layout with `locale="zh"` |
+| `src/layouts/Base.astro` | The chrome, and the script that applies the language and the theme before the first paint |
 | `src/shared/stream-demo.ts` | The streams the overview page replays |
 | `src/styles/global.css` | The theme: the visual language of penguin.ooo/docs with the violet of the MMSP artwork |
 | `public/CNAME` | The custom domain |
 | `artwork/` | The sources of the images in `.github/images/` |
 
-Documentation pages describe the released packages. When the code changes what a page says, change the page in the same pull request.
+Documentation pages describe the released packages. When the code changes what a page says, change the page in both languages in the same pull request.
+
+## Language and theme
+
+The home page and the first documentation page open in the browser's language, `zh` for Chinese and English otherwise; every page opens in the system's theme. The menus in the top bar store a choice in `localStorage` under `mmsp-site.lang` and `mmsp-site.theme`; an absent key means "follow the system". An inline script in `Base.astro` reads both before the page paints: it sets the `dark` class on `<html>` and, when the page is not in the chosen language, replaces the location with the counterpart page. Without a choice, only the entry pages redirect: a link to any other page keeps its language, and a crawler sees both languages.
 
 ## Artwork
 

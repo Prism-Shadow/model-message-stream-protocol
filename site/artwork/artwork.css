@@ -56,22 +56,8 @@ body {
   );
 }
 
-/* a stream: fragments arriving, then the complete item */
-.stream {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.stream i {
+/* the mark: the four letters in a grid, as on the site and the favicon */
+.mark {
   display: block;
-  height: 14px;
-  border-radius: 3px;
-  background: var(--violet);
-}
-.stream i.delta {
-  opacity: 0.45;
-}
-.stream i.stop {
-  width: 14px;
-  background: var(--ink);
+  flex: none;
 }
