@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import json
-import os
 from typing import Any, AsyncIterator
 
 from openai import AsyncOpenAI
@@ -33,7 +32,7 @@ from ..types import (
     UniMessage,
     UsageMetadata,
 )
-from ..utils import is_debug_enabled, openai_image_detail
+from ..utils import is_debug_enabled, openai_image_detail, resolve_credentials
 
 
 class GPT6Client(LLMClient):
@@ -48,8 +47,9 @@ class GPT6Client(LLMClient):
     ):
         """Initialize GPT-6 client with model and API key."""
         self._model = model
-        api_key = api_key or os.getenv("OPENAI_API_KEY")
-        base_url = base_url or os.getenv("OPENAI_BASE_URL")
+        api_key, base_url = resolve_credentials(
+            self.__class__.__name__, api_key, base_url, "OPENAI_API_KEY", "OPENAI_BASE_URL"
+        )
         self._client = AsyncOpenAI(api_key=api_key, base_url=base_url, default_headers=default_headers)
         self._history: list[UniMessage] = []
 

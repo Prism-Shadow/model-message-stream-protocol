@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 from typing import Any, AsyncIterator
 
 from openai import AsyncOpenAI
@@ -20,6 +19,7 @@ from openai import AsyncOpenAI
 from ..base_client import LLMClient
 from ..errors import UnsupportedParameterError
 from ..types import UniConfig, UniEvent, UniMessage
+from ..utils import resolve_credentials
 
 
 class OpenaiEmbeddingClient(LLMClient):
@@ -34,8 +34,9 @@ class OpenaiEmbeddingClient(LLMClient):
     ):
         """Initialize OpenAI-compatible embedding client with model, API key, and base URL."""
         self._model = model
-        api_key = api_key or os.getenv("OPENAI_API_KEY")
-        base_url = base_url or os.getenv("OPENAI_BASE_URL")
+        api_key, base_url = resolve_credentials(
+            self.__class__.__name__, api_key, base_url, "OPENAI_API_KEY", "OPENAI_BASE_URL"
+        )
         self._client = AsyncOpenAI(api_key=api_key, base_url=base_url, default_headers=default_headers)
         self._history: list[UniMessage] = []
 

@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import re
 from typing import Any, AsyncIterator
 
@@ -33,7 +32,7 @@ from ..types import (
     UniMessage,
     UsageMetadata,
 )
-from ..utils import fix_openrouter_usage_metadata, is_debug_enabled
+from ..utils import fix_openrouter_usage_metadata, is_debug_enabled, resolve_credentials
 
 
 REDACTED_THINKING = "_REDACTED_THINKING"
@@ -51,13 +50,17 @@ class AntMessagesClient(LLMClient):
     ):
         """Initialize Anthropic Messages-compatible client with model, API key, and base URL."""
         self._model = model
-        api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
-        base_url = base_url or os.getenv("ANTHROPIC_BASE_URL")
+        api_key, base_url = resolve_credentials(
+            self.__class__.__name__, api_key, base_url, "ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL"
+        )
         # send the credential through both header conventions: Anthropic and DeepSeek read
         # x-api-key while gateways such as OpenRouter and Z.AI read Authorization: Bearer
         self._client = AsyncAnthropic(
             api_key=api_key, auth_token=api_key, base_url=base_url, default_headers=default_headers
         )
+        # With no credential the SDK reads the None auth_token as unset and may fill it from
+        # ANTHROPIC_AUTH_TOKEN, so pin the token to the key it was given.
+        self._client.auth_token = api_key
         self._history: list[UniMessage] = []
 
     def _convert_image_url_to_source(self, url: str) -> dict[str, Any]:

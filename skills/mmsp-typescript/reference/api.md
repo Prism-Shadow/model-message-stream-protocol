@@ -24,6 +24,8 @@ const clientWithType = new AutoLLMClient({
 });
 ```
 
+A key goes only where it was given for. `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` are read from the environment only together with `OPENAI_BASE_URL` / `ANTHROPIC_BASE_URL` (or the provider's own endpoint), so a `baseUrl` passed in needs an `apiKey` passed in with it, or the client raises at construction. A vendor client (`deepseek-v4`, `glm-5.x`, `kimi-k*`, `minimax-m3`, Gemini) reads its own variable whatever endpoint it is given.
+
 ## Method signatures
 
 ```typescript

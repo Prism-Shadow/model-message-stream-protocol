@@ -33,7 +33,11 @@ import {
   PromptCaching,
   UsageMetadata,
 } from "../types";
-import { isDebugEnabled, openaiImageDetail } from "../utils";
+import {
+  isDebugEnabled,
+  openaiImageDetail,
+  resolveCredentials,
+} from "../utils";
 
 /**
  * GPT-6-specific LLM client implementation (also serves GPT-5.6, GPT-5.5 and GPT-5.4).
@@ -54,8 +58,11 @@ export class GPT6Client extends LLMClient {
   }) {
     super();
     this._model = options.model;
-    const key = options.apiKey || process.env.OPENAI_API_KEY || undefined;
-    const url = options.baseUrl || process.env.OPENAI_BASE_URL || undefined;
+    const { apiKey: key, baseUrl: url } = resolveCredentials(
+      this.constructor.name,
+      options,
+      { key: "OPENAI_API_KEY", baseUrl: "OPENAI_BASE_URL" },
+    );
     this._client = new OpenAI({
       apiKey: key,
       baseURL: url,

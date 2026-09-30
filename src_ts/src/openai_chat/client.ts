@@ -32,7 +32,11 @@ import {
   UniMessage,
   UsageMetadata,
 } from "../types";
-import { fixOpenrouterUsageMetadata, openaiImageDetail } from "../utils";
+import {
+  fixOpenrouterUsageMetadata,
+  openaiImageDetail,
+  resolveCredentials,
+} from "../utils";
 
 /**
  * OpenAI Chat Completions-compatible client implementation.
@@ -53,8 +57,11 @@ export class OpenaiChatClient extends LLMClient {
   }) {
     super();
     this._model = options.model;
-    const key = options.apiKey || process.env.OPENAI_API_KEY || undefined;
-    const url = options.baseUrl || process.env.OPENAI_BASE_URL || undefined;
+    const { apiKey: key, baseUrl: url } = resolveCredentials(
+      this.constructor.name,
+      options,
+      { key: "OPENAI_API_KEY", baseUrl: "OPENAI_BASE_URL" },
+    );
     this._client = new OpenAI({
       apiKey: key,
       baseURL: url,
