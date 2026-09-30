@@ -3,6 +3,7 @@
 - **Date:** 2026-09-30
 - **Type:** chore
 - **Scope:** `ci`
+- **PR:** [#237](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/237)
 
 [中文版](2026-09-30-publish-skip-existing.zh.md)
 
