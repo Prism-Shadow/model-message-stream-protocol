@@ -1,6 +1,6 @@
 [project]
 name = "mmsp"
-version = "0.4.15"
+version = "0.5.0"
 description = "MMSP, the Model Message Stream Protocol: one message format and one streaming grammar for every model provider, in Python and TypeScript."
 keywords = ["mmsp", "llm", "stream", "gemini", "claude", "gpt"]
 readme = "README.md"
