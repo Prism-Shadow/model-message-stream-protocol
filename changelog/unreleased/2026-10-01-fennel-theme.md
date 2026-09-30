@@ -3,6 +3,7 @@
 - **Date:** 2026-10-01
 - **Type:** docs
 - **Scope:** `site`, `integration`
+- **PR:** [#238](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/238)
 
 [中文版](2026-10-01-fennel-theme.zh.md)
 
