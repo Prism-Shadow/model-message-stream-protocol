@@ -8,6 +8,7 @@ on:
       - "**/*.ts"
       - "**/package.json"
       - '.github/workflows/jest.yml'
+      - "!site/**"
   pull_request:
     branches:
       - "main"
@@ -16,6 +17,7 @@ on:
       - "**/*.ts"
       - "**/package.json"
       - '.github/workflows/jest.yml'
+      - "!site/**"
 
 jobs:
   test:

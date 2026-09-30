@@ -40,7 +40,7 @@ Switch different LLMs with **zero code changes** and **no performance loss**.
 
 Audit LLM executions by adding **a single `trace_id` parameter**, no database required.
 
-https://github.com/user-attachments/assets/c49a21a1-5bf9-4768-a76d-f73c9a03ca87
+![Tracer](.github/images/tracer.gif)
 
 ## Supported Models
 

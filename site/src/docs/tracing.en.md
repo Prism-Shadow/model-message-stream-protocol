@@ -56,12 +56,12 @@ Tracer().start_web_server(host="127.0.0.1", port=25750)
 
 </div>
 
-Or start it from a shell with one command (run the TypeScript one in a project that has `@prismshadow/mmsp` installed):
+Or start it from a shell (the TypeScript scripts run in `src_ts` of a clone of the repository):
 
 <div class="code-group" data-labels="TypeScript,Python">
 
 ```bash
-node -e 'const { Tracer } = require("@prismshadow/mmsp/integration/tracer"); new Tracer("./cache").startWebServer("127.0.0.1", 25750);'
+npm run tracer
 ```
 
 ```bash
@@ -95,7 +95,7 @@ From a shell:
 <div class="code-group" data-labels="TypeScript,Python">
 
 ```bash
-node -e 'const { startPlaygroundServer } = require("@prismshadow/mmsp/integration/playground"); startPlaygroundServer("127.0.0.1", 25751);'
+npm run playground
 ```
 
 ```bash

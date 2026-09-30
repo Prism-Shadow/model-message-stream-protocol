@@ -43,8 +43,10 @@ const COPY = {
 const [before, verbs, after] = COPY.slogan as [string, string[], string];
 ---
 
-<section>
-  <div class="relative mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:py-16">
+<!-- on a desktop the hero fills the window between the top bar and the footer, so the home page
+     reads without scrolling -->
+<section class="lg:flex lg:flex-1 lg:items-center" data-hero>
+  <div class="relative mx-auto grid w-full max-w-7xl grid-cols-1 items-center gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:py-6">
     <div>
       <!-- the full name, its initials in the mark's color, so the acronym spells itself out -->
       <div class="rise flex items-center gap-3">
@@ -106,13 +108,20 @@ const [before, verbs, after] = COPY.slogan as [string, string[], string];
       </div>
     </div>
 
-    <div class="rise min-w-0" style="animation-delay: 120ms">
+    <div class="rise min-w-0" style="animation-delay: 120ms" data-player-fit>
       <StreamPlayer locale={locale} />
     </div>
   </div>
 </section>
 
 <style>
+  @media (min-width: 1024px) {
+    :global(main:has(> [data-hero])) {
+      display: flex;
+      flex-direction: column;
+    }
+  }
+
   .rise {
     animation: rise 0.6s cubic-bezier(0.23, 1, 0.32, 1) both;
   }
@@ -124,6 +133,10 @@ const [before, verbs, after] = COPY.slogan as [string, string[], string];
     overflow: hidden;
     vertical-align: bottom;
     color: var(--color-brand-500);
+  }
+
+  :global(.dark) .rotator {
+    color: var(--color-brand-400);
   }
 
   .rotator-word {
@@ -173,6 +186,50 @@ const [before, verbs, after] = COPY.slogan as [string, string[], string];
 </style>
 
 <script>
+  // On a desktop the recorded streams fit the window, so the page, footer included, is one screen.
+  // zoom shrinks the panel to at most 85%, below which its text gets hard to read; past that, the
+  // two stream panes are cut shorter and follow their newest line. Phones and very short windows
+  // scroll instead.
+  const fit = document.querySelector<HTMLElement>("[data-player-fit]");
+  if (fit) {
+    const desktop = matchMedia("(min-width: 1024px) and (min-height: 560px)");
+    const follows = [...fit.querySelectorAll<HTMLElement>("[data-follow]")];
+    const MIN_ZOOM = 0.85;
+    const MIN_PANE = 96;
+    const resize = () => {
+      fit.style.removeProperty("zoom");
+      for (const follow of follows) {
+        follow.style.removeProperty("height");
+        follow.removeAttribute("data-capped");
+      }
+      if (desktop.matches) {
+        const header = document.querySelector("header")?.offsetHeight ?? 0;
+        const footer = document.querySelector("footer")?.offsetHeight ?? 0;
+        const room = window.innerHeight - header - footer - 48;
+        const natural = fit.offsetHeight;
+        if (natural > room) {
+          const zoom = Math.max(room / natural, MIN_ZOOM);
+          const excess = natural - room / zoom;
+          // the panes share a row, so the taller one sets how much the row can give up
+          const cap = Math.floor(Math.max(...follows.map((follow) => follow.offsetHeight)) - excess);
+          if (excess > 1 && cap >= MIN_PANE) {
+            for (const follow of follows) {
+              follow.style.setProperty("height", `${cap}px`);
+              follow.setAttribute("data-capped", "");
+            }
+          }
+          fit.style.setProperty("zoom", zoom.toFixed(3));
+        }
+      }
+      for (const follow of follows) {
+        follow.scrollTop = follow.scrollHeight;
+        follow.toggleAttribute("data-cut", follow.scrollTop > 0);
+      }
+    };
+    resize();
+    window.addEventListener("resize", resize);
+  }
+
   // the prompt for a coding agent, copied from the hero
   const copy = document.querySelector<HTMLButtonElement>("[data-copy-prompt]");
   if (copy) {

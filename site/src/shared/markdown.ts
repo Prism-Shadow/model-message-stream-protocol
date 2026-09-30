@@ -5,7 +5,7 @@ import type { DocLink } from "./site";
 
 /**
  * A documentation page as plain Markdown: its title, its description, then the body without
- * the frontmatter and without the code-group wrappers, which only the site renders. Links to
+ * the frontmatter and without the code-group and per-language wrappers, which only the site renders. Links to
  * the site become absolute, so the text reads the same wherever it is pasted.
  */
 export function docMarkdown(locale: Locale, doc: DocLink, page: MarkdownInstance<{ description: string }>): Response {
@@ -15,7 +15,7 @@ export function docMarkdown(locale: Locale, doc: DocLink, page: MarkdownInstance
     .replace(/^---[\s\S]*?---\s*/, "")
     .replace(/<figure class="flowchart">[\s\S]*?<\/figure>/, flowchartAsText)
     .split("\n")
-    .filter((line) => !/^<div class="code-group"[^>]*>$/.test(line) && line !== "</div>")
+    .filter((line) => !/^<div (class="code-group"|data-code-lang=)[^>]*>$/.test(line) && line !== "</div>")
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .replace(/\]\(\//g, `](${site.replace(/\/$/, "")}/`)

@@ -127,46 +127,6 @@ const structured = JSON.stringify(
     </main>
     <Footer locale={locale} />
     <script>
-      // ---------- the menus of the top bar
-      const menus = [...document.querySelectorAll<HTMLElement>("[data-menu]")];
-      const closeAll = () => {
-        for (const menu of menus) {
-          menu.querySelector<HTMLElement>("[role=menu]")!.hidden = true;
-          menu.querySelector("button")!.setAttribute("aria-expanded", "false");
-        }
-      };
-      document.addEventListener("click", (event) => {
-        if (!menus.some((menu) => menu.contains(event.target as Node))) closeAll();
-      });
-      const setChosen = (menu: HTMLElement, value: string) => {
-        for (const option of menu.querySelectorAll<HTMLElement>("[data-value]")) {
-          option.setAttribute("aria-checked", String(option.dataset.value === value));
-        }
-      };
-      // the button names what is in effect, which differs from the choice when it follows the system
-      const showCurrent = (menu: HTMLElement, value: string) => {
-        menu.querySelector("[data-menu-current]")!.textContent =
-          menu.querySelector<HTMLElement>(`[data-value="${value}"]`)!.textContent;
-        for (const icon of menu.querySelectorAll<SVGElement>("[data-theme-icon]")) {
-          icon.classList.toggle("hidden", icon.dataset.themeIcon !== value);
-        }
-      };
-      for (const menu of menus) {
-        const list = menu.querySelector<HTMLElement>("[role=menu]")!;
-        const button = menu.querySelector("button")!;
-        button.addEventListener("click", () => {
-          const open = list.hidden;
-          closeAll();
-          list.hidden = !open;
-          button.setAttribute("aria-expanded", String(open));
-        });
-        for (const option of menu.querySelectorAll<HTMLElement>("[data-value]")) {
-          option.addEventListener("click", () => {
-            closeAll();
-            menu.dispatchEvent(new CustomEvent("choose", { detail: option.dataset.value }));
-          });
-        }
-      }
       const stored = (key: string) => {
         try {
           return localStorage.getItem(key);
@@ -181,41 +141,38 @@ const structured = JSON.stringify(
         } catch {}
       };
 
-      // ---------- theme: light, dark, or the system's, applied at once and on system changes
-      const theme = document.querySelector<HTMLElement>("[data-menu=theme]")!;
+      // ---------- theme: the system's, light or dark, applied at once and on system changes; each
+      // click on the button steps to the next
+      const THEMES = ["system", "light", "dark"] as const;
+      const themeButton = document.querySelector<HTMLButtonElement>("[data-theme-toggle]")!;
       const system = matchMedia("(prefers-color-scheme: dark)");
-      const applyTheme = () => {
-        const mode = stored("mmsp-site.theme") ?? "system";
-        const dark = mode === "dark" || (mode === "system" && system.matches);
-        document.documentElement.classList.toggle("dark", dark);
-        setChosen(theme, mode);
-        // the theme button shows the choice, following the system included
-        showCurrent(theme, mode);
+      const themeMode = () => {
+        const mode = stored("mmsp-site.theme");
+        return mode === "light" || mode === "dark" ? mode : "system";
       };
-      theme.addEventListener("choose", (event) => {
-        store("mmsp-site.theme", (event as CustomEvent).detail);
+      const applyTheme = () => {
+        const mode = themeMode();
+        document.documentElement.classList.toggle("dark", mode === "dark" || (mode === "system" && system.matches));
+        for (const icon of themeButton.querySelectorAll<SVGElement>("[data-theme-icon]")) {
+          icon.classList.toggle("hidden", icon.dataset.themeIcon !== mode);
+        }
+        const name = `${themeButton.dataset.label}: ${themeButton.dataset[mode]}`;
+        themeButton.title = name;
+        themeButton.setAttribute("aria-label", name);
+      };
+      themeButton.addEventListener("click", () => {
+        store("mmsp-site.theme", THEMES[(THEMES.indexOf(themeMode()) + 1) % THEMES.length]);
         applyTheme();
       });
       system.addEventListener("change", applyTheme);
       applyTheme();
 
-      // ---------- language: the choice is stored, and the page reloads in that language; the
-      // button names the page's language, which is what is in effect
-      const lang = document.querySelector<HTMLElement>("[data-menu=lang]")!;
-      setChosen(lang, stored("mmsp-site.lang") ?? "system");
-      lang.addEventListener("choose", (event) => {
-        const choice = (event as CustomEvent).detail as string;
-        store("mmsp-site.lang", choice);
-        const wanted =
-          choice === "system"
-            ? navigator.language.toLowerCase().startsWith("zh")
-              ? "zh"
-              : "en"
-            : choice;
+      // ---------- language: a click stores the other language and reloads the page in it
+      document.querySelector("[data-lang-toggle]")!.addEventListener("click", () => {
+        const wanted = document.documentElement.dataset.locale === "zh" ? "en" : "zh";
+        store("mmsp-site.lang", wanted);
         const path = location.pathname.replace(/^\/zh(?=\/|$)/, "") || "/";
-        const target = (wanted === "zh" ? "/zh" + path : path) + location.hash;
-        if (wanted === document.documentElement.dataset.locale) setChosen(lang, choice);
-        else location.assign(target);
+        location.assign((wanted === "zh" ? "/zh" + path : path) + location.hash);
       });
 
       // ---------- the repository's stars, from the GitHub API, kept in the browser for an hour
@@ -246,7 +203,14 @@ const structured = JSON.stringify(
 
       // ---------- <div class="code-group"> around fenced blocks: one tab per block, named by
       // its language, or by data-labels="Python,TypeScript" where the language does not tell
-      // the blocks apart
+      // the blocks apart. Text for one language, in <div data-code-lang="Python">, shows while
+      // that language is chosen.
+      const notes = [...document.querySelectorAll<HTMLElement>("[data-code-lang]")];
+      const noteLanguages = new Set(notes.map((note) => note.dataset.codeLang));
+      const showNotes = (label: string) => {
+        if (!noteLanguages.has(label)) return;
+        for (const note of notes) note.hidden = note.dataset.codeLang !== label;
+      };
       const LABELS: Record<string, string> = {
         python: "Python",
         typescript: "TypeScript",
@@ -284,6 +248,7 @@ const structured = JSON.stringify(
             for (const other of document.querySelectorAll<HTMLElement>(".code-group")) {
               other.dispatchEvent(new CustomEvent("choose", { detail: label }));
             }
+            showNotes(label);
           });
           strip.append(tab);
         });
@@ -297,6 +262,8 @@ const structured = JSON.stringify(
         const remembered = labels.indexOf(stored("mmsp-site.code") ?? "");
         select(remembered >= 0 ? remembered : 0);
       }
+      const rememberedLanguage = stored("mmsp-site.code") ?? "";
+      showNotes(noteLanguages.has(rememberedLanguage) ? rememberedLanguage : "TypeScript");
     </script>
   </body>
 </html>

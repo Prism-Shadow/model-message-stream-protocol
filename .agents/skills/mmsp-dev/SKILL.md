@@ -110,7 +110,7 @@ The system they share:
 
 - Neutral tokens (`--bg`, `--surface`, `--raised`, `--text`, `--muted`, `--subtle`, `--ring`) with one accent; color carries meaning only (a stop reason, an item's kind). Light and dark follow the system through `prefers-color-scheme` and a `data-theme` override; the playground and the tracer share the `mmsp.playground.theme` key, the site uses `mmsp-site.theme`.
 - Inter for the interface, JetBrains Mono only for ids, JSON, paths of data and token counts. Depth from 1px rings, not large shadows. Motion 150–250 ms on `cubic-bezier(0.23, 1, 0.32, 1)`, only where something changes, and off under `prefers-reduced-motion`.
-- One mark everywhere: the four-tile MMSP logo of `site/src/components/Logo.astro`, also the favicon of all three pages.
+- One mark everywhere: the four-tile MMSP logo of `site/src/components/Logo.astro` (two `#477dfb` tiles and two dark ones, white letters), also the favicon of all three pages. The site's brand scale in `site/src/styles/global.css` is built around `#477dfb`, a pure blue at the hue of fennel flower `#7aa2f7`, as `brand-500`: images and the mark use `#477dfb`, text on white uses `brand-600` or darker, and text in the dark theme uses `brand-400`, which is `#7aa2f7` itself. The language and theme controls of the top bar are buttons that cycle on click (the other language; system, light, dark), not menus. The home page fits one desktop window, footer included: the player zooms to at most 85%, then its two stream panes are capped and follow their newest line. The README and social images are rendered from `site/artwork/` with `render.sh`. Before committing an image, shrink it: PNGs to at most 1760 px wide (twice the README column) and a 256-colour palette (`imagequant`, then `pyoxipng`), GIFs with `gifsicle -O3 --lossy=15`, dropping every other motion frame first. The README images together stay under 1 MB.
 
 What the owner has asked for, and keeps asking for:
 
@@ -122,6 +122,7 @@ How the pages are built and checked:
 
 - The playground page is one HTML document embedded as `CHAT_TEMPLATE` in both servers. Python serves it through Jinja, so it may hold no `{{`, `{%` or `{#`, and every backslash is doubled; TypeScript holds it in a template literal, so backticks and `${` are escaped too. Edit it once and regenerate both embeddings; keep the element ids and function names the page tests assert.
 - The tracer shares `_TRACER_HEAD`, `_TRACER_SCRIPT` and `_ICONS` (`TRACER_HEAD`, `TRACER_SCRIPT`, `ICONS`) and a `_page` shell between `tracer.py` (Jinja page bodies) and `tracer.ts` (the same markup built in code). A tracer test asserts a trace page never contains `0.6`, its sign of a leaked sixth embedding value, so no CSS number or SVG path there may contain it.
+- CI runs the model tests (`jest.yml`, `pytest.yml`) only for changes outside `site/`; a site-only change runs the site build alone.
 - Verify in headless Chrome against both servers (and `npm run build` plus `astro preview` for the site): light and dark, desktop and a 390 px phone, no console errors, no horizontal scroll. A passing scan is not a better page; look at the screenshots.
 - Scanner hits accepted on purpose: the shimmer on loading text, the round send and remove buttons, Lucide-derived icons, Inter, mono for data, and the owner's slogan as a sentence-long headline.
 

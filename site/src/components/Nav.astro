@@ -1,6 +1,5 @@
 ---
 import Logo from "./Logo.astro";
-import Menu from "./Menu.astro";
 import { STRINGS, type Locale } from "../shared/i18n";
 import { REPO_URL, SITE_NAME, formatStars, navLinks, repoStars } from "../shared/site";
 
@@ -21,6 +20,8 @@ const other =
   "text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100";
 const button =
   "inline-flex h-9 min-w-9 items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-950 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white";
+const toggle =
+  "inline-flex h-9 items-center rounded-lg text-[13px] text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-950 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white";
 // the language, theme and GitHub glyphs: Lucide (globe, sun, moon) and the GitHub mark
 const icon = "h-[18px] w-[18px]";
 ---
@@ -49,49 +50,41 @@ const icon = "h-[18px] w-[18px]";
     </nav>
 
     <div class="ml-auto flex items-center gap-1">
-      <Menu
-        id="lang"
-        label={s.lang.label}
-        current={s.lang[locale]}
-        selected="system"
-        options={[
-          { value: "en", label: s.lang.en },
-          { value: "zh", label: s.lang.zh },
-          { value: "system", label: s.lang.system },
-        ]}
-      >
-        <svg slot="icon" viewBox="0 0 24 24" class={icon} fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <!-- one click switches to the other language -->
+      <button type="button" class:list={[toggle, "gap-1.5 px-2.5"]} title={s.lang.switch} aria-label={s.lang.switch} data-lang-toggle>
+        <svg viewBox="0 0 24 24" class={icon} fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="10"></circle>
           <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path>
           <path d="M2 12h20"></path>
         </svg>
-      </Menu>
+        <span class="hidden sm:inline">{s.lang[locale]}</span>
+      </button>
 
-      <Menu
-        id="theme"
-        label={s.theme.label}
-        current={s.theme.system}
-        selected="system"
-        iconOnly
-        options={[
-          { value: "light", label: s.theme.light },
-          { value: "dark", label: s.theme.dark },
-          { value: "system", label: s.theme.system },
-        ]}
+      <!-- each click steps to the next theme: the system's, light, dark; the icon shows the one in
+           effect, and the page script names it -->
+      <button
+        type="button"
+        class:list={[toggle, "w-9 justify-center"]}
+        title={`${s.theme.label}: ${s.theme.system}`}
+        aria-label={`${s.theme.label}: ${s.theme.system}`}
+        data-theme-toggle
+        data-label={s.theme.label}
+        data-system={s.theme.system}
+        data-light={s.theme.light}
+        data-dark={s.theme.dark}
       >
-        <!-- the choice, as the page script shows it: the system's, light or dark -->
-        <svg slot="icon" data-theme-icon="system" viewBox="0 0 24 24" class={icon} fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <svg data-theme-icon="system" viewBox="0 0 24 24" class={icon} fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="2" y="3" width="20" height="14" rx="2"></rect>
           <path d="M8 21h8M12 17v4"></path>
         </svg>
-        <svg slot="icon" data-theme-icon="light" viewBox="0 0 24 24" class:list={[icon, "hidden"]} fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <svg data-theme-icon="light" viewBox="0 0 24 24" class:list={[icon, "hidden"]} fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="4"></circle>
           <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
         </svg>
-        <svg slot="icon" data-theme-icon="dark" viewBox="0 0 24 24" class:list={[icon, "hidden"]} fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <svg data-theme-icon="dark" viewBox="0 0 24 24" class:list={[icon, "hidden"]} fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
         </svg>
-      </Menu>
+      </button>
 
       <a href={REPO_URL} class={button} target="_blank" rel="noreferrer" title={s.nav.github}>
         <svg viewBox="0 0 16 16" class={icon} fill="currentColor" aria-hidden="true">

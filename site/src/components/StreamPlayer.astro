@@ -45,7 +45,7 @@ const themes = { light: "github-light", dark: "github-dark" } as const;
           role="tab"
           data-scenario={scenario.id}
           aria-selected={index === 0 ? "true" : "false"}
-          class="rounded-t-md border-b-2 border-transparent px-2.5 py-1.5 text-[13px] text-gray-500 transition-colors hover:text-gray-900 aria-selected:border-brand-600 aria-selected:font-medium aria-selected:text-brand-700 dark:text-gray-400 dark:hover:text-gray-100 dark:aria-selected:border-brand-400 dark:aria-selected:text-brand-300"
+          class="rounded-t-md border-b-2 border-transparent px-2.5 py-1.5 text-[13px] text-gray-500 transition-colors hover:text-gray-900 aria-selected:border-brand-600 aria-selected:font-medium aria-selected:text-brand-700 dark:text-gray-400 dark:hover:text-gray-100 dark:aria-selected:border-brand-400 dark:aria-selected:text-brand-400"
         >
           {scenario.label}
         </button>
@@ -81,20 +81,37 @@ const themes = { light: "github-light", dark: "github-dark" } as const;
       <h3 class={label}>{s.events}</h3>
       <!-- the finished stream of every scenario, invisible in the same cell, holds the column at
            its tallest, so the page below never moves while a stream plays -->
-      <div class="mt-2 grid">
+      <div class="player-follow mt-2 grid" data-follow>
         {SCENARIOS.map((scenario) => <ol aria-hidden="true" class="invisible col-start-1 row-start-1 space-y-px" set:html={scenario.events.map(renderEvent).join("")} />)}
         <ol class="col-start-1 row-start-1 space-y-px" data-events set:html={first.events.map(renderEvent).join("")} />
       </div>
     </div>
     <div class="min-w-0 bg-gray-50 p-3 dark:bg-gray-900">
       <h3 class={label}>{s.message}</h3>
-      <div class="mono mt-2 grid text-[12.5px] leading-5">
+      <div class="player-follow mono mt-2 grid text-[12.5px] leading-5" data-follow>
         {SCENARIOS.map((scenario) => <div aria-hidden="true" class="invisible col-start-1 row-start-1" set:html={renderMessage(scenario.events, scenario.events.length, words)} />)}
         <div class="col-start-1 row-start-1" data-message set:html={renderMessage(first.events, first.events.length, words)} />
       </div>
     </div>
   </div>
 </div>
+
+<style>
+  .player-follow {
+    overflow: hidden;
+  }
+
+  /* a pane capped to fit the window drops the finished streams that hold it at its tallest, so it
+     scrolls over the live one only */
+  .player-follow[data-capped] > [aria-hidden="true"] {
+    display: none;
+  }
+
+  /* the rows scrolled out of a shortened pane fade out at its top edge */
+  .player-follow[data-cut] {
+    mask-image: linear-gradient(to bottom, transparent, #000 2.5rem);
+  }
+</style>
 
 <script>
   import { SCENARIOS, renderEvent, renderMessage, type PlayerWords } from "../shared/stream-demo";
@@ -110,6 +127,7 @@ const themes = { light: "github-light", dark: "github-dark" } as const;
     const message = player.querySelector<HTMLElement>("[data-message]")!;
     const tabs = [...player.querySelectorAll<HTMLButtonElement>("[data-scenario]")];
     const pause = player.querySelector<HTMLButtonElement>("[data-pause]")!;
+    const follows = [...player.querySelectorAll<HTMLElement>("[data-follow]")];
     const still = matchMedia("(prefers-reduced-motion: reduce)");
     let scenario = SCENARIOS[0];
     let count = 0;
@@ -120,6 +138,11 @@ const themes = { light: "github-light", dark: "github-dark" } as const;
     const show = () => {
       events.innerHTML = scenario.events.slice(0, count).map(renderEvent).join("");
       message.innerHTML = renderMessage(scenario.events, count, words);
+      // a pane cut shorter to fit the window keeps its newest line in view
+      for (const follow of follows) {
+        follow.scrollTop = follow.scrollHeight;
+        follow.toggleAttribute("data-cut", follow.scrollTop > 0);
+      }
       if (still.matches) return;
       // the usage bars grow in when the stop event arrives
       for (const bar of message.querySelectorAll<HTMLElement>("[data-bar]")) {

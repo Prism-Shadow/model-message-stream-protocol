@@ -56,12 +56,12 @@ Tracer().start_web_server(host="127.0.0.1", port=25750)
 
 </div>
 
-也可以在 shell 中用一行命令启动（TypeScript 需在装有 `@prismshadow/mmsp` 的项目中运行）：
+也可以在 shell 中启动（TypeScript 脚本在仓库的 `src_ts` 目录下运行）：
 
 <div class="code-group" data-labels="TypeScript,Python">
 
 ```bash
-node -e 'const { Tracer } = require("@prismshadow/mmsp/integration/tracer"); new Tracer("./cache").startWebServer("127.0.0.1", 25750);'
+npm run tracer
 ```
 
 ```bash
@@ -95,7 +95,7 @@ start_playground_server(host="127.0.0.1", port=25751)
 <div class="code-group" data-labels="TypeScript,Python">
 
 ```bash
-node -e 'const { startPlaygroundServer } = require("@prismshadow/mmsp/integration/playground"); startPlaygroundServer("127.0.0.1", 25751);'
+npm run playground
 ```
 
 ```bash
