@@ -188,9 +188,7 @@ const TRACER_HEAD = `
         gap: 16px;
         height: 56px;
         padding: 0 20px;
-        background: color-mix(in srgb, var(--bg) 86%, transparent);
-        backdrop-filter: saturate(1.4) blur(12px);
-        -webkit-backdrop-filter: saturate(1.4) blur(12px);
+        background: var(--bg);
         box-shadow: 0 1px 0 var(--ring);
     }
 
@@ -562,9 +560,7 @@ const TRACER_HEAD = `
         overflow-y: auto;
         padding: 12px 12px 10px;
         border-radius: 12px;
-        background: color-mix(in srgb, var(--surface) 92%, transparent);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
+        background: var(--surface);
         box-shadow: var(--shadow-menu);
     }
 
@@ -766,22 +762,27 @@ const TRACER_HEAD = `
     }
 
     .msg-body {
-        padding: 16px;
+        padding: 4px 16px 14px;
     }
 
+    /* a list, carried by alignment: the type in its kind's color on the left, the content beside it */
     .item {
-        --k: var(--subtle);
-        padding: 9px 14px 12px;
-        border-radius: 8px;
-        background: color-mix(in srgb, var(--k) 7%, var(--surface));
-        box-shadow: inset 3px 0 0 var(--k);
+        --k: var(--muted);
+        display: grid;
+        grid-template-columns: 136px minmax(0, 1fr);
+        column-gap: 16px;
+        padding: 12px 0;
     }
 
     .item + .item {
-        margin-top: 10px;
+        box-shadow: inset 0 1px 0 var(--ring);
     }
 
-    .kind-text { --k: var(--subtle); }
+    .item > :not(.item-head) {
+        grid-column: 2;
+    }
+
+    .kind-text { --k: var(--muted); }
     .kind-thinking, .kind-inline_thinking { --k: var(--accent); }
     .kind-tool_call { --k: var(--amber); }
     .kind-tool_result { --k: var(--green); }
@@ -789,25 +790,26 @@ const TRACER_HEAD = `
     .kind-embedding { --k: var(--indigo); }
 
     .item-head {
+        grid-column: 1;
+        grid-row: 1 / span 4;
         display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 5px;
+        flex-direction: column;
+        gap: 2px;
+        padding-top: 2px;
     }
 
     .item-type {
         color: var(--k);
         font-family: var(--mono);
-        font-size: 11px;
+        font-size: 11.5px;
         font-weight: 500;
     }
 
     .item-id {
-        margin-left: auto;
         color: var(--subtle);
         font-family: var(--mono);
         font-size: 11px;
-        white-space: nowrap;
+        overflow-wrap: anywhere;
     }
 
     .item-text {
@@ -946,6 +948,21 @@ const TRACER_HEAD = `
         .kv-row {
             grid-template-columns: 1fr;
             gap: 2px;
+        }
+
+        .item {
+            grid-template-columns: minmax(0, 1fr);
+            row-gap: 4px;
+        }
+
+        .item > :not(.item-head), .item-head {
+            grid-column: 1;
+            grid-row: auto;
+        }
+
+        .item-head {
+            flex-direction: row;
+            gap: 8px;
         }
 
         .page-head {

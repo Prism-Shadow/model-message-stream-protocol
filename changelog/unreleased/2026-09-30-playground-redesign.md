@@ -23,8 +23,9 @@
 - A thinking item that carries only a signature is no longer shown.
 - The page no longer loads Tailwind at runtime. Its only outside requests are the Inter and JetBrains Mono fonts.
 - The tracer takes the same look and theme, and a theme picked in one page carries to the other.
+  - Back, forward and up sit before an address bar with the path, as in a file explorer.
   - Folders and traces are a list with icons, sizes and times, sorted by name or by modified time.
   - A trace opens with its model, message count and save time. The configuration folds its system prompt and tools.
-  - Each message is a collapsible card with a role pill, its round and the time since the message before.
-  - Items read as in the playground, a thinking item with only fidelity is labeled so, and the footer shows the finish reason and token counts.
-  - A rail beside the trace marks the round in view.
+  - Each message is a collapsible card headed by its role, its round and the time since the message before.
+  - Items are an aligned list: each item's type in its kind's color, the content beside it. A thinking item with only fidelity is labeled so, and the footer shows the finish reason and token counts.
+  - The rounds float beside the trace and take no width; below 1400 px they fold into a "Round 2 / 5" button.

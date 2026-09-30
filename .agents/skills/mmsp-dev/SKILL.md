@@ -1,6 +1,6 @@
 ---
 name: mmsp-dev
-description: Fixed workflow for developing MMSP itself — adding or updating model support. Use when asked to support a new model or protocol version in this repository, sync llmsdk_docs, or implement a provider client. Covers doc syncing, live API capture, paired Python/TypeScript implementation, and model-scoped e2e testing.
+description: Fixed workflow for developing MMSP itself — adding or updating model support, and changing its pages. Use when asked to support a new model or protocol version in this repository, sync llmsdk_docs, implement a provider client, or change the playground, the tracer or the site. Covers doc syncing, live API capture, paired Python/TypeScript implementation, model-scoped e2e testing, and the UI rules for the three pages.
 ---
 
 # MMSP Development Workflow
@@ -22,6 +22,9 @@ changelog/unreleased/             Where unshipped changes go; renamed to the ver
 changelog/<version>/              Release summary (README.md) plus one detail file per entry
 changelog/README.md               The entry format: metadata block, body rules, bilingual pairing
 CHANGELOG.md                      One brief line per release linking into changelog/
+src_py/mmsp/integration/          The playground and the tracer pages, mirrored in src_ts/src/integration/
+site/                             The Astro site at mmsp.penguin.ooo
+.agents/skills/mmsp-dev/kill-ai-slop/   Vendored AI-slop guide and scanner for the UI work below
 <name>.zh.md                      Chinese counterpart, required for every file in changelog/
 ```
 
@@ -95,3 +98,30 @@ CHANGELOG.md                      One brief line per release linking into change
 - Write the Chinese counterpart `changelog/<version>/YYYY-MM-DD-<slug>.zh.md` in the same PR, mirroring the English file section for section. The metadata block stays English verbatim (only the `Breaking` reason is prose to translate), as do code identifiers, model ids, and links; `changelog/README.md` lists the standard heading renderings. An entry without its counterpart is unfinished.
 - Add one line at the top of that version's `changelog/<version>/README.md` and the matching line in `README.zh.md`, whose `[详情]` link points at the `.zh.md` entry; the root `CHANGELOG.md` and `CHANGELOG.zh.md` keep one line per release, added at release preparation.
 - Commit on a feature branch and open a PR with `gh pr create --base dev`; direct pushes to `dev` are rejected.
+
+## UI work — the playground, the tracer and the site
+
+The three pages share one look, and every change to them goes through two references before it ships:
+
+- `kill-ai-slop/GUIDE.md`, the field guide to the machine-default tics of generated interfaces, with its scanner: `node .agents/skills/mmsp-dev/kill-ai-slop/scripts/scan.mjs <dir>`. Follow its order — scan, triage each hit as slop or intended, report, then fix — and read `references/taxonomy.md` and `references/fixes.md` for what each tell is and what replaces it. The playground and tracer pages live inside Python and TypeScript strings, so scan an extracted copy of the HTML.
+- https://www.beautifului.dev/, the reference for AI-native components: the loading line with a shimmer and the elapsed time, the collapsible "Thought for N s" trace, tool-call chips, the composer with a round send button, segmented controls with a gliding thumb.
+
+The system they share:
+
+- Neutral tokens (`--bg`, `--surface`, `--raised`, `--text`, `--muted`, `--subtle`, `--ring`) with one accent; color carries meaning only (a stop reason, an item's kind). Light and dark follow the system through `prefers-color-scheme` and a `data-theme` override; the playground and the tracer share the `mmsp.playground.theme` key, the site uses `mmsp-site.theme`.
+- Inter for the interface, JetBrains Mono only for ids, JSON, paths of data and token counts. Depth from 1px rings, not large shadows. Motion 150–250 ms on `cubic-bezier(0.23, 1, 0.32, 1)`, only where something changes, and off under `prefers-reduced-motion`.
+- One mark everywhere: the four-tile MMSP logo of `site/src/components/Logo.astro`, also the favicon of all three pages.
+
+What the owner has asked for, and keeps asking for:
+
+- As few words as possible; logos and icons over sentences. The site home page is modeled on https://penguin.ooo/: the mark, the fixed slogan with its turning verb, the second line, two buttons, the vendor logos, and the recorded streams beside them, visible without scrolling. The top bar ends with language, theme and GitHub.
+- A list is carried by alignment, spacing and hierarchy: no tinted boxes, no colored left bars, no pills for words that are not a status. Roles read as uppercase words.
+- Side panels float and take no width, so a page's column sits in the same place whatever else is open. Navigation in the tracer reads like a file explorer: back, forward and up, then the address.
+
+How the pages are built and checked:
+
+- The playground page is one HTML document embedded as `CHAT_TEMPLATE` in both servers. Python serves it through Jinja, so it may hold no `{{`, `{%` or `{#`, and every backslash is doubled; TypeScript holds it in a template literal, so backticks and `${` are escaped too. Edit it once and regenerate both embeddings; keep the element ids and function names the page tests assert.
+- The tracer shares `_TRACER_HEAD`, `_TRACER_SCRIPT` and `_ICONS` (`TRACER_HEAD`, `TRACER_SCRIPT`, `ICONS`) and a `_page` shell between `tracer.py` (Jinja page bodies) and `tracer.ts` (the same markup built in code). A tracer test asserts a trace page never contains `0.6`, its sign of a leaked sixth embedding value, so no CSS number or SVG path there may contain it.
+- Verify in headless Chrome against both servers (and `npm run build` plus `astro preview` for the site): light and dark, desktop and a 390 px phone, no console errors, no horizontal scroll. A passing scan is not a better page; look at the screenshots.
+- Scanner hits accepted on purpose: the shimmer on loading text, the round send and remove buttons, Lucide-derived icons, Inter, mono for data, and the owner's slogan as a sentence-long headline.
+

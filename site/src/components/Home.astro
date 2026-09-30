@@ -16,125 +16,129 @@ const installPrompt = `Install the two skills in ${REPO_URL}/tree/main/skills, m
 
 const COPY = {
   en: {
-    slogan: "One protocol to reach and observe 1000+ models",
+    // the slogan's verb turns between the words, as penguin.ooo's does
+    slogan: ["One protocol to ", ["reach", "observe"], " 1000+ models"],
+    sloganLabel: "One protocol to reach and observe 1000+ models",
     subSlogan: "Less for developers to keep in mind, and no more tax on protocol adapters.",
     quickstart: "Quickstart",
     copyPrompt: "Install Agent Skill",
     copyHint: "Copies a prompt for Claude Code, Codex or any coding agent to install the MMSP skills",
     copied: "Copied",
     copyFailed: "Copy failed",
-    stats: [
-      ["Official and compatible clients", "1000+ models"],
-      ["Python and TypeScript", "One API"],
-      ["UniConfig, UniMessage, UniEvent", "Three types"],
-      ["Apache 2.0", "Open source"],
-    ],
     more: "+992 more",
   },
   zh: {
-    slogan: "用同一种协议接入，观测 1000+ 种模型",
+    slogan: ["用同一种协议", ["接入", "观测"], " 1000+ 种模型"],
+    sloganLabel: "用同一种协议接入、观测 1000+ 种模型",
     subSlogan: "减轻开发者的心智负担，不再为协议适配交税",
     quickstart: "快速开始",
     copyPrompt: "Install Agent Skill",
     copyHint: "复制一段指令，交给 Claude Code、Codex 等编码助手安装 MMSP skill",
     copied: "已复制",
     copyFailed: "复制失败",
-    stats: [
-      ["官方与兼容客户端", "1000+ 模型"],
-      ["Python 与 TypeScript", "同一套 API"],
-      ["UniConfig、UniMessage、UniEvent", "三种类型"],
-      ["Apache 2.0 许可", "完全开源"],
-    ],
     more: "+992 种",
   },
 }[locale];
+const [before, verbs, after] = COPY.slogan as [string, string[], string];
 ---
 
-<section class="hero relative overflow-hidden">
-  <div class="relative mx-auto max-w-5xl px-4 pt-20 pb-14 text-center sm:px-6 sm:pt-24">
-    <div class="rise flex items-center justify-center gap-3">
-      <Logo class="h-14 w-14 rounded-[14px] shadow-sm" />
-      <span class="text-4xl font-semibold tracking-tight">{SITE_NAME}</span>
+<section>
+  <div class="relative mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:py-16">
+    <div>
+      <div class="rise flex items-center gap-2.5">
+        <Logo class="h-10 w-10 rounded-[10px] shadow-sm" />
+        <span class="text-2xl font-semibold tracking-tight">{SITE_NAME}</span>
+      </div>
+
+      <h1
+        class="rise mt-7 text-4xl leading-[1.18] font-semibold tracking-tight text-balance sm:text-5xl"
+        style="animation-delay: 60ms"
+        aria-label={COPY.sloganLabel}
+      >
+        <span aria-hidden="true">
+          {before}<span class="rotator">{verbs.map((verb, index) => <span class="rotator-word" style={`--i: ${index}`}>{verb}</span>)}</span>{after}
+        </span>
+      </h1>
+      <p class="rise mt-5 text-lg text-balance text-gray-600 sm:text-xl dark:text-gray-400" style="animation-delay: 120ms">
+        {COPY.subSlogan}
+      </p>
+
+      <div class="rise mt-8 flex flex-wrap gap-3" style="animation-delay: 180ms">
+        <a
+          href={href("/docs/quickstart/")}
+          class="inline-flex h-11 items-center gap-2 rounded-lg bg-black px-5 text-[15px] font-medium text-white transition-colors hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200"
+        >
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"></path>
+          </svg>
+          {COPY.quickstart}
+        </a>
+        <button
+          type="button"
+          title={COPY.copyHint}
+          data-copy-prompt={installPrompt}
+          data-copied={COPY.copied}
+          data-failed={COPY.copyFailed}
+          class="inline-flex h-11 items-center gap-2 rounded-lg border border-gray-200 bg-white px-5 text-[15px] font-medium text-gray-900 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:hover:bg-gray-900"
+        >
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="m4 17 6-6-6-6"></path>
+            <path d="M12 19h8"></path>
+          </svg>
+          <span>{COPY.copyPrompt}</span>
+        </button>
+      </div>
+
+      <div class="rise mt-10" style="animation-delay: 240ms">
+        <ModelLogos more={COPY.more} class="justify-start" />
+      </div>
     </div>
 
-    <h1
-      class="rise mx-auto mt-8 max-w-3xl text-4xl leading-[1.15] font-semibold tracking-tight text-balance sm:text-[3.4rem]"
-      style="animation-delay: 60ms"
-    >
-      {COPY.slogan}
-    </h1>
-    <p
-      class="rise mx-auto mt-5 max-w-2xl text-lg text-balance text-gray-600 sm:text-xl dark:text-gray-400"
-      style="animation-delay: 120ms"
-    >
-      {COPY.subSlogan}
-    </p>
-
-    <div class="rise mt-9 flex flex-wrap justify-center gap-3" style="animation-delay: 180ms">
-      <a
-        href={href("/docs/quickstart/")}
-        class="inline-flex h-11 items-center gap-2 rounded-lg bg-black px-5 text-[15px] font-medium text-white transition-colors hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200"
-      >
-        <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"></path>
-        </svg>
-        {COPY.quickstart}
-      </a>
-      <button
-        type="button"
-        title={COPY.copyHint}
-        data-copy-prompt={installPrompt}
-        data-copied={COPY.copied}
-        data-failed={COPY.copyFailed}
-        class="inline-flex h-11 items-center gap-2 rounded-lg border border-gray-200 bg-white px-5 text-[15px] font-medium text-gray-900 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:hover:bg-gray-900"
-      >
-        <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="m4 17 6-6-6-6"></path>
-          <path d="M12 19h8"></path>
-        </svg>
-        <span>{COPY.copyPrompt}</span>
-      </button>
-    </div>
-
-    <dl class="rise mx-auto mt-14 grid max-w-4xl grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-4" style="animation-delay: 240ms">
-      {
-        COPY.stats.map(([caption, value]) => (
-          <div class="flex flex-col items-center gap-1">
-            <dt class="order-2 text-[13px] text-balance text-gray-500 dark:text-gray-400">{caption}</dt>
-            <dd class="order-1 text-2xl font-semibold tracking-tight">{value}</dd>
-          </div>
-        ))
-      }
-    </dl>
-
-    <div class="rise mt-12" style="animation-delay: 300ms">
-      <ModelLogos more={COPY.more} />
+    <div class="rise min-w-0" style="animation-delay: 120ms">
+      <StreamPlayer locale={locale} />
     </div>
   </div>
 </section>
 
-<section class="mx-auto max-w-6xl px-4 pb-20 sm:px-6">
-  <StreamPlayer locale={locale} />
-</section>
-
 <style>
-  /* a faint grid of dots behind the hero, fading out toward its edges */
-  .hero::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background-image: radial-gradient(circle, rgb(0 0 0 / 0.09) 1px, transparent 1.2px);
-    background-size: 22px 22px;
-    mask-image: radial-gradient(ellipse at 50% 35%, black 20%, transparent 72%);
-    pointer-events: none;
-  }
-
-  :global(.dark) .hero::before {
-    background-image: radial-gradient(circle, rgb(255 255 255 / 0.08) 1px, transparent 1.2px);
-  }
-
   .rise {
     animation: rise 0.6s cubic-bezier(0.23, 1, 0.32, 1) both;
+  }
+
+  /* the verb of the slogan: the words share one cell, and each rises out as the next rises in */
+  .rotator {
+    display: inline-grid;
+    justify-items: start;
+    overflow: hidden;
+    vertical-align: bottom;
+    color: var(--color-brand-500);
+  }
+
+  .rotator-word {
+    grid-area: 1 / 1;
+    animation: turn 5s cubic-bezier(0.23, 1, 0.32, 1) infinite;
+    animation-delay: calc(var(--i) * -2.5s);
+  }
+
+  @keyframes turn {
+    0%,
+    42% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    50% {
+      opacity: 0;
+      transform: translateY(-75%);
+    }
+    51%,
+    92% {
+      opacity: 0;
+      transform: translateY(75%);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   @keyframes rise {
@@ -145,8 +149,13 @@ const COPY = {
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .rise {
+    .rise,
+    .rotator-word {
       animation: none;
+    }
+
+    .rotator-word + .rotator-word {
+      visibility: hidden;
     }
   }
 </style>
