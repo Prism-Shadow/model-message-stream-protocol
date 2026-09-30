@@ -122,6 +122,7 @@ How the pages are built and checked:
 
 - The playground page is one HTML document embedded as `CHAT_TEMPLATE` in both servers. Python serves it through Jinja, so it may hold no `{{`, `{%` or `{#`, and every backslash is doubled; TypeScript holds it in a template literal, so backticks and `${` are escaped too. Edit it once and regenerate both embeddings; keep the element ids and function names the page tests assert.
 - The tracer shares `_TRACER_HEAD`, `_TRACER_SCRIPT` and `_ICONS` (`TRACER_HEAD`, `TRACER_SCRIPT`, `ICONS`) and a `_page` shell between `tracer.py` (Jinja page bodies) and `tracer.ts` (the same markup built in code). A tracer test asserts a trace page never contains `0.6`, its sign of a leaked sixth embedding value, so no CSS number or SVG path there may contain it.
+- CI runs the model tests (`jest.yml`, `pytest.yml`) only for changes outside `site/`; a site-only change runs the site build alone.
 - Verify in headless Chrome against both servers (and `npm run build` plus `astro preview` for the site): light and dark, desktop and a 390 px phone, no console errors, no horizontal scroll. A passing scan is not a better page; look at the screenshots.
 - Scanner hits accepted on purpose: the shimmer on loading text, the round send and remove buttons, Lucide-derived icons, Inter, mono for data, and the owner's slogan as a sentence-long headline.
 
