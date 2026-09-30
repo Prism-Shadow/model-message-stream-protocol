@@ -41,6 +41,10 @@ export const STRINGS = {
       previous: "Previous",
       next: "Next",
       edit: "Edit this page on GitHub",
+      copy: "Copy Markdown",
+      copied: "Copied",
+      copyFailed: "Copy failed",
+      markdown: "Open as Markdown",
     },
     changelog: {
       title: "Changelog",
@@ -85,6 +89,10 @@ export const STRINGS = {
       previous: "上一页",
       next: "下一页",
       edit: "在 GitHub 上编辑本页",
+      copy: "复制 Markdown",
+      copied: "已复制",
+      copyFailed: "复制失败",
+      markdown: "以 Markdown 打开",
     },
     changelog: {
       title: "更新日志",

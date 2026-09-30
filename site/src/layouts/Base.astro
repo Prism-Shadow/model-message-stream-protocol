@@ -13,9 +13,18 @@ interface Props {
   active: string;
   // a page visitors arrive at: it opens in the system's language when none was chosen
   entry?: boolean;
+  // what the page is to a search engine: the site itself, or one article of it
+  kind?: "website" | "article";
 }
 
-const { locale, title, description = STRINGS[locale].description, active, entry = false } = Astro.props;
+const {
+  locale,
+  title,
+  description = STRINGS[locale].description,
+  active,
+  entry = false,
+  kind = "article",
+} = Astro.props;
 const s = STRINGS[locale];
 const pageTitle = title === SITE_NAME ? s.siteTitle : `${title} | ${SITE_NAME}`;
 const path = stripLocale(Astro.url.pathname);
@@ -25,6 +34,29 @@ const alternates = (["en", "zh"] as Locale[]).map((other) => ({
   href: new URL(localePath(other, path), Astro.site),
 }));
 const image = new URL("/social-preview.png", Astro.site);
+const ogLocale = { en: "en_US", zh: "zh_CN" };
+const structured = JSON.stringify(
+  kind === "website"
+    ? {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        name: SITE_NAME,
+        alternateName: "Model Message Stream Protocol",
+        url: canonical.href,
+        description,
+        inLanguage: s.htmlLang,
+      }
+    : {
+        "@context": "https://schema.org",
+        "@type": "TechArticle",
+        headline: title,
+        description,
+        url: canonical.href,
+        inLanguage: s.htmlLang,
+        isPartOf: { "@type": "WebSite", name: SITE_NAME, url: Astro.site?.href },
+        publisher: { "@type": "Organization", name: "Prism Shadow", url: "https://penguin.ooo/" },
+      },
+);
 ---
 
 <!doctype html>
@@ -39,13 +71,25 @@ const image = new URL("/social-preview.png", Astro.site);
     <link rel="canonical" href={canonical} />
     {alternates.map((alt) => <link rel="alternate" hreflang={alt.locale === "zh" ? "zh-CN" : "en"} href={alt.href} />)}
     <link rel="alternate" hreflang="x-default" href={alternates[0].href} />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta property="og:type" content="website" />
+    <link rel="sitemap" href="/sitemap.xml" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta property="og:type" content={kind} />
+    <meta property="og:site_name" content={SITE_NAME} />
+    <meta property="og:locale" content={ogLocale[locale]} />
+    {alternates.filter((alt) => alt.locale !== locale).map((alt) => <meta property="og:locale:alternate" content={ogLocale[alt.locale]} />)}
     <meta property="og:title" content={pageTitle} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
     <meta property="og:image" content={image} />
+    <meta property="og:image:width" content="1280" />
+    <meta property="og:image:height" content="640" />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={image} />
+    <script type="application/ld+json" set:html={structured} />
     <!-- Before first paint: the stored or system theme, and the language. English pages live
          at /, Chinese pages at /zh/. A page in another language than the chosen one is left for
          its counterpart; without a choice, only an entry page follows the system's language,
@@ -169,6 +213,32 @@ const image = new URL("/social-preview.png", Astro.site);
         if (wanted === document.documentElement.dataset.locale) setChosen(lang, choice);
         else location.assign(target);
       });
+
+      // ---------- the repository's stars, from the GitHub API, kept in the browser for an hour
+      const stars = document.querySelector<HTMLElement>("[data-stars]");
+      if (stars) {
+        const show = (count: number) => {
+          stars.querySelector("[data-stars-count]")!.textContent =
+            count >= 1000 ? `${(count / 1000).toFixed(1).replace(/\.0$/, "")}k` : String(count);
+          stars.hidden = false;
+        };
+        const cached = stored("mmsp-site.stars");
+        const fresh = cached ? (JSON.parse(cached) as { count: number; at: number }) : null;
+        if (fresh && Date.now() - fresh.at < 3600_000) {
+          show(fresh.count);
+        } else {
+          const api = stars.dataset.stars!.replace("https://github.com/", "https://api.github.com/repos/");
+          fetch(api, { headers: { accept: "application/vnd.github+json" } })
+            .then((response) => (response.ok ? response.json() : Promise.reject(response.status)))
+            .then((repo: { stargazers_count: number }) => {
+              show(repo.stargazers_count);
+              store("mmsp-site.stars", JSON.stringify({ count: repo.stargazers_count, at: Date.now() }));
+            })
+            .catch(() => {
+              if (fresh) show(fresh.count);
+            });
+        }
+      }
 
       // ---------- <div class="code-group"> around fenced blocks: one tab per block, named by
       // its language, or by data-labels="Python,TypeScript" where the language does not tell

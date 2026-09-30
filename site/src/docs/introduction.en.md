@@ -36,5 +36,6 @@ Whatever the provider sent that your code does not need but the provider wants b
 ## Where to go next
 
 - [Quickstart](/docs/quickstart/) streams a first response and runs a tool call.
+- [The agent loop](/docs/agent-loop/) is a complete agent in forty lines.
 - [Streaming](/docs/streaming/) has the grammar every stream follows.
 - [Models and endpoints](/docs/models/) lists what MMSP talks to.

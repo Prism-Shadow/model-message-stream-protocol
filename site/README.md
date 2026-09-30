@@ -19,10 +19,13 @@ Node 22.12 or newer.
 | --- | --- |
 | `src/components/Home.astro` | The overview page, with its copy in both languages |
 | `src/docs/<page>.en.md`, `<page>.zh.md` | The documentation, one file per page and language |
+| `src/pages/docs/[slug].md.ts`, `src/shared/markdown.ts` | Every page as Markdown at its URL plus `.md`: what Copy Markdown copies |
+| `src/pages/sitemap.xml.ts`, `src/pages/llms.txt.ts`, `public/robots.txt` | What search engines and agents read first |
 | `src/shared/site.ts` | The sidebar and the top bar: add a page here after writing it, with its title in both languages |
 | `src/shared/i18n.ts` | The two locales, their paths, and the strings of the chrome |
 | `src/pages/`, `src/pages/zh/` | The routes of each language; a page under `zh/` renders the same layout with `locale="zh"` |
-| `src/layouts/Base.astro` | The chrome, and the script that applies the language and the theme before the first paint |
+| `src/layouts/Base.astro` | The chrome, the metadata of every page, and the script that applies the language and the theme before the first paint |
+| `src/layouts/DocPage.astro` | A documentation page: sidebar, table of contents that follows the reader, Copy Markdown, previous and next |
 | `src/shared/stream-demo.ts` | The streams the overview page replays |
 | `src/styles/global.css` | The theme: the visual language of penguin.ooo/docs with the violet of the MMSP artwork |
 | `public/CNAME` | The custom domain |

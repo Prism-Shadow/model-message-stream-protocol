@@ -194,6 +194,8 @@ if (toolCall) {
 
 ## agent 循环的规则
 
+[Agent 循环](/zh/docs/agent-loop/)一页把这些规则写成了一份完整实现。
+
 - 从 `tool_call.done` 项读取工具调用。`tool_call.delta` 项只是参数的片段，除了展示进度之外别无他用。
 - 每个工具结果都要带上对应 `tool_call.done` 的那个 `tool_call_id`，一字不差。
 - 从 `stop` 事件读取用量和结束原因。它永远是最后一个事件，且只出现一次。

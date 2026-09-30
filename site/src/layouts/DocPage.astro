@@ -21,6 +21,8 @@ const previous = ALL_DOCS[index - 1];
 const next = ALL_DOCS[index + 1];
 const headings = page.getHeadings().filter((heading) => heading.depth === 2 || heading.depth === 3);
 const href = (slug: string) => localePath(locale, `/docs/${slug}/`);
+// the page's own Markdown, served next to it (see src/pages/docs/[slug].md.ts)
+const markdown = localePath(locale, `/docs/${doc.slug}.md`);
 
 const label = "text-xs font-semibold tracking-wide text-gray-400 uppercase dark:text-gray-500";
 const entry = "-ml-px block border-l py-1 pl-3 transition-colors";
@@ -95,7 +97,22 @@ const step =
           <p class="text-xs font-semibold tracking-wide text-brand-700 uppercase dark:text-brand-300">
             {section.title[locale]}
           </p>
-          <h1 class="mt-1.5 text-3xl font-semibold tracking-tight text-balance">{doc.title[locale]}</h1>
+          <div class="mt-1.5 flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+            <h1 class="text-3xl font-semibold tracking-tight text-balance">{doc.title[locale]}</h1>
+            <button
+              type="button"
+              data-copy-markdown={markdown}
+              data-copied={s.copied}
+              data-failed={s.copyFailed}
+              class="mt-1.5 inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-950 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
+            >
+              <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="9" y="9" width="11" height="11" rx="2"></rect>
+                <path d="M5 15V6a2 2 0 0 1 2-2h9"></path>
+              </svg>
+              <span>{s.copy}</span>
+            </button>
+          </div>
           <p class="mt-3 text-[15px] text-gray-600 dark:text-gray-400">{page.frontmatter.description}</p>
         </header>
 
@@ -128,7 +145,7 @@ const step =
           }
         </div>
 
-        <p class="mt-6 text-xs text-gray-400 dark:text-gray-500">
+        <p class="mt-6 flex flex-wrap gap-x-4 text-xs text-gray-400 dark:text-gray-500">
           <a
             href={`${REPO_URL}/blob/main/site/src/docs/${doc.slug}.${locale}.md`}
             class="hover:text-gray-700 dark:hover:text-gray-300"
@@ -137,6 +154,7 @@ const step =
           >
             {s.edit}
           </a>
+          <a href={markdown} class="hover:text-gray-700 dark:hover:text-gray-300">{s.markdown}</a>
         </p>
       </article>
     </div>
@@ -146,13 +164,13 @@ const step =
         headings.length > 0 && (
           <nav class="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto py-10 pr-6" aria-label={s.onThisPage}>
             <p class={label}>{s.onThisPage}</p>
-            <ul class="mt-3 space-y-1 border-l border-gray-200 text-sm dark:border-gray-800">
+            <ul class="mt-3 space-y-1 border-l border-gray-200 text-sm dark:border-gray-800" data-toc>
               {headings.map((heading) => (
                 <li>
                   <a
                     href={`#${heading.slug}`}
                     class:list={[
-                      "-ml-px block border-l border-transparent py-0.5 text-gray-600 transition-colors hover:border-gray-400 hover:text-gray-900 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-100",
+                      "-ml-px block border-l border-transparent py-0.5 text-gray-600 transition-colors hover:border-gray-400 hover:text-gray-900 aria-[current]:border-brand-600 aria-[current]:font-medium aria-[current]:text-brand-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-100 dark:aria-[current]:border-brand-400 dark:aria-[current]:text-brand-300",
                       heading.depth === 3 ? "pl-6 text-[13px]" : "pl-3",
                     ]}
                   >
@@ -167,3 +185,63 @@ const step =
     </aside>
   </div>
 </Base>
+
+<script>
+  // ---------- the table of contents follows the reader: the last heading above the fold is current
+  const toc = document.querySelector<HTMLElement>("[data-toc]");
+  if (toc) {
+    const links = [...toc.querySelectorAll<HTMLAnchorElement>("a[href^='#']")];
+    const headings = links
+      .map((link) => document.getElementById(decodeURIComponent(link.hash.slice(1))))
+      .filter((heading): heading is HTMLElement => heading !== null);
+    let current: HTMLAnchorElement | undefined;
+    const update = () => {
+      // the line under the sticky top bar; a heading above it has been read past
+      const line = 96;
+      let index = headings.length - 1;
+      // at the end of the page the last heading may never reach the line
+      const atEnd = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
+      while (!atEnd && index >= 0 && headings[index].getBoundingClientRect().top > line) index -= 1;
+      const link = links[Math.max(index, 0)];
+      if (link === current) return;
+      current?.removeAttribute("aria-current");
+      link.setAttribute("aria-current", "location");
+      current = link;
+    };
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        ticking = false;
+        update();
+      });
+    };
+    addEventListener("scroll", onScroll, { passive: true });
+    addEventListener("resize", onScroll);
+    update();
+  }
+
+  // ---------- copy the page as Markdown, from the file served next to it
+  const copy = document.querySelector<HTMLButtonElement>("[data-copy-markdown]");
+  if (copy) {
+    const label = copy.querySelector("span")!;
+    const idle = label.textContent;
+    let reset: number | undefined;
+    const say = (text: string) => {
+      label.textContent = text;
+      window.clearTimeout(reset);
+      reset = window.setTimeout(() => (label.textContent = idle), 2000);
+    };
+    copy.addEventListener("click", async () => {
+      try {
+        const response = await fetch(copy.dataset.copyMarkdown!);
+        if (!response.ok) throw new Error(String(response.status));
+        await navigator.clipboard.writeText(await response.text());
+        say(copy.dataset.copied!);
+      } catch {
+        say(copy.dataset.failed!);
+      }
+    });
+  }
+</script>

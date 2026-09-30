@@ -2,7 +2,7 @@
 
 [中文版](README.zh.md)
 
-- [2026-09-29] The site follows the system's language, English or Chinese, and theme, light or dark, hands MMSP to a coding agent with a one-line skill install, loops its stream, and takes the four-letter grid as its mark. ([details](2026-09-29-site-languages-and-themes.md))
+- [2026-09-29] The site follows the system's language, English or Chinese, and theme, light or dark, hands MMSP to a coding agent with a one-line skill install, gains an agent loop page, a table of contents that follows the reader, Copy Markdown, a sitemap and the star count, loops its stream, and takes the four-letter grid as its mark. ([details](2026-09-29-site-languages-and-themes.md))
 - [2026-09-29] The site at mmsp.penguin.ooo was added, with the overview page and the documentation, and the README header, the concept diagram and the social preview were redrawn under the name MMSP. ([details](2026-09-29-site-and-artwork.md), [#226](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/226))
 - [2026-09-29] AgentHub was renamed to MMSP, the Model Message Stream Protocol: the packages are `mmsp` and `@prismshadow/mmsp`, the module `mmsp`, the error base class `MMSPError`, the environment variables `MMSP_DEBUG` and `MMSP_CACHE_DIR`. ([details](2026-09-29-rename-to-mmsp.md), [#223](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/223))
 - [2026-09-17] A Vertex AI service-account key routes Gemini to the new generateContent client `Gemini3_8GenerateContentClient`, and `gemini-generate-content` / `gemini-interactions` pin the wire protocol. ([details](2026-09-17-gemini-vertex-generate-content.md), [#223](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/223))

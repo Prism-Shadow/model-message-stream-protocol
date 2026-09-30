@@ -30,6 +30,7 @@ export const DOC_SECTIONS: DocSection[] = [
     docs: [
       { slug: "introduction", title: { en: "Introduction", zh: "介绍" } },
       { slug: "quickstart", title: { en: "Quickstart", zh: "快速开始" } },
+      { slug: "agent-loop", title: { en: "The agent loop", zh: "Agent 循环" } },
     ],
   },
   {

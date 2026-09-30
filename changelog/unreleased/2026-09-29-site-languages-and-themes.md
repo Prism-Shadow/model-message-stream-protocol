@@ -13,4 +13,8 @@
 - The overview page gained a section that hands MMSP to a coding agent: one line installs the `mmsp-python` or `mmsp-typescript` skill from the repository's tarball, and a prompt points an assistant that takes no skills at the same file. The agent skills page has the same lines.
 - The stream on the overview page loops: after its last event it rests, then replays while it is on screen.
 - The mark is the four letters in a grid. The favicon, the README header and the social preview use it.
+- A new page, The agent loop, describes the loop every agent runs on MMSP and gives a complete implementation in Python and TypeScript: stream, run every tool the turn asked for, send the results back in one message, stop when a turn asks for none.
+- On every documentation page the table of contents follows the reader, and a Copy Markdown button copies the page as Markdown. Every page is also served as Markdown at its own URL plus `.md`, and `/llms.txt` indexes them.
+- Search engines get `/sitemap.xml` with both languages of every page, `/robots.txt`, a `favicon.ico`, complete Open Graph and Twitter tags, and structured data: `WebSite` on the home page, `TechArticle` on the others.
+- The GitHub button in the top bar shows the repository's star count, read from the GitHub API and kept in the browser for an hour.
 - The documentation files moved from `site/src/docs/<page>.md` to `site/src/docs/<page>.en.md` and `<page>.zh.md`.

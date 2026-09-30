@@ -36,5 +36,6 @@ MMSP（Model Message Stream Protocol，模型消息流协议）为所有模型�
 ## 接下来读什么
 
 - [快速开始](/zh/docs/quickstart/) 流式输出第一条响应，并跑通一次工具调用。
+- [Agent 循环](/zh/docs/agent-loop/) 用四十行写出一个完整的 agent。
 - [流式输出](/zh/docs/streaming/) 给出每条流都遵守的文法。
 - [模型与端点](/zh/docs/models/) 列出 MMSP 能对接的一切。

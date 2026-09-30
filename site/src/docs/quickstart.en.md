@@ -194,6 +194,8 @@ if (toolCall) {
 
 ## Rules for an agent loop
 
+[The agent loop](/docs/agent-loop/) turns these into a complete implementation.
+
 - Read tool calls from `tool_call.done` items. `tool_call.delta` items are fragments of the arguments, good for showing progress and nothing else.
 - Send every tool result with the exact `tool_call_id` of its `tool_call.done`.
 - Read the usage and the finish reason from the `stop` event. It is always the last event and arrives exactly once.
