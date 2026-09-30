@@ -58,7 +58,7 @@ export const COMPATIBLE_CLIENT_TYPES = [
 ] as const;
 
 // Without a client type, the family a model id begins with names its official client.
-const MODEL_FAMILIES: [string, string][] = [
+export const MODEL_FAMILIES: [string, string][] = [
   ["gpt-", "openai-official"],
   ["text-embedding-", "openai-official"],
   ["claude-", "anthropic-official"],

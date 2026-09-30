@@ -2,6 +2,8 @@
 
 [中文版](README.zh.md)
 
+- [2026-09-30] The playground sets the client type and base URL with the model, from a Client Type dropdown; a filled-in base URL stays out of requests. ([details](2026-09-30-playground-client-type.md))
+- [2026-09-30] Support Claude Opus 5.5, Sonnet 5.5 and Fable 5.1, GPT-6.1 Sol, DeepSeek Flash and Gemini 3.8 TTS, with two-speaker scripts sent to 3.8 TTS as per-turn speech metadata. ([details](2026-09-30-latest-models.md))
 - [2026-09-30] Clients are named by their type: an official client per vendor (`openai-official`, `anthropic-official`, `gemini-official`, `zai-official`, `moonshot-official`, `deepseek-official`, `minimax-official`) and a compatible client per protocol; without a `client_type`, the family a model id begins with names its official client, and any other id asks for one. ([details](2026-09-30-client-types.md))
 - [2026-09-29] The site follows the system's language, English or Chinese, and theme, light or dark, hands MMSP to a coding agent with a one-line skill install, gains an agent loop page, a table of contents that follows the reader, Copy Markdown, a sitemap and the star count, replays one input through three models with the stop event drawn as a pill and bars, and takes the four tiles as its mark. ([details](2026-09-29-site-languages-and-themes.md))
 - [2026-09-29] The site at mmsp.penguin.ooo was added, with the overview page and the documentation, and the README header, the concept diagram and the social preview were redrawn under the name MMSP. ([details](2026-09-29-site-and-artwork.md), [#226](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/226))

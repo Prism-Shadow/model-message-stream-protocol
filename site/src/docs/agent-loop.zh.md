@@ -149,7 +149,7 @@ console.log(await runAgent(client, "What's the weather in London and in Paris?")
 
 </div>
 
-把模型 id 换成 `claude-opus-5`、`gemini-3.8-flash` 或 `deepseek-v4-pro`，循环一字不改照样运行。
+把模型 id 换成 `claude-opus-5-5`、`gemini-3.8-flash` 或 `deepseek-flash`，循环一字不改照样运行。
 
 ## 循环依赖的几件事
 

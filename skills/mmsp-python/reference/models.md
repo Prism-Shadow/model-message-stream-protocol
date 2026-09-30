@@ -8,7 +8,8 @@ Use exact model IDs, and pass the model's client type as `client_type`. If a mod
 | Gemini 3.6 | Official / Vertex AI | `gemini-3.6-flash`, `gemini-3.5-flash-lite` | `gemini-official` | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
 | Gemini 3.8 | Official / Vertex AI | `gemini-3.8-flash` | `gemini-official` | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
 | Gemini 3.7 | Official / Vertex AI | `gemini-3.7-flash` | `gemini-official` | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
-| Gemini 3 Image | Official / Vertex AI | `gemini-3.1-flash-image`, `gemini-3-pro-image` | `gemini-official` | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
+| Gemini 3 Image | Official / Vertex AI | `gemini-3.1-flash-image`, `gemini-3.1-flash-lite-image`, `gemini-3-pro-image` | `gemini-official` | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
+| Gemini 3.8 TTS | Official | `gemini-3.8-flash-tts`, `gemini-3.8-flash-lite-tts` | `gemini-official` | `GEMINI_API_KEY` (not served on Vertex AI) | `GEMINI_BASE_URL` |
 | Gemini 3 TTS | Official / Vertex AI | `gemini-3.1-flash-tts-preview` | `gemini-official` | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
 | Gemini Embedding | Official / Vertex AI | `gemini-embedding-2` | `gemini-official` | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
 | Claude 4.6 | Official / ModelVerse | `claude-sonnet-4-6` | `anthropic-official` | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` |
@@ -17,13 +18,14 @@ Use exact model IDs, and pass the model's client type as `client_type`. If a mod
 | Claude 4.7 | Bedrock | `global.anthropic.claude-opus-4-7` | `anthropic-official` | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` |
 | Claude 4.8 | Official / ModelVerse | `claude-opus-4-8` | `anthropic-official` | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` |
 | Claude 4.8 | Bedrock | `global.anthropic.claude-opus-4-8` | `anthropic-official` | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` |
+| Claude 5.5 / Fable 5.1 | Official | `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-fable-5-1` | `anthropic-official` | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` |
 | Claude 5 | Official / ModelVerse | `claude-fable-5`, `claude-opus-5`, `claude-sonnet-5` | `anthropic-official` | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` |
 | Claude 5 | Bedrock | `global.anthropic.claude-fable-5` | `anthropic-official` | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` |
 | GPT 5.4 | Official / ModelVerse | `gpt-5.4`, `gpt-5.4-mini`, `gpt-5.4-nano` | `openai-official` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
 | GPT 5.5 | Official / ModelVerse | `gpt-5.5` | `openai-official` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
 | GPT 5.6 | Official | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | `openai-official` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
 | GPT 5.6 | OpenRouter | `openai/gpt-5.6-sol`, `openai/gpt-5.6-terra`, `openai/gpt-5.6-luna` | `openai-responses` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
-| GPT 6 | Official | `gpt-6-astra` | `openai-official` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
+| GPT 6 | Official | `gpt-6.1-sol`, `gpt-6-astra` | `openai-official` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
 | GPT 6 | OpenRouter | `openai/gpt-6-astra` | `openai-responses` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
 | OpenAI Embedding | Official | `text-embedding-3-small`, `text-embedding-3-large` | `openai-official` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
 | Kimi-K2.6 | Official | `kimi-k2.6` | `moonshot-official` | `MOONSHOT_API_KEY` | `MOONSHOT_BASE_URL` |
@@ -31,7 +33,7 @@ Use exact model IDs, and pass the model's client type as `client_type`. If a mod
 | Kimi-K2.6 | SiliconFlow | `Pro/moonshotai/Kimi-K2.6` | `moonshot-official` | `MOONSHOT_API_KEY` | `MOONSHOT_BASE_URL` |
 | Kimi-K3 | Official | `kimi-k3` | `moonshot-official` | `MOONSHOT_API_KEY` | `MOONSHOT_BASE_URL` |
 | Kimi-K3 | OpenRouter | `moonshotai/kimi-k3` | `moonshot-official` | `MOONSHOT_API_KEY` | `MOONSHOT_BASE_URL` |
-| DeepSeek V4 | Official | `deepseek-v4-pro`, `deepseek-v4-flash`, `deepseek-v4-flash-vision-exp`, `deepseek-v4.1-flash` | `deepseek-official` | `DEEPSEEK_API_KEY` | `DEEPSEEK_BASE_URL` |
+| DeepSeek V4 | Official | `deepseek-flash`, `deepseek-v4-pro` | `deepseek-official` | `DEEPSEEK_API_KEY` | `DEEPSEEK_BASE_URL` |
 | DeepSeek V4 | OpenRouter | `deepseek/deepseek-v4-pro`, `deepseek/deepseek-v4-flash` | `deepseek-official` | `DEEPSEEK_API_KEY` | `DEEPSEEK_BASE_URL` |
 | DeepSeek V4 | SiliconFlow | `deepseek-ai/DeepSeek-V4-Pro`, `deepseek-ai/DeepSeek-V4-Flash` | `openai-chat` | `DEEPSEEK_API_KEY` | `DEEPSEEK_BASE_URL` |
 | GLM-5.1 | Official | `glm-5.1` | `zai-official` | `ZAI_API_KEY` | `ZAI_BASE_URL` |

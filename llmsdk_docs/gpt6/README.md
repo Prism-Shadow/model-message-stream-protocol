@@ -18,6 +18,7 @@ https://developers.openai.com/ on 2026-09-09.
 - [prompt-caching.md](./docs/prompt-caching.md) - Prompt caching on GPT-5.6 and later:
   `prompt_cache_options`, explicit breakpoints, and cache writes billed at 1.25x the uncached
   input rate
+- [gpt-6.1-sol.md](./docs/gpt-6.1-sol.md) - GPT-6.1 Sol model page: effort `low` to `max` (no `none`), pricing, endpoints
 
 ## Key protocol notes vs GPT-5.6
 
@@ -53,3 +54,7 @@ https://developers.openai.com/ on 2026-09-09.
   (snapshotted in [`../openai_responses/docs/openai-responses-create.md`](../openai_responses/docs/openai-responses-create.md))
 - https://developers.openai.com/api/reference/resources/responses/streaming-events
   (excerpted in [`../openai_responses/docs/openai-responses-streaming-events.md`](../openai_responses/docs/openai-responses-streaming-events.md))
+
+## GPT-6.1 Sol (added 2026-09-30)
+
+`gpt-6.1-sol` speaks the same Responses contract. Probed live on 2026-09-30: a tool call streams as a `function_call` item, `reasoning.effort` `none` returns 400 `Unsupported value: 'none' is not supported with the 'gpt-6.1-sol' model`, `low` to `max` and `service_tier: "priority"` are accepted, and image input works.

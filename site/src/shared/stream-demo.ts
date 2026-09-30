@@ -54,7 +54,7 @@ const stop = (finish_reason: string, usage_metadata: Record<string, number | nul
 export const SCENARIOS: Scenario[] = [
   {
     id: "claude",
-    model: "claude-opus-5",
+    model: "claude-opus-5-5",
     label: "Claude",
     events: [
       delta({ type: "thinking.delta", thinking: "The user wants" }),
@@ -79,7 +79,7 @@ export const SCENARIOS: Scenario[] = [
   },
   {
     id: "gpt",
-    model: "gpt-5.6-sol",
+    model: "gpt-6.1-sol",
     label: "GPT",
     events: [
       delta({ type: "thinking.delta", thinking: "**Checking the weather**" }),

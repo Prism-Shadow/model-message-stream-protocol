@@ -40,6 +40,16 @@ import { isDebugEnabled, resolveCredentials } from "../utils";
 
 const REDACTED_THINKING = "_REDACTED_THINKING";
 
+// Generations told apart by explicit version, matched anywhere in the id so Bedrock's
+// anthropic.claude-opus-5-5 counts too. Opus 5.5 and Fable 5.1 always think: "disabled" and
+// "between_tools" return 400. Sonnet 5.5 drops only up-front thinking, with "between_tools".
+const ALWAYS_THINKING = ["opus-5-5", "fable-5-1"];
+const BETWEEN_TOOLS = ["sonnet-5-5"];
+// The 2026-09 generation returns 400 for tool_choice "any" and "tool".
+const NO_FORCED_TOOL_CHOICE = ["opus-5-5", "sonnet-5-5", "fable-5-1"];
+// These reject the speed parameter ("does not support the `speed` parameter").
+const NO_FAST_MODE = ["4-6", "sonnet-5-5", "fable-5-1"];
+
 /**
  * Claude 5-specific LLM client implementation (also serves Claude 4.6 through 4.8).
  */
@@ -149,17 +159,27 @@ export class AnthropicOfficialClient extends LLMClient {
   /**
    * Convert ThinkingLevel enum to Claude's adaptive thinking config.
    */
+  private _generation(versions: string[]): boolean {
+    return versions.some((version) => this._model.includes(version));
+  }
+
   private _convertThinkingLevelToThinkingConfig(thinkingLevel: ThinkingLevel): {
     thinking?: { type: string; display?: string };
     output_config?: { effort: string };
   } {
+    // nothing turns thinking off on ALWAYS_THINKING, so NONE takes the least of it
+    const none = this._generation(ALWAYS_THINKING)
+      ? { thinking: { type: "adaptive" }, output_config: { effort: "low" } }
+      : this._generation(BETWEEN_TOOLS)
+        ? { thinking: { type: "between_tools" } }
+        : {}; // omit thinking config
     const mapping: {
       [key: string]: {
         thinking?: { type: string; display?: string };
         output_config?: { effort: string };
       };
     } = {
-      [ThinkingLevel.NONE]: {}, // omit thinking config
+      [ThinkingLevel.NONE]: none,
       [ThinkingLevel.LOW]: {
         thinking: { type: "adaptive" },
         output_config: { effort: "low" },
@@ -193,6 +213,16 @@ export class AnthropicOfficialClient extends LLMClient {
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private _convertToolChoice(toolChoice: ToolChoice): any {
+    if (
+      (toolChoice === "required" || Array.isArray(toolChoice)) &&
+      this._generation(NO_FORCED_TOOL_CHOICE)
+    ) {
+      throw new UnsupportedParameterError({
+        client: this.constructor.name,
+        parameter: "tool_choice",
+        message: `${this._model} does not support forcing a tool call; use auto and name the tool in the prompt.`,
+      });
+    }
     if (Array.isArray(toolChoice)) {
       if (toolChoice.length > 1) {
         throw new UnsupportedParameterError({
@@ -255,9 +285,12 @@ export class AnthropicOfficialClient extends LLMClient {
       // carrying display but no output_config is accepted on 4.6 through 5 (verified
       // live 2026-09-03). NONE omits the block, so the request lands on that default.
       claudeConfig.thinking = claudeConfig.thinking ?? { type: "adaptive" };
-      claudeConfig.thinking.display = config.thinking_summary
-        ? "summarized"
-        : "omitted";
+      // between_tools takes no display: its updates between tool calls always carry their text
+      if (claudeConfig.thinking.type !== "between_tools") {
+        claudeConfig.thinking.display = config.thinking_summary
+          ? "summarized"
+          : "omitted";
+      }
     }
 
     if (config.tools !== undefined) {
@@ -286,11 +319,11 @@ export class AnthropicOfficialClient extends LLMClient {
         });
       }
 
-      if (this._model.includes("4-6")) {
+      if (this._generation(NO_FAST_MODE)) {
         throw new UnsupportedParameterError({
           client: this.constructor.name,
           parameter: "fast_mode",
-          message: "Claude 4.6 does not support fast mode.",
+          message: `${this._model} does not support fast mode.`,
         });
       }
 

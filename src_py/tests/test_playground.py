@@ -75,9 +75,13 @@ def test_chat_app_index_route():
         assert b'id="thinkingLevelCombobox"' in response.data
         assert b'id="thinkingSummaryCombobox"' in response.data
         assert b'id="toolChoiceCombobox"' in response.data
-        assert b'data-combobox-option data-value="gpt-5.6-luna"' in response.data
+        assert b'data-combobox-option data-value="gpt-6.1-sol"' in response.data
         assert b'data-value="text-embedding-3-large"' in response.data
         assert b"getSelectedClientType()" in response.data
+        assert b'id="clientTypeCombobox"' in response.data
+        # the server hands the page its client types and their default endpoints
+        assert b"__PLAYGROUND_DEFAULTS__" not in response.data
+        assert b'"openai-official"' in response.data
         assert b"toggleCombobox('modelCombobox')" in response.data
         assert b"selectComboboxOption('modelCombobox', this)" in response.data
         assert b"customModelInput" in response.data
@@ -92,8 +96,12 @@ def test_chat_app_index_route():
         assert b'id="listModelsError"' in response.data
         assert b"addListedModels(" in response.data
         assert b"getSelectedClientType()" in response.data
-        assert b"selectedOptionClientType()" in response.data
-        assert b"handleClientTypeInput()" in response.data
+        assert b'id="clientTypeCombobox"' in response.data
+        # the server hands the page its client types and their default endpoints
+        assert b"__PLAYGROUND_DEFAULTS__" not in response.data
+        assert b'"openai-official"' in response.data
+        assert b"handleClientTypeChange()" in response.data
+        assert b"handleBaseUrlInput()" in response.data
         assert b">Connection</span>" in response.data
         assert b">Generation</span>" in response.data
         assert b"getExtraHeaders()" in response.data

@@ -31,7 +31,7 @@ import asyncio
 from mmsp import AutoLLMClient
 
 async def main():
-    client = AutoLLMClient(model="gpt-5.6-sol")
+    client = AutoLLMClient(model="gpt-6.1-sol")
     async for event in client.streaming_response_stateful(
         message={
             "role": "user",
@@ -47,7 +47,7 @@ asyncio.run(main())
 ```typescript
 import { AutoLLMClient } from "@prismshadow/mmsp";
 
-const client = new AutoLLMClient({ model: "gpt-5.6-sol" });
+const client = new AutoLLMClient({ model: "gpt-6.1-sol" });
 for await (const event of client.streamingResponseStateful({
   message: {
     role: "user",
@@ -72,7 +72,7 @@ for await (const event of client.streamingResponseStateful({
 {"role": "assistant", "event_type": "stop", "content_items": [], "usage_metadata": {"cached_tokens": 0, "prompt_tokens": 12, "thoughts_tokens": 0, "response_tokens": 8}, "finish_reason": "stop"}
 ```
 
-将模型 id 改为 `claude-opus-5` 或 `gemini-3.8-flash`，同样的代码会输出相同结构的事件。
+将模型 id 改为 `claude-opus-5-5` 或 `gemini-3.8-flash`，同样的代码会输出相同结构的事件。
 
 ## 调用工具
 

@@ -149,7 +149,7 @@ console.log(await runAgent(client, "What's the weather in London and in Paris?")
 
 </div>
 
-Change the model id to `claude-opus-5`, `gemini-3.8-flash` or `deepseek-v4-pro` and the loop runs unchanged.
+Change the model id to `claude-opus-5-5`, `gemini-3.8-flash` or `deepseek-flash` and the loop runs unchanged.
 
 ## What the loop relies on
 

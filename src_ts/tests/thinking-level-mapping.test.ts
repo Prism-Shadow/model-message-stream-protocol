@@ -207,6 +207,8 @@ const THINKING_EFFORT_CASES: Array<
   ["gpt-6-astra", undefined, ThinkingLevel.NONE, "low"],
   ["gpt-6-astra", undefined, ThinkingLevel.LOW, "low"],
   ["gpt-6-astra", undefined, ThinkingLevel.MAX, "max"],
+  ["gpt-6.1-sol", undefined, ThinkingLevel.NONE, "low"],
+  ["gpt-6.1-sol", undefined, ThinkingLevel.MAX, "max"],
   // a gateway serving GPT-6 forwards the effort to OpenAI, so the generic Responses
   // client degrades NONE the same way
   ["gpt-6-astra", "openai-responses", ThinkingLevel.NONE, "low"],
@@ -218,12 +220,22 @@ const THINKING_EFFORT_CASES: Array<
   ["gpt-5.6", "openai-responses", ThinkingLevel.MAX, "max"],
   ["claude-sonnet-5", undefined, ThinkingLevel.XHIGH, "xhigh"],
   ["claude-sonnet-5", undefined, ThinkingLevel.MAX, "max"],
+  // Opus 5.5 and Fable 5.1 cannot turn thinking off, so NONE is the lowest effort; Sonnet 5.5
+  // turns off up-front thinking with between_tools, which carries no effort.
+  ["claude-opus-5-5", undefined, ThinkingLevel.NONE, "low"],
+  ["claude-opus-5-5", undefined, ThinkingLevel.MAX, "max"],
+  ["claude-fable-5-1", undefined, ThinkingLevel.NONE, "low"],
+  ["claude-fable-5-1", undefined, ThinkingLevel.XHIGH, "xhigh"],
+  ["claude-sonnet-5-5", undefined, ThinkingLevel.NONE, undefined],
+  ["claude-sonnet-5-5", undefined, ThinkingLevel.XHIGH, "xhigh"],
   // 4.6 has no xhigh but does take max.
   ["claude-sonnet-4-6", undefined, ThinkingLevel.XHIGH, "high"],
   ["claude-sonnet-4-6", undefined, ThinkingLevel.MAX, "max"],
   ["claude-sonnet-5", "ant-messages", ThinkingLevel.MAX, "max"],
   ["deepseek-v4", undefined, ThinkingLevel.NONE, "none"],
   ["deepseek-v4", undefined, ThinkingLevel.LOW, "low"],
+  ["deepseek-flash", undefined, ThinkingLevel.NONE, "none"],
+  ["deepseek-flash", undefined, ThinkingLevel.MAX, "max"],
   ["deepseek-v4", undefined, ThinkingLevel.MEDIUM, "high"],
   ["deepseek-v4", undefined, ThinkingLevel.HIGH, "high"],
   // DeepSeek maps xhigh onto high server-side, so the client sends high.
@@ -271,6 +283,20 @@ const THINKING_SUMMARY_CASES: Array<
   [string, string | undefined, UniConfig, string | boolean | undefined]
 > = [
   ["claude-sonnet-5", undefined, { thinking_summary: true }, "summarized"],
+  // between_tools rejects display, and its updates between tool calls always carry their text
+  [
+    "claude-sonnet-5-5",
+    undefined,
+    { thinking_summary: true, thinking_level: ThinkingLevel.NONE },
+    undefined,
+  ],
+  ["claude-sonnet-5-5", undefined, { thinking_summary: true }, "summarized"],
+  [
+    "claude-opus-5-5",
+    undefined,
+    { thinking_summary: true, thinking_level: ThinkingLevel.NONE },
+    "summarized",
+  ],
   ["claude-sonnet-5", undefined, { thinking_summary: false }, "omitted"],
   [
     "claude-sonnet-5",

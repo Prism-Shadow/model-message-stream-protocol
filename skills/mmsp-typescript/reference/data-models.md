@@ -38,11 +38,11 @@ Fields:
 - `tools` (`ToolSchema[]`): Tools with `name`, `description`, and optional JSON Schema `parameters`.
 - `thinking_summary` (`boolean`): Request a thinking summary when supported; whether a model returns one is model-dependent (gemini-3.8-flash and gemini-3.1-pro do).
 - `thinking_level` (`ThinkingLevel`): `NONE`, `LOW`, `MEDIUM`, `HIGH`, `XHIGH`, or `MAX`. MMSP maps each level to the closest effort the model supports, so any level is safe to pass.
-- `tool_choice` (`ToolChoice`): `auto`, `required`, `none`, or a list of tool names; support varies by model.
+- `tool_choice` (`ToolChoice`): `auto`, `required`, `none`, or a list of tool names; support varies by model. Claude Opus 5.5, Sonnet 5.5 and Fable 5.1 cannot be forced to call a tool: `"required"` and a list of names raise `UnsupportedParameterError` on them.
 - `system_prompt` (`string`): System instruction text.
 - `prompt_caching` (`PromptCaching`): `ENABLE`, `DISABLE`, or `ENHANCE`.
 - `image_config` (`ImageConfig`): `aspect_ratio` (`1:1`, `2:3`, `3:2`, `3:4`, `4:3`, `9:16`, `16:9`, `21:9`) and `image_size` (`1K`, `2K`).
-- `tts_config` (`SpeakerConfig[]`): Voice config; each item has `voice` and optional `speaker`.
+- `tts_config` (`SpeakerConfig[]`): Voice config; each item has `voice` and optional `speaker`. With two speakers, write the text as a script with one `Name: line` per turn, each name one of the configured speakers; Gemini 3.8 TTS receives each turn with its speaker as metadata.
 - `embedding_config` (`EmbeddingConfig`): Embedding config, currently `dimensions`.
 - `trace_id` (`string`): Stable ID for tracer output.
 

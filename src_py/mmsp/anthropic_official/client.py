@@ -40,9 +40,19 @@ from ..utils import is_debug_enabled, resolve_credentials
 
 REDACTED_THINKING = "_REDACTED_THINKING"
 
+# Generations told apart by explicit version, matched anywhere in the id so Bedrock's
+# anthropic.claude-opus-5-5 counts too. Opus 5.5 and Fable 5.1 always think: "disabled" and
+# "between_tools" return 400. Sonnet 5.5 drops only up-front thinking, with "between_tools".
+_ALWAYS_THINKING = ("opus-5-5", "fable-5-1")
+_BETWEEN_TOOLS = ("sonnet-5-5",)
+# The 2026-09 generation returns 400 for tool_choice "any" and "tool".
+_NO_FORCED_TOOL_CHOICE = ("opus-5-5", "sonnet-5-5", "fable-5-1")
+# These reject the speed parameter ("does not support the `speed` parameter").
+_NO_FAST_MODE = ("4-6", "sonnet-5-5", "fable-5-1")
+
 
 class AnthropicOfficialClient(LLMClient):
-    """Claude 5-specific LLM client implementation (also serves Claude 4.6 through 4.8)."""
+    """Claude LLM client: Claude 4.6 through Opus 5.5, Sonnet 5.5 and Fable 5.1."""
 
     def __init__(
         self,
@@ -116,10 +126,20 @@ class AnthropicOfficialClient(LLMClient):
 
         return source
 
+    def _generation(self, versions: tuple[str, ...]) -> bool:
+        return any(version in self._model for version in versions)
+
     def _convert_thinking_level_to_thinking_config(self, thinking_level: ThinkingLevel) -> dict[str, Any]:
         """Convert ThinkingLevel enum to Claude's adaptive thinking config."""
+        if self._generation(_ALWAYS_THINKING):
+            # nothing turns thinking off, so NONE takes the least of it
+            none: dict[str, Any] = {"thinking": {"type": "adaptive"}, "output_config": {"effort": "low"}}
+        elif self._generation(_BETWEEN_TOOLS):
+            none = {"thinking": {"type": "between_tools"}}
+        else:
+            none = {}  # omit thinking config
         mapping = {
-            ThinkingLevel.NONE: {},  # omit thinking config
+            ThinkingLevel.NONE: none,
             ThinkingLevel.LOW: {"thinking": {"type": "adaptive"}, "output_config": {"effort": "low"}},
             ThinkingLevel.MEDIUM: {"thinking": {"type": "adaptive"}, "output_config": {"effort": "medium"}},
             ThinkingLevel.HIGH: {"thinking": {"type": "adaptive"}, "output_config": {"effort": "high"}},
@@ -135,6 +155,12 @@ class AnthropicOfficialClient(LLMClient):
 
     def _convert_tool_choice(self, tool_choice: ToolChoice) -> dict[str, str]:
         """Convert ToolChoice to Claude's tool_choice format."""
+        if (tool_choice == "required" or isinstance(tool_choice, list)) and self._generation(_NO_FORCED_TOOL_CHOICE):
+            raise UnsupportedParameterError(
+                self.__class__.__name__,
+                "tool_choice",
+                f"{self._model} does not support forcing a tool call; use auto and name the tool in the prompt.",
+            )
         if isinstance(tool_choice, list):
             if len(tool_choice) > 1:
                 raise UnsupportedParameterError(
@@ -186,7 +212,9 @@ class AnthropicOfficialClient(LLMClient):
             # carrying display but no output_config is accepted on 4.6 through 5 (verified
             # live 2026-09-03). NONE omits the block, so the request lands on that default.
             thinking = claude_config.setdefault("thinking", {"type": "adaptive"})
-            thinking["display"] = "summarized" if config["thinking_summary"] else "omitted"
+            # between_tools takes no display: its updates between tool calls always carry their text
+            if thinking["type"] != "between_tools":
+                thinking["display"] = "summarized" if config["thinking_summary"] else "omitted"
 
         # Convert tools to Claude's tool schema
         if config.get("tools") is not None:
@@ -210,9 +238,9 @@ class AnthropicOfficialClient(LLMClient):
                     self.__class__.__name__, "fast_mode", "Bedrock does not support fast mode."
                 )
 
-            if "4-6" in self._model:
+            if self._generation(_NO_FAST_MODE):
                 raise UnsupportedParameterError(
-                    self.__class__.__name__, "fast_mode", "Claude 4.6 does not support fast mode."
+                    self.__class__.__name__, "fast_mode", f"{self._model} does not support fast mode."
                 )
 
             claude_config["speed"] = "fast"
