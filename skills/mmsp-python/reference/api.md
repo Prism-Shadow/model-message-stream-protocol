@@ -7,21 +7,29 @@
 Initialize `AutoLLMClient` in one of three common ways:
 
 ```python
-# Initialize with model name
+# The official OpenAI client, named by the model id's family
 client = AutoLLMClient(model="gpt-5.5")
 
-# Optionally specify API key (if not using environment variables)
+# The same, spelled out, with the key and the endpoint given in code
 client = AutoLLMClient(
     model="gpt-5.5",
+    client_type="openai-official",
     api_key="your-openai-api-key",
     base_url="https://api.openai.com/v1",
 )
 
-# Use OpenAI Chat Completions-compatible routing explicitly
-client = AutoLLMClient(model="custom-model", client_type="openai-chat")
+# A compatible client, for any endpoint that serves OpenAI Chat Completions
+client = AutoLLMClient(
+    model="custom-model",
+    client_type="openai-chat",
+    base_url="http://127.0.0.1:8000/v1/",
+    api_key="none",
+)
 ```
 
-A key goes only where it was given for. `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` are read from the environment only together with `OPENAI_BASE_URL` / `ANTHROPIC_BASE_URL` (or the provider's own endpoint), so a `base_url` passed in needs an `api_key` passed in with it, or the client raises at construction. A vendor client (`deepseek-v4`, `glm-5.x`, `kimi-k*`, `minimax-m3`, Gemini) reads its own variable whatever endpoint it is given.
+`client_type` is one of the official clients (`openai-official`, `anthropic-official`, `gemini-official`, `zai-official`, `moonshot-official`, `deepseek-official`, `minimax-official`) or one of the compatible clients (`openai-responses`, `openai-chat`, `openai-chat-vllm-adapter`, `openai-embedding`, `ant-messages`, `gemini-generate-content`). It may be omitted for a model id that begins with a known family (`gpt-`, `text-embedding-`, `claude-`, `gemini-`, `glm-`, `kimi-`, `deepseek-`, `minimax-`); any other id raises `ValueError` and asks for one. See [Model selection](models.md).
+
+A key goes only where it was given for. `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` are read from the environment only together with `OPENAI_BASE_URL` / `ANTHROPIC_BASE_URL` (or the provider's own endpoint), so a `base_url` passed in needs an `api_key` passed in with it, or the client raises at construction. A The other official clients (`deepseek-official`, `zai-official`, `moonshot-official`, `minimax-official`, `gemini-official`) read their own variable whatever endpoint they are given.
 
 ## Method signatures
 

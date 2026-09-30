@@ -20,19 +20,154 @@ from .base_client import LLMClient
 from .types import UniConfig, UniEvent, UniMessage
 
 
-# The generic protocol clients are named explicitly rather than deduced from a model id.
-_PROTOCOL_CLIENT_TYPES = (
+# An official client speaks its vendor's own API, knows the vendor's models, and reads the
+# vendor's key from the environment.
+OFFICIAL_CLIENT_TYPES = (
+    "openai-official",
+    "anthropic-official",
+    "gemini-official",
+    "zai-official",
+    "moonshot-official",
+    "deepseek-official",
+    "minimax-official",
+)
+
+# A compatible client speaks one wire protocol for whatever endpoint serves it.
+COMPATIBLE_CLIENT_TYPES = (
+    "openai-responses",
     "openai-chat",
     "openai-chat-vllm-adapter",
-    "openai-responses",
-    "ant-messages",
     "openai-embedding",
+    "ant-messages",
+    "gemini-generate-content",
 )
+
+# Without a client type, the family a model id begins with names its official client.
+_MODEL_FAMILIES = (
+    ("gpt-", "openai-official"),
+    ("text-embedding-", "openai-official"),
+    ("claude-", "anthropic-official"),
+    ("gemini-", "gemini-official"),
+    ("glm-", "zai-official"),
+    ("kimi-", "moonshot-official"),
+    ("deepseek-", "deepseek-official"),
+    ("minimax-", "minimax-official"),
+)
+
+
+def client_type_for_model(model: str) -> str | None:
+    """
+    The official client a model id routes to on its own, or None when its family is unknown.
+
+    Args:
+        model: The model id, in any casing.
+
+    Returns:
+        str | None: One of OFFICIAL_CLIENT_TYPES, or None.
+    """
+    lowered = model.lower()
+    for prefix, client_type in _MODEL_FAMILIES:
+        if lowered.startswith(prefix):
+            return client_type
+    return None
+
+
+def _client_types() -> str:
+    return (
+        f"official clients: {', '.join(OFFICIAL_CLIENT_TYPES)}; "
+        f"compatible clients: {', '.join(COMPATIBLE_CLIENT_TYPES)}"
+    )
+
+
+def _client_class(client_type: str, model: str, api_key: str | None) -> type[LLMClient] | None:
+    """
+    The client class a client type names. Each is imported here, so that no client pays for
+    another vendor's SDK.
+
+    Args:
+        client_type: A lowercased client type.
+        model: The model id, which tells an official client's embedding models apart.
+        api_key: The key, which tells a Vertex AI service account apart.
+
+    Returns:
+        type[LLMClient] | None: The class, or None when no client is named so.
+    """
+    match client_type:
+        case "openai-official":
+            # OpenAI serves embedding models through its Embeddings API
+            if model.lower().startswith("text-embedding-"):
+                from .openai_embedding import OpenaiEmbeddingClient
+
+                return OpenaiEmbeddingClient
+            from .openai_official import OpenAIOfficialClient
+
+            return OpenAIOfficialClient
+        case "anthropic-official":
+            from .anthropic_official import AnthropicOfficialClient
+
+            return AnthropicOfficialClient
+        case "gemini-official":
+            # Vertex AI serves none of the Gemini models through the Interactions API, so a
+            # service-account JSON key, which only Vertex AI takes, speaks generateContent
+            if (api_key or os.getenv("GEMINI_API_KEY") or "").startswith("{"):
+                from .gemini_generate_content import GeminiGenerateContentClient
+
+                return GeminiGenerateContentClient
+            from .gemini_official import GeminiOfficialClient
+
+            return GeminiOfficialClient
+        case "zai-official":
+            from .zai_official import ZAIOfficialClient
+
+            return ZAIOfficialClient
+        case "moonshot-official":
+            from .moonshot_official import MoonshotOfficialClient
+
+            return MoonshotOfficialClient
+        case "deepseek-official":
+            from .deepseek_official import DeepSeekOfficialClient
+
+            return DeepSeekOfficialClient
+        case "minimax-official":
+            from .minimax_official import MiniMaxOfficialClient
+
+            return MiniMaxOfficialClient
+        case "openai-responses":
+            from .openai_responses import OpenaiResponsesClient
+
+            return OpenaiResponsesClient
+        case "openai-chat" | "openai":
+            from .openai_chat import OpenaiChatClient
+
+            return OpenaiChatClient
+        case "openai-chat-vllm-adapter":
+            from .openai_chat_vllm_adapter import OpenaiChatVllmAdapterClient
+
+            return OpenaiChatVllmAdapterClient
+        case "openai-embedding":
+            from .openai_embedding import OpenaiEmbeddingClient
+
+            return OpenaiEmbeddingClient
+        case "ant-messages":
+            from .ant_messages import AntMessagesClient
+
+            return AntMessagesClient
+        case "gemini-generate-content":
+            from .gemini_generate_content import GeminiGenerateContentClient
+
+            return GeminiGenerateContentClient
+    return None
 
 
 class AutoLLMClient(LLMClient):
     """
-    Auto-routing LLM client that dispatches to appropriate model-specific client.
+    The one client to call: it creates the client a client type names and forwards to it.
+
+    A client type is one of OFFICIAL_CLIENT_TYPES or COMPATIBLE_CLIENT_TYPES, given as
+    `client_type` or as the CLIENT_TYPE environment variable. Without one, the family the model
+    id begins with names its official client: `gpt-` routes to `openai-official`, `claude-` to
+    `anthropic-official`, and so on. A model id of no known family raises, and asks for a
+    client type.
 
     This client is stateful - it knows the model name at initialization and maintains
     conversation history for that specific model.
@@ -47,128 +182,28 @@ class AutoLLMClient(LLMClient):
         default_headers: dict[str, str] | None = None,
     ):
         """
-        Initialize AutoLLMClient with a specific model.
+        Initialize AutoLLMClient with a model and, unless the model id names it, a client type.
 
         Args:
-            model: Model identifier (determines which client to use)
+            model: Model identifier
             api_key: Optional API key
             base_url: Optional base URL for API requests
-            client_type: Optional client type override
+            client_type: The client to use; deduced from the model id when omitted
             default_headers: Optional headers sent with every request, for endpoints that demand their own
         """
-        self._client_type = (client_type or os.getenv("CLIENT_TYPE") or model).lower()
-        self._client = self._create_client_for_model(model, api_key, base_url, self._client_type, default_headers)
-
-    @staticmethod
-    def _client_class_for_model(client_type: str) -> type[LLMClient] | None:
-        """
-        Resolve which client a resolved (lowercased) client type routes to.
-
-        Args:
-            client_type: The resolved client type, which is the model id when none was given.
-
-        Returns:
-            type[LLMClient] | None: The client class, or None when no client claims the type.
-        """
-        # every Gemini generation shares the unified client ("gemini-3" also matches the
-        # gemini-3.8/gemini-3.7/gemini-3.6/gemini-3.5-flash-lite client types), and the two
-        # wire-protocol pins name the family too: _create_client_for_model picks the protocol
-        if any(
-            prefix in client_type
-            for prefix in ("gemini-3", "gemini-embedding", "gemini-interactions", "gemini-generate-content")
-        ):  # e.g., gemini-3.8-flash, gemini-3-flash-preview, gemini-embedding-2
-            from .gemini3_8 import Gemini3_8Client
-
-            return Gemini3_8Client
-        elif "claude" in client_type and (
-            "4-6" in client_type or "4-7" in client_type or "4-8" in client_type or "-5" in client_type
-        ):  # the whole Claude 4.6+ series shares the unified client, e.g., claude-sonnet-4-6
-            from .claude5 import Claude5Client
-
-            return Claude5Client
-        elif (
-            "gpt-5.4" in client_type or "gpt-5.5" in client_type or "gpt-5.6" in client_type or "gpt-6" in client_type
-        ):  # e.g., gpt-6-astra
-            from .gpt6 import GPT6Client
-
-            return GPT6Client
-        elif "glm-5" in client_type:  # the whole GLM series shares the unified client
-            from .glm5_3 import GLM5_3Client
-
-            return GLM5_3Client
-        elif "kimi-k3" in client_type or "kimi-k2.5" in client_type or "kimi-k2.6" in client_type:
-            # the whole Kimi K2.5+ series shares the unified client
-            from .kimi_k3 import KimiK3Client
-
-            return KimiK3Client
-        elif client_type == "minimax-m3":
-            from .minimax_m3 import MiniMaxM3Client
-
-            return MiniMaxM3Client
-        elif "deepseek-v4" in client_type:
-            from .deepseek_v4 import DeepSeekV4Client
-
-            return DeepSeekV4Client
-        elif client_type == "openai-chat-vllm-adapter":
-            # exact match: "openai-chat-vllm-adapter" contains "openai", so the substring
-            # branches below would otherwise claim it
-            from .openai_chat_vllm_adapter import OpenaiChatVllmAdapterClient
-
-            return OpenaiChatVllmAdapterClient
-        elif "ant-messages" in client_type:
-            from .ant_messages import AntMessagesClient
-
-            return AntMessagesClient
-        elif "openai-responses" in client_type:
-            from .openai_responses import OpenaiResponsesClient
-
-            return OpenaiResponsesClient
-        elif "openai" in client_type and "embedding" in client_type:
-            from .openai_embedding import OpenaiEmbeddingClient
-
-            return OpenaiEmbeddingClient
-        elif "openai" in client_type and "embedding" not in client_type:  # openai-chat, plus bare "openai" as alias
-            from .openai_chat import OpenaiChatClient
-
-            return OpenaiChatClient
-        else:
-            return None
-
-    def _create_client_for_model(
-        self,
-        model: str,
-        api_key: str | None = None,
-        base_url: str | None = None,
-        client_type: str | None = None,
-        default_headers: dict[str, str] | None = None,
-    ) -> LLMClient:
-        """Create the appropriate client for the given model."""
-        client_class = self._client_class_for_model(client_type or model.lower())
-        if client_class is None:
+        named = client_type or os.getenv("CLIENT_TYPE")
+        self._client_type = named.lower() if named else client_type_for_model(model)
+        if self._client_type is None:
             raise ValueError(
-                f"{client_type} is not supported. "
-                "Supported client types: minimax-m3, gemini-3.8, gemini-3.7, gemini-3.6, gemini-3, "
-                "gemini-interactions, gemini-generate-content, claude-5, claude-4-8, claude-4-7, claude-4-6, "
-                "gpt-6, gpt-5.6, gpt-5.5, gpt-5.4, "
-                "glm-5.3, glm-5.2, glm-5.1, kimi-k3, kimi-k2.6, kimi-k2.5, deepseek-v4, "
-                "openai-chat-vllm-adapter, openai-embedding, ant-messages, openai-responses, openai-chat."
+                f"No client for model {model!r}: its family is not known. "
+                f"Pass client_type, one of the {_client_types()}."
             )
-
-        # Vertex AI's Interactions endpoint serves none of the Gemini models, so a Gemini client given a
-        # service-account JSON, told apart by the test both clients' constructors apply, speaks generateContent
-        # unless Interactions is pinned. The pin and the key are checked first, so that no other client pays
-        # for importing the Gemini SDK.
-        is_vertex_ai = (api_key or os.getenv("GEMINI_API_KEY") or "").startswith("{")
-        if "gemini-generate-content" in (client_type or "") or (
-            is_vertex_ai and "gemini-interactions" not in (client_type or "")
-        ):
-            from .gemini3_8 import Gemini3_8Client
-            from .gemini3_8_generate_content import Gemini3_8GenerateContentClient
-
-            if client_class is Gemini3_8Client:
-                client_class = Gemini3_8GenerateContentClient
-
-        return client_class(model=model, api_key=api_key, base_url=base_url, default_headers=default_headers)
+        client_class = _client_class(self._client_type, model, api_key)
+        if client_class is None:
+            raise ValueError(f"Unknown client type {named!r}. Pass one of the {_client_types()}.")
+        # a client named explicitly speaks for whatever its endpoint serves (see list_models)
+        self._named = bool(named)
+        self._client = client_class(model=model, api_key=api_key, base_url=base_url, default_headers=default_headers)
 
     def transform_uni_config_to_model_config(self, config: UniConfig) -> Any:
         """Delegate to underlying client's transform_uni_config_to_model_config."""
@@ -231,25 +266,16 @@ class AutoLLMClient(LLMClient):
 
     async def list_models(self) -> list[str]:
         """
-        List the model ids the endpoint serves that the routed client can be used for.
+        List the model ids the endpoint serves that this client can be used for.
 
-        A protocol client is chosen explicitly and speaks for whatever the endpoint serves, so its
-        listing is returned whole. A client deduced from a model id serves only the ids that deduce
-        back to it, so a gateway fronting many vendors is filtered down to that client's own models.
+        A client named by its type speaks for whatever the endpoint serves, so its listing is
+        returned whole. A client deduced from a model id serves the ids that deduce to it as well,
+        so a gateway fronting many vendors is filtered down to that client's own models.
 
         Returns:
             list[str]: The model ids, in the order the endpoint returned them.
         """
-        from .gemini3_8 import Gemini3_8Client
-        from .gemini3_8_generate_content import Gemini3_8GenerateContentClient
-
         model_ids = await self._client.list_models()
-        protocol_classes = {self._client_class_for_model(name) for name in _PROTOCOL_CLIENT_TYPES}
-        # the generateContent client serves the Gemini family, whose model ids route to Gemini3_8Client
-        client_class = (
-            Gemini3_8Client if isinstance(self._client, Gemini3_8GenerateContentClient) else type(self._client)
-        )
-        if client_class in protocol_classes:
+        if self._named:
             return model_ids
-
-        return [model_id for model_id in model_ids if self._client_class_for_model(model_id.lower()) is client_class]
+        return [model_id for model_id in model_ids if client_type_for_model(model_id) == self._client_type]

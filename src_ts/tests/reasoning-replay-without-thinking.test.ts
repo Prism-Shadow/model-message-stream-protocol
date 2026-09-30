@@ -233,7 +233,7 @@ function geminiClient(): AutoLLMClient {
   });
   expect(
     (client as unknown as { _client: object })._client.constructor.name,
-  ).toBe("Gemini3_8Client");
+  ).toBe("GeminiOfficialClient");
   return client;
 }
 
@@ -296,7 +296,7 @@ test("generateContent replay signs the first call of an unsigned turn with the p
   });
   expect(
     (client as unknown as { _client: object })._client.constructor.name,
-  ).toBe("Gemini3_8GenerateContentClient");
+  ).toBe("GeminiGenerateContentClient");
 
   const contents = await transformHistory(client, geminiHistory());
   const call = (toolCallId: string) => ({

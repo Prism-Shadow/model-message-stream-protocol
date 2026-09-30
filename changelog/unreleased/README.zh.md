@@ -2,6 +2,7 @@
 
 [English](README.md)
 
+- [2026-09-30] 客户端按类型指名：每个厂商一个官方客户端（`openai-official`、`anthropic-official`、`gemini-official`、`zai-official`、`moonshot-official`、`deepseek-official`、`minimax-official`），每种协议一个兼容客户端；不传 `client_type` 时由模型 id 开头的系列指名官方客户端，其他 id 要求传入。([详情](2026-09-30-client-types.zh.md))
 - [2026-09-29] 站点跟随系统语言（中文或英文）与主题（亮色或暗色），新增一行安装 skill 的“交给你的编码助手”一节与“Agent 循环”一页，文档目录跟随阅读位置、可复制 Markdown，新增 sitemap 与 star 数，首页把同一份输入依次交给三个模型回放，stop 事件以胶囊标签和柱状图展示，标志改为四块色块上的四字母。([详情](2026-09-29-site-languages-and-themes.zh.md))
 - [2026-09-29] 新增站点 mmsp.penguin.ooo，包含首页与文档；README 的 header、概念图与 social preview 以 MMSP 之名重绘。([详情](2026-09-29-site-and-artwork.zh.md), [#226](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/226))
 - [2026-09-29] AgentHub 更名为 MMSP，即 Model Message Stream Protocol：软件包为 `mmsp` 与 `@prismshadow/mmsp`，模块为 `mmsp`，错误基类为 `MMSPError`，环境变量为 `MMSP_DEBUG` 与 `MMSP_CACHE_DIR`。([详情](2026-09-29-rename-to-mmsp.zh.md), [#223](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/223))

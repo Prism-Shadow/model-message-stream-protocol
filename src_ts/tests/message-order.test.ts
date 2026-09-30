@@ -61,7 +61,7 @@ const CHAT_ORDER = [
 
 const MESSAGE_ORDER_CASES: MessageOrderCase[] = [
   {
-    expectedClient: "GPT6Client",
+    expectedClient: "OpenAIOfficialClient",
     model: "gpt-5.6",
     protocol: "responses",
     expected: RESPONSES_ORDER,
@@ -74,21 +74,21 @@ const MESSAGE_ORDER_CASES: MessageOrderCase[] = [
     expected: RESPONSES_ORDER,
   },
   {
-    expectedClient: "DeepSeekV4Client",
+    expectedClient: "DeepSeekOfficialClient",
     model: "deepseek-v4",
-    clientType: "deepseek-v4",
+    clientType: "deepseek-official",
     protocol: "responses",
     expected: RESPONSES_ORDER,
   },
   {
-    expectedClient: "MiniMaxM3Client",
+    expectedClient: "MiniMaxOfficialClient",
     model: "MiniMax-M3",
-    clientType: "minimax-m3",
+    clientType: "minimax-official",
     protocol: "responses",
     expected: RESPONSES_ORDER,
   },
   {
-    expectedClient: "Claude5Client",
+    expectedClient: "AnthropicOfficialClient",
     model: "claude-sonnet-5",
     protocol: "messages",
     expected: MESSAGES_ORDER,
@@ -101,13 +101,13 @@ const MESSAGE_ORDER_CASES: MessageOrderCase[] = [
     expected: MESSAGES_ORDER,
   },
   {
-    expectedClient: "Gemini3_8Client",
+    expectedClient: "GeminiOfficialClient",
     model: "gemini-3.8-flash",
     protocol: "gemini",
     expected: GEMINI_ORDER,
   },
   {
-    expectedClient: "Gemini3_8GenerateContentClient",
+    expectedClient: "GeminiGenerateContentClient",
     model: "gemini-3.8-flash",
     clientType: "gemini-generate-content",
     protocol: "generate_content",
@@ -121,13 +121,13 @@ const MESSAGE_ORDER_CASES: MessageOrderCase[] = [
     expected: CHAT_ORDER,
   },
   {
-    expectedClient: "GLM5_3Client",
+    expectedClient: "ZAIOfficialClient",
     model: "glm-5.3",
     protocol: "chat",
     expected: CHAT_ORDER,
   },
   {
-    expectedClient: "KimiK3Client",
+    expectedClient: "MoonshotOfficialClient",
     model: "kimi-k3",
     protocol: "chat",
     expected: CHAT_ORDER,
@@ -269,10 +269,10 @@ describe.each(MESSAGE_ORDER_CASES)(
   },
 );
 
-describe("Message transform shape for Gemini3_8Client", () => {
+describe("Message transform shape for GeminiOfficialClient", () => {
   test("sends an image-only tool result without an empty text block", async () => {
     const client = routedClient("gemini-3.8-flash");
-    expect(client.constructor.name).toBe("Gemini3_8Client");
+    expect(client.constructor.name).toBe("GeminiOfficialClient");
     const messages = messagesFor();
     messages[2].content_items = [
       {
@@ -291,10 +291,10 @@ describe("Message transform shape for Gemini3_8Client", () => {
   });
 });
 
-describe("Message transform shape for Gemini3_8GenerateContentClient", () => {
+describe("Message transform shape for GeminiGenerateContentClient", () => {
   test("moves a thought signature onto the first function call", async () => {
     const client = routedClient("gemini-3.8-flash", "gemini-generate-content");
-    expect(client.constructor.name).toBe("Gemini3_8GenerateContentClient");
+    expect(client.constructor.name).toBe("GeminiGenerateContentClient");
 
     const modelInput =
       await client.transformUniMessageToModelInput(messagesFor());

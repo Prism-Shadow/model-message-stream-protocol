@@ -48,8 +48,8 @@ GEMINI3_THINKING_LEVEL_CASES = [
 
 def _create_gemini3_auto_client(model: str) -> AutoLLMClient:
     # client_type pins routing so hypothetical model names reach the unified
-    # Gemini3_8Client the same way an explicit override would in user code.
-    return AutoLLMClient(model=model, api_key="test-key", client_type="gemini-3")
+    # GeminiOfficialClient the same way an explicit override would in user code.
+    return AutoLLMClient(model=model, api_key="test-key", client_type="gemini-official")
 
 
 @pytest.mark.parametrize(("model", "level", "expected"), GEMINI3_THINKING_LEVEL_CASES)
@@ -87,9 +87,9 @@ GEMINI3_7_THINKING_LEVEL_CASES = [
 
 @pytest.mark.parametrize(("model", "level", "expected"), GEMINI3_7_THINKING_LEVEL_CASES)
 def test_gemini3_8_thinking_level_clamps_to_model_support(model: str, level: ThinkingLevel, expected: str):
-    # These are real model ids, so automatic routing reaches Gemini3_8Client directly.
+    # These are real model ids, so automatic routing reaches GeminiOfficialClient directly.
     client = AutoLLMClient(model=model, api_key="test-key")
-    assert client._client.__class__.__name__ == "Gemini3_8Client"
+    assert client._client.__class__.__name__ == "GeminiOfficialClient"
     assert client._client._convert_thinking_level(level) == expected  # noqa: SLF001
 
 
@@ -106,7 +106,7 @@ def test_gemini3_8_generate_content_thinking_level_clamps_to_model_support(
     model: str, level: ThinkingLevel, expected: str
 ):
     client = _create_generate_content_auto_client(model)
-    assert client._client.__class__.__name__ == "Gemini3_8GenerateContentClient"  # noqa: SLF001
+    assert client._client.__class__.__name__ == "GeminiGenerateContentClient"  # noqa: SLF001
     assert client._client._convert_thinking_level(level) == expected.upper()  # noqa: SLF001
 
 
@@ -146,8 +146,9 @@ GLM_THINKING_LEVEL_CASES = [
 def test_glm_thinking_level_maps_per_generation(
     model: str, level: ThinkingLevel, thinking_type: str, effort: str | None
 ):
-    client = AutoLLMClient(model=model, api_key="test-key")
-    assert client._client.__class__.__name__ == "GLM5_3Client"
+    # a gateway's id does not begin with the family, so it names the client
+    client = AutoLLMClient(model=model, api_key="test-key", client_type="zai-official")
+    assert client._client.__class__.__name__ == "ZAIOfficialClient"
     config = client._client.transform_uni_config_to_model_config({"thinking_level": level})  # noqa: SLF001
     assert config["extra_body"]["thinking"]["type"] == thinking_type
     assert config.get("reasoning_effort") == effort
@@ -188,8 +189,8 @@ THINKING_EFFORT_CASES = [
     ("kimi-k3", None, ThinkingLevel.MEDIUM, "high"),
     ("kimi-k3", None, ThinkingLevel.XHIGH, "max"),
     ("kimi-k3", None, ThinkingLevel.MAX, "max"),
-    ("MiniMax-M3", "minimax-m3", ThinkingLevel.XHIGH, "high"),
-    ("MiniMax-M3", "minimax-m3", ThinkingLevel.MAX, "high"),
+    ("MiniMax-M3", None, ThinkingLevel.XHIGH, "high"),
+    ("MiniMax-M3", None, ThinkingLevel.MAX, "high"),
 ]
 
 

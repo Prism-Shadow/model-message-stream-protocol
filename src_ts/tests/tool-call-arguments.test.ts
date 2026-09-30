@@ -56,14 +56,14 @@ const OPENAI_COMPATIBLE_TOOL_STREAM_CASES: OpenAICompatibleToolStreamCase[] = [
     clientType: "openai",
   },
   {
-    expectedClient: "GLM5_3Client",
+    expectedClient: "ZAIOfficialClient",
     model: "glm-5.1",
-    clientType: "glm-5.1",
+    clientType: "zai-official",
   },
   {
-    expectedClient: "KimiK3Client",
+    expectedClient: "MoonshotOfficialClient",
     model: "kimi-k2.6",
-    clientType: "kimi-k2.6",
+    clientType: "moonshot-official",
   },
   {
     expectedClient: "OpenaiResponsesClient",
@@ -72,15 +72,15 @@ const OPENAI_COMPATIBLE_TOOL_STREAM_CASES: OpenAICompatibleToolStreamCase[] = [
     protocol: "responses",
   },
   {
-    expectedClient: "DeepSeekV4Client",
+    expectedClient: "DeepSeekOfficialClient",
     model: "deepseek-v4",
-    clientType: "deepseek-v4",
+    clientType: "deepseek-official",
     protocol: "responses",
   },
   {
-    expectedClient: "MiniMaxM3Client",
+    expectedClient: "MiniMaxOfficialClient",
     model: "MiniMax-M3",
-    clientType: "minimax-m3",
+    clientType: "minimax-official",
     protocol: "responses",
   },
 ];

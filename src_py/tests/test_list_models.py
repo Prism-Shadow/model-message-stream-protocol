@@ -28,7 +28,7 @@ from mmsp import AutoLLMClient, UnsupportedOperationError
 class ListCase:
     expected_client: str
     model: str
-    client_type: str
+    client_type: str | None
     expected: list[str]
 
 
@@ -44,22 +44,25 @@ SERVED_IDS = [
     "MiniMax-M3",
 ]
 
-# A protocol client is named explicitly and speaks for the whole listing; a client deduced from a
-# model id keeps only the ids that deduce back to it.
+# A client named by its type speaks for the whole listing; a client deduced from a model id keeps
+# the ids of its own family.
 SDK_LIST_CASES = [
-    ListCase(expected_client="GPT6Client", model="gpt-5.6", client_type="gpt-5.6", expected=["gpt-5.6"]),
+    ListCase(expected_client="OpenAIOfficialClient", model="gpt-5.6", client_type=None, expected=["gpt-5.6"]),
     ListCase(
-        expected_client="Claude5Client",
+        expected_client="AnthropicOfficialClient",
         model="claude-sonnet-5",
-        client_type="claude-sonnet-5",
+        client_type=None,
         expected=["claude-sonnet-5", "claude-opus-4-6"],
     ),
     ListCase(
-        expected_client="DeepSeekV4Client", model="deepseek-v4", client_type="deepseek-v4", expected=["deepseek-v4"]
+        expected_client="DeepSeekOfficialClient", model="deepseek-v4", client_type=None, expected=["deepseek-v4"]
     ),
-    ListCase(expected_client="GLM5_3Client", model="glm-5.3", client_type="glm-5.3", expected=["glm-5.3"]),
-    ListCase(expected_client="KimiK3Client", model="kimi-k3", client_type="kimi-k3", expected=["kimi-k3"]),
-    ListCase(expected_client="MiniMaxM3Client", model="minimax-m3", client_type="minimax-m3", expected=["MiniMax-M3"]),
+    ListCase(expected_client="ZAIOfficialClient", model="glm-5.3", client_type=None, expected=["glm-5.3"]),
+    ListCase(expected_client="MoonshotOfficialClient", model="kimi-k3", client_type=None, expected=["kimi-k3"]),
+    ListCase(expected_client="MiniMaxOfficialClient", model="MiniMax-M3", client_type=None, expected=["MiniMax-M3"]),
+    ListCase(
+        expected_client="OpenAIOfficialClient", model="gpt-5.6", client_type="openai-official", expected=SERVED_IDS
+    ),
     ListCase(expected_client="OpenaiChatClient", model="gpt-5.6", client_type="openai-chat", expected=SERVED_IDS),
     ListCase(
         expected_client="OpenaiResponsesClient", model="gpt-5.6", client_type="openai-responses", expected=SERVED_IDS
@@ -109,7 +112,9 @@ def _install_fake_models(client: AutoLLMClient, fake: object) -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("case", SDK_LIST_CASES, ids=[case.client_type for case in SDK_LIST_CASES])
+@pytest.mark.parametrize(
+    "case", SDK_LIST_CASES, ids=[f"{case.model}:{case.client_type or 'auto'}" for case in SDK_LIST_CASES]
+)
 async def test_clients_return_the_ids_the_endpoint_serves(case: ListCase):
     client = AutoLLMClient(model=case.model, api_key="test-key", client_type=case.client_type)
     assert type(client._client).__name__ == case.expected_client  # noqa: SLF001
@@ -120,10 +125,8 @@ async def test_clients_return_the_ids_the_endpoint_serves(case: ListCase):
 
 @pytest.mark.asyncio
 async def test_gemini_client_strips_the_path_from_model_names():
-    # Deliberately the previous generation's spelling: the unified client is named for the
-    # newest one, and a caller still passing client_type="gemini-3.7" must keep routing to it.
-    client = AutoLLMClient(model="gemini-3.7-flash", api_key="test-key", client_type="gemini-3.7")
-    assert type(client._client).__name__ == "Gemini3_8Client"  # noqa: SLF001
+    client = AutoLLMClient(model="gemini-3.7-flash", api_key="test-key")
+    assert type(client._client).__name__ == "GeminiOfficialClient"  # noqa: SLF001
     fake = _FakeGeminiModelsEndpoint(["models/gemini-3.7-flash", "publishers/google/models/gemini-3.7-pro"])
     client._client._client = SimpleNamespace(aio=SimpleNamespace(models=fake))  # noqa: SLF001
 
@@ -134,17 +137,22 @@ async def test_gemini_client_strips_the_path_from_model_names():
 SERVICE_ACCOUNT_KEY = '{"project_id": "test-project"}'
 
 
+VERTEX_LISTING = ["gemini-3.8-flash", "gemini-embedding-2", "gemini-2.5-flash", "spicy-mayo"]
+GEMINI_FAMILY = ["gemini-3.8-flash", "gemini-embedding-2", "gemini-2.5-flash"]
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("api_key", "client_type", "expected_client"),
+    ("api_key", "client_type", "expected_client", "expected"),
     [
-        (SERVICE_ACCOUNT_KEY, None, "Gemini3_8GenerateContentClient"),
-        ("test-key", "gemini-generate-content", "Gemini3_8GenerateContentClient"),
-        (SERVICE_ACCOUNT_KEY, "gemini-interactions", "Gemini3_8Client"),
+        ("test-key", None, "GeminiOfficialClient", GEMINI_FAMILY),
+        (SERVICE_ACCOUNT_KEY, None, "GeminiGenerateContentClient", GEMINI_FAMILY),
+        (SERVICE_ACCOUNT_KEY, "gemini-official", "GeminiGenerateContentClient", VERTEX_LISTING),
+        ("test-key", "gemini-generate-content", "GeminiGenerateContentClient", VERTEX_LISTING),
     ],
 )
-async def test_gemini_routes_by_credential_and_pin_and_keeps_the_gemini_ids_of_a_vertex_listing(
-    api_key: str, client_type: str | None, expected_client: str, monkeypatch
+async def test_gemini_routes_by_credential_and_pin_and_lists_the_family_of_a_deduced_client(
+    api_key: str, client_type: str | None, expected_client: str, expected: list[str], monkeypatch
 ):
     # google-auth parses a real key's private key while the client is constructed
     monkeypatch.setattr(
@@ -152,15 +160,10 @@ async def test_gemini_routes_by_credential_and_pin_and_keeps_the_gemini_ids_of_a
     )
     client = AutoLLMClient(model="gemini-3.8-flash", api_key=api_key, client_type=client_type)
     assert type(client._client).__name__ == expected_client  # noqa: SLF001
-    fake = _FakeGeminiModelsEndpoint(
-        [
-            f"publishers/google/models/{model_id}"
-            for model_id in ("gemini-3.8-flash", "gemini-embedding-2", "gemini-2.5-flash", "spicy-mayo")
-        ]
-    )
+    fake = _FakeGeminiModelsEndpoint([f"publishers/google/models/{model_id}" for model_id in VERTEX_LISTING])
     client._client._client = SimpleNamespace(aio=SimpleNamespace(models=fake))  # noqa: SLF001
 
-    assert await client.list_models() == ["gemini-3.8-flash", "gemini-embedding-2"]
+    assert await client.list_models() == expected
 
 
 @pytest.mark.asyncio

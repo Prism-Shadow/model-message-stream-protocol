@@ -20,7 +20,7 @@ The Python package needs Python 3.11 or newer. `uv add mmsp` works as well.
 
 ## Set the API key
 
-MMSP reads the provider's key from the environment: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `DEEPSEEK_API_KEY`, `MOONSHOT_API_KEY`, `ZAI_API_KEY` or `MINIMAX_API_KEY`. You can also pass `api_key` and `base_url` to the client. [Models and endpoints](/docs/models/) has the full list.
+MMSP reads the provider's key from the environment: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `DEEPSEEK_API_KEY`, `MOONSHOT_API_KEY`, `ZAI_API_KEY` or `MINIMAX_API_KEY`. You can also pass `api_key` and `base_url` to the client. The examples below name a model whose id picks its official client; [Models and endpoints](/docs/models/) has every client and model.
 
 ## Stream a response
 

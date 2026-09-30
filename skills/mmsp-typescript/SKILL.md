@@ -114,7 +114,7 @@ Keep these points in mind for agent loops:
 
 ## Reference
 
-- [Model selection](reference/models.md) — model IDs, API keys, base URLs, and OpenAI-compatible routing.
+- [Model selection](reference/models.md) — model IDs, client types, API keys, and base URLs.
 - [Data models](reference/data-models.md) — `UniConfig`, `UniMessage`, `UniEvent`, the streaming protocol, and errors.
 - [APIs](reference/api.md) — client initialization and method signatures.
 - [Tracer & Playground](reference/integrations.md) — local tracing UI and the manual chat playground.

@@ -74,7 +74,7 @@ stop   usage_metadata={...}  finish_reason="tool_call"
 - 一次工具调用的首个 `tool_call.delta` 携带 `name` 和 `tool_call_id`。后续片段只携带 `arguments`。
 - `tool_call.done` 携带解析为对象的 `arguments`。应从此读取工具调用，并使用对应的 `tool_call_id` 返回每个结果。
 - 参数必须能解析为 JSON 对象。如果格式错误、被截断或解析出其他类型，MMSP 会在 `tool_call.done` 的位置抛出 `ToolCallArgumentParseError`。
-- `minimax-m3` 从服务端已完成的项读取调用，因此其调用流为一个 `tool_call.delta`（携带名称、id 和完整参数）后接 `tool_call.done`。
+- `minimax-official` 从服务端已完成的项读取调用，因此其调用流为一个 `tool_call.delta`（携带名称、id 和完整参数）后接 `tool_call.done`。
 
 ## 向量
 

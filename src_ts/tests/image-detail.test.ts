@@ -264,13 +264,13 @@ interface ImageDetailCase {
 
 const IMAGE_DETAIL_CASES: ImageDetailCase[] = [
   {
-    expectedClient: "GPT6Client",
+    expectedClient: "OpenAIOfficialClient",
     model: "gpt-5.6-terra",
     protocol: "responses",
     shrinks: true,
   },
   {
-    expectedClient: "GPT6Client",
+    expectedClient: "OpenAIOfficialClient",
     model: "gpt-5.5",
     protocol: "responses",
     shrinks: false,
@@ -304,13 +304,13 @@ const IMAGE_DETAIL_CASES: ImageDetailCase[] = [
     shrinks: false,
   },
   {
-    expectedClient: "KimiK3Client",
+    expectedClient: "MoonshotOfficialClient",
     model: "kimi-k3",
     protocol: "chat",
     shrinks: false,
   },
   {
-    expectedClient: "GLM5_3Client",
+    expectedClient: "ZAIOfficialClient",
     model: "glm-5.3-flash",
     protocol: "chat",
     shrinks: false,
@@ -318,28 +318,28 @@ const IMAGE_DETAIL_CASES: ImageDetailCase[] = [
   // The DeepSeek client forwards images to every id except the text-only V4 Flash / V4 Pro
   // (bare, dated snapshot, any gateway prefix, any case).
   {
-    expectedClient: "DeepSeekV4Client",
+    expectedClient: "DeepSeekOfficialClient",
     model: "deepseek-v4-flash",
     protocol: "responses",
     shrinks: false,
     refusesImages: true,
   },
   {
-    expectedClient: "DeepSeekV4Client",
+    expectedClient: "DeepSeekOfficialClient",
     model: "deepseek-ai/DeepSeek-V4-Flash",
-    clientType: "deepseek-v4",
+    clientType: "deepseek-official",
     protocol: "responses",
     shrinks: false,
     refusesImages: true,
   },
   {
-    expectedClient: "DeepSeekV4Client",
+    expectedClient: "DeepSeekOfficialClient",
     model: "deepseek-v4-flash-vision-exp",
     protocol: "responses",
     shrinks: false,
   },
   {
-    expectedClient: "DeepSeekV4Client",
+    expectedClient: "DeepSeekOfficialClient",
     model: "deepseek-v4.1-flash",
     protocol: "responses",
     shrinks: false,

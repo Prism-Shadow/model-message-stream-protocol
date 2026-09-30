@@ -37,14 +37,14 @@ REASONING_STREAM_CASES = [
         client_type="openai",
     ),
     ReasoningStreamCase(
-        expected_client="GLM5_3Client",
+        expected_client="ZAIOfficialClient",
         model="glm-5.1",
-        client_type="glm-5.1",
+        client_type="zai-official",
     ),
     ReasoningStreamCase(
-        expected_client="KimiK3Client",
+        expected_client="MoonshotOfficialClient",
         model="kimi-k2.6",
-        client_type="kimi-k2.6",
+        client_type="moonshot-official",
     ),
     ReasoningStreamCase(
         expected_client="OpenaiResponsesClient",
@@ -53,9 +53,9 @@ REASONING_STREAM_CASES = [
         protocol="responses",
     ),
     ReasoningStreamCase(
-        expected_client="DeepSeekV4Client",
+        expected_client="DeepSeekOfficialClient",
         model="deepseek-v4",
-        client_type="deepseek-v4",
+        client_type="deepseek-official",
         protocol="responses",
     ),
 ]

@@ -39,9 +39,9 @@ interface StreamCase {
 // Every client that parses the OpenAI Responses SSE shape.
 const RESPONSES_STREAM_CASES: StreamCase[] = [
   {
-    expectedClient: "GPT6Client",
+    expectedClient: "OpenAIOfficialClient",
     model: "gpt-5.6",
-    clientType: "gpt-5.6",
+    clientType: "openai-official",
   },
   {
     expectedClient: "OpenaiResponsesClient",
@@ -49,14 +49,14 @@ const RESPONSES_STREAM_CASES: StreamCase[] = [
     clientType: "openai-responses",
   },
   {
-    expectedClient: "DeepSeekV4Client",
+    expectedClient: "DeepSeekOfficialClient",
     model: "deepseek-v4",
-    clientType: "deepseek-v4",
+    clientType: "deepseek-official",
   },
   {
-    expectedClient: "MiniMaxM3Client",
+    expectedClient: "MiniMaxOfficialClient",
     model: "minimax-m3",
-    clientType: "minimax-m3",
+    clientType: "minimax-official",
   },
 ];
 
@@ -68,23 +68,23 @@ const CHAT_STREAM_CASES: StreamCase[] = [
     clientType: "openai-chat",
   },
   {
-    expectedClient: "GLM5_3Client",
+    expectedClient: "ZAIOfficialClient",
     model: "glm-5.3",
-    clientType: "glm-5.3",
+    clientType: "zai-official",
   },
   {
-    expectedClient: "KimiK3Client",
+    expectedClient: "MoonshotOfficialClient",
     model: "kimi-k3",
-    clientType: "kimi-k3",
+    clientType: "moonshot-official",
   },
 ];
 
 // Every client that parses the Anthropic Messages event shape.
 const MESSAGES_STREAM_CASES: StreamCase[] = [
   {
-    expectedClient: "Claude5Client",
+    expectedClient: "AnthropicOfficialClient",
     model: "claude-sonnet-5",
-    clientType: "claude-sonnet-5",
+    clientType: "anthropic-official",
   },
   {
     expectedClient: "AntMessagesClient",
@@ -96,16 +96,16 @@ const MESSAGES_STREAM_CASES: StreamCase[] = [
 // Every client that parses the Gemini Interactions event shape.
 const GEMINI_STREAM_CASES: StreamCase[] = [
   {
-    expectedClient: "Gemini3_8Client",
+    expectedClient: "GeminiOfficialClient",
     model: "gemini-3.8-flash",
-    clientType: "gemini-3.8",
+    clientType: "gemini-official",
   },
 ];
 
 // Every client that parses the Gemini generateContent chunk shape.
 const GENERATE_CONTENT_STREAM_CASES: StreamCase[] = [
   {
-    expectedClient: "Gemini3_8GenerateContentClient",
+    expectedClient: "GeminiGenerateContentClient",
     model: "gemini-3.8-flash",
     clientType: "gemini-generate-content",
   },

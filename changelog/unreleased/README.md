@@ -2,6 +2,7 @@
 
 [中文版](README.zh.md)
 
+- [2026-09-30] Clients are named by their type: an official client per vendor (`openai-official`, `anthropic-official`, `gemini-official`, `zai-official`, `moonshot-official`, `deepseek-official`, `minimax-official`) and a compatible client per protocol; without a `client_type`, the family a model id begins with names its official client, and any other id asks for one. ([details](2026-09-30-client-types.md))
 - [2026-09-29] The site follows the system's language, English or Chinese, and theme, light or dark, hands MMSP to a coding agent with a one-line skill install, gains an agent loop page, a table of contents that follows the reader, Copy Markdown, a sitemap and the star count, replays one input through three models with the stop event drawn as a pill and bars, and takes the four tiles as its mark. ([details](2026-09-29-site-languages-and-themes.md))
 - [2026-09-29] The site at mmsp.penguin.ooo was added, with the overview page and the documentation, and the README header, the concept diagram and the social preview were redrawn under the name MMSP. ([details](2026-09-29-site-and-artwork.md), [#226](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/226))
 - [2026-09-29] AgentHub was renamed to MMSP, the Model Message Stream Protocol: the packages are `mmsp` and `@prismshadow/mmsp`, the module `mmsp`, the error base class `MMSPError`, the environment variables `MMSP_DEBUG` and `MMSP_CACHE_DIR`. ([details](2026-09-29-rename-to-mmsp.md), [#223](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/223))

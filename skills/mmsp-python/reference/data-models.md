@@ -170,7 +170,7 @@ stop   usage_metadata={...}  finish_reason="tool_call"
 
 - The first `tool_call.delta` of a call carries non-empty `name` and `tool_call_id`, and its `arguments` is a JSON string fragment (often `""`). Later fragments carry only `arguments`.
 - `tool_call.done` carries `name`, `tool_call_id`, and `arguments` parsed into a dict. Read tool calls from `tool_call.done` items; treat `tool_call.delta` fragments as live progress only. Send each tool result back with the exact `tool_call_id` from its `tool_call.done`.
-- `minimax-m3` reads each call from the server's completed output item rather than from the argument deltas, so its calls stream as a single `tool_call.delta` carrying the name, id, and whole arguments string, then the `tool_call.done`. The rules above apply unchanged.
+- `minimax-official` reads each call from the server's completed output item rather than from the argument deltas, so its calls stream as a single `tool_call.delta` carrying the name, id, and whole arguments string, then the `tool_call.done`. The rules above apply unchanged.
 - The final arguments must parse to a JSON object. If the streamed JSON is malformed, truncated, or parses to a non-object value such as an array, MMSP raises `ToolCallArgumentParseError` in place of the `tool_call.done`, so a tool is never executed from partial arguments.
 
 ## Errors

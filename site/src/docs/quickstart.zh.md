@@ -20,7 +20,7 @@ Python 包需要 Python 3.11 或更高版本。`uv add mmsp` 同样可用。
 
 ## 设置 API key
 
-MMSP 从环境变量读取服务商的 API key，支持 `ANTHROPIC_API_KEY`、`OPENAI_API_KEY`、`GEMINI_API_KEY`、`DEEPSEEK_API_KEY`、`MOONSHOT_API_KEY`、`ZAI_API_KEY` 和 `MINIMAX_API_KEY`。你也可以在创建客户端时直接传入 `api_key` 和 `base_url`。完整列表见[模型与端点](/zh/docs/models/)。
+MMSP 从环境变量读取服务商的 API key，支持 `ANTHROPIC_API_KEY`、`OPENAI_API_KEY`、`GEMINI_API_KEY`、`DEEPSEEK_API_KEY`、`MOONSHOT_API_KEY`、`ZAI_API_KEY` 和 `MINIMAX_API_KEY`。你也可以在创建客户端时直接传入 `api_key` 和 `base_url`。下面的例子用的模型 id 能自行选出官方客户端；所有客户端和模型见[模型与端点](/zh/docs/models/)。
 
 ## 流式输出响应
 

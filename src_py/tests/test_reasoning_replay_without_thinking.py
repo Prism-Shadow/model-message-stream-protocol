@@ -193,7 +193,7 @@ async def test_replay_keeps_each_message_on_its_own_reasoning_field():
 # recorded on a call already makes the turn's thought.
 def _gemini_client() -> AutoLLMClient:
     client = AutoLLMClient(model="gemini-3.8-flash", api_key="test-key")
-    assert client._client.__class__.__name__ == "Gemini3_8Client"  # noqa: SLF001
+    assert client._client.__class__.__name__ == "GeminiOfficialClient"  # noqa: SLF001
     return client
 
 
@@ -240,7 +240,7 @@ async def test_gemini_replay_opens_a_turn_without_a_signed_thought_with_the_plac
 async def test_generate_content_replay_signs_the_first_call_of_an_unsigned_turn_with_the_placeholder():
     """generateContent validates the signature on the first function call of a turn instead."""
     client = AutoLLMClient(model="gemini-3.8-flash", api_key="test-key", client_type="gemini-generate-content")
-    assert client._client.__class__.__name__ == "Gemini3_8GenerateContentClient"  # noqa: SLF001
+    assert client._client.__class__.__name__ == "GeminiGenerateContentClient"  # noqa: SLF001
     # the Gemini SDK takes a thought signature as base64 text, the form a stream records it in
     signature = base64.b64encode(b"sig-3").decode()
 
