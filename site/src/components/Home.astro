@@ -65,12 +65,12 @@ const COPY = {
     why: "Why MMSP",
     whyText1:
       "Model APIs have settled on the same building blocks: messages, thinking, tool calls, streaming. Every provider still encodes them its own way. Anthropic streams content blocks, OpenAI streams output items, Gemini streams steps, and Chat Completions streams chunks that name nothing. An agent written against one of them is rewritten for the next.",
-    whyText2: "MMSP puts one shape in front of all of them. It is designed to be:",
+    whyText2: "MMSP puts one shape in front of all of them:",
     goals: [
-      ["Unified", "One UniConfig, one UniMessage, one UniEvent. Switching models is changing the model id, with no code written per provider."],
-      ["Streamed by one grammar", "Every stream is delta events closed by exactly one stop event, and every item is .delta fragments closed by its .done item. A consumer never guesses whether a response has finished."],
-      ["Precise", "Thinking signatures, phases and encrypted reasoning travel with each item as fidelity and go back to the provider unchanged, so interleaved thinking survives multi-step tool calls."],
-      ["Traceable", "Add a trace_id to the config and every turn is saved to disk, with a local viewer to read it. No database."],
+      ["Three types", "One UniConfig, one UniMessage, one UniEvent. Switching models is changing the model id, with no code written per provider."],
+      ["A stream that says when it ends", "Every stream is delta events closed by exactly one stop event, and every item is .delta fragments closed by its .done item. A consumer never guesses whether a response has finished."],
+      ["Thinking that survives tool calls", "Thinking signatures, phases and encrypted reasoning travel with each item as fidelity and go back to the provider unchanged, so interleaved thinking survives multi-step tool calls."],
+      ["Traces without a database", "Add a trace_id to the config and every turn is saved to disk, with a local viewer to read it."],
     ],
     grammarTitle: "One grammar for every stream",
     grammarText1: ["A stream is ", " events, each carrying one content item, closed by exactly one ", " event that carries the usage and the finish reason. Items arrive one at a time: fragments first, then the complete item."],
@@ -90,42 +90,41 @@ const COPY = {
     contributingText1: ["MMSP is built in the open. A new model, a gateway that streams differently, a stream that breaks the grammar: ", "open an issue", " or send a pull request. The repository carries the provider documentation snapshots and the workflow a client is built by."],
     contributingText2: ["Questions and releases are on ", "Discord", " and ", "X", ". MMSP is what ", "PenguinHarness", " talks to models with."],
   },
-  zh: {
-    h1: "Model Message Stream Protocol",
-    lede: "MMSP 为所有模型服务商提供同一套消息格式与同一套流式语法。agent 只写一次，Claude、GPT、Gemini、DeepSeek、Kimi、GLM、MiniMax 与 Qwen 读到的消息、流出的事件都是同一个样子，Python 与 TypeScript 两种实现。",
-    quickstart: "阅读快速开始",
-    copyPrompt: "Install Agent Skill",
-    copied: "已复制",
-    copyFailed: "复制失败",
-    copyHint: "复制一段指令。粘贴给 Claude Code、Codex 或任何编码助手，它就会安装 MMSP 的 skill，并照着写 MMSP 代码。",
-    why: "为什么是 MMSP",
-    whyText1:
-      "各家模型 API 早已用上同样的积木：消息、思考、工具调用、流式输出。可每家的编码方式仍然各不相同：Anthropic 流出 content block，OpenAI 流出 output item，Gemini 流出 step，Chat Completions 流出的 chunk 连名字都没有。照着一家写的 agent，换下一家就得重写。",
-    whyText2: "MMSP 在它们前面放上同一个形状。它的设计目标是：",
-    goals: [
-      ["统一", "一个 UniConfig、一个 UniMessage、一个 UniEvent。切换模型只是换一个模型 id，不用为任何服务商单独写代码。"],
-      ["同一套流式语法", "每条流都是若干 delta 事件加上恰好一个 stop 事件，每个内容项都是若干 .delta 片段加上收尾的 .done 项。调用方永远不用猜回复结束了没有。"],
-      ["精确", "思考签名、phase、加密的推理内容作为 fidelity 随内容项一起走，原样送回服务商，多步工具调用之间的交错思考因此不会丢。"],
-      ["可追踪", "在配置里加一个 trace_id，每一轮都会存到磁盘，附带一个本地查看器。不需要数据库。"],
-    ],
-    grammarTitle: "所有流共用一套语法",
-    grammarText1: ["一条流是若干 ", " 事件，每个恰好带一个内容项，最后由恰好一个携带用量与结束原因的 ", " 事件收尾。内容项逐个到达：先是片段，再是完整的项。"],
-    grammarText2: ["完整的项按顺序拼起来就是 assistant 消息。从 ", " 读取工具调用，参数已经解析好，片段只当作实时进度。", "流式一页", "写有全部规则。"],
-    modelsTitle: "它能对话的模型",
-    modelsText: ["每个模型都通过其服务商自己的线路协议访问；另有四个通用客户端可以调用任何提供 Chat Completions、Responses、Anthropic Messages 或 OpenAI embeddings 的端点。", "模型与端点", "列出了 id、密钥与 base URL。"],
-    modelsHead: ["模型", "提供方", "示例 id", "输出"],
-    startTitle: "开始使用",
-    startText1: "把服务商的 API key 放进环境变量，指定一个模型，迭代这条流。带状态的调用会保存对话（包括思考），下一轮只需发送新消息。",
-    startText2: ["快速开始", "接着演示一次工具调用及其结果。"],
-    agentTitle: "交给你的编码助手",
-    agentText1: "仓库自带 skill 文件，教 Claude Code、Codex 以及任何读取 skill 的助手写出正确的 MMSP 代码：安装命令、一个能跑的工具调用循环、数据模型、模型 id。一行命令就能把 skill 连同参考文件装好。",
-    agentText2: "skill 会装到 ~/.claude/skills。只在一个项目里用就装到 .claude/skills，Codex 用 .agents/skills。不支持 skill 的助手可以直接读链接：",
-    agentPrompt: `读取 ${REPO_URL}/blob/main/skills/mmsp-python/SKILL.md 及其链接的参考文件，然后用 MMSP 写一个会调用 get_weather 的 agent。`,
-    agentLinks: ["skill 文件", "在 GitHub 上", "skill 里有什么"],
-    contributingTitle: "参与贡献",
-    contributingText1: ["MMSP 公开开发。新的模型、流式方式不同的网关、破坏语法的流：", "提一个 issue", " 或者直接发 pull request。仓库里有各服务商文档的快照，也有实现一个客户端所遵循的流程。"],
-    contributingText2: ["提问和发版信息在 ", "Discord", " 和 ", "X", "。", "PenguinHarness", " 就是用 MMSP 和模型对话的。"],
-  },
+zh: {
+  h1: "Model Message Stream Protocol",
+  lede: "MMSP 为所有模型服务商提供统一的消息格式和流式语法。你的 agent 只需写一次，Claude、GPT、Gemini、DeepSeek、Kimi、GLM、MiniMax 和 Qwen 都能以相同的方式读取和流式输出，支持 Python 和 TypeScript。",
+  quickstart: "阅读快速开始",
+  copyPrompt: "Install Agent Skill",
+  copied: "已复制",
+  copyFailed: "复制失败",
+  copyHint: "复制这段指令。粘贴到 Claude Code、Codex 或任何编码助手，它会安装 MMSP skill 并据此编写 MMSP 代码。",
+  why: "为什么选择 MMSP",
+  whyText1: "模型 API 的核心组件已经趋同：消息、思考、工具调用、流式输出。但每家服务商的编码方式依然各异。Anthropic 流式输出 content block，OpenAI 输出 output item，Gemini 输出 step，而 Chat Completions 输出的 chunk 甚至没有命名。为一个服务商编写的 agent，换一个就得重写。",
+  whyText2: "MMSP 将它们统一为一种形态：",
+  goals: [
+    ["三种类型", "一个 UniConfig、一个 UniMessage、一个 UniEvent。切换模型只需更换模型 id，无需为任何服务商单独编码。"],
+    ["流会告诉你何时结束", "每条流由多个 delta 事件和恰好一个 stop 事件组成，每个内容项由多个 .delta 片段和收尾的 .done 项组成。调用方无需猜测响应是否结束。"],
+    ["工具调用间保留思考", "思考签名、阶段和加密推理内容作为 fidelity 随内容项传递，并原样返回给服务商，确保多步工具调用间的交错思考不会丢失。"],
+    ["无需数据库的追踪", "在配置中添加 trace_id，每一轮对话都会保存到磁盘，并附带本地查看器。"],
+  ],
+  grammarTitle: "所有流共用一套语法",
+  grammarText1: ["一条流包含多个 ", " 事件，每个事件携带一个内容项，最后由恰好一个携带用量和结束原因的 ", " 事件收尾。内容项逐个到达：先片段，后完整项。"],
+  grammarText2: ["完整的项按顺序组成 assistant 消息。从 ", " 读取工具调用，参数已解析完毕；片段则视为实时进度。", "流式文档", "列出了全部规则。"],
+  modelsTitle: "支持的模型",
+  modelsText: ["每个模型都通过其服务商自己的协议访问；另有四个通用客户端可调用任何提供 Chat Completions、Responses、Anthropic Messages 或 OpenAI embeddings 的端点。", "模型与端点", "列出了 id、密钥和 base URL。"],
+  modelsHead: ["模型", "提供方", "示例 id", "输出"],
+  startTitle: "开始使用",
+  startText1: "将服务商的 API key 设为环境变量，指定模型，然后迭代流。有状态的调用会保存对话（包括思考），下一轮只需发送新消息。",
+  startText2: ["快速开始", "接着演示一次工具调用及其结果。"],
+  agentTitle: "交给你的编码助手",
+  agentText1: "仓库附带了 skill 文件，可指导 Claude Code、Codex 及任何支持 skill 的助手编写正确的 MMSP 代码：安装命令、可运行的工具调用循环、数据模型、模型 id。一行命令即可安装 skill 及其参考文件。",
+  agentText2: "skill 会安装到 ~/.claude/skills。单项目使用可装到 .claude/skills，Codex 则用 .agents/skills。不支持 skill 的助手可直接读取链接：",
+  agentPrompt: `读取 ${REPO_URL}/blob/main/skills/mmsp-python/SKILL.md 及其链接的参考文件，然后用 MMSP 编写一个调用 get_weather 的 agent。`,
+  agentLinks: ["skill 文件", "在 GitHub 上", "skill 内容"],
+  contributingTitle: "参与贡献",
+  contributingText1: ["MMSP 是开源项目。新增模型、流式方式不同的网关、破坏语法的流：", "提交 issue", " 或直接发起 pull request。仓库包含各服务商文档的快照，以及构建客户端的开发流程。"],
+  contributingText2: ["问题讨论和版本发布请关注 ", "Discord", " 和 ", "X", "。", "PenguinHarness", " 正是使用 MMSP 与模型对话的。"],
+},
 }[locale];
 
 const models = [
@@ -190,9 +189,9 @@ const code = "mono text-[0.9em]";
           data-failed={COPY.copyFailed}
           class="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-800 transition-colors hover:bg-gray-50 dark:border-gray-800 dark:text-gray-200 dark:hover:bg-gray-900"
         >
-          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <rect x="9" y="9" width="11" height="11" rx="2"></rect>
-            <path d="M5 15V6a2 2 0 0 1 2-2h9"></path>
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="8" y="8" width="14" height="14" rx="2"></rect>
+            <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
           </svg>
           <span>{COPY.copyPrompt}</span>
         </button>
@@ -209,10 +208,10 @@ const code = "mono text-[0.9em]";
     <h2 class={heading}>{COPY.why}</h2>
     <p class={prose}>{COPY.whyText1}</p>
     <p class={prose}>{COPY.whyText2}</p>
-    <dl class="mt-6 grid max-w-5xl gap-x-10 gap-y-6 sm:grid-cols-2">
+    <dl class="mt-8 grid max-w-5xl gap-x-12 gap-y-7 sm:grid-cols-2">
       {
         COPY.goals.map(([name, text]) => (
-          <div class="border-l-2 border-brand-500 pl-4">
+          <div>
             <dt class="font-semibold">{name}</dt>
             <dd class="mt-1 text-[15px] leading-7 text-gray-700 dark:text-gray-300">{text}</dd>
           </div>

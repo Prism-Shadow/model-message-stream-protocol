@@ -2,7 +2,7 @@
 description: AutoLLMClient、它的方法，以及随它一起导出的辅助函数。
 ---
 
-`AutoLLMClient` 是你唯一需要调用的类。它选出会讲该模型线上协议的客户端，并把调用转发过去。
+`AutoLLMClient` 是你唯一需要调用的类。它会自动选择支持对应模型协议的客户端，并将请求转发过去。
 
 ## 创建客户端
 
@@ -21,7 +21,7 @@ client = AutoLLMClient(
     base_url="https://api.openai.com/v1",
 )
 
-# 通过指名的线上协议，对接任何提供该协议的端点
+# 按协议指定客户端，对接任何提供该协议的端点
 client = AutoLLMClient(model="custom-model", client_type="openai-chat")
 ```
 
@@ -38,7 +38,7 @@ const withEndpoint = new AutoLLMClient({
   baseUrl: "https://api.openai.com/v1",
 });
 
-// 通过指名的线上协议，对接任何提供该协议的端点
+// 按协议指定客户端，对接任何提供该协议的端点
 const withType = new AutoLLMClient({ model: "custom-model", clientType: "openai-chat" });
 ```
 
@@ -47,12 +47,12 @@ const withType = new AutoLLMClient({ model: "custom-model", clientType: "openai-
 | 选项 | Python | TypeScript | 含义 |
 | --- | --- | --- | --- |
 | 模型 | `model` | `model` | 精确的模型 id。 |
-| Key | `api_key` | `apiKey` | 默认取提供商的环境变量，但只在端点也来自环境变量时。 |
-| 端点 | `base_url` | `baseUrl` | 默认取提供商的环境变量，否则取官方端点。 |
-| 协议 | `client_type` | `clientType` | 直接指名客户端，而不是从模型 id 推断。见[模型与端点](/zh/docs/models/)。 |
-| 请求头 | `default_headers` | `defaultHeaders` | 随每个请求发送，供要求自定义请求头的端点使用。 |
+| Key | `api_key` | `apiKey` | 默认使用服务商的环境变量，但仅在端点也来自环境变量时生效。 |
+| 端点 | `base_url` | `baseUrl` | 默认使用服务商的环境变量，否则使用其官方端点。 |
+| 协议 | `client_type` | `clientType` | 直接指定客户端类型，而非从模型 id 推断。详见[模型与端点](/zh/docs/models/)。 |
+| 请求头 | `default_headers` | `defaultHeaders` | 随每个请求发送，用于需要自定义请求头的端点。 |
 
-一个 key 只去它被授予的地方。从环境变量读到 `OPENAI_API_KEY` 或 `ANTHROPIC_API_KEY` 的客户端，只把它发给环境变量指定的端点，即 `OPENAI_BASE_URL` 或 `ANTHROPIC_BASE_URL`，或提供商的官方端点。给了 `base_url` 却没给 `api_key` 时，它在构造时就抛错，而不是把那个 key 发往另一个端点：把 key 和 URL 一起传。像 `deepseek-v4` 这样的厂商客户端读取自己的变量 `DEEPSEEK_API_KEY`，不论给它哪个端点。
+API key 只会发送到它被指定的地方。从环境变量读取 `OPENAI_API_KEY` 或 `ANTHROPIC_API_KEY` 的客户端，只会将其发送到环境变量指定的端点（`OPENAI_BASE_URL` 或 `ANTHROPIC_BASE_URL`）或服务商的官方端点。如果指定了 `base_url` 但未提供 `api_key`，客户端会在构造时直接报错，而不是将 key 发送到其他端点。请将 key 与 URL 一同传入。对于厂商客户端（如 `deepseek-v4`），它会读取自己的环境变量 `DEEPSEEK_API_KEY`，无论给它哪个端点。
 
 ## 方法
 
@@ -87,11 +87,11 @@ clearHistory(): void;
 
 </div>
 
-两个流式方法都先产出 `delta` 事件，然后恰好一个 `stop` 事件。有状态方法在产出 `stop` 事件之前就记录本轮，所以一看到它你就可以停止迭代。
+两个流式方法都会先产出 `delta` 事件，最后产出恰好一个 `stop` 事件。有状态方法在产出 `stop` 事件前就已记录本轮对话，因此你可以在看到 `stop` 事件后立即停止迭代。
 
-`get_history` 返回一份副本，`set_history` 存入一份副本，历史不会在你背后改变。
+`get_history` 返回历史记录的副本，`set_history` 存储传入历史的副本，确保历史记录不会在你不知情时被修改。
 
-当客户端是用 `client_type` 指名的时，`list_models` 列出端点提供的一切。从模型 id 推断出的客户端只列出能推断回它自己的那些 id。
+当客户端通过 `client_type` 指定时，`list_models` 会列出端点支持的所有模型。从模型 id 推断出的客户端，则只列出能推断回该客户端的模型 id。
 
 ## 辅助函数
 
@@ -113,5 +113,5 @@ const messages = normalizeLegacyMessages(storedMessages);
 
 </div>
 
-- `list_supported_models` 对每个模型和端点各返回一条：模型 id、base URL、客户端、输入和输出模态、上下文窗口，以及每百万 token 的标价。
-- `normalize_legacy_messages` 转换 [0.5.0 之前保存的消息](/zh/docs/messages/#050-之前保存的消息)。它在 0.6.0 中移除。
+- `list_supported_models` 为每个模型和端点返回一条记录，包含模型 id、base URL、客户端类型、输入输出模态、上下文窗口以及每百万 token 的标价。
+- `normalize_legacy_messages` 用于转换 [0.5.0 之前保存的消息](/zh/docs/messages/#050-之前保存的消息)。该函数将在 0.6.0 版本中移除。

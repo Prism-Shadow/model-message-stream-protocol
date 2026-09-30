@@ -16,13 +16,13 @@ npm install @prismshadow/mmsp
 
 </div>
 
-Python 包需要 Python 3.11 或更新版本。`uv add mmsp` 同样可用。
+Python 包需要 Python 3.11 或更高版本。`uv add mmsp` 同样可用。
 
 ## 设置 API key
 
-MMSP 从环境变量读取提供商的 key：`ANTHROPIC_API_KEY`、`OPENAI_API_KEY`、`GEMINI_API_KEY`、`DEEPSEEK_API_KEY`、`MOONSHOT_API_KEY`、`ZAI_API_KEY` 或 `MINIMAX_API_KEY`。你也可以把 `api_key` 和 `base_url` 直接传给客户端。完整列表见[模型与端点](/zh/docs/models/)。
+MMSP 从环境变量读取服务商的 API key，支持 `ANTHROPIC_API_KEY`、`OPENAI_API_KEY`、`GEMINI_API_KEY`、`DEEPSEEK_API_KEY`、`MOONSHOT_API_KEY`、`ZAI_API_KEY` 和 `MINIMAX_API_KEY`。你也可以在创建客户端时直接传入 `api_key` 和 `base_url`。完整列表见[模型与端点](/zh/docs/models/)。
 
-## 流式输出一条响应
+## 流式输出响应
 
 <div class="code-group">
 
@@ -61,7 +61,7 @@ for await (const event of client.streamingResponseStateful({
 
 </div>
 
-这条流会打印四个片段、一段完整文本，然后是结束它的那一个事件：
+流式输出会依次打印四个文本片段、一个完整文本，最后是一个结束事件：
 
 ```json
 {"role": "assistant", "event_type": "delta", "content_items": [{"type": "text.delta", "text": "Hello"}], "usage_metadata": null, "finish_reason": null}
@@ -72,11 +72,11 @@ for await (const event of client.streamingResponseStateful({
 {"role": "assistant", "event_type": "stop", "content_items": [], "usage_metadata": {"cached_tokens": 0, "prompt_tokens": 12, "thoughts_tokens": 0, "response_tokens": 8}, "finish_reason": "stop"}
 ```
 
-把模型 id 换成 `claude-opus-5` 或 `gemini-3.8-flash`，同样的代码打印出同样的形状。
+将模型 id 改为 `claude-opus-5` 或 `gemini-3.8-flash`，同样的代码会输出相同结构的事件。
 
-## 调用一个工具
+## 调用工具
 
-模型用一个 `tool_call.done` 项来请求工具。运行工具，然后带着同一个 `tool_call_id` 把结果送回去。
+模型通过 `tool_call.done` 内容项请求工具。你需要运行该工具，并使用相同的 `tool_call_id` 将结果返回。
 
 <div class="code-group">
 
@@ -192,12 +192,12 @@ if (toolCall) {
 
 </div>
 
-## agent 循环的规则
+## Agent 循环规则
 
-[Agent 循环](/zh/docs/agent-loop/)一页把这些规则写成了一份完整实现。
+[Agent 循环](/zh/docs/agent-loop/)文档将这些规则整合为一份完整实现。
 
-- 从 `tool_call.done` 项读取工具调用。`tool_call.delta` 项只是参数的片段，除了展示进度之外别无他用。
-- 每个工具结果都要带上对应 `tool_call.done` 的那个 `tool_call_id`，一字不差。
-- 从 `stop` 事件读取用量和结束原因。它永远是最后一个事件，且只出现一次。
-- 保持 `thinking.done` 项和每一个 `fidelity` 字段原样不动。有状态调用会替你做到这一点。
-- 当某次调用的参数无法解析时，MMSP 会在原本该出现 `tool_call.done` 的位置抛出 `ToolCallArgumentParseError`。重试或重新提示模型；绝不要用不完整的参数运行工具。
+- 从 `tool_call.done` 项读取工具调用。`tool_call.delta` 项只是参数的片段，仅用于展示进度。
+- 返回工具结果时，必须使用对应 `tool_call.done` 中完全相同的 `tool_call_id`。
+- 用量和结束原因从 `stop` 事件读取。该事件总是最后一个，且只出现一次。
+- 保持 `thinking.done` 项和所有 `fidelity` 字段不变。有状态调用会自动处理。
+- 当工具调用的参数无法解析时，MMSP 会抛出 `ToolCallArgumentParseError` 而非返回 `tool_call.done`。此时应重试或重新提示，切勿使用不完整的参数运行工具。

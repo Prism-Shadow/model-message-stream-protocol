@@ -1,10 +1,10 @@
 ---
-description: 用一个配置字段把每一轮保存到磁盘，并在本地查看器里读取。
+description: 用一个配置字段保存每轮对话到磁盘，在本地查看器中读取。
 ---
 
-## 追踪一段对话
+## 追踪对话
 
-在配置里设置 `trace_id`。MMSP 在每次响应之后、产出 `stop` 事件之前，保存完整的历史和配置。
+在配置中设置 `trace_id`。MMSP 会在每次响应后、返回 `stop` 事件前，自动保存完整的历史记录和配置。
 
 <div class="code-group">
 
@@ -27,18 +27,18 @@ for await (const event of client.streamingResponseStateful({
 
 </div>
 
-追踪写在 `cache` 目录下，或者写在环境变量 `MMSP_CACHE_DIR` 指定的目录下。上面的 id 会写两个文件：
+追踪文件默认保存在 `cache` 目录下，也可通过环境变量 `MMSP_CACHE_DIR` 指定其他目录。上面的 id 会生成两个文件：
 
 | 文件 | 内容 |
 | --- | --- |
-| `cache/agent1/conversation_001.json` | 完整的历史和配置，以数据形式 |
-| `cache/agent1/conversation_001.txt` | 对话本身，以可读的文本记录形式 |
+| `cache/agent1/conversation_001.json` | 完整的历史和配置数据 |
+| `cache/agent1/conversation_001.txt` | 可读的对话文本记录 |
 
-没有数据库，也不需要任何设置。
+无需数据库，也无需额外配置。
 
-## 读取追踪
+## 查看追踪
 
-启动查看器，打开 `http://127.0.0.1:25750`。
+启动查看器，然后访问 `http://127.0.0.1:25750`。
 
 <div class="code-group">
 
@@ -56,7 +56,7 @@ new Tracer().startWebServer("127.0.0.1", 25750);
 
 </div>
 
-在 shell 里，用 Python：
+也可以在 shell 中使用 Python 命令启动：
 
 ```bash
 python -m mmsp.integration.tracer --cache_dir ./cache --host 127.0.0.1 --port 25750
@@ -64,7 +64,7 @@ python -m mmsp.integration.tracer --cache_dir ./cache --host 127.0.0.1 --port 25
 
 ## Playground
 
-Playground 是一个本地聊天页面，用来手动试一个模型：选模型、设配置、发消息、看事件。打开 `http://127.0.0.1:25751`；tracer 在它旁边的 `/tracer/` 路径下提供。
+Playground 是一个本地聊天页面，用于手动测试模型：选择模型、设置配置、发送消息、观察事件。访问 `http://127.0.0.1:25751`；tracer 页面位于其旁边的 `/tracer/` 路径。
 
 <div class="code-group">
 

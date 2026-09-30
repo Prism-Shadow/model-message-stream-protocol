@@ -33,6 +33,14 @@ Node 22.12 or newer.
 
 Documentation pages describe the released packages. When the code changes what a page says, change the page in both languages in the same pull request.
 
+After writing or changing a Chinese page, polish it against its English counterpart. The script reads the key from `TOKENDANCE_API_KEY` or the file named by `TOKENDANCE_KEY_FILE`, restores code blocks and HTML from the original, and refuses an answer that changes inline code, a link or the page's structure:
+
+```bash
+TOKENDANCE_KEY_FILE=~/.tokendance-key node site/scripts/polish-zh.mjs site/src/docs/streaming.zh.md --write
+```
+
+Read the diff afterwards: the script keeps code and structure, not meaning.
+
 ## Language and theme
 
 The home page and the first documentation page open in the browser's language, `zh` for Chinese and English otherwise; every page opens in the system's theme. The menus in the top bar store a choice in `localStorage` under `mmsp-site.lang` and `mmsp-site.theme`; an absent key means "follow the system". An inline script in `Base.astro` reads both before the page paints: it sets the `dark` class on `<html>` and, when the page is not in the chosen language, replaces the location with the counterpart page. Without a choice, only the entry pages redirect: a link to any other page keeps its language, and a crawler sees both languages.

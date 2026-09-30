@@ -13,7 +13,7 @@ export function docMarkdown(locale: Locale, doc: DocLink, page: MarkdownInstance
   const body = page
     .rawContent()
     .replace(/^---[\s\S]*?---\s*/, "")
-    .replace(/<div class="loop-diagram"[\s\S]*?<\/div>\n<\/div>/, loopAsText)
+    .replace(/<figure class="flowchart">[\s\S]*?<\/figure>/, flowchartAsText)
     .split("\n")
     .filter((line) => !/^<div class="code-group"[^>]*>$/.test(line) && line !== "</div>")
     .join("\n")
@@ -25,20 +25,12 @@ export function docMarkdown(locale: Locale, doc: DocLink, page: MarkdownInstance
   return new Response(text, { headers: { "content-type": "text/markdown; charset=utf-8" } });
 }
 
-const untag = (html: string) => html.replace(/<[^>]+>/g, "");
-
 /**
- * The agent loop diagram as a numbered list: its four steps in order, and the exit after the
- * step it leaves from.
+ * The agent loop flowchart as the numbered steps it carries for screen readers.
  */
-function loopAsText(diagram: string): string {
-  const nodes = [...diagram.matchAll(/<span class="n">(\d)<\/span><b>(.*?)<\/b><p>(.*?)<\/p>/g)]
-    .map((match) => ({ n: Number(match[1]), line: `${match[1]}. ${untag(match[2])}: ${untag(match[3])}` }))
-    .sort((a, b) => a.n - b.n);
-  const exit = diagram.match(/<div class="loop-end"><b>(.*?)<\/b><p>(.*?)<\/p>/);
-  const lines = nodes.map((node) => node.line);
-  if (exit) {
-    lines.splice(2, 0, `   ${untag(exit[1])}: ${untag(exit[2])}`);
-  }
-  return lines.join("\n");
+function flowchartAsText(figure: string): string {
+  const items = [...figure.matchAll(/<li>(.*?)<\/li>/g)].map((match) =>
+    match[1].replace(/<code>(.*?)<\/code>/g, "`$1`").replace(/<[^>]+>/g, ""),
+  );
+  return items.map((item, index) => `${index + 1}. ${item}`).join("\n");
 }

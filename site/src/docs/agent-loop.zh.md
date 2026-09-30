@@ -4,33 +4,15 @@ description: 每个 agent 在 MMSP 上运行的那个循环，以及它的一份
 
 agent 就是一个循环。模型读取对话，然后要么回答，要么请求工具；你的代码运行工具，把结果送回去，模型再读一次。当某次响应不带任何工具调用时，循环结束。
 
-MMSP 让这个循环在每家提供商上都是同一个形状。工具调用以 `tool_call.done` 项到达，结果以 `tool_result.done` 项送回，中间的对话由有状态客户端保存，思考和 fidelity 都在内。
+MMSP 让这个循环在每家服务商上都是同一个形状。工具调用以 `tool_call.done` 项到达，结果以 `tool_result.done` 项送回，中间的对话由有状态客户端保存，思考和 fidelity 都在内。
 
 ## 循环
 
-<div class="loop-diagram" role="img" aria-label="agent 循环：发送消息，读取流，运行工具调用，送回结果，再来一轮；不带工具调用的响应就是回答">
-<div class="loop-grid">
-<div class="loop-node"><span class="n">1</span><b>发送消息</b><p><code>streaming_response_stateful(message, config)</code>，工具放在配置里。</p></div>
-<div class="loop-arrow"><svg viewBox="0 0 32 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8h26M22 2l6 6-6 6"/></svg></div>
-<div class="loop-node is-main"><span class="n">2</span><b>读取流</b><p><code>delta</code> 事件，然后是 <code>stop</code> 事件。收集 <code>text.done</code> 和 <code>tool_call.done</code> 项。</p></div>
-<div class="loop-arrow"><span class="tag">没有工具调用</span><svg viewBox="0 0 32 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8h26M22 2l6 6-6 6"/></svg></div>
-<div class="loop-end"><b>回答</b><p><code>text.done</code> 项就是回复。循环结束。</p></div>
-<div class="loop-arrow v"><span class="tag">下一轮</span><svg viewBox="0 0 16 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 30V4M2 10l6-6 6 6"/></svg></div>
-<div></div>
-<div class="loop-arrow v"><span class="tag">有工具调用</span><svg viewBox="0 0 16 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v26M2 22l6 6 6-6"/></svg></div>
-<div></div>
-<div></div>
-<div class="loop-node"><span class="n">4</span><b>送回结果</b><p>每个调用一个 <code>tool_result.done</code>，带上它的 <code>tool_call_id</code>，放在一条消息里。</p></div>
-<div class="loop-arrow"><svg viewBox="0 0 32 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M30 8H4M10 2L4 8l6 6"/></svg></div>
-<div class="loop-node"><span class="n">3</span><b>运行工具</b><p>每个 <code>tool_call.done</code> 运行一次，用它解析好的 <code>arguments</code>。失败也是一个结果。</p></div>
-<div></div>
-<div></div>
-</div>
-</div>
+<figure class="flowchart"><svg class="flowchart-svg" viewBox="0 0 560 492" role="img" aria-labelledby="loop-zh-title"><title id="loop-zh-title">agent 循环流程图</title><defs><marker id="loop-zh-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" class="fc-arrowhead"/></marker></defs><rect x="120" y="8" width="200" height="44" rx="22" class="fc-terminal"/><text x="220" y="35" class="fc-title" text-anchor="middle">用户消息</text><path d="M220 52V82" class="fc-edge" marker-end="url(#loop-zh-arrow)"/><rect x="80" y="84" width="280" height="62" rx="6" class="fc-process"/><text x="220" y="110" class="fc-title" text-anchor="middle">流式获取一次响应</text><text x="220" y="131" class="fc-text" text-anchor="middle"><tspan class="fc-code">streaming_response_stateful()</tspan></text><path d="M220 146V172" class="fc-edge" marker-end="url(#loop-zh-arrow)"/><path d="M220 174L350 236L220 298L90 236Z" class="fc-decision"/><text x="220" y="231" class="fc-title" text-anchor="middle">响应里有</text><text x="220" y="251" class="fc-title" text-anchor="middle"><tspan class="fc-code">tool_call.done</tspan> 吗？</text><path d="M350 236H408" class="fc-edge" marker-end="url(#loop-zh-arrow)"/><text x="379" y="228" class="fc-label" text-anchor="middle">没有</text><rect x="410" y="210" width="140" height="52" rx="26" class="fc-terminal"/><text x="480" y="232" class="fc-title" text-anchor="middle">回答</text><text x="480" y="250" class="fc-text" text-anchor="middle">即 <tspan class="fc-code">text.done</tspan> 项</text><path d="M220 298V328" class="fc-edge" marker-end="url(#loop-zh-arrow)"/><text x="230" y="318" class="fc-label" text-anchor="start">有</text><rect x="80" y="330" width="280" height="62" rx="6" class="fc-process"/><text x="220" y="356" class="fc-title" text-anchor="middle">逐个运行工具</text><text x="220" y="377" class="fc-text" text-anchor="middle">参数取自解析好的 <tspan class="fc-code">arguments</tspan></text><path d="M220 392V418" class="fc-edge" marker-end="url(#loop-zh-arrow)"/><rect x="80" y="420" width="280" height="62" rx="6" class="fc-process"/><text x="220" y="446" class="fc-title" text-anchor="middle">送回结果</text><text x="220" y="467" class="fc-text" text-anchor="middle">每个调用一个 <tspan class="fc-code">tool_result.done</tspan></text><path d="M80 451H36V115H78" class="fc-edge" fill="none" marker-end="url(#loop-zh-arrow)"/><text x="22" y="266" class="fc-label" text-anchor="middle"><tspan x="22" dy="0">下</tspan><tspan x="22" dy="16">一</tspan><tspan x="22" dy="16">轮</tspan></text></svg><ol class="flowchart-steps"><li>用 <code>streaming_response_stateful</code> 发送用户消息，工具放在配置里。</li><li>读取流：先是 <code>delta</code> 事件，最后是 <code>stop</code> 事件。</li><li>响应里没有 <code>tool_call.done</code> 时，其中的 <code>text.done</code> 项就是回答，循环结束。</li><li>否则逐个运行工具，参数取自解析好的 <code>arguments</code>。</li><li>把结果放进一条消息送回，每个调用一个 <code>tool_result.done</code>，带上它的 <code>tool_call_id</code>，然后回到第 2 步。</li></ol></figure>
 
 每次迭代是一次请求。有状态调用在产出 `stop` 事件之前就记录了助手轮次，所以下一次迭代只需发送新消息。
 
-## 一份完整实现
+## 完整实现
 
 模型可能在一个轮次里请求多个工具。全部运行，把所有结果放在一条消息里送回，每个结果带上它对应调用的 `tool_call_id`。
 

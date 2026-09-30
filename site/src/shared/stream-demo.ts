@@ -180,39 +180,36 @@ for await (const event of client.streamingResponseStateful({
 }`;
 }
 
-const ROW =
-  "grid grid-cols-[3.25rem_7.5rem_1fr] items-baseline gap-x-2 border-l-2 px-2.5 py-1 text-[12.5px] leading-5";
+const ROW = "grid grid-cols-[3.25rem_7.5rem_1fr] items-baseline gap-x-2 px-2.5 py-1 text-[12.5px] leading-5";
 
+// fragments in gray, a complete item in ink on a faint ground, the stop event under a rule
 export function renderEvent(event: DemoEvent): string {
   if (event.event_type === "stop") {
     return (
-      `<li class="${ROW} mono border-gray-900 bg-gray-100 font-medium dark:border-white dark:bg-gray-800">` +
-      `<span>stop</span><span>${escapeHtml(String(event.finish_reason))}</span>` +
-      `<span class="truncate font-normal text-gray-600 dark:text-gray-300">usage_metadata ${json(event.usage_metadata)}</span></li>`
+      `<li class="${ROW} mono mt-1 border-t border-gray-300 pt-1.5 text-gray-900 dark:border-gray-700 dark:text-gray-100">` +
+      `<span class="font-medium">stop</span><span>${escapeHtml(String(event.finish_reason))}</span>` +
+      `<span class="truncate text-gray-500 dark:text-gray-400">usage_metadata ${json(event.usage_metadata)}</span></li>`
     );
   }
   const item = event.item as DemoItem;
   const done = item.type.endsWith(".done");
   const tone = done
-    ? "border-brand-500 bg-brand-50 dark:bg-brand-950/60"
-    : "border-transparent text-gray-600 dark:text-gray-400";
+    ? "rounded bg-white font-medium text-gray-900 dark:bg-gray-800 dark:text-gray-100"
+    : "text-gray-500 dark:text-gray-400";
   return (
-    `<li class="${ROW} mono ${tone}"><span>delta</span>` +
-    `<span class="${done ? "font-medium text-brand-700 dark:text-brand-300" : ""}">${item.type}</span>` +
+    `<li class="${ROW} mono ${tone}"><span>delta</span><span>${item.type}</span>` +
     `<span class="truncate">${preview(item)}</span></li>`
   );
 }
 
-// the four counts of usage_metadata, in the order they add up: input first, then output
+// the four counts of usage_metadata, in the order they add up: the input in gray, the output
+// in the one accent
 const USAGE: [keyof PlayerWords, string, string][] = [
   ["cached", "cached_tokens", "bg-gray-400 dark:bg-gray-500"],
-  ["prompt", "prompt_tokens", "bg-brand-300 dark:bg-brand-400"],
+  ["prompt", "prompt_tokens", "bg-gray-400 dark:bg-gray-500"],
   ["thoughts", "thoughts_tokens", "bg-brand-500"],
-  ["response", "response_tokens", "bg-brand-700 dark:bg-brand-600"],
+  ["response", "response_tokens", "bg-brand-500"],
 ];
-
-const PILL =
-  "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium";
 
 /**
  * The stop event as a reader wants it: the finish reason as a pill, and the usage as a bar per
@@ -224,17 +221,13 @@ export function renderStop(event: DemoEvent, words: PlayerWords): string {
   const largest = Math.max(1, ...counts.map((count) => count.value));
   const total = counts.reduce((sum, count) => sum + count.value, 0);
   const finish = String(event.finish_reason);
-  const finishTone =
-    finish === "tool_call"
-      ? "border-brand-200 bg-brand-50 text-brand-800 dark:border-brand-800 dark:bg-brand-950/60 dark:text-brand-200"
-      : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-200";
   const bars = counts
     .map((count) => {
       // a count too small for its share of the bar still shows
       const width = count.value === 0 ? "0%" : `${Math.max(1.5, (100 * count.value) / largest)}%`;
       return (
         `<div class="grid grid-cols-[4.5rem_1fr_3rem] items-center gap-x-2">` +
-        `<span class="${KEY} truncate">${words[count.word]}</span>` +
+        `<span class="truncate font-sans text-gray-500 dark:text-gray-400">${words[count.word]}</span>` +
         `<span class="h-2.5 overflow-hidden rounded-sm bg-gray-100 dark:bg-gray-800"><span class="block h-full rounded-sm ${count.color} transition-[width] duration-700 ease-out" style="width: ${width}" data-bar="${width}"></span></span>` +
         `<span class="mono text-right tabular-nums text-gray-700 dark:text-gray-300">${count.value}</span></div>`
       );
@@ -242,16 +235,14 @@ export function renderStop(event: DemoEvent, words: PlayerWords): string {
     .join("");
   const row = (name: string, pill: string) =>
     `<div class="flex items-center justify-between gap-2"><span class="${KEY}">${name}</span>${pill}</div>`;
+  // the finish reason is the response's one status, so it alone gets a tag
   return (
     row(
       words.finish,
-      `<span class="${PILL} mono ${finishTone}"><span class="h-1.5 w-1.5 rounded-full bg-current"></span>${escapeHtml(finish)}</span>`,
+      `<span class="rounded-full border border-gray-300 bg-white px-2.5 py-0.5 text-xs font-medium text-gray-900 dark:border-gray-600 dark:bg-gray-950 dark:text-gray-100">${escapeHtml(finish)}</span>`,
     ) +
-    `<div class="mt-2">` +
-    row(
-      words.usage,
-      `<span class="${PILL} border-gray-200 bg-white text-gray-700 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-300"><span class="mono tabular-nums">${total}</span> ${words.tokens}</span>`,
-    ) +
+    `<div class="mt-3">` +
+    row(words.usage, `<span class="font-sans text-gray-700 dark:text-gray-300"><span class="mono tabular-nums">${total}</span> ${words.tokens}</span>`) +
     `<div class="mt-2 space-y-1.5">${bars}</div></div>`
   );
 }
@@ -282,13 +273,13 @@ export function renderMessage(events: DemoEvent[], count: number, words: PlayerW
 
   const rows = done.map(
     (item) =>
-      `<li class="rounded-md border border-gray-200 bg-white px-2.5 py-1.5 dark:border-gray-800 dark:bg-gray-950">` +
-      `<span class="font-medium text-brand-700 dark:text-brand-300">${item.type}</span>` +
+      `<li class="rounded border border-gray-200 bg-white px-2.5 py-1.5 dark:border-gray-800 dark:bg-gray-950">` +
+      `<span class="font-medium text-gray-900 dark:text-gray-100">${item.type}</span>` +
       `<span class="mt-0.5 block break-all text-gray-700 dark:text-gray-300">${preview(item)}</span></li>`,
   );
   if (open !== null) {
     rows.push(
-      `<li class="rounded-md border border-dashed border-gray-300 px-2.5 py-1.5 text-gray-500 dark:border-gray-700 dark:text-gray-400">` +
+      `<li class="rounded border border-dashed border-gray-300 px-2.5 py-1.5 text-gray-500 dark:border-gray-700 dark:text-gray-400">` +
         `<span>${open.kind}, ${words.streaming}</span>` +
         `<span class="mt-0.5 block break-all">${json(open.value)}</span></li>`,
     );

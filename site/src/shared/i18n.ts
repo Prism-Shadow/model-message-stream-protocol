@@ -78,7 +78,7 @@ export const STRINGS = {
   zh: {
     htmlLang: "zh-CN",
     siteTitle: "MMSP：Model Message Stream Protocol",
-    description: "MMSP 为所有模型服务商提供同一套消息格式与同一套流式语法，Python 与 TypeScript 两种实现。",
+    description: "MMSP 为所有模型服务商提供统一的消息格式和流式语法，支持 Python 与 TypeScript。",
     nav: {
       overview: "概览",
       quickstart: "快速开始",
@@ -103,10 +103,10 @@ export const STRINGS = {
     },
     changelog: {
       title: "更新日志",
-      description: "每个版本一行，链接到仓库里该版本的条目；每条变更都记录做了什么，破坏性变更还写明如何迁移。",
+      description: "每个版本一行，链接到仓库中该版本的变更条目。每条变更都记录具体改动，如果是破坏性变更，还会说明迁移方法。",
     },
     footer: {
-      license: "MMSP 由 Prism Shadow 以 Apache License 2.0 开源。",
+      license: "MMSP 由 Prism Shadow 开源，采用 Apache License 2.0 许可证。",
       licenseLink: "许可证",
     },
     player: {
@@ -114,12 +114,12 @@ export const STRINGS = {
       pause: "暂停",
       play: "播放",
       input: "同一份输入",
-      inputNote: "只有模型 id 不同",
-      events: "事件，按到达顺序",
-      message: "它们拼成的消息",
-      nothing: "还没有内容。",
-      running: "回复仍在进行。",
-      streaming: "仍在流式输出",
+      inputNote: "仅模型 id 不同",
+      events: "事件（按到达顺序）",
+      message: "最终合成的消息",
+      nothing: "暂无内容。",
+      running: "响应仍在生成中。",
+      streaming: "流式输出中",
       finish: "finish_reason",
       usage: "usage_metadata",
       tokens: "tokens",

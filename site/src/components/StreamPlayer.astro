@@ -29,7 +29,7 @@ const themes = { light: "github-light", dark: "github-dark" } as const;
 ---
 
 <div
-  class="overflow-hidden rounded-xl border border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900"
+  class="overflow-hidden rounded-lg border border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900"
   data-stream-player
   data-words={JSON.stringify(words)}
 >
@@ -57,12 +57,13 @@ const themes = { light: "github-light", dark: "github-dark" } as const;
       aria-pressed="false"
       class="mb-1.5 ml-auto inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-300 dark:hover:bg-gray-800"
     >
-      <svg viewBox="0 0 16 16" class="h-3 w-3" fill="currentColor" aria-hidden="true" data-icon="pause">
-        <rect x="3" y="2" width="3.5" height="12" rx="1"></rect>
-        <rect x="9.5" y="2" width="3.5" height="12" rx="1"></rect>
+      <!-- Lucide pause and play; the script swaps which one shows -->
+      <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="currentColor" aria-hidden="true" data-icon="pause">
+        <rect x="14" y="4" width="4" height="16" rx="1"></rect>
+        <rect x="6" y="4" width="4" height="16" rx="1"></rect>
       </svg>
-      <svg viewBox="0 0 16 16" class="h-3 w-3" fill="currentColor" aria-hidden="true" data-icon="play" hidden>
-        <path d="M4 2.5v11a1 1 0 0 0 1.5.9l9-5.5a1 1 0 0 0 0-1.8l-9-5.5A1 1 0 0 0 4 2.5Z"></path>
+      <svg viewBox="0 0 24 24" class="hidden h-3.5 w-3.5" fill="currentColor" aria-hidden="true" data-icon="play">
+        <path d="M6 3l14 9-14 9V3Z"></path>
       </svg>
       <span data-pause-label data-pause-text={s.pause} data-play-text={s.play}>{s.pause}</span>
     </button>
@@ -169,8 +170,9 @@ const themes = { light: "github-light", dark: "github-dark" } as const;
     pause.addEventListener("click", () => {
       paused = !paused;
       pause.setAttribute("aria-pressed", String(paused));
-      pause.querySelector<SVGElement>("[data-icon=pause]")!.hidden = paused;
-      pause.querySelector<SVGElement>("[data-icon=play]")!.hidden = !paused;
+      // an SVG element has no hidden property, so the class is what hides it
+      pause.querySelector("[data-icon=pause]")!.classList.toggle("hidden", paused);
+      pause.querySelector("[data-icon=play]")!.classList.toggle("hidden", !paused);
       label.textContent = paused ? label.dataset.playText! : label.dataset.pauseText!;
       if (!paused) step();
     });

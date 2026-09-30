@@ -24,13 +24,13 @@ const href = (slug: string) => localePath(locale, `/docs/${slug}/`);
 // the page's own Markdown, served next to it (see src/pages/docs/[slug].md.ts)
 const markdown = localePath(locale, `/docs/${doc.slug}.md`);
 
-const label = "text-xs font-semibold tracking-wide text-gray-400 uppercase dark:text-gray-500";
+const label = "text-[13px] font-semibold text-gray-900 dark:text-gray-100";
 const entry = "-ml-px block border-l py-1 pl-3 transition-colors";
 const entryOn = "border-brand-600 font-medium text-brand-700 dark:border-brand-400 dark:text-brand-300";
 const entryOff =
   "border-transparent text-gray-600 hover:border-gray-400 hover:text-gray-900 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-100";
 const step =
-  "group flex flex-col gap-1 rounded-xl border border-gray-200 p-4 transition-colors hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700";
+  "group flex flex-col gap-1 rounded-lg border border-gray-200 p-4 transition-colors hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700";
 ---
 
 <Base
@@ -94,10 +94,7 @@ const step =
 
       <article class="w-full max-w-3xl">
         <header>
-          <p class="text-xs font-semibold tracking-wide text-brand-700 uppercase dark:text-brand-300">
-            {section.title[locale]}
-          </p>
-          <div class="mt-1.5 flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+          <div class="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
             <h1 class="text-3xl font-semibold tracking-tight text-balance">{doc.title[locale]}</h1>
             <button
               type="button"
@@ -106,9 +103,9 @@ const step =
               data-failed={s.copyFailed}
               class="mt-1.5 inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-950 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
             >
-              <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <rect x="9" y="9" width="11" height="11" rx="2"></rect>
-                <path d="M5 15V6a2 2 0 0 1 2-2h9"></path>
+              <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="8" y="8" width="14" height="14" rx="2"></rect>
+                <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
               </svg>
               <span>{s.copy}</span>
             </button>

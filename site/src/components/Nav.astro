@@ -20,11 +20,12 @@ const other =
   "text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100";
 const button =
   "inline-flex h-9 min-w-9 items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-950 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white";
+// the language, theme and GitHub glyphs: Lucide (globe, sun, moon) and the GitHub mark
 const icon = "h-[18px] w-[18px]";
 ---
 
 <header
-  class="sticky top-0 z-40 border-b border-gray-200 bg-white/85 backdrop-blur dark:border-gray-800 dark:bg-gray-950/85"
+  class="sticky top-0 z-40 border-b border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950"
 >
   <div class="mx-auto flex h-14 max-w-7xl items-center gap-2 px-4 sm:px-6">
     <a href={links[0].href} class="flex shrink-0 items-center gap-2">
@@ -77,9 +78,10 @@ const icon = "h-[18px] w-[18px]";
           { value: "system", label: s.lang.system },
         ]}
       >
-        <svg slot="icon" viewBox="0 0 24 24" class={icon} fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="9"></circle>
-          <path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"></path>
+        <svg slot="icon" viewBox="0 0 24 24" class={icon} fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path>
+          <path d="M2 12h20"></path>
         </svg>
       </Menu>
 
@@ -94,12 +96,12 @@ const icon = "h-[18px] w-[18px]";
           { value: "system", label: s.theme.system },
         ]}
       >
-        <svg slot="icon" viewBox="0 0 24 24" class:list={[icon, "dark:hidden"]} fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <svg slot="icon" viewBox="0 0 24 24" class:list={[icon, "dark:hidden"]} fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="4"></circle>
-          <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path>
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
         </svg>
-        <svg slot="icon" viewBox="0 0 24 24" class:list={[icon, "hidden dark:block"]} fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"></path>
+        <svg slot="icon" viewBox="0 0 24 24" class:list={[icon, "hidden dark:block"]} fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
         </svg>
       </Menu>
     </div>

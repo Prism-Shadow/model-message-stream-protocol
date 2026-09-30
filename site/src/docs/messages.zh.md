@@ -1,8 +1,8 @@
 ---
-description: UniMessage，每个提供商都能读写的消息，以及它所包含的内容项。
+description: UniMessage，每个服务商都能读写的消息，以及它所包含的内容项。
 ---
 
-`UniMessage` 是对话中的一条消息。它是你发送的东西，是有状态客户端保存在历史里的东西，也是一条结束的流最终合成的东西。
+`UniMessage` 是对话中的一条消息。你发送它，有状态客户端将它存入历史，一条结束的流最终也合成它。
 
 ```json
 {
@@ -28,7 +28,7 @@ description: UniMessage，每个提供商都能读写的消息，以及它所包
 | `finish_reason` | `"stop"`、`"length"`、`"tool_call"`、`"unknown"` 或 null | 响应结束的原因。 |
 | `created_at` | 整数 | Unix 时间，单位毫秒。没有这个字段的消息由 MMSP 补上。 |
 
-你自己写的消息只需要 `role` 和 `content_items`。
+你写的消息只需要 `role` 和 `content_items`。
 
 ## 内容项
 
@@ -45,7 +45,7 @@ description: UniMessage，每个提供商都能读写的消息，以及它所包
 | `tool_result.done` | `text`、可选的 `images`、`tool_call_id` | 用户 |
 | `embedding.done` | `embedding`，一个数字列表 | 助手 |
 
-助手写的任何一项都可能带有 [`fidelity`](/zh/docs/fidelity/)：提供商在下一轮接受这一项所需要拿回的东西。
+助手写的任何一项都可能带有 [`fidelity`](/zh/docs/fidelity/)：服务商在下一轮接受这一项时需要拿回的东西。
 
 在 Python 中 `data` 是 `bytes`，在 TypeScript 中是 `Buffer`。
 

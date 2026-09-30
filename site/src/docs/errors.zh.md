@@ -4,7 +4,7 @@ description: MMSP 抛出的错误，每个错误携带什么，以及该怎么�
 
 MMSP 抛出的每个错误都是 `MMSPError`。在 Python 中它是 `ValueError` 的子类，在 TypeScript 中它继承 `Error`。
 
-一条流以它的 `stop` 事件或一个异常结束，二者不会同时出现。抛出异常时，`stop` 事件不会发送，有状态历史保持原样。
+流式响应以 `stop` 事件结束，也可能因异常终止，二者不会同时发生。抛出异常时，`stop` 事件不会发送，有状态的历史记录保持原样。
 
 ## 流式过程中
 
@@ -14,9 +14,9 @@ MMSP 抛出的每个错误都是 `MMSPError`。在 Python 中它是 `ValueError`
 | `EmptyResponseError` | 响应只有思考，没有别的内容就结束了。这样的消息在下一轮送回会得到 400。在原本该出现 `stop` 事件的位置抛出。 | `client`、结束原因，以及 `usage_metadata`，token 仍可计数 |
 | `StreamProtocolError` | 某个客户端产生的流违反了[文法](/zh/docs/streaming/)。这是 MMSP 的 bug，不是模型输出的问题。 | `client` |
 
-对于 `ToolCallArgumentParseError`，记录预览，然后重试或重新提示模型。绝不要用不完整的参数运行工具。
+遇到 `ToolCallArgumentParseError`，记录预览后重试或重新提示模型。切勿使用不完整的参数运行工具。
 
-Python 把这些字段命名为 `tool_name`、`tool_call_id`、`raw_arguments_length`、`raw_arguments_preview`、`finish_reason` 和 `usage_metadata`；TypeScript 命名为 `toolName`、`toolCallId`、`rawArgumentsLength`、`rawArgumentsPreview`、`finishReason` 和 `usageMetadata`。
+Python 将这些字段命名为 `tool_name`、`tool_call_id`、`raw_arguments_length`、`raw_arguments_preview`、`finish_reason` 和 `usage_metadata`；TypeScript 命名为 `toolName`、`toolCallId`、`rawArgumentsLength`、`rawArgumentsPreview`、`finishReason` 和 `usageMetadata`。
 
 ## 请求发出之前
 
@@ -29,6 +29,6 @@ Python 把这些字段命名为 `tool_name`、`tool_call_id`、`raw_arguments_le
 
 ## MMSP 不认识的输出
 
-网关会往流里塞自己的帧：心跳、计费提示。MMSP 会跳过它不认识的东西，所以一个这样的帧不会中断一次长生成。
+网关会往流里插入自己的帧，比如心跳、计费提示。MMSP 会跳过它不认识的内容，因此这类帧不会中断一次长生成。
 
-把环境变量 `MMSP_DEBUG` 设成 `0`、`false`、`no`、`off` 之外的任何值，它就改为抛错。接入新提供商时你会想要这个。
+将环境变量 `MMSP_DEBUG` 设为 `0`、`false`、`no`、`off` 之外的任何值，遇到不认识的帧就会抛错。接入新服务商时，你会需要这个功能。
