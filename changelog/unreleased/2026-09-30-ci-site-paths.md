@@ -3,6 +3,7 @@
 - **Date:** 2026-09-30
 - **Type:** chore
 - **Scope:** `ci`
+- **PR:** [#236](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/236)
 
 [中文版](2026-09-30-ci-site-paths.zh.md)
 
