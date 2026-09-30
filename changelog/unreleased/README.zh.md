@@ -2,8 +2,8 @@
 
 [English](README.md)
 
-- [2026-09-30] Playground 随模型设定客户端类型和 base URL，新增 Client Type 下拉框；自动填入的 base URL 不随请求发送。([详情](2026-09-30-playground-client-type.zh.md))
-- [2026-09-30] 支持 Claude Opus 5.5、Sonnet 5.5 与 Fable 5.1、GPT-6.1 Sol、DeepSeek Flash 和 Gemini 3.8 TTS；双说话人台词稿以逐轮的语音元数据发给 3.8 TTS。([详情](2026-09-30-latest-models.zh.md))
+- [2026-09-30] Playground 随模型设定客户端类型和 base URL，新增 Client Type 下拉框；自动填入的 base URL 不随请求发送。([详情](2026-09-30-playground-client-type.zh.md), [#229](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/229))
+- [2026-09-30] 支持 Claude Opus 5.5、Sonnet 5.5 与 Fable 5.1、GPT-6.1 Sol、DeepSeek Flash 和 Gemini 3.8 TTS；双说话人台词稿以逐轮的语音元数据发给 3.8 TTS。([详情](2026-09-30-latest-models.zh.md), [#229](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/229))
 - [2026-09-30] 客户端按类型指名：每个厂商一个官方客户端（`openai-official`、`anthropic-official`、`gemini-official`、`zai-official`、`moonshot-official`、`deepseek-official`、`minimax-official`），每种协议一个兼容客户端；不传 `client_type` 时由模型 id 开头的系列指名官方客户端，其他 id 要求传入。([详情](2026-09-30-client-types.zh.md))
 - [2026-09-29] 站点跟随系统语言（中文或英文）与主题（亮色或暗色），新增一行安装 skill 的“交给你的编码助手”一节与“Agent 循环”一页，文档目录跟随阅读位置、可复制 Markdown，新增 sitemap 与 star 数，首页把同一份输入依次交给三个模型回放，stop 事件以胶囊标签和柱状图展示，标志改为四块色块上的四字母。([详情](2026-09-29-site-languages-and-themes.zh.md))
 - [2026-09-29] 新增站点 mmsp.penguin.ooo，包含首页与文档；README 的 header、概念图与 social preview 以 MMSP 之名重绘。([详情](2026-09-29-site-and-artwork.zh.md), [#226](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/226))
