@@ -1,0 +1,199 @@
+---
+// The overview's opening: one input, sent to three models, and each model's stream replayed
+// event by event next to the message it adds up to. Built with the finished state, so it reads
+// without JavaScript or motion.
+import { Code } from "astro:components";
+import { STRINGS, type Locale } from "../shared/i18n";
+import { SCENARIOS, inputCode, renderEvent, renderMessage, type PlayerWords } from "../shared/stream-demo";
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const s = STRINGS[locale].player;
+const words: PlayerWords = {
+  nothing: s.nothing,
+  running: s.running,
+  streaming: s.streaming,
+  finish: s.finish,
+  usage: s.usage,
+  tokens: s.tokens,
+  cached: s.cached,
+  prompt: s.prompt,
+  thoughts: s.thoughts,
+  response: s.response,
+};
+const first = SCENARIOS[0];
+const label = "text-xs font-semibold text-gray-500 dark:text-gray-400";
+const themes = { light: "github-light", dark: "github-dark" } as const;
+---
+
+<div
+  class="overflow-hidden rounded-lg border border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900"
+  data-stream-player
+  data-words={JSON.stringify(words)}
+>
+  <div
+    class="flex flex-wrap items-center gap-1 border-b border-gray-200 px-2 pt-2 dark:border-gray-800"
+    role="tablist"
+    aria-label={s.label}
+  >
+    {
+      SCENARIOS.map((scenario, index) => (
+        <button
+          type="button"
+          role="tab"
+          data-scenario={scenario.id}
+          aria-selected={index === 0 ? "true" : "false"}
+          class="rounded-t-md border-b-2 border-transparent px-2.5 py-1.5 text-[13px] text-gray-500 transition-colors hover:text-gray-900 aria-selected:border-brand-600 aria-selected:font-medium aria-selected:text-brand-700 dark:text-gray-400 dark:hover:text-gray-100 dark:aria-selected:border-brand-400 dark:aria-selected:text-brand-300"
+        >
+          {scenario.label}
+        </button>
+      ))
+    }
+    <button
+      type="button"
+      data-pause
+      aria-pressed="false"
+      class="mb-1.5 ml-auto inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-300 dark:hover:bg-gray-800"
+    >
+      <!-- Lucide pause and play; the script swaps which one shows -->
+      <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="currentColor" aria-hidden="true" data-icon="pause">
+        <rect x="14" y="4" width="4" height="16" rx="1"></rect>
+        <rect x="6" y="4" width="4" height="16" rx="1"></rect>
+      </svg>
+      <svg viewBox="0 0 24 24" class="hidden h-3.5 w-3.5" fill="currentColor" aria-hidden="true" data-icon="play">
+        <path d="M6 3l14 9-14 9V3Z"></path>
+      </svg>
+      <span data-pause-label data-pause-text={s.pause} data-play-text={s.play}>{s.pause}</span>
+    </button>
+  </div>
+
+  <div class="border-b border-gray-200 px-3 py-2.5 dark:border-gray-800">
+    <h3 class={label}>{s.input}</h3>
+    <div class="player-code mt-1.5">
+      {SCENARIOS.map((scenario, index) => <Code code={inputCode(scenario)} lang="typescript" themes={themes} data-input-for={scenario.id} hidden={index !== 0 ? true : undefined} />)}
+    </div>
+  </div>
+
+  <div class="grid gap-px bg-gray-200 lg:grid-cols-[1.35fr_1fr] dark:bg-gray-800">
+    <div class="min-w-0 bg-gray-50 p-3 dark:bg-gray-900">
+      <h3 class={label}>{s.events}</h3>
+      <!-- the finished stream of every scenario, invisible in the same cell, holds the column at
+           its tallest, so the page below never moves while a stream plays -->
+      <div class="mt-2 grid">
+        {SCENARIOS.map((scenario) => <ol aria-hidden="true" class="invisible col-start-1 row-start-1 space-y-px" set:html={scenario.events.map(renderEvent).join("")} />)}
+        <ol class="col-start-1 row-start-1 space-y-px" data-events set:html={first.events.map(renderEvent).join("")} />
+      </div>
+    </div>
+    <div class="min-w-0 bg-gray-50 p-3 dark:bg-gray-900">
+      <h3 class={label}>{s.message}</h3>
+      <div class="mono mt-2 grid text-[12.5px] leading-5">
+        {SCENARIOS.map((scenario) => <div aria-hidden="true" class="invisible col-start-1 row-start-1" set:html={renderMessage(scenario.events, scenario.events.length, words)} />)}
+        <div class="col-start-1 row-start-1" data-message set:html={renderMessage(first.events, first.events.length, words)} />
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  import { SCENARIOS, renderEvent, renderMessage, type PlayerWords } from "../shared/stream-demo";
+
+  const STEP_MS = 420;
+  // the finished stream stays on screen this long before it plays again
+  const REST_MS = 3000;
+
+  for (const player of document.querySelectorAll<HTMLElement>("[data-stream-player]")) {
+    const words = JSON.parse(player.dataset.words!) as PlayerWords;
+    const codes = [...player.querySelectorAll<HTMLElement>("[data-input-for]")];
+    const events = player.querySelector<HTMLElement>("[data-events]")!;
+    const message = player.querySelector<HTMLElement>("[data-message]")!;
+    const tabs = [...player.querySelectorAll<HTMLButtonElement>("[data-scenario]")];
+    const pause = player.querySelector<HTMLButtonElement>("[data-pause]")!;
+    const still = matchMedia("(prefers-reduced-motion: reduce)");
+    let scenario = SCENARIOS[0];
+    let count = 0;
+    let timer: number | undefined;
+    let visible = false;
+    let paused = false;
+
+    const show = () => {
+      events.innerHTML = scenario.events.slice(0, count).map(renderEvent).join("");
+      message.innerHTML = renderMessage(scenario.events, count, words);
+      if (still.matches) return;
+      // the usage bars grow in when the stop event arrives
+      for (const bar of message.querySelectorAll<HTMLElement>("[data-bar]")) {
+        bar.style.width = "0%";
+        bar.getBoundingClientRect();
+        bar.style.width = bar.dataset.bar!;
+      }
+    };
+
+    // one event at a time; after the last, a rest, then the stream again, for as long as the
+    // player is on screen and not paused
+    const step = () => {
+      window.clearTimeout(timer);
+      if (paused) return;
+      if (count < scenario.events.length) {
+        count += 1;
+        show();
+        timer = window.setTimeout(step, STEP_MS);
+      } else if (visible) {
+        timer = window.setTimeout(() => {
+          count = 0;
+          show();
+          step();
+        }, REST_MS);
+      }
+    };
+    const play = () => {
+      window.clearTimeout(timer);
+      count = 0;
+      if (still.matches) {
+        count = scenario.events.length;
+        show();
+        return;
+      }
+      show();
+      step();
+    };
+
+    for (const tab of tabs) {
+      tab.addEventListener("click", () => {
+        scenario = SCENARIOS.find((candidate) => candidate.id === tab.dataset.scenario)!;
+        for (const other of tabs) {
+          other.setAttribute("aria-selected", String(other === tab));
+        }
+        for (const code of codes) {
+          code.hidden = code.dataset.inputFor !== scenario.id;
+        }
+        play();
+      });
+    }
+
+    const label = pause.querySelector<HTMLElement>("[data-pause-label]")!;
+    pause.addEventListener("click", () => {
+      paused = !paused;
+      pause.setAttribute("aria-pressed", String(paused));
+      // an SVG element has no hidden property, so the class is what hides it
+      pause.querySelector("[data-icon=pause]")!.classList.toggle("hidden", paused);
+      pause.querySelector("[data-icon=play]")!.classList.toggle("hidden", !paused);
+      label.textContent = paused ? label.dataset.playText! : label.dataset.pauseText!;
+      if (!paused) step();
+    });
+
+    const seen = new IntersectionObserver(
+      (entries) => {
+        const now = entries.some((entry) => entry.isIntersecting);
+        if (now && !visible) {
+          visible = true;
+          if (!paused) play();
+        } else if (!now) {
+          visible = false;
+        }
+      },
+      { threshold: 0.4 },
+    );
+    seen.observe(player);
+  }
+</script>

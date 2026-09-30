@@ -1,6 +1,6 @@
-# AgentHub Python Implementation
+# MMSP Python Implementation
 
-This document demonstrates how to use `AutoLLMClient` for unified LLM interactions in AgentHub.
+This document demonstrates how to use `AutoLLMClient` for unified LLM interactions in MMSP.
 
 ## Building
 
@@ -20,19 +20,26 @@ make test     # Run tests
 Create a client by specifying the model name:
 
 ```python
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
-# Initialize with model name
+# The official OpenAI client, named by the model id's family
 client = AutoLLMClient(model="gpt-5.5")
 
-# Optionally specify API key (if not using environment variables)
-client = AutoLLMClient(model="gpt-5.5", api_key="your-openai-api-key")
+# The same, spelled out, with the key given in code
+client = AutoLLMClient(model="gpt-5.5", client_type="openai-official", api_key="your-openai-api-key")
 
-# Use OpenAI Chat Completions-compatible routing explicitly
-client = AutoLLMClient(model="custom-model", client_type="openai")
+# A compatible client, for any endpoint that serves OpenAI Chat Completions
+client = AutoLLMClient(
+    model="custom-model", client_type="openai-chat", base_url="http://127.0.0.1:8000/v1/", api_key="none"
+)
+
+# Gemini on Google Vertex AI: the service-account JSON key is the API key
+client = AutoLLMClient(model="gemini-3.8-flash", api_key=open("service-account.json").read())
 ```
 
-The client automatically selects the appropriate client based on the model name.
+`client_type` names one of the official clients (`openai-official`, `anthropic-official`, `gemini-official`, `zai-official`, `moonshot-official`, `deepseek-official`, `minimax-official`) or one of the compatible clients (`openai-responses`, `openai-chat`, `openai-chat-vllm-adapter`, `openai-embedding`, `ant-messages`, `gemini-generate-content`). It may be omitted for a model id that begins with a known family (`gpt-`, `text-embedding-`, `claude-`, `gemini-`, `glm-`, `kimi-`, `deepseek-`, `minimax-`), which names its official client; any other id raises and asks for one.
+
+A Vertex AI service-account key is served through generateContent, because Vertex AI's Interactions endpoint serves none of the Gemini models; any other Gemini key uses the Interactions API. `client_type="gemini-generate-content"` names generateContent explicitly, for gateways that proxy it.
 
 ## Core Methods
 
@@ -42,14 +49,14 @@ Stateless method that requires passing the full message history on each call:
 
 ```python
 import asyncio
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 
 async def main():
     client = AutoLLMClient(model="gpt-5.5")
 
     async for event in client.streaming_response(
-        messages=[{"role": "user", "content_items": [{"type": "text", "text": "Hello!"}]}], config={}
+        messages=[{"role": "user", "content_items": [{"type": "text.done", "text": "Hello!"}]}], config={}
     ):
         print(event)
 
@@ -57,13 +64,15 @@ async def main():
 asyncio.run(main())
 ```
 
+Both streaming methods yield `delta` events, each carrying exactly one content item, then exactly one `stop` event, always last, carrying `usage_metadata` and `finish_reason`. Each item streams as one or more `.delta` fragments (`text.delta`, `tool_call.delta`, …) followed by its complete `.done` item (`text.done`, `tool_call.done`, …); items never interleave.
+
 ### streaming_response_stateful
 
 Stateful method that maintains conversation history internally:
 
 ```python
 import asyncio
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 
 async def main():
@@ -71,13 +80,13 @@ async def main():
 
     # First message
     async for event in client.streaming_response_stateful(
-        message={"role": "user", "content_items": [{"type": "text", "text": "My name is Alice"}]}, config={}
+        message={"role": "user", "content_items": [{"type": "text.done", "text": "My name is Alice"}]}, config={}
     ):
         print(event)
 
     # Second message - history is maintained automatically
     async for event in client.streaming_response_stateful(
-        message={"role": "user", "content_items": [{"type": "text", "text": "What's my name?"}]}, config={}
+        message={"role": "user", "content_items": [{"type": "text.done", "text": "What's my name?"}]}, config={}
     ):
         print(event)
 
@@ -133,7 +142,7 @@ When using tools, you must handle `tool_call_id` correctly:
 ```python
 import asyncio
 import json
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 
 def get_weather(location: str) -> str:
@@ -159,16 +168,16 @@ async def main():
     # User asks about weather
     events = []
     async for event in client.streaming_response_stateful(
-        message={"role": "user", "content_items": [{"type": "text", "text": "What's the weather in London?"}]},
+        message={"role": "user", "content_items": [{"type": "text.done", "text": "What's the weather in London?"}]},
         config=config,
     ):
         events.append(event)
 
-    # Extract function call and tool_call_id
+    # Read the complete call from its tool_call.done item; tool_call.delta items are fragments
     tool_call = None
     for event in events:
         for item in event["content_items"]:
-            if item["type"] == "tool_call":
+            if item["type"] == "tool_call.done":
                 tool_call = item
                 break
 
@@ -185,7 +194,7 @@ async def main():
                 "role": "user",
                 "content_items": [
                     {
-                        "type": "tool_result",
+                        "type": "tool_result.done",
                         "text": result,
                         "tool_call_id": tool_call["tool_call_id"],  # Required for tool responses
                     }
@@ -207,10 +216,10 @@ asyncio.run(main())
 {
     "role": "user" | "assistant",
     "content_items": [
-        {"type": "text", "text": "Hello"},
-        {"type": "image_url", "image_url": "https://..."},
+        {"type": "text.done", "text": "Hello"},
+        {"type": "image_url.done", "image_url": "https://..."},
         {
-            "type": "tool_call",
+            "type": "tool_call.done",
             "name": "get_weather",
             "arguments": {"location": "London"},
             "tool_call_id": "call_abc123",
@@ -218,6 +227,8 @@ asyncio.run(main())
     ],
 }
 ```
+
+Messages hold complete items only, typed with a `.done` suffix. Item types without the suffix, saved before 0.5.0, are still accepted with a deprecation warning until 0.6.0; `normalize_legacy_messages(messages)` converts stored messages.
 
 ### Tool Response with tool_call_id
 
@@ -228,9 +239,9 @@ When responding to a tool call, include the `tool_call_id` in the result content
     "role": "user",
     "content_items": [
         {
-            "type": "tool_result",
+            "type": "tool_result.done",
             "text": "London is 22°C today.",
-            "tool_call_id": "call_abc123",  # From tool_call event
+            "tool_call_id": "call_abc123",  # From the tool_call.done item
         }
     ],
 }
@@ -239,7 +250,7 @@ When responding to a tool call, include the `tool_call_id` in the result content
 ## Configuration Options
 
 ```python
-from agenthub import PromptCaching, ThinkingLevel
+from mmsp import PromptCaching, ThinkingLevel
 
 config = {
     "max_tokens": 500,
@@ -256,12 +267,12 @@ config = {
 
 ## Conversation Tracing
 
-AgentHub provides a built-in `Tracer` to save and browse conversation history. When you specify a `trace_id` in the config, conversations are automatically saved to both JSON and TXT formats.
+MMSP provides a built-in `Tracer` to save and browse conversation history. When you specify a `trace_id` in the config, conversations are automatically saved to both JSON and TXT formats.
 
 ### Basic Usage
 
 ```python
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 client = AutoLLMClient(model="gpt-5.5")
 
@@ -269,12 +280,12 @@ client = AutoLLMClient(model="gpt-5.5")
 config = {"trace_id": "agent1/conversation_001"}
 
 async for event in client.streaming_response_stateful(
-    message={"role": "user", "content_items": [{"type": "text", "text": "Hello"}]}, config=config
+    message={"role": "user", "content_items": [{"type": "text.done", "text": "Hello"}]}, config=config
 ):
     pass  # Conversation is automatically saved
 ```
 
-The default cache directory is `cache`, you can change it by setting `AGENTHUB_CACHE_DIR` environment variable.
+The default cache directory is `cache`, you can change it by setting `MMSP_CACHE_DIR` environment variable.
 
 This creates two files in the `cache` directory:
 - `cache/agent1/conversation_001.json` - Structured data with full history and config
@@ -285,7 +296,7 @@ This creates two files in the `cache` directory:
 Start a web server to browse and view saved conversations:
 
 ```python
-from agenthub.integration.tracer import Tracer
+from mmsp.integration.tracer import Tracer
 
 # Start web server
 Tracer("path/to/cache").start_web_server(host="127.0.0.1", port=25750)
@@ -294,7 +305,7 @@ Tracer("path/to/cache").start_web_server(host="127.0.0.1", port=25750)
 Or use the CLI:
 
 ```bash
-python -m agenthub.integration.tracer --cache_dir ./cache --host 127.0.0.1 --port 25750
+python -m mmsp.integration.tracer --cache_dir ./cache --host 127.0.0.1 --port 25750
 ```
 
 Then visit `http://127.0.0.1:25750` in your browser to browse saved conversations.
@@ -304,7 +315,7 @@ Then visit `http://127.0.0.1:25750` in your browser to browse saved conversation
 Start a web server to test with the playground:
 
 ```python
-from agenthub.integration.playground import start_playground_server
+from mmsp.integration.playground import start_playground_server
 
 start_playground_server()
 ```
@@ -312,7 +323,7 @@ start_playground_server()
 Or use the CLI:
 
 ```bash
-python -m agenthub.integration.playground --host 127.0.0.1 --port 25751
+python -m mmsp.integration.playground --host 127.0.0.1 --port 25751
 ```
 
 Then visit `http://127.0.0.1:25751` in your browser to test with the playground.

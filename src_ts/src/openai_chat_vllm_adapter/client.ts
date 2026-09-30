@@ -20,7 +20,7 @@ type ThinkingProfile = Record<ThinkingLevel, ChatTemplateKwargs>;
 
 // vLLM passes chat_template_kwargs straight to the served model's chat template, so the
 // switch that turns thinking on is whatever that template happens to read. Each profile
-// below maps an AgentHub level onto one family's kwargs; an empty mapping means the
+// below maps an MMSP level onto one family's kwargs; an empty mapping means the
 // request carries no chat_template_kwargs at all.
 //
 // The upstream artifacts these profiles are read off, and the clamping those artifacts
@@ -115,7 +115,7 @@ export class OpenaiChatVllmAdapterClient extends OpenaiChatClient {
     return { ...QWEN3_THINKING[thinkingLevel] };
   }
 
-  /** Map AgentHub's level onto the thinking switch this model's chat template reads. */
+  /** Map MMSP's level onto the thinking switch this model's chat template reads. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   override transformUniConfigToModelConfig(config: UniConfig): any {
     const vllmConfig = super.transformUniConfigToModelConfig(config);

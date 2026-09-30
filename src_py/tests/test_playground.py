@@ -12,11 +12,45 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
+
 from flask import Flask
 
-from agenthub.abort_signal import AbortSignal
-from agenthub.integration import playground
-from agenthub.integration.playground import create_chat_app
+from mmsp.abort_signal import AbortSignal
+from mmsp.integration import playground
+from mmsp.integration.playground import create_chat_app
+
+
+EVENTS = [
+    {
+        "role": "assistant",
+        "event_type": "delta",
+        "content_items": [{"type": "text.delta", "text": "Hi"}],
+        "usage_metadata": None,
+        "finish_reason": None,
+        "created_at": 0,
+    },
+    {
+        "role": "assistant",
+        "event_type": "delta",
+        "content_items": [{"type": "text.done", "text": "Hi"}],
+        "usage_metadata": None,
+        "finish_reason": None,
+        "created_at": 0,
+    },
+    {
+        "role": "assistant",
+        "event_type": "stop",
+        "content_items": [],
+        "usage_metadata": {"cached_tokens": None, "prompt_tokens": 3, "thoughts_tokens": None, "response_tokens": 1},
+        "finish_reason": "stop",
+        "created_at": 0,
+    },
+]
+
+
+def _sse_events(body: bytes) -> list[str]:
+    return [chunk.removeprefix("data: ") for chunk in body.decode().split("\n\n") if chunk]
 
 
 def test_create_chat_app():
@@ -33,17 +67,21 @@ def test_chat_app_index_route():
     with app.test_client() as client:
         response = client.get("/")
         assert response.status_code == 200
-        assert b"AgentHub Playground" in response.data
-        assert b'<h1 class="text-xl font-semibold">AgentHub</h1>' in response.data
+        assert b"MMSP Playground" in response.data
+        assert b'<h1 class="brand-name">MMSP</h1>' in response.data
         assert b"messagesContainer" in response.data
         assert b"messageInput" in response.data
         assert b'id="modelCombobox"' in response.data
         assert b'id="thinkingLevelCombobox"' in response.data
         assert b'id="thinkingSummaryCombobox"' in response.data
         assert b'id="toolChoiceCombobox"' in response.data
-        assert b'data-combobox-option data-value="gpt-5.6-luna"' in response.data
-        assert b'data-value="text-embedding-3-large" data-client-type="openai-embedding"' in response.data
+        assert b'data-combobox-option data-value="gpt-6.1-sol"' in response.data
+        assert b'data-value="text-embedding-3-large"' in response.data
         assert b"getSelectedClientType()" in response.data
+        assert b'id="clientTypeCombobox"' in response.data
+        # the server hands the page its client types and their default endpoints
+        assert b"__PLAYGROUND_DEFAULTS__" not in response.data
+        assert b'"openai-official"' in response.data
         assert b"toggleCombobox('modelCombobox')" in response.data
         assert b"selectComboboxOption('modelCombobox', this)" in response.data
         assert b"customModelInput" in response.data
@@ -58,8 +96,12 @@ def test_chat_app_index_route():
         assert b'id="listModelsError"' in response.data
         assert b"addListedModels(" in response.data
         assert b"getSelectedClientType()" in response.data
-        assert b"selectedOptionClientType()" in response.data
-        assert b"handleClientTypeInput()" in response.data
+        assert b'id="clientTypeCombobox"' in response.data
+        # the server hands the page its client types and their default endpoints
+        assert b"__PLAYGROUND_DEFAULTS__" not in response.data
+        assert b'"openai-official"' in response.data
+        assert b"handleClientTypeChange()" in response.data
+        assert b"handleBaseUrlInput()" in response.data
         assert b">Connection</span>" in response.data
         assert b">Generation</span>" in response.data
         assert b"getExtraHeaders()" in response.data
@@ -74,6 +116,15 @@ def test_chat_app_index_route():
         assert b'id="apiKeyVisibilityShowIcon" class="hidden"' in response.data
         assert b'id="apiKeyVisibilityHideIcon" xmlns=' in response.data
         assert b"baseUrlInput" in response.data
+        assert b"type: 'text.done', text: message" in response.data
+        assert b"type: 'image_url.done', image_url: img" in response.data
+        assert b"event.event_type === 'stop'" in response.data
+        assert b"item.type === 'text.delta'" in response.data
+        assert b"item.type === 'thinking.done'" in response.data
+        assert b"item.type === 'tool_call.done'" in response.data
+        assert b"item.type.endsWith('.done')" in response.data
+        assert b"event.error" in response.data
+        assert b"partial_tool_call" not in response.data
         assert b"renderEmbedding" in response.data
         assert b"item.embedding.slice(0, 5)" in response.data
         assert b"appendAudioChunk(contentDiv, item, audioStream)" in response.data
@@ -82,14 +133,14 @@ def test_chat_app_index_route():
         assert b"finalizeAudioStream(audioStream, true)" in response.data
         assert b"audioStream.container.querySelector('audio').play()" in response.data
         assert b"assistantCard.insertAdjacentHTML('beforeend', metadataHtml)" in response.data
-        assert b"agenthub.playground.config" in response.data
+        assert b"mmsp.playground.config" in response.data
         assert b"restoreConfig()" in response.data
         assert b"pcmBase64ToWavDataUrl" not in response.data
         assert b"assistantCard.innerHTML +=" not in response.data
         assert b'href="/tracer/"' in response.data
         assert b'target="_blank"' in response.data
         assert b"Open Tracer" in response.data
-        assert response.data.index(b'<h1 class="text-xl font-semibold">') < response.data.index(b">GitHub<")
+        assert response.data.index(b'<h1 class="brand-name">') < response.data.index(b">GitHub<")
         assert response.data.index(b">GitHub<") < response.data.index(b">Open Tracer<")
         assert b"temperatureInput" not in response.data
         assert b"maxTokensInput" not in response.data
@@ -192,14 +243,8 @@ def test_chat_app_uses_client_connection_options(monkeypatch):
         async def streaming_response_stateful(self, message, config, signal=None):
             captured["request_config"] = config
             captured["signal"] = signal
-            yield {
-                "role": "assistant",
-                "event_type": "stop",
-                "content_items": [],
-                "usage_metadata": None,
-                "finish_reason": "stop",
-                "created_at": 0,
-            }
+            for event in EVENTS:
+                yield event
 
         def clear_history(self):
             pass
@@ -214,13 +259,13 @@ def test_chat_app_uses_client_connection_options(monkeypatch):
             "/api/chat",
             json={
                 "session_id": "connection-options",
-                "message": {"role": "user", "content_items": [{"type": "text", "text": "Hello"}]},
+                "message": {"role": "user", "content_items": [{"type": "text.done", "text": "Hello"}]},
                 "config": {
                     "model": "gpt-5.5",
                     "api_key": "test-key",
                     "base_url": "https://example.test/v1",
-                    "client_type": "gpt-5.5",
-                    "default_headers": {"X-Title": "AgentHub"},
+                    "client_type": "openai-official",
+                    "default_headers": {"X-Title": "MMSP"},
                     "thinking_level": "low",
                 },
             },
@@ -233,8 +278,8 @@ def test_chat_app_uses_client_connection_options(monkeypatch):
         "model": "gpt-5.5",
         "api_key": "test-key",
         "base_url": "https://example.test/v1",
-        "client_type": "gpt-5.5",
-        "default_headers": {"X-Title": "AgentHub"},
+        "client_type": "openai-official",
+        "default_headers": {"X-Title": "MMSP"},
     }
     assert captured["request_config"] == {"thinking_level": "low"}
     assert isinstance(captured["signal"], AbortSignal)
@@ -251,14 +296,8 @@ def test_chat_app_accepts_large_image_payload(monkeypatch):
         async def streaming_response_stateful(self, message, config, signal=None):
             captured["message"] = message
             captured["signal"] = signal
-            yield {
-                "role": "assistant",
-                "event_type": "stop",
-                "content_items": [],
-                "usage_metadata": None,
-                "finish_reason": "stop",
-                "created_at": 0,
-            }
+            for event in EVENTS:
+                yield event
 
         def clear_history(self):
             pass
@@ -274,7 +313,7 @@ def test_chat_app_accepts_large_image_payload(monkeypatch):
             "/api/chat",
             json={
                 "session_id": "large-image",
-                "message": {"role": "user", "content_items": [{"type": "image_url", "image_url": large_image}]},
+                "message": {"role": "user", "content_items": [{"type": "image_url.done", "image_url": large_image}]},
                 "config": {"model": "gpt-5.5"},
             },
         )
@@ -282,8 +321,107 @@ def test_chat_app_accepts_large_image_payload(monkeypatch):
         assert response.status_code == 200
         assert b"data:" in response.data
 
-    assert captured["message"]["content_items"][0] == {"type": "image_url", "image_url": large_image}
+    assert captured["message"]["content_items"][0] == {"type": "image_url.done", "image_url": large_image}
     assert isinstance(captured["signal"], AbortSignal)
+
+
+def test_chat_app_streams_every_event_then_the_done_marker(monkeypatch):
+    """Test that the chat route forwards each event of the response and then ends the stream."""
+
+    class FakeClient:
+        def __init__(self, model, api_key=None, base_url=None, client_type=None, default_headers=None):
+            pass
+
+        async def streaming_response_stateful(self, message, config, signal=None):
+            for event in EVENTS:
+                yield event
+
+    playground._session_clients.clear()
+    playground._session_client_options.clear()
+    monkeypatch.setattr(playground, "AutoLLMClient", FakeClient)
+
+    app = create_chat_app()
+    with app.test_client() as client:
+        response = client.post(
+            "/api/chat",
+            json={
+                "session_id": "stream-events",
+                "message": {"role": "user", "content_items": [{"type": "text.done", "text": "Hello"}]},
+                "config": {"model": "gpt-5.5"},
+            },
+        )
+
+        assert response.status_code == 200
+        events = _sse_events(response.data)
+
+    assert [json.loads(event) for event in events[:-1]] == EVENTS
+    assert events[-1] == "[DONE]"
+
+
+def test_chat_app_reports_a_response_that_fails_midway_as_an_error_event(monkeypatch):
+    """Test that a failure after the response started reaches the page as an error event."""
+
+    class FailingClient:
+        def __init__(self, model, api_key=None, base_url=None, client_type=None, default_headers=None):
+            pass
+
+        async def streaming_response_stateful(self, message, config, signal=None):
+            yield EVENTS[0]
+            raise RuntimeError("connection reset")
+
+    playground._session_clients.clear()
+    playground._session_client_options.clear()
+    monkeypatch.setattr(playground, "AutoLLMClient", FailingClient)
+
+    app = create_chat_app()
+    with app.test_client() as client:
+        response = client.post(
+            "/api/chat",
+            json={
+                "session_id": "failing-stream",
+                "message": {"role": "user", "content_items": [{"type": "text.done", "text": "Hello"}]},
+                "config": {"model": "gpt-5.5"},
+            },
+        )
+
+        assert response.status_code == 200
+        events = _sse_events(response.data)
+
+    assert [json.loads(event) for event in events[:-1]] == [EVENTS[0], {"error": "connection reset"}]
+    assert events[-1] == "[DONE]"
+
+
+def test_chat_app_names_an_error_without_a_message_by_its_class(monkeypatch):
+    """Test that a failure carrying no message still reaches the page as an error it shows."""
+
+    class TimingOutClient:
+        def __init__(self, model, api_key=None, base_url=None, client_type=None, default_headers=None):
+            pass
+
+        async def streaming_response_stateful(self, message, config, signal=None):
+            yield EVENTS[0]
+            raise TimeoutError()
+
+    playground._session_clients.clear()
+    playground._session_client_options.clear()
+    monkeypatch.setattr(playground, "AutoLLMClient", TimingOutClient)
+
+    app = create_chat_app()
+    with app.test_client() as client:
+        response = client.post(
+            "/api/chat",
+            json={
+                "session_id": "timing-out-stream",
+                "message": {"role": "user", "content_items": [{"type": "text.done", "text": "Hello"}]},
+                "config": {"model": "gpt-5.5"},
+            },
+        )
+
+        assert response.status_code == 200
+        events = _sse_events(response.data)
+
+    assert [json.loads(event) for event in events[:-1]] == [EVENTS[0], {"error": "TimeoutError"}]
+    assert events[-1] == "[DONE]"
 
 
 def test_chat_app_abort_route_interrupts_active_signal():

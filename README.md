@@ -1,22 +1,26 @@
 ![Header](.github/images/header.png)
 
-# AgentHub SDK - Unified and Precise LLM SDK
+# MMSP - Model Message Stream Protocol
 
-[![GitHub Repo stars](https://img.shields.io/github/stars/Prism-Shadow/AgentHub?style=social)](https://github.com/Prism-Shadow/AgentHub/stargazers)
-[![GitHub last commit](https://img.shields.io/github/last-commit/Prism-Shadow/AgentHub)](https://github.com/Prism-Shadow/AgentHub/commits/main)
-[![GitHub contributors](https://img.shields.io/github/contributors/Prism-Shadow/AgentHub?color=orange)](https://github.com/Prism-Shadow/AgentHub/graphs/contributors)
-[![Python tests](https://github.com/Prism-Shadow/AgentHub/actions/workflows/pytest.yml/badge.svg)](https://github.com/Prism-Shadow/AgentHub/actions/workflows/pytest.yml)
-[![Javascript tests](https://github.com/Prism-Shadow/AgentHub/actions/workflows/jest.yml/badge.svg)](https://github.com/Prism-Shadow/AgentHub/actions/workflows/jest.yml)
-[![PyPI](https://img.shields.io/pypi/v/agenthub-python)](https://pypi.org/project/agenthub-python/)
-[![NPM](https://img.shields.io/npm/v/@prismshadow/agenthub)](https://www.npmjs.com/package/@prismshadow/agenthub)
+[![GitHub Repo stars](https://img.shields.io/github/stars/Prism-Shadow/model-message-stream-protocol?style=social)](https://github.com/Prism-Shadow/model-message-stream-protocol/stargazers)
+[![GitHub last commit](https://img.shields.io/github/last-commit/Prism-Shadow/model-message-stream-protocol)](https://github.com/Prism-Shadow/model-message-stream-protocol/commits/main)
+[![GitHub contributors](https://img.shields.io/github/contributors/Prism-Shadow/model-message-stream-protocol?color=orange)](https://github.com/Prism-Shadow/model-message-stream-protocol/graphs/contributors)
+[![Python tests](https://github.com/Prism-Shadow/model-message-stream-protocol/actions/workflows/pytest.yml/badge.svg)](https://github.com/Prism-Shadow/model-message-stream-protocol/actions/workflows/pytest.yml)
+[![Javascript tests](https://github.com/Prism-Shadow/model-message-stream-protocol/actions/workflows/jest.yml/badge.svg)](https://github.com/Prism-Shadow/model-message-stream-protocol/actions/workflows/jest.yml)
+[![PyPI](https://img.shields.io/pypi/v/mmsp)](https://pypi.org/project/mmsp/)
+[![NPM](https://img.shields.io/npm/v/@prismshadow/mmsp)](https://www.npmjs.com/package/@prismshadow/mmsp)
 
-AgentHub is the LLM API Hub for the Agent era, built for high-precision autonomous agents.
+**Integrate every model the same way, and keep one API in your head instead of one per provider.**
 
-Using a coding agent? Install the AgentHub SKILL files from [`skills/`](skills/) so it can use AgentHub correctly in generated code.
+MMSP, the Model Message Stream Protocol, takes the per-provider differences off a developer's mind: one message format and one streaming grammar for every model provider, in Python and TypeScript.
 
-📢 Follow us on X: [![Twitter](https://img.shields.io/twitter/follow/prismshadow_ai)](https://twitter.com/prismshadow_ai) or join our [Discord Community](https://discord.gg/4TQ2bsSb)
+📖 Documentation: [mmsp.penguin.ooo](https://mmsp.penguin.ooo)
 
-## Why AgentHub?
+Using a coding agent? Install the MMSP SKILL files from [`skills/`](skills/) so it can use MMSP correctly in generated code.
+
+📢 Follow us on [![X](https://img.shields.io/badge/X-code%5Fhiyouga-000000?logo=x&logoColor=white)](https://x.com/code_hiyouga) or join our [![Discord](https://img.shields.io/badge/Discord-join%20chat-5865F2?logo=discord&logoColor=white)](https://discord.gg/eFHKqqcU3D)
+
+## Why MMSP?
 
 - 🔗 **Unified**: A consistent and intuitive interface for developing **agents** across different LLMs.
 
@@ -30,7 +34,7 @@ Using a coding agent? Install the AgentHub SKILL files from [`skills/`](skills/)
 
 Switch different LLMs with **zero code changes** and **no performance loss**.
 
-![AgentHub](.github/images/agenthub.png)
+![MMSP](.github/images/mmsp.png)
 
 ### Built-in Observability
 
@@ -43,39 +47,61 @@ https://github.com/user-attachments/assets/c49a21a1-5bf9-4768-a76d-f73c9a03ca87
 | Model Name     | Vendor                              | Example Model ID       | Input Modalities | Output Modalities              |
 | -------------- | ----------------------------------- | ---------------------- | ---------------- | ------------------------------ |
 | Gemini 3-3.8   | Official/Google Vertex AI           | `gemini-3.8-flash`     | Text, Image      | Text, Image, Speech, Embedding |
-| Claude 4.6-5   | Official/Amazon Bedrock/UModelVerse | `claude-opus-5`        | Text, Image      | Text                           |
-| GPT-5.4-6      | Official/OpenRouter/UModelVerse     | `gpt-6-astra`          | Text, Image      | Text, Embedding                |
+| Claude 4.6-5.5 | Official/Amazon Bedrock/UModelVerse | `claude-opus-5-5`      | Text, Image      | Text                           |
+| GPT-5.4-6.1    | Official/OpenRouter/UModelVerse     | `gpt-6.1-sol`          | Text, Image      | Text, Embedding                |
 | Kimi-K2.5/K2.6/K3 | Official/OpenRouter/SiliconFlow  | `kimi-k3`              | Text, Image      | Text                           |
-| DeepSeek V4    | Official/OpenRouter/SiliconFlow     | `deepseek-v4-pro`      | Text, Image      | Text                           |
+| DeepSeek V4    | Official/OpenRouter/SiliconFlow     | `deepseek-flash`       | Text, Image      | Text                           |
 | GLM-5.1-5.3    | Official/OpenRouter/SiliconFlow     | `glm-5.3`              | Text, Image      | Text                           |
 | MiniMax-M3     | Official                            | `MiniMax-M3`           | Text, Image      | Text                           |
 | Qwen3.6        | OpenRouter/SiliconFlow/vLLM         | `qwen/qwen3.6-35b-a3b` | Text, Image      | Text, Embedding                |
 
-Beyond the model-specific clients, four generic protocol clients call any compatible
-endpoint:
+### Clients
 
-- **`client_type="openai-chat"`** — OpenAI Chat Completions. Bare `"openai"` is an alias.
-- **`client_type="openai-chat-vllm-adapter"`** — Chat Completions as served by vLLM, mapping
-  `thinking_level` onto the `chat_template_kwargs` the served model's template reads.
-- **`client_type="openai-responses"`** — OpenAI Responses, served by OpenAI, OpenRouter,
-  DeepSeek, Z.AI, and MiniMax.
-- **`client_type="ant-messages"`** — Anthropic Messages, served by Anthropic, OpenRouter,
-  DeepSeek, Z.AI, and MiniMax.
+`AutoLLMClient` takes a model id and a `client_type`. An **official client** speaks its
+vendor's own API, knows the vendor's models, and reads the vendor's key from the environment;
+a **compatible client** speaks one wire protocol for any endpoint that serves it.
 
-Where a gateway serves more than one, prefer `"openai-responses"`: OpenRouter serves it for
-every model it hosts, while SiliconFlow serves Chat Completions only.
+| `client_type`              | Speaks                                                                 | Key and endpoint                         |
+| -------------------------- | ---------------------------------------------------------------------- | ---------------------------------------- |
+| `openai-official`          | OpenAI Responses; `text-embedding-*` models through OpenAI Embeddings  | `OPENAI_API_KEY`, `OPENAI_BASE_URL`      |
+| `anthropic-official`       | Anthropic Messages                                                     | `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL` |
+| `gemini-official`          | Gemini Interactions; generateContent for a Vertex AI service-account key | `GEMINI_API_KEY`, `GEMINI_BASE_URL`      |
+| `zai-official`             | Z.AI Chat Completions                                                  | `ZAI_API_KEY`, `ZAI_BASE_URL`            |
+| `moonshot-official`        | Moonshot Chat Completions                                              | `MOONSHOT_API_KEY`, `MOONSHOT_BASE_URL`  |
+| `deepseek-official`        | DeepSeek Responses                                                     | `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`  |
+| `minimax-official`         | MiniMax Responses                                                      | `MINIMAX_API_KEY`, `MINIMAX_BASE_URL`    |
+| `openai-responses`         | OpenAI Responses, served by OpenAI, OpenRouter, DeepSeek, Z.AI, MiniMax | `OPENAI_API_KEY`, `OPENAI_BASE_URL`      |
+| `openai-chat` (`openai`)   | OpenAI Chat Completions, served by most gateways, SiliconFlow, vLLM    | `OPENAI_API_KEY`, `OPENAI_BASE_URL`      |
+| `openai-chat-vllm-adapter` | Chat Completions as vLLM serves it, mapping `thinking_level` onto the template's switches | `OPENAI_API_KEY`, `OPENAI_BASE_URL` |
+| `openai-embedding`         | OpenAI Embeddings, served by any embedding endpoint                    | `OPENAI_API_KEY`, `OPENAI_BASE_URL`      |
+| `ant-messages`             | Anthropic Messages, served by Anthropic, OpenRouter, DeepSeek, Z.AI, MiniMax | `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL` |
+| `gemini-generate-content`  | Gemini generateContent, for gateways that proxy it                     | `GEMINI_API_KEY`, `GEMINI_BASE_URL`      |
+
+`client_type` may be omitted for a model id that begins with a known family: `gpt-` and
+`text-embedding-` route to `openai-official`, `claude-` to `anthropic-official`, `gemini-` to
+`gemini-official`, `glm-` to `zai-official`, `kimi-` to `moonshot-official`, `deepseek-` to
+`deepseek-official`, `minimax-` to `minimax-official`. Any other id raises and asks for a
+`client_type`. The `CLIENT_TYPE` environment variable names one for every client the code does
+not.
+
+Gemini on Google Vertex AI takes the service-account JSON key as the API key; `gemini-official`
+serves such a key through generateContent, because Vertex AI's Interactions endpoint serves none
+of these models.
+
+Where a gateway serves more than one protocol, prefer `"openai-responses"`: OpenRouter serves it
+for every model it hosts, while SiliconFlow serves Chat Completions only.
 
 The full machine-readable list — model, base URL, client, input/output modalities, context
 window, and per-million-token list pricing in USD or CNY:
 
 ```python
-from agenthub import list_supported_models
+from mmsp import list_supported_models
 
 models = list_supported_models(currency="CNY")  # "USD" by default
 ```
 
 ```typescript
-import { listSupportedModels } from "@prismshadow/agenthub";
+import { listSupportedModels } from "@prismshadow/mmsp";
 
 const models = listSupportedModels("CNY"); // "USD" by default
 ```
@@ -87,9 +113,9 @@ const models = listSupportedModels("CNY"); // "USD" by default
 Install from PyPI:
 
 ```bash
-uv add agenthub-python
+uv add mmsp
 # or
-pip install agenthub-python
+pip install mmsp
 ```
 
 Build from source:
@@ -105,7 +131,7 @@ See [src_py/README.md](src_py/README.md) for comprehensive usage examples and AP
 Install from npm:
 
 ```bash
-npm install @prismshadow/agenthub
+npm install @prismshadow/mmsp
 ```
 
 Build from source:
@@ -118,14 +144,16 @@ See [src_ts/README.md](src_ts/README.md) for comprehensive usage examples and AP
 
 ## Agent Skills
 
-AgentHub provides Codex/Claude Code skill files for assistants that need to help users consume the SDK packages:
+MMSP provides Codex/Claude Code skill files for assistants that need to help users consume the SDK packages:
 
-- Python skill: [`skills/agenthub-python/SKILL.md`](skills/agenthub-python/SKILL.md)
-- TypeScript skill: [`skills/agenthub-typescript/SKILL.md`](skills/agenthub-typescript/SKILL.md)
+- Python skill: [`skills/mmsp-python/SKILL.md`](skills/mmsp-python/SKILL.md)
+- TypeScript skill: [`skills/mmsp-typescript/SKILL.md`](skills/mmsp-typescript/SKILL.md)
 
 ## APIs
 
-`AutoLLMClient` is the main class for interacting with the AgentHub SDK. It is constructed with `model`, plus optional `api_key`, `base_url`, `client_type`, and `default_headers` — headers sent with every request, for endpoints that demand their own. It provides the following methods:
+`AutoLLMClient` is the main class for interacting with the MMSP SDK. It is constructed with `model` and `client_type` (see [Clients](#clients); a model id of a known family names its official client on its own), plus optional `api_key`, `base_url`, and `default_headers` — headers sent with every request, for endpoints that demand their own. It provides the following methods:
+
+A key goes only where it was given for: a client reads `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` from the environment only together with `OPENAI_BASE_URL` / `ANTHROPIC_BASE_URL` (or the provider's own endpoint), so a `base_url` passed in needs an `api_key` passed in with it, or the client raises at construction. A vendor client (`deepseek-v4`, `glm-5.x`, `kimi-k*`, `minimax-m3`, Gemini) reads its own variable, whatever endpoint it is given.
 
 - `(async) streaming_response(messages, config)`: Streams the response of LLMs in a stateless manner.
 - `(async) streaming_response_stateful(message, config)`: Streams the response of LLMs in a stateful manner.
@@ -134,12 +162,14 @@ AgentHub provides Codex/Claude Code skill files for assistants that need to help
 - `get_history()`: Returns the history of the stateful LLM client.
 - `set_history(history)`: Replaces the history of the stateful LLM client with a copy of the provided list.
 
-Streaming clients skip output they do not recognize, so a gateway's own frames cannot end a generation, and an event a client has nothing universal to emit for never reaches you. Set `AGENTHUB_DEBUG` to anything other than `0`, `false`, `no` or `off` to make both raise instead.
+Both streaming methods yield `delta` events, each carrying one content item, followed by exactly one `stop` event that carries the usage and the finish reason (see [UniEvent](#unievent)).
+
+Streaming clients skip output they do not recognize, so a gateway's own frames cannot end a generation. Set `MMSP_DEBUG` to anything other than `0`, `false`, `no` or `off` to make it raise instead.
 
 ## Basic Usage
 
 > [!NOTE]
-> We recommend using the **stateful interface** when calling the AgentHub SDK.
+> We recommend using the **stateful interface** when calling the MMSP SDK.
 
 ### OpenAI GPT-5.6
 
@@ -148,7 +178,7 @@ Python Example:
 ```python
 import asyncio
 import os
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 os.environ["OPENAI_API_KEY"] = "your-openai-api-key"
 
@@ -157,24 +187,25 @@ async def main():
     async for event in client.streaming_response_stateful(
         message={
             "role": "user",
-            "content_items": [{"type": "text", "text": "Say 'Hello, World!'"}]
+            "content_items": [{"type": "text.done", "text": "Say 'Hello, World!'"}]
         },
         config={"temperature": 1.0}
     ):
         print(event)
 
 asyncio.run(main())
-# {'role': 'assistant', 'event_type': 'delta', 'content_items': [{'type': 'text', 'text': 'Hello'}], 'usage_metadata': None, 'finish_reason': None}
-# {'role': 'assistant', 'event_type': 'delta', 'content_items': [{'type': 'text', 'text': ','}], 'usage_metadata': None, 'finish_reason': None}
-# {'role': 'assistant', 'event_type': 'delta', 'content_items': [{'type': 'text', 'text': ' World'}], 'usage_metadata': None, 'finish_reason': None}
-# {'role': 'assistant', 'event_type': 'delta', 'content_items': [{'type': 'text', 'text': '!'}], 'usage_metadata': None, 'finish_reason': None}
+# {'role': 'assistant', 'event_type': 'delta', 'content_items': [{'type': 'text.delta', 'text': 'Hello'}], 'usage_metadata': None, 'finish_reason': None}
+# {'role': 'assistant', 'event_type': 'delta', 'content_items': [{'type': 'text.delta', 'text': ','}], 'usage_metadata': None, 'finish_reason': None}
+# {'role': 'assistant', 'event_type': 'delta', 'content_items': [{'type': 'text.delta', 'text': ' World'}], 'usage_metadata': None, 'finish_reason': None}
+# {'role': 'assistant', 'event_type': 'delta', 'content_items': [{'type': 'text.delta', 'text': '!'}], 'usage_metadata': None, 'finish_reason': None}
+# {'role': 'assistant', 'event_type': 'delta', 'content_items': [{'type': 'text.done', 'text': 'Hello, World!'}], 'usage_metadata': None, 'finish_reason': None}
 # {'role': 'assistant', 'event_type': 'stop', 'content_items': [], 'usage_metadata': {'cached_tokens': 0, 'prompt_tokens': 12, 'thoughts_tokens': 0, 'response_tokens': 8}, 'finish_reason': 'stop'}
 ```
 
 TypeScript Example:
 
 ```typescript
-import { AutoLLMClient } from "@prismshadow/agenthub";
+import { AutoLLMClient } from "@prismshadow/mmsp";
 
 process.env.OPENAI_API_KEY = "your-openai-api-key";
 
@@ -183,7 +214,7 @@ async function main() {
   for await (const event of client.streamingResponseStateful({
     message: {
       role: "user",
-      content_items: [{ type: "text", text: "Say 'Hello, World!'" }]
+      content_items: [{ type: "text.done", text: "Say 'Hello, World!'" }]
     },
     config: {}
   })) {
@@ -192,10 +223,11 @@ async function main() {
 }
 
 main().catch(console.error);
-// {'role': 'assistant', 'event_type': 'delta', 'content_items': [{'type': 'text', 'text': 'Hello'}], 'usage_metadata': null, 'finish_reason': null}
-// {'role': 'assistant', 'event_type': 'delta', 'content_items': [{'type': 'text', 'text': ','}], 'usage_metadata': null, 'finish_reason': null}
-// {'role': 'assistant', 'event_type': 'delta', 'content_items': [{'type': 'text', 'text': ' World'}], 'usage_metadata': null, 'finish_reason': null}
-// {'role': 'assistant', 'event_type': 'delta', 'content_items': [{'type': 'text', 'text': '!'}], 'usage_metadata': null, 'finish_reason': null}
+// {'role': 'assistant', 'event_type': 'delta', 'content_items': [{'type': 'text.delta', 'text': 'Hello'}], 'usage_metadata': null, 'finish_reason': null}
+// {'role': 'assistant', 'event_type': 'delta', 'content_items': [{'type': 'text.delta', 'text': ','}], 'usage_metadata': null, 'finish_reason': null}
+// {'role': 'assistant', 'event_type': 'delta', 'content_items': [{'type': 'text.delta', 'text': ' World'}], 'usage_metadata': null, 'finish_reason': null}
+// {'role': 'assistant', 'event_type': 'delta', 'content_items': [{'type': 'text.delta', 'text': '!'}], 'usage_metadata': null, 'finish_reason': null}
+// {'role': 'assistant', 'event_type': 'delta', 'content_items': [{'type': 'text.done', 'text': 'Hello, World!'}], 'usage_metadata': null, 'finish_reason': null}
 // {'role': 'assistant', 'event_type': 'stop', 'content_items': [], 'usage_metadata': {'cached_tokens': 0, 'prompt_tokens': 12, 'thoughts_tokens': 0, 'response_tokens': 8}, 'finish_reason': 'stop'}
 ```
 
@@ -206,7 +238,7 @@ main().catch(console.error);
 ```python
 import asyncio
 import os
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 os.environ["ANTHROPIC_API_KEY"] = "your-anthropic-api-key"
 
@@ -215,7 +247,7 @@ async def main():
     async for event in client.streaming_response_stateful(
         message={
             "role": "user",
-            "content_items": [{"type": "text", "text": "Say 'Hello, World!'"}]
+            "content_items": [{"type": "text.done", "text": "Say 'Hello, World!'"}]
         },
         config={}
     ):
@@ -229,7 +261,7 @@ asyncio.run(main())
 <details><summary><strong>TypeScript Example</strong></summary>
 
 ```typescript
-import { AutoLLMClient } from "@prismshadow/agenthub";
+import { AutoLLMClient } from "@prismshadow/mmsp";
 
 process.env.ANTHROPIC_API_KEY = "your-anthropic-api-key";
 
@@ -238,7 +270,7 @@ async function main() {
   for await (const event of client.streamingResponseStateful({
     message: {
       role: "user",
-      content_items: [{"type": "text", "text": "Say 'Hello, World!'"}]
+      content_items: [{"type": "text.done", "text": "Say 'Hello, World!'"}]
     },
     config: {}
   })) {
@@ -258,7 +290,7 @@ main().catch(console.error);
 ```python
 import asyncio
 import os
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 os.environ["ZAI_API_KEY"] = "your-openrouter-api-key"
 os.environ["ZAI_BASE_URL"] = "https://openrouter.ai/api/v1"
@@ -268,7 +300,7 @@ async def main():
     async for event in client.streaming_response_stateful(
         message={
             "role": "user",
-            "content_items": [{"type": "text", "text": "Say 'Hello, World!'"}]
+            "content_items": [{"type": "text.done", "text": "Say 'Hello, World!'"}]
         },
         config={}
     ):
@@ -281,7 +313,7 @@ asyncio.run(main())
 <details><summary><strong>TypeScript Example</strong></summary>
 
 ```typescript
-import { AutoLLMClient } from "@prismshadow/agenthub";
+import { AutoLLMClient } from "@prismshadow/mmsp";
 
 process.env.ZAI_API_KEY = "your-openrouter-api-key";
 process.env.ZAI_BASE_URL = "https://openrouter.ai/api/v1";
@@ -291,7 +323,7 @@ async function main() {
   for await (const event of client.streamingResponseStateful({
     message: {
       role: "user",
-      content_items: [{"type": "text", "text": "Say 'Hello, World!'"}]
+      content_items: [{"type": "text.done", "text": "Say 'Hello, World!'"}]
     },
     config: {}
   })) {
@@ -310,7 +342,7 @@ main().catch(console.error);
 ```python
 import asyncio
 import os
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 os.environ["OPENAI_API_KEY"] = "your-siliconflow-api-key"
 os.environ["OPENAI_BASE_URL"] = "https://api.siliconflow.cn/v1"
@@ -320,7 +352,7 @@ async def main():
     async for event in client.streaming_response_stateful(
         message={
             "role": "user",
-            "content_items": [{"type": "text", "text": "Say 'Hello, World!'"}]
+            "content_items": [{"type": "text.done", "text": "Say 'Hello, World!'"}]
         },
         config={}
     ):
@@ -333,7 +365,7 @@ asyncio.run(main())
 <details><summary><strong>TypeScript Example</strong></summary>
 
 ```typescript
-import { AutoLLMClient } from "@prismshadow/agenthub";
+import { AutoLLMClient } from "@prismshadow/mmsp";
 
 process.env.OPENAI_API_KEY = "your-siliconflow-api-key";
 process.env.OPENAI_BASE_URL = "https://api.siliconflow.cn/v1";
@@ -346,7 +378,7 @@ async function main() {
   for await (const event of client.streamingResponseStateful({
     message: {
       role: "user",
-      content_items: [{ type: "text", text: "Say 'Hello, World!'" }],
+      content_items: [{ type: "text.done", text: "Say 'Hello, World!'" }],
     },
     config: {}
   })) {
@@ -365,7 +397,7 @@ main().catch(console.error);
 ```python
 import asyncio
 import os
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 os.environ["OPENAI_API_KEY"] = "your-siliconflow-api-key"
 os.environ["OPENAI_BASE_URL"] = "https://api.siliconflow.cn/v1"
@@ -376,7 +408,7 @@ async def main():
     async for event in client.streaming_response_stateful(
         message={
             "role": "user",
-            "content_items": [{"type": "text", "text": "Hello world"}],
+            "content_items": [{"type": "text.done", "text": "Hello world"}],
         },
         config={},
     ):
@@ -389,7 +421,7 @@ asyncio.run(main())
 <details><summary><strong>TypeScript Example</strong></summary>
 
 ```typescript
-import { AutoLLMClient } from "@prismshadow/agenthub";
+import { AutoLLMClient } from "@prismshadow/mmsp";
 
 process.env.OPENAI_API_KEY = "your-siliconflow-api-key";
 process.env.OPENAI_BASE_URL = "https://api.siliconflow.cn/v1";
@@ -402,7 +434,7 @@ async function main() {
   for await (const event of client.streamingResponseStateful({
     message: {
       role: "user",
-      content_items: [{ type: "text", text: "Hello world" }],
+      content_items: [{ type: "text.done", text: "Hello world" }],
     },
     config: {},
   })) {
@@ -425,7 +457,7 @@ URL for that protocol:
 ```python
 import asyncio
 import os
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 async def main():
     client = AutoLLMClient(
@@ -437,7 +469,7 @@ async def main():
     async for event in client.streaming_response_stateful(
         message={
             "role": "user",
-            "content_items": [{"type": "text", "text": "Say 'Hello, World!'"}]
+            "content_items": [{"type": "text.done", "text": "Say 'Hello, World!'"}]
         },
         config={}
     ):
@@ -450,7 +482,7 @@ asyncio.run(main())
 <details><summary><strong>TypeScript Example</strong></summary>
 
 ```typescript
-import { AutoLLMClient } from "@prismshadow/agenthub";
+import { AutoLLMClient } from "@prismshadow/mmsp";
 
 async function main() {
   const client = new AutoLLMClient({
@@ -462,7 +494,7 @@ async function main() {
   for await (const event of client.streamingResponseStateful({
     message: {
       role: "user",
-      content_items: [{ type: "text", text: "Say 'Hello, World!'" }],
+      content_items: [{ type: "text.done", text: "Say 'Hello, World!'" }],
     },
     config: {},
   })) {
@@ -481,7 +513,7 @@ main();
 ```python
 import asyncio
 import os
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 async def main():
     client = AutoLLMClient(
@@ -493,7 +525,7 @@ async def main():
     async for event in client.streaming_response_stateful(
         message={
             "role": "user",
-            "content_items": [{"type": "text", "text": "Say 'Hello, World!'"}]
+            "content_items": [{"type": "text.done", "text": "Say 'Hello, World!'"}]
         },
         config={}
     ):
@@ -506,7 +538,7 @@ asyncio.run(main())
 <details><summary><strong>TypeScript Example</strong></summary>
 
 ```typescript
-import { AutoLLMClient } from "@prismshadow/agenthub";
+import { AutoLLMClient } from "@prismshadow/mmsp";
 
 async function main() {
   const client = new AutoLLMClient({
@@ -518,7 +550,7 @@ async function main() {
   for await (const event of client.streamingResponseStateful({
     message: {
       role: "user",
-      content_items: [{ type: "text", text: "Say 'Hello, World!'" }],
+      content_items: [{ type: "text.done", text: "Say 'Hello, World!'" }],
     },
     config: {},
   })) {
@@ -577,7 +609,7 @@ Example UniConfig:
 
 ### UniMessage
 
-UniMessage is an object that contains the input for LLMs.
+UniMessage is an object that contains the input for LLMs. Its content items are complete items, typed with a `.done` suffix.
 
 Example UniMessage:
 
@@ -585,44 +617,37 @@ Example UniMessage:
 {
   "role": "user | assistant",
   "content_items": [
-    {"type": "text", "text": "How are you doing?"},
-    {"type": "image_url", "image_url": "https://example.com/image.jpg"},
-    {"type": "inline_data", "mime_type": "image/jpeg", "data": "base64-encoded-image"},
-    {"type": "thinking", "thinking": "I am thinking.", "fidelity": {"signature": "0x123456"}},
-    {"type": "inline_thinking", "mime_type": "image/jpeg", "data": "base64-encoded-image"},
-    {"type": "tool_call", "name": "math", "arguments": {"expression": "2 + 3"}, "tool_call_id": "123"},
-    {"type": "tool_result", "text": "2 + 3 = 5", "images": [], "tool_call_id": "123"}
+    {"type": "text.done", "text": "How are you doing?"},
+    {"type": "image_url.done", "image_url": "https://example.com/image.jpg"},
+    {"type": "inline_data.done", "mime_type": "image/jpeg", "data": "base64-encoded-image"},
+    {"type": "thinking.done", "thinking": "I am thinking.", "fidelity": {"signature": "0x123456"}},
+    {"type": "inline_thinking.done", "mime_type": "image/jpeg", "data": "base64-encoded-image"},
+    {"type": "tool_call.done", "name": "math", "arguments": {"expression": "2 + 3"}, "tool_call_id": "123"},
+    {"type": "tool_result.done", "text": "2 + 3 = 5", "images": [], "tool_call_id": "123"}
   ]
 }
 ```
 
+Messages saved before 0.5.0 use item types without the `.done` suffix. They are still accepted, and converted with a deprecation warning, until 0.6.0; `normalize_legacy_messages` / `normalizeLegacyMessages` converts stored data.
+
 ### UniEvent
 
-UniEvent is an object that contains streaming output of LLMs.
+UniEvent is an object that contains streaming output of LLMs. A stream is a run of `delta` events, each carrying exactly one content item, closed by exactly one `stop` event that carries no items but always the usage and the finish reason. Each item streams as one or more `.delta` fragments followed by its complete `.done` item, and items never interleave.
 
-Example UniEvent:
+Example UniEvents for a tool call:
 
-```json
-{
-  "role": "assistant",
-  "event_type": "delta",
-  "content_items": [
-    {"type": "partial_tool_call", "name": "math", "arguments": "", "tool_call_id": "123"}
-  ],
-  "usage_metadata": {
-    "cached_tokens": null,
-    "prompt_tokens": 10,
-    "thoughts_tokens": null,
-    "response_tokens": 1
-  },
-  "finish_reason": null,
-  "created_at": 1694502400000
-}
+```jsonl
+{"role": "assistant", "event_type": "delta", "content_items": [{"type": "tool_call.delta", "name": "math", "arguments": "{\"expression\": ", "tool_call_id": "123"}], "usage_metadata": null, "finish_reason": null, "created_at": 1694502400000}
+{"role": "assistant", "event_type": "delta", "content_items": [{"type": "tool_call.delta", "name": "", "arguments": "\"2 + 3\"}", "tool_call_id": ""}], "usage_metadata": null, "finish_reason": null, "created_at": 1694502400010}
+{"role": "assistant", "event_type": "delta", "content_items": [{"type": "tool_call.done", "name": "math", "arguments": {"expression": "2 + 3"}, "tool_call_id": "123"}], "usage_metadata": null, "finish_reason": null, "created_at": 1694502400010}
+{"role": "assistant", "event_type": "stop", "content_items": [], "usage_metadata": {"cached_tokens": null, "prompt_tokens": 10, "thoughts_tokens": null, "response_tokens": 12}, "finish_reason": "tool_call", "created_at": 1694502400020}
 ```
+
+Read complete items, such as tool calls, from the `.done` items, and the usage from the `stop` event.
 
 ## Token Usage
 
-AgentHub provides detailed token usage information through the `usage_metadata` field in streaming events.
+MMSP provides detailed token usage information through the `usage_metadata` field of the `stop` event, the last event of every stream.
 
 The `usage_metadata` object contains four fields:
 - `cached_tokens`: Cached input tokens
@@ -651,7 +676,7 @@ We provide a tracer to help you monitor and debug your LLM executions. You can e
 async for event in client.streaming_response_stateful(
     message={
         "role": "user",
-        "content_items": [{"type": "text", "text": "Say 'Hello, World!'"}]
+        "content_items": [{"type": "text.done", "text": "Say 'Hello, World!'"}]
     },
     config={"trace_id": "unique-trace-id"}
 ):
@@ -659,7 +684,7 @@ async for event in client.streaming_response_stateful(
 ```
 
 ```bash
-cd src_py && uv run python -m agenthub.integration.tracer --host 127.0.0.1 --port 25750
+cd src_py && uv run python -m mmsp.integration.tracer --host 127.0.0.1 --port 25750
 ```
 
 ```bash
@@ -675,7 +700,7 @@ Then you can view the tracing output in the dashboard at `http://localhost:25750
 We provide a LLM playground to help you test your LLMs.
 
 ```bash
-cd src_py && uv run python -m agenthub.integration.playground --host 127.0.0.1 --port 25751
+cd src_py && uv run python -m mmsp.integration.playground --host 127.0.0.1 --port 25751
 ```
 
 ```bash
@@ -689,20 +714,15 @@ The integrated tracer is available at `http://localhost:25751/tracer/`.
 
 Every client speaks one vendor protocol on the wire, whichever `client_type` reaches it:
 
-| `client_type`                                              | Wire protocol      |
-| ---------------------------------------------------------- | ------------------ |
-| `gemini-3.8`, `gemini-3.7`, `gemini-3`, `gemini-embedding` | `google-genai`     |
-| `claude-5`, `claude-4-8`, `claude-4-7`, `claude-4-6`       | `ant-messages`     |
-| `ant-messages`                                             | `ant-messages`     |
-| `gpt-6`, `gpt-5.6`, `gpt-5.5`, `gpt-5.4`                   | `openai-responses` |
-| `deepseek-v4`                                              | `openai-responses` |
-| `minimax-m3`                                               | `openai-responses` |
-| `openai-responses`                                         | `openai-responses` |
-| `glm-5.3`, `glm-5.2`, `glm-5.1`                            | `openai-chat`      |
-| `kimi-k3`, `kimi-k2.6`, `kimi-k2.5`                        | `openai-chat`      |
-| `openai-chat` (alias `openai`)                             | `openai-chat`      |
-| `openai-chat-vllm-adapter`                                 | `openai-chat`      |
-| `openai-embedding`                                         | `openai-embedding` |
+| `client_type`                                               | Wire protocol      |
+| ----------------------------------------------------------- | ------------------ |
+| `gemini-official`, `gemini-generate-content`                | `google-genai`     |
+| `anthropic-official`, `ant-messages`                        | `ant-messages`     |
+| `openai-official`, `deepseek-official`, `minimax-official`  | `openai-responses` |
+| `openai-responses`                                          | `openai-responses` |
+| `zai-official`, `moonshot-official`                         | `openai-chat`      |
+| `openai-chat` (alias `openai`), `openai-chat-vllm-adapter`  | `openai-chat`      |
+| `openai-embedding`, and `openai-official` for `text-embedding-*` | `openai-embedding` |
 
 ## Related Work
 
@@ -715,6 +735,6 @@ Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for detai
 
 ## Used By
 
-Projects built on AgentHub:
+Projects built on MMSP:
 
 - [PenguinHarness](https://github.com/Prism-Shadow/penguin-harness)

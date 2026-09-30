@@ -20,8 +20,8 @@ Copy this template:
 - **Date:** YYYY-MM-DD
 - **Type:** feature
 - **Scope:** `module`, `module`
-- **PR:** [#N](https://github.com/Prism-Shadow/agenthub/pull/N)
-- **Issue:** [#N](https://github.com/Prism-Shadow/agenthub/issues/N)
+- **PR:** [#N](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/N)
+- **Issue:** [#N](https://github.com/Prism-Shadow/model-message-stream-protocol/issues/N)
 - **Breaking:** yes — <what breaks, in one line>
 
 [中文版](<name>.zh.md)
@@ -83,7 +83,7 @@ Bespoke headings are translated naturally, keeping the same order and count as t
 One line per change, newest first:
 
 ```markdown
-- [YYYY-MM-DD] One-sentence description. ([details](YYYY-MM-DD-slug.md), [#N](https://github.com/Prism-Shadow/agenthub/pull/N))
+- [YYYY-MM-DD] One-sentence description. ([details](YYYY-MM-DD-slug.md), [#N](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/N))
 ```
 
 The PR link is repeated here on purpose: the release summary should answer "which PR shipped this" without opening the detail file.

@@ -20,7 +20,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 
 @dataclass
@@ -37,11 +37,18 @@ HEADER_CASES = [
     HeaderCase(client_type="openai-chat", model="gpt-5.6", base_url_suffix="/v1", expected=["m1", "m2"]),
     HeaderCase(client_type="ant-messages", model="claude-sonnet-5", base_url_suffix="", expected=["m1", "m2"]),
     HeaderCase(
-        client_type="gemini-3.8",
+        client_type="gemini-official",
         model="gemini-3.8-flash",
         base_url_suffix="",
         # the Gemini client is deduced from the model id, so its listing keeps only ids that
         # deduce back to it
+        expected=["gemini-3.8-flash", "gemini-3.8-pro"],
+    ),
+    # the generateContent client builds its own SDK client, and lists the Gemini family's ids
+    HeaderCase(
+        client_type="gemini-generate-content",
+        model="gemini-3.8-flash",
+        base_url_suffix="",
         expected=["gemini-3.8-flash", "gemini-3.8-pro"],
     ),
 ]

@@ -25,7 +25,7 @@ The `docs/` directory contains the official MiniMax documentation used for this 
 - [token-plan-overview.md](./docs/token-plan-overview.md) - Subscription Key lifecycle, quota windows, and API-key distinction
 - [index.md](./docs/index.md) - MiniMax's official documentation index and API-spec links
 
-The official Responses page documents SSE support but not the exact event sequence. AgentHub verifies event ordering with two-round live captures under the git-ignored `api_captures/minimax_m3/` directory and records the observed protocol details in the release changelog.
+The official Responses page documents SSE support but not the exact event sequence. MMSP verifies event ordering with two-round live captures under the git-ignored `api_captures/minimax_m3/` directory and records the observed protocol details in the release changelog.
 
 ## Official sources
 

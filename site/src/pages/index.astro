@@ -1,0 +1,9 @@
+---
+import Base from "../layouts/Base.astro";
+import Home from "../components/Home.astro";
+import { SITE_NAME } from "../shared/site";
+---
+
+<Base locale="en" title={SITE_NAME} active="overview" entry kind="website">
+  <Home locale="en" />
+</Base>

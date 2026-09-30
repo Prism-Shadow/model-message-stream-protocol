@@ -21,8 +21,9 @@ from typing import Literal
 
 import httpx
 import pytest
+from stream_grammar import assert_stream_grammar
 
-from agenthub import AutoLLMClient, ThinkingLevel, list_supported_models
+from mmsp import AutoLLMClient, ThinkingLevel, list_supported_models
 
 
 IMAGE = "https://sghimages.shobserver.com/img/catch/2022/01/22/c1ae0300-9402-4128-a7e6-1244d3874167.jpg"
@@ -64,7 +65,7 @@ if os.getenv("GEMINI_API_KEY"):
     )
     AVAILABLE_MODELS.append(
         Model(
-            name="gemini-3.1-flash-tts-preview",
+            name="gemini-3.8-flash-tts",
             support_text=False,
             support_image_understanding=False,
             support_tts=True,
@@ -80,17 +81,16 @@ if os.getenv("GEMINI_API_KEY"):
     )
 
 if os.getenv("ANTHROPIC_API_KEY"):
-    AVAILABLE_MODELS.append(Model(name="claude-sonnet-5"))
+    AVAILABLE_MODELS.append(Model(name="claude-sonnet-5-5"))
 
 if os.getenv("OPENAI_API_KEY"):
-    AVAILABLE_MODELS.append(Model(name="gpt-5.6-luna"))
+    AVAILABLE_MODELS.append(Model(name="gpt-6.1-sol"))
     AVAILABLE_MODELS.append(
         Model(
             name="text-embedding-3-large",
             support_text=False,
             support_image_understanding=False,
             support_embedding=True,
-            client_type="openai-embedding",
         )
     )
 
@@ -127,14 +127,14 @@ if os.getenv("MOONSHOT_API_KEY"):
     AVAILABLE_MODELS.append(Model(name="kimi-k3"))
 
 if os.getenv("MINIMAX_API_KEY"):
-    AVAILABLE_MODELS.append(Model(name="MiniMax-M3", client_type="minimax-m3"))
+    AVAILABLE_MODELS.append(Model(name="MiniMax-M3"))
 
 if os.getenv("DEEPSEEK_API_KEY"):
-    AVAILABLE_MODELS.append(Model(name="deepseek-v4-flash-vision-exp"))
+    AVAILABLE_MODELS.append(Model(name="deepseek-flash"))
     for mode in _PROTOCOL_MODES:
         AVAILABLE_MODELS.append(
             Model(
-                name="deepseek-v4-flash",
+                name="deepseek-flash",
                 provider="deepseek",
                 client_type=mode,
                 base_url=_PROTOCOL_BASE_URLS["deepseek"][mode],
@@ -143,7 +143,10 @@ if os.getenv("DEEPSEEK_API_KEY"):
         )
 
 if os.getenv("BEDROCK_API_KEY"):
-    AVAILABLE_MODELS.append(Model(name="global.anthropic.claude-sonnet-4-6", provider="bedrock"))
+    # a Bedrock id begins with no model family, so the client is named
+    AVAILABLE_MODELS.append(
+        Model(name="global.anthropic.claude-sonnet-4-6", provider="bedrock", client_type="anthropic-official")
+    )
 
 if os.getenv("VERTEX_API_KEY"):
     AVAILABLE_MODELS.append(Model(name="gemini-3.8-flash", provider="vertex"))
@@ -163,6 +166,15 @@ if os.getenv("VERTEX_API_KEY"):
             support_text=False,
             support_image_understanding=False,
             support_tts=True,
+        )
+    )
+    AVAILABLE_MODELS.append(
+        Model(
+            name="gemini-embedding-2",
+            provider="vertex",
+            support_text=False,
+            support_image_understanding=False,
+            support_embedding=True,
         )
     )
 
@@ -275,31 +287,31 @@ async def _check_event_integrity(event: dict) -> None:
     assert "usage_metadata" in event
     assert "finish_reason" in event
     assert event["role"] in ["user", "assistant"]
-    assert event["event_type"] in ["start", "delta", "stop"]
+    assert event["event_type"] in ["delta", "stop"]
     assert event["finish_reason"] in ["stop", "length", "tool_call", "unknown", None]
     assert isinstance(event["created_at"], int) and event["created_at"] > 0
     for item in event["content_items"]:
-        if item["type"] == "text":
+        if item["type"] in ("text.delta", "text.done"):
             assert isinstance(item["text"], str)
-        elif item["type"] == "image_url":
+        elif item["type"] == "image_url.done":
             assert isinstance(item["image_url"], str)
-        elif item["type"] == "inline_data":
+        elif item["type"] in ("inline_data.delta", "inline_data.done"):
             assert isinstance(item["data"], bytes)
             assert isinstance(item["mime_type"], str)
-        elif item["type"] == "thinking":
+        elif item["type"] in ("thinking.delta", "thinking.done"):
             assert isinstance(item["thinking"], str)
-        elif item["type"] == "inline_thinking":
+        elif item["type"] in ("inline_thinking.delta", "inline_thinking.done"):
             assert isinstance(item["data"], bytes)
             assert isinstance(item["mime_type"], str)
-        elif item["type"] == "tool_call":
+        elif item["type"] == "tool_call.done":
             assert isinstance(item["name"], str)
             assert isinstance(item["arguments"], dict)
             assert isinstance(item["tool_call_id"], str)
-        elif item["type"] == "partial_tool_call":
+        elif item["type"] == "tool_call.delta":
             assert isinstance(item["name"], str)
             assert isinstance(item["arguments"], str)
             assert isinstance(item["tool_call_id"], str)
-        elif item["type"] == "tool_result":
+        elif item["type"] == "tool_result.done":
             assert isinstance(item["text"], str)
             assert isinstance(item["tool_call_id"], str)
 
@@ -327,16 +339,19 @@ async def test_streaming_response_basic(model: Model):
         pytest.skip(f"Text generation is not supported by {model.name}.")
 
     client = await _create_client(model)
-    messages = [{"role": "user", "content_items": [{"type": "text", "text": "What is 2+3?"}]}]
+    messages = [{"role": "user", "content_items": [{"type": "text.done", "text": "What is 2+3?"}]}]
     config = {}
 
+    events = []
     text = ""
     async for event in client.streaming_response(messages=messages, config=config):
         await _check_event_integrity(event)
+        events.append(event)
         for item in event["content_items"]:
-            if item["type"] == "text":
+            if item["type"] == "text.delta":
                 text += item["text"]
 
+    assert_stream_grammar(events)
     assert "5" in text  # 2 + 3 = 5
 
 
@@ -348,16 +363,19 @@ async def test_streaming_response_with_all_parameters(model: Model):
         pytest.skip(f"Text generation is not supported by {model.name}.")
 
     client = await _create_client(model)
-    messages = [{"role": "user", "content_items": [{"type": "text", "text": "What is 2+3?"}]}]
+    messages = [{"role": "user", "content_items": [{"type": "text.done", "text": "What is 2+3?"}]}]
     config = {"max_tokens": 8192, "thinking_summary": True, "thinking_level": ThinkingLevel.LOW}
 
+    events = []
     text = ""
     async for event in client.streaming_response(messages=messages, config=config):
         await _check_event_integrity(event)
+        events.append(event)
         for item in event["content_items"]:
-            if item["type"] == "text":
+            if item["type"] == "text.delta":
                 text += item["text"]
 
+    assert_stream_grammar(events)
     assert "5" in text  # 2 + 3 = 5
 
 
@@ -371,20 +389,26 @@ async def test_streaming_response_stateful(model: Model):
     client = await _create_client(model)
     config = {}
 
-    message1 = {"role": "user", "content_items": [{"type": "text", "text": "My name is Alice"}]}
+    message1 = {"role": "user", "content_items": [{"type": "text.done", "text": "My name is Alice"}]}
+    events1 = []
     async for event in client.streaming_response_stateful(message=message1, config=config):
         await _check_event_integrity(event)
+        events1.append(event)
 
+    assert_stream_grammar(events1)
     assert len(client.get_history()) == 2  # user message + assistant response
 
-    message2 = {"role": "user", "content_items": [{"type": "text", "text": "What is my name?"}]}
+    message2 = {"role": "user", "content_items": [{"type": "text.done", "text": "What is my name?"}]}
+    events2 = []
     text = ""
     async for event in client.streaming_response_stateful(message=message2, config=config):
         await _check_event_integrity(event)
+        events2.append(event)
         for item in event["content_items"]:
-            if item["type"] == "text":
+            if item["type"] == "text.delta":
                 text += item["text"]
 
+    assert_stream_grammar(events2)
     assert "alice" in text.lower()
     assert len(client.get_history()) == 4  # 2 previous + 2 new
 
@@ -395,8 +419,8 @@ async def test_set_history(model: Model):
     """Test setting conversation history."""
     client = await _create_client(model)
     new_history: list = [
-        {"role": "user", "content_items": [{"type": "text", "text": "Hi"}]},
-        {"role": "assistant", "content_items": [{"type": "text", "text": "Hello!"}]},
+        {"role": "user", "content_items": [{"type": "text.done", "text": "Hi"}]},
+        {"role": "assistant", "content_items": [{"type": "text.done", "text": "Hello!"}]},
     ]
 
     client.set_history(new_history)
@@ -413,8 +437,8 @@ async def test_clear_history(model: Model):
     """Test clearing conversation history."""
     client = await _create_client(model)
     new_history: list = [
-        {"role": "user", "content_items": [{"type": "text", "text": "Hello"}]},
-        {"role": "assistant", "content_items": [{"type": "text", "text": "Hello!"}]},
+        {"role": "user", "content_items": [{"type": "text.done", "text": "Hello"}]},
+        {"role": "assistant", "content_items": [{"type": "text.done", "text": "Hello!"}]},
     ]
     client.set_history(new_history)
     assert len(client.get_history()) > 0
@@ -433,7 +457,7 @@ async def test_concat_uni_events_to_uni_message(model: Model):
     messages = [
         {
             "role": "user",
-            "content_items": [{"type": "text", "text": "Say 'The quick brown fox jumps over the lazy dog.'"}],
+            "content_items": [{"type": "text.done", "text": "Say 'The quick brown fox jumps over the lazy dog.'"}],
         }
     ]
     config = {}
@@ -443,21 +467,72 @@ async def test_concat_uni_events_to_uni_message(model: Model):
     async for event in client.streaming_response(messages=messages, config=config):
         events.append(event)
         for item in event["content_items"]:
-            if item["type"] == "text":
+            if item["type"] == "text.delta":
                 text += item["text"]
 
+    assert_stream_grammar(events)
     # Concatenate events to get the full message
     message = client.concat_uni_events_to_uni_message(events)
     assert message["role"] == "assistant"
-    all_text = "".join(item["text"] for item in message["content_items"] if item["type"] == "text")
+    all_text = "".join(item["text"] for item in message["content_items"] if item["type"] == "text.done")
     assert all_text == text
 
 
-@pytest.mark.asyncio
-async def test_unknown_model():
-    """Test that unknown models raise ValueError."""
-    with pytest.raises(ValueError, match="not support"):
-        AutoLLMClient(model="unknown-model")
+# A model id of a known family routes to its official client on its own; a client type names
+# any client, whatever the model id, and is read in any casing.
+ROUTING_CASES = [
+    ("gpt-5.6-luna", None, "OpenAIOfficialClient"),
+    ("GPT-5.5", None, "OpenAIOfficialClient"),
+    ("text-embedding-3-large", None, "OpenaiEmbeddingClient"),
+    ("text-embedding-3-large", "openai-official", "OpenaiEmbeddingClient"),
+    ("claude-sonnet-5", None, "AnthropicOfficialClient"),
+    ("gemini-3.8-flash", None, "GeminiOfficialClient"),
+    ("gemini-embedding-2", None, "GeminiOfficialClient"),
+    ("gemini-3.8-flash", "gemini-generate-content", "GeminiGenerateContentClient"),
+    ("glm-5.3", None, "ZAIOfficialClient"),
+    ("kimi-k3", None, "MoonshotOfficialClient"),
+    ("deepseek-v4-pro", None, "DeepSeekOfficialClient"),
+    # a version-free DeepSeek id routes on the family too
+    ("deepseek-flash", None, "DeepSeekOfficialClient"),
+    ("MiniMax-M3", None, "MiniMaxOfficialClient"),
+    ("deepseek-v4-pro", "OpenAI-Responses", "OpenaiResponsesClient"),
+    ("qwen/qwen3.6-35b-a3b", "openai-responses", "OpenaiResponsesClient"),
+    ("qwen3.6", "openai-chat", "OpenaiChatClient"),
+    ("qwen3.6", "openai", "OpenaiChatClient"),
+    ("qwen3.6", "openai-chat-vllm-adapter", "OpenaiChatVllmAdapterClient"),
+    ("qwen3-embedding", "openai-embedding", "OpenaiEmbeddingClient"),
+    ("claude-opus-5", "ant-messages", "AntMessagesClient"),
+]
+
+
+@pytest.mark.parametrize(
+    ("model", "client_type", "client_name"), ROUTING_CASES, ids=[f"{m}:{c or 'auto'}" for m, c, _ in ROUTING_CASES]
+)
+def test_client_type_or_model_family_names_the_client(model: str, client_type: str | None, client_name: str):
+    client = AutoLLMClient(model=model, api_key="test-key", client_type=client_type)
+
+    assert client._client.__class__.__name__ == client_name
+
+
+def test_a_model_of_no_known_family_asks_for_a_client_type():
+    with pytest.raises(ValueError, match="Pass client_type.*openai-official.*openai-responses"):
+        AutoLLMClient(model="qwen3.6", api_key="test-key")
+
+
+def test_an_unknown_client_type_is_refused_whatever_the_model():
+    # a model id is not a client type, and neither are the names of the clients before 0.5.0
+    with pytest.raises(ValueError, match="Unknown client type 'gpt-5.5'"):
+        AutoLLMClient(model="gpt-5.5", api_key="test-key", client_type="gpt-5.5")
+
+
+def test_the_environment_names_the_client_when_the_code_does_not(monkeypatch):
+    monkeypatch.setenv("CLIENT_TYPE", "openai-chat")
+
+    assert AutoLLMClient(model="gpt-5.5", api_key="test-key")._client.__class__.__name__ == "OpenaiChatClient"
+    assert (
+        AutoLLMClient(model="gpt-5.5", api_key="test-key", client_type="openai-responses")._client.__class__.__name__
+        == "OpenaiResponsesClient"
+    )
 
 
 @pytest.mark.asyncio
@@ -466,7 +541,7 @@ async def test_list_supported_models():
     entries = list_supported_models()
     kimi = next(entry for entry in entries if entry["model"] == "kimi-k3")
     assert kimi["base_url"] == "https://api.moonshot.cn/v1"
-    assert kimi["client"] == "kimi-k3"
+    assert kimi["client"] == "moonshot-official"
     assert kimi["context_window"] == 1048576
     assert kimi["input_modalities"] == ["Text", "Image"]
     assert kimi["output_modalities"] == ["Text"]
@@ -483,7 +558,7 @@ async def test_list_supported_models():
     # rows is not recorded here, so the catalog rate is what every entry reports.
     for model in ("gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash"):
         gemini = next(entry for entry in entries if entry["model"] == model)
-        assert gemini["client"] == "gemini-3.8"
+        assert gemini["client"] == "gemini-official"
         assert gemini["pricing"]["prompt_tokens"] == 1.5
         assert gemini["pricing"]["response_tokens"] == 7.5
         assert gemini["pricing"]["cached_tokens"] == 0.15
@@ -497,7 +572,7 @@ async def test_list_supported_models():
 
     glm_5_2 = next(entry for entry in entries if entry["model"] == "z-ai/glm-5.2")
     assert glm_5_2["base_url"] == "https://openrouter.ai/api/v1"
-    assert glm_5_2["client"] == "glm-5.2"
+    assert glm_5_2["client"] == "zai-official"
 
     for entry in entries:
         assert {"model", "base_url", "client", "input_modalities", "output_modalities"} <= set(entry)
@@ -505,46 +580,6 @@ async def test_list_supported_models():
             model=entry["model"], api_key="test-key", base_url=entry["base_url"], client_type=entry["client"]
         )
         assert client._client is not None
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("client_type", "client_name"),
-    [
-        ("openai-compatible", "OpenaiChatClient"),
-        ("openai-chat-compatible", "OpenaiChatClient"),
-        ("openai-responses-compatible", "OpenaiResponsesClient"),
-        ("ant-messages-compatible", "AntMessagesClient"),
-        ("openai-embedding-compatible", "OpenaiEmbeddingClient"),
-    ],
-)
-async def test_openai_client_type_routes(client_type: str, client_name: str):
-    """Test client_type override for OpenAI-compatible models."""
-    client = AutoLLMClient(model="unknown-model", api_key="test-key", client_type=client_type)
-
-    assert client._client.__class__.__name__ == client_name
-
-
-@pytest.mark.asyncio
-async def test_validate_last_event_raises_on_missing_usage_metadata():
-    """Test that _validate_last_event raises ValueError when usage_metadata is None."""
-    valid_event = {
-        "role": "assistant",
-        "event_type": "stop",
-        "content_items": [],
-        "usage_metadata": {"cached_tokens": 0, "prompt_tokens": 10, "thoughts_tokens": None, "response_tokens": 5},
-        "finish_reason": "stop",
-    }
-    AutoLLMClient._validate_last_event(valid_event)  # should not raise
-
-    with pytest.raises(ValueError, match="no events"):
-        AutoLLMClient._validate_last_event(None)
-
-    with pytest.raises(ValueError, match="usage_metadata"):
-        AutoLLMClient._validate_last_event({**valid_event, "usage_metadata": None})
-
-    with pytest.raises(ValueError, match="finish_reason"):
-        AutoLLMClient._validate_last_event({**valid_event, "finish_reason": None})
 
 
 @pytest.mark.asyncio
@@ -576,11 +611,16 @@ async def test_tool_use(model: Model):
     tool_call_id = None
     partial_tool_call_data = {}
 
-    message1 = {"role": "user", "content_items": [{"type": "text", "text": "What is the weather in San Francisco?"}]}
+    message1 = {
+        "role": "user",
+        "content_items": [{"type": "text.done", "text": "What is the weather in San Francisco?"}],
+    }
+    events1 = []
     async for event in client.streaming_response_stateful(message=message1, config=config):
         await _check_event_integrity(event)
+        events1.append(event)
         for item in event["content_items"]:
-            if item["type"] == "partial_tool_call":
+            if item["type"] == "tool_call.delta":
                 if not partial_tool_call_data:
                     partial_tool_call_data = {
                         "name": item["name"],
@@ -589,11 +629,12 @@ async def test_tool_use(model: Model):
                     }
                 else:
                     partial_tool_call_data["arguments"] += item["arguments"]
-            elif item["type"] == "tool_call":
+            elif item["type"] == "tool_call.done":
                 tool_name = item["name"]
                 tool_arguments = item["arguments"]
                 tool_call_id = item["tool_call_id"]
 
+    assert_stream_grammar(events1)
     # Check if a function call was made
     assert tool_name == weather_tool["name"]
     assert "location" in tool_arguments
@@ -605,16 +646,19 @@ async def test_tool_use(model: Model):
     message2 = {
         "role": "user",
         "content_items": [
-            {"type": "tool_result", "text": "It's 20 degrees in San Francisco.", "tool_call_id": tool_call_id}
+            {"type": "tool_result.done", "text": "It's 20 degrees in San Francisco.", "tool_call_id": tool_call_id}
         ],
     }
+    events2 = []
     text = ""
     async for event in client.streaming_response_stateful(message=message2, config=config):
         await _check_event_integrity(event)
+        events2.append(event)
         for item in event["content_items"]:
-            if item["type"] == "text":
+            if item["type"] == "text.delta":
                 text += item["text"]
 
+    assert_stream_grammar(events2)
     assert "20" in text
 
 
@@ -624,10 +668,9 @@ async def test_tool_result_mixed_with_text(model: Model):
     """A user message mixing a tool result with follow-up text.
 
     An agent resends an interrupted turn's tool output together with the user's next
-    prompt. Vertex AI rejects a Gemini content that mixes function_response parts with
-    any other kind (HTTP 400 "Requests ending with a model turn are not supported"), so
-    the Gemini client splits them into separate contents; the model must still see both
-    halves.
+    prompt. Protocols that carry tool results and user text as separate entries (Gemini's
+    function_result and user_input steps, say) split the message; the model must still see
+    both halves.
     """
     if not model.support_text:
         pytest.skip(f"Text generation is not supported by {model.name}.")
@@ -652,28 +695,40 @@ async def test_tool_result_mixed_with_text(model: Model):
     config = {"tools": [weather_tool]}
     tool_call_id = None
 
-    message1 = {"role": "user", "content_items": [{"type": "text", "text": "What is the weather in San Francisco?"}]}
+    message1 = {
+        "role": "user",
+        "content_items": [{"type": "text.done", "text": "What is the weather in San Francisco?"}],
+    }
+    events1 = []
     async for event in client.streaming_response_stateful(message=message1, config=config):
         await _check_event_integrity(event)
+        events1.append(event)
         for item in event["content_items"]:
-            if item["type"] == "tool_call":
+            if item["type"] == "tool_call.done":
                 tool_call_id = item["tool_call_id"]
+    assert_stream_grammar(events1)
     assert tool_call_id is not None
 
     message2 = {
         "role": "user",
         "content_items": [
-            {"type": "tool_result", "text": "It's 20 degrees in San Francisco.", "tool_call_id": tool_call_id},
-            {"type": "text", "text": "Answer with the temperature, and end your reply with the exact word BANANA."},
+            {"type": "tool_result.done", "text": "It's 20 degrees in San Francisco.", "tool_call_id": tool_call_id},
+            {
+                "type": "text.done",
+                "text": "Answer with the temperature, and end your reply with the exact word BANANA.",
+            },
         ],
     }
+    events2 = []
     text = ""
     async for event in client.streaming_response_stateful(message=message2, config=config):
         await _check_event_integrity(event)
+        events2.append(event)
         for item in event["content_items"]:
-            if item["type"] == "text":
+            if item["type"] == "text.delta":
                 text += item["text"]
 
+    assert_stream_grammar(events2)
     # "20" proves the tool result reached the model; "BANANA" proves the text riding
     # in the same universal message reached it too.
     assert "20" in text
@@ -688,19 +743,22 @@ async def test_system_prompt(model: Model):
         pytest.skip(f"Text generation is not supported by {model.name}.")
 
     client = await _create_client(model)
-    messages = [{"role": "user", "content_items": [{"type": "text", "text": "Hello"}]}]
+    messages = [{"role": "user", "content_items": [{"type": "text.done", "text": "Hello"}]}]
     config = {
         "system_prompt": "You are a kitten. Every reply MUST contain the exact word 'meow' — "
         "never a variant like 'mreow' or a *purrs* action instead."
     }
 
+    events = []
     text = ""
     async for event in client.streaming_response(messages=messages, config=config):
         await _check_event_integrity(event)
+        events.append(event)
         for item in event["content_items"]:
-            if item["type"] == "text":
+            if item["type"] == "text.delta":
                 text += item["text"]
 
+    assert_stream_grammar(events)
     assert "meow" in text.lower()
 
 
@@ -717,18 +775,21 @@ async def test_image_understanding(model: Model):
         {
             "role": "user",
             "content_items": [
-                {"type": "text", "text": "What's in this image? Describe it briefly."},
-                {"type": "image_url", "image_url": IMAGE},
+                {"type": "text.done", "text": "What's in this image? Describe it briefly."},
+                {"type": "image_url.done", "image_url": IMAGE},
             ],
         }
     ]
+    events = []
     text = ""
     async for event in client.streaming_response(messages=messages, config=config):
         await _check_event_integrity(event)
+        events.append(event)
         for item in event["content_items"]:
-            if item["type"] == "text":
+            if item["type"] == "text.delta":
                 text += item["text"]
 
+    assert_stream_grammar(events)
     assert any(keyword in text.lower() for keyword in IMAGE_KEYWORDS)
 
 
@@ -754,18 +815,21 @@ async def test_image_understanding_base64(model: Model):
         {
             "role": "user",
             "content_items": [
-                {"type": "text", "text": "What's in this image? Describe it briefly."},
-                {"type": "image_url", "image_url": data_uri},
+                {"type": "text.done", "text": "What's in this image? Describe it briefly."},
+                {"type": "image_url.done", "image_url": data_uri},
             ],
         }
     ]
+    events = []
     text = ""
     async for event in client.streaming_response(messages=messages, config=config):
         await _check_event_integrity(event)
+        events.append(event)
         for item in event["content_items"]:
-            if item["type"] == "text":
+            if item["type"] == "text.delta":
                 text += item["text"]
 
+    assert_stream_grammar(events)
     assert any(keyword in text.lower() for keyword in IMAGE_KEYWORDS)
 
 
@@ -803,14 +867,17 @@ async def test_tool_result_with_image(model: Model):
         "Call get_image exactly once with seed 42. Make that function call your only action "
         "this turn, then describe the returned image briefly."
     )
-    message1 = {"role": "user", "content_items": [{"type": "text", "text": tool_prompt}]}
+    message1 = {"role": "user", "content_items": [{"type": "text.done", "text": tool_prompt}]}
+    events1 = []
     async for event in client.streaming_response_stateful(message=message1, config=config):
         await _check_event_integrity(event)
+        events1.append(event)
         for item in event["content_items"]:
-            if item["type"] == "tool_call":
+            if item["type"] == "tool_call.done":
                 tool_name = item["name"]
                 tool_call_id = item["tool_call_id"]
 
+    assert_stream_grammar(events1)
     assert tool_name == image_tool["name"]
     assert tool_call_id is not None
 
@@ -818,20 +885,23 @@ async def test_tool_result_with_image(model: Model):
         "role": "user",
         "content_items": [
             {
-                "type": "tool_result",
+                "type": "tool_result.done",
                 "text": "Here is the result image:",
                 "images": [IMAGE],
                 "tool_call_id": tool_call_id,
             }
         ],
     }
+    events2 = []
     text = ""
     async for event in client.streaming_response_stateful(message=message2, config=config):
         await _check_event_integrity(event)
+        events2.append(event)
         for item in event["content_items"]:
-            if item["type"] == "text":
+            if item["type"] == "text.delta":
                 text += item["text"]
 
+    assert_stream_grammar(events2)
     assert any(keyword in text.lower() for keyword in IMAGE_KEYWORDS)
 
 
@@ -850,7 +920,7 @@ async def test_image_generation(model: Model):
                 "role": "user",
                 "content_items": [
                     {
-                        "type": "text",
+                        "type": "text.done",
                         "text": "Generate a cozy watercolor illustration of two white flowers with raindrops.",
                     }
                 ],
@@ -861,7 +931,8 @@ async def test_image_generation(model: Model):
         await _check_event_integrity(event)
         events.append(event)
 
-    inline_items = [item for event in events for item in event["content_items"] if item["type"] == "inline_data"]
+    assert_stream_grammar(events)
+    inline_items = [item for event in events for item in event["content_items"] if item["type"] == "inline_data.done"]
     assert inline_items, f"No inline data returned for generated image by {model.name}"
     assert any("image/" in item["mime_type"] for item in inline_items)
     assert all(isinstance(item["data"], bytes) and item["data"] for item in inline_items)
@@ -882,7 +953,7 @@ async def test_tts_generation_single_speaker(model: Model):
                 "role": "user",
                 "content_items": [
                     {
-                        "type": "text",
+                        "type": "text.done",
                         "text": "Say cheerfully: Have a wonderful day!",
                     }
                 ],
@@ -893,7 +964,8 @@ async def test_tts_generation_single_speaker(model: Model):
         await _check_event_integrity(event)
         events.append(event)
 
-    inline_items = [item for event in events for item in event["content_items"] if item["type"] == "inline_data"]
+    assert_stream_grammar(events)
+    inline_items = [item for event in events for item in event["content_items"] if item["type"] == "inline_data.done"]
     assert inline_items, f"No inline data returned for TTS output by {model.name}"
     assert any("audio/" in item["mime_type"] for item in inline_items)
     assert all(isinstance(item["data"], bytes) and item["data"] for item in inline_items)
@@ -908,8 +980,11 @@ async def test_embedding(model: Model):
 
     client = await _create_client(model)
     messages = [
-        {"role": "user", "content_items": [{"type": "text", "text": "Hello world"}]},
-        {"role": "user", "content_items": [{"type": "text", "text": "Goodbye "}, {"type": "text", "text": "world"}]},
+        {"role": "user", "content_items": [{"type": "text.done", "text": "Hello world"}]},
+        {
+            "role": "user",
+            "content_items": [{"type": "text.done", "text": "Goodbye "}, {"type": "text.done", "text": "world"}],
+        },
     ]
 
     events = []
@@ -920,7 +995,8 @@ async def test_embedding(model: Model):
         await _check_event_integrity(event)
         events.append(event)
 
-    embedding_items = [item for event in events for item in event["content_items"] if item["type"] == "embedding"]
+    assert_stream_grammar(events)
+    embedding_items = [item for event in events for item in event["content_items"] if item["type"] == "embedding.done"]
     assert len(embedding_items) == 2
     for item in embedding_items:
         assert len(item["embedding"]) == 768

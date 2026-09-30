@@ -1,0 +1,244 @@
+---
+import type { MarkdownInstance } from "astro";
+import Base from "./Base.astro";
+import { STRINGS, localePath, type Locale } from "../shared/i18n";
+import { ALL_DOCS, DOC_SECTIONS, REPO_URL, sectionOf, type DocLink } from "../shared/site";
+
+type Doc = MarkdownInstance<{ description: string }>;
+
+interface Props {
+  locale: Locale;
+  doc: DocLink;
+  page: Doc;
+}
+
+const { locale, doc, page } = Astro.props;
+const s = STRINGS[locale].docs;
+const { Content } = page;
+const section = sectionOf(doc.slug)!;
+const index = ALL_DOCS.indexOf(doc);
+const previous = ALL_DOCS[index - 1];
+const next = ALL_DOCS[index + 1];
+const headings = page.getHeadings().filter((heading) => heading.depth === 2 || heading.depth === 3);
+const href = (slug: string) => localePath(locale, `/docs/${slug}/`);
+// the page's own Markdown, served next to it (see src/pages/docs/[slug].md.ts)
+const markdown = localePath(locale, `/docs/${doc.slug}.md`);
+
+const label = "text-[13px] font-semibold text-gray-900 dark:text-gray-100";
+const entry = "-ml-px block border-l py-1 pl-3 transition-colors";
+const entryOn = "border-brand-600 font-medium text-brand-700 dark:border-brand-400 dark:text-brand-300";
+const entryOff =
+  "border-transparent text-gray-600 hover:border-gray-400 hover:text-gray-900 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-100";
+const step =
+  "group flex flex-col gap-1 rounded-lg border border-gray-200 p-4 transition-colors hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700";
+---
+
+<Base
+  locale={locale}
+  title={doc.title[locale]}
+  description={page.frontmatter.description}
+  active={section.id}
+  entry={doc.slug === ALL_DOCS[0].slug}
+>
+  <div class="mx-auto grid max-w-7xl lg:grid-cols-[15rem_minmax(0,1fr)] xl:grid-cols-[15rem_minmax(0,1fr)_14rem]">
+    <aside class="hidden border-r border-gray-200 lg:block dark:border-gray-800">
+      <nav class="sticky top-14 max-h-[calc(100vh-3.5rem)] overflow-y-auto px-6 py-8 text-sm" aria-label={s.title}>
+        {
+          DOC_SECTIONS.map((group) => (
+            <div class="mb-6">
+              <p class:list={[label, "mb-2"]}>{group.title[locale]}</p>
+              <ul class="space-y-0.5 border-l border-gray-200 dark:border-gray-800">
+                {group.docs.map((item) => (
+                  <li>
+                    <a
+                      href={href(item.slug)}
+                      class:list={[entry, item.slug === doc.slug ? entryOn : entryOff]}
+                      aria-current={item.slug === doc.slug ? "page" : undefined}
+                    >
+                      {item.title[locale]}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))
+        }
+      </nav>
+    </aside>
+
+    <div class="min-w-0 px-4 py-10 sm:px-6 lg:px-10">
+      <details class="mb-6 rounded-lg border border-gray-200 text-sm lg:hidden dark:border-gray-800">
+        <summary class="cursor-pointer px-3 py-2 font-medium">{section.title[locale]}: {doc.title[locale]}</summary>
+        <div class="border-t border-gray-200 px-3 py-2 dark:border-gray-800">
+          {
+            DOC_SECTIONS.map((group) => (
+              <div class="py-1.5">
+                <p class={label}>{group.title[locale]}</p>
+                <ul class="mt-1">
+                  {group.docs.map((item) => (
+                    <li>
+                      <a
+                        href={href(item.slug)}
+                        class:list={["block py-1", item.slug === doc.slug ? "font-medium text-brand-700 dark:text-brand-300" : "text-gray-600 dark:text-gray-400"]}
+                      >
+                        {item.title[locale]}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))
+          }
+        </div>
+      </details>
+
+      <article class="w-full max-w-3xl">
+        <header>
+          <div class="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+            <h1 class="text-3xl font-semibold tracking-tight text-balance">{doc.title[locale]}</h1>
+            <button
+              type="button"
+              data-copy-markdown={markdown}
+              data-copied={s.copied}
+              data-failed={s.copyFailed}
+              class="mt-1.5 inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-950 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
+            >
+              <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="8" y="8" width="14" height="14" rx="2"></rect>
+                <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
+              </svg>
+              <span>{s.copy}</span>
+            </button>
+          </div>
+          <p class="mt-3 text-[15px] text-gray-600 dark:text-gray-400">{page.frontmatter.description}</p>
+        </header>
+
+        <div class="md-body mt-6 text-[15px] text-gray-800 dark:text-gray-200">
+          <Content />
+        </div>
+
+        <div class="mt-10 grid gap-3 border-t border-gray-200 pt-6 sm:grid-cols-2 dark:border-gray-800">
+          {
+            previous ? (
+              <a href={href(previous.slug)} class={step}>
+                <span class="text-xs text-gray-500 dark:text-gray-400">{s.previous}</span>
+                <span class="text-sm font-medium group-hover:text-brand-700 dark:group-hover:text-brand-300">
+                  {previous.title[locale]}
+                </span>
+              </a>
+            ) : (
+              <span />
+            )
+          }
+          {
+            next && (
+              <a href={href(next.slug)} class:list={[step, "sm:items-end sm:text-right"]}>
+                <span class="text-xs text-gray-500 dark:text-gray-400">{s.next}</span>
+                <span class="text-sm font-medium group-hover:text-brand-700 dark:group-hover:text-brand-300">
+                  {next.title[locale]}
+                </span>
+              </a>
+            )
+          }
+        </div>
+
+        <p class="mt-6 flex flex-wrap gap-x-4 text-xs text-gray-400 dark:text-gray-500">
+          <a
+            href={`${REPO_URL}/blob/main/site/src/docs/${doc.slug}.${locale}.md`}
+            class="hover:text-gray-700 dark:hover:text-gray-300"
+            target="_blank"
+            rel="noreferrer"
+          >
+            {s.edit}
+          </a>
+          <a href={markdown} class="hover:text-gray-700 dark:hover:text-gray-300">{s.markdown}</a>
+        </p>
+      </article>
+    </div>
+
+    <aside class="hidden xl:block">
+      {
+        headings.length > 0 && (
+          <nav class="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto py-10 pr-6" aria-label={s.onThisPage}>
+            <p class={label}>{s.onThisPage}</p>
+            <ul class="mt-3 space-y-1 border-l border-gray-200 text-sm dark:border-gray-800" data-toc>
+              {headings.map((heading) => (
+                <li>
+                  <a
+                    href={`#${heading.slug}`}
+                    class:list={[
+                      "-ml-px block border-l border-transparent py-0.5 text-gray-600 transition-colors hover:border-gray-400 hover:text-gray-900 aria-[current]:border-brand-600 aria-[current]:font-medium aria-[current]:text-brand-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-100 dark:aria-[current]:border-brand-400 dark:aria-[current]:text-brand-300",
+                      heading.depth === 3 ? "pl-6 text-[13px]" : "pl-3",
+                    ]}
+                  >
+                    {heading.text}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        )
+      }
+    </aside>
+  </div>
+</Base>
+
+<script>
+  // ---------- the table of contents follows the reader: the last heading above the fold is current
+  const toc = document.querySelector<HTMLElement>("[data-toc]");
+  if (toc) {
+    const links = [...toc.querySelectorAll<HTMLAnchorElement>("a[href^='#']")];
+    const headings = links
+      .map((link) => document.getElementById(decodeURIComponent(link.hash.slice(1))))
+      .filter((heading): heading is HTMLElement => heading !== null);
+    let current: HTMLAnchorElement | undefined;
+    const update = () => {
+      // the line under the sticky top bar; a heading above it has been read past
+      const line = 96;
+      let index = headings.length - 1;
+      // at the end of the page the last heading may never reach the line
+      const atEnd = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
+      while (!atEnd && index >= 0 && headings[index].getBoundingClientRect().top > line) index -= 1;
+      const link = links[Math.max(index, 0)];
+      if (link === current) return;
+      current?.removeAttribute("aria-current");
+      link.setAttribute("aria-current", "location");
+      current = link;
+    };
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        ticking = false;
+        update();
+      });
+    };
+    addEventListener("scroll", onScroll, { passive: true });
+    addEventListener("resize", onScroll);
+    update();
+  }
+
+  // ---------- copy the page as Markdown, from the file served next to it
+  const copy = document.querySelector<HTMLButtonElement>("[data-copy-markdown]");
+  if (copy) {
+    const label = copy.querySelector("span")!;
+    const idle = label.textContent;
+    let reset: number | undefined;
+    const say = (text: string) => {
+      label.textContent = text;
+      window.clearTimeout(reset);
+      reset = window.setTimeout(() => (label.textContent = idle), 2000);
+    };
+    copy.addEventListener("click", async () => {
+      try {
+        const response = await fetch(copy.dataset.copyMarkdown!);
+        if (!response.ok) throw new Error(String(response.status));
+        await navigator.clipboard.writeText(await response.text());
+        say(copy.dataset.copied!);
+      } catch {
+        say(copy.dataset.failed!);
+      }
+    });
+  }
+</script>

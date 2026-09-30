@@ -16,7 +16,7 @@ export type Modality = "Text" | "Image" | "Video" | "Audio" | "Embed";
 export type Currency = "USD" | "CNY";
 
 /**
- * List prices per million tokens for AgentHub's usage buckets.
+ * List prices per million tokens for MMSP's usage buckets.
  *
  * Keys mirror `usage_metadata`: `cached_tokens` (cache-hit price, absent when
  * the platform publishes none), `prompt_tokens` (non-cached input), and
@@ -62,7 +62,7 @@ const OPENROUTER = "https://openrouter.ai/api/v1";
 const SILICONFLOW = "https://api.siliconflow.cn/v1";
 const MINIMAX = "https://api.minimax.io/v1";
 
-// Display convention shared with the AgentHub apps: prices are stored in USD
+// Display convention shared with the MMSP apps: prices are stored in USD
 // (official CNY list prices pre-converted at 7 CNY/USD), so requesting CNY
 // shows the vendor's numbers.
 const CNY_PER_USD = 7.0;
@@ -84,7 +84,11 @@ function usd(prompt: number, output: number, cached?: number): ModelPricing {
  */
 function cny(prompt: number, output: number, cached?: number): ModelPricing {
   const rate = (v: number): number => Math.round((v / CNY_PER_USD) * 1e6) / 1e6;
-  return usd(rate(prompt), rate(output), cached !== undefined ? rate(cached) : undefined);
+  return usd(
+    rate(prompt),
+    rate(output),
+    cached !== undefined ? rate(cached) : undefined,
+  );
 }
 
 // Prices in USD per million tokens (official CNY prices pre-converted at
@@ -96,7 +100,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   {
     model: "gemini-3.8-flash",
     base_url: GOOGLE,
-    client: "gemini-3.8",
+    client: "gemini-official",
     input_modalities: ["Text", "Image", "Video", "Audio"],
     output_modalities: ["Text"],
     context_window: 1048576,
@@ -108,7 +112,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   {
     model: "gemini-3.7-flash",
     base_url: GOOGLE,
-    client: "gemini-3.8",
+    client: "gemini-official",
     input_modalities: ["Text", "Image", "Video", "Audio"],
     output_modalities: ["Text"],
     context_window: 1048576,
@@ -117,7 +121,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   {
     model: "gemini-3.6-flash",
     base_url: GOOGLE,
-    client: "gemini-3.8",
+    client: "gemini-official",
     input_modalities: ["Text", "Image", "Video", "Audio"],
     output_modalities: ["Text"],
     context_window: 1048576,
@@ -126,7 +130,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   {
     model: "gemini-3.5-flash-lite",
     base_url: GOOGLE,
-    client: "gemini-3.8",
+    client: "gemini-official",
     input_modalities: ["Text", "Image", "Video", "Audio"],
     output_modalities: ["Text"],
     context_window: 1048576,
@@ -135,37 +139,87 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   {
     model: "gemini-3.5-flash",
     base_url: GOOGLE,
-    client: "gemini-3.8",
+    client: "gemini-official",
     input_modalities: ["Text", "Image", "Video", "Audio"],
     output_modalities: ["Text"],
     context_window: 1048576,
     pricing: usd(1.5, 9.0, 0.15),
   },
   {
-    model: "gemini-3.1-flash-image",
+    model: "gemini-3.1-flash-lite-image",
     base_url: GOOGLE,
-    client: "gemini-3.8",
+    client: "gemini-official",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Image"],
   },
   {
+    model: "gemini-3.1-flash-image",
+    base_url: GOOGLE,
+    client: "gemini-official",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Image"],
+  },
+  {
+    model: "gemini-3.8-flash-tts",
+    base_url: GOOGLE,
+    client: "gemini-official",
+    input_modalities: ["Text"],
+    output_modalities: ["Audio"],
+  },
+  {
+    model: "gemini-3.8-flash-lite-tts",
+    base_url: GOOGLE,
+    client: "gemini-official",
+    input_modalities: ["Text"],
+    output_modalities: ["Audio"],
+  },
+  {
     model: "gemini-3.1-flash-tts-preview",
     base_url: GOOGLE,
-    client: "gemini-3.8",
+    client: "gemini-official",
     input_modalities: ["Text"],
     output_modalities: ["Audio"],
   },
   {
     model: "gemini-embedding-2",
     base_url: GOOGLE,
-    client: "gemini-3.8",
+    client: "gemini-official",
     input_modalities: ["Text"],
     output_modalities: ["Embed"],
   },
   {
+    // cache reads are 2.5% of the input price
+    model: "claude-fable-5-1",
+    base_url: ANTHROPIC,
+    client: "anthropic-official",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(10.0, 50.0, 0.25),
+  },
+  {
+    // cache reads are 5% of the input price
+    model: "claude-opus-5-5",
+    base_url: ANTHROPIC,
+    client: "anthropic-official",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(4.0, 20.0, 0.2),
+  },
+  {
+    model: "claude-sonnet-5-5",
+    base_url: ANTHROPIC,
+    client: "anthropic-official",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(2.0, 10.0, 0.2),
+  },
+  {
     model: "claude-fable-5",
     base_url: ANTHROPIC,
-    client: "claude-5",
+    client: "anthropic-official",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
     context_window: 1000000,
@@ -174,7 +228,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   {
     model: "claude-opus-5",
     base_url: ANTHROPIC,
-    client: "claude-5",
+    client: "anthropic-official",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
     context_window: 1000000,
@@ -183,7 +237,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   {
     model: "claude-sonnet-5",
     base_url: ANTHROPIC,
-    client: "claude-5",
+    client: "anthropic-official",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
     context_window: 1000000,
@@ -192,7 +246,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   {
     model: "claude-opus-4-8",
     base_url: ANTHROPIC,
-    client: "claude-5",
+    client: "anthropic-official",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
     context_window: 1000000,
@@ -201,11 +255,23 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   {
     model: "claude-sonnet-4-6",
     base_url: ANTHROPIC,
-    client: "claude-4-6",
+    client: "anthropic-official",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
     context_window: 1000000,
     pricing: usd(3.0, 15.0, 0.3),
+  },
+  {
+    // official list price per 1M tokens: $0.1 cached input, $2 uncached input, $2.5 cache
+    // writes, $10 output, above 272K input tokens 2x input and cache and 1.5x output. The
+    // prompt bucket carries the cache-write rate, as for gpt-6-astra.
+    model: "gpt-6.1-sol",
+    base_url: OPENAI,
+    client: "openai-official",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1050000,
+    pricing: usd(2.5, 10.0, 0.1),
   },
   {
     // official list price per 1M tokens: $1 cached input, $10 uncached input, $12.5 cache
@@ -214,7 +280,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     // cache-written input from plain input.
     model: "gpt-6-astra",
     base_url: OPENAI,
-    client: "gpt-6",
+    client: "openai-official",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
     context_window: 1050000,
@@ -224,7 +290,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     // official standard-tier list price; the bare gpt-5.6 alias also routes here
     model: "gpt-5.6-sol",
     base_url: OPENAI,
-    client: "gpt-6",
+    client: "openai-official",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
     context_window: 1050000,
@@ -233,7 +299,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   {
     model: "gpt-5.6-terra",
     base_url: OPENAI,
-    client: "gpt-6",
+    client: "openai-official",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
     context_window: 1050000,
@@ -242,7 +308,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   {
     model: "gpt-5.6-luna",
     base_url: OPENAI,
-    client: "gpt-6",
+    client: "openai-official",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
     context_window: 1050000,
@@ -251,7 +317,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   {
     model: "gpt-5.5",
     base_url: OPENAI,
-    client: "gpt-5.5",
+    client: "openai-official",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
     context_window: 1050000,
@@ -260,7 +326,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   {
     model: "MiniMax-M3",
     base_url: MINIMAX,
-    client: "minimax-m3",
+    client: "minimax-official",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
     context_window: 1000000,
@@ -270,7 +336,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   {
     model: "text-embedding-3-large",
     base_url: OPENAI,
-    client: "openai-embedding",
+    client: "openai-official",
     input_modalities: ["Text"],
     output_modalities: ["Embed"],
     pricing: usd(0.13, 0.0),
@@ -278,7 +344,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   {
     model: "glm-5.3",
     base_url: ZAI,
-    client: "glm-5.3",
+    client: "zai-official",
     input_modalities: ["Text"],
     output_modalities: ["Text"],
     context_window: 1000000,
@@ -287,7 +353,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   {
     model: "glm-5.3-flash",
     base_url: ZAI,
-    client: "glm-5.3",
+    client: "zai-official",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
     context_window: 1000000,
@@ -298,7 +364,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   {
     model: "glm-5.2",
     base_url: ZAI,
-    client: "glm-5.3",
+    client: "zai-official",
     input_modalities: ["Text"],
     output_modalities: ["Text"],
     context_window: 1000000,
@@ -307,7 +373,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   {
     model: "glm-5.1",
     base_url: ZAI,
-    client: "glm-5.3",
+    client: "zai-official",
     input_modalities: ["Text"],
     output_modalities: ["Text"],
     context_window: 200000,
@@ -316,7 +382,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   {
     model: "kimi-k3",
     base_url: MOONSHOT,
-    client: "kimi-k3",
+    client: "moonshot-official",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
     context_window: 1048576,
@@ -325,30 +391,29 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   {
     model: "kimi-k2.6",
     base_url: MOONSHOT,
-    client: "kimi-k2.6",
+    client: "moonshot-official",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
     context_window: 262144,
     pricing: cny(6.5, 27.0, 1.1),
   },
   {
-    model: "deepseek-v4.1-flash",
+    // DeepSeek-V4.1-Flash; DeepSeek also serves deepseek-v4-flash and
+    // deepseek-v4-flash-vision-exp with it, at this price (official page 2026-09-30)
+    model: "deepseek-flash",
     base_url: DEEPSEEK,
-    client: "deepseek-v4",
-    // announced by DeepSeek for release after 2026-09-10 and not yet served on
-    // 2026-09-09; multimodal per the announcement
+    client: "deepseek-official",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
-    // assumed equal to deepseek-v4-flash until the official model page lists it
     context_window: 1000000,
-    // priced as the V4 Flash series: official off-peak list price effective 2026-09-10,
-    // and peak-hour rates (Beijing 9:00-12:00, 14:00-18:00) are double
+    // official off-peak list price; peak-hour rates (Beijing 9:00-12:00, 14:00-18:00,
+    // weekdays) are double
     pricing: cny(1.0, 4.0, 0.02),
   },
   {
     model: "deepseek-v4-flash",
     base_url: DEEPSEEK,
-    client: "deepseek-v4",
+    client: "deepseek-official",
     input_modalities: ["Text"],
     output_modalities: ["Text"],
     context_window: 1000000,
@@ -360,7 +425,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   {
     model: "deepseek-v4-flash-vision-exp",
     base_url: DEEPSEEK,
-    client: "deepseek-v4",
+    client: "deepseek-official",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
     context_window: 1000000,
@@ -372,7 +437,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   {
     model: "deepseek-v4-pro",
     base_url: DEEPSEEK,
-    client: "deepseek-v4",
+    client: "deepseek-official",
     input_modalities: ["Text"],
     output_modalities: ["Text"],
     context_window: 1000000,
@@ -381,6 +446,33 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: cny(4.5, 13.5, 0.15),
   },
   // OpenRouter (USD prices, context windows and modality flags from the live /models API)
+  {
+    model: "anthropic/claude-fable-5.1",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(10.0, 50.0, 0.25),
+  },
+  {
+    model: "anthropic/claude-opus-5.5",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(4.0, 20.0, 0.2),
+  },
+  {
+    model: "anthropic/claude-sonnet-5.5",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(2.0, 10.0, 0.2),
+  },
   {
     model: "anthropic/claude-fable-5",
     base_url: OPENROUTER,
@@ -427,9 +519,19 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(2.0, 10.0, 0.2),
   },
   {
+    // models API 2026-09-30, DeepSeek-V4.1-Flash
+    model: "deepseek/deepseek-v4.1-flash",
+    base_url: OPENROUTER,
+    client: "deepseek-official",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.0198, 0.396, 0.0029),
+  },
+  {
     model: "deepseek/deepseek-v4-flash",
     base_url: OPENROUTER,
-    client: "deepseek-v4",
+    client: "deepseek-official",
     input_modalities: ["Text"],
     output_modalities: ["Text"],
     context_window: 1048576,
@@ -438,7 +540,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   {
     model: "deepseek/deepseek-v4-pro",
     base_url: OPENROUTER,
-    client: "deepseek-v4",
+    client: "deepseek-official",
     input_modalities: ["Text"],
     output_modalities: ["Text"],
     context_window: 1048576,
@@ -465,7 +567,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   {
     model: "moonshotai/kimi-k3",
     base_url: OPENROUTER,
-    client: "kimi-k3",
+    client: "moonshot-official",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
     context_window: 1048576,
@@ -474,7 +576,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   {
     model: "moonshotai/kimi-k2.6",
     base_url: OPENROUTER,
-    client: "kimi-k2.6",
+    client: "moonshot-official",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
     context_window: 262144,
@@ -488,6 +590,16 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Text"],
     context_window: 1000000,
     pricing: usd(0.0, 0.0),
+  },
+  {
+    // models API 2026-09-30: $2 input, $10 output, $0.1 cache read, $2.5 cache write
+    model: "openai/gpt-6.1-sol",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1050000,
+    pricing: usd(2.5, 10.0, 0.1),
   },
   {
     // models API 2026-09-09, default OpenAI endpoint, no discount: $10 input, $50 output,
@@ -593,7 +705,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   {
     model: "z-ai/glm-5.3",
     base_url: OPENROUTER,
-    client: "glm-5.3",
+    client: "zai-official",
     input_modalities: ["Text"],
     output_modalities: ["Text"],
     context_window: 1048576,
@@ -602,7 +714,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   {
     model: "z-ai/glm-5.2",
     base_url: OPENROUTER,
-    client: "glm-5.2",
+    client: "zai-official",
     input_modalities: ["Text"],
     output_modalities: ["Text"],
     context_window: 1048576,
@@ -611,7 +723,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   {
     model: "z-ai/glm-5.1",
     base_url: OPENROUTER,
-    client: "glm-5.1",
+    client: "zai-official",
     input_modalities: ["Text"],
     output_modalities: ["Text"],
     context_window: 204800,
@@ -657,7 +769,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   {
     model: "zai-org/GLM-5.2",
     base_url: SILICONFLOW,
-    client: "glm-5.2",
+    client: "zai-official",
     input_modalities: ["Text"],
     output_modalities: ["Text"],
     context_window: 1000000,
@@ -666,7 +778,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   {
     model: "Pro/zai-org/GLM-5.1",
     base_url: SILICONFLOW,
-    client: "glm-5.1",
+    client: "zai-official",
     input_modalities: ["Text"],
     output_modalities: ["Text"],
     context_window: 200000,
@@ -674,7 +786,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   {
     model: "Pro/moonshotai/Kimi-K2.6",
     base_url: SILICONFLOW,
-    client: "kimi-k2.6",
+    client: "moonshot-official",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
     context_window: 262144,
@@ -696,7 +808,10 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   },
 ];
 
-function convertPricing(pricing: ModelPricing, currency: Currency): ModelPricing {
+function convertPricing(
+  pricing: ModelPricing,
+  currency: Currency,
+): ModelPricing {
   if (currency === "USD") {
     return { ...pricing };
   }
@@ -719,15 +834,19 @@ function convertPricing(pricing: ModelPricing, currency: Currency): ModelPricing
  *
  * Covers the official vendor endpoints plus the OpenRouter and SiliconFlow
  * platforms; `client` is the `clientType` token that routes the model to its
- * protocol client. Prices are per million tokens for AgentHub's usage buckets
+ * protocol client. Prices are per million tokens for MMSP's usage buckets
  * (cached_tokens, prompt_tokens, thoughts_tokens, response_tokens), stored in
  * USD and converted to `currency` at 7 CNY/USD on request.
  */
-export function listSupportedModels(currency: Currency = "USD"): SupportedModel[] {
+export function listSupportedModels(
+  currency: Currency = "USD",
+): SupportedModel[] {
   return SUPPORTED_MODELS.map((entry) => ({
     ...entry,
     input_modalities: [...entry.input_modalities],
     output_modalities: [...entry.output_modalities],
-    ...(entry.pricing ? { pricing: convertPricing(entry.pricing, currency) } : {}),
+    ...(entry.pricing
+      ? { pricing: convertPricing(entry.pricing, currency) }
+      : {}),
   }));
 }

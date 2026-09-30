@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/project/agenthub-python/
+      url: https://pypi.org/project/mmsp/
 
     steps:
       - name: Checkout
@@ -42,7 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: npm
-      url: https://www.npmjs.com/package/@prismshadow/agenthub
+      url: https://www.npmjs.com/package/@prismshadow/mmsp
 
     steps:
       - name: Checkout

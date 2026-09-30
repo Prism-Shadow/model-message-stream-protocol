@@ -22,7 +22,7 @@ snapshotted as raw markdown from https://developers.openai.com/.
   (emitted by default with `store: false`, no `include` needed), assistant messages carry
   `phase`, and replayed reasoning items must include the `summary` key (the API returns 400
   without it). GPT-5.6 therefore shares the `gpt5_6` client with GPT-5.4 and GPT-5.5.
-- `reasoning.effort` adds `max` above `xhigh`; AgentHub's `ThinkingLevel.XHIGH` continues to
+- `reasoning.effort` adds `max` above `xhigh`; MMSP's `ThinkingLevel.XHIGH` continues to
   map to `xhigh`.
 - Fast mode: `service_tier: "priority"` is accepted and echoed back as
   `service_tier: "priority"` in the response.

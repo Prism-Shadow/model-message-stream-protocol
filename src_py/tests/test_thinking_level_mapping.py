@@ -15,9 +15,8 @@
 from typing import Any
 
 import pytest
-from google.genai import types
 
-from agenthub import AutoLLMClient, ThinkingLevel
+from mmsp import AutoLLMClient, ThinkingLevel
 
 
 # Not every Gemini model accepts every thinking level (verified live 2026-07-24;
@@ -25,38 +24,36 @@ from agenthub import AutoLLMClient, ThinkingLevel
 # (gemini-3-pro also "medium") and image models accept only "minimal" and
 # "high". Unsupported levels must clamp to the closest supported one, never error.
 GEMINI3_THINKING_LEVEL_CASES = [
-    ("gemini-3.1-pro-preview", ThinkingLevel.NONE, types.ThinkingLevel.LOW),
-    ("gemini-3.1-pro-preview", ThinkingLevel.LOW, types.ThinkingLevel.LOW),
-    ("gemini-3.1-pro-preview", ThinkingLevel.MEDIUM, types.ThinkingLevel.MEDIUM),
-    ("gemini-3.1-pro-preview", ThinkingLevel.HIGH, types.ThinkingLevel.HIGH),
-    ("gemini-3.1-pro-preview", ThinkingLevel.XHIGH, types.ThinkingLevel.HIGH),
-    ("gemini-3.1-pro-preview", ThinkingLevel.MAX, types.ThinkingLevel.HIGH),
-    ("gemini-3-pro-preview", ThinkingLevel.NONE, types.ThinkingLevel.LOW),
-    ("gemini-3-pro-preview", ThinkingLevel.MEDIUM, types.ThinkingLevel.HIGH),
-    ("gemini-3.1-flash-image", ThinkingLevel.NONE, types.ThinkingLevel.MINIMAL),
-    ("gemini-3.1-flash-image", ThinkingLevel.LOW, types.ThinkingLevel.MINIMAL),
-    ("gemini-3.1-flash-image", ThinkingLevel.MEDIUM, types.ThinkingLevel.HIGH),
+    ("gemini-3.1-pro-preview", ThinkingLevel.NONE, "low"),
+    ("gemini-3.1-pro-preview", ThinkingLevel.LOW, "low"),
+    ("gemini-3.1-pro-preview", ThinkingLevel.MEDIUM, "medium"),
+    ("gemini-3.1-pro-preview", ThinkingLevel.HIGH, "high"),
+    ("gemini-3.1-pro-preview", ThinkingLevel.XHIGH, "high"),
+    ("gemini-3.1-pro-preview", ThinkingLevel.MAX, "high"),
+    ("gemini-3-pro-preview", ThinkingLevel.NONE, "low"),
+    ("gemini-3-pro-preview", ThinkingLevel.MEDIUM, "high"),
+    ("gemini-3.1-flash-image", ThinkingLevel.NONE, "minimal"),
+    ("gemini-3.1-flash-image", ThinkingLevel.LOW, "minimal"),
+    ("gemini-3.1-flash-image", ThinkingLevel.MEDIUM, "high"),
     # "-image" wins over "gemini-3-pro" (LOW would stay LOW under the pro set).
-    ("gemini-3-pro-image", ThinkingLevel.LOW, types.ThinkingLevel.MINIMAL),
-    ("gemini-3-flash-preview", ThinkingLevel.NONE, types.ThinkingLevel.MINIMAL),
-    ("gemini-3.5-flash", ThinkingLevel.MEDIUM, types.ThinkingLevel.MEDIUM),
+    ("gemini-3-pro-image", ThinkingLevel.LOW, "minimal"),
+    ("gemini-3-flash-preview", ThinkingLevel.NONE, "minimal"),
+    ("gemini-3.5-flash", ThinkingLevel.MEDIUM, "medium"),
     # A future pro generation falls into the generic "-pro" branch.
-    ("gemini-4-pro", ThinkingLevel.NONE, types.ThinkingLevel.LOW),
+    ("gemini-4-pro", ThinkingLevel.NONE, "low"),
     # An unrecognized model inherits the full four-level default.
-    ("gemini-9-flash", ThinkingLevel.NONE, types.ThinkingLevel.MINIMAL),
+    ("gemini-9-flash", ThinkingLevel.NONE, "minimal"),
 ]
 
 
 def _create_gemini3_auto_client(model: str) -> AutoLLMClient:
     # client_type pins routing so hypothetical model names reach the unified
-    # Gemini3_8Client the same way an explicit override would in user code.
-    return AutoLLMClient(model=model, api_key="test-key", client_type="gemini-3")
+    # GeminiOfficialClient the same way an explicit override would in user code.
+    return AutoLLMClient(model=model, api_key="test-key", client_type="gemini-official")
 
 
 @pytest.mark.parametrize(("model", "level", "expected"), GEMINI3_THINKING_LEVEL_CASES)
-def test_gemini3_thinking_level_clamps_to_model_support(
-    model: str, level: ThinkingLevel, expected: types.ThinkingLevel | None
-):
+def test_gemini3_thinking_level_clamps_to_model_support(model: str, level: ThinkingLevel, expected: str | None):
     client = _create_gemini3_auto_client(model)
     assert client._client._convert_thinking_level(level) == expected  # noqa: SLF001
 
@@ -66,7 +63,7 @@ def test_gemini3_thinking_config_carries_clamped_level():
     config = client._client.transform_uni_config_to_model_config(  # noqa: SLF001
         {"thinking_level": ThinkingLevel.NONE}
     )
-    assert config.thinking_config.thinking_level == types.ThinkingLevel.LOW
+    assert config["generation_config"]["thinking_level"] == "low"
 
 
 # The 3.7 and 3.8 generations drop "minimal" (3.7 verified live 2026-08-13, see
@@ -74,28 +71,51 @@ def test_gemini3_thinking_config_carries_clamped_level():
 # ai.google.dev/gemini-api/docs/latest-model); the 3.6-generation models routed
 # to the same client keep the full four-level set.
 GEMINI3_7_THINKING_LEVEL_CASES = [
-    ("gemini-3.8-flash", ThinkingLevel.NONE, types.ThinkingLevel.LOW),
-    ("gemini-3.8-flash", ThinkingLevel.MAX, types.ThinkingLevel.HIGH),
-    ("gemini-3.7-flash", ThinkingLevel.NONE, types.ThinkingLevel.LOW),
-    ("gemini-3.7-flash", ThinkingLevel.LOW, types.ThinkingLevel.LOW),
-    ("gemini-3.7-flash", ThinkingLevel.MEDIUM, types.ThinkingLevel.MEDIUM),
-    ("gemini-3.7-flash", ThinkingLevel.HIGH, types.ThinkingLevel.HIGH),
-    ("gemini-3.7-flash", ThinkingLevel.XHIGH, types.ThinkingLevel.HIGH),
+    ("gemini-3.8-flash", ThinkingLevel.NONE, "low"),
+    ("gemini-3.8-flash", ThinkingLevel.MAX, "high"),
+    ("gemini-3.7-flash", ThinkingLevel.NONE, "low"),
+    ("gemini-3.7-flash", ThinkingLevel.LOW, "low"),
+    ("gemini-3.7-flash", ThinkingLevel.MEDIUM, "medium"),
+    ("gemini-3.7-flash", ThinkingLevel.HIGH, "high"),
+    ("gemini-3.7-flash", ThinkingLevel.XHIGH, "high"),
     # Gemini has no level above "high", so MAX clamps there too.
-    ("gemini-3.7-flash", ThinkingLevel.MAX, types.ThinkingLevel.HIGH),
-    ("gemini-3.6-flash", ThinkingLevel.NONE, types.ThinkingLevel.MINIMAL),
-    ("gemini-3.5-flash-lite", ThinkingLevel.NONE, types.ThinkingLevel.MINIMAL),
+    ("gemini-3.7-flash", ThinkingLevel.MAX, "high"),
+    ("gemini-3.6-flash", ThinkingLevel.NONE, "minimal"),
+    ("gemini-3.5-flash-lite", ThinkingLevel.NONE, "minimal"),
 ]
 
 
 @pytest.mark.parametrize(("model", "level", "expected"), GEMINI3_7_THINKING_LEVEL_CASES)
-def test_gemini3_8_thinking_level_clamps_to_model_support(
-    model: str, level: ThinkingLevel, expected: types.ThinkingLevel
-):
-    # These are real model ids, so automatic routing reaches Gemini3_8Client directly.
+def test_gemini3_8_thinking_level_clamps_to_model_support(model: str, level: ThinkingLevel, expected: str):
+    # These are real model ids, so automatic routing reaches GeminiOfficialClient directly.
     client = AutoLLMClient(model=model, api_key="test-key")
-    assert client._client.__class__.__name__ == "Gemini3_8Client"
+    assert client._client.__class__.__name__ == "GeminiOfficialClient"
     assert client._client._convert_thinking_level(level) == expected  # noqa: SLF001
+
+
+# The generateContent client clamps like the Interactions client, onto the SDK's ThinkingLevel, a
+# str enum whose values are the uppercase names.
+def _create_generate_content_auto_client(model: str) -> AutoLLMClient:
+    return AutoLLMClient(model=model, api_key="test-key", client_type="gemini-generate-content")
+
+
+@pytest.mark.parametrize(
+    ("model", "level", "expected"), [*GEMINI3_THINKING_LEVEL_CASES, *GEMINI3_7_THINKING_LEVEL_CASES]
+)
+def test_gemini3_8_generate_content_thinking_level_clamps_to_model_support(
+    model: str, level: ThinkingLevel, expected: str
+):
+    client = _create_generate_content_auto_client(model)
+    assert client._client.__class__.__name__ == "GeminiGenerateContentClient"  # noqa: SLF001
+    assert client._client._convert_thinking_level(level) == expected.upper()  # noqa: SLF001
+
+
+def test_gemini3_8_generate_content_thinking_config_carries_clamped_level():
+    client = _create_generate_content_auto_client("gemini-3.1-pro-preview")
+    config = client._client.transform_uni_config_to_model_config(  # noqa: SLF001
+        {"thinking_level": ThinkingLevel.NONE}
+    )
+    assert config.thinking_config.thinking_level == "LOW"
 
 
 # GLM-5.3 cannot disable thinking and accepts only low/high/max reasoning_effort
@@ -126,8 +146,9 @@ GLM_THINKING_LEVEL_CASES = [
 def test_glm_thinking_level_maps_per_generation(
     model: str, level: ThinkingLevel, thinking_type: str, effort: str | None
 ):
-    client = AutoLLMClient(model=model, api_key="test-key")
-    assert client._client.__class__.__name__ == "GLM5_3Client"
+    # a gateway's id does not begin with the family, so it names the client
+    client = AutoLLMClient(model=model, api_key="test-key", client_type="zai-official")
+    assert client._client.__class__.__name__ == "ZAIOfficialClient"
     config = client._client.transform_uni_config_to_model_config({"thinking_level": level})  # noqa: SLF001
     assert config["extra_body"]["thinking"]["type"] == thinking_type
     assert config.get("reasoning_effort") == effort
@@ -147,6 +168,8 @@ THINKING_EFFORT_CASES = [
     ("gpt-6-astra", "openai-responses", ThinkingLevel.NONE, "low"),
     ("gpt-6-astra", "openai-responses", ThinkingLevel.LOW, "low"),
     ("gpt-6-astra", "openai-responses", ThinkingLevel.MAX, "max"),
+    ("gpt-6.1-sol", None, ThinkingLevel.NONE, "low"),
+    ("gpt-6.1-sol", None, ThinkingLevel.MAX, "max"),
     ("gpt-5.6", None, ThinkingLevel.NONE, "none"),
     ("gpt-5.6", None, ThinkingLevel.XHIGH, "xhigh"),
     ("gpt-5.6", None, ThinkingLevel.MAX, "max"),
@@ -157,6 +180,14 @@ THINKING_EFFORT_CASES = [
     ("claude-sonnet-4-6", None, ThinkingLevel.XHIGH, "high"),
     ("claude-sonnet-4-6", None, ThinkingLevel.MAX, "max"),
     ("claude-sonnet-5", "ant-messages", ThinkingLevel.MAX, "max"),
+    # Opus 5.5 and Fable 5.1 cannot turn thinking off, so NONE is the lowest effort; Sonnet 5.5
+    # turns off up-front thinking with between_tools, which carries no effort.
+    ("claude-opus-5-5", None, ThinkingLevel.NONE, "low"),
+    ("claude-opus-5-5", None, ThinkingLevel.MAX, "max"),
+    ("claude-fable-5-1", None, ThinkingLevel.NONE, "low"),
+    ("claude-fable-5-1", None, ThinkingLevel.XHIGH, "xhigh"),
+    ("claude-sonnet-5-5", None, ThinkingLevel.NONE, None),
+    ("claude-sonnet-5-5", None, ThinkingLevel.XHIGH, "xhigh"),
     ("deepseek-v4", None, ThinkingLevel.NONE, "none"),
     ("deepseek-v4", None, ThinkingLevel.LOW, "low"),
     ("deepseek-v4", None, ThinkingLevel.MEDIUM, "high"),
@@ -164,12 +195,14 @@ THINKING_EFFORT_CASES = [
     # DeepSeek maps xhigh onto high server-side, so the client sends high.
     ("deepseek-v4", None, ThinkingLevel.XHIGH, "high"),
     ("deepseek-v4", None, ThinkingLevel.MAX, "max"),
+    ("deepseek-flash", None, ThinkingLevel.NONE, "none"),
+    ("deepseek-flash", None, ThinkingLevel.MAX, "max"),
     ("kimi-k3", None, ThinkingLevel.LOW, "low"),
     ("kimi-k3", None, ThinkingLevel.MEDIUM, "high"),
     ("kimi-k3", None, ThinkingLevel.XHIGH, "max"),
     ("kimi-k3", None, ThinkingLevel.MAX, "max"),
-    ("MiniMax-M3", "minimax-m3", ThinkingLevel.XHIGH, "high"),
-    ("MiniMax-M3", "minimax-m3", ThinkingLevel.MAX, "high"),
+    ("MiniMax-M3", None, ThinkingLevel.XHIGH, "high"),
+    ("MiniMax-M3", None, ThinkingLevel.MAX, "high"),
 ]
 
 
@@ -193,7 +226,8 @@ def test_thinking_level_maps_to_vendor_effort(
 
 # thinking_summary reaches the wire on its own, not only when a thinking_level rides with
 # it. Each protocol spells the switch differently: Anthropic puts it on thinking.display,
-# the Responses API on reasoning.summary, and Gemini on thinking_config.include_thoughts.
+# the Responses API on reasoning.summary, the Gemini Interactions API on
+# generation_config.thinking_summaries, and generateContent on thinking_config.include_thoughts.
 THINKING_SUMMARY_CASES: list[tuple[str, str | None, dict[str, Any], Any]] = [
     ("claude-sonnet-5", None, {"thinking_summary": True}, "summarized"),
     ("claude-sonnet-5", None, {"thinking_summary": False}, "omitted"),
@@ -204,14 +238,20 @@ THINKING_SUMMARY_CASES: list[tuple[str, str | None, dict[str, Any], Any]] = [
     # The Messages API disables thinking for NONE and rejects display on a disabled block,
     # so that one combination leaves no thinking to summarize.
     ("claude-sonnet-5", "ant-messages", {"thinking_summary": True, "thinking_level": ThinkingLevel.NONE}, None),
+    # between_tools rejects display, and its updates between tool calls always carry their text
+    ("claude-sonnet-5-5", None, {"thinking_summary": True, "thinking_level": ThinkingLevel.NONE}, None),
+    ("claude-sonnet-5-5", None, {"thinking_summary": True}, "summarized"),
+    ("claude-opus-5-5", None, {"thinking_summary": True, "thinking_level": ThinkingLevel.NONE}, "summarized"),
     ("deepseek-v4", None, {"thinking_summary": True}, "concise"),
     ("deepseek-v4", None, {"thinking_summary": True, "thinking_level": ThinkingLevel.NONE}, "concise"),
     ("gpt-5.6", None, {"thinking_summary": True}, "concise"),
     # OpenRouter reads an effort-less reasoning object as "reasoning disabled", so the
     # generic Responses client alone keeps the summary tied to a level.
     ("gpt-5.6", "openai-responses", {"thinking_summary": True}, None),
-    ("gemini-3.8-flash", None, {"thinking_summary": True}, True),
-    ("gemini-3.8-flash", None, {"thinking_summary": False}, False),
+    ("gemini-3.8-flash", None, {"thinking_summary": True}, "auto"),
+    ("gemini-3.8-flash", None, {"thinking_summary": False}, "none"),
+    ("gemini-3.8-flash", "gemini-generate-content", {"thinking_summary": True}, True),
+    ("gemini-3.8-flash", "gemini-generate-content", {"thinking_summary": False}, False),
 ]
 
 
@@ -220,6 +260,8 @@ def _wire_thinking_summary(config: Any) -> Any:
     thinking_config = getattr(config, "thinking_config", None)
     if thinking_config is not None:
         return thinking_config.include_thoughts
+    if "generation_config" in config:
+        return config["generation_config"].get("thinking_summaries")
     if "reasoning" in config:
         return config["reasoning"].get("summary")
     return (config.get("thinking") or {}).get("display")

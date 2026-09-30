@@ -13,7 +13,6 @@
 // limitations under the License.
 
 import { expect, describe, test } from "@jest/globals";
-import { ThinkingLevel as GeminiThinkingLevel } from "@google/genai";
 import { AutoLLMClient, ThinkingLevel, UniConfig } from "../src";
 
 // Not every Gemini model accepts every thinking level (verified live 2026-07-24;
@@ -21,36 +20,36 @@ import { AutoLLMClient, ThinkingLevel, UniConfig } from "../src";
 // (gemini-3-pro also "medium") and image models accept only "minimal" and
 // "high". Unsupported levels must clamp to the closest supported one, never error.
 const GEMINI3_THINKING_LEVEL_CASES: Array<
-  [string, ThinkingLevel, GeminiThinkingLevel | undefined]
+  [string, ThinkingLevel, string | undefined]
 > = [
-  ["gemini-3.1-pro-preview", ThinkingLevel.NONE, GeminiThinkingLevel.LOW],
-  ["gemini-3.1-pro-preview", ThinkingLevel.LOW, GeminiThinkingLevel.LOW],
-  ["gemini-3.1-pro-preview", ThinkingLevel.MEDIUM, GeminiThinkingLevel.MEDIUM],
-  ["gemini-3.1-pro-preview", ThinkingLevel.HIGH, GeminiThinkingLevel.HIGH],
-  ["gemini-3.1-pro-preview", ThinkingLevel.XHIGH, GeminiThinkingLevel.HIGH],
-  ["gemini-3.1-pro-preview", ThinkingLevel.MAX, GeminiThinkingLevel.HIGH],
-  ["gemini-3-pro-preview", ThinkingLevel.NONE, GeminiThinkingLevel.LOW],
-  ["gemini-3-pro-preview", ThinkingLevel.MEDIUM, GeminiThinkingLevel.HIGH],
-  ["gemini-3.1-flash-image", ThinkingLevel.NONE, GeminiThinkingLevel.MINIMAL],
-  ["gemini-3.1-flash-image", ThinkingLevel.LOW, GeminiThinkingLevel.MINIMAL],
-  ["gemini-3.1-flash-image", ThinkingLevel.MEDIUM, GeminiThinkingLevel.HIGH],
+  ["gemini-3.1-pro-preview", ThinkingLevel.NONE, "low"],
+  ["gemini-3.1-pro-preview", ThinkingLevel.LOW, "low"],
+  ["gemini-3.1-pro-preview", ThinkingLevel.MEDIUM, "medium"],
+  ["gemini-3.1-pro-preview", ThinkingLevel.HIGH, "high"],
+  ["gemini-3.1-pro-preview", ThinkingLevel.XHIGH, "high"],
+  ["gemini-3.1-pro-preview", ThinkingLevel.MAX, "high"],
+  ["gemini-3-pro-preview", ThinkingLevel.NONE, "low"],
+  ["gemini-3-pro-preview", ThinkingLevel.MEDIUM, "high"],
+  ["gemini-3.1-flash-image", ThinkingLevel.NONE, "minimal"],
+  ["gemini-3.1-flash-image", ThinkingLevel.LOW, "minimal"],
+  ["gemini-3.1-flash-image", ThinkingLevel.MEDIUM, "high"],
   // "-image" wins over "gemini-3-pro" (LOW would stay LOW under the pro set).
-  ["gemini-3-pro-image", ThinkingLevel.LOW, GeminiThinkingLevel.MINIMAL],
-  ["gemini-3-flash-preview", ThinkingLevel.NONE, GeminiThinkingLevel.MINIMAL],
-  ["gemini-3.5-flash", ThinkingLevel.MEDIUM, GeminiThinkingLevel.MEDIUM],
+  ["gemini-3-pro-image", ThinkingLevel.LOW, "minimal"],
+  ["gemini-3-flash-preview", ThinkingLevel.NONE, "minimal"],
+  ["gemini-3.5-flash", ThinkingLevel.MEDIUM, "medium"],
   // A future pro generation falls into the generic "-pro" branch.
-  ["gemini-4-pro", ThinkingLevel.NONE, GeminiThinkingLevel.LOW],
+  ["gemini-4-pro", ThinkingLevel.NONE, "low"],
   // An unrecognized model inherits the full four-level default.
-  ["gemini-9-flash", ThinkingLevel.NONE, GeminiThinkingLevel.MINIMAL],
+  ["gemini-9-flash", ThinkingLevel.NONE, "minimal"],
 ];
 
 // clientType pins routing so hypothetical model names reach the unified
-// Gemini3_8Client the same way an explicit override would in user code.
+// GeminiOfficialClient the same way an explicit override would in user code.
 function createGemini3AutoClient(model: string): AutoLLMClient {
   return new AutoLLMClient({
     model,
     apiKey: "test-key",
-    clientType: "gemini-3",
+    clientType: "gemini-official",
   });
 }
 
@@ -72,7 +71,7 @@ describe("gemini3 thinking level clamping", () => {
     const config = (client as any)._client.transformUniConfigToModelConfig({
       thinking_level: ThinkingLevel.NONE,
     });
-    expect(config.thinkingConfig.thinkingLevel).toBe(GeminiThinkingLevel.LOW);
+    expect(config.generation_config.thinking_level).toBe("low");
   });
 });
 
@@ -80,36 +79,72 @@ describe("gemini3 thinking level clamping", () => {
 // llmsdk_docs/gemini3_8/docs/thinking.md; 3.8 documented at
 // ai.google.dev/gemini-api/docs/latest-model); the 3.6-generation models routed
 // to the same client keep the full four-level set.
-const GEMINI3_7_THINKING_LEVEL_CASES: Array<
-  [string, ThinkingLevel, GeminiThinkingLevel]
-> = [
-  ["gemini-3.8-flash", ThinkingLevel.NONE, GeminiThinkingLevel.LOW],
-  ["gemini-3.8-flash", ThinkingLevel.MAX, GeminiThinkingLevel.HIGH],
-  ["gemini-3.7-flash", ThinkingLevel.NONE, GeminiThinkingLevel.LOW],
-  ["gemini-3.7-flash", ThinkingLevel.LOW, GeminiThinkingLevel.LOW],
-  ["gemini-3.7-flash", ThinkingLevel.MEDIUM, GeminiThinkingLevel.MEDIUM],
-  ["gemini-3.7-flash", ThinkingLevel.HIGH, GeminiThinkingLevel.HIGH],
-  ["gemini-3.7-flash", ThinkingLevel.XHIGH, GeminiThinkingLevel.HIGH],
+const GEMINI3_7_THINKING_LEVEL_CASES: Array<[string, ThinkingLevel, string]> = [
+  ["gemini-3.8-flash", ThinkingLevel.NONE, "low"],
+  ["gemini-3.8-flash", ThinkingLevel.MAX, "high"],
+  ["gemini-3.7-flash", ThinkingLevel.NONE, "low"],
+  ["gemini-3.7-flash", ThinkingLevel.LOW, "low"],
+  ["gemini-3.7-flash", ThinkingLevel.MEDIUM, "medium"],
+  ["gemini-3.7-flash", ThinkingLevel.HIGH, "high"],
+  ["gemini-3.7-flash", ThinkingLevel.XHIGH, "high"],
   // Gemini has no level above "high", so MAX clamps there too.
-  ["gemini-3.7-flash", ThinkingLevel.MAX, GeminiThinkingLevel.HIGH],
-  ["gemini-3.6-flash", ThinkingLevel.NONE, GeminiThinkingLevel.MINIMAL],
-  ["gemini-3.5-flash-lite", ThinkingLevel.NONE, GeminiThinkingLevel.MINIMAL],
+  ["gemini-3.7-flash", ThinkingLevel.MAX, "high"],
+  ["gemini-3.6-flash", ThinkingLevel.NONE, "minimal"],
+  ["gemini-3.5-flash-lite", ThinkingLevel.NONE, "minimal"],
 ];
 
-describe("gemini3_8 thinking level clamping", () => {
+describe("gemini_official thinking level clamping", () => {
   test.each(GEMINI3_7_THINKING_LEVEL_CASES)(
     "%s clamps %s to %s",
     (model, level, expected) => {
-      // These are real model ids, so automatic routing reaches Gemini3_8Client directly.
+      // These are real model ids, so automatic routing reaches GeminiOfficialClient directly.
       const client = new AutoLLMClient({ model, apiKey: "test-key" });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      expect((client as any)._client.constructor.name).toBe("Gemini3_8Client");
+      expect((client as any)._client.constructor.name).toBe(
+        "GeminiOfficialClient",
+      );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect((client as any)._client._convertThinkingLevel(level)).toBe(
         expected,
       );
     },
   );
+});
+
+// The generateContent client clamps like the Interactions client, onto the SDK's ThinkingLevel
+// enum, whose values are the uppercase names.
+function createGenerateContentAutoClient(model: string): AutoLLMClient {
+  return new AutoLLMClient({
+    model,
+    apiKey: "test-key",
+    clientType: "gemini-generate-content",
+  });
+}
+
+describe("gemini_generate_content thinking level clamping", () => {
+  test.each([
+    ...GEMINI3_THINKING_LEVEL_CASES,
+    ...GEMINI3_7_THINKING_LEVEL_CASES,
+  ])("%s clamps %s to %s", (model, level, expected) => {
+    const client = createGenerateContentAutoClient(model);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((client as any)._client.constructor.name).toBe(
+      "GeminiGenerateContentClient",
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((client as any)._client._convertThinkingLevel(level)).toBe(
+      expected?.toUpperCase(),
+    );
+  });
+
+  test("thinking config carries the clamped level", () => {
+    const client = createGenerateContentAutoClient("gemini-3.1-pro-preview");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const config = (client as any)._client.transformUniConfigToModelConfig({
+      thinking_level: ThinkingLevel.NONE,
+    });
+    expect(config.thinkingConfig.thinkingLevel).toBe("LOW");
+  });
 });
 
 // GLM-5.3 cannot disable thinking and accepts only low/high/max reasoning_effort
@@ -141,9 +176,16 @@ describe("glm thinking level mapping", () => {
   test.each(GLM_THINKING_LEVEL_CASES)(
     "%s maps %s to thinking=%s effort=%s",
     (model, level, thinkingType, effort) => {
-      const client = new AutoLLMClient({ model, apiKey: "test-key" });
+      // a gateway's id does not begin with the family, so it names the client
+      const client = new AutoLLMClient({
+        model,
+        apiKey: "test-key",
+        clientType: "zai-official",
+      });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      expect((client as any)._client.constructor.name).toBe("GLM5_3Client");
+      expect((client as any)._client.constructor.name).toBe(
+        "ZAIOfficialClient",
+      );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const config = (client as any)._client.transformUniConfigToModelConfig({
         thinking_level: level,
@@ -165,6 +207,8 @@ const THINKING_EFFORT_CASES: Array<
   ["gpt-6-astra", undefined, ThinkingLevel.NONE, "low"],
   ["gpt-6-astra", undefined, ThinkingLevel.LOW, "low"],
   ["gpt-6-astra", undefined, ThinkingLevel.MAX, "max"],
+  ["gpt-6.1-sol", undefined, ThinkingLevel.NONE, "low"],
+  ["gpt-6.1-sol", undefined, ThinkingLevel.MAX, "max"],
   // a gateway serving GPT-6 forwards the effort to OpenAI, so the generic Responses
   // client degrades NONE the same way
   ["gpt-6-astra", "openai-responses", ThinkingLevel.NONE, "low"],
@@ -176,12 +220,22 @@ const THINKING_EFFORT_CASES: Array<
   ["gpt-5.6", "openai-responses", ThinkingLevel.MAX, "max"],
   ["claude-sonnet-5", undefined, ThinkingLevel.XHIGH, "xhigh"],
   ["claude-sonnet-5", undefined, ThinkingLevel.MAX, "max"],
+  // Opus 5.5 and Fable 5.1 cannot turn thinking off, so NONE is the lowest effort; Sonnet 5.5
+  // turns off up-front thinking with between_tools, which carries no effort.
+  ["claude-opus-5-5", undefined, ThinkingLevel.NONE, "low"],
+  ["claude-opus-5-5", undefined, ThinkingLevel.MAX, "max"],
+  ["claude-fable-5-1", undefined, ThinkingLevel.NONE, "low"],
+  ["claude-fable-5-1", undefined, ThinkingLevel.XHIGH, "xhigh"],
+  ["claude-sonnet-5-5", undefined, ThinkingLevel.NONE, undefined],
+  ["claude-sonnet-5-5", undefined, ThinkingLevel.XHIGH, "xhigh"],
   // 4.6 has no xhigh but does take max.
   ["claude-sonnet-4-6", undefined, ThinkingLevel.XHIGH, "high"],
   ["claude-sonnet-4-6", undefined, ThinkingLevel.MAX, "max"],
   ["claude-sonnet-5", "ant-messages", ThinkingLevel.MAX, "max"],
   ["deepseek-v4", undefined, ThinkingLevel.NONE, "none"],
   ["deepseek-v4", undefined, ThinkingLevel.LOW, "low"],
+  ["deepseek-flash", undefined, ThinkingLevel.NONE, "none"],
+  ["deepseek-flash", undefined, ThinkingLevel.MAX, "max"],
   ["deepseek-v4", undefined, ThinkingLevel.MEDIUM, "high"],
   ["deepseek-v4", undefined, ThinkingLevel.HIGH, "high"],
   // DeepSeek maps xhigh onto high server-side, so the client sends high.
@@ -191,8 +245,8 @@ const THINKING_EFFORT_CASES: Array<
   ["kimi-k3", undefined, ThinkingLevel.MEDIUM, "high"],
   ["kimi-k3", undefined, ThinkingLevel.XHIGH, "max"],
   ["kimi-k3", undefined, ThinkingLevel.MAX, "max"],
-  ["MiniMax-M3", "minimax-m3", ThinkingLevel.XHIGH, "high"],
-  ["MiniMax-M3", "minimax-m3", ThinkingLevel.MAX, "high"],
+  ["MiniMax-M3", undefined, ThinkingLevel.XHIGH, "high"],
+  ["MiniMax-M3", undefined, ThinkingLevel.MAX, "high"],
 ];
 
 /** Read the effort out of whichever config key the client used. */
@@ -223,11 +277,26 @@ describe("thinking level to vendor effort", () => {
 
 // thinking_summary reaches the wire on its own, not only when a thinking_level rides with
 // it. Each protocol spells the switch differently: Anthropic puts it on thinking.display,
-// the Responses API on reasoning.summary, and Gemini on thinkingConfig.includeThoughts.
+// the Responses API on reasoning.summary, the Gemini Interactions API on
+// generation_config.thinking_summaries, and generateContent on thinkingConfig.includeThoughts.
 const THINKING_SUMMARY_CASES: Array<
   [string, string | undefined, UniConfig, string | boolean | undefined]
 > = [
   ["claude-sonnet-5", undefined, { thinking_summary: true }, "summarized"],
+  // between_tools rejects display, and its updates between tool calls always carry their text
+  [
+    "claude-sonnet-5-5",
+    undefined,
+    { thinking_summary: true, thinking_level: ThinkingLevel.NONE },
+    undefined,
+  ],
+  ["claude-sonnet-5-5", undefined, { thinking_summary: true }, "summarized"],
+  [
+    "claude-opus-5-5",
+    undefined,
+    { thinking_summary: true, thinking_level: ThinkingLevel.NONE },
+    "summarized",
+  ],
   ["claude-sonnet-5", undefined, { thinking_summary: false }, "omitted"],
   [
     "claude-sonnet-5",
@@ -262,8 +331,20 @@ const THINKING_SUMMARY_CASES: Array<
   // OpenRouter reads an effort-less reasoning object as "reasoning disabled", so the
   // generic Responses client alone keeps the summary tied to a level.
   ["gpt-5.6", "openai-responses", { thinking_summary: true }, undefined],
-  ["gemini-3.8-flash", undefined, { thinking_summary: true }, true],
-  ["gemini-3.8-flash", undefined, { thinking_summary: false }, false],
+  ["gemini-3.8-flash", undefined, { thinking_summary: true }, "auto"],
+  ["gemini-3.8-flash", undefined, { thinking_summary: false }, "none"],
+  [
+    "gemini-3.8-flash",
+    "gemini-generate-content",
+    { thinking_summary: true },
+    true,
+  ],
+  [
+    "gemini-3.8-flash",
+    "gemini-generate-content",
+    { thinking_summary: false },
+    false,
+  ],
 ];
 
 /** Read the thinking-summary switch out of whichever field the client used. */
@@ -272,6 +353,9 @@ function wireThinkingSummary(
   config: any,
 ): string | boolean | undefined {
   if (config.thinkingConfig) return config.thinkingConfig.includeThoughts;
+  if (config.generation_config) {
+    return config.generation_config.thinking_summaries;
+  }
   if (config.reasoning) return config.reasoning.summary;
   return config.thinking?.display;
 }

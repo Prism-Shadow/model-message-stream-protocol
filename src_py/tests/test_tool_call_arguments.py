@@ -12,13 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from types import SimpleNamespace
 
 import pytest
+from stream_grammar import assert_stream_grammar
 
-from agenthub import AutoLLMClient, ToolCallArgumentParseError
+from mmsp import AutoLLMClient, ToolCallArgumentParseError
+from mmsp.types import UniEvent
 
 
 @dataclass
@@ -36,14 +39,14 @@ OPENAI_COMPATIBLE_TOOL_STREAM_CASES = [
         client_type="openai",
     ),
     OpenAICompatibleToolStreamCase(
-        expected_client="GLM5_3Client",
+        expected_client="ZAIOfficialClient",
         model="glm-5.1",
-        client_type="glm-5.1",
+        client_type="zai-official",
     ),
     OpenAICompatibleToolStreamCase(
-        expected_client="KimiK3Client",
+        expected_client="MoonshotOfficialClient",
         model="kimi-k2.6",
-        client_type="kimi-k2.6",
+        client_type="moonshot-official",
     ),
     OpenAICompatibleToolStreamCase(
         expected_client="OpenaiResponsesClient",
@@ -52,9 +55,15 @@ OPENAI_COMPATIBLE_TOOL_STREAM_CASES = [
         protocol="responses",
     ),
     OpenAICompatibleToolStreamCase(
-        expected_client="DeepSeekV4Client",
+        expected_client="DeepSeekOfficialClient",
         model="deepseek-v4",
-        client_type="deepseek-v4",
+        client_type="deepseek-official",
+        protocol="responses",
+    ),
+    OpenAICompatibleToolStreamCase(
+        expected_client="MiniMaxOfficialClient",
+        model="MiniMax-M3",
+        client_type="minimax-official",
         protocol="responses",
     ),
 ]
@@ -123,6 +132,21 @@ def _tool_stop_chunk() -> object:
     )
 
 
+def _function_call_item_done(tool_call_id: str, name: str, arguments: str, item_id: str | None = None) -> object:
+    """The completed function-call item a Responses server sends once its arguments are done."""
+    return SimpleNamespace(
+        type="response.output_item.done",
+        item=SimpleNamespace(
+            type="function_call",
+            id=item_id,
+            call_id=tool_call_id,
+            name=name,
+            arguments=arguments,
+            status="completed",
+        ),
+    )
+
+
 def _tool_stream(case: OpenAICompatibleToolStreamCase, tool_call_id: str, name: str, *fragments: str) -> list[object]:
     """Build a streamed tool call in the wire shape the case's client parses."""
     if case.protocol == "responses":
@@ -137,6 +161,7 @@ def _tool_stream(case: OpenAICompatibleToolStreamCase, tool_call_id: str, name: 
             for fragment in fragments
         ]
         events.append(SimpleNamespace(type="response.function_call_arguments.done", item_id=None))
+        events.append(_function_call_item_done(tool_call_id, name, "".join(fragments)))
         events.append(
             SimpleNamespace(
                 type="response.completed",
@@ -159,10 +184,22 @@ def _tool_stream(case: OpenAICompatibleToolStreamCase, tool_call_id: str, name: 
     return chunks
 
 
-async def _capture_tool_argument_error(stream: AsyncIterator[object]) -> ToolCallArgumentParseError:
+async def _capture_tool_argument_error(
+    stream: AsyncIterator[UniEvent], tool_call_id: str
+) -> ToolCallArgumentParseError:
+    events: list[UniEvent] = []
     with pytest.raises(ToolCallArgumentParseError) as exc_info:
-        async for _event in stream:
-            pass
+        async for event in stream:
+            events.append(event)
+
+    # arguments are parsed when the call's item is done: the call's deltas have already reached
+    # the caller, and neither its done item nor the stop event ever does
+    items = [item for event in events for item in event["content_items"]]
+    assert items[0]["type"] == "tool_call.delta"
+    assert items[0]["name"] == "exec_command"
+    assert items[0]["tool_call_id"] == tool_call_id
+    assert "tool_call.done" not in [item["type"] for item in items]
+    assert "stop" not in [event["event_type"] for event in events]
     return exc_info.value
 
 
@@ -178,18 +215,33 @@ async def test_openai_compatible_clients_combine_streamed_tool_call_arguments(
     client = _create_auto_client(case)
     _install_fake_stream(client, case, _tool_stream(case, "call_ok", "exec_command", '{"cmd":', '"echo ok"}'))
 
-    messages = [{"role": "user", "content_items": [{"type": "text", "text": "Create a memo."}]}]
+    messages = [{"role": "user", "content_items": [{"type": "text.done", "text": "Create a memo."}]}]
     events = [event async for event in client.streaming_response(messages, {})]
-    tool_calls = [item for event in events for item in event["content_items"] if item["type"] == "tool_call"]
+    assert_stream_grammar(events)
+    tool_calls = [item for event in events for item in event["content_items"] if item["type"] == "tool_call.done"]
 
     assert tool_calls == [
         {
-            "type": "tool_call",
+            "type": "tool_call.done",
             "name": "exec_command",
             "arguments": {"cmd": "echo ok"},
             "tool_call_id": "call_ok",
         }
     ]
+
+    # the deltas announce the call before its done item and concatenate to the arguments it
+    # carries, whether the client streamed them or delivered the item alone
+    fragments = [item for event in events for item in event["content_items"] if item["type"] == "tool_call.delta"]
+    assert fragments[0]["name"] == "exec_command"
+    assert fragments[0]["tool_call_id"] == "call_ok"
+    assert json.loads("".join(fragment["arguments"] for fragment in fragments)) == tool_calls[0]["arguments"]
+    kinds = [
+        item["type"]
+        for event in events
+        for item in event["content_items"]
+        if item["type"] in ("tool_call.delta", "tool_call.done")
+    ]
+    assert kinds.index("tool_call.delta") < kinds.index("tool_call.done")
 
 
 @pytest.mark.asyncio
@@ -204,8 +256,8 @@ async def test_openai_compatible_clients_report_malformed_streamed_tool_call_arg
     client = _create_auto_client(case)
     _install_fake_stream(client, case, _tool_stream(case, "call_bad", "exec_command", '{"cmd":"python create_docx.py'))
 
-    messages = [{"role": "user", "content_items": [{"type": "text", "text": "Create a memo."}]}]
-    parse_error = await _capture_tool_argument_error(client.streaming_response(messages, {}))
+    messages = [{"role": "user", "content_items": [{"type": "text.done", "text": "Create a memo."}]}]
+    parse_error = await _capture_tool_argument_error(client.streaming_response(messages, {}), "call_bad")
     assert parse_error.client == case.expected_client
     assert parse_error.tool_name == "exec_command"
     assert parse_error.tool_call_id == "call_bad"
@@ -230,8 +282,8 @@ async def test_openai_compatible_clients_report_non_object_streamed_tool_call_ar
     client = _create_auto_client(case)
     _install_fake_stream(client, case, _tool_stream(case, "call_array", "exec_command", "[]"))
 
-    messages = [{"role": "user", "content_items": [{"type": "text", "text": "Create a memo."}]}]
-    parse_error = await _capture_tool_argument_error(client.streaming_response(messages, {}))
+    messages = [{"role": "user", "content_items": [{"type": "text.done", "text": "Create a memo."}]}]
+    parse_error = await _capture_tool_argument_error(client.streaming_response(messages, {}), "call_array")
     assert parse_error.client == case.expected_client
     assert parse_error.tool_name == "exec_command"
     assert parse_error.tool_call_id == "call_array"
@@ -284,6 +336,9 @@ def _interleaved_parallel_call_stream() -> list[object]:
                 ),
             ],
             "done": SimpleNamespace(type="response.function_call_arguments.done", item_id=f"fc_{suffix}"),
+            "item_done": _function_call_item_done(
+                f"call_{suffix}", f"tool_{suffix}", '{"city":"Paris"}', f"fc_{suffix}"
+            ),
         }
 
     first = open_call("first")
@@ -295,7 +350,9 @@ def _interleaved_parallel_call_stream() -> list[object]:
         second["added"],
         *second["deltas"],
         first["done"],
+        first["item_done"],
         second["done"],
+        second["item_done"],
         _COMPLETED_EVENT,
     ]
 
@@ -312,21 +369,73 @@ async def test_openai_responses_clients_keep_interleaved_parallel_tool_calls(
     client = _create_auto_client(case)
     _install_fake_stream(client, case, _interleaved_parallel_call_stream())
 
-    messages = [{"role": "user", "content_items": [{"type": "text", "text": "Create a memo."}]}]
+    messages = [{"role": "user", "content_items": [{"type": "text.done", "text": "Create a memo."}]}]
     events = [event async for event in client.streaming_response(messages, {})]
-    tool_calls = [item for event in events for item in event["content_items"] if item["type"] == "tool_call"]
+    # the grammar also proves the two calls reach the caller one after the other
+    assert_stream_grammar(events)
+    tool_calls = [item for event in events for item in event["content_items"] if item["type"] == "tool_call.done"]
 
     assert tool_calls == [
         {
-            "type": "tool_call",
+            "type": "tool_call.done",
             "name": "tool_first",
             "arguments": {"city": "Paris"},
             "tool_call_id": "call_first",
         },
         {
-            "type": "tool_call",
+            "type": "tool_call.done",
             "name": "tool_second",
             "arguments": {"city": "Paris"},
             "tool_call_id": "call_second",
         },
+    ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "case",
+    RESPONSES_CASES,
+    ids=[case.client_type for case in RESPONSES_CASES],
+)
+async def test_openai_responses_clients_read_a_call_completed_without_arguments_as_no_arguments(
+    case: OpenAICompatibleToolStreamCase,
+):
+    client = _create_auto_client(case)
+    _install_fake_stream(
+        client,
+        case,
+        [
+            SimpleNamespace(
+                type="response.output_item.added",
+                item=SimpleNamespace(type="function_call", id="fc_list", call_id="call_list", name="list_files"),
+            ),
+            SimpleNamespace(type="response.function_call_arguments.done", item_id="fc_list"),
+            # the SDK parses a completed call that leaves its arguments field out as arguments=None
+            SimpleNamespace(
+                type="response.output_item.done",
+                item=SimpleNamespace(
+                    type="function_call",
+                    id="fc_list",
+                    call_id="call_list",
+                    name="list_files",
+                    arguments=None,
+                    status="completed",
+                ),
+            ),
+            _COMPLETED_EVENT,
+        ],
+    )
+
+    messages = [{"role": "user", "content_items": [{"type": "text.done", "text": "Create a memo."}]}]
+    events = [event async for event in client.streaming_response(messages, {})]
+    assert_stream_grammar(events)
+    tool_calls = [item for event in events for item in event["content_items"] if item["type"] == "tool_call.done"]
+
+    assert tool_calls == [
+        {
+            "type": "tool_call.done",
+            "name": "list_files",
+            "arguments": {},
+            "tool_call_id": "call_list",
+        }
     ]

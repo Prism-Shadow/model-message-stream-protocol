@@ -21,8 +21,8 @@ from urllib.parse import quote
 
 import pytest
 
-from agenthub import AutoLLMClient
-from agenthub.utils import exceeds_openai_patch_limit, image_dimensions
+from mmsp import AutoLLMClient
+from mmsp.utils import exceeds_openai_patch_limit, image_dimensions
 
 
 # Header builders. Only the bytes the parser reads have to be right, so none of these is a
@@ -182,22 +182,27 @@ class ImageDetailCase:
 
 
 IMAGE_DETAIL_CASES = [
-    ImageDetailCase("GPT6Client", "gpt-5.6-terra", None, "responses", True),
-    ImageDetailCase("GPT6Client", "gpt-5.5", None, "responses", False),
+    ImageDetailCase("OpenAIOfficialClient", "gpt-5.6-terra", None, "responses", True),
+    ImageDetailCase("OpenAIOfficialClient", "gpt-5.5", None, "responses", False),
     ImageDetailCase("OpenaiResponsesClient", "openai/gpt-5.6-terra", "openai-responses", "responses", True),
     ImageDetailCase("OpenaiResponsesClient", "deepseek-v4-flash-vision-exp", "openai-responses", "responses", False),
     ImageDetailCase("OpenaiChatClient", "GPT-5.6-Sol", "openai-chat", "chat", True),
     ImageDetailCase("OpenaiChatClient", "gpt-5.5", "openai-chat", "chat", False),
-    ImageDetailCase("KimiK3Client", "kimi-k3", None, "chat", False),
-    ImageDetailCase("GLM5_3Client", "glm-5.3-flash", None, "chat", False),
+    ImageDetailCase("MoonshotOfficialClient", "kimi-k3", None, "chat", False),
+    ImageDetailCase("ZAIOfficialClient", "glm-5.3-flash", None, "chat", False),
     # The DeepSeek client forwards images to every id except the text-only V4 Flash / V4 Pro
     # (bare, dated snapshot, any gateway prefix, any case).
-    ImageDetailCase("DeepSeekV4Client", "deepseek-v4-flash", None, "responses", False, refuses_images=True),
+    ImageDetailCase("DeepSeekOfficialClient", "deepseek-v4-flash", None, "responses", False, refuses_images=True),
     ImageDetailCase(
-        "DeepSeekV4Client", "deepseek-ai/DeepSeek-V4-Flash", "deepseek-v4", "responses", False, refuses_images=True
+        "DeepSeekOfficialClient",
+        "deepseek-ai/DeepSeek-V4-Flash",
+        "deepseek-official",
+        "responses",
+        False,
+        refuses_images=True,
     ),
-    ImageDetailCase("DeepSeekV4Client", "deepseek-v4-flash-vision-exp", None, "responses", False),
-    ImageDetailCase("DeepSeekV4Client", "deepseek-v4.1-flash", None, "responses", False),
+    ImageDetailCase("DeepSeekOfficialClient", "deepseek-v4-flash-vision-exp", None, "responses", False),
+    ImageDetailCase("DeepSeekOfficialClient", "deepseek-v4.1-flash", None, "responses", False),
 ]
 
 OVERSIZED = _data_url(_png(6400, 8608))
@@ -208,21 +213,26 @@ MESSAGES: list[dict[str, Any]] = [
     {
         "role": "user",
         "content_items": [
-            {"type": "text", "text": "What is in these?"},
-            {"type": "image_url", "image_url": OVERSIZED},
-            {"type": "image_url", "image_url": SMALL},
+            {"type": "text.done", "text": "What is in these?"},
+            {"type": "image_url.done", "image_url": OVERSIZED},
+            {"type": "image_url.done", "image_url": SMALL},
         ],
     },
     {
         "role": "assistant",
         "content_items": [
-            {"type": "tool_call", "name": "read_image", "arguments": {"path": "shot.png"}, "tool_call_id": "call_1"}
+            {
+                "type": "tool_call.done",
+                "name": "read_image",
+                "arguments": {"path": "shot.png"},
+                "tool_call_id": "call_1",
+            }
         ],
     },
     {
         "role": "user",
         "content_items": [
-            {"type": "tool_result", "text": "image/png", "images": [OVERSIZED, SMALL], "tool_call_id": "call_1"}
+            {"type": "tool_result.done", "text": "image/png", "images": [OVERSIZED, SMALL], "tool_call_id": "call_1"}
         ],
     },
 ]

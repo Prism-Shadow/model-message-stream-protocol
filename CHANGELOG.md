@@ -4,6 +4,8 @@
 
 Here, we record the addition and removal times of models, major functional updates, bug fixes, and release times of key versions. Each release keeps one brief line here; the per-entry summaries live in `changelog/<version>/README.md`, and every entry links its detail file.
 
+- [2026-09-30] [Version 0.5.0](changelog/0.5.0/README.md): AgentHub is renamed MMSP, the Model Message Stream Protocol (`mmsp` on PyPI, `@prismshadow/mmsp` on npm); streaming protocol v2 closes every item with its `.done` item and every stream with one `stop` event; clients are named by type, an official client per vendor and a compatible client per protocol; Gemini moves to the Interactions API and Vertex AI to generateContent; Claude Opus 5.5, Sonnet 5.5 and Fable 5.1, GPT-6.1 Sol, DeepSeek Flash and Gemini 3.8 TTS are supported; the playground and the tracer are redesigned, and the site at mmsp.penguin.ooo opens.
+
 - [2026-09-14] [Version 0.4.15](changelog/0.4.15/README.md): the Responses clients (`openai_responses`, `gpt6`, `deepseek_v4`, `minimax_m3`) keep every function call of an interleaved parallel tool-call turn, so a gateway that opens every call before closing any no longer loses all but the last one, and the next request no longer fails on an orphaned `function_call_output`.
 
 - [2026-09-12] [Version 0.4.14](changelog/0.4.14/README.md): the first-party DeepSeek V4 and GPT Responses clients send a text-only tool result as a plain string, so a strictly validating DeepSeek Responses endpoint no longer rejects every request after a tool call with `400 invalid_json`.

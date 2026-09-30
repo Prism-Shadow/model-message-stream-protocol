@@ -21,7 +21,7 @@ This example shows how to use the AutoLLMClient without maintaining conversation
 import asyncio
 import os
 
-from agenthub import AutoLLMClient
+from mmsp import AutoLLMClient
 
 
 async def main():
@@ -41,7 +41,7 @@ async def main():
     print("User:", query)
     print("Assistant:")
     async for event in client.streaming_response(
-        messages=[{"role": "user", "content_items": [{"type": "text", "text": query}]}], config=config
+        messages=[{"role": "user", "content_items": [{"type": "text.done", "text": query}]}], config=config
     ):
         print(event)
 

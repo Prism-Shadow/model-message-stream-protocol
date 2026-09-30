@@ -25,7 +25,7 @@ Standard list price (per 1M tokens), with a launch discount through December 31,
 | Context caching storage | $0.50 /1M·hour     | $1.00 /1M·hour         |
 
 `gemini-3.7-flash` and `gemini-3.6-flash` share this exact price table, launch discount
-included. AgentHub's registry stores the list column and does not record the promotion, so
+included. MMSP's registry stores the list column and does not record the promotion, so
 every row reports the rate that applies from 2027-01-01.
 
 ## API changes

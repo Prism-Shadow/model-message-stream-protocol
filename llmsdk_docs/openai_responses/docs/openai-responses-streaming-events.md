@@ -4,7 +4,7 @@
 > (raw markdown served at the same URL with `.md` appended), fetched 2026-09-09.
 >
 > The upstream page is ~15.6 MB of generated schema JSON and is not snapshotted whole. This
-> file keeps the events AgentHub's Responses-protocol clients act on: the two output-item
+> file keeps the events MMSP's Responses-protocol clients act on: the two output-item
 > lifecycle events, the reasoning item they carry, every `response.reasoning_*` event, the
 > terminal events, and the usage object. Event descriptions, field docstrings and `Example`
 > payloads are copied from the page unchanged in wording; the generated schema dumps around

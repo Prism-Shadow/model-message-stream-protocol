@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 import http from "http";
 import { AddressInfo } from "net";
 import {
@@ -49,11 +48,18 @@ const HEADER_CASES: HeaderCase[] = [
     expected: ["m1", "m2"],
   },
   {
-    clientType: "gemini-3.8",
+    clientType: "gemini-official",
     model: "gemini-3.8-flash",
     baseUrlSuffix: "",
     // the Gemini client is deduced from the model id, so its listing keeps only ids that
     // deduce back to it
+    expected: ["gemini-3.8-flash", "gemini-3.8-pro"],
+  },
+  {
+    // the generateContent client builds its own SDK client, and lists the Gemini family's ids
+    clientType: "gemini-generate-content",
+    model: "gemini-3.8-flash",
+    baseUrlSuffix: "",
     expected: ["gemini-3.8-flash", "gemini-3.8-pro"],
   },
 ];

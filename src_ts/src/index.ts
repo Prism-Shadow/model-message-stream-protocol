@@ -14,8 +14,9 @@
 
 export { AutoLLMClient } from "./autoClient";
 export {
-  AgentHubError,
+  MMSPError,
   EmptyResponseError,
+  StreamProtocolError,
   ToolCallArgumentParseError,
   UnsupportedOperationError,
   UnsupportedParameterError,
@@ -27,4 +28,5 @@ export {
   ModelPricing,
   SupportedModel,
 } from "./registry";
+export { normalizeLegacyMessages } from "./legacy";
 export * from "./types";

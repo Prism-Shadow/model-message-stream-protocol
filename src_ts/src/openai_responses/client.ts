@@ -19,12 +19,12 @@ import type {
   ResponseCreateParamsStreaming,
 } from "openai/resources/responses/responses";
 import { LLMClient } from "../baseClient";
-import { parseToolCallArguments, UnsupportedParameterError } from "../errors";
+import { UnsupportedParameterError } from "../errors";
 import {
+  EventContentItem,
   EventType,
+  Fidelity,
   FinishReason,
-  PartialContentItem,
-  PartialToolCallContentItem,
   ThinkingLevel,
   ToolChoice,
   UniConfig,
@@ -33,7 +33,11 @@ import {
   PromptCaching,
   UsageMetadata,
 } from "../types";
-import { isDebugEnabled, openaiImageDetail } from "../utils";
+import {
+  isDebugEnabled,
+  openaiImageDetail,
+  resolveCredentials,
+} from "../utils";
 
 /**
  * OpenAI Responses-compatible client implementation.
@@ -49,13 +53,15 @@ export class OpenaiResponsesClient extends LLMClient {
     model: string;
     apiKey?: string;
     baseUrl?: string | null;
-    clientType?: string | null;
     defaultHeaders?: Record<string, string>;
   }) {
     super();
     this._model = options.model;
-    const key = options.apiKey || process.env.OPENAI_API_KEY || undefined;
-    const url = options.baseUrl || process.env.OPENAI_BASE_URL || undefined;
+    const { apiKey: key, baseUrl: url } = resolveCredentials(
+      this.constructor.name,
+      options,
+      { key: "OPENAI_API_KEY", baseUrl: "OPENAI_BASE_URL" },
+    );
     this._client = new OpenAI({
       apiKey: key,
       baseURL: url,
@@ -202,21 +208,29 @@ export class OpenaiResponsesClient extends LLMClient {
         // merges a function call into the adjacent assistant message rejects a call whose
         // output does not follow it (DeepSeek answers "No tool output found for tool call")
         if (
-          item.type !== "text" &&
-          item.type !== "image_url" &&
+          item.type !== "text.done" &&
+          item.type !== "image_url.done" &&
           contentItems.length > 0
         ) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const entry: any = { role: msg.role, content: contentItems };
+          // Every turn goes back as a typed message item — the Responses API's EasyInputMessage
+          // shape, where type "message" is valid for any role. A vLLM-style Responses server
+          // answers a bare { role: "assistant", content: [...] } item with a 400 on the turn that
+          // replays it and takes the typed form for every role; OpenAI, DeepSeek and MiniMax accept
+          // either shape. Nothing beyond that minimal shape goes out: an id or a status the server
+          // never sent would be an invention.
+          const entry: Record<string, unknown> = {
+            type: "message",
+            role: msg.role,
+            content: contentItems,
+          };
           if (lastPhase !== null) {
             entry.phase = lastPhase;
           }
-
           inputList.push(entry);
           contentItems = [];
         }
 
-        if (item.type === "text") {
+        if (item.type === "text.done") {
           const phase = item.fidelity?.phase;
           if (msg.role === "assistant" && phase) {
             // split different phases
@@ -226,6 +240,7 @@ export class OpenaiResponsesClient extends LLMClient {
               contentItems.length > 0
             ) {
               inputList.push({
+                type: "message",
                 role: msg.role,
                 content: contentItems,
                 phase: lastPhase,
@@ -239,9 +254,9 @@ export class OpenaiResponsesClient extends LLMClient {
           } else {
             contentItems.push({ type: "output_text", text: item.text });
           }
-        } else if (item.type === "image_url") {
+        } else if (item.type === "image_url.done") {
           contentItems.push(this._convertImageUrl(item.image_url));
-        } else if (item.type === "thinking") {
+        } else if (item.type === "thinking.done") {
           // the wire shape differs by server: OpenAI-style servers stream summaries and
           // demand the summary key back (with encrypted_content preserved), while
           // DeepSeek/Z.AI/MiniMax-style servers accept a reasoning item rebuilt from the
@@ -268,14 +283,14 @@ export class OpenaiResponsesClient extends LLMClient {
           }
 
           inputList.push(reasoning);
-        } else if (item.type === "tool_call") {
+        } else if (item.type === "tool_call.done") {
           inputList.push({
             type: "function_call",
             call_id: item.tool_call_id,
             name: item.name,
             arguments: JSON.stringify(item.arguments),
           });
-        } else if (item.type === "tool_result") {
+        } else if (item.type === "tool_result.done") {
           if (!item.tool_call_id) {
             throw new Error("tool_call_id is required for tool result.");
           }
@@ -309,8 +324,11 @@ export class OpenaiResponsesClient extends LLMClient {
       }
 
       if (contentItems.length > 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const entry: any = { role: msg.role, content: contentItems };
+        const entry: Record<string, unknown> = {
+          type: "message",
+          role: msg.role,
+          content: contentItems,
+        };
         if (lastPhase !== null) {
           entry.phase = lastPhase;
         }
@@ -322,51 +340,67 @@ export class OpenaiResponsesClient extends LLMClient {
   }
 
   /**
-   * Transform OpenAI Responses-compatible streaming event to universal event format.
+   * Transform one OpenAI Responses-compatible stream event into a universal event, identifying
+   * items by output item id. An item needs no done: it is done when the next one begins or the
+   * stream ends.
    */
   transformModelOutputToUniEvent(modelOutput: ResponseStreamEvent): UniEvent {
-    let eventType: EventType | null = null;
-    const contentItems: PartialContentItem[] = [];
+    let eventType: EventType = "delta";
+    const contentItems: EventContentItem[] = [];
     let usageMetadata: UsageMetadata | null = null;
     let finishReason: FinishReason | null = null;
 
     const openaiEventType = modelOutput.type;
     if (openaiEventType === "response.output_text.delta") {
-      eventType = "delta";
-      contentItems.push({ type: "text", text: modelOutput.delta });
+      contentItems.push({
+        type: "text.delta",
+        text: modelOutput.delta,
+        fidelity: { item_id: modelOutput.item_id },
+      });
     } else if (
       openaiEventType === "response.reasoning_text.delta" ||
       openaiEventType === "response.reasoning_summary_text.delta"
     ) {
-      eventType = "delta";
-      contentItems.push({ type: "thinking", thinking: modelOutput.delta });
+      contentItems.push({
+        type: "thinking.delta",
+        thinking: modelOutput.delta,
+        fidelity: { item_id: modelOutput.item_id },
+      });
     } else if (openaiEventType === "response.output_item.added") {
+      // an item begins: a delta under its id, empty unless it carries the call's name or the
+      // message's phase, ends the item before it
       const item = modelOutput.item;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const phase = (item as any).phase as string | undefined;
       if (item.type === "function_call") {
-        eventType = "start";
         contentItems.push({
-          type: "partial_tool_call",
+          type: "tool_call.delta",
           name: item.name,
           arguments: "",
           tool_call_id: item.call_id,
-          item_id: item.id,
+          // a server that sends no item id still sends the call id
+          fidelity: { item_id: item.id || item.call_id },
         });
-      } else if (item.type === "message" && phase) {
-        eventType = "delta";
-        contentItems.push({ type: "text", text: "", fidelity: { phase } });
-      } else {
-        eventType = "unused";
+      } else if (item.type === "message") {
+        contentItems.push({
+          type: "text.delta",
+          text: "",
+          fidelity: { item_id: item.id, ...(phase ? { phase } : {}) },
+        });
+      } else if (item.type === "reasoning") {
+        contentItems.push({
+          type: "thinking.delta",
+          thinking: "",
+          fidelity: { item_id: item.id },
+        });
       }
     } else if (openaiEventType === "response.output_item.done") {
       const item = modelOutput.item;
       if (item.type === "reasoning") {
-        // record the wire shape of the completed reasoning item so a replay reproduces
-        // the channel that carried the thinking plus the fields the server demands back
-        eventType = "delta";
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const fidelity: any = {};
+        // the last delta of a reasoning item: the wire shape of the completed item, so a
+        // replay reproduces the channel that carried the thinking plus the fields the server
+        // demands back
+        const fidelity: Fidelity = { item_id: item.id };
         if (item.summary && item.summary.length > 0) {
           fidelity.channel = "summary";
         }
@@ -378,28 +412,15 @@ export class OpenaiResponsesClient extends LLMClient {
           }
         }
 
-        contentItems.push({ type: "thinking", thinking: "", fidelity });
-      } else {
-        eventType = "unused";
+        contentItems.push({ type: "thinking.delta", thinking: "", fidelity });
       }
     } else if (openaiEventType === "response.function_call_arguments.delta") {
-      eventType = "delta";
       contentItems.push({
-        type: "partial_tool_call",
+        type: "tool_call.delta",
         name: "",
         arguments: modelOutput.delta,
         tool_call_id: "",
-        item_id: modelOutput.item_id,
-      });
-    } else if (openaiEventType === "response.function_call_arguments.done") {
-      // a stop naming the item closes that call
-      eventType = "stop";
-      contentItems.push({
-        type: "partial_tool_call",
-        name: "",
-        arguments: "",
-        tool_call_id: "",
-        item_id: modelOutput.item_id,
+        fidelity: { item_id: modelOutput.item_id },
       });
     } else if (
       openaiEventType === "response.completed" ||
@@ -433,6 +454,7 @@ export class OpenaiResponsesClient extends LLMClient {
         "response.created",
         "response.in_progress",
         "response.output_text.done",
+        "response.function_call_arguments.done",
         "response.reasoning_text.done",
         "response.reasoning_summary_part.added",
         "response.reasoning_summary_part.done",
@@ -443,13 +465,12 @@ export class OpenaiResponsesClient extends LLMClient {
         "keepalive",
       ].includes(openaiEventType)
     ) {
-      eventType = "unused";
+      // lifecycle events, and repeats of what the deltas carry
     } else if (isDebugEnabled()) {
       throw new Error(`Unknown output: ${JSON.stringify(modelOutput)}`);
     } else {
       // a gateway injects its own events (heartbeats, cost tickers) into the stream, and
       // killing a long generation over one costs more than dropping it
-      eventType = "unused";
     }
 
     return {
@@ -475,16 +496,6 @@ export class OpenaiResponsesClient extends LLMClient {
       options.signal,
     );
 
-    // Calls still streaming, keyed by the item id their fragments carry (the call id when a
-    // server sends none): a gateway may open several before closing any of them.
-    const openToolCalls = new Map<
-      string,
-      { name: string; tool_call_id: string; arguments: string }
-    >();
-    let lastOpened = "";
-    const keyOf = (itemId?: string) =>
-      itemId && openToolCalls.has(itemId) ? itemId : lastOpened;
-
     const params: ResponseCreateParamsStreaming = {
       ...openaiConfig,
       input: inputList,
@@ -495,67 +506,7 @@ export class OpenaiResponsesClient extends LLMClient {
       signal: options.signal,
     });
     for await (const event of stream) {
-      const uniEvent = this.transformModelOutputToUniEvent(event);
-      const fragments = uniEvent.content_items.filter(
-        (item): item is PartialToolCallContentItem =>
-          item.type === "partial_tool_call",
-      );
-      if (uniEvent.event_type === "start") {
-        for (const item of fragments) {
-          lastOpened = item.item_id || item.tool_call_id;
-          openToolCalls.set(lastOpened, {
-            name: item.name,
-            tool_call_id: item.tool_call_id,
-            arguments: "",
-          });
-        }
-        yield uniEvent;
-      } else if (uniEvent.event_type === "delta") {
-        for (const item of fragments) {
-          const toolCall = openToolCalls.get(keyOf(item.item_id));
-          if (toolCall) {
-            toolCall.arguments += item.arguments;
-          }
-        }
-        yield uniEvent;
-      } else if (uniEvent.event_type === "stop") {
-        // a stop that names calls closes them; the end of the response closes whatever a
-        // gateway never closed on its own
-        const closing =
-          fragments.length > 0
-            ? fragments.map((item) => keyOf(item.item_id))
-            : [...openToolCalls.keys()];
-        for (const key of closing) {
-          const toolCall = openToolCalls.get(key);
-          if (!toolCall) {
-            continue;
-          }
-          openToolCalls.delete(key);
-          yield {
-            role: "assistant",
-            event_type: "delta",
-            content_items: [
-              {
-                type: "tool_call",
-                name: toolCall.name,
-                arguments: parseToolCallArguments(
-                  toolCall.arguments,
-                  this.constructor.name,
-                  toolCall.name,
-                  toolCall.tool_call_id,
-                ),
-                tool_call_id: toolCall.tool_call_id,
-              },
-            ],
-            usage_metadata: null,
-            finish_reason: null,
-          };
-        }
-
-        if (uniEvent.finish_reason || uniEvent.usage_metadata) {
-          yield uniEvent;
-        }
-      }
+      yield this.transformModelOutputToUniEvent(event);
     }
   }
 

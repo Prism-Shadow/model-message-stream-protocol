@@ -1,0 +1,296 @@
+---
+import "../styles/global.css";
+import Nav from "../components/Nav.astro";
+import Footer from "../components/Footer.astro";
+import { STRINGS, localePath, stripLocale, type Locale } from "../shared/i18n";
+import { SITE_NAME } from "../shared/site";
+
+interface Props {
+  locale: Locale;
+  title: string;
+  description?: string;
+  // the entry of the top bar the page belongs to
+  active: string;
+  // a page visitors arrive at: it opens in the system's language when none was chosen
+  entry?: boolean;
+  // what the page is to a search engine: the site itself, or one article of it
+  kind?: "website" | "article";
+}
+
+const {
+  locale,
+  title,
+  description = STRINGS[locale].description,
+  active,
+  entry = false,
+  kind = "article",
+} = Astro.props;
+const s = STRINGS[locale];
+const pageTitle = title === SITE_NAME ? s.siteTitle : `${title} | ${SITE_NAME}`;
+const path = stripLocale(Astro.url.pathname);
+const canonical = new URL(Astro.url.pathname, Astro.site);
+const alternates = (["en", "zh"] as Locale[]).map((other) => ({
+  locale: other,
+  href: new URL(localePath(other, path), Astro.site),
+}));
+const image = new URL("/social-preview.png", Astro.site);
+const ogLocale = { en: "en_US", zh: "zh_CN" };
+const structured = JSON.stringify(
+  kind === "website"
+    ? {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        name: SITE_NAME,
+        alternateName: "Model Message Stream Protocol",
+        url: canonical.href,
+        description,
+        inLanguage: s.htmlLang,
+      }
+    : {
+        "@context": "https://schema.org",
+        "@type": "TechArticle",
+        headline: title,
+        description,
+        url: canonical.href,
+        inLanguage: s.htmlLang,
+        isPartOf: { "@type": "WebSite", name: SITE_NAME, url: Astro.site?.href },
+        publisher: { "@type": "Organization", name: "Prism Shadow", url: "https://penguin.ooo/" },
+      },
+);
+---
+
+<!doctype html>
+<html lang={s.htmlLang} data-locale={locale} data-entry={entry ? "" : undefined}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+    <title>{pageTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    {alternates.map((alt) => <link rel="alternate" hreflang={alt.locale === "zh" ? "zh-CN" : "en"} href={alt.href} />)}
+    <link rel="alternate" hreflang="x-default" href={alternates[0].href} />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="sitemap" href="/sitemap.xml" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta property="og:type" content={kind} />
+    <meta property="og:site_name" content={SITE_NAME} />
+    <meta property="og:locale" content={ogLocale[locale]} />
+    {alternates.filter((alt) => alt.locale !== locale).map((alt) => <meta property="og:locale:alternate" content={ogLocale[alt.locale]} />)}
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={image} />
+    <meta property="og:image:width" content="1280" />
+    <meta property="og:image:height" content="640" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={image} />
+    <script type="application/ld+json" set:html={structured} />
+    <!-- Before first paint: the stored or system theme, and the language. English pages live
+         at /, Chinese pages at /zh/. A page in another language than the chosen one is left for
+         its counterpart; without a choice, only an entry page follows the system's language,
+         so a link to a page keeps its language and a crawler sees both. -->
+    <script is:inline>
+      (function () {
+        try {
+          var theme = localStorage.getItem("mmsp-site.theme");
+          if (theme === "dark" || (theme !== "light" && matchMedia("(prefers-color-scheme: dark)").matches))
+            document.documentElement.classList.add("dark");
+        } catch (e) {}
+        try {
+          var html = document.documentElement;
+          var stored = localStorage.getItem("mmsp-site.lang");
+          var wanted =
+            stored === "en" || stored === "zh"
+              ? stored
+              : html.hasAttribute("data-entry")
+                ? (navigator.language || "").toLowerCase().indexOf("zh") === 0
+                  ? "zh"
+                  : "en"
+                : null;
+          if (wanted && wanted !== html.getAttribute("data-locale")) {
+            var path = location.pathname.replace(/^\/zh(?=\/|$)/, "") || "/";
+            location.replace((wanted === "zh" ? "/zh" + path : path) + location.search + location.hash);
+          }
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body class="flex min-h-screen flex-col">
+    <Nav locale={locale} active={active} />
+    <main class="flex-1">
+      <slot />
+    </main>
+    <Footer locale={locale} />
+    <script>
+      // ---------- the menus of the top bar
+      const menus = [...document.querySelectorAll<HTMLElement>("[data-menu]")];
+      const closeAll = () => {
+        for (const menu of menus) {
+          menu.querySelector<HTMLElement>("[role=menu]")!.hidden = true;
+          menu.querySelector("button")!.setAttribute("aria-expanded", "false");
+        }
+      };
+      document.addEventListener("click", (event) => {
+        if (!menus.some((menu) => menu.contains(event.target as Node))) closeAll();
+      });
+      const setChosen = (menu: HTMLElement, value: string) => {
+        for (const option of menu.querySelectorAll<HTMLElement>("[data-value]")) {
+          option.setAttribute("aria-checked", String(option.dataset.value === value));
+        }
+      };
+      // the button names what is in effect, which differs from the choice when it follows the system
+      const showCurrent = (menu: HTMLElement, value: string) => {
+        menu.querySelector("[data-menu-current]")!.textContent =
+          menu.querySelector<HTMLElement>(`[data-value="${value}"]`)!.textContent;
+        for (const icon of menu.querySelectorAll<SVGElement>("[data-theme-icon]")) {
+          icon.classList.toggle("hidden", icon.dataset.themeIcon !== value);
+        }
+      };
+      for (const menu of menus) {
+        const list = menu.querySelector<HTMLElement>("[role=menu]")!;
+        const button = menu.querySelector("button")!;
+        button.addEventListener("click", () => {
+          const open = list.hidden;
+          closeAll();
+          list.hidden = !open;
+          button.setAttribute("aria-expanded", String(open));
+        });
+        for (const option of menu.querySelectorAll<HTMLElement>("[data-value]")) {
+          option.addEventListener("click", () => {
+            closeAll();
+            menu.dispatchEvent(new CustomEvent("choose", { detail: option.dataset.value }));
+          });
+        }
+      }
+      const stored = (key: string) => {
+        try {
+          return localStorage.getItem(key);
+        } catch {
+          return null;
+        }
+      };
+      const store = (key: string, value: string) => {
+        try {
+          if (value === "system") localStorage.removeItem(key);
+          else localStorage.setItem(key, value);
+        } catch {}
+      };
+
+      // ---------- theme: light, dark, or the system's, applied at once and on system changes
+      const theme = document.querySelector<HTMLElement>("[data-menu=theme]")!;
+      const system = matchMedia("(prefers-color-scheme: dark)");
+      const applyTheme = () => {
+        const mode = stored("mmsp-site.theme") ?? "system";
+        const dark = mode === "dark" || (mode === "system" && system.matches);
+        document.documentElement.classList.toggle("dark", dark);
+        setChosen(theme, mode);
+        // the theme button shows the choice, following the system included
+        showCurrent(theme, mode);
+      };
+      theme.addEventListener("choose", (event) => {
+        store("mmsp-site.theme", (event as CustomEvent).detail);
+        applyTheme();
+      });
+      system.addEventListener("change", applyTheme);
+      applyTheme();
+
+      // ---------- language: the choice is stored, and the page reloads in that language; the
+      // button names the page's language, which is what is in effect
+      const lang = document.querySelector<HTMLElement>("[data-menu=lang]")!;
+      setChosen(lang, stored("mmsp-site.lang") ?? "system");
+      lang.addEventListener("choose", (event) => {
+        const choice = (event as CustomEvent).detail as string;
+        store("mmsp-site.lang", choice);
+        const wanted =
+          choice === "system"
+            ? navigator.language.toLowerCase().startsWith("zh")
+              ? "zh"
+              : "en"
+            : choice;
+        const path = location.pathname.replace(/^\/zh(?=\/|$)/, "") || "/";
+        const target = (wanted === "zh" ? "/zh" + path : path) + location.hash;
+        if (wanted === document.documentElement.dataset.locale) setChosen(lang, choice);
+        else location.assign(target);
+      });
+
+      // ---------- the repository's stars, from the GitHub API, kept in the browser for an hour
+      const stars = document.querySelector<HTMLElement>("[data-stars]");
+      if (stars) {
+        const show = (count: number) => {
+          stars.querySelector("[data-stars-count]")!.textContent =
+            count >= 1000 ? `${(count / 1000).toFixed(1).replace(/\.0$/, "")}k` : String(count);
+          stars.hidden = false;
+        };
+        const cached = stored("mmsp-site.stars");
+        const fresh = cached ? (JSON.parse(cached) as { count: number; at: number }) : null;
+        if (fresh && Date.now() - fresh.at < 3600_000) {
+          show(fresh.count);
+        } else {
+          const api = stars.dataset.stars!.replace("https://github.com/", "https://api.github.com/repos/");
+          fetch(api, { headers: { accept: "application/vnd.github+json" } })
+            .then((response) => (response.ok ? response.json() : Promise.reject(response.status)))
+            .then((repo: { stargazers_count: number }) => {
+              show(repo.stargazers_count);
+              store("mmsp-site.stars", JSON.stringify({ count: repo.stargazers_count, at: Date.now() }));
+            })
+            .catch(() => {
+              if (fresh) show(fresh.count);
+            });
+        }
+      }
+
+      // ---------- <div class="code-group"> around fenced blocks: one tab per block, named by
+      // its language, or by data-labels="Python,TypeScript" where the language does not tell
+      // the blocks apart
+      const LABELS: Record<string, string> = {
+        python: "Python",
+        typescript: "TypeScript",
+        bash: "Shell",
+        json: "JSON",
+      };
+      for (const group of document.querySelectorAll<HTMLElement>(".code-group")) {
+        const blocks = [...group.querySelectorAll<HTMLElement>(":scope > pre")];
+        if (blocks.length < 2) continue;
+        const named = group.dataset.labels?.split(",") ?? [];
+        const labels = blocks.map((block, index) => {
+          const language = block.dataset.language ?? "";
+          return named[index] ?? LABELS[language] ?? language;
+        });
+        const strip = document.createElement("div");
+        strip.className = "tab-strip";
+        strip.setAttribute("role", "tablist");
+        const select = (chosen: number) => {
+          blocks.forEach((block, index) => (block.hidden = index !== chosen));
+          [...strip.children].forEach((tab, index) =>
+            tab.setAttribute("aria-selected", String(index === chosen)),
+          );
+        };
+        labels.forEach((label) => {
+          const tab = document.createElement("button");
+          tab.type = "button";
+          tab.setAttribute("role", "tab");
+          tab.textContent = label;
+          tab.addEventListener("click", () => {
+            // the language chosen in one group is chosen in every group of the page
+            for (const other of document.querySelectorAll<HTMLElement>(".code-group")) {
+              other.dispatchEvent(new CustomEvent("choose", { detail: label }));
+            }
+          });
+          strip.append(tab);
+        });
+        group.addEventListener("choose", (event) => {
+          const chosen = labels.indexOf((event as CustomEvent).detail);
+          if (chosen >= 0) select(chosen);
+        });
+        group.prepend(strip);
+        group.dataset.ready = "";
+        select(0);
+      }
+    </script>
+  </body>
+</html>

@@ -19,10 +19,8 @@ interface MessageOrderCase {
   expectedClient: string;
   model: string;
   clientType?: string;
-  protocol: "responses" | "messages" | "gemini" | "chat";
+  protocol: "responses" | "messages" | "gemini" | "generate_content" | "chat";
   expected: string[];
-  // Claude replays the signature as text, Gemini as the bytes it streamed
-  thoughtSignature?: string | Buffer;
 }
 
 // A turn where the model thought, spoke, and then called a tool. Every protocol that can
@@ -40,7 +38,15 @@ const MESSAGES_ORDER = [
   "assistant:thinking,text,tool_use",
   "user:tool_result",
 ];
+// the Interactions API sends every item as a step of its own kind, a thought first in its turn
 const GEMINI_ORDER = [
+  "user_input",
+  "thought",
+  "model_output",
+  "function_call",
+  "function_result",
+];
+const GENERATE_CONTENT_ORDER = [
   "user:text",
   "model:thinking,text,function_call",
   "user:function_response",
@@ -55,7 +61,7 @@ const CHAT_ORDER = [
 
 const MESSAGE_ORDER_CASES: MessageOrderCase[] = [
   {
-    expectedClient: "GPT6Client",
+    expectedClient: "OpenAIOfficialClient",
     model: "gpt-5.6",
     protocol: "responses",
     expected: RESPONSES_ORDER,
@@ -68,21 +74,21 @@ const MESSAGE_ORDER_CASES: MessageOrderCase[] = [
     expected: RESPONSES_ORDER,
   },
   {
-    expectedClient: "DeepSeekV4Client",
+    expectedClient: "DeepSeekOfficialClient",
     model: "deepseek-v4",
-    clientType: "deepseek-v4",
+    clientType: "deepseek-official",
     protocol: "responses",
     expected: RESPONSES_ORDER,
   },
   {
-    expectedClient: "MiniMaxM3Client",
+    expectedClient: "MiniMaxOfficialClient",
     model: "MiniMax-M3",
-    clientType: "minimax-m3",
+    clientType: "minimax-official",
     protocol: "responses",
     expected: RESPONSES_ORDER,
   },
   {
-    expectedClient: "Claude5Client",
+    expectedClient: "AnthropicOfficialClient",
     model: "claude-sonnet-5",
     protocol: "messages",
     expected: MESSAGES_ORDER,
@@ -95,11 +101,17 @@ const MESSAGE_ORDER_CASES: MessageOrderCase[] = [
     expected: MESSAGES_ORDER,
   },
   {
-    expectedClient: "Gemini3_8Client",
+    expectedClient: "GeminiOfficialClient",
     model: "gemini-3.8-flash",
     protocol: "gemini",
     expected: GEMINI_ORDER,
-    thoughtSignature: Buffer.from("sig-1"),
+  },
+  {
+    expectedClient: "GeminiGenerateContentClient",
+    model: "gemini-3.8-flash",
+    clientType: "gemini-generate-content",
+    protocol: "generate_content",
+    expected: GENERATE_CONTENT_ORDER,
   },
   {
     expectedClient: "OpenaiChatClient",
@@ -109,36 +121,38 @@ const MESSAGE_ORDER_CASES: MessageOrderCase[] = [
     expected: CHAT_ORDER,
   },
   {
-    expectedClient: "GLM5_3Client",
+    expectedClient: "ZAIOfficialClient",
     model: "glm-5.3",
     protocol: "chat",
     expected: CHAT_ORDER,
   },
   {
-    expectedClient: "KimiK3Client",
+    expectedClient: "MoonshotOfficialClient",
     model: "kimi-k3",
     protocol: "chat",
     expected: CHAT_ORDER,
   },
 ];
 
-function messagesFor(testCase: MessageOrderCase): UniMessage[] {
+function messagesFor(): UniMessage[] {
   return [
     {
       role: "user",
-      content_items: [{ type: "text", text: "What is the weather in Paris?" }],
+      content_items: [
+        { type: "text.done", text: "What is the weather in Paris?" },
+      ],
     },
     {
       role: "assistant",
       content_items: [
         {
-          type: "thinking",
+          type: "thinking.done",
           thinking: "I should call the tool.",
-          fidelity: { signature: testCase.thoughtSignature ?? "sig-1" },
+          fidelity: { signature: "sig-1" },
         },
-        { type: "text", text: "Let me check that for you." },
+        { type: "text.done", text: "Let me check that for you." },
         {
-          type: "tool_call",
+          type: "tool_call.done",
           name: "get_weather",
           arguments: { city: "Paris" },
           tool_call_id: "call_1",
@@ -148,7 +162,11 @@ function messagesFor(testCase: MessageOrderCase): UniMessage[] {
     {
       role: "user",
       content_items: [
-        { type: "tool_result", text: "20 degrees.", tool_call_id: "call_1" },
+        {
+          type: "tool_result.done",
+          text: "20 degrees.",
+          tool_call_id: "call_1",
+        },
       ],
     },
   ];
@@ -157,7 +175,16 @@ function messagesFor(testCase: MessageOrderCase): UniMessage[] {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function signature(testCase: MessageOrderCase, modelInput: any[]): string[] {
   if (testCase.protocol === "responses") {
-    return modelInput.map((item) => item.type ?? `message:${item.role}`);
+    return modelInput.map((item) => {
+      // every Responses client sends a turn as a typed message item, and an item carrying
+      // no type at all is a message too; both are labelled by role, so one order fits
+      // every client
+      if (!item.type || item.type === "message") {
+        return `message:${item.role}`;
+      }
+
+      return item.type;
+    });
   }
 
   if (testCase.protocol === "messages") {
@@ -170,6 +197,10 @@ function signature(testCase: MessageOrderCase, modelInput: any[]): string[] {
   }
 
   if (testCase.protocol === "gemini") {
+    return modelInput.map((step) => step.type);
+  }
+
+  if (testCase.protocol === "generate_content") {
     return modelInput.map((content) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const kinds = content.parts.map((part: any) => {
@@ -195,43 +226,223 @@ function signature(testCase: MessageOrderCase, modelInput: any[]): string[] {
   });
 }
 
+interface RoutedClient {
+  constructor: { name: string };
+  transformUniMessageToModelInput(
+    messages: UniMessage[],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ): Promise<any[]> | any[];
+}
+
+function routedClient(model: string, clientType?: string): RoutedClient {
+  const client = new AutoLLMClient({ model, apiKey: "test-key", clientType });
+  return (client as unknown as { _client: RoutedClient })._client;
+}
+
 describe.each(MESSAGE_ORDER_CASES)(
   "Message transform order for $expectedClient",
   (testCase) => {
     test("keeps the order of the content items", async () => {
-      const client = new AutoLLMClient({
-        model: testCase.model,
-        apiKey: "test-key",
-        clientType: testCase.clientType,
-      });
-      const routedClient = (
-        client as unknown as {
-          _client: {
-            constructor: { name: string };
-            transformUniMessageToModelInput(
-              messages: UniMessage[],
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            ): Promise<any[]> | any[];
-          };
-        }
-      )._client;
-      expect(routedClient.constructor.name).toBe(testCase.expectedClient);
+      const client = routedClient(testCase.model, testCase.clientType);
+      expect(client.constructor.name).toBe(testCase.expectedClient);
 
-      const modelInput = await routedClient.transformUniMessageToModelInput(
-        messagesFor(testCase),
-      );
+      const modelInput =
+        await client.transformUniMessageToModelInput(messagesFor());
 
       expect(signature(testCase, modelInput)).toEqual(testCase.expected);
 
-      // every Responses and Chat Completions client sends a text-only tool result as
-      // a plain string rather than a one-part content list; the messages and gemini
-      // protocols have no such position
-      if (testCase.protocol === "responses" || testCase.protocol === "chat") {
-        expect(
-          testCase.protocol === "responses"
-            ? modelInput[4].output
-            : modelInput[2].content,
-        ).toBe("20 degrees.");
+      // every Responses, Chat Completions, Interactions and generateContent client sends a
+      // text-only tool result as a plain string rather than a one-part content list; the
+      // messages protocol has no such position
+      if (testCase.protocol === "responses") {
+        expect(modelInput[4].output).toBe("20 degrees.");
+      } else if (testCase.protocol === "chat") {
+        expect(modelInput[2].content).toBe("20 degrees.");
+      } else if (testCase.protocol === "gemini") {
+        expect(modelInput[4].result).toBe("20 degrees.");
+      } else if (testCase.protocol === "generate_content") {
+        expect(modelInput[2].parts[0].functionResponse.response.result).toBe(
+          "20 degrees.",
+        );
+      }
+    });
+  },
+);
+
+describe("Message transform shape for GeminiOfficialClient", () => {
+  test("sends an image-only tool result without an empty text block", async () => {
+    const client = routedClient("gemini-3.8-flash");
+    expect(client.constructor.name).toBe("GeminiOfficialClient");
+    const messages = messagesFor();
+    messages[2].content_items = [
+      {
+        type: "tool_result.done",
+        text: "",
+        images: ["data:image/png;base64,iVBORw0KGgo="],
+        tool_call_id: "call_1",
+      },
+    ];
+
+    const modelInput = await client.transformUniMessageToModelInput(messages);
+    // an empty text block is rejected with a 400, while a result of images alone is accepted
+    expect(modelInput[4].result).toEqual([
+      { type: "image", data: "iVBORw0KGgo=", mime_type: "image/png" },
+    ]);
+  });
+});
+
+describe("Message transform shape for GeminiGenerateContentClient", () => {
+  test("moves a thought signature onto the first function call", async () => {
+    const client = routedClient("gemini-3.8-flash", "gemini-generate-content");
+    expect(client.constructor.name).toBe("GeminiGenerateContentClient");
+
+    const modelInput =
+      await client.transformUniMessageToModelInput(messagesFor());
+    // generateContent validates the signature on the first function call of a turn, where the
+    // Interactions API records it on the turn's thought
+    expect(modelInput[1].parts).toEqual([
+      { text: "I should call the tool.", thought: true },
+      { text: "Let me check that for you." },
+      {
+        functionCall: {
+          id: "call_1",
+          name: "get_weather",
+          args: { city: "Paris" },
+        },
+        thoughtSignature: "sig-1",
+      },
+    ]);
+  });
+
+  test("splits function responses into contents of their own", async () => {
+    const client = routedClient("gemini-3.8-flash", "gemini-generate-content");
+    const messages = messagesFor();
+    messages[2].content_items = [
+      { type: "text.done", text: "Here is the weather." },
+      {
+        type: "tool_result.done",
+        text: "20 degrees.",
+        tool_call_id: "call_1",
+      },
+    ];
+
+    const modelInput = await client.transformUniMessageToModelInput(messages);
+    // Vertex AI rejects a content mixing function responses with other parts
+    expect(modelInput.slice(2)).toEqual([
+      { role: "user", parts: [{ text: "Here is the weather." }] },
+      {
+        role: "user",
+        parts: [
+          {
+            functionResponse: {
+              id: "call_1",
+              name: "get_weather",
+              response: { result: "20 degrees." },
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
+  test("keeps the signature of a thought image on its own part", async () => {
+    const client = routedClient(
+      "gemini-3.1-flash-image",
+      "gemini-generate-content",
+    );
+
+    const modelInput = await client.transformUniMessageToModelInput([
+      {
+        role: "user",
+        content_items: [{ type: "text.done", text: "Draw a cat." }],
+      },
+      {
+        role: "assistant",
+        content_items: [
+          {
+            type: "inline_thinking.done",
+            data: Buffer.from("draft"),
+            mime_type: "image/png",
+            fidelity: { signature: "sig-1" },
+          },
+          {
+            type: "inline_data.done",
+            data: Buffer.from("image"),
+            mime_type: "image/png",
+          },
+        ],
+      },
+    ]);
+    expect(modelInput[1].parts).toEqual([
+      {
+        inlineData: {
+          mimeType: "image/png",
+          data: Buffer.from("draft").toString("base64"),
+        },
+        thought: true,
+        thoughtSignature: "sig-1",
+      },
+      {
+        inlineData: {
+          mimeType: "image/png",
+          data: Buffer.from("image").toString("base64"),
+        },
+      },
+    ]);
+  });
+});
+
+// The generic client and the three routed ones share the replayed shape, so the cases are
+// the Responses rows of the order suite.
+const RESPONSES_SHAPE_CASES = MESSAGE_ORDER_CASES.filter(
+  (testCase) => testCase.protocol === "responses",
+);
+
+describe.each(RESPONSES_SHAPE_CASES)(
+  "Message transform shape for $expectedClient",
+  (testCase) => {
+    test("replays every turn as a message item", async () => {
+      const client = routedClient(testCase.model, testCase.clientType);
+      expect(client.constructor.name).toBe(testCase.expectedClient);
+
+      const modelInput = await client.transformUniMessageToModelInput([
+        {
+          role: "user",
+          content_items: [{ type: "text.done", text: "Hello." }],
+        },
+        {
+          role: "assistant",
+          content_items: [{ type: "text.done", text: "Hi there." }],
+        },
+        {
+          role: "user",
+          content_items: [{ type: "text.done", text: "And now?" }],
+        },
+      ]);
+
+      // every turn is a typed message item — the EasyInputMessage shape, which a vLLM-style
+      // Responses server requires for the replayed assistant turn and takes for a user turn
+      // too. Every client on this protocol emits input_text for a user part and output_text
+      // for an assistant one.
+      expect(modelInput).toEqual([
+        {
+          type: "message",
+          role: "user",
+          content: [{ type: "input_text", text: "Hello." }],
+        },
+        {
+          type: "message",
+          role: "assistant",
+          content: [{ type: "output_text", text: "Hi there." }],
+        },
+        {
+          type: "message",
+          role: "user",
+          content: [{ type: "input_text", text: "And now?" }],
+        },
+      ]);
+      for (const item of modelInput) {
+        expect(Object.keys(item).sort()).toEqual(["content", "role", "type"]);
       }
     });
   },

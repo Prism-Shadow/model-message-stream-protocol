@@ -1,15 +1,15 @@
 # Coding Guidelines
 
-You are a senior software engineer working on the AgentHub project.
+You are a senior software engineer working on the MMSP project.
 
 ## Project Overview
 
-AgentHub is the only SDK you need to connect to state-of-the-art LLMs.
+MMSP, the Model Message Stream Protocol: one message format and one streaming grammar for every model provider, in Python and TypeScript.
 
 ### Repository Structure
 
 - `src_py/` - Python implementation
-  - `agenthub/` - Main Python package
+  - `mmsp/` - Main Python package
   - `pyproject.toml` - Python project configuration
   - `Makefile` - Python build and test commands
   - `tests/` - Python test files
@@ -20,6 +20,8 @@ AgentHub is the only SDK you need to connect to state-of-the-art LLMs.
   - `tsconfig.json` - TypeScript compiler configuration
   - `Makefile` - TypeScript build and test commands
   - `tests/` - TypeScript test files
+
+- `site/` - The site at mmsp.penguin.ooo (Astro): the overview page, the documentation, and the sources of the artwork in `.github/images/`
 
 - `llmsdk_docs/` - **Reference documentation for AI model SDKs**
   - See this directory for detailed development guidelines and code conventions
@@ -48,12 +50,13 @@ AgentHub is the only SDK you need to connect to state-of-the-art LLMs.
 
 ## Implementation Rules
 
-When adding support for new AI models in `auto_client.py`, follow these rules:
+When adding support for new AI models, follow these rules:
 
-1. **DO NOT** use generic matching like `if "claude" in model.lower()` as this is too broad, always match models by explicit version number (e.g., claude4_5).
-2. Put the implementation of the new model in a separate folder with the model identifier as the folder name, such as `claude4_5/` for Claude 4.5 series models.
-3. **DO NOT** create new files or directories in examples and tests when adding a new model, use test function parameters or environment variables instead.
-4. **Always** consult the [llmsdk_docs/README.md](../llmsdk_docs/README.md) for AI model SDK usage details.
+1. A client is named by its `client_type`, and `auto_client.py` / `autoClient.ts` create the client that type names from one table. An **official client** per vendor (`openai-official`, `anthropic-official`, `gemini-official`, `zai-official`, `moonshot-official`, `deepseek-official`, `minimax-official`) lives in a folder named after it (`openai_official/`) and serves every generation of that vendor's models; a **compatible client** per wire protocol (`openai-chat`, `openai-responses`, `ant-messages`, ...) serves any endpoint that speaks it.
+2. A new generation of a vendor's models goes into the vendor's official client. Inside it, tell generations apart by explicit version (e.g. `"4-6" in self._model`), never by a bare substring like `if "claude" in model.lower()`, and keep the older generations working.
+3. Without a `client_type`, the family a model id begins with (`gpt-`, `claude-`, `gemini-`, `glm-`, `kimi-`, `deepseek-`, `minimax-`) names its official client; an id of no known family raises and asks for a `client_type`. A new vendor adds its family to that table. **DO NOT** add any other routing rule on model ids.
+4. **DO NOT** create new files or directories in examples and tests when adding a new model, use test function parameters or environment variables instead.
+5. **Always** consult the [llmsdk_docs/README.md](../llmsdk_docs/README.md) for AI model SDK usage details.
 
 When adding new functionality, follow these rules:
 

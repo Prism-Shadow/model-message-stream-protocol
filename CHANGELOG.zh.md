@@ -4,6 +4,8 @@
 
 在这里，我们记录模型的新增与移除时间、主要功能更新、缺陷修复，以及关键版本的发布时间。每个发布版本在此保留一行简述；逐条目的摘要位于 `changelog/<version>/README.md`，且每个条目都会链接到自己的详情文件。
 
+- [2026-09-30] [版本 0.5.0](changelog/0.5.0/README.zh.md)：AgentHub 更名为 MMSP（Model Message Stream Protocol），PyPI 包名为 `mmsp`，npm 包名为 `@prismshadow/mmsp`；流式协议 v2 用 `.done` 项收尾每个内容项，用一个 `stop` 事件收尾每条流；客户端按类型命名，每个厂商一个官方客户端，每种协议一个兼容客户端；Gemini 迁移到 Interactions API，Vertex AI 迁移到 generateContent；新增支持 Claude Opus 5.5、Sonnet 5.5 与 Fable 5.1、GPT-6.1 Sol、DeepSeek Flash 与 Gemini 3.8 TTS；Playground 与 Tracer 重新设计，站点 mmsp.penguin.ooo 上线。
+
 - [2026-09-14] [版本 0.4.15](changelog/0.4.15/README.zh.md)：Responses 客户端（`openai_responses`、`gpt6`、`deepseek_v4`、`minimax_m3`）保留交错到达的并行工具调用轮次中的每一个函数调用，先全部打开再逐个关闭的网关不再只剩最后一个调用，下一次请求也不再因孤立的 `function_call_output` 而失败。
 
 - [2026-09-12] [版本 0.4.14](changelog/0.4.14/README.zh.md)：第一方 DeepSeek V4 与 GPT Responses 客户端把纯文本工具结果作为纯字符串发送，严格校验的 DeepSeek Responses 端点不再在一次工具调用之后以 `400 invalid_json` 拒绝后续每个请求。

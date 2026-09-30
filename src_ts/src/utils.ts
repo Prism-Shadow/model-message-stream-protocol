@@ -41,7 +41,7 @@ export function fixOpenrouterUsageMetadata(
 }
 
 /**
- * Whether AGENTHUB_DEBUG asks the clients to fail loudly on output they do not recognize.
+ * Whether MMSP_DEBUG asks the clients to fail loudly on output they do not recognize.
  *
  * Streaming clients skip an unrecognized event so that a gateway's own frames cannot
  * kill a long generation. The same silence hides a genuinely new provider event, so the
@@ -49,8 +49,41 @@ export function fixOpenrouterUsageMetadata(
  *
  * @returns Whether debug mode is on.
  */
+/**
+ * The key and the endpoint of a client that reads the environment's OPENAI_API_KEY or
+ * ANTHROPIC_API_KEY. A key passed in is used as it is. Without one, the environment's key goes
+ * out only to the endpoint the environment names: a base URL passed in is another endpoint,
+ * which that key was not given for, so it needs a key of its own.
+ *
+ * @param client - The client's class name, for the error
+ * @param options - The key and the base URL passed to the client
+ * @param env - The environment variables that hold the key and the base URL
+ * @returns The key and the base URL to build the SDK client with, either of which may be undefined
+ */
+export function resolveCredentials(
+  client: string,
+  options: { apiKey?: string; baseUrl?: string | null },
+  env: { key: string; baseUrl: string },
+): { apiKey: string | undefined; baseUrl: string | undefined } {
+  if (options.apiKey) {
+    return {
+      apiKey: options.apiKey,
+      baseUrl: options.baseUrl || process.env[env.baseUrl] || undefined,
+    };
+  }
+  if (options.baseUrl) {
+    throw new Error(
+      `apiKey is required for ${client} with a baseUrl: ${env.key} is not sent to another endpoint.`,
+    );
+  }
+  return {
+    apiKey: process.env[env.key] || undefined,
+    baseUrl: process.env[env.baseUrl] || undefined,
+  };
+}
+
 export function isDebugEnabled(): boolean {
-  const flag = (process.env.AGENTHUB_DEBUG || "").trim().toLowerCase();
+  const flag = (process.env.MMSP_DEBUG || "").trim().toLowerCase();
   return !["", "0", "false", "no", "off"].includes(flag);
 }
 
@@ -289,4 +322,37 @@ export function openaiImageDetail(
     exceedsOpenaiPatchLimit(imageUrl)
     ? "high"
     : undefined;
+}
+
+/**
+ * Split a two-speaker TTS script into turns, for the TTS models that take each turn's speaker
+ * as metadata rather than as a label in the text.
+ *
+ * A line that starts with a configured speaker's name and a colon ("Joe: How's it going?")
+ * begins that speaker's turn; any other line continues the turn before it.
+ *
+ * @param text - The script, one "Name: line" per turn
+ * @param speakers - The speaker names the request configures
+ * @returns [speaker, text] per turn, in order
+ * @throws Error when the script does not begin with a speaker's label
+ */
+export function speakerTurns(
+  text: string,
+  speakers: string[],
+): [string, string][] {
+  const turns: [string, string[]][] = [];
+  for (const line of text.split(/\r?\n/)) {
+    const colon = line.indexOf(":");
+    const name = colon === -1 ? "" : line.slice(0, colon).trim();
+    if (colon !== -1 && speakers.includes(name)) {
+      turns.push([name, [line.slice(colon + 1).trim()]]);
+    } else if (turns.length > 0) {
+      turns[turns.length - 1][1].push(line);
+    } else if (line.trim()) {
+      throw new Error(
+        `A two-speaker script must start each turn with a speaker's name and a colon, one of ${JSON.stringify(speakers)}.`,
+      );
+    }
+  }
+  return turns.map(([speaker, lines]) => [speaker, lines.join("\n").trim()]);
 }

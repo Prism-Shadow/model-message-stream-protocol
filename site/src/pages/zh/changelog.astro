@@ -1,0 +1,6 @@
+---
+import ChangelogPage from "../../layouts/ChangelogPage.astro";
+import * as changelog from "../../../../CHANGELOG.zh.md";
+---
+
+<ChangelogPage locale="zh" html={await changelog.compiledContent()} />

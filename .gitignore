@@ -151,8 +151,6 @@ venv.bak/
 # Rope project settings
 .ropeproject
 
-# mkdocs documentation
-/site
 
 # mypy
 .mypy_cache/
@@ -355,7 +353,7 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
 
-# Raw LLM API captures used as implementation reference (see .agents/skills/agenthub-dev)
+# Raw LLM API captures used as implementation reference (see .agents/skills/mmsp-dev)
 api_captures/
 
 # Conversation monitor cache

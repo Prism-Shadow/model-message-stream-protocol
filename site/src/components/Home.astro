@@ -1,0 +1,196 @@
+---
+import Logo from "./Logo.astro";
+import ModelLogos from "./ModelLogos.astro";
+import StreamPlayer from "./StreamPlayer.astro";
+import { localePath, type Locale } from "../shared/i18n";
+import { REPO_URL } from "../shared/site";
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const href = (path: string) => localePath(locale, path);
+const FULL_NAME = ["Model", "Message", "Stream", "Protocol"];
+
+// what the skill button copies: a prompt that has a coding agent install both skills
+const installPrompt = `Install the two skills in ${REPO_URL}/tree/main/skills, mmsp-python and mmsp-typescript, into my skills directory: ~/.claude/skills for Claude Code, .agents/skills for Codex. For Claude Code this does it: mkdir -p ~/.claude/skills && curl -fsSL ${REPO_URL}/archive/main.tar.gz | tar -xz -C ~/.claude/skills --strip-components=2 model-message-stream-protocol-main/skills. Then use them whenever you write code that calls a model through MMSP.`;
+
+const COPY = {
+  en: {
+    // the slogan's verb turns between the words, as penguin.ooo's does
+    slogan: ["One protocol to ", ["reach", "observe"], " 1000+ models"],
+    sloganLabel: "One protocol to reach and observe 1000+ models",
+    subSlogan: "Less for developers to keep in mind, and no more tax on protocol adapters.",
+    quickstart: "Quickstart",
+    copyPrompt: "Install Agent Skill",
+    copyHint: "Copies a prompt for Claude Code, Codex or any coding agent to install the MMSP skills",
+    copied: "Copied",
+    copyFailed: "Copy failed",
+    more: "+992 more",
+  },
+  zh: {
+    slogan: ["用同一种协议", ["接入", "观测"], " 1000+ 种模型"],
+    sloganLabel: "用同一种协议接入、观测 1000+ 种模型",
+    subSlogan: "减轻开发者的心智负担，不再为协议适配交税",
+    quickstart: "快速开始",
+    copyPrompt: "Install Agent Skill",
+    copyHint: "复制一段指令，交给 Claude Code、Codex 等编码助手安装 MMSP skill",
+    copied: "已复制",
+    copyFailed: "复制失败",
+    more: "+992 种",
+  },
+}[locale];
+const [before, verbs, after] = COPY.slogan as [string, string[], string];
+---
+
+<section>
+  <div class="relative mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:py-16">
+    <div>
+      <!-- the full name, its initials in the mark's color, so the acronym spells itself out -->
+      <div class="rise flex items-center gap-3">
+        <Logo class="h-10 w-10 shrink-0 rounded-[10px] shadow-sm" />
+        <span class="text-xl font-semibold tracking-tight sm:text-2xl">
+          {
+            FULL_NAME.map((word, index) => (
+              <>
+                {index > 0 && " "}
+                <span class="text-brand-600 dark:text-brand-400">{word[0]}</span>
+                {word.slice(1)}
+              </>
+            ))
+          }
+        </span>
+      </div>
+
+      <h1
+        class="rise mt-7 text-4xl leading-[1.18] font-semibold tracking-tight text-balance sm:text-5xl"
+        style="animation-delay: 60ms"
+        aria-label={COPY.sloganLabel}
+      >
+        <span aria-hidden="true">
+          {before}<span class="rotator">{verbs.map((verb, index) => <span class="rotator-word" style={`--i: ${index}`}>{verb}</span>)}</span>{after}
+        </span>
+      </h1>
+      <p class="rise mt-5 text-lg text-balance text-gray-600 sm:text-xl dark:text-gray-400" style="animation-delay: 120ms">
+        {COPY.subSlogan}
+      </p>
+
+      <div class="rise mt-8 flex flex-wrap gap-3" style="animation-delay: 180ms">
+        <a
+          href={href("/docs/quickstart/")}
+          class="inline-flex h-11 items-center gap-2 rounded-lg bg-black px-5 text-[15px] font-medium text-white transition-colors hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200"
+        >
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"></path>
+          </svg>
+          {COPY.quickstart}
+        </a>
+        <button
+          type="button"
+          title={COPY.copyHint}
+          data-copy-prompt={installPrompt}
+          data-copied={COPY.copied}
+          data-failed={COPY.copyFailed}
+          class="inline-flex h-11 items-center gap-2 rounded-lg border border-gray-200 bg-white px-5 text-[15px] font-medium text-gray-900 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:hover:bg-gray-900"
+        >
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="m4 17 6-6-6-6"></path>
+            <path d="M12 19h8"></path>
+          </svg>
+          <span>{COPY.copyPrompt}</span>
+        </button>
+      </div>
+
+      <div class="rise mt-10" style="animation-delay: 240ms">
+        <ModelLogos more={COPY.more} class="justify-start" />
+      </div>
+    </div>
+
+    <div class="rise min-w-0" style="animation-delay: 120ms">
+      <StreamPlayer locale={locale} />
+    </div>
+  </div>
+</section>
+
+<style>
+  .rise {
+    animation: rise 0.6s cubic-bezier(0.23, 1, 0.32, 1) both;
+  }
+
+  /* the verb of the slogan: the words share one cell, and each rises out as the next rises in */
+  .rotator {
+    display: inline-grid;
+    justify-items: start;
+    overflow: hidden;
+    vertical-align: bottom;
+    color: var(--color-brand-500);
+  }
+
+  .rotator-word {
+    grid-area: 1 / 1;
+    animation: turn 5s cubic-bezier(0.23, 1, 0.32, 1) infinite;
+    animation-delay: calc(var(--i) * -2.5s);
+  }
+
+  @keyframes turn {
+    0%,
+    42% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    50% {
+      opacity: 0;
+      transform: translateY(-75%);
+    }
+    51%,
+    92% {
+      opacity: 0;
+      transform: translateY(75%);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rise,
+    .rotator-word {
+      animation: none;
+    }
+
+    .rotator-word + .rotator-word {
+      visibility: hidden;
+    }
+  }
+</style>
+
+<script>
+  // the prompt for a coding agent, copied from the hero
+  const copy = document.querySelector<HTMLButtonElement>("[data-copy-prompt]");
+  if (copy) {
+    const label = copy.querySelector("span")!;
+    const idle = label.textContent;
+    let reset: number | undefined;
+    const say = (text: string) => {
+      label.textContent = text;
+      window.clearTimeout(reset);
+      reset = window.setTimeout(() => (label.textContent = idle), 2000);
+    };
+    copy.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(copy.dataset.copyPrompt!);
+        say(copy.dataset.copied!);
+      } catch {
+        say(copy.dataset.failed!);
+      }
+    });
+  }
+</script>

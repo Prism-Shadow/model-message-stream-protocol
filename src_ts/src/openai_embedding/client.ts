@@ -20,6 +20,7 @@ import type {
 import { LLMClient } from "../baseClient";
 import { UnsupportedParameterError } from "../errors";
 import { UniConfig, UniEvent, UniMessage } from "../types";
+import { resolveCredentials } from "../utils";
 
 /**
  * OpenAI Embeddings-compatible client implementation.
@@ -35,13 +36,15 @@ export class OpenaiEmbeddingClient extends LLMClient {
     model: string;
     apiKey?: string;
     baseUrl?: string | null;
-    clientType?: string | null;
     defaultHeaders?: Record<string, string>;
   }) {
     super();
     this._model = options.model;
-    const key = options.apiKey || process.env.OPENAI_API_KEY || undefined;
-    const url = options.baseUrl || process.env.OPENAI_BASE_URL || undefined;
+    const { apiKey: key, baseUrl: url } = resolveCredentials(
+      this.constructor.name,
+      options,
+      { key: "OPENAI_API_KEY", baseUrl: "OPENAI_BASE_URL" },
+    );
     this._client = new OpenAI({
       apiKey: key,
       baseURL: url,
@@ -81,7 +84,7 @@ export class OpenaiEmbeddingClient extends LLMClient {
     for (const msg of messages) {
       let msgText = "";
       for (const item of msg.content_items) {
-        if (item.type !== "text") {
+        if (item.type !== "text.done") {
           throw new Error("OpenAI embeddings only support text content items.");
         }
         msgText += item.text;
@@ -92,7 +95,7 @@ export class OpenaiEmbeddingClient extends LLMClient {
   }
 
   /**
-   * Transform OpenAI Embeddings response to universal event format.
+   * Transform an OpenAI Embeddings response into a universal event, one complete item per vector.
    */
   transformModelOutputToUniEvent(
     modelOutput: CreateEmbeddingResponse,
@@ -101,7 +104,7 @@ export class OpenaiEmbeddingClient extends LLMClient {
       role: "assistant",
       event_type: "stop",
       content_items: modelOutput.data.map((item) => ({
-        type: "embedding" as const,
+        type: "embedding.delta" as const,
         embedding: item.embedding,
       })),
       usage_metadata: {
