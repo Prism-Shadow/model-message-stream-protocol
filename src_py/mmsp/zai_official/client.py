@@ -56,7 +56,7 @@ class ZAIOfficialClient(LLMClient):
         # OpenAI credential to the Z.AI host, so resolve the key here and fail loudly instead.
         api_key = api_key or os.getenv("ZAI_API_KEY")
         if not api_key:
-            raise ValueError("ZAI_API_KEY is required for GLM5_3Client.")
+            raise ValueError("ZAI_API_KEY is required for ZAIOfficialClient.")
         base_url = base_url or os.getenv("ZAI_BASE_URL") or "https://api.z.ai/api/paas/v4/"
         self._client = AsyncOpenAI(api_key=api_key, base_url=base_url, default_headers=default_headers)
         self._history: list[UniMessage] = []

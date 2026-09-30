@@ -29,6 +29,7 @@ const servedIds = [
   "claude-sonnet-5",
   "claude-opus-4-6",
   "deepseek-v4",
+  "deepseek-flash",
   "glm-5.3",
   "kimi-k3",
   "gemini-3.7-flash",
@@ -51,7 +52,7 @@ const SDK_LIST_CASES: ListCase[] = [
   {
     expectedClient: "DeepSeekOfficialClient",
     model: "deepseek-v4",
-    expected: ["deepseek-v4"],
+    expected: ["deepseek-v4", "deepseek-flash"],
   },
   {
     expectedClient: "ZAIOfficialClient",

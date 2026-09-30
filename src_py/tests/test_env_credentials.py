@@ -74,10 +74,10 @@ class VendorCase:
 
 # The vendor clients built on the OpenAI SDK: each reads its own variable and nothing else.
 VENDOR_CASES = [
-    VendorCase(expected_client="DeepSeekV4Client", model="deepseek-v4-flash", key_env="DEEPSEEK_API_KEY"),
-    VendorCase(expected_client="GLM5_3Client", model="glm-5.3", key_env="ZAI_API_KEY"),
-    VendorCase(expected_client="KimiK3Client", model="kimi-k3", key_env="MOONSHOT_API_KEY"),
-    VendorCase(expected_client="MiniMaxM3Client", model="MiniMax-M3", key_env="MINIMAX_API_KEY"),
+    VendorCase(expected_client="DeepSeekOfficialClient", model="deepseek-v4-flash", key_env="DEEPSEEK_API_KEY"),
+    VendorCase(expected_client="ZAIOfficialClient", model="glm-5.3", key_env="ZAI_API_KEY"),
+    VendorCase(expected_client="MoonshotOfficialClient", model="kimi-k3", key_env="MOONSHOT_API_KEY"),
+    VendorCase(expected_client="MiniMaxOfficialClient", model="MiniMax-M3", key_env="MINIMAX_API_KEY"),
 ]
 VENDOR_IDS = [case.expected_client for case in VENDOR_CASES]
 
@@ -130,7 +130,7 @@ class OpenaiCase:
 
 # The OpenAI protocol clients, which OPENAI_API_KEY and OPENAI_BASE_URL belong to.
 OPENAI_CASES = [
-    OpenaiCase(expected_client="GPT6Client", model="gpt-6-astra"),
+    OpenaiCase(expected_client="OpenAIOfficialClient", model="gpt-6-astra"),
     OpenaiCase(expected_client="OpenaiChatClient", model="gpt-5.6", client_type="openai-chat"),
     OpenaiCase(expected_client="OpenaiResponsesClient", model="gpt-5.6", client_type="openai-responses"),
     OpenaiCase(
@@ -198,7 +198,7 @@ class AnthropicCase:
 
 
 ANTHROPIC_CASES = [
-    AnthropicCase(expected_client="Claude5Client", model="claude-sonnet-5"),
+    AnthropicCase(expected_client="AnthropicOfficialClient", model="claude-sonnet-5"),
     AnthropicCase(
         expected_client="AntMessagesClient", model="claude-sonnet-5", client_type="ant-messages", key_as_bearer=True
     ),

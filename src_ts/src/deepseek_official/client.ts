@@ -65,7 +65,9 @@ export class DeepSeekOfficialClient extends LLMClient {
     // an OpenAI credential to the DeepSeek host, so resolve the key here and fail loudly instead.
     const key = options.apiKey || process.env.DEEPSEEK_API_KEY;
     if (!key) {
-      throw new Error("DEEPSEEK_API_KEY is required for DeepSeekV4Client.");
+      throw new Error(
+        "DEEPSEEK_API_KEY is required for DeepSeekOfficialClient.",
+      );
     }
     const url =
       options.baseUrl ||

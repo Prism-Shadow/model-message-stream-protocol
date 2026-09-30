@@ -1371,6 +1371,8 @@ const ROUTING_CASES: [string, string | undefined, string][] = [
   ["glm-5.3", undefined, "ZAIOfficialClient"],
   ["kimi-k3", undefined, "MoonshotOfficialClient"],
   ["deepseek-v4-pro", undefined, "DeepSeekOfficialClient"],
+  // a version-free DeepSeek id routes on the family too
+  ["deepseek-flash", undefined, "DeepSeekOfficialClient"],
   ["MiniMax-M3", undefined, "MiniMaxOfficialClient"],
   ["deepseek-v4-pro", "OpenAI-Responses", "OpenaiResponsesClient"],
   ["qwen/qwen3.6-35b-a3b", "openai-responses", "OpenaiResponsesClient"],

@@ -492,6 +492,8 @@ ROUTING_CASES = [
     ("glm-5.3", None, "ZAIOfficialClient"),
     ("kimi-k3", None, "MoonshotOfficialClient"),
     ("deepseek-v4-pro", None, "DeepSeekOfficialClient"),
+    # a version-free DeepSeek id routes on the family too
+    ("deepseek-flash", None, "DeepSeekOfficialClient"),
     ("MiniMax-M3", None, "MiniMaxOfficialClient"),
     ("deepseek-v4-pro", "OpenAI-Responses", "OpenaiResponsesClient"),
     ("qwen/qwen3.6-35b-a3b", "openai-responses", "OpenaiResponsesClient"),

@@ -60,7 +60,7 @@ class DeepSeekOfficialClient(LLMClient):
         # OpenAI credential to the DeepSeek host, so resolve the key here and fail loudly instead.
         api_key = api_key or os.getenv("DEEPSEEK_API_KEY")
         if not api_key:
-            raise ValueError("DEEPSEEK_API_KEY is required for DeepSeekV4Client.")
+            raise ValueError("DEEPSEEK_API_KEY is required for DeepSeekOfficialClient.")
         base_url = base_url or os.getenv("DEEPSEEK_BASE_URL") or "https://api.deepseek.com"
         self._client = AsyncOpenAI(api_key=api_key, base_url=base_url, default_headers=default_headers)
         self._history: list[UniMessage] = []

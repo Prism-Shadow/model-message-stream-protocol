@@ -59,7 +59,7 @@ export class ZAIOfficialClient extends LLMClient {
     // an OpenAI credential to the Z.AI host, so resolve the key here and fail loudly instead.
     const key = options.apiKey || process.env.ZAI_API_KEY;
     if (!key) {
-      throw new Error("ZAI_API_KEY is required for GLM5_3Client.");
+      throw new Error("ZAI_API_KEY is required for ZAIOfficialClient.");
     }
     const url =
       options.baseUrl ||

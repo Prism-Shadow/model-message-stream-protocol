@@ -57,7 +57,9 @@ export class MoonshotOfficialClient extends LLMClient {
     // an OpenAI credential to the Moonshot host, so resolve the key here and fail loudly instead.
     const key = options.apiKey || process.env.MOONSHOT_API_KEY;
     if (!key) {
-      throw new Error("MOONSHOT_API_KEY is required for KimiK3Client.");
+      throw new Error(
+        "MOONSHOT_API_KEY is required for MoonshotOfficialClient.",
+      );
     }
     const url =
       options.baseUrl ||
