@@ -3,13 +3,14 @@ import Logo from "./Logo.astro";
 import ModelLogos from "./ModelLogos.astro";
 import StreamPlayer from "./StreamPlayer.astro";
 import { localePath, type Locale } from "../shared/i18n";
-import { REPO_URL, SITE_NAME } from "../shared/site";
+import { REPO_URL } from "../shared/site";
 
 interface Props {
   locale: Locale;
 }
 const { locale } = Astro.props;
 const href = (path: string) => localePath(locale, path);
+const FULL_NAME = ["Model", "Message", "Stream", "Protocol"];
 
 // what the skill button copies: a prompt that has a coding agent install both skills
 const installPrompt = `Install the two skills in ${REPO_URL}/tree/main/skills, mmsp-python and mmsp-typescript, into my skills directory: ~/.claude/skills for Claude Code, .agents/skills for Codex. For Claude Code this does it: mkdir -p ~/.claude/skills && curl -fsSL ${REPO_URL}/archive/main.tar.gz | tar -xz -C ~/.claude/skills --strip-components=2 model-message-stream-protocol-main/skills. Then use them whenever you write code that calls a model through MMSP.`;
@@ -45,9 +46,20 @@ const [before, verbs, after] = COPY.slogan as [string, string[], string];
 <section>
   <div class="relative mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:py-16">
     <div>
-      <div class="rise flex items-center gap-2.5">
-        <Logo class="h-10 w-10 rounded-[10px] shadow-sm" />
-        <span class="text-2xl font-semibold tracking-tight">{SITE_NAME}</span>
+      <!-- the full name, its initials in the mark's color, so the acronym spells itself out -->
+      <div class="rise flex items-center gap-3">
+        <Logo class="h-10 w-10 shrink-0 rounded-[10px] shadow-sm" />
+        <span class="text-xl font-semibold tracking-tight sm:text-2xl">
+          {
+            FULL_NAME.map((word, index) => (
+              <>
+                {index > 0 && " "}
+                <span class="text-brand-600 dark:text-brand-400">{word[0]}</span>
+                {word.slice(1)}
+              </>
+            ))
+          }
+        </span>
       </div>
 
       <h1

@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-- [2026-09-30] 站点首页只保留动词轮换的标语、两个按钮与厂商标志，录制的流放在右侧，顶栏右侧依次为语言、主题与 GitHub；Playground 与 Tracer 使用站点的标志。([详情](2026-09-30-site-home.zh.md), [#231](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/231))
+- [2026-09-30] 站点首页只保留标出首字母的全称、动词轮换的标语、两个按钮与厂商标志，录制的流放在右侧，顶栏右侧依次为语言、主题与 GitHub；Playground 与 Tracer 使用站点的标志。([详情](2026-09-30-site-home.zh.md), [#231](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/231))
 - [2026-09-30] Playground 与 Tracer 界面重新设计：设置移入侧边栏，两个页面共用亮色与暗色主题，思考为可折叠轨迹，工具调用为卡片，页脚显示结束原因与 token 数，模型菜单可筛选，trace 中的消息为可折叠卡片并配有轮次导航。([详情](2026-09-30-playground-redesign.zh.md), [#231](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/231))
 - [2026-09-30] Playground 随模型设定客户端类型和 base URL，新增 Client Type 下拉框；自动填入的 base URL 不随请求发送。([详情](2026-09-30-playground-client-type.zh.md), [#229](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/229))
 - [2026-09-30] 支持 Claude Opus 5.5、Sonnet 5.5 与 Fable 5.1、GPT-6.1 Sol、DeepSeek Flash 和 Gemini 3.8 TTS；双说话人台词稿以逐轮的语音元数据发给 3.8 TTS。([详情](2026-09-30-latest-models.zh.md), [#229](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/229))
