@@ -65,7 +65,7 @@ if os.getenv("GEMINI_API_KEY"):
     )
     AVAILABLE_MODELS.append(
         Model(
-            name="gemini-3.1-flash-tts-preview",
+            name="gemini-3.8-flash-tts",
             support_text=False,
             support_image_understanding=False,
             support_tts=True,
@@ -81,10 +81,10 @@ if os.getenv("GEMINI_API_KEY"):
     )
 
 if os.getenv("ANTHROPIC_API_KEY"):
-    AVAILABLE_MODELS.append(Model(name="claude-sonnet-5"))
+    AVAILABLE_MODELS.append(Model(name="claude-sonnet-5-5"))
 
 if os.getenv("OPENAI_API_KEY"):
-    AVAILABLE_MODELS.append(Model(name="gpt-5.6-luna"))
+    AVAILABLE_MODELS.append(Model(name="gpt-6.1-sol"))
     AVAILABLE_MODELS.append(
         Model(
             name="text-embedding-3-large",
@@ -130,11 +130,11 @@ if os.getenv("MINIMAX_API_KEY"):
     AVAILABLE_MODELS.append(Model(name="MiniMax-M3"))
 
 if os.getenv("DEEPSEEK_API_KEY"):
-    AVAILABLE_MODELS.append(Model(name="deepseek-v4-flash-vision-exp"))
+    AVAILABLE_MODELS.append(Model(name="deepseek-flash"))
     for mode in _PROTOCOL_MODES:
         AVAILABLE_MODELS.append(
             Model(
-                name="deepseek-v4-flash",
+                name="deepseek-flash",
                 provider="deepseek",
                 client_type=mode,
                 base_url=_PROTOCOL_BASE_URLS["deepseek"][mode],

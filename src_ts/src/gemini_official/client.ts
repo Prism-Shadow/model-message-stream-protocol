@@ -34,7 +34,7 @@ import {
   UniMessage,
   UsageMetadata,
 } from "../types";
-import { isDebugEnabled } from "../utils";
+import { isDebugEnabled, speakerTurns } from "../utils";
 
 type GeminiThinkingLevel = "minimal" | "low" | "medium" | "high";
 
@@ -807,10 +807,36 @@ export class GeminiOfficialClient extends LLMClient {
     }
 
     const geminiConfig = this.transformUniConfigToModelConfig(options.config);
-    const input = await this.transformUniMessageToModelInput(
+    let input = await this.transformUniMessageToModelInput(
       messages,
       options.signal,
     );
+
+    // Gemini 3.8 TTS takes each speaker's turn as its own text block carrying the speaker as
+    // metadata, and rejects "Name: line" labels in a two-speaker request, while 3.1 TTS rejects
+    // the metadata (both verified live 2026-09-30), so only 3.8 gets the script split into turns.
+    const speakers = (options.config.tts_config ?? []).map(
+      (entry) => entry.speaker ?? "",
+    );
+    if (
+      this._model.toLowerCase().includes("tts") &&
+      this._model.includes("gemini-3.8") &&
+      speakers.length === 2
+    ) {
+      const script = messages[messages.length - 1].content_items
+        .map((item) => (item.type === "text.done" ? item.text : ""))
+        .join("\n");
+      input = [
+        {
+          type: "user_input",
+          content: speakerTurns(script, speakers).map(([speaker, turn]) => ({
+            type: "text",
+            text: turn,
+            annotations: [{ type: "speech_metadata", speaker }],
+          })),
+        },
+      ] as unknown as typeof input;
+    }
 
     const stream = await this._client.interactions.create(
       { ...geminiConfig, input, stream: true },

@@ -15,7 +15,7 @@ const python = `import asyncio
 from mmsp import AutoLLMClient
 
 async def main():
-    client = AutoLLMClient(model="claude-opus-5")
+    client = AutoLLMClient(model="claude-opus-5-5")
     async for event in client.streaming_response_stateful(
         message={
             "role": "user",
@@ -29,7 +29,7 @@ asyncio.run(main())`;
 
 const typescript = `import { AutoLLMClient } from "@prismshadow/mmsp";
 
-const client = new AutoLLMClient({ model: "claude-opus-5" });
+const client = new AutoLLMClient({ model: "claude-opus-5-5" });
 for await (const event of client.streamingResponseStateful({
   message: {
     role: "user",
@@ -131,18 +131,18 @@ const COPY = {
 
 const models = [
   ["Gemini 3 to 3.8", "Official, Google Vertex AI", "gemini-3.8-flash", "Text, image, speech, embedding"],
-  ["Claude 4.6 to 5", "Official, Amazon Bedrock, UModelVerse", "claude-opus-5", "Text"],
-  ["GPT-5.4 to 6", "Official, OpenRouter, UModelVerse", "gpt-6-astra", "Text, embedding"],
+  ["Claude 4.6 to 5.5", "Official, Amazon Bedrock, UModelVerse", "claude-opus-5-5", "Text"],
+  ["GPT-5.4 to 6.1", "Official, OpenRouter, UModelVerse", "gpt-6.1-sol", "Text, embedding"],
   ["Kimi K2.5, K2.6, K3", "Official, OpenRouter, SiliconFlow", "kimi-k3", "Text"],
-  ["DeepSeek V4", "Official, OpenRouter, SiliconFlow", "deepseek-v4-pro", "Text"],
+  ["DeepSeek V4", "Official, OpenRouter, SiliconFlow", "deepseek-flash", "Text"],
   ["GLM-5.1 to 5.3", "Official, OpenRouter, SiliconFlow", "glm-5.3", "Text"],
   ["MiniMax-M3", "Official", "MiniMax-M3", "Text"],
   ["Qwen3.6", "OpenRouter, SiliconFlow, vLLM", "qwen/qwen3.6-35b-a3b", "Text, embedding"],
 ];
 const modelsZh: Record<string, string> = {
   "Gemini 3 to 3.8": "Gemini 3 至 3.8",
-  "Claude 4.6 to 5": "Claude 4.6 至 5",
-  "GPT-5.4 to 6": "GPT-5.4 至 6",
+  "Claude 4.6 to 5.5": "Claude 4.6 至 5.5",
+  "GPT-5.4 to 6.1": "GPT-5.4 至 6.1",
   "Kimi K2.5, K2.6, K3": "Kimi K2.5、K2.6、K3",
   "GLM-5.1 to 5.3": "GLM-5.1 至 5.3",
   "Official, Google Vertex AI": "官方、Google Vertex AI",

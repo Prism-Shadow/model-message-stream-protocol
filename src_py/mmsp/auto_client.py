@@ -43,7 +43,7 @@ COMPATIBLE_CLIENT_TYPES = (
 )
 
 # Without a client type, the family a model id begins with names its official client.
-_MODEL_FAMILIES = (
+MODEL_FAMILIES = (
     ("gpt-", "openai-official"),
     ("text-embedding-", "openai-official"),
     ("claude-", "anthropic-official"),
@@ -66,7 +66,7 @@ def client_type_for_model(model: str) -> str | None:
         str | None: One of OFFICIAL_CLIENT_TYPES, or None.
     """
     lowered = model.lower()
-    for prefix, client_type in _MODEL_FAMILIES:
+    for prefix, client_type in MODEL_FAMILIES:
         if lowered.startswith(prefix):
             return client_type
     return None

@@ -7,6 +7,8 @@ This directory contains documentation and examples for all supported AI model SD
 To use a specific model, please refer to its dedicated README:
 
 - **[Anthropic Messages protocol](./ant_messages/README.md)** - The Anthropic Messages-compatible protocol across Anthropic, OpenRouter, DeepSeek, Z.AI, and MiniMax (generic `ant_messages` client)
+- **[Claude 5.1](./claude5_1/README.md)** - Anthropic's Claude Fable 5.1: always-on thinking, no forced tool choice, history-bound thinking blocks
+- **[Claude 5.5](./claude5_5/README.md)** - Anthropic's Claude Opus 5.5 and Sonnet 5.5: always-on thinking on Opus, `between_tools` on Sonnet, no forced tool choice
 - **[Claude 4.6](./claude4_6/README.md)** - Anthropic's Claude 4.6 API documentation and examples
 - **[Claude 4.7](./claude4_7/README.md)** - Anthropic's Claude 4.7 API documentation and examples
 - **[Claude 4.8](./claude4_8/README.md)** - Anthropic's Claude 4.8 API documentation and examples
@@ -14,14 +16,14 @@ To use a specific model, please refer to its dedicated README:
 - **[Gemini 3](./gemini3/README.md)** - Google's Gemini 3 API documentation and examples
 - **[Gemini 3.6](./gemini3_6/README.md)** - Google's Gemini 3.6 generation (gemini-3.6-flash, gemini-3.5-flash-lite): sampling-parameter deprecation and thinking levels
 - **[Gemini 3.7](./gemini3_7/README.md)** - Google's Gemini 3.7 generation (gemini-3.7-flash): same wire contract as 3.6, drops the `minimal` thinking level
-- **[Gemini 3.8](./gemini3_8/README.md)** - Google's Gemini 3.8 generation (gemini-3.8-flash): same wire contract, capabilities and price table as 3.7
+- **[Gemini 3.8](./gemini3_8/README.md)** - Google's Gemini 3.8 generation (gemini-3.8-flash, gemini-3.8-flash-tts, gemini-3.8-flash-lite-tts): same wire contract, capabilities and price table as 3.7
 - **[Gemini Interactions API](./gemini_interactions/README.md)** - Google's Interactions API (`/v1beta/interactions`, `steps` schema): thought steps and signatures, streaming step events, function calling, image and speech generation, usage, v1/v1beta and Vertex AI references
 - **[GLM-5.1](./glm5_1/README.md)** - Z.AI's GLM-5.1 API documentation and examples
 - **[GLM-5.2](./glm5_2/README.md)** - Z.AI's GLM-5.2 API documentation (reasoning_effort, thinking modes, tool streaming)
 - **[GLM-5.3](./glm5_3/README.md)** - Z.AI's GLM-5.3 API documentation (forced thinking, reasoning_effort restricted to low/high/max)
 - **[GPT-5.5](./gpt5_5/README.md)** - OpenAI's GPT-5.5 API documentation and examples
 - **[GPT-5.6](./gpt5_6/README.md)** - OpenAI's GPT-5.6 generation (sol/terra/luna): reasoning modes, fast mode, and Responses migration
-- **[GPT-6](./gpt6/README.md)** - OpenAI's GPT-6 generation (gpt-6-astra): same Responses wire contract as GPT-5.6, `reasoning.effort` without `none`/`minimal`, cache-write billing
+- **[GPT-6](./gpt6/README.md)** - OpenAI's GPT-6 generation (gpt-6-astra, gpt-6.1-sol): same Responses wire contract as GPT-5.6, `reasoning.effort` without `none`/`minimal`, cache-write billing
 - **[Kimi K3](./kimi_k3/README.md)** - Moonshot's Kimi K3 API documentation (reasoning_effort, tool calling, vision, caching)
 - **[MiniMax M-series](./minimax_m3/README.md)** - Responses API-compatible documentation for MiniMax M3 and M2.7, plus Token Plan Subscription Key integration
 - **[openai-chat-vllm-adapter model artifacts](./openai_chat_vllm_adapter/README.md)** - Upstream chat templates for the Qwen models served through vLLM, and the encoding module that stands in for one on DeepSeek V4; the source behind the adapter's per-model thinking switch

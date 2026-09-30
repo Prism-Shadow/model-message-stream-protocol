@@ -5,41 +5,90 @@ latestModelInfo:
   promptingGuide: /api/docs/guides/latest-model/gpt-6-astra.md#prompting-best-practices
 ---
 
-# Using GPT-6 Astra
+# Using GPT-6
 
 > For the complete documentation index, see [llms.txt](/llms.txt). Markdown versions of documentation pages are available by appending `.md` to the page URL.
 
-## Introduction
+Choose a GPT-6 model based on the reasoning your task requires, speed, and cost.
 
-GPT-6 Astra is our most intelligent model yet, with state-of-the-art performance in computer use, browsing, software engineering, science, and professional work. It excels at carrying out multistep workflows across code, browsers, and professional software. In [several evaluations](https://openai.com/index/gpt-6-astra/), Astra achieves stronger results while using substantially fewer output tokens—delivering a lower estimated API cost per task than earlier models despite its higher per-token pricing.
+
+
+- [GPT-6 Astra](https://developers.openai.com/api/docs/models/gpt-6-astra)
+
+  **Highest intelligence**
+
+  For the most demanding reasoning, coding, and professional work.
+
+- [GPT-6.1 Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol)
+
+  **Balanced speed, cost, and intelligence**
+
+  Near-Astra performance for complex work at a lower cost.
+
+- [GPT-6 Luna](https://developers.openai.com/api/docs/models/gpt-6-luna)
+
+  **Fastest and most cost-effective**
+
+  Strong performance for focused, high-volume tasks.
+
+
+
+To get started, set `model` in a [Responses API](https://developers.openai.com/api/docs/guides/migrate-to-responses) request. If you already use [`gpt-6-sol`](https://developers.openai.com/api/docs/models/gpt-6-sol), review the [migration guidance](#migration-quickstart) before switching to GPT-6.1 Sol.
+
+### GPT-6 Astra
+
+GPT-6 Astra is our most intelligent model yet, with state-of-the-art performance in computer use, browsing, software engineering, science, and professional work. It can carry out multi-step workflows across code, browsers, and professional software. In [several evaluations](https://openai.com/index/gpt-6-astra/), Astra achieved stronger results using substantially fewer output tokens. Its estimated API cost per task was lower than earlier models despite its higher per-token pricing.
 
 GPT-6 Astra is also our most aligned model yet. It excels at exercising care, respecting task boundaries, and communicating transparently. When instructions leave room for interpretation, it uses the context it has to fill in routine gaps and asks focused questions when the answer could change the outcome. It incorporates new requirements, changes course when asked, and answers side questions without losing track of the broader task.
 
-To build with Astra, set `model` to `gpt-6-astra` in a [Responses API](https://developers.openai.com/api/docs/guides/migrate-to-responses) request.
+All GPT-6 Astra users also have access to [Fast mode](https://developers.openai.com/api/docs/guides/fast-mode) and the new [Ultrafast mode](https://developers.openai.com/api/docs/guides/ultrafast-mode) for our fastest API speeds.
+
+<a id="gpt-61-sol"></a>
+<a id="gpt-6.1-sol"></a>
+
+### GPT-6.1 Sol
+
+Use GPT-6.1 Sol for complex coding, computer use, and professional work when you
+want near-Astra performance at a lower cost. Compare it with Astra on your tasks
+to assess the tradeoff between quality and cost.
+
+Set `reasoning.effort` to `low`, `medium` (default), `high`, `xhigh`, or `max`.
+Use the Responses API for tool calling. Chat Completions supports requests
+without tools. The `none` and `minimal` reasoning efforts are not supported.
+
+See the [model page](https://developers.openai.com/api/docs/models/gpt-6.1-sol) for specifications,
+pricing, and availability, or [model selection](https://developers.openai.com/api/docs/guides/model-selection#when-to-consider-gpt-61-sol)
+for guidance on choosing a model.
 
 <a id="gpt-6-astra-what-is-new" className="scroll-mt-[110px]"></a>
 
 ## What's new
 
-- **Async tool calling:** GPT-6 Astra can continue reasoning, call other tools, or answer independent parts of a request while your application runs a tool. Set `async: true` on a function or custom tool and return its result when ready using the original `call_id`. Your application still executes the tool and manages pending work. See [Async tool calling](https://developers.openai.com/api/docs/guides/async-tool-calling) for basic usage and a developer-defined wait-tool pattern.
-- **Mid-turn steering:** Send additional user instructions while GPT-6 Astra is working, such as a correction or a change in requirements. Over a WebSocket connection, the Responses API preserves completed work and includes the update in a continuation. See [Mid-turn steering](https://developers.openai.com/api/docs/guides/steering) for the event flow and tool-result handling.
+- **Async tool calling:** GPT-6 can continue reasoning, call other tools, or answer independent parts of a request while your application runs a tool. Set `async: true` on a function or custom tool and return its result when ready using the original `call_id`. Your application still executes the tool and manages pending work. See [Async tool calling](https://developers.openai.com/api/docs/guides/async-tool-calling) for basic usage and a developer-defined wait-tool pattern.
+- **Mid-turn steering:** Send additional user instructions while GPT-6 is working, such as a correction or a change in requirements. Over a WebSocket connection, the Responses API preserves completed work and includes the update in a continuation. See [Mid-turn steering](https://developers.openai.com/api/docs/guides/steering) for the event flow and tool-result handling.
 - **Change reasoning mid-conversation while preserving cache:** Add a `configuration_update` input item to increase reasoning effort for difficult work or reduce it for routine follow-ups without rewriting the original prompt prefix. The updated reasoning effort applies until another `configuration_update` input item overrides it. See [Change reasoning mid-conversation](https://developers.openai.com/api/docs/guides/reasoning#change-reasoning-mid-conversation) for examples and compatibility.
 - **Misalignment monitoring:** As part of our [strengthened safeguards](https://openai.com/index/path-to-astra/) for GPT-6 Astra, our systems asynchronously monitor for misalignment and trigger alerts when necessary. See [Misalignment monitoring](https://developers.openai.com/api/docs/guides/safety-checks/misalignment-monitoring) for more information.
-- **Limitations:** GPT-6 Astra does not support the `none` reasoning effort. [Fast mode](https://developers.openai.com/api/docs/guides/fast-mode) is unavailable for GPT-6 Astra with EU data residency.
 
-GPT-6 Astra also supports the existing API capabilities available with GPT-5.6, including [computer use](https://developers.openai.com/api/docs/guides/tools-computer-use), [Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs), [streaming](https://developers.openai.com/api/docs/guides/streaming-responses), [Programmatic Tool Calling](https://developers.openai.com/api/docs/guides/tools-programmatic-tool-calling), [multi-agent orchestration](https://developers.openai.com/api/docs/guides/responses-multi-agent), [prompt caching](https://developers.openai.com/api/docs/guides/prompt-caching), [persisted reasoning](https://developers.openai.com/api/docs/guides/reasoning#preserve-reasoning-across-calls), [compaction](https://developers.openai.com/api/docs/guides/compaction), and [pro mode](https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode).
+GPT-6 also supports the existing API capabilities available with GPT-5.6, including [computer use](https://developers.openai.com/api/docs/guides/tools-computer-use), [Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs), [streaming](https://developers.openai.com/api/docs/guides/streaming-responses), [Programmatic Tool Calling](https://developers.openai.com/api/docs/guides/tools-programmatic-tool-calling), [multi-agent orchestration](https://developers.openai.com/api/docs/guides/responses-multi-agent), [prompt caching](https://developers.openai.com/api/docs/guides/prompt-caching), [persisted reasoning](https://developers.openai.com/api/docs/guides/reasoning#preserve-reasoning-across-calls), [compaction](https://developers.openai.com/api/docs/guides/compaction), and [pro mode](https://developers.openai.com/api/docs/guides/reasoning#reasoning-mode).
+
+## Limitations
+
+- GPT-6 Astra and GPT-6.1 Sol do not support the `none` reasoning effort; GPT-6 Sol and GPT-6 Luna do.
+- Fast mode is not available with EU data residency for GPT-6 Astra, GPT-6 Sol, or GPT-6 Luna. [Ultrafast mode](https://developers.openai.com/api/docs/guides/ultrafast-mode) supports US data residency and global processing only. It does not support EU or other non-US regional processing endpoints. See [data residency eligibility](https://developers.openai.com/api/docs/guides/your-data#which-models-and-features-are-eligible-for-data-residency).
+
+<a id="prompting-best-practices" className="scroll-mt-[110px]"></a>
 
 ## Prompting best practices
 
-GPT-6 Astra is more intelligent and capable than prior models like GPT-5.6 Sol, and also exhibits behavior patterns that can be optimized through prompting the model for your use case.
+Use the following prompts as a starting point across the GPT-6 model family. They address behavior observed with GPT-6 Astra; evaluate them with your chosen model and workload.
 
 ### GPT-6 Astra behavior
 
-- [Initiative and follow-through](#initiative-and-follow-through) – The model is designed to be a more effective collaborator and is thus more likely to ask the user a question when additional input could materially change the result. This can cause it to stop when the user may expect it to make reasonable assumptions and persist.
-- [Instruction following](#instruction-following) – GPT-6 Astra is stronger at general instruction following than our previous models, giving you greater control over its behavior. It can be more sensitive to instructions contained in skills and other files, such as `AGENTS.md`. We **strongly recommend** auditing skills and other files accessible to your model for instructions that could influence its behavior.
-- [Personality and writing style](#personality-and-writing-style) – The model tends toward detailed, formatted responses and may use recurring phrases across sessions. Specify the writing style and structure your application needs.
-- [Subagent delegation](#subagent-delegation) – The model may delegate less often than desired for your workflow. Specify when and how much it should use subagents for parallel work.
-- [Testing and verification](#testing-and-verification) – For coding tasks, the model tends to be thorough in testing before considering a task complete. For smaller tasks, this can result in broader tests than the task requires.
+- [Initiative and follow-through](#initiative-and-follow-through): The model is designed to be a more effective collaborator and is thus more likely to ask the user a question when additional input could materially change the result. This can cause it to stop when the user may expect it to make reasonable assumptions and persist.
+- [Instruction following](#instruction-following): GPT-6 Astra is stronger at general instruction following than our previous models, giving you greater control over its behavior. It can be more sensitive to instructions contained in skills and other files, such as `AGENTS.md`. We **strongly recommend** auditing skills and other files accessible to your model for instructions that could influence its behavior.
+- [Personality and writing style](#personality-and-writing-style): The model tends toward detailed, formatted responses and may use recurring phrases across sessions. Specify the writing style and structure your application needs.
+- [Subagent delegation](#subagent-delegation): The model may delegate less often than desired for your workflow. Specify when and how much it should use subagents for parallel work.
+- [Testing and verification](#testing-and-verification): For coding tasks, the model tends to be thorough in testing before considering a task complete. For smaller tasks, this can result in broader tests than the task requires.
 
 ### Initiative and follow-through
 
@@ -106,7 +155,7 @@ To reduce jargon and stock phrases in writing, start with this prompt:
 ```text
 Avoid using slop words or phrases like "Bottom Line:" in conclusions, "delve," "foster," "leverage," "it's worth noting," "importantly," "Question? Answer." or "This isn't about X. It's about Y.", "genuinely" or hyphenated compound descriptions and adjectives. Do not use concluding summary statements such as "In short:..", "The simplest mental model is:...".
 
-State the intended action directly. Avoid adding what you won't do, what will remain unchanged, or how you'll separate or categorize results. Do not use contrastive framing such as "X, not Y" or "X—not Y" that introduces an unprompted alternative that the user didn't ask about. Avoid invented compound labels like "exact-head checks" and "editorial-row layouts", vague qualifiers, and canned transitions; use plain verbs and prepositions to state the actual relationship directly.
+State the intended action directly. Avoid adding what you won't do, what will remain unchanged, or how you'll separate or categorize results. Do not use contrastive framing such as "X, not Y" that introduces an unprompted alternative that the user didn't ask about. Avoid invented compound labels like "exact-head checks" and "editorial-row layouts", vague qualifiers, and canned transitions; use plain verbs and prepositions to state the actual relationship directly.
 ```
 
 ### Subagent delegation
@@ -139,22 +188,22 @@ Run tests appropriate to the change and complete required checks. Once those pas
 
 ### Migrate with Codex
 
-Codex can apply the recommended changes in this guide with the [OpenAI Docs skill](https://github.com/openai/skills/tree/main/skills/.curated/openai-docs).
+Codex can apply the recommended changes in this guide with the [OpenAI Docs skill](https://github.com/openai/codex/tree/main/codex-rs/skills/src/assets/samples/openai-docs).
 
 ```text
-$openai-docs migrate this project to GPT-6 Astra
+$openai-docs migrate this project to the GPT-6 model family
 ```
 
-To use this skill in other coding agents, download it from the [OpenAI skills repository](https://github.com/openai/skills/tree/main/skills/.curated/openai-docs).
+To use this skill in other coding agents, download it from the [Codex repository](https://github.com/openai/codex/tree/main/codex-rs/skills/src/assets/samples/openai-docs).
 
 ### Update API and model parameters
 
-Set `model` to `gpt-6-astra`, then check the following:
+Set `model` to `gpt-6-astra`, `gpt-6.1-sol`, or `gpt-6-luna`, then check the following:
 
-- **Reasoning effort:** If you currently use `none` or `minimal`, start with `low` and compare results. Otherwise, preserve your current effective [reasoning effort](https://developers.openai.com/api/docs/guides/reasoning#reasoning-effort). Use `reasoning.effort` in Responses or `reasoning_effort` in Chat Completions.
-- **Tool calling:** Use the [Responses API](https://developers.openai.com/api/docs/guides/migrate-to-responses#migrating-from-chat-completions). GPT-6 Astra supports Chat Completions, but tool calling requires Responses.
-- **Unsupported parameters:** Remove `temperature`, `top_p`, and `top_logprobs`. For Chat Completions, also remove `logprobs`. For Responses, remove `message.output_text.logprobs` from `include`.
-- **Fast mode:** For EU data residency, use Standard processing. GPT-6 Astra does not support `service_tier: "fast"` or `service_tier: "priority"` with EU data residency. Fast mode for GPT-6 Astra does not include a latency SLA. See [Fast mode compatibility](https://developers.openai.com/api/docs/guides/fast-mode#is-fast-mode-compatible-with-data-residency-zero-data-retention-and-a-baa).
+- **Reasoning effort:** Preserve your current effective [reasoning effort](https://developers.openai.com/api/docs/guides/reasoning#reasoning-effort) where supported. GPT-6 Astra and GPT-6.1 Sol do not support `none`; use `low` instead. GPT-6 Sol and GPT-6 Luna support `none`. If your existing request uses `minimal`, start with `low` and compare results on representative tasks. Use `reasoning.effort` in Responses or `reasoning_effort` in Chat Completions.
+- **Tool calling:** Use the [Responses API](https://developers.openai.com/api/docs/guides/migrate-to-responses#migrating-from-chat-completions). GPT-6 Astra and GPT-6.1 Sol support Chat Completions, but tool calling requires Responses. GPT-6 Sol and GPT-6 Luna support function calling in Chat Completions only with `reasoning_effort: "none"`. Use Responses for reasoning with tools.
+- **Unsupported parameters:** When reasoning effort is not `none`, remove `temperature`, `top_p`, and `top_logprobs`. For Chat Completions, also remove `logprobs`. For Responses, remove `message.output_text.logprobs` from `include`.
+- **Data residency:** Fast mode is not available with EU data residency for GPT-6 Astra, GPT-6 Sol, or GPT-6 Luna. [Ultrafast mode](https://developers.openai.com/api/docs/guides/ultrafast-mode) supports US data residency and global processing only. It does not support EU or other non-US regional processing endpoints. Fast mode for GPT-6 Astra does not include a latency SLA. See [Fast mode compatibility](https://developers.openai.com/api/docs/guides/fast-mode#is-fast-mode-compatible-with-data-residency-zero-data-retention-and-a-baa).
 - **Changing reasoning effort:** If your application changes effort between responses, use `configuration_update` items in standard, single-agent requests. Keep request-level `reasoning.effort` unchanged to preserve the prompt prefix for caching. Check the [compatibility limits](https://developers.openai.com/api/docs/guides/reasoning#change-reasoning-mid-conversation) before adopting this feature.
 - **Prompt caching:** When migrating from GPT-5.5 or earlier, replace `prompt_cache_retention` with `prompt_cache_options.ttl` set to `"30m"`. Review the [prompt caching changes](https://developers.openai.com/api/docs/guides/prompt-caching#summary-of-model-differences), including cache boundaries and cache-write billing.
 - **Unnecessary approval pauses:** If you run into issues where the model keeps asking for approval before proceeding, use the [initiative and follow-through guidance](#initiative-and-follow-through) to prompt for more autonomous execution. See the rest of [Prompting best practices](#prompting-best-practices) for guidance on instruction following, writing style, subagent delegation, and testing.

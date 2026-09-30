@@ -51,7 +51,7 @@ import {
   UniMessage,
   UsageMetadata,
 } from "../types";
-import { isDebugEnabled } from "../utils";
+import { isDebugEnabled, speakerTurns } from "../utils";
 
 /**
  * Split a message's parts into consecutive runs of functionResponse and
@@ -843,10 +843,36 @@ export class GeminiGenerateContentClient extends LLMClient {
       this.transformUniConfigToModelConfig(options.config),
       options.signal,
     );
-    const contents = await this.transformUniMessageToModelInput(
+    let contents = await this.transformUniMessageToModelInput(
       messages,
       options.signal,
     );
+
+    // Gemini 3.8 TTS takes each speaker's turn as its own part carrying the speaker as
+    // speechMetadata (the SDK drops fields it does not know, so this needs @google/genai
+    // 2.24), and rejects "Name: line" labels in a two-speaker request, while 3.1 TTS
+    // rejects the metadata (both verified live 2026-09-30), so only 3.8 gets the script split.
+    const speakers = (options.config.tts_config ?? []).map(
+      (entry) => entry.speaker ?? "",
+    );
+    if (
+      this._model.toLowerCase().includes("tts") &&
+      this._model.includes("gemini-3.8") &&
+      speakers.length === 2
+    ) {
+      const script = messages[messages.length - 1].content_items
+        .map((item) => (item.type === "text.done" ? item.text : ""))
+        .join("\n");
+      contents = [
+        {
+          role: "user",
+          parts: speakerTurns(script, speakers).map(([speaker, turn]) => ({
+            text: turn,
+            speechMetadata: { speaker },
+          })),
+        },
+      ];
+    }
 
     const responseStream = await this._client.models.generateContentStream({
       model: this._model,

@@ -17,6 +17,7 @@ The `docs/` folder contains focused guides for DeepSeek API features:
 - [vision.md](./docs/vision.md) - Image input on deepseek-v4-flash-vision-exp across the three API formats, with detail levels and limits
 - [thinking-mode.md](./docs/thinking-mode.md) - Thinking mode, reasoning content, effort control, and tool-call context rules
 - [tool-calls.md](./docs/tool-calls.md) - Tool calling, thinking-mode tool calls, and strict mode
+- [models-and-pricing.zh.md](./docs/models-and-pricing.zh.md) - Models and prices (retrieved 2026-09-30): `deepseek-flash` is DeepSeek-V4.1-Flash with image input; `deepseek-v4-flash` and `deepseek-v4-flash-vision-exp` are served by it
 
 ## Notes
 

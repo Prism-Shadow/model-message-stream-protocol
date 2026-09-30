@@ -38,7 +38,7 @@ from ..types import (
     UniMessage,
     UsageMetadata,
 )
-from ..utils import is_debug_enabled
+from ..utils import is_debug_enabled, speaker_turns
 
 
 class GeminiOfficialClient(LLMClient):
@@ -637,6 +637,26 @@ class GeminiOfficialClient(LLMClient):
                 raise ValueError(f"Gemini TTS only supports text input, got content item type={invalid_item['type']}.")
 
         steps = await self.transform_uni_message_to_model_input(messages)
+
+        # Gemini 3.8 TTS takes each speaker's turn as its own text block carrying the speaker as
+        # metadata, and rejects "Name: line" labels in a two-speaker request, while 3.1 TTS rejects
+        # the metadata (both verified live 2026-09-30), so only 3.8 gets the script split into turns.
+        speakers = [entry.get("speaker") for entry in config.get("tts_config") or []]
+        if "tts" in self._model.lower() and "gemini-3.8" in self._model and len(speakers) == 2:
+            script = "\n".join(item["text"] for item in messages[-1]["content_items"])
+            steps = [
+                {
+                    "type": "user_input",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": turn,
+                            "annotations": [{"type": "speech_metadata", "speaker": speaker}],
+                        }
+                        for speaker, turn in speaker_turns(script, speakers)
+                    ],
+                }
+            ]
 
         stream = await self._client.aio.interactions.create(**gemini_config, input=steps)
 

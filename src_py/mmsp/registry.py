@@ -147,11 +147,32 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "pricing": _usd(1.5, 9.0, cached=0.15),
     },
     {
+        "model": "gemini-3.1-flash-lite-image",
+        "base_url": _GOOGLE,
+        "client": "gemini-official",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Image"],
+    },
+    {
         "model": "gemini-3.1-flash-image",
         "base_url": _GOOGLE,
         "client": "gemini-official",
         "input_modalities": ["Text", "Image"],
         "output_modalities": ["Image"],
+    },
+    {
+        "model": "gemini-3.8-flash-tts",
+        "base_url": _GOOGLE,
+        "client": "gemini-official",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Audio"],
+    },
+    {
+        "model": "gemini-3.8-flash-lite-tts",
+        "base_url": _GOOGLE,
+        "client": "gemini-official",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Audio"],
     },
     {
         "model": "gemini-3.1-flash-tts-preview",
@@ -166,6 +187,35 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "client": "gemini-official",
         "input_modalities": ["Text"],
         "output_modalities": ["Embed"],
+    },
+    {
+        # cache reads are 2.5% of the input price
+        "model": "claude-fable-5-1",
+        "base_url": _ANTHROPIC,
+        "client": "anthropic-official",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1000000,
+        "pricing": _usd(10.0, 50.0, cached=0.25),
+    },
+    {
+        # cache reads are 5% of the input price
+        "model": "claude-opus-5-5",
+        "base_url": _ANTHROPIC,
+        "client": "anthropic-official",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1000000,
+        "pricing": _usd(4.0, 20.0, cached=0.2),
+    },
+    {
+        "model": "claude-sonnet-5-5",
+        "base_url": _ANTHROPIC,
+        "client": "anthropic-official",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1000000,
+        "pricing": _usd(2.0, 10.0, cached=0.2),
     },
     {
         "model": "claude-fable-5",
@@ -211,6 +261,18 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "output_modalities": ["Text"],
         "context_window": 1000000,
         "pricing": _usd(3.0, 15.0, cached=0.3),
+    },
+    {
+        # official list price per 1M tokens: $0.1 cached input, $2 uncached input, $2.5 cache
+        # writes, $10 output, above 272K input tokens 2x input and cache and 1.5x output. The
+        # prompt bucket carries the cache-write rate, as for gpt-6-astra.
+        "model": "gpt-6.1-sol",
+        "base_url": _OPENAI,
+        "client": "openai-official",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1050000,
+        "pricing": _usd(2.5, 10.0, cached=0.1),
     },
     {
         # official list price per 1M tokens: $1 cached input, $10 uncached input, $12.5 cache
@@ -337,17 +399,16 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "pricing": _cny(6.5, 27.0, cached=1.1),
     },
     {
-        "model": "deepseek-v4.1-flash",
+        # DeepSeek-V4.1-Flash; DeepSeek also serves deepseek-v4-flash and
+        # deepseek-v4-flash-vision-exp with it, at this price (official page 2026-09-30)
+        "model": "deepseek-flash",
         "base_url": _DEEPSEEK,
         "client": "deepseek-official",
-        # announced by DeepSeek for release after 2026-09-10 and not yet served on
-        # 2026-09-09; multimodal per the announcement
         "input_modalities": ["Text", "Image"],
         "output_modalities": ["Text"],
-        # assumed equal to deepseek-v4-flash until the official model page lists it
         "context_window": 1000000,
-        # priced as the V4 Flash series: official off-peak list price effective 2026-09-10,
-        # and peak-hour rates (Beijing 9:00-12:00, 14:00-18:00) are double
+        # official off-peak list price; peak-hour rates (Beijing 9:00-12:00, 14:00-18:00,
+        # weekdays) are double
         "pricing": _cny(1.0, 4.0, cached=0.02),
     },
     {
@@ -386,6 +447,33 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "pricing": _cny(4.5, 13.5, cached=0.15),
     },
     # OpenRouter (USD prices, context windows and modality flags from the live /models API)
+    {
+        "model": "anthropic/claude-fable-5.1",
+        "base_url": _OPENROUTER,
+        "client": "openai-responses",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1000000,
+        "pricing": _usd(10.0, 50.0, cached=0.25),
+    },
+    {
+        "model": "anthropic/claude-opus-5.5",
+        "base_url": _OPENROUTER,
+        "client": "openai-responses",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1000000,
+        "pricing": _usd(4.0, 20.0, cached=0.2),
+    },
+    {
+        "model": "anthropic/claude-sonnet-5.5",
+        "base_url": _OPENROUTER,
+        "client": "openai-responses",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1000000,
+        "pricing": _usd(2.0, 10.0, cached=0.2),
+    },
     {
         "model": "anthropic/claude-fable-5",
         "base_url": _OPENROUTER,
@@ -430,6 +518,16 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "output_modalities": ["Text"],
         "context_window": 1000000,
         "pricing": _usd(2.0, 10.0, cached=0.2),
+    },
+    {
+        # models API 2026-09-30, DeepSeek-V4.1-Flash
+        "model": "deepseek/deepseek-v4.1-flash",
+        "base_url": _OPENROUTER,
+        "client": "deepseek-official",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1048576,
+        "pricing": _usd(0.0198, 0.396, cached=0.0029),
     },
     {
         "model": "deepseek/deepseek-v4-flash",
@@ -493,6 +591,16 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "output_modalities": ["Text"],
         "context_window": 1000000,
         "pricing": _usd(0.0, 0.0),
+    },
+    {
+        # models API 2026-09-30: $2 input, $10 output, $0.1 cache read, $2.5 cache write
+        "model": "openai/gpt-6.1-sol",
+        "base_url": _OPENROUTER,
+        "client": "openai-responses",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1050000,
+        "pricing": _usd(2.5, 10.0, cached=0.1),
     },
     {
         # models API 2026-09-09, default OpenAI endpoint, no discount: $10 input, $50 output,

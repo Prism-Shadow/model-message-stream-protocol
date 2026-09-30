@@ -31,7 +31,7 @@ import asyncio
 from mmsp import AutoLLMClient
 
 async def main():
-    client = AutoLLMClient(model="gpt-5.6-sol")
+    client = AutoLLMClient(model="gpt-6.1-sol")
     async for event in client.streaming_response_stateful(
         message={
             "role": "user",
@@ -47,7 +47,7 @@ asyncio.run(main())
 ```typescript
 import { AutoLLMClient } from "@prismshadow/mmsp";
 
-const client = new AutoLLMClient({ model: "gpt-5.6-sol" });
+const client = new AutoLLMClient({ model: "gpt-6.1-sol" });
 for await (const event of client.streamingResponseStateful({
   message: {
     role: "user",
@@ -72,7 +72,7 @@ The stream prints four fragments, the complete text, then the one event that end
 {"role": "assistant", "event_type": "stop", "content_items": [], "usage_metadata": {"cached_tokens": 0, "prompt_tokens": 12, "thoughts_tokens": 0, "response_tokens": 8}, "finish_reason": "stop"}
 ```
 
-Change the model id to `claude-opus-5` or `gemini-3.8-flash` and the same code prints the same shapes.
+Change the model id to `claude-opus-5-5` or `gemini-3.8-flash` and the same code prints the same shapes.
 
 ## Call a tool
 

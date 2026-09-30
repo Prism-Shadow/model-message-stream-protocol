@@ -168,6 +168,8 @@ THINKING_EFFORT_CASES = [
     ("gpt-6-astra", "openai-responses", ThinkingLevel.NONE, "low"),
     ("gpt-6-astra", "openai-responses", ThinkingLevel.LOW, "low"),
     ("gpt-6-astra", "openai-responses", ThinkingLevel.MAX, "max"),
+    ("gpt-6.1-sol", None, ThinkingLevel.NONE, "low"),
+    ("gpt-6.1-sol", None, ThinkingLevel.MAX, "max"),
     ("gpt-5.6", None, ThinkingLevel.NONE, "none"),
     ("gpt-5.6", None, ThinkingLevel.XHIGH, "xhigh"),
     ("gpt-5.6", None, ThinkingLevel.MAX, "max"),
@@ -178,6 +180,14 @@ THINKING_EFFORT_CASES = [
     ("claude-sonnet-4-6", None, ThinkingLevel.XHIGH, "high"),
     ("claude-sonnet-4-6", None, ThinkingLevel.MAX, "max"),
     ("claude-sonnet-5", "ant-messages", ThinkingLevel.MAX, "max"),
+    # Opus 5.5 and Fable 5.1 cannot turn thinking off, so NONE is the lowest effort; Sonnet 5.5
+    # turns off up-front thinking with between_tools, which carries no effort.
+    ("claude-opus-5-5", None, ThinkingLevel.NONE, "low"),
+    ("claude-opus-5-5", None, ThinkingLevel.MAX, "max"),
+    ("claude-fable-5-1", None, ThinkingLevel.NONE, "low"),
+    ("claude-fable-5-1", None, ThinkingLevel.XHIGH, "xhigh"),
+    ("claude-sonnet-5-5", None, ThinkingLevel.NONE, None),
+    ("claude-sonnet-5-5", None, ThinkingLevel.XHIGH, "xhigh"),
     ("deepseek-v4", None, ThinkingLevel.NONE, "none"),
     ("deepseek-v4", None, ThinkingLevel.LOW, "low"),
     ("deepseek-v4", None, ThinkingLevel.MEDIUM, "high"),
@@ -185,6 +195,8 @@ THINKING_EFFORT_CASES = [
     # DeepSeek maps xhigh onto high server-side, so the client sends high.
     ("deepseek-v4", None, ThinkingLevel.XHIGH, "high"),
     ("deepseek-v4", None, ThinkingLevel.MAX, "max"),
+    ("deepseek-flash", None, ThinkingLevel.NONE, "none"),
+    ("deepseek-flash", None, ThinkingLevel.MAX, "max"),
     ("kimi-k3", None, ThinkingLevel.LOW, "low"),
     ("kimi-k3", None, ThinkingLevel.MEDIUM, "high"),
     ("kimi-k3", None, ThinkingLevel.XHIGH, "max"),
@@ -226,6 +238,10 @@ THINKING_SUMMARY_CASES: list[tuple[str, str | None, dict[str, Any], Any]] = [
     # The Messages API disables thinking for NONE and rejects display on a disabled block,
     # so that one combination leaves no thinking to summarize.
     ("claude-sonnet-5", "ant-messages", {"thinking_summary": True, "thinking_level": ThinkingLevel.NONE}, None),
+    # between_tools rejects display, and its updates between tool calls always carry their text
+    ("claude-sonnet-5-5", None, {"thinking_summary": True, "thinking_level": ThinkingLevel.NONE}, None),
+    ("claude-sonnet-5-5", None, {"thinking_summary": True}, "summarized"),
+    ("claude-opus-5-5", None, {"thinking_summary": True, "thinking_level": ThinkingLevel.NONE}, "summarized"),
     ("deepseek-v4", None, {"thinking_summary": True}, "concise"),
     ("deepseek-v4", None, {"thinking_summary": True, "thinking_level": ThinkingLevel.NONE}, "concise"),
     ("gpt-5.6", None, {"thinking_summary": True}, "concise"),

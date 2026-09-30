@@ -38,7 +38,7 @@ from ..types import (
     UniMessage,
     UsageMetadata,
 )
-from ..utils import is_debug_enabled
+from ..utils import is_debug_enabled, speaker_turns
 
 
 def _split_function_response_runs(parts: list[types.Part]) -> list[list[types.Part]]:
@@ -624,6 +624,22 @@ class GeminiGenerateContentClient(LLMClient):
                 raise ValueError(f"Gemini TTS only supports text input, got content item type={invalid_item['type']}.")
 
         contents = await self.transform_uni_message_to_model_input(messages)
+
+        # Gemini 3.8 TTS takes each speaker's turn as its own part carrying the speaker as
+        # speech_metadata, and rejects "Name: line" labels in a two-speaker request, while 3.1 TTS
+        # rejects the metadata (both verified live 2026-09-30), so only 3.8 gets the script split.
+        speakers = [entry.get("speaker") for entry in config.get("tts_config") or []]
+        if "tts" in self._model.lower() and "gemini-3.8" in self._model and len(speakers) == 2:
+            script = "\n".join(item["text"] for item in messages[-1]["content_items"])
+            contents = [
+                {
+                    "role": "user",
+                    "parts": [
+                        {"text": turn, "speech_metadata": {"speaker": speaker}}
+                        for speaker, turn in speaker_turns(script, speakers)
+                    ],
+                }
+            ]
 
         response_stream = await self._client.aio.models.generate_content_stream(
             model=self._model, contents=contents, config=gemini_config

@@ -98,10 +98,14 @@ describe("Playground", () => {
     expect(response.text).toContain('id="thinkingSummaryCombobox"');
     expect(response.text).toContain('id="toolChoiceCombobox"');
     expect(response.text).toContain(
-      'data-combobox-option data-value="gpt-5.6-luna"',
+      'data-combobox-option data-value="gpt-6.1-sol"',
     );
     expect(response.text).toContain('data-value="text-embedding-3-large"');
     expect(response.text).toContain("getSelectedClientType()");
+    expect(response.text).toContain('id="clientTypeCombobox"');
+    // the server hands the page its client types and their default endpoints
+    expect(response.text).not.toContain("__PLAYGROUND_DEFAULTS__");
+    expect(response.text).toContain('"openai-official"');
     expect(response.text).toContain("toggleCombobox('modelCombobox')");
     expect(response.text).toContain(
       "selectComboboxOption('modelCombobox', this)",
@@ -118,8 +122,12 @@ describe("Playground", () => {
     expect(response.text).toContain('id="listModelsError"');
     expect(response.text).toContain("addListedModels(");
     expect(response.text).toContain("getSelectedClientType()");
-    expect(response.text).toContain("selectedOptionClientType()");
-    expect(response.text).toContain("handleClientTypeInput()");
+    expect(response.text).toContain('id="clientTypeCombobox"');
+    // the server hands the page its client types and their default endpoints
+    expect(response.text).not.toContain("__PLAYGROUND_DEFAULTS__");
+    expect(response.text).toContain('"openai-official"');
+    expect(response.text).toContain("handleClientTypeChange()");
+    expect(response.text).toContain("handleBaseUrlInput()");
     expect(response.text).toContain(">Connection</span>");
     expect(response.text).toContain(">Generation</span>");
     expect(response.text).toContain("getExtraHeaders()");

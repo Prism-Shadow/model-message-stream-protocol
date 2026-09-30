@@ -271,3 +271,35 @@ def openai_image_detail(model: str, image_url: str) -> Literal["high"] | None:
         return "high"
 
     return None
+
+
+def speaker_turns(text: str, speakers: list[str]) -> list[tuple[str, str]]:
+    """
+    Split a two-speaker TTS script into turns, for the TTS models that take each turn's speaker
+    as metadata rather than as a label in the text.
+
+    A line that starts with a configured speaker's name and a colon ("Joe: How's it going?")
+    begins that speaker's turn; any other line continues the turn before it.
+
+    Args:
+        text: The script, one "Name: line" per turn.
+        speakers: The speaker names the request configures.
+
+    Returns:
+        list[tuple[str, str]]: (speaker, text) per turn, in order.
+
+    Raises:
+        ValueError: When the script does not begin with a speaker's label.
+    """
+    turns: list[tuple[str, list[str]]] = []
+    for line in text.splitlines():
+        name, sep, rest = line.partition(":")
+        if sep and name.strip() in speakers:
+            turns.append((name.strip(), [rest.strip()]))
+        elif turns:
+            turns[-1][1].append(line)
+        elif line.strip():
+            raise ValueError(
+                f"A two-speaker script must start each turn with a speaker's name and a colon, one of {speakers}."
+            )
+    return [(speaker, "\n".join(lines).strip()) for speaker, lines in turns]

@@ -10,12 +10,12 @@ Use exact model ids. A model id that begins with a known family names its offici
 
 | `client_type` | Models | Speaks | Key and endpoint |
 | --- | --- | --- | --- |
-| `openai-official` | `gpt-6-astra`, `gpt-5.6-sol`, `gpt-5.5`, `gpt-5.4`; `text-embedding-3-large`, `text-embedding-3-small` | OpenAI Responses; Embeddings for `text-embedding-*` | `OPENAI_API_KEY` `OPENAI_BASE_URL` |
-| `anthropic-official` | `claude-opus-5`, `claude-sonnet-5`, `claude-fable-5`, `claude-opus-4-8` | Anthropic Messages | `ANTHROPIC_API_KEY` `ANTHROPIC_BASE_URL` |
-| `gemini-official` | `gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-3.1-pro-preview`; `gemini-3.1-flash-image`, `gemini-3.1-flash-tts-preview`; `gemini-embedding-2` | Gemini Interactions; generateContent for a Vertex AI key | `GEMINI_API_KEY` `GEMINI_BASE_URL` |
+| `openai-official` | `gpt-6.1-sol`, `gpt-6-astra`, `gpt-5.6-sol`, `gpt-5.5`; `text-embedding-3-large`, `text-embedding-3-small` | OpenAI Responses; Embeddings for `text-embedding-*` | `OPENAI_API_KEY` `OPENAI_BASE_URL` |
+| `anthropic-official` | `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-fable-5-1`, `claude-opus-5`, `claude-sonnet-5` | Anthropic Messages | `ANTHROPIC_API_KEY` `ANTHROPIC_BASE_URL` |
+| `gemini-official` | `gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-3.1-pro-preview`; `gemini-3.1-flash-image`, `gemini-3.8-flash-tts`; `gemini-embedding-2` | Gemini Interactions; generateContent for a Vertex AI key | `GEMINI_API_KEY` `GEMINI_BASE_URL` |
 | `zai-official` | `glm-5.3`, `glm-5.3-flash`, `glm-5.2` | Chat Completions | `ZAI_API_KEY` `ZAI_BASE_URL` |
 | `moonshot-official` | `kimi-k3`, `kimi-k2.6` | Chat Completions | `MOONSHOT_API_KEY` `MOONSHOT_BASE_URL` |
-| `deepseek-official` | `deepseek-v4-pro`, `deepseek-v4-flash` | Responses | `DEEPSEEK_API_KEY` `DEEPSEEK_BASE_URL` |
+| `deepseek-official` | `deepseek-flash`, `deepseek-v4-pro` | Responses | `DEEPSEEK_API_KEY` `DEEPSEEK_BASE_URL` |
 | `minimax-official` | `MiniMax-M3` | Responses | `MINIMAX_API_KEY` `MINIMAX_BASE_URL` |
 
 Each row names the environment variables the client reads: the key, then the endpoint, which defaults to the vendor's own. An official client reads them whatever endpoint it is given, so it also serves a gateway that mirrors the vendor's API: OpenRouter serves `deepseek/deepseek-v4-pro` through `deepseek-official`, and SiliconFlow serves `Pro/moonshotai/Kimi-K2.6` through `moonshot-official`, each with the gateway's `base_url` and `api_key`.

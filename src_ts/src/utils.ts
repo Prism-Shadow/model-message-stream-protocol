@@ -323,3 +323,36 @@ export function openaiImageDetail(
     ? "high"
     : undefined;
 }
+
+/**
+ * Split a two-speaker TTS script into turns, for the TTS models that take each turn's speaker
+ * as metadata rather than as a label in the text.
+ *
+ * A line that starts with a configured speaker's name and a colon ("Joe: How's it going?")
+ * begins that speaker's turn; any other line continues the turn before it.
+ *
+ * @param text - The script, one "Name: line" per turn
+ * @param speakers - The speaker names the request configures
+ * @returns [speaker, text] per turn, in order
+ * @throws Error when the script does not begin with a speaker's label
+ */
+export function speakerTurns(
+  text: string,
+  speakers: string[],
+): [string, string][] {
+  const turns: [string, string[]][] = [];
+  for (const line of text.split(/\r?\n/)) {
+    const colon = line.indexOf(":");
+    const name = colon === -1 ? "" : line.slice(0, colon).trim();
+    if (colon !== -1 && speakers.includes(name)) {
+      turns.push([name, [line.slice(colon + 1).trim()]]);
+    } else if (turns.length > 0) {
+      turns[turns.length - 1][1].push(line);
+    } else if (line.trim()) {
+      throw new Error(
+        `A two-speaker script must start each turn with a speaker's name and a colon, one of ${JSON.stringify(speakers)}.`,
+      );
+    }
+  }
+  return turns.map(([speaker, lines]) => [speaker, lines.join("\n").trim()]);
+}

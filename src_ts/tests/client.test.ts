@@ -75,7 +75,7 @@ if (process.env.GEMINI_API_KEY) {
   });
 
   AVAILABLE_MODELS.push({
-    name: "gemini-3.1-flash-tts-preview",
+    name: "gemini-3.8-flash-tts",
     supportTextGeneration: false,
     supportImageUnderstanding: false,
     supportImageGeneration: false,
@@ -97,7 +97,7 @@ if (process.env.GEMINI_API_KEY) {
 
 if (process.env.ANTHROPIC_API_KEY) {
   AVAILABLE_MODELS.push({
-    name: "claude-sonnet-5",
+    name: "claude-sonnet-5-5",
     supportTextGeneration: true,
     supportImageUnderstanding: true,
     supportImageGeneration: false,
@@ -109,7 +109,7 @@ if (process.env.ANTHROPIC_API_KEY) {
 
 if (process.env.OPENAI_API_KEY) {
   AVAILABLE_MODELS.push({
-    name: "gpt-5.6-luna",
+    name: "gpt-6.1-sol",
     supportTextGeneration: true,
     supportImageUnderstanding: true,
     supportImageGeneration: false,
@@ -193,7 +193,7 @@ if (process.env.MINIMAX_API_KEY) {
 
 if (process.env.DEEPSEEK_API_KEY) {
   AVAILABLE_MODELS.push({
-    name: "deepseek-v4-flash-vision-exp",
+    name: "deepseek-flash",
     supportTextGeneration: true,
     supportImageUnderstanding: true,
     supportImageGeneration: false,
@@ -203,7 +203,7 @@ if (process.env.DEEPSEEK_API_KEY) {
   });
   for (const mode of PROTOCOL_MODES) {
     AVAILABLE_MODELS.push({
-      name: "deepseek-v4-flash",
+      name: "deepseek-flash",
       supportTextGeneration: true,
       supportImageUnderstanding: false,
       supportImageGeneration: false,
