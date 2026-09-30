@@ -276,7 +276,11 @@ const structured = JSON.stringify(
           tab.setAttribute("role", "tab");
           tab.textContent = label;
           tab.addEventListener("click", () => {
-            // the language chosen in one group is chosen in every group of the page
+            // the language chosen in one group is chosen in every group of the page, and on the
+            // pages read after it
+            try {
+              localStorage.setItem("mmsp-site.code", label);
+            } catch {}
             for (const other of document.querySelectorAll<HTMLElement>(".code-group")) {
               other.dispatchEvent(new CustomEvent("choose", { detail: label }));
             }
@@ -289,7 +293,9 @@ const structured = JSON.stringify(
         });
         group.prepend(strip);
         group.dataset.ready = "";
-        select(0);
+        // every group lists TypeScript first; a language the reader picked before wins
+        const remembered = labels.indexOf(stored("mmsp-site.code") ?? "");
+        select(remembered >= 0 ? remembered : 0);
       }
     </script>
   </body>
