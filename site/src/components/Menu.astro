@@ -10,8 +10,10 @@ interface Props {
   options: { value: string; label: string }[];
   // the option chosen, which may be to follow the system
   selected: string;
+  // a square button that shows its icon alone, the name left to screen readers
+  iconOnly?: boolean;
 }
-const { id, label, current, options, selected } = Astro.props;
+const { id, label, current, options, selected, iconOnly = false } = Astro.props;
 ---
 
 <div class="relative" data-menu={id}>
@@ -21,10 +23,20 @@ const { id, label, current, options, selected } = Astro.props;
     aria-expanded="false"
     aria-label={label}
     title={label}
-    class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-950 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
+    class:list={[
+      "inline-flex h-9 items-center rounded-lg text-[13px] text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-950 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white",
+      iconOnly ? "w-9 justify-center" : "gap-1.5 px-2.5",
+    ]}
   >
     <slot name="icon" />
-    <span class="hidden sm:inline" data-menu-current>{current}</span>
+    <span class:list={[iconOnly ? "sr-only" : "hidden sm:inline"]} data-menu-current>{current}</span>
+    {
+      !iconOnly && (
+        <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 opacity-70" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m6 9 6 6 6-6"></path>
+        </svg>
+      )
+    }
   </button>
   <div
     role="menu"

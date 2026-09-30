@@ -147,6 +147,9 @@ const structured = JSON.stringify(
       const showCurrent = (menu: HTMLElement, value: string) => {
         menu.querySelector("[data-menu-current]")!.textContent =
           menu.querySelector<HTMLElement>(`[data-value="${value}"]`)!.textContent;
+        for (const icon of menu.querySelectorAll<SVGElement>("[data-theme-icon]")) {
+          icon.classList.toggle("hidden", icon.dataset.themeIcon !== value);
+        }
       };
       for (const menu of menus) {
         const list = menu.querySelector<HTMLElement>("[role=menu]")!;
@@ -186,7 +189,8 @@ const structured = JSON.stringify(
         const dark = mode === "dark" || (mode === "system" && system.matches);
         document.documentElement.classList.toggle("dark", dark);
         setChosen(theme, mode);
-        showCurrent(theme, dark ? "dark" : "light");
+        // the theme button shows the choice, following the system included
+        showCurrent(theme, mode);
       };
       theme.addEventListener("choose", (event) => {
         store("mmsp-site.theme", (event as CustomEvent).detail);
