@@ -9,6 +9,7 @@
 
 ## What changed
 
-- The site's accent is `#477dfb`, a pure blue at the hue of fennel flower, with a scale of the same hue around it. The mark, the favicon, the playground and the tracer take it, and the README header, concept diagram, social preview and screenshots are rendered again in it.
+- The site's accent is `#477dfb`, a pure blue at the hue of fennel flower, with a scale of the same hue around it. The mark, the favicon, the playground and the tracer take it, and the README header, concept diagram, social preview and screenshots are rendered again in it. Text in the dark theme is fennel flower itself, `#7aa2f7`.
+- The language and theme buttons of the top bar switch on click: the language to the other one, the theme through system, light and dark.
 - The README shows a GIF of the tracer in place of the video.
-- On a desktop the home page's hero fills the window, and the recorded streams scale down until they fit, so a 1366×768 or larger screen shows it without scrolling. Phones and short windows scroll as before.
+- On a desktop the home page, footer included, fits the browser window: the recorded streams scale down to 85%, and past that their two panes get shorter and follow the newest line. Phones scroll as before. The player's code is labelled "Just one codebase".
