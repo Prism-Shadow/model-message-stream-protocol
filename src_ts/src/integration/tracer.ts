@@ -65,7 +65,9 @@ const TRACER_HEAD = `
         --red-soft: rgba(210, 59, 59, 0.1);
         --violet: #7a4fd6;
         --violet-soft: rgba(122, 79, 214, 0.12);
+        --indigo: #4a57c9;
         --shadow-card: 0 0 0 1px var(--ring), 0 1px 2px rgba(20, 22, 28, 0.04);
+        --shadow-menu: 0 0 0 1px var(--ring), 0 12px 32px -10px rgba(20, 22, 28, 0.22);
         --ease: cubic-bezier(0.23, 1, 0.32, 1);
         --font: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
         --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
@@ -93,7 +95,9 @@ const TRACER_HEAD = `
             --red-soft: rgba(240, 106, 106, 0.14);
             --violet: #a98bf0;
             --violet-soft: rgba(169, 139, 240, 0.16);
+            --indigo: #8d97f2;
             --shadow-card: 0 0 0 1px var(--ring), 0 1px 2px rgba(0, 0, 0, 0.3);
+            --shadow-menu: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 16px 36px -10px rgba(0, 0, 0, 0.7);
             color-scheme: dark;
         }
     }
@@ -118,7 +122,9 @@ const TRACER_HEAD = `
         --red-soft: rgba(240, 106, 106, 0.14);
         --violet: #a98bf0;
         --violet-soft: rgba(169, 139, 240, 0.16);
+        --indigo: #8d97f2;
         --shadow-card: 0 0 0 1px var(--ring), 0 1px 2px rgba(0, 0, 0, 0.3);
+        --shadow-menu: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 16px 36px -10px rgba(0, 0, 0, 0.7);
         color-scheme: dark;
     }
 
@@ -213,50 +219,85 @@ const TRACER_HEAD = `
         margin-bottom: 20px;
     }
 
-    .back-btn {
+    .nav-buttons {
+        display: flex;
         flex: none;
-        margin-left: -10px;
+        gap: 2px;
     }
 
-    .crumbs {
+    .nav-btn {
+        display: grid;
+        place-items: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        color: var(--muted);
+        transition: color 0.15s, background-color 0.15s;
+    }
+
+    .nav-btn:hover {
+        color: var(--text);
+        background: var(--hover);
+    }
+
+    .nav-btn:disabled, .nav-btn[aria-disabled="true"] {
+        color: var(--subtle);
+        opacity: 0.45;
+        cursor: default;
+        pointer-events: none;
+    }
+
+    .address {
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 2px;
         flex: 1;
         min-width: 0;
         height: 34px;
-        padding: 0 12px;
+        padding: 0 6px;
         overflow: hidden;
         border-radius: 8px;
         background: var(--surface);
         box-shadow: var(--shadow-card);
-        color: var(--subtle);
-        font-family: var(--mono);
-        font-size: 12.5px;
+        font-size: 13px;
         white-space: nowrap;
     }
 
-    .crumbs a {
+    .address-icon {
+        display: grid;
+        place-items: center;
         flex: none;
-        color: var(--muted);
-        border-radius: 4px;
-        transition: color 0.15s;
+        width: 24px;
+        color: var(--subtle);
     }
 
-    .crumbs a:hover {
-        color: var(--accent);
+    .crumb {
+        flex: none;
+        padding: 3px 6px;
+        border-radius: 5px;
+        color: var(--muted);
+        transition: color 0.15s, background-color 0.15s;
+    }
+
+    a.crumb:hover {
+        color: var(--text);
+        background: var(--hover);
     }
 
     .crumb-current {
+        flex: 0 1 auto;
+        min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
         color: var(--text);
+        font-weight: 500;
     }
 
     .crumb-sep {
+        display: grid;
+        place-items: center;
         flex: none;
         color: var(--subtle);
-        opacity: 0.55;
     }
 
     .topbar-actions {
@@ -464,37 +505,57 @@ const TRACER_HEAD = `
 
     /* trace */
 
-    .viewer {
-        display: flex;
-        gap: 32px;
-        max-width: 1180px;
-        margin: 0 auto;
-        padding: 0 20px;
-    }
-
-    .viewer .page {
-        flex: 1;
-        min-width: 0;
-        max-width: 880px;
-        margin: 0;
-        padding: 32px 0 64px;
-    }
-
     .rail {
-        width: 200px;
-        flex: none;
-        padding-top: 32px;
+        position: fixed;
+        top: 76px;
+        right: 20px;
+        z-index: 20;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 8px;
     }
 
-    .rail-inner {
-        position: sticky;
-        top: 88px;
+    .rail-toggle {
+        display: none;
+        align-items: center;
+        gap: 8px;
+        height: 32px;
+        padding: 0 10px 0 12px;
+        border-radius: 999px;
+        background: var(--surface);
+        box-shadow: var(--shadow-menu);
+        color: var(--muted);
+        font-size: 12.5px;
+        font-weight: 500;
+    }
+
+    .rail-toggle .mono {
+        color: var(--text);
+        font-size: 12px;
+    }
+
+    .rail-panel {
+        width: 200px;
         max-height: calc(100vh - 120px);
         overflow-y: auto;
+        padding: 12px 12px 10px;
+        border-radius: 12px;
+        background: color-mix(in srgb, var(--surface) 92%, transparent);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        box-shadow: var(--shadow-menu);
+    }
+
+    @keyframes panel-in {
+        from {
+            opacity: 0;
+            transform: translateY(-4px) scale(0.98);
+        }
     }
 
     .rail-title {
-        margin-bottom: 10px;
+        margin-bottom: 8px;
         color: var(--subtle);
         font-size: 12px;
         font-weight: 500;
@@ -512,8 +573,7 @@ const TRACER_HEAD = `
         align-items: baseline;
         justify-content: space-between;
         gap: 8px;
-        margin-left: -1px;
-        padding: 4px 0 4px 14px;
+        padding: 4px 0 4px 12px;
         border-left: 1.5px solid transparent;
         color: var(--muted);
         font-size: 13px;
@@ -535,6 +595,26 @@ const TRACER_HEAD = `
         font-family: var(--mono);
         font-size: 11px;
         font-weight: 400;
+    }
+
+    @media (max-width: 1400px) {
+        .rail-toggle {
+            display: inline-flex;
+        }
+
+        .rail-panel {
+            display: none;
+        }
+
+        .rail.open .rail-panel {
+            display: block;
+            transform-origin: top right;
+            animation: panel-in 0.18s var(--ease);
+        }
+
+        .rail.open .rail-toggle .chevron {
+            transform: rotate(180deg);
+        }
     }
 
     .fold summary, .msg-card summary {
@@ -645,26 +725,14 @@ const TRACER_HEAD = `
     }
 
     .role {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        height: 22px;
-        padding: 0 9px;
-        border-radius: 999px;
         font-size: 12px;
         font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
     }
 
-    .role::before {
-        content: "";
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: currentColor;
-    }
-
-    .role-user { background: var(--accent-soft); color: var(--accent); }
-    .role-assistant { background: var(--green-soft); color: var(--green); }
+    .role-user { color: var(--accent); }
+    .role-assistant { color: var(--green); }
 
     .msg-summary .spacer {
         flex: 1;
@@ -680,15 +748,45 @@ const TRACER_HEAD = `
         padding: 16px;
     }
 
+    .item {
+        --k: var(--subtle);
+        padding: 9px 14px 12px;
+        border-radius: 8px;
+        background: color-mix(in srgb, var(--k) 7%, var(--surface));
+        box-shadow: inset 3px 0 0 var(--k);
+    }
+
     .item + .item {
-        margin-top: 16px;
+        margin-top: 10px;
+    }
+
+    .kind-text { --k: var(--subtle); }
+    .kind-thinking, .kind-inline_thinking { --k: var(--accent); }
+    .kind-tool_call { --k: var(--amber); }
+    .kind-tool_result { --k: var(--green); }
+    .kind-image_url, .kind-inline_data { --k: var(--violet); }
+    .kind-embedding { --k: var(--indigo); }
+
+    .item-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 5px;
     }
 
     .item-type {
-        margin-bottom: 6px;
+        color: var(--k);
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 500;
+    }
+
+    .item-id {
+        margin-left: auto;
         color: var(--subtle);
         font-family: var(--mono);
         font-size: 11px;
+        white-space: nowrap;
     }
 
     .item-text {
@@ -698,8 +796,6 @@ const TRACER_HEAD = `
     }
 
     .item-thinking {
-        padding: 2px 0 2px 14px;
-        box-shadow: inset 1.5px 0 0 var(--ring-strong);
         color: var(--muted);
         font-size: 13px;
         line-height: 1.6;
@@ -708,17 +804,20 @@ const TRACER_HEAD = `
     }
 
     .item-note {
-        margin-bottom: 8px;
         color: var(--subtle);
         font-family: var(--mono);
         font-size: 12px;
+    }
+
+    .item-note + * {
+        margin-top: 8px;
     }
 
     .item-img {
         display: block;
         max-width: min(100%, 360px);
         max-height: 280px;
-        border-radius: 10px;
+        border-radius: 8px;
         box-shadow: 0 0 0 1px var(--ring);
     }
 
@@ -735,69 +834,11 @@ const TRACER_HEAD = `
         height: 36px;
     }
 
-    .tool, .result {
-        border-radius: 10px;
-        background: var(--raised);
-        box-shadow: inset 0 0 0 1px var(--ring);
-        overflow: hidden;
-    }
-
-    .tool-head, .result-head {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 12px;
-        font-size: 13px;
-    }
-
-    .tool-icon, .result-icon {
-        display: grid;
-        place-items: center;
-        width: 22px;
-        height: 22px;
-        border-radius: 6px;
-    }
-
-    .tool-icon { background: var(--amber-soft); color: var(--amber); }
-    .result-icon { background: var(--violet-soft); color: var(--violet); }
-
-    .tool-sig {
-        min-width: 0;
-        font-family: var(--mono);
-        font-size: 12.5px;
-        overflow-wrap: anywhere;
-    }
-
-    .tool-id {
-        margin-left: auto;
-        padding-left: 8px;
-        color: var(--subtle);
-        font-family: var(--mono);
-        font-size: 11px;
-        white-space: nowrap;
-    }
-
-    .result-text {
-        padding: 10px 12px;
-        box-shadow: inset 0 1px 0 var(--ring);
+    .tool-sig, .result-text, .embedding {
         font-family: var(--mono);
         font-size: 12.5px;
         line-height: 1.6;
         white-space: pre-wrap;
-        overflow-wrap: anywhere;
-    }
-
-    .result .item-images {
-        margin: 0;
-        padding: 0 12px 12px;
-    }
-
-    .embedding {
-        padding: 10px 12px;
-        border-radius: 10px;
-        background: var(--raised);
-        font-family: var(--mono);
-        font-size: 12px;
         overflow-wrap: anywhere;
     }
 
@@ -863,12 +904,6 @@ const TRACER_HEAD = `
         overflow-wrap: anywhere;
     }
 
-    @media (max-width: 1000px) {
-        .rail {
-            display: none;
-        }
-    }
-
     @media (max-width: 640px) {
         .topbar {
             gap: 10px;
@@ -883,10 +918,6 @@ const TRACER_HEAD = `
             padding: 24px 16px 48px;
         }
 
-        .viewer {
-            padding: 0 16px;
-        }
-
         .row-time {
             display: none;
         }
@@ -899,6 +930,17 @@ const TRACER_HEAD = `
         .page-head {
             flex-direction: column;
             align-items: flex-start;
+        }
+
+        .nav-btn.forward {
+            display: none;
+        }
+
+        .rail {
+            top: auto;
+            bottom: 16px;
+            right: 16px;
+            flex-direction: column-reverse;
         }
     }
 
@@ -942,6 +984,33 @@ const TRACER_SCRIPT = `
         updateThemeToggle();
     }
 
+    // back and forward grey out, as in a file explorer, when the history has nowhere to go
+    (function () {
+        const back = document.getElementById('navBack');
+        const forward = document.getElementById('navForward');
+        const navigation = window.navigation;
+        if (back) {
+            back.disabled = navigation ? !navigation.canGoBack : history.length <= 1;
+        }
+        if (forward && navigation) {
+            forward.disabled = !navigation.canGoForward;
+        }
+    })();
+
+    function toggleRail(open) {
+        const rail = document.getElementById('rail');
+        const isOpen = typeof open === 'boolean' ? open : !rail.classList.contains('open');
+        rail.classList.toggle('open', isOpen);
+        rail.querySelector('.rail-toggle').setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    }
+
+    document.addEventListener('click', function (event) {
+        const rail = document.getElementById('rail');
+        if (rail && rail.classList.contains('open') && !rail.contains(event.target)) {
+            toggleRail(false);
+        }
+    });
+
     updateThemeToggle();
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', updateThemeToggle);
     document.fonts.ready.then(updateThemeToggle);
@@ -966,7 +1035,16 @@ const TRACER_SCRIPT = `
             railLinks.forEach(function (link, index) {
                 link.classList.toggle('active', index === active);
             });
+            const current = document.getElementById('railCurrent');
+            if (current) {
+                current.textContent = (active + 1) + ' / ' + railLinks.length;
+            }
         };
+        railLinks.forEach(function (link) {
+            link.addEventListener('click', function () {
+                toggleRail(false);
+            });
+        });
         window.addEventListener('scroll', markActive, { passive: true });
         markActive();
     }
@@ -981,12 +1059,16 @@ const ICONS = {
   folder:
     '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"></path></svg>',
   file: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"></path><path d="M14 3v5h5M9 13h6M9 17h4"></path></svg>',
-  back: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg>',
   chevron:
     '<svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>',
-  tool: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0 5 5L22 14l-8 8-2.3-2.3a4 4 0 0 0-5-5L2 10l8-8Z"></path></svg>',
-  result:
-    '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 10 4 15l5 5"></path><path d="M20 4v7a4 4 0 0 1-4 4H4"></path></svg>',
+  arrow_left:
+    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>',
+  arrow_right:
+    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"></path></svg>',
+  arrow_up:
+    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"></path></svg>',
+  crumb:
+    '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>',
 };
 
 /**
@@ -1371,7 +1453,7 @@ export class Tracer {
           );
           const filename = path.basename(fullPath);
           const pageHead = (meta: string) => `
-        ${this._nav(breadcrumb, backUrl)}
+        ${this._nav(breadcrumb, backUrl, true)}
         <div class="page-head">
             <div>
                 <h1>${esc(filename)}</h1>
@@ -1395,9 +1477,11 @@ export class Tracer {
           // trace files written before 0.5.0 carry the legacy content item types
           const history = normalizeLegacyMessages(data.history || []);
           const totalRounds = Math.ceil(history.length / 2);
-          const savedAt = String(data.timestamp || "")
-            .slice(0, 19)
-            .replace("T", " ");
+          // Python saves the time local and TypeScript in UTC; both show local
+          const savedMs = Date.parse(data.timestamp || "");
+          const savedAt = Number.isNaN(savedMs)
+            ? String(data.timestamp || "")
+            : this._formatTimestamp(savedMs);
 
           const metaParts: string[] = [];
           if (config.model) {
@@ -1461,7 +1545,7 @@ export class Tracer {
                     const args = Object.entries(item.arguments)
                       .map(([key, value]) => `${esc(key)}="${esc(value)}"`)
                       .join(", ");
-                    inner = `<div class="tool"><div class="tool-head"><span class="tool-icon">${ICONS.tool}</span><span class="tool-sig">${esc(item.name)}(${args})</span><span class="tool-id">${esc(item.tool_call_id)}</span></div></div>`;
+                    inner = `<div class="tool-sig">${esc(item.name)}(${args})</div>`;
                   } else if (item.type === "tool_result.done") {
                     const images =
                       item.images && item.images.length > 0
@@ -1472,7 +1556,7 @@ export class Tracer {
                             )
                             .join("")}</div>`
                         : "";
-                    inner = `<div class="result"><div class="result-head"><span class="result-icon">${ICONS.result}</span><span>Result</span><span class="tool-id">${esc(item.tool_call_id)}</span></div><div class="result-text">${esc(item.text)}</div>${images}</div>`;
+                    inner = `<div class="result-text">${esc(item.text)}</div>${images}`;
                   } else if (item.type === "image_url.done") {
                     inner = `<img class="item-img" src="${esc(item.image_url)}" alt="Image">`;
                   } else if (item.type === "inline_data.done") {
@@ -1485,9 +1569,14 @@ export class Tracer {
                   } else if (item.type === "embedding.done") {
                     inner = `<div class="embedding">${esc(this._formatEmbeddingPreview(item))}</div>`;
                   }
+                  const callId =
+                    item.type === "tool_call.done" ||
+                    item.type === "tool_result.done"
+                      ? `<span class="item-id">${esc(item.tool_call_id)}</span>`
+                      : "";
                   return `
-                    <div class="item">
-                        <div class="item-type">${esc(item.type)}</div>
+                    <div class="item kind-${esc(item.type.split(".")[0])}">
+                        <div class="item-head"><div class="item-type">${esc(item.type)}</div>${callId}</div>
                         ${inner}
                     </div>`;
                 })
@@ -1553,11 +1642,9 @@ export class Tracer {
             .join("");
 
           const body = `
-    <div class="viewer">
-        <main class="page">${pageHead(metaParts.join("\n"))}${configHtml}${messagesHtml}
-        </main>
-        ${this._buildSidebarHtml(totalRounds, history)}
-    </div>`;
+    <main class="page">${pageHead(metaParts.join("\n"))}${configHtml}${messagesHtml}
+    </main>
+    ${this._buildSidebarHtml(totalRounds, history)}`;
           return res.send(
             this._page(`${filename} - MMSP Tracer`, rootUrl, body),
           );
@@ -1631,7 +1718,12 @@ export class Tracer {
 
         const body = `
     <main class="page">
-        ${this._nav(this._breadcrumb(basePath, parts))}
+        ${this._nav(
+          this._breadcrumb(basePath, parts),
+          parts.length
+            ? this._prefixUrl(basePath, "/" + parts.slice(0, -1).join("/"))
+            : undefined,
+        )}
         <div class="page-head">
             <div>
                 <h1>${esc(title)}</h1>
@@ -1726,8 +1818,9 @@ export class Tracer {
       links += `
                 <li><a href="#msg-${roundIdx * 2}">Round ${roundIdx + 1}${tookHtml}</a></li>`;
     }
-    return `<aside class="rail" aria-label="Rounds">
-            <div class="rail-inner">
+    return `<aside class="rail" id="rail" aria-label="Rounds">
+            <button type="button" class="rail-toggle" onclick="toggleRail()" aria-expanded="false">Round <span class="mono" id="railCurrent">1 / ${totalRounds}</span>${ICONS.chevron}</button>
+            <div class="rail-panel">
                 <div class="rail-title">Rounds (${totalRounds})</div>
                 <ol class="rail-list">${links}
                 </ol>
@@ -1773,29 +1866,39 @@ export class Tracer {
     return steps
       .map((step, i) => {
         if (i === steps.length - 1) {
-          return `<span class="crumb-current">${this._escapeHtml(step)}</span>`;
+          return `<span class="crumb crumb-current">${this._escapeHtml(step)}</span>`;
         }
         const url = this._prefixUrl(
           basePath,
           "/" + parts.slice(0, i).join("/"),
         );
-        return `<a href="${this._escapeHtml(url)}">${this._escapeHtml(step)}</a>`;
+        return `<a class="crumb" href="${this._escapeHtml(url)}">${this._escapeHtml(step)}</a>`;
       })
-      .join('<span class="crumb-sep">/</span>');
+      .join(`<span class="crumb-sep">${ICONS.crumb}</span>`);
   }
 
   /**
-   * Build the row that opens a page: the back button, where there is one, then the path.
+   * Build the bar that opens a page, as in a file explorer: back, forward and up, then the address.
    *
    * @param breadcrumb - Breadcrumb HTML
-   * @param backUrl - Where the back button leads, if the page has one
-   * @returns Navigation row HTML
+   * @param upUrl - The parent the up button leads to, if there is one
+   * @param isFile - Whether the page shows a file rather than a folder
+   * @returns Navigation bar HTML
    */
-  private _nav(breadcrumb: string, backUrl?: string): string {
-    const back = backUrl
-      ? `<a class="ghost-btn back-btn" href="${this._escapeHtml(backUrl)}">${ICONS.back}Back</a>`
-      : "";
-    return `<div class="page-nav">${back}<nav class="crumbs" aria-label="Path">${breadcrumb}</nav></div>`;
+  private _nav(breadcrumb: string, upUrl?: string, isFile = false): string {
+    const up = upUrl
+      ? `<a class="nav-btn" href="${this._escapeHtml(upUrl)}" aria-label="Up" title="Up">${ICONS.arrow_up}</a>`
+      : `<span class="nav-btn" aria-disabled="true" title="Up">${ICONS.arrow_up}</span>`;
+    return (
+      '<div class="page-nav"><div class="nav-buttons">' +
+      '<button type="button" class="nav-btn" id="navBack" onclick="history.back()" aria-label="Back" ' +
+      `title="Back">${ICONS.arrow_left}</button>` +
+      '<button type="button" class="nav-btn forward" id="navForward" onclick="history.forward()" ' +
+      `aria-label="Forward" title="Forward">${ICONS.arrow_right}</button>` +
+      `${up}</div>` +
+      `<nav class="address" aria-label="Path"><span class="address-icon">${isFile ? ICONS.file : ICONS.folder}` +
+      `</span>${breadcrumb}</nav></div>`
+    );
   }
 
   /**
