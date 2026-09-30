@@ -40,16 +40,16 @@ description: MMSP 的客户端构成、各客户端支持的模型，以及如�
 
 <div class="code-group">
 
-```python
-from mmsp import list_supported_models
-
-models = list_supported_models(currency="CNY")  # 默认 "USD"
-```
-
 ```typescript
 import { listSupportedModels } from "@prismshadow/mmsp";
 
 const models = listSupportedModels("CNY"); // 默认 "USD"
+```
+
+```python
+from mmsp import list_supported_models
+
+models = list_supported_models(currency="CNY")  # 默认 "USD"
 ```
 
 </div>
@@ -71,15 +71,6 @@ const models = listSupportedModels("CNY"); // 默认 "USD"
 
 <div class="code-group">
 
-```python
-client = AutoLLMClient(
-    model="qwen/qwen3.6-35b-a3b",
-    client_type="openai-responses",
-    base_url="https://openrouter.ai/api/v1",
-    api_key=os.environ["OPENROUTER_API_KEY"],
-)
-```
-
 ```typescript
 const client = new AutoLLMClient({
   model: "qwen/qwen3.6-35b-a3b",
@@ -87,6 +78,15 @@ const client = new AutoLLMClient({
   baseUrl: "https://openrouter.ai/api/v1",
   apiKey: process.env.OPENROUTER_API_KEY,
 });
+```
+
+```python
+client = AutoLLMClient(
+    model="qwen/qwen3.6-35b-a3b",
+    client_type="openai-responses",
+    base_url="https://openrouter.ai/api/v1",
+    api_key=os.environ["OPENROUTER_API_KEY"],
+)
 ```
 
 </div>

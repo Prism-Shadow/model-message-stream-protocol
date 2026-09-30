@@ -18,6 +18,67 @@ The model may ask for several tools in one turn. Run them all, and send every re
 
 <div class="code-group">
 
+```typescript
+import { AutoLLMClient, ToolCallDoneItem, UniMessage } from "@prismshadow/mmsp";
+
+const TOOLS: Record<string, (args: Record<string, any>) => string> = {
+  get_weather: (args) => `Temperature in ${args.location}: 22 C`,
+};
+const CONFIG = {
+  tools: [
+    {
+      name: "get_weather",
+      description: "Gets the current weather for a given location.",
+      parameters: {
+        type: "object" as const,
+        properties: { location: { type: "string" as const, description: "The city name" } },
+        required: ["location"],
+      },
+    },
+  ],
+};
+const MAX_TURNS = 10;
+
+function runTool(call: ToolCallDoneItem): string {
+  const tool = TOOLS[call.name];
+  if (!tool) return `Unknown tool: ${call.name}`;
+  try {
+    return tool(call.arguments);
+  } catch (error) {
+    // the model reads the failure and decides what to do
+    return `Error: ${error}`;
+  }
+}
+
+async function runAgent(client: AutoLLMClient, text: string): Promise<string> {
+  let message: UniMessage = { role: "user", content_items: [{ type: "text.done", text }] };
+  for (let turn = 0; turn < MAX_TURNS; turn++) {
+    const answer: string[] = [];
+    const calls: ToolCallDoneItem[] = [];
+    for await (const event of client.streamingResponseStateful({ message, config: CONFIG })) {
+      for (const item of event.content_items) {
+        if (item.type === "text.delta") process.stdout.write(item.text);
+        else if (item.type === "text.done") answer.push(item.text);
+        else if (item.type === "tool_call.done") calls.push(item);
+      }
+    }
+    if (calls.length === 0) return answer.join("");
+    message = {
+      role: "user",
+      content_items: calls.map((call) => ({
+        type: "tool_result.done",
+        text: runTool(call),
+        tool_call_id: call.tool_call_id,
+      })),
+    };
+  }
+  throw new Error(`no answer after ${MAX_TURNS} turns`);
+}
+
+const client = new AutoLLMClient({ model: "gpt-5.5" });
+console.log(await runAgent(client, "What's the weather in London and in Paris?"));
+```
+
 ```python
 import asyncio
 from mmsp import AutoLLMClient
@@ -84,67 +145,6 @@ async def main():
 
 
 asyncio.run(main())
-```
-
-```typescript
-import { AutoLLMClient, ToolCallDoneItem, UniMessage } from "@prismshadow/mmsp";
-
-const TOOLS: Record<string, (args: Record<string, any>) => string> = {
-  get_weather: (args) => `Temperature in ${args.location}: 22 C`,
-};
-const CONFIG = {
-  tools: [
-    {
-      name: "get_weather",
-      description: "Gets the current weather for a given location.",
-      parameters: {
-        type: "object" as const,
-        properties: { location: { type: "string" as const, description: "The city name" } },
-        required: ["location"],
-      },
-    },
-  ],
-};
-const MAX_TURNS = 10;
-
-function runTool(call: ToolCallDoneItem): string {
-  const tool = TOOLS[call.name];
-  if (!tool) return `Unknown tool: ${call.name}`;
-  try {
-    return tool(call.arguments);
-  } catch (error) {
-    // the model reads the failure and decides what to do
-    return `Error: ${error}`;
-  }
-}
-
-async function runAgent(client: AutoLLMClient, text: string): Promise<string> {
-  let message: UniMessage = { role: "user", content_items: [{ type: "text.done", text }] };
-  for (let turn = 0; turn < MAX_TURNS; turn++) {
-    const answer: string[] = [];
-    const calls: ToolCallDoneItem[] = [];
-    for await (const event of client.streamingResponseStateful({ message, config: CONFIG })) {
-      for (const item of event.content_items) {
-        if (item.type === "text.delta") process.stdout.write(item.text);
-        else if (item.type === "text.done") answer.push(item.text);
-        else if (item.type === "tool_call.done") calls.push(item);
-      }
-    }
-    if (calls.length === 0) return answer.join("");
-    message = {
-      role: "user",
-      content_items: calls.map((call) => ({
-        type: "tool_result.done",
-        text: runTool(call),
-        tool_call_id: call.tool_call_id,
-      })),
-    };
-  }
-  throw new Error(`no answer after ${MAX_TURNS} turns`);
-}
-
-const client = new AutoLLMClient({ model: "gpt-5.5" });
-console.log(await runAgent(client, "What's the weather in London and in Paris?"));
 ```
 
 </div>

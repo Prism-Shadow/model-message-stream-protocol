@@ -4,14 +4,14 @@ description: 安装 MMSP，流式输出第一条响应，然后让模型调用�
 
 ## 安装
 
-<div class="code-group" data-labels="Python,TypeScript">
-
-```bash
-pip install mmsp
-```
+<div class="code-group" data-labels="TypeScript,Python">
 
 ```bash
 npm install @prismshadow/mmsp
+```
+
+```bash
+pip install mmsp
 ```
 
 </div>
@@ -25,6 +25,21 @@ MMSP 从环境变量读取服务商的 API key，支持 `ANTHROPIC_API_KEY`、`O
 ## 流式输出响应
 
 <div class="code-group">
+
+```typescript
+import { AutoLLMClient } from "@prismshadow/mmsp";
+
+const client = new AutoLLMClient({ model: "gpt-6.1-sol" });
+for await (const event of client.streamingResponseStateful({
+  message: {
+    role: "user",
+    content_items: [{ type: "text.done", text: "Say 'Hello, World!'" }],
+  },
+  config: {},
+})) {
+  console.log(event);
+}
+```
 
 ```python
 import asyncio
@@ -42,21 +57,6 @@ async def main():
         print(event)
 
 asyncio.run(main())
-```
-
-```typescript
-import { AutoLLMClient } from "@prismshadow/mmsp";
-
-const client = new AutoLLMClient({ model: "gpt-6.1-sol" });
-for await (const event of client.streamingResponseStateful({
-  message: {
-    role: "user",
-    content_items: [{ type: "text.done", text: "Say 'Hello, World!'" }],
-  },
-  config: {},
-})) {
-  console.log(event);
-}
 ```
 
 </div>
@@ -79,6 +79,57 @@ for await (const event of client.streamingResponseStateful({
 模型通过 `tool_call.done` 内容项请求工具。你需要运行该工具，并使用相同的 `tool_call_id` 将结果返回。
 
 <div class="code-group">
+
+```typescript
+import { AutoLLMClient, ToolCallDoneItem } from "@prismshadow/mmsp";
+
+const TOOLS: Record<string, (args: Record<string, any>) => string> = {
+  get_weather: (args) => `Temperature in ${args.location}: 22 C`,
+};
+
+const weatherTool = {
+  name: "get_weather",
+  description: "Gets the current weather for a given location.",
+  parameters: {
+    type: "object" as const,
+    properties: { location: { type: "string" as const, description: "The city name" } },
+    required: ["location"],
+  },
+};
+
+const client = new AutoLLMClient({ model: "gpt-5.5" });
+const config = { tools: [weatherTool] };
+
+let toolCall: ToolCallDoneItem | null = null;
+for await (const event of client.streamingResponseStateful({
+  message: {
+    role: "user",
+    content_items: [{ type: "text.done", text: "What's the weather in London?" }],
+  },
+  config,
+})) {
+  for (const item of event.content_items) {
+    if (item.type === "tool_call.done") {
+      toolCall = item;
+    }
+  }
+}
+
+if (toolCall) {
+  const result = TOOLS[toolCall.name](toolCall.arguments);
+  for await (const event of client.streamingResponseStateful({
+    message: {
+      role: "user",
+      content_items: [
+        { type: "tool_result.done", text: result, tool_call_id: toolCall.tool_call_id },
+      ],
+    },
+    config,
+  })) {
+    console.log(event);
+  }
+}
+```
 
 ```python
 import asyncio
@@ -137,57 +188,6 @@ async def main():
 
 
 asyncio.run(main())
-```
-
-```typescript
-import { AutoLLMClient, ToolCallDoneItem } from "@prismshadow/mmsp";
-
-const TOOLS: Record<string, (args: Record<string, any>) => string> = {
-  get_weather: (args) => `Temperature in ${args.location}: 22 C`,
-};
-
-const weatherTool = {
-  name: "get_weather",
-  description: "Gets the current weather for a given location.",
-  parameters: {
-    type: "object" as const,
-    properties: { location: { type: "string" as const, description: "The city name" } },
-    required: ["location"],
-  },
-};
-
-const client = new AutoLLMClient({ model: "gpt-5.5" });
-const config = { tools: [weatherTool] };
-
-let toolCall: ToolCallDoneItem | null = null;
-for await (const event of client.streamingResponseStateful({
-  message: {
-    role: "user",
-    content_items: [{ type: "text.done", text: "What's the weather in London?" }],
-  },
-  config,
-})) {
-  for (const item of event.content_items) {
-    if (item.type === "tool_call.done") {
-      toolCall = item;
-    }
-  }
-}
-
-if (toolCall) {
-  const result = TOOLS[toolCall.name](toolCall.arguments);
-  for await (const event of client.streamingResponseStateful({
-    message: {
-      role: "user",
-      content_items: [
-        { type: "tool_result.done", text: result, tool_call_id: toolCall.tool_call_id },
-      ],
-    },
-    config,
-  })) {
-    console.log(event);
-  }
-}
 ```
 
 </div>

@@ -9,6 +9,23 @@ export const NPM_URL = "https://www.npmjs.com/package/@prismshadow/mmsp";
 export const DISCORD_URL = "https://discord.gg/eFHKqqcU3D";
 export const X_URL = "https://x.com/code_hiyouga";
 
+// The repository's stars as the page is built, so the top bar shows a count from the first paint
+// and a fresh one only replaces its digits; one request serves the whole build.
+let starsAtBuild: Promise<number | null> | undefined;
+export function repoStars(): Promise<number | null> {
+  starsAtBuild ??= fetch(REPO_URL.replace("https://github.com/", "https://api.github.com/repos/"), {
+    headers: { Accept: "application/vnd.github+json" },
+  })
+    .then((response) => (response.ok ? response.json() : null))
+    .then((data) => (data && typeof data.stargazers_count === "number" ? data.stargazers_count : null))
+    .catch(() => null);
+  return starsAtBuild;
+}
+
+export function formatStars(count: number): string {
+  return count >= 1000 ? `${(count / 1000).toFixed(1).replace(/\.0$/, "")}k` : String(count);
+}
+
 type Text = Record<Locale, string>;
 
 export interface DocLink {
@@ -29,6 +46,7 @@ export const DOC_SECTIONS: DocSection[] = [
     title: { en: "Get started", zh: "开始" },
     docs: [
       { slug: "introduction", title: { en: "Introduction", zh: "介绍" } },
+      { slug: "design", title: { en: "Design philosophy", zh: "设计哲学" } },
       { slug: "quickstart", title: { en: "Quickstart", zh: "快速开始" } },
       { slug: "agent-loop", title: { en: "The agent loop", zh: "Agent 循环" } },
     ],

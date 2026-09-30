@@ -171,9 +171,15 @@ const KEY = "text-gray-400 dark:text-gray-500";
  */
 export function inputCode(scenario: Scenario): string {
   const text = INPUT.message.content_items[0].text;
-  return `const client = new AutoLLMClient({ model: "${scenario.model}" });
+  return `import { AutoLLMClient } from "@prismshadow/mmsp";
+
+const client = new AutoLLMClient({ model: "${scenario.model}" });
+
 for await (const event of client.streamingResponseStateful({
-  message: { role: "user", content_items: [{ type: "text.done", text: "${text}" }] },
+  message: {
+    role: "user",
+    content_items: [{ type: "text.done", text: "${text}" }],
+  },
   config: { tools: [getWeather] },
 })) {
   console.log(event);

@@ -40,16 +40,16 @@ The list in code is always current, with the base URL, the client, the modalitie
 
 <div class="code-group">
 
-```python
-from mmsp import list_supported_models
-
-models = list_supported_models(currency="CNY")  # "USD" by default
-```
-
 ```typescript
 import { listSupportedModels } from "@prismshadow/mmsp";
 
 const models = listSupportedModels("CNY"); // "USD" by default
+```
+
+```python
+from mmsp import list_supported_models
+
+models = list_supported_models(currency="CNY")  # "USD" by default
 ```
 
 </div>
@@ -71,15 +71,6 @@ Where a gateway serves more than one, prefer `openai-responses`. OpenRouter serv
 
 <div class="code-group">
 
-```python
-client = AutoLLMClient(
-    model="qwen/qwen3.6-35b-a3b",
-    client_type="openai-responses",
-    base_url="https://openrouter.ai/api/v1",
-    api_key=os.environ["OPENROUTER_API_KEY"],
-)
-```
-
 ```typescript
 const client = new AutoLLMClient({
   model: "qwen/qwen3.6-35b-a3b",
@@ -87,6 +78,15 @@ const client = new AutoLLMClient({
   baseUrl: "https://openrouter.ai/api/v1",
   apiKey: process.env.OPENROUTER_API_KEY,
 });
+```
+
+```python
+client = AutoLLMClient(
+    model="qwen/qwen3.6-35b-a3b",
+    client_type="openai-responses",
+    base_url="https://openrouter.ai/api/v1",
+    api_key=os.environ["OPENROUTER_API_KEY"],
+)
 ```
 
 </div>

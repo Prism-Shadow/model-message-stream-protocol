@@ -13,14 +13,14 @@ description: 教会编码助手写出正确 MMSP 代码的 skill 文件。
 
 将 skill 目录放到助手读取的位置：全局目录 `~/.claude/skills/`、项目内目录 `.claude/skills/` 或 Codex 目录 `.agents/skills/`。一行命令即可从仓库的压缩包中提取目录及其参考文件：
 
-<div class="code-group" data-labels="Python skill,TypeScript skill">
-
-```bash
-mkdir -p ~/.claude/skills && curl -fsSL https://github.com/Prism-Shadow/model-message-stream-protocol/archive/main.tar.gz | tar -xz -C ~/.claude/skills --strip-components=2 model-message-stream-protocol-main/skills/mmsp-python
-```
+<div class="code-group" data-labels="TypeScript skill,Python skill">
 
 ```bash
 mkdir -p ~/.claude/skills && curl -fsSL https://github.com/Prism-Shadow/model-message-stream-protocol/archive/main.tar.gz | tar -xz -C ~/.claude/skills --strip-components=2 model-message-stream-protocol-main/skills/mmsp-typescript
+```
+
+```bash
+mkdir -p ~/.claude/skills && curl -fsSL https://github.com/Prism-Shadow/model-message-stream-protocol/archive/main.tar.gz | tar -xz -C ~/.claude/skills --strip-components=2 model-message-stream-protocol-main/skills/mmsp-python
 ```
 
 </div>

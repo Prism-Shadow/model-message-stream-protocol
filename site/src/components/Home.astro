@@ -18,15 +18,15 @@ const installPrompt = `Install the two skills in ${REPO_URL}/tree/main/skills, m
 const COPY = {
   en: {
     // the slogan's verb turns between the words, as penguin.ooo's does
-    slogan: ["One protocol to ", ["reach", "observe"], " 1000+ models"],
-    sloganLabel: "One protocol to reach and observe 1000+ models",
+    slogan: ["One protocol to ", ["connect", "observe"], " 1000+ models"],
+    sloganLabel: "One protocol to connect and observe 1000+ models",
     subSlogan: "Less for developers to keep in mind, and no more tax on protocol adapters.",
     quickstart: "Quickstart",
     copyPrompt: "Install Agent Skill",
     copyHint: "Copies a prompt for Claude Code, Codex or any coding agent to install the MMSP skills",
     copied: "Copied",
     copyFailed: "Copy failed",
-    more: "+992 more",
+    more: "and 1000+ models",
   },
   zh: {
     slogan: ["用同一种协议", ["接入", "观测"], " 1000+ 种模型"],
@@ -37,7 +37,7 @@ const COPY = {
     copyHint: "复制一段指令，交给 Claude Code、Codex 等编码助手安装 MMSP skill",
     copied: "已复制",
     copyFailed: "复制失败",
-    more: "+992 种",
+    more: "等 1000+ 个模型",
   },
 }[locale];
 const [before, verbs, after] = COPY.slogan as [string, string[], string];

@@ -8,14 +8,6 @@ Set `trace_id` in the config. MMSP saves the full history and the config after e
 
 <div class="code-group">
 
-```python
-async for event in client.streaming_response_stateful(
-    message={"role": "user", "content_items": [{"type": "text.done", "text": "Hello"}]},
-    config={"trace_id": "agent1/conversation_001"},
-):
-    pass
-```
-
 ```typescript
 for await (const event of client.streamingResponseStateful({
   message: { role: "user", content_items: [{ type: "text.done", text: "Hello" }] },
@@ -23,6 +15,14 @@ for await (const event of client.streamingResponseStateful({
 })) {
   // ...
 }
+```
+
+```python
+async for event in client.streaming_response_stateful(
+    message={"role": "user", "content_items": [{"type": "text.done", "text": "Hello"}]},
+    config={"trace_id": "agent1/conversation_001"},
+):
+    pass
 ```
 
 </div>
@@ -42,25 +42,33 @@ Start the viewer and open `http://127.0.0.1:25750`.
 
 <div class="code-group">
 
-```python
-from mmsp.integration.tracer import Tracer
-
-Tracer().start_web_server(host="127.0.0.1", port=25750)
-```
-
 ```typescript
 import { Tracer } from "@prismshadow/mmsp/integration/tracer";
 
 new Tracer().startWebServer("127.0.0.1", 25750);
 ```
 
+```python
+from mmsp.integration.tracer import Tracer
+
+Tracer().start_web_server(host="127.0.0.1", port=25750)
+```
+
 </div>
 
-From a shell, in Python:
+Or start it from a shell with one command (run the TypeScript one in a project that has `@prismshadow/mmsp` installed):
+
+<div class="code-group" data-labels="TypeScript,Python">
+
+```bash
+node -e 'const { Tracer } = require("@prismshadow/mmsp/integration/tracer"); new Tracer("./cache").startWebServer("127.0.0.1", 25750);'
+```
 
 ```bash
 python -m mmsp.integration.tracer --cache_dir ./cache --host 127.0.0.1 --port 25750
 ```
+
+</div>
 
 ## Playground
 
@@ -68,16 +76,30 @@ The playground is a local chat page for trying a model by hand: pick a model, se
 
 <div class="code-group">
 
+```typescript
+import { startPlaygroundServer } from "@prismshadow/mmsp/integration/playground";
+
+startPlaygroundServer("127.0.0.1", 25751);
+```
+
 ```python
 from mmsp.integration.playground import start_playground_server
 
 start_playground_server(host="127.0.0.1", port=25751)
 ```
 
-```typescript
-import { startPlaygroundServer } from "@prismshadow/mmsp/integration/playground";
+</div>
 
-startPlaygroundServer("127.0.0.1", 25751);
+From a shell:
+
+<div class="code-group" data-labels="TypeScript,Python">
+
+```bash
+node -e 'const { startPlaygroundServer } = require("@prismshadow/mmsp/integration/playground"); startPlaygroundServer("127.0.0.1", 25751);'
+```
+
+```bash
+python -m mmsp.integration.playground --host 127.0.0.1 --port 25751
 ```
 
 </div>
