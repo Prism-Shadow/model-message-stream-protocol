@@ -1,28 +1,27 @@
 ---
-// the four letters in a grid: the mark of the site, the favicon and the artwork
+// the four letters on four tiles, no gap between them: the mark of the site, the favicon and
+// the artwork
 interface Props {
   class?: string;
 }
 const { class: className = "h-7 w-7" } = Astro.props;
-const dark = "fill-[#111116] dark:fill-[#2a2a33]";
 ---
 
 <svg viewBox="0 0 32 32" class={className} aria-hidden="true">
-  <rect x="1" y="1" width="14" height="14" rx="3.5" fill="#7c4dff"></rect>
-  <rect x="17" y="1" width="14" height="14" rx="3.5" class={dark}></rect>
-  <rect x="1" y="17" width="14" height="14" rx="3.5" class={dark}></rect>
-  <rect x="17" y="17" width="14" height="14" rx="3.5" fill="#7c4dff"></rect>
+  <rect width="32" height="32" rx="7" class="fill-[#111116] dark:fill-[#2a2a33]"></rect>
+  <path d="M0 16V7a7 7 0 0 1 7-7h9v16Z" fill="#7c4dff"></path>
+  <path d="M16 16h16v9a7 7 0 0 1-7 7h-9Z" fill="#7c4dff"></path>
   <g
     fill="#fff"
     font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
-    font-size="9.8"
+    font-size="10.5"
     font-weight="700"
     text-anchor="middle"
     dominant-baseline="central"
   >
-    <text x="8" y="8">M</text>
-    <text x="24" y="8">M</text>
-    <text x="8" y="24">S</text>
-    <text x="24" y="24">P</text>
+    <text x="8.5" y="8.5">M</text>
+    <text x="23.5" y="8.5">M</text>
+    <text x="8.5" y="23.5">S</text>
+    <text x="23.5" y="23.5">P</text>
   </g>
 </svg>

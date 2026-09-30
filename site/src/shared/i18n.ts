@@ -57,7 +57,8 @@ export const STRINGS = {
     },
     player: {
       label: "Recorded streams",
-      replay: "Replay",
+      pause: "Pause",
+      play: "Play",
       input: "One input",
       inputNote: "only the model id changes",
       events: "Events, as they arrive",
@@ -110,7 +111,8 @@ export const STRINGS = {
     },
     player: {
       label: "录制的流",
-      replay: "重放",
+      pause: "暂停",
+      play: "播放",
       input: "同一份输入",
       inputNote: "只有模型 id 不同",
       events: "事件，按到达顺序",

@@ -2,8 +2,9 @@
 // The overview's opening: one input, sent to three models, and each model's stream replayed
 // event by event next to the message it adds up to. Built with the finished state, so it reads
 // without JavaScript or motion.
+import { Code } from "astro:components";
 import { STRINGS, type Locale } from "../shared/i18n";
-import { SCENARIOS, renderEvent, renderInput, renderMessage, type PlayerWords } from "../shared/stream-demo";
+import { SCENARIOS, inputCode, renderEvent, renderMessage, type PlayerWords } from "../shared/stream-demo";
 
 interface Props {
   locale: Locale;
@@ -24,6 +25,7 @@ const words: PlayerWords = {
 };
 const first = SCENARIOS[0];
 const label = "text-xs font-semibold text-gray-500 dark:text-gray-400";
+const themes = { light: "github-light", dark: "github-dark" } as const;
 ---
 
 <div
@@ -51,10 +53,18 @@ const label = "text-xs font-semibold text-gray-500 dark:text-gray-400";
     }
     <button
       type="button"
-      data-replay
-      class="mb-1.5 ml-auto rounded-md border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-300 dark:hover:bg-gray-800"
+      data-pause
+      aria-pressed="false"
+      class="mb-1.5 ml-auto inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-300 dark:hover:bg-gray-800"
     >
-      {s.replay}
+      <svg viewBox="0 0 16 16" class="h-3 w-3" fill="currentColor" aria-hidden="true" data-icon="pause">
+        <rect x="3" y="2" width="3.5" height="12" rx="1"></rect>
+        <rect x="9.5" y="2" width="3.5" height="12" rx="1"></rect>
+      </svg>
+      <svg viewBox="0 0 16 16" class="h-3 w-3" fill="currentColor" aria-hidden="true" data-icon="play" hidden>
+        <path d="M4 2.5v11a1 1 0 0 0 1.5.9l9-5.5a1 1 0 0 0 0-1.8l-9-5.5A1 1 0 0 0 4 2.5Z"></path>
+      </svg>
+      <span data-pause-label data-pause-text={s.pause} data-play-text={s.play}>{s.pause}</span>
     </button>
   </div>
 
@@ -63,7 +73,9 @@ const label = "text-xs font-semibold text-gray-500 dark:text-gray-400";
       <h3 class={label}>{s.input}</h3>
       <span class="text-[11px] text-gray-400 dark:text-gray-500">{s.inputNote}</span>
     </div>
-    <div class="mono mt-1.5 space-y-0.5 text-[12.5px] leading-5" data-input set:html={renderInput(first)} />
+    <div class="player-code mt-1.5">
+      {SCENARIOS.map((scenario, index) => <Code code={inputCode(scenario)} lang="typescript" themes={themes} data-input-for={scenario.id} hidden={index !== 0 ? true : undefined} />)}
+    </div>
   </div>
 
   <div class="grid gap-px bg-gray-200 lg:grid-cols-[1.35fr_1fr] dark:bg-gray-800">
@@ -79,7 +91,7 @@ const label = "text-xs font-semibold text-gray-500 dark:text-gray-400";
 </div>
 
 <script>
-  import { SCENARIOS, renderEvent, renderInput, renderMessage, type PlayerWords } from "../shared/stream-demo";
+  import { SCENARIOS, renderEvent, renderMessage, type PlayerWords } from "../shared/stream-demo";
 
   const STEP_MS = 420;
   // the finished stream stays on screen this long before it plays again
@@ -87,16 +99,19 @@ const label = "text-xs font-semibold text-gray-500 dark:text-gray-400";
 
   for (const player of document.querySelectorAll<HTMLElement>("[data-stream-player]")) {
     const words = JSON.parse(player.dataset.words!) as PlayerWords;
-    const input = player.querySelector<HTMLElement>("[data-input]")!;
+    const codes = [...player.querySelectorAll<HTMLElement>("[data-input-for]")];
     const events = player.querySelector<HTMLElement>("[data-events]")!;
     const message = player.querySelector<HTMLElement>("[data-message]")!;
     const tabs = [...player.querySelectorAll<HTMLButtonElement>("[data-scenario]")];
+    const pause = player.querySelector<HTMLButtonElement>("[data-pause]")!;
     const still = matchMedia("(prefers-reduced-motion: reduce)");
     let scenario = SCENARIOS[0];
+    let count = 0;
     let timer: number | undefined;
     let visible = false;
+    let paused = false;
 
-    const show = (count: number) => {
+    const show = () => {
       events.innerHTML = scenario.events.slice(0, count).map(renderEvent).join("");
       message.innerHTML = renderMessage(scenario.events, count, words);
       if (still.matches) return;
@@ -108,23 +123,32 @@ const label = "text-xs font-semibold text-gray-500 dark:text-gray-400";
       }
     };
 
-    // plays the stream once, then again after a rest, for as long as the player is on screen
+    // one event at a time; after the last, a rest, then the stream again, for as long as the
+    // player is on screen and not paused
+    const step = () => {
+      window.clearTimeout(timer);
+      if (paused) return;
+      if (count < scenario.events.length) {
+        count += 1;
+        show();
+        timer = window.setTimeout(step, STEP_MS);
+      } else if (visible) {
+        timer = window.setTimeout(() => {
+          count = 0;
+          show();
+          step();
+        }, REST_MS);
+      }
+    };
     const play = () => {
       window.clearTimeout(timer);
+      count = 0;
       if (still.matches) {
-        show(scenario.events.length);
+        count = scenario.events.length;
+        show();
         return;
       }
-      let count = 0;
-      const step = () => {
-        show(count);
-        if (count < scenario.events.length) {
-          count += 1;
-          timer = window.setTimeout(step, STEP_MS);
-        } else if (visible) {
-          timer = window.setTimeout(play, REST_MS);
-        }
-      };
+      show();
       step();
     };
 
@@ -134,18 +158,29 @@ const label = "text-xs font-semibold text-gray-500 dark:text-gray-400";
         for (const other of tabs) {
           other.setAttribute("aria-selected", String(other === tab));
         }
-        input.innerHTML = renderInput(scenario);
+        for (const code of codes) {
+          code.hidden = code.dataset.inputFor !== scenario.id;
+        }
         play();
       });
     }
-    player.querySelector("[data-replay]")!.addEventListener("click", play);
+
+    const label = pause.querySelector<HTMLElement>("[data-pause-label]")!;
+    pause.addEventListener("click", () => {
+      paused = !paused;
+      pause.setAttribute("aria-pressed", String(paused));
+      pause.querySelector<SVGElement>("[data-icon=pause]")!.hidden = paused;
+      pause.querySelector<SVGElement>("[data-icon=play]")!.hidden = !paused;
+      label.textContent = paused ? label.dataset.playText! : label.dataset.pauseText!;
+      if (!paused) step();
+    });
 
     const seen = new IntersectionObserver(
       (entries) => {
         const now = entries.some((entry) => entry.isIntersecting);
         if (now && !visible) {
           visible = true;
-          play();
+          if (!paused) play();
         } else if (!now) {
           visible = false;
         }

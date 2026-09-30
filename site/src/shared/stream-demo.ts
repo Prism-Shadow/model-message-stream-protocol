@@ -42,9 +42,6 @@ export const INPUT = {
     role: "user",
     content_items: [{ type: "text.done", text: "What's the weather in Paris?" }],
   },
-  config: {
-    tools: [{ name: "get_weather", description: "Current weather for a city.", parameters: "…" }],
-  },
 };
 
 const delta = (item: DemoItem): DemoEvent => ({ event_type: "delta", item });
@@ -143,10 +140,6 @@ const escapeHtml = (value: string): string =>
 
 const json = (value: unknown): string => escapeHtml(JSON.stringify(value));
 
-// JSON with a space after each colon and comma, for the input card, whose strings hold neither
-const spaced = (value: unknown): string =>
-  escapeHtml(JSON.stringify(value).replace(/":/g, '": ').replace(/,"/g, ', "'));
-
 // the one field a kind grows, as the protocol defines it
 const GROWS: Record<string, string> = {
   text: "text",
@@ -173,18 +166,18 @@ function preview(item: DemoItem): string {
 const KEY = "text-gray-400 dark:text-gray-500";
 
 /**
- * The input, as the code sends it: the model id is the one line that changes between the
- * scenarios, so it is the one line that is marked.
+ * The code that sends the input, in TypeScript: the model id is the one thing that changes
+ * between the scenarios.
  */
-export function renderInput(scenario: Scenario): string {
-  const line = (key: string, value: string, mark = false) =>
-    `<div class="grid grid-cols-[4.5rem_1fr] gap-x-2"><span class="${KEY}">${key}</span>` +
-    `<span class="min-w-0 break-all ${mark ? "font-medium text-brand-700 dark:text-brand-300" : "text-gray-800 dark:text-gray-200"}">${value}</span></div>`;
-  return (
-    line("model", json(scenario.model), true) +
-    line("message", spaced(INPUT.message)) +
-    line("config", spaced(INPUT.config))
-  );
+export function inputCode(scenario: Scenario): string {
+  const text = INPUT.message.content_items[0].text;
+  return `const client = new AutoLLMClient({ model: "${scenario.model}" });
+for await (const event of client.streamingResponseStateful({
+  message: { role: "user", content_items: [{ type: "text.done", text: "${text}" }] },
+  config: { tools: [getWeather] },
+})) {
+  console.log(event);
+}`;
 }
 
 const ROW =

@@ -8,19 +8,25 @@ MMSP gives the loop one shape for every provider. A tool call arrives as a `tool
 
 ## The loop
 
-```text
-user message
-    │
-    ▼
-┌─► streaming_response_stateful(message, config)
-│       delta events, then the stop event
-│
-│   tool_call.done items in the response?
-│       none ─► the text.done items are the answer
-│       some ─► run each tool
-│               message = one tool_result.done per call
-└───────────────┘
-```
+<div class="loop-diagram" role="img" aria-label="The agent loop: send the message, read the stream, run the tool calls, send the results back, and around again; a response without a tool call is the answer">
+<div class="loop-grid">
+<div class="loop-node"><span class="n">1</span><b>Send the message</b><p><code>streaming_response_stateful(message, config)</code>, with the tools in the config.</p></div>
+<div class="loop-arrow"><svg viewBox="0 0 32 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8h26M22 2l6 6-6 6"/></svg></div>
+<div class="loop-node is-main"><span class="n">2</span><b>Read the stream</b><p><code>delta</code> events, then the <code>stop</code> event. Collect the <code>text.done</code> and <code>tool_call.done</code> items.</p></div>
+<div class="loop-arrow"><span class="tag">no tool call</span><svg viewBox="0 0 32 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8h26M22 2l6 6-6 6"/></svg></div>
+<div class="loop-end"><b>The answer</b><p>The <code>text.done</code> items are the reply. The loop ends.</p></div>
+<div class="loop-arrow v"><span class="tag">next turn</span><svg viewBox="0 0 16 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 30V4M2 10l6-6 6 6"/></svg></div>
+<div></div>
+<div class="loop-arrow v"><span class="tag">tool calls</span><svg viewBox="0 0 16 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v26M2 22l6 6 6-6"/></svg></div>
+<div></div>
+<div></div>
+<div class="loop-node"><span class="n">4</span><b>Send the results</b><p>One <code>tool_result.done</code> per call, with its <code>tool_call_id</code>, in one message.</p></div>
+<div class="loop-arrow"><svg viewBox="0 0 32 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M30 8H4M10 2L4 8l6 6"/></svg></div>
+<div class="loop-node"><span class="n">3</span><b>Run the tools</b><p>One run per <code>tool_call.done</code>, from its parsed <code>arguments</code>. A failure is a result too.</p></div>
+<div></div>
+<div></div>
+</div>
+</div>
 
 Every iteration is one request. The stateful call records the assistant turn before it yields the `stop` event, so the next iteration only sends the new message.
 

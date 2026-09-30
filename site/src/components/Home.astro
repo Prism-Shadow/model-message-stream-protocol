@@ -50,15 +50,18 @@ K      := text | thinking | tool_call
 const skillInstall = (skill: string) =>
   `mkdir -p ~/.claude/skills && curl -fsSL ${REPO_URL}/archive/main.tar.gz | tar -xz -C ~/.claude/skills --strip-components=2 model-message-stream-protocol-main/skills/${skill}`;
 
+// what the hero button copies: a prompt that has a coding agent install both skills
+const installPrompt = `Install the two skills in ${REPO_URL}/tree/main/skills, mmsp-python and mmsp-typescript, into my skills directory: ~/.claude/skills for Claude Code, .agents/skills for Codex. For Claude Code this does it: mkdir -p ~/.claude/skills && curl -fsSL ${REPO_URL}/archive/main.tar.gz | tar -xz -C ~/.claude/skills --strip-components=2 model-message-stream-protocol-main/skills. Then use them whenever you write code that calls a model through MMSP.`;
+
 const COPY = {
   en: {
     h1: "Model Message Stream Protocol",
     lede: "MMSP is one message format and one streaming grammar for every model provider. Write your agent once, and Claude, GPT, Gemini, DeepSeek, Kimi, GLM, MiniMax and Qwen all read and stream the same way, in Python and TypeScript.",
     quickstart: "Read the quickstart",
-    copyPrompt: "Copy the prompt for your AI",
+    copyPrompt: "Install Agent Skill",
     copied: "Copied",
     copyFailed: "Copy failed",
-    copyHint: "Paste it into Claude Code, Codex or any coding agent, and it writes MMSP code from the docs.",
+    copyHint: "Copies a prompt. Paste it into Claude Code, Codex or any coding agent, and it installs the MMSP skills and writes MMSP code from them.",
     why: "Why MMSP",
     whyText1:
       "Model APIs have settled on the same building blocks: messages, thinking, tool calls, streaming. Every provider still encodes them its own way. Anthropic streams content blocks, OpenAI streams output items, Gemini streams steps, and Chat Completions streams chunks that name nothing. An agent written against one of them is rewritten for the next.",
@@ -91,10 +94,10 @@ const COPY = {
     h1: "Model Message Stream Protocol",
     lede: "MMSP 为所有模型服务商提供同一套消息格式与同一套流式语法。agent 只写一次，Claude、GPT、Gemini、DeepSeek、Kimi、GLM、MiniMax 与 Qwen 读到的消息、流出的事件都是同一个样子，Python 与 TypeScript 两种实现。",
     quickstart: "阅读快速开始",
-    copyPrompt: "复制给 AI 的指令",
+    copyPrompt: "Install Agent Skill",
     copied: "已复制",
     copyFailed: "复制失败",
-    copyHint: "粘贴给 Claude Code、Codex 或任何编码助手，它就能照着文档写 MMSP 代码。",
+    copyHint: "复制一段指令。粘贴给 Claude Code、Codex 或任何编码助手，它就会安装 MMSP 的 skill，并照着写 MMSP 代码。",
     why: "为什么是 MMSP",
     whyText1:
       "各家模型 API 早已用上同样的积木：消息、思考、工具调用、流式输出。可每家的编码方式仍然各不相同：Anthropic 流出 content block，OpenAI 流出 output item，Gemini 流出 step，Chat Completions 流出的 chunk 连名字都没有。照着一家写的 agent，换下一家就得重写。",
@@ -182,7 +185,7 @@ const code = "mono text-[0.9em]";
         </a>
         <button
           type="button"
-          data-copy-prompt={COPY.agentPrompt}
+          data-copy-prompt={installPrompt}
           data-copied={COPY.copied}
           data-failed={COPY.copyFailed}
           class="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-800 transition-colors hover:bg-gray-50 dark:border-gray-800 dark:text-gray-200 dark:hover:bg-gray-900"

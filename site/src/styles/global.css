@@ -207,3 +207,56 @@ html.dark .astro-code span {
 .code-group[data-ready] .astro-code[hidden] {
   display: none;
 }
+
+/* ---------- The overview player's code: a bare block inside the player's own frame ---------- */
+.player-code .astro-code {
+  @apply rounded-none border-0 bg-transparent p-0 text-[12.5px] leading-5;
+}
+
+/* ---------- The agent loop, drawn on its docs page: a cycle of four steps and one exit ---------- */
+.loop-diagram {
+  @apply my-6 overflow-x-auto;
+}
+.loop-grid {
+  @apply grid min-w-[44rem] grid-cols-[1fr_3.25rem_1fr_3.25rem_1fr] items-stretch gap-y-1 text-[13px] leading-5;
+}
+.md-body .loop-node,
+.md-body .loop-end {
+  @apply rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-950;
+}
+.md-body .loop-node.is-main {
+  @apply border-brand-300 bg-brand-50/50 dark:border-brand-800 dark:bg-brand-950/40;
+}
+.md-body .loop-end {
+  @apply self-center border-dashed border-emerald-400 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/30;
+}
+.md-body .loop-node .n {
+  @apply mb-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-gray-900 text-[11px] font-semibold text-white dark:bg-white dark:text-black;
+}
+.md-body .loop-node b,
+.md-body .loop-end b {
+  @apply block font-semibold text-gray-900 dark:text-gray-100;
+}
+.md-body .loop-node p,
+.md-body .loop-end p {
+  @apply m-0 mt-1 text-[12.5px] leading-5 text-gray-600 dark:text-gray-400;
+}
+.md-body .loop-node code,
+.md-body .loop-end code {
+  @apply border-0 bg-transparent p-0 text-[12px];
+}
+.loop-arrow {
+  @apply flex flex-col items-center justify-center gap-1 text-gray-400 dark:text-gray-500;
+}
+.loop-arrow svg {
+  @apply h-4 w-8 shrink-0;
+}
+.loop-arrow.v {
+  @apply py-2;
+}
+.loop-arrow.v svg {
+  @apply h-8 w-4;
+}
+.loop-arrow .tag {
+  @apply rounded-full border border-gray-200 bg-white px-2 py-0.5 text-[11px] font-medium whitespace-nowrap text-gray-600 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-300;
+}

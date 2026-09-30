@@ -8,19 +8,25 @@ MMSP 让这个循环在每家提供商上都是同一个形状。工具调用以
 
 ## 循环
 
-```text
-用户消息
-    │
-    ▼
-┌─► streaming_response_stateful(message, config)
-│       delta 事件，然后是 stop 事件
-│
-│   响应里有 tool_call.done 项吗？
-│       没有 ─► text.done 项就是回答
-│       有   ─► 运行每个工具
-│               message = 每个调用对应一个 tool_result.done
-└───────────────┘
-```
+<div class="loop-diagram" role="img" aria-label="agent 循环：发送消息，读取流，运行工具调用，送回结果，再来一轮；不带工具调用的响应就是回答">
+<div class="loop-grid">
+<div class="loop-node"><span class="n">1</span><b>发送消息</b><p><code>streaming_response_stateful(message, config)</code>，工具放在配置里。</p></div>
+<div class="loop-arrow"><svg viewBox="0 0 32 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8h26M22 2l6 6-6 6"/></svg></div>
+<div class="loop-node is-main"><span class="n">2</span><b>读取流</b><p><code>delta</code> 事件，然后是 <code>stop</code> 事件。收集 <code>text.done</code> 和 <code>tool_call.done</code> 项。</p></div>
+<div class="loop-arrow"><span class="tag">没有工具调用</span><svg viewBox="0 0 32 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8h26M22 2l6 6-6 6"/></svg></div>
+<div class="loop-end"><b>回答</b><p><code>text.done</code> 项就是回复。循环结束。</p></div>
+<div class="loop-arrow v"><span class="tag">下一轮</span><svg viewBox="0 0 16 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 30V4M2 10l6-6 6 6"/></svg></div>
+<div></div>
+<div class="loop-arrow v"><span class="tag">有工具调用</span><svg viewBox="0 0 16 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v26M2 22l6 6 6-6"/></svg></div>
+<div></div>
+<div></div>
+<div class="loop-node"><span class="n">4</span><b>送回结果</b><p>每个调用一个 <code>tool_result.done</code>，带上它的 <code>tool_call_id</code>，放在一条消息里。</p></div>
+<div class="loop-arrow"><svg viewBox="0 0 32 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M30 8H4M10 2L4 8l6 6"/></svg></div>
+<div class="loop-node"><span class="n">3</span><b>运行工具</b><p>每个 <code>tool_call.done</code> 运行一次，用它解析好的 <code>arguments</code>。失败也是一个结果。</p></div>
+<div></div>
+<div></div>
+</div>
+</div>
 
 每次迭代是一次请求。有状态调用在产出 `stop` 事件之前就记录了助手轮次，所以下一次迭代只需发送新消息。
 
