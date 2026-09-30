@@ -1,25 +1,26 @@
 /**
  * Site styles: one Tailwind CSS 4 entry point in the visual language of penguin.ooo/docs
- * (solid backgrounds, 1px borders, system type, one accent), with the violet of the MMSP
- * artwork as that accent. The dark theme is toggled by the html.dark class.
+ * (solid backgrounds, 1px borders, system type, one accent), with #477dfb, a pure blue at the hue
+ * of fennel flower and the blue of the MMSP mark, as that accent. Text in the dark theme takes
+ * fennel flower itself, #7aa2f7, as brand-400. The dark theme is toggled by the html.dark class.
  */
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --color-brand-25: #fbfaff;
-  --color-brand-50: #f3efff;
-  --color-brand-100: #e6deff;
-  --color-brand-200: #cfc0ff;
-  --color-brand-300: #b199ff;
-  --color-brand-400: #9572ff;
-  --color-brand-500: #7c4dff;
-  --color-brand-600: #6a35f0;
-  --color-brand-700: #5a27d1;
-  --color-brand-800: #4820a8;
-  --color-brand-900: #331a78;
-  --color-brand-950: #1d0e4a;
+  --color-brand-25: #f8fafe;
+  --color-brand-50: #f1f5fe;
+  --color-brand-100: #e0eafc;
+  --color-brand-200: #c9dafa;
+  --color-brand-300: #aac4f8;
+  --color-brand-400: #7aa2f7;
+  --color-brand-500: #477dfb;
+  --color-brand-600: #2f64ea;
+  --color-brand-700: #184bd7;
+  --color-brand-800: #153da9;
+  --color-brand-900: #102d79;
+  --color-brand-950: #091d4e;
 }
 
 @layer base {
@@ -138,7 +139,7 @@ html.dark .astro-code span {
   padding-left: 1.25rem;
 }
 .md-body a {
-  @apply text-brand-700 underline decoration-brand-300 underline-offset-2 transition-colors hover:text-brand-600 dark:text-brand-300 dark:decoration-brand-700;
+  @apply text-brand-700 underline decoration-brand-300 underline-offset-2 transition-colors hover:text-brand-600 dark:text-brand-400 dark:decoration-brand-700 dark:hover:text-brand-300;
   overflow-wrap: anywhere;
 }
 .md-body code {
@@ -195,7 +196,7 @@ html.dark .astro-code span {
   border-bottom: 2px solid transparent;
 }
 .code-group .tab-strip button[aria-selected="true"] {
-  @apply border-b-brand-600 font-medium text-brand-700 dark:border-b-brand-400 dark:text-brand-300;
+  @apply border-b-brand-600 font-medium text-brand-700 dark:border-b-brand-400 dark:text-brand-400;
 }
 .code-group .astro-code {
   @apply my-0 rounded-none border-0;

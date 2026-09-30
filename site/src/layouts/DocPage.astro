@@ -26,7 +26,7 @@ const markdown = localePath(locale, `/docs/${doc.slug}.md`);
 
 const label = "text-[13px] font-semibold text-gray-900 dark:text-gray-100";
 const entry = "-ml-px block border-l py-1 pl-3 transition-colors";
-const entryOn = "border-brand-600 font-medium text-brand-700 dark:border-brand-400 dark:text-brand-300";
+const entryOn = "border-brand-600 font-medium text-brand-700 dark:border-brand-400 dark:text-brand-400";
 const entryOff =
   "border-transparent text-gray-600 hover:border-gray-400 hover:text-gray-900 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-100";
 const step =
@@ -79,7 +79,7 @@ const step =
                     <li>
                       <a
                         href={href(item.slug)}
-                        class:list={["block py-1", item.slug === doc.slug ? "font-medium text-brand-700 dark:text-brand-300" : "text-gray-600 dark:text-gray-400"]}
+                        class:list={["block py-1", item.slug === doc.slug ? "font-medium text-brand-700 dark:text-brand-400" : "text-gray-600 dark:text-gray-400"]}
                       >
                         {item.title[locale]}
                       </a>

@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <style>.d{fill:#111116}@media (prefers-color-scheme: dark){.d{fill:#2a2a33}}</style>
   <rect width="32" height="32" rx="7" class="d"/>
-  <path d="M0 16V7a7 7 0 0 1 7-7h9v16Z" fill="#7c4dff"/>
-  <path d="M16 16h16v9a7 7 0 0 1-7 7h-9Z" fill="#7c4dff"/>
+  <path d="M0 16V7a7 7 0 0 1 7-7h9v16Z" fill="#477dfb"/>
+  <path d="M16 16h16v9a7 7 0 0 1-7 7h-9Z" fill="#477dfb"/>
   <g fill="#fff" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="10.5" font-weight="700" text-anchor="middle" dominant-baseline="central">
     <text x="8.5" y="8.5">M</text>
     <text x="23.5" y="8.5">M</text>
