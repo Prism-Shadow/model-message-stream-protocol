@@ -52,7 +52,6 @@ export class OpenaiChatClient extends LLMClient {
     model: string;
     apiKey?: string;
     baseUrl?: string | null;
-    clientType?: string | null;
     defaultHeaders?: Record<string, string>;
   }) {
     super();

@@ -1,0 +1,384 @@
+# Copyright 2025 Prism Shadow. and/or its affiliates
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import json
+import os
+import re
+from typing import Any, AsyncIterator
+
+from openai import AsyncOpenAI
+from openai.types.responses import ResponseInputParam, ResponseStreamEvent
+
+from ..base_client import LLMClient
+from ..errors import UnsupportedParameterError
+from ..types import (
+    EventContentItem,
+    EventType,
+    FinishReason,
+    PromptCaching,
+    ThinkingLevel,
+    ToolChoice,
+    UniConfig,
+    UniEvent,
+    UniMessage,
+    UsageMetadata,
+)
+from ..utils import is_debug_enabled
+
+
+# The DeepSeek ids that read no image: the current V4 Flash and V4 Pro, bare or with a dated
+# snapshot suffix (deepseek-v4-flash-0731). Every other id forwards its images. Matched against
+# the bare id — the part after the last "/", lowercased — so a gateway prefix (deepseek/,
+# deepseek-ai/) and the spelling a platform uses do not change the verdict.
+_TEXT_ONLY_MODELS = re.compile(r"deepseek-v4-(flash|pro)(-\d{4})?")
+
+
+class DeepSeekOfficialClient(LLMClient):
+    """DeepSeek V4-specific LLM client implementation using the OpenAI-compatible Responses API."""
+
+    def __init__(
+        self,
+        model: str,
+        api_key: str | None = None,
+        base_url: str | None = None,
+        default_headers: dict[str, str] | None = None,
+    ):
+        """Initialize DeepSeek client with model, API key, and base URL."""
+        self._model = model
+        # The wrapped OpenAI SDK falls back to OPENAI_API_KEY when handed None, which would send an
+        # OpenAI credential to the DeepSeek host, so resolve the key here and fail loudly instead.
+        api_key = api_key or os.getenv("DEEPSEEK_API_KEY")
+        if not api_key:
+            raise ValueError("DEEPSEEK_API_KEY is required for DeepSeekOfficialClient.")
+        base_url = base_url or os.getenv("DEEPSEEK_BASE_URL") or "https://api.deepseek.com"
+        self._client = AsyncOpenAI(api_key=api_key, base_url=base_url, default_headers=default_headers)
+        self._history: list[UniMessage] = []
+
+    def _convert_thinking_level_to_effort(self, thinking_level: ThinkingLevel) -> str:
+        """Convert ThinkingLevel enum to DeepSeek's reasoning effort.
+
+        DeepSeek accepts low/high/max and maps medium and xhigh onto high server-side
+        (llmsdk_docs/deepseek_v4/docs/thinking-mode.md), so this sends the value the
+        server would settle on anyway. Effort "none" is what turns thinking off on this
+        endpoint: the Chat Completions `thinking` toggle is ignored here (verified live
+        2026-08-21).
+        """
+        mapping = {
+            ThinkingLevel.NONE: "none",
+            ThinkingLevel.LOW: "low",
+            ThinkingLevel.MEDIUM: "high",
+            ThinkingLevel.HIGH: "high",
+            ThinkingLevel.XHIGH: "high",
+            ThinkingLevel.MAX: "max",
+        }
+        return mapping[thinking_level]
+
+    def _convert_tool_choice(self, tool_choice: ToolChoice) -> str:
+        """Convert ToolChoice to DeepSeek's Responses-compatible tool_choice format."""
+        if tool_choice in ["auto", "none"]:
+            return tool_choice
+        raise UnsupportedParameterError(
+            self.__class__.__name__, "tool_choice", "DeepSeek V4 only supports 'auto' and 'none' for tool_choice."
+        )
+
+    def transform_uni_config_to_model_config(self, config: UniConfig) -> dict[str, Any]:
+        """
+        Transform universal configuration to DeepSeek-specific configuration.
+
+        Args:
+            config: Universal configuration dict
+
+        Returns:
+            DeepSeek configuration dictionary
+        """
+        deepseek_config = {"model": self._model, "store": False}
+
+        if config.get("system_prompt") is not None:
+            deepseek_config["instructions"] = config["system_prompt"]
+
+        if config.get("max_tokens") is not None:
+            deepseek_config["max_output_tokens"] = config["max_tokens"]
+
+        if config.get("temperature") is not None and config["temperature"] != 1.0:
+            raise UnsupportedParameterError(
+                self.__class__.__name__, "temperature", "DeepSeek V4 does not support setting temperature."
+            )
+
+        if config.get("thinking_level") is not None:
+            deepseek_config["reasoning"] = {"effort": self._convert_thinking_level_to_effort(config["thinking_level"])}
+
+        if config.get("thinking_summary"):
+            # DeepSeek takes reasoning.summary with or without an effort and returns an empty
+            # summary list for now (verified live 2026-09-03 on api.deepseek.com and
+            # OpenRouter), so the request carries the preference instead of dropping it and
+            # picks up summaries as soon as the vendor generates them. False needs no key:
+            # the Responses API returns no summary unless one is asked for.
+            deepseek_config.setdefault("reasoning", {})["summary"] = "concise"
+
+        if config.get("tools") is not None:
+            deepseek_config["tools"] = [{"type": "function", **tool} for tool in config["tools"]]
+
+        if config.get("tool_choice") is not None:
+            deepseek_config["tool_choice"] = self._convert_tool_choice(config["tool_choice"])
+
+        if config.get("fast_mode"):
+            raise UnsupportedParameterError(
+                self.__class__.__name__, "fast_mode", "DeepSeek V4 does not support fast mode."
+            )
+
+        if config.get("prompt_caching") is not None and config["prompt_caching"] != PromptCaching.ENABLE:
+            raise UnsupportedParameterError(
+                self.__class__.__name__, "prompt_caching", "prompt_caching must be ENABLE for DeepSeek."
+            )
+
+        return deepseek_config
+
+    def transform_uni_message_to_model_input(self, messages: list[UniMessage]) -> ResponseInputParam:
+        """
+        Transform universal message format to DeepSeek's Responses-compatible input format.
+
+        Args:
+            messages: List of universal message dictionaries
+
+        Returns:
+            List of input items for the Responses API
+        """
+        # a text-only model answers from a placeholder instead of failing
+        # (llmsdk_docs/deepseek_v4/docs/responses-api.md), so an image is refused here rather
+        # than silently dropped
+        supports_image = not _TEXT_ONLY_MODELS.fullmatch(self._model.lower().rsplit("/", 1)[-1])
+        input_list: list[ResponseInputParam] = []
+
+        for msg in messages:
+            content_items: list = []
+
+            for item in msg["content_items"]:
+                # anything that is not message content becomes an input item of its own, so the
+                # text collected so far is flushed first to keep the original order: DeepSeek
+                # merges a function call into the adjacent assistant message and answers a call
+                # whose output does not follow it with "No tool output found for tool call"
+                # (verified live 2026-08-21)
+                if item["type"] not in ("text.done", "image_url.done") and content_items:
+                    # Every turn goes back as a typed message item — the Responses API's EasyInputMessage
+                    # shape, where type "message" is valid for any role. A vLLM-style Responses server
+                    # answers a bare {"role": "assistant", "content": [...]} item with a 400 on the turn that
+                    # replays it and takes the typed form for every role; OpenAI, DeepSeek and MiniMax accept
+                    # either shape. Nothing beyond that minimal shape goes out: an id or a status the server
+                    # never sent would be an invention.
+                    input_list.append({"type": "message", "role": msg["role"], "content": content_items})
+                    content_items = []
+
+                if item["type"] == "text.done":
+                    if msg["role"] == "user":
+                        content_items.append({"type": "input_text", "text": item["text"]})
+                    else:
+                        content_items.append({"type": "output_text", "text": item["text"]})
+                elif item["type"] == "image_url.done":
+                    if not supports_image:
+                        raise ValueError(f"DeepSeek {self._model} does not support image inputs.")
+
+                    content_items.append({"type": "input_image", "image_url": item["image_url"]})
+                elif item["type"] == "thinking.done":
+                    # DeepSeek carries the chain of thought as plain reasoning_text and ignores the
+                    # summary and encrypted_content channels, so the item is rebuilt from the text
+                    reasoning = {"type": "reasoning", "summary": []}
+                    if item["thinking"]:
+                        reasoning["content"] = [{"type": "reasoning_text", "text": item["thinking"]}]
+
+                    input_list.append(reasoning)
+                elif item["type"] == "tool_call.done":
+                    input_list.append(
+                        {
+                            "type": "function_call",
+                            "call_id": item["tool_call_id"],
+                            "name": item["name"],
+                            "arguments": json.dumps(item["arguments"], ensure_ascii=False),
+                        }
+                    )
+                elif item["type"] == "tool_result.done":
+                    if "tool_call_id" not in item:
+                        raise ValueError("tool_call_id is required for tool result.")
+
+                    # NOTE: tool results are input items
+                    image_parts = []
+                    if "images" in item:
+                        if not supports_image:
+                            raise ValueError(f"DeepSeek {self._model} does not support images in tool results.")
+
+                        for image_url in item["images"]:
+                            image_parts.append({"type": "input_image", "image_url": image_url})
+
+                    # a plain string is the form the Responses API documents for a text result and the
+                    # one every endpoint that fronts this model accepts; the content-part list is
+                    # reserved for results carrying images
+                    output = (
+                        [{"type": "input_text", "text": item["text"]}, *image_parts] if image_parts else item["text"]
+                    )
+
+                    input_list.append(
+                        {"type": "function_call_output", "call_id": item["tool_call_id"], "output": output}
+                    )
+                else:
+                    raise ValueError(f"Unknown item: {item}")
+
+            if content_items:
+                input_list.append({"type": "message", "role": msg["role"], "content": content_items})
+
+        return input_list
+
+    def transform_model_output_to_uni_event(self, model_output: ResponseStreamEvent) -> UniEvent:
+        """
+        Transform one DeepSeek streaming event into a universal event, identifying items by output item id.
+        An item needs no done: it is done when the next one begins or the stream ends.
+
+        Args:
+            model_output: Responses API streaming event
+
+        Returns:
+            Universal event dictionary, an empty delta event when the wire event carries nothing universal
+        """
+        event_type: EventType = "delta"
+        content_items: list[EventContentItem] = []
+        usage_metadata: UsageMetadata | None = None
+        finish_reason: FinishReason | None = None
+
+        deepseek_event_type = model_output.type
+        if deepseek_event_type == "response.output_text.delta":
+            content_items.append(
+                {
+                    "type": "text.delta",
+                    "text": model_output.delta,
+                    "fidelity": {"item_id": getattr(model_output, "item_id", None)},
+                }
+            )
+
+        elif deepseek_event_type == "response.reasoning_text.delta":
+            content_items.append(
+                {
+                    "type": "thinking.delta",
+                    "thinking": model_output.delta,
+                    "fidelity": {"item_id": getattr(model_output, "item_id", None)},
+                }
+            )
+
+        elif deepseek_event_type == "response.output_item.added":
+            # an item begins: a delta under its id, empty unless it carries the call's name, ends
+            # the item before it
+            item = model_output.item
+            if item.type == "function_call":
+                content_items.append(
+                    {
+                        "type": "tool_call.delta",
+                        "name": item.name,
+                        "arguments": "",
+                        "tool_call_id": item.call_id,
+                        # a server that sends no item id still sends the call id
+                        "fidelity": {"item_id": item.id or item.call_id},
+                    }
+                )
+            elif item.type == "message":
+                content_items.append(
+                    {"type": "text.delta", "text": "", "fidelity": {"item_id": getattr(item, "id", None)}}
+                )
+            elif item.type == "reasoning":
+                content_items.append(
+                    {"type": "thinking.delta", "thinking": "", "fidelity": {"item_id": getattr(item, "id", None)}}
+                )
+
+        elif deepseek_event_type == "response.function_call_arguments.delta":
+            content_items.append(
+                {
+                    "type": "tool_call.delta",
+                    "name": "",
+                    "arguments": model_output.delta,
+                    "tool_call_id": "",
+                    "fidelity": {"item_id": getattr(model_output, "item_id", None)},
+                }
+            )
+
+        elif deepseek_event_type in ("response.completed", "response.incomplete"):
+            event_type = "stop"
+            finish_reason_mapping = {
+                "completed": "stop",
+                "incomplete": "length",
+            }
+            finish_reason = finish_reason_mapping.get(model_output.response.status, "unknown")
+
+            if model_output.response.usage:
+                input_details = model_output.response.usage.input_tokens_details
+                output_details = model_output.response.usage.output_tokens_details
+                cached_tokens = input_details.cached_tokens if input_details else 0
+                reasoning_tokens = output_details.reasoning_tokens if output_details else 0
+                usage_metadata = {
+                    "cached_tokens": cached_tokens,
+                    "prompt_tokens": model_output.response.usage.input_tokens - cached_tokens,
+                    "thoughts_tokens": reasoning_tokens,
+                    "response_tokens": model_output.response.usage.output_tokens - reasoning_tokens,
+                }
+
+        elif deepseek_event_type in (
+            "response.created",
+            "response.in_progress",
+            "response.output_item.done",
+            "response.output_text.done",
+            "response.reasoning_text.done",
+            "response.function_call_arguments.done",
+            "response.content_part.added",
+            "response.content_part.done",
+            "keepalive",  # gateway heartbeat on long generations; carries no content
+        ):
+            # lifecycle events, and repeats of what the deltas carry
+            pass
+
+        elif is_debug_enabled():
+            raise ValueError(f"Unknown output: {model_output}")
+
+        else:
+            # a gateway injects its own events (heartbeats, cost tickers) into the stream, and
+            # killing a long generation over one costs more than dropping it
+            pass
+
+        return {
+            "role": "assistant",
+            "event_type": event_type,
+            "content_items": content_items,
+            "usage_metadata": usage_metadata,
+            "finish_reason": finish_reason,
+        }
+
+    async def _streaming_response_internal(
+        self,
+        messages: list[UniMessage],
+        config: UniConfig,
+    ) -> AsyncIterator[UniEvent]:
+        """Stream generate using DeepSeek's OpenAI-compatible Responses API."""
+        # Use unified config conversion
+        deepseek_config = self.transform_uni_config_to_model_config(config)
+
+        # Use unified message conversion
+        input_list = self.transform_uni_message_to_model_input(messages)
+
+        # Stream generate
+        stream = await self._client.responses.create(**deepseek_config, input=input_list, stream=True)
+        async for model_event in stream:
+            yield self.transform_model_output_to_uni_event(model_event)
+
+    async def list_models(self) -> list[str]:
+        """
+        List the model ids the configured endpoint serves.
+
+        Returns:
+            list[str]: The model ids, in the order the endpoint returned them.
+        """
+        return [model.id async for model in self._client.models.list()]

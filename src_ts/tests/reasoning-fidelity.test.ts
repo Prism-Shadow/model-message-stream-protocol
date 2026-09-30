@@ -32,8 +32,8 @@ interface ReasoningReplayCase {
 
 const REASONING_REPLAY_CASES: ReasoningReplayCase[] = [
   { model: "gpt-5.5", clientType: "openai" },
-  { model: "glm-5.1", clientType: "glm-5.1" },
-  { model: "kimi-k2.6", clientType: "kimi-k2.6" },
+  { model: "glm-5.1", clientType: "zai-official" },
+  { model: "kimi-k2.6", clientType: "moonshot-official" },
 ];
 
 interface ResponsesReasoningCase extends ReasoningReplayCase {
@@ -49,7 +49,11 @@ interface ResponsesReasoningCase extends ReasoningReplayCase {
 // the live capture on 2026-09-09 (api_captures/openai_responses/gpt-6-astra/) showed the
 // added and done ciphertexts differ and are not a prefix pair.
 const RESPONSES_REASONING_CASES: ResponsesReasoningCase[] = [
-  { expectedClient: "GPT6Client", model: "gpt-6-astra", clientType: "gpt-6" },
+  {
+    expectedClient: "OpenAIOfficialClient",
+    model: "gpt-6-astra",
+    clientType: "openai-official",
+  },
   {
     expectedClient: "OpenaiResponsesClient",
     model: "openai/gpt-6-astra",
@@ -573,7 +577,7 @@ function createGenerateContentClient(): AutoLLMClient {
   });
   expect(
     (client as unknown as { _client: object })._client.constructor.name,
-  ).toBe("Gemini3_8GenerateContentClient");
+  ).toBe("GeminiGenerateContentClient");
   return client;
 }
 

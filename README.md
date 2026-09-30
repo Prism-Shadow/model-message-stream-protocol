@@ -55,25 +55,41 @@ https://github.com/user-attachments/assets/c49a21a1-5bf9-4768-a76d-f73c9a03ca87
 | MiniMax-M3     | Official                            | `MiniMax-M3`           | Text, Image      | Text                           |
 | Qwen3.6        | OpenRouter/SiliconFlow/vLLM         | `qwen/qwen3.6-35b-a3b` | Text, Image      | Text, Embedding                |
 
-Gemini on Google Vertex AI takes the service-account JSON key as the API key. Such a key is
-served through generateContent, because Vertex AI's Interactions endpoint serves none of these
-models; any other Gemini key uses the Interactions API. `client_type="gemini-interactions"` and
-`client_type="gemini-generate-content"` pin the wire protocol explicitly, the latter also for
-gateways that proxy generateContent only.
+### Clients
 
-Beyond the model-specific clients, four generic protocol clients call any compatible
-endpoint:
+`AutoLLMClient` takes a model id and a `client_type`. An **official client** speaks its
+vendor's own API, knows the vendor's models, and reads the vendor's key from the environment;
+a **compatible client** speaks one wire protocol for any endpoint that serves it.
 
-- **`client_type="openai-chat"`** — OpenAI Chat Completions. Bare `"openai"` is an alias.
-- **`client_type="openai-chat-vllm-adapter"`** — Chat Completions as served by vLLM, mapping
-  `thinking_level` onto the `chat_template_kwargs` the served model's template reads.
-- **`client_type="openai-responses"`** — OpenAI Responses, served by OpenAI, OpenRouter,
-  DeepSeek, Z.AI, and MiniMax.
-- **`client_type="ant-messages"`** — Anthropic Messages, served by Anthropic, OpenRouter,
-  DeepSeek, Z.AI, and MiniMax.
+| `client_type`              | Speaks                                                                 | Key and endpoint                         |
+| -------------------------- | ---------------------------------------------------------------------- | ---------------------------------------- |
+| `openai-official`          | OpenAI Responses; `text-embedding-*` models through OpenAI Embeddings  | `OPENAI_API_KEY`, `OPENAI_BASE_URL`      |
+| `anthropic-official`       | Anthropic Messages                                                     | `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL` |
+| `gemini-official`          | Gemini Interactions; generateContent for a Vertex AI service-account key | `GEMINI_API_KEY`, `GEMINI_BASE_URL`      |
+| `zai-official`             | Z.AI Chat Completions                                                  | `ZAI_API_KEY`, `ZAI_BASE_URL`            |
+| `moonshot-official`        | Moonshot Chat Completions                                              | `MOONSHOT_API_KEY`, `MOONSHOT_BASE_URL`  |
+| `deepseek-official`        | DeepSeek Responses                                                     | `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`  |
+| `minimax-official`         | MiniMax Responses                                                      | `MINIMAX_API_KEY`, `MINIMAX_BASE_URL`    |
+| `openai-responses`         | OpenAI Responses, served by OpenAI, OpenRouter, DeepSeek, Z.AI, MiniMax | `OPENAI_API_KEY`, `OPENAI_BASE_URL`      |
+| `openai-chat` (`openai`)   | OpenAI Chat Completions, served by most gateways, SiliconFlow, vLLM    | `OPENAI_API_KEY`, `OPENAI_BASE_URL`      |
+| `openai-chat-vllm-adapter` | Chat Completions as vLLM serves it, mapping `thinking_level` onto the template's switches | `OPENAI_API_KEY`, `OPENAI_BASE_URL` |
+| `openai-embedding`         | OpenAI Embeddings, served by any embedding endpoint                    | `OPENAI_API_KEY`, `OPENAI_BASE_URL`      |
+| `ant-messages`             | Anthropic Messages, served by Anthropic, OpenRouter, DeepSeek, Z.AI, MiniMax | `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL` |
+| `gemini-generate-content`  | Gemini generateContent, for gateways that proxy it                     | `GEMINI_API_KEY`, `GEMINI_BASE_URL`      |
 
-Where a gateway serves more than one, prefer `"openai-responses"`: OpenRouter serves it for
-every model it hosts, while SiliconFlow serves Chat Completions only.
+`client_type` may be omitted for a model id that begins with a known family: `gpt-` and
+`text-embedding-` route to `openai-official`, `claude-` to `anthropic-official`, `gemini-` to
+`gemini-official`, `glm-` to `zai-official`, `kimi-` to `moonshot-official`, `deepseek-` to
+`deepseek-official`, `minimax-` to `minimax-official`. Any other id raises and asks for a
+`client_type`. The `CLIENT_TYPE` environment variable names one for every client the code does
+not.
+
+Gemini on Google Vertex AI takes the service-account JSON key as the API key; `gemini-official`
+serves such a key through generateContent, because Vertex AI's Interactions endpoint serves none
+of these models.
+
+Where a gateway serves more than one protocol, prefer `"openai-responses"`: OpenRouter serves it
+for every model it hosts, while SiliconFlow serves Chat Completions only.
 
 The full machine-readable list — model, base URL, client, input/output modalities, context
 window, and per-million-token list pricing in USD or CNY:
@@ -135,7 +151,7 @@ MMSP provides Codex/Claude Code skill files for assistants that need to help use
 
 ## APIs
 
-`AutoLLMClient` is the main class for interacting with the MMSP SDK. It is constructed with `model`, plus optional `api_key`, `base_url`, `client_type`, and `default_headers` — headers sent with every request, for endpoints that demand their own. It provides the following methods:
+`AutoLLMClient` is the main class for interacting with the MMSP SDK. It is constructed with `model` and `client_type` (see [Clients](#clients); a model id of a known family names its official client on its own), plus optional `api_key`, `base_url`, and `default_headers` — headers sent with every request, for endpoints that demand their own. It provides the following methods:
 
 A key goes only where it was given for: a client reads `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` from the environment only together with `OPENAI_BASE_URL` / `ANTHROPIC_BASE_URL` (or the provider's own endpoint), so a `base_url` passed in needs an `api_key` passed in with it, or the client raises at construction. A vendor client (`deepseek-v4`, `glm-5.x`, `kimi-k*`, `minimax-m3`, Gemini) reads its own variable, whatever endpoint it is given.
 
@@ -698,21 +714,15 @@ The integrated tracer is available at `http://localhost:25751/tracer/`.
 
 Every client speaks one vendor protocol on the wire, whichever `client_type` reaches it:
 
-| `client_type`                                              | Wire protocol      |
-| ---------------------------------------------------------- | ------------------ |
-| `gemini-3.8`, `gemini-3.7`, `gemini-3`, `gemini-embedding` | `google-genai`     |
-| `gemini-interactions`, `gemini-generate-content`           | `google-genai`     |
-| `claude-5`, `claude-4-8`, `claude-4-7`, `claude-4-6`       | `ant-messages`     |
-| `ant-messages`                                             | `ant-messages`     |
-| `gpt-6`, `gpt-5.6`, `gpt-5.5`, `gpt-5.4`                   | `openai-responses` |
-| `deepseek-v4`                                              | `openai-responses` |
-| `minimax-m3`                                               | `openai-responses` |
-| `openai-responses`                                         | `openai-responses` |
-| `glm-5.3`, `glm-5.2`, `glm-5.1`                            | `openai-chat`      |
-| `kimi-k3`, `kimi-k2.6`, `kimi-k2.5`                        | `openai-chat`      |
-| `openai-chat` (alias `openai`)                             | `openai-chat`      |
-| `openai-chat-vllm-adapter`                                 | `openai-chat`      |
-| `openai-embedding`                                         | `openai-embedding` |
+| `client_type`                                               | Wire protocol      |
+| ----------------------------------------------------------- | ------------------ |
+| `gemini-official`, `gemini-generate-content`                | `google-genai`     |
+| `anthropic-official`, `ant-messages`                        | `ant-messages`     |
+| `openai-official`, `deepseek-official`, `minimax-official`  | `openai-responses` |
+| `openai-responses`                                          | `openai-responses` |
+| `zai-official`, `moonshot-official`                         | `openai-chat`      |
+| `openai-chat` (alias `openai`), `openai-chat-vllm-adapter`  | `openai-chat`      |
+| `openai-embedding`, and `openai-official` for `text-embedding-*` | `openai-embedding` |
 
 ## Related Work
 

@@ -20,7 +20,7 @@ They are dictionaries in Python and typed objects in TypeScript, with the same f
 
 ## How a request travels
 
-1. You create an [`AutoLLMClient`](/docs/client/) with a model id. It picks the client that speaks that model's wire protocol.
+1. You create an [`AutoLLMClient`](/docs/client/) with a model id and a client type: the vendor's official client, or a compatible client for any endpoint that speaks its protocol. A model id of a known family names its official client on its own.
 2. You call a streaming method with messages and a config. The client translates both into the provider's request.
 3. The provider streams its own events. The client turns each one into `UniEvent` fragments, and MMSP closes every item with its complete form.
 4. The complete items, in order, are the assistant message. The stateful call records it in the client's history before it yields the last event.

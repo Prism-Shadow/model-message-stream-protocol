@@ -74,7 +74,7 @@ The third event carries nothing but [`fidelity`](/docs/fidelity/): the signature
 - The first `tool_call.delta` of a call carries its `name` and `tool_call_id`. Later fragments carry only `arguments`.
 - `tool_call.done` carries the `arguments` parsed into an object. Read tool calls from it, and send each result back with its `tool_call_id`.
 - The arguments must parse to a JSON object. When they are malformed, cut short, or parse to something else, MMSP raises `ToolCallArgumentParseError` in place of the `tool_call.done`.
-- `minimax-m3` reads each call from the server's completed item, so its call streams as a single `tool_call.delta` carrying the name, the id and the whole arguments, then the `tool_call.done`.
+- `minimax-official` reads each call from the server's completed item, so its call streams as a single `tool_call.delta` carrying the name, the id and the whole arguments, then the `tool_call.done`.
 
 ## Embeddings
 

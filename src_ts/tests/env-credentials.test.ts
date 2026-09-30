@@ -96,18 +96,22 @@ interface VendorCase {
 // The vendor clients built on the OpenAI SDK: each reads its own variable and nothing else.
 const VENDOR_CASES: VendorCase[] = [
   {
-    expectedClient: "DeepSeekV4Client",
+    expectedClient: "DeepSeekOfficialClient",
     model: "deepseek-v4-flash",
     keyEnv: "DEEPSEEK_API_KEY",
   },
-  { expectedClient: "GLM5_3Client", model: "glm-5.3", keyEnv: "ZAI_API_KEY" },
   {
-    expectedClient: "KimiK3Client",
+    expectedClient: "ZAIOfficialClient",
+    model: "glm-5.3",
+    keyEnv: "ZAI_API_KEY",
+  },
+  {
+    expectedClient: "MoonshotOfficialClient",
     model: "kimi-k3",
     keyEnv: "MOONSHOT_API_KEY",
   },
   {
-    expectedClient: "MiniMaxM3Client",
+    expectedClient: "MiniMaxOfficialClient",
     model: "MiniMax-M3",
     keyEnv: "MINIMAX_API_KEY",
   },
@@ -157,7 +161,7 @@ interface OpenaiCase {
 
 // The OpenAI protocol clients, which OPENAI_API_KEY and OPENAI_BASE_URL belong to.
 const OPENAI_CASES: OpenaiCase[] = [
-  { expectedClient: "GPT6Client", model: "gpt-6-astra" },
+  { expectedClient: "OpenAIOfficialClient", model: "gpt-6-astra" },
   {
     expectedClient: "OpenaiChatClient",
     model: "gpt-5.6",
@@ -240,7 +244,7 @@ interface AnthropicCase {
 
 const ANTHROPIC_CASES: AnthropicCase[] = [
   {
-    expectedClient: "Claude5Client",
+    expectedClient: "AnthropicOfficialClient",
     model: "claude-sonnet-5",
     keyAsBearer: false,
   },
@@ -320,7 +324,7 @@ describe.each(ANTHROPIC_CASES)("$expectedClient credentials", (testCase) => {
   });
 });
 
-describe("Claude5Client on Bedrock", () => {
+describe("AnthropicOfficialClient on Bedrock", () => {
   test("sends no Anthropic credential to AWS", async () => {
     process.env.ANTHROPIC_API_KEY = "sk-ant-PROBE";
     process.env.ANTHROPIC_AUTH_TOKEN = "tok-env-PROBE";

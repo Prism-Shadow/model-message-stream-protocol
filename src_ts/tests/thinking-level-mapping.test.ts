@@ -44,12 +44,12 @@ const GEMINI3_THINKING_LEVEL_CASES: Array<
 ];
 
 // clientType pins routing so hypothetical model names reach the unified
-// Gemini3_8Client the same way an explicit override would in user code.
+// GeminiOfficialClient the same way an explicit override would in user code.
 function createGemini3AutoClient(model: string): AutoLLMClient {
   return new AutoLLMClient({
     model,
     apiKey: "test-key",
-    clientType: "gemini-3",
+    clientType: "gemini-official",
   });
 }
 
@@ -93,14 +93,16 @@ const GEMINI3_7_THINKING_LEVEL_CASES: Array<[string, ThinkingLevel, string]> = [
   ["gemini-3.5-flash-lite", ThinkingLevel.NONE, "minimal"],
 ];
 
-describe("gemini3_8 thinking level clamping", () => {
+describe("gemini_official thinking level clamping", () => {
   test.each(GEMINI3_7_THINKING_LEVEL_CASES)(
     "%s clamps %s to %s",
     (model, level, expected) => {
-      // These are real model ids, so automatic routing reaches Gemini3_8Client directly.
+      // These are real model ids, so automatic routing reaches GeminiOfficialClient directly.
       const client = new AutoLLMClient({ model, apiKey: "test-key" });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      expect((client as any)._client.constructor.name).toBe("Gemini3_8Client");
+      expect((client as any)._client.constructor.name).toBe(
+        "GeminiOfficialClient",
+      );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect((client as any)._client._convertThinkingLevel(level)).toBe(
         expected,
@@ -119,7 +121,7 @@ function createGenerateContentAutoClient(model: string): AutoLLMClient {
   });
 }
 
-describe("gemini3_8_generate_content thinking level clamping", () => {
+describe("gemini_generate_content thinking level clamping", () => {
   test.each([
     ...GEMINI3_THINKING_LEVEL_CASES,
     ...GEMINI3_7_THINKING_LEVEL_CASES,
@@ -127,7 +129,7 @@ describe("gemini3_8_generate_content thinking level clamping", () => {
     const client = createGenerateContentAutoClient(model);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect((client as any)._client.constructor.name).toBe(
-      "Gemini3_8GenerateContentClient",
+      "GeminiGenerateContentClient",
     );
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect((client as any)._client._convertThinkingLevel(level)).toBe(
@@ -174,9 +176,16 @@ describe("glm thinking level mapping", () => {
   test.each(GLM_THINKING_LEVEL_CASES)(
     "%s maps %s to thinking=%s effort=%s",
     (model, level, thinkingType, effort) => {
-      const client = new AutoLLMClient({ model, apiKey: "test-key" });
+      // a gateway's id does not begin with the family, so it names the client
+      const client = new AutoLLMClient({
+        model,
+        apiKey: "test-key",
+        clientType: "zai-official",
+      });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      expect((client as any)._client.constructor.name).toBe("GLM5_3Client");
+      expect((client as any)._client.constructor.name).toBe(
+        "ZAIOfficialClient",
+      );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const config = (client as any)._client.transformUniConfigToModelConfig({
         thinking_level: level,
@@ -224,8 +233,8 @@ const THINKING_EFFORT_CASES: Array<
   ["kimi-k3", undefined, ThinkingLevel.MEDIUM, "high"],
   ["kimi-k3", undefined, ThinkingLevel.XHIGH, "max"],
   ["kimi-k3", undefined, ThinkingLevel.MAX, "max"],
-  ["MiniMax-M3", "minimax-m3", ThinkingLevel.XHIGH, "high"],
-  ["MiniMax-M3", "minimax-m3", ThinkingLevel.MAX, "high"],
+  ["MiniMax-M3", undefined, ThinkingLevel.XHIGH, "high"],
+  ["MiniMax-M3", undefined, ThinkingLevel.MAX, "high"],
 ];
 
 /** Read the effort out of whichever config key the client used. */

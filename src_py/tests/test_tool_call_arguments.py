@@ -39,14 +39,14 @@ OPENAI_COMPATIBLE_TOOL_STREAM_CASES = [
         client_type="openai",
     ),
     OpenAICompatibleToolStreamCase(
-        expected_client="GLM5_3Client",
+        expected_client="ZAIOfficialClient",
         model="glm-5.1",
-        client_type="glm-5.1",
+        client_type="zai-official",
     ),
     OpenAICompatibleToolStreamCase(
-        expected_client="KimiK3Client",
+        expected_client="MoonshotOfficialClient",
         model="kimi-k2.6",
-        client_type="kimi-k2.6",
+        client_type="moonshot-official",
     ),
     OpenAICompatibleToolStreamCase(
         expected_client="OpenaiResponsesClient",
@@ -55,15 +55,15 @@ OPENAI_COMPATIBLE_TOOL_STREAM_CASES = [
         protocol="responses",
     ),
     OpenAICompatibleToolStreamCase(
-        expected_client="DeepSeekV4Client",
+        expected_client="DeepSeekOfficialClient",
         model="deepseek-v4",
-        client_type="deepseek-v4",
+        client_type="deepseek-official",
         protocol="responses",
     ),
     OpenAICompatibleToolStreamCase(
-        expected_client="MiniMaxM3Client",
+        expected_client="MiniMaxOfficialClient",
         model="MiniMax-M3",
-        client_type="minimax-m3",
+        client_type="minimax-official",
         protocol="responses",
     ),
 ]

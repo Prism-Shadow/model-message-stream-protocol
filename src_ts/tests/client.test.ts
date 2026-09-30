@@ -125,7 +125,6 @@ if (process.env.OPENAI_API_KEY) {
     supportImageGeneration: false,
     supportAudioGeneration: false,
     supportEmbedding: true,
-    clientType: "openai-embedding",
     provider: "official",
   });
 }
@@ -188,7 +187,6 @@ if (process.env.MINIMAX_API_KEY) {
     supportImageGeneration: false,
     supportAudioGeneration: false,
     supportEmbedding: false,
-    clientType: "minimax-m3",
     provider: "official",
   });
 }
@@ -226,6 +224,8 @@ if (process.env.BEDROCK_API_KEY) {
     supportImageGeneration: false,
     supportAudioGeneration: false,
     supportEmbedding: false,
+    // a Bedrock id begins with no model family, so the client is named
+    clientType: "anthropic-official",
     provider: "bedrock",
   });
 }
@@ -1353,10 +1353,93 @@ if (AVAILABLE_MODELS.length > 0) {
   });
 }
 
-test("should reject unknown model", () => {
-  expect(() => new AutoLLMClient({ model: "unknown-model" })).toThrow(
-    "not supported",
-  );
+// A model id of a known family routes to its official client on its own; a client type names
+// any client, whatever the model id, and is read in any casing.
+const ROUTING_CASES: [string, string | undefined, string][] = [
+  ["gpt-5.6-luna", undefined, "OpenAIOfficialClient"],
+  ["GPT-5.5", undefined, "OpenAIOfficialClient"],
+  ["text-embedding-3-large", undefined, "OpenaiEmbeddingClient"],
+  ["text-embedding-3-large", "openai-official", "OpenaiEmbeddingClient"],
+  ["claude-sonnet-5", undefined, "AnthropicOfficialClient"],
+  ["gemini-3.8-flash", undefined, "GeminiOfficialClient"],
+  ["gemini-embedding-2", undefined, "GeminiOfficialClient"],
+  [
+    "gemini-3.8-flash",
+    "gemini-generate-content",
+    "GeminiGenerateContentClient",
+  ],
+  ["glm-5.3", undefined, "ZAIOfficialClient"],
+  ["kimi-k3", undefined, "MoonshotOfficialClient"],
+  ["deepseek-v4-pro", undefined, "DeepSeekOfficialClient"],
+  // a version-free DeepSeek id routes on the family too
+  ["deepseek-flash", undefined, "DeepSeekOfficialClient"],
+  ["MiniMax-M3", undefined, "MiniMaxOfficialClient"],
+  ["deepseek-v4-pro", "OpenAI-Responses", "OpenaiResponsesClient"],
+  ["qwen/qwen3.6-35b-a3b", "openai-responses", "OpenaiResponsesClient"],
+  ["qwen3.6", "openai-chat", "OpenaiChatClient"],
+  ["qwen3.6", "openai", "OpenaiChatClient"],
+  ["qwen3.6", "openai-chat-vllm-adapter", "OpenaiChatVllmAdapterClient"],
+  ["qwen3-embedding", "openai-embedding", "OpenaiEmbeddingClient"],
+  ["claude-opus-5", "ant-messages", "AntMessagesClient"],
+];
+
+function routedClientName(client: AutoLLMClient): string {
+  return (client as unknown as { _client: object })._client.constructor.name;
+}
+
+test.each(ROUTING_CASES)(
+  "the client type or the model family names the client (%s as %s)",
+  (model, clientType, clientName) => {
+    const client = new AutoLLMClient({
+      model,
+      apiKey: "test-key",
+      clientType,
+    });
+
+    expect(routedClientName(client)).toBe(clientName);
+  },
+);
+
+test("a model of no known family asks for a client type", () => {
+  expect(
+    () => new AutoLLMClient({ model: "qwen3.6", apiKey: "test-key" }),
+  ).toThrow(/Pass clientType.*openai-official.*openai-responses/);
+});
+
+test("an unknown client type is refused whatever the model", () => {
+  // a model id is not a client type, and neither are the names of the clients before 0.5.0
+  expect(
+    () =>
+      new AutoLLMClient({
+        model: "gpt-5.5",
+        apiKey: "test-key",
+        clientType: "gpt-5.5",
+      }),
+  ).toThrow('Unknown client type "gpt-5.5"');
+});
+
+test("the environment names the client when the code does not", () => {
+  const previous = process.env.CLIENT_TYPE;
+  process.env.CLIENT_TYPE = "openai-chat";
+  try {
+    expect(
+      routedClientName(
+        new AutoLLMClient({ model: "gpt-5.5", apiKey: "test-key" }),
+      ),
+    ).toBe("OpenaiChatClient");
+    expect(
+      routedClientName(
+        new AutoLLMClient({
+          model: "gpt-5.5",
+          apiKey: "test-key",
+          clientType: "openai-responses",
+        }),
+      ),
+    ).toBe("OpenaiResponsesClient");
+  } finally {
+    if (previous === undefined) delete process.env.CLIENT_TYPE;
+    else process.env.CLIENT_TYPE = previous;
+  }
 });
 
 test("should list supported model entries", () => {
@@ -1364,7 +1447,7 @@ test("should list supported model entries", () => {
   const kimi = entries.find((entry) => entry.model === "kimi-k3");
   expect(kimi).toBeDefined();
   expect(kimi?.base_url).toBe("https://api.moonshot.cn/v1");
-  expect(kimi?.client).toBe("kimi-k3");
+  expect(kimi?.client).toBe("moonshot-official");
   expect(kimi?.context_window).toBe(1048576);
   expect(kimi?.input_modalities).toEqual(["Text", "Image"]);
   expect(kimi?.output_modalities).toEqual(["Text"]);
@@ -1385,7 +1468,7 @@ test("should list supported model entries", () => {
     "gemini-3.6-flash",
   ]) {
     const gemini = entries.find((entry) => entry.model === model);
-    expect(gemini?.client).toBe("gemini-3.8");
+    expect(gemini?.client).toBe("gemini-official");
     expect([
       gemini?.pricing?.prompt_tokens,
       gemini?.pricing?.response_tokens,
@@ -1404,7 +1487,7 @@ test("should list supported model entries", () => {
 
   const glm52 = entries.find((entry) => entry.model === "z-ai/glm-5.2");
   expect(glm52?.base_url).toBe("https://openrouter.ai/api/v1");
-  expect(glm52?.client).toBe("glm-5.2");
+  expect(glm52?.client).toBe("zai-official");
 
   for (const entry of entries) {
     expect(entry.input_modalities.length).toBeGreaterThan(0);
@@ -1418,22 +1501,6 @@ test("should list supported model entries", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect((client as any)._client).toBeDefined();
   }
-});
-
-test.each([
-  ["openai-compatible", "OpenaiChatClient"],
-  ["openai-chat-compatible", "OpenaiChatClient"],
-  ["openai-responses-compatible", "OpenaiResponsesClient"],
-  ["ant-messages-compatible", "AntMessagesClient"],
-  ["openai-embedding-compatible", "OpenaiEmbeddingClient"],
-])("should route %s clientType to %s", (clientType, clientName) => {
-  const client = new AutoLLMClient({
-    model: "unknown-model",
-    apiKey: "test-key",
-    clientType,
-  });
-
-  expect((client as any)._client.constructor.name).toBe(clientName);
 });
 
 test("should reject non-text content items for OpenAI embeddings", () => {

@@ -21,9 +21,12 @@ import { AutoLLMClient } from "@prismshadow/mmsp";
 process.env.OPENAI_API_KEY = "your-openai-api-key";
 
 async function main() {
+  // The official OpenAI client, named by the model id's family
   const client = new AutoLLMClient({ model: "gpt-5.5" });
-  // For OpenAI Chat Completions-compatible endpoints:
-  // const client = new AutoLLMClient({ model: "custom-model", clientType: "openai" });
+  // The same, spelled out, with the key given in code:
+  // const client = new AutoLLMClient({ model: "gpt-5.5", clientType: "openai-official", apiKey: "your-openai-api-key" });
+  // A compatible client, for any endpoint that serves OpenAI Chat Completions:
+  // const client = new AutoLLMClient({ model: "custom-model", clientType: "openai-chat", baseUrl: "http://127.0.0.1:8000/v1/", apiKey: "none" });
   // For Gemini on Google Vertex AI, the service-account JSON key is the API key:
   // const client = new AutoLLMClient({ model: "gemini-3.8-flash", apiKey: fs.readFileSync("service-account.json", "utf8") });
 
@@ -41,7 +44,9 @@ async function main() {
 main().catch(console.error);
 ```
 
-A Vertex AI service-account key is served through generateContent, because Vertex AI's Interactions endpoint serves none of the Gemini models; any other Gemini key uses the Interactions API. `clientType: "gemini-interactions"` and `clientType: "gemini-generate-content"` pin the wire protocol explicitly, the latter also for gateways that proxy generateContent only.
+`clientType` names one of the official clients (`openai-official`, `anthropic-official`, `gemini-official`, `zai-official`, `moonshot-official`, `deepseek-official`, `minimax-official`) or one of the compatible clients (`openai-responses`, `openai-chat`, `openai-chat-vllm-adapter`, `openai-embedding`, `ant-messages`, `gemini-generate-content`). It may be omitted for a model id that begins with a known family (`gpt-`, `text-embedding-`, `claude-`, `gemini-`, `glm-`, `kimi-`, `deepseek-`, `minimax-`), which names its official client; any other id throws and asks for one.
+
+A Vertex AI service-account key is served through generateContent, because Vertex AI's Interactions endpoint serves none of the Gemini models; any other Gemini key uses the Interactions API. `clientType: "gemini-generate-content"` names generateContent explicitly, for gateways that proxy it.
 
 Both streaming methods yield `delta` events, each carrying exactly one content item, then exactly one `stop` event, always last, carrying `usage_metadata` and `finish_reason`. Each item streams as one or more `.delta` fragments (`text.delta`, `tool_call.delta`, …) followed by its complete `.done` item (`text.done`, `tool_call.done`, …); items never interleave.
 

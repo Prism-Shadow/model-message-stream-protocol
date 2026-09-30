@@ -36,8 +36,8 @@ class ReasoningReplayCase:
 
 REASONING_REPLAY_CASES = [
     ReasoningReplayCase(model="gpt-5.5", client_type="openai"),
-    ReasoningReplayCase(model="glm-5.1", client_type="glm-5.1"),
-    ReasoningReplayCase(model="kimi-k2.6", client_type="kimi-k2.6"),
+    ReasoningReplayCase(model="glm-5.1", client_type="zai-official"),
+    ReasoningReplayCase(model="kimi-k2.6", client_type="moonshot-official"),
 ]
 
 
@@ -55,7 +55,7 @@ class ResponsesReasoningCase(ReasoningReplayCase):
 # live capture on 2026-09-09 (api_captures/openai_responses/gpt-6-astra/) showed the added and
 # done ciphertexts differ and are not a prefix pair.
 RESPONSES_REASONING_CASES = [
-    ResponsesReasoningCase(expected_client="GPT6Client", model="gpt-6-astra", client_type="gpt-6"),
+    ResponsesReasoningCase(expected_client="OpenAIOfficialClient", model="gpt-6-astra", client_type="openai-official"),
     ResponsesReasoningCase(
         expected_client="OpenaiResponsesClient", model="openai/gpt-6-astra", client_type="openai-responses"
     ),
@@ -465,7 +465,7 @@ async def test_responses_message_items_keep_their_phase_and_replay_splits_only_o
 async def test_gemini_replays_a_bytes_signature_on_a_thinking_item_as_base64():
     """The generateContent client recorded every thought signature as bytes, a thinking item's included."""
     client = AutoLLMClient(model="gemini-3.8-flash", api_key="test-key")
-    assert client._client.__class__.__name__ == "Gemini3_8Client"  # noqa: SLF001
+    assert client._client.__class__.__name__ == "GeminiOfficialClient"  # noqa: SLF001
     history = [
         _user_message(),
         {
@@ -522,7 +522,7 @@ def _generate_content_stop_chunk(*parts: types.Part) -> types.GenerateContentRes
 
 def _generate_content_client() -> AutoLLMClient:
     client = AutoLLMClient(model="gemini-3.8-flash", api_key="test-key", client_type="gemini-generate-content")
-    assert client._client.__class__.__name__ == "Gemini3_8GenerateContentClient"  # noqa: SLF001
+    assert client._client.__class__.__name__ == "GeminiGenerateContentClient"  # noqa: SLF001
     return client
 
 

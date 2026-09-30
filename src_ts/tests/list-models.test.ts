@@ -19,7 +19,7 @@ import { AutoLLMClient, UnsupportedOperationError } from "../src";
 interface ListCase {
   expectedClient: string;
   model: string;
-  clientType: string;
+  clientType?: string;
   expected: string[];
 }
 
@@ -29,50 +29,51 @@ const servedIds = [
   "claude-sonnet-5",
   "claude-opus-4-6",
   "deepseek-v4",
+  "deepseek-flash",
   "glm-5.3",
   "kimi-k3",
   "gemini-3.7-flash",
   "MiniMax-M3",
 ];
 
-// A protocol client is named explicitly and speaks for the whole listing; a client deduced from
-// a model id keeps only the ids that deduce back to it.
+// A client named by its type speaks for the whole listing; a client deduced from a model id
+// keeps the ids of its own family.
 const SDK_LIST_CASES: ListCase[] = [
   {
-    expectedClient: "GPT6Client",
+    expectedClient: "OpenAIOfficialClient",
     model: "gpt-5.6",
-    clientType: "gpt-5.6",
     expected: ["gpt-5.6"],
   },
   {
-    expectedClient: "Claude5Client",
+    expectedClient: "AnthropicOfficialClient",
     model: "claude-sonnet-5",
-    clientType: "claude-sonnet-5",
     expected: ["claude-sonnet-5", "claude-opus-4-6"],
   },
   {
-    expectedClient: "DeepSeekV4Client",
+    expectedClient: "DeepSeekOfficialClient",
     model: "deepseek-v4",
-    clientType: "deepseek-v4",
-    expected: ["deepseek-v4"],
+    expected: ["deepseek-v4", "deepseek-flash"],
   },
   {
-    expectedClient: "GLM5_3Client",
+    expectedClient: "ZAIOfficialClient",
     model: "glm-5.3",
-    clientType: "glm-5.3",
     expected: ["glm-5.3"],
   },
   {
-    expectedClient: "KimiK3Client",
+    expectedClient: "MoonshotOfficialClient",
     model: "kimi-k3",
-    clientType: "kimi-k3",
     expected: ["kimi-k3"],
   },
   {
-    expectedClient: "MiniMaxM3Client",
-    model: "minimax-m3",
-    clientType: "minimax-m3",
+    expectedClient: "MiniMaxOfficialClient",
+    model: "MiniMax-M3",
     expected: ["MiniMax-M3"],
+  },
+  {
+    expectedClient: "OpenAIOfficialClient",
+    model: "gpt-5.6",
+    clientType: "openai-official",
+    expected: servedIds,
   },
   {
     expectedClient: "OpenaiChatClient",
@@ -120,32 +121,32 @@ function routedClientName(client: AutoLLMClient): string {
   return (client as unknown as { _client: object })._client.constructor.name;
 }
 
-describe.each(SDK_LIST_CASES)("listModels for $clientType", (testCase) => {
-  test("returns the ids the endpoint serves", async () => {
-    const client = new AutoLLMClient({
-      model: testCase.model,
-      apiKey: "test-key",
-      clientType: testCase.clientType,
-    });
-    expect(routedClientName(client)).toBe(testCase.expectedClient);
-    installFakeModels(client, {
-      models: { list: () => asyncIterable(servedIds.map((id) => ({ id }))) },
-    });
+describe.each(SDK_LIST_CASES)(
+  "listModels for $model as $clientType",
+  (testCase) => {
+    test("returns the ids the endpoint serves", async () => {
+      const client = new AutoLLMClient({
+        model: testCase.model,
+        apiKey: "test-key",
+        clientType: testCase.clientType,
+      });
+      expect(routedClientName(client)).toBe(testCase.expectedClient);
+      installFakeModels(client, {
+        models: { list: () => asyncIterable(servedIds.map((id) => ({ id }))) },
+      });
 
-    await expect(client.listModels()).resolves.toEqual(testCase.expected);
-  });
-});
+      await expect(client.listModels()).resolves.toEqual(testCase.expected);
+    });
+  },
+);
 
 describe("listModels", () => {
   test("the Gemini client strips the path from model names", async () => {
-    // Deliberately the previous generation's spelling: the unified client is named for the
-    // newest one, and a caller still passing clientType "gemini-3.7" must keep routing to it.
     const client = new AutoLLMClient({
       model: "gemini-3.7-flash",
       apiKey: "test-key",
-      clientType: "gemini-3.7",
     });
-    expect(routedClientName(client)).toBe("Gemini3_8Client");
+    expect(routedClientName(client)).toBe("GeminiOfficialClient");
     installFakeModels(client, {
       models: {
         list: async () =>
@@ -168,25 +169,46 @@ describe("listModels", () => {
   // construct the client.
   const serviceAccountKey = '{"project_id": "test-project"}';
 
+  const vertexListing = [
+    "gemini-3.8-flash",
+    "gemini-embedding-2",
+    "gemini-2.5-flash",
+    "spicy-mayo",
+  ];
+  const geminiFamily = [
+    "gemini-3.8-flash",
+    "gemini-embedding-2",
+    "gemini-2.5-flash",
+  ];
+
   test.each([
+    {
+      apiKey: "test-key",
+      clientType: undefined,
+      expectedClient: "GeminiOfficialClient",
+      expected: geminiFamily,
+    },
     {
       apiKey: serviceAccountKey,
       clientType: undefined,
-      expectedClient: "Gemini3_8GenerateContentClient",
+      expectedClient: "GeminiGenerateContentClient",
+      expected: geminiFamily,
+    },
+    {
+      apiKey: serviceAccountKey,
+      clientType: "gemini-official",
+      expectedClient: "GeminiGenerateContentClient",
+      expected: vertexListing,
     },
     {
       apiKey: "test-key",
       clientType: "gemini-generate-content",
-      expectedClient: "Gemini3_8GenerateContentClient",
-    },
-    {
-      apiKey: serviceAccountKey,
-      clientType: "gemini-interactions",
-      expectedClient: "Gemini3_8Client",
+      expectedClient: "GeminiGenerateContentClient",
+      expected: vertexListing,
     },
   ])(
-    "routes Gemini by credential and pin, and keeps the Gemini ids of a Vertex listing ($expectedClient, $clientType)",
-    async ({ apiKey, clientType, expectedClient }) => {
+    "routes Gemini by credential and pin, and lists the family of a deduced client ($expectedClient, $clientType)",
+    async ({ apiKey, clientType, expectedClient, expected }) => {
       const client = new AutoLLMClient({
         model: "gemini-3.8-flash",
         apiKey,
@@ -197,20 +219,14 @@ describe("listModels", () => {
         models: {
           list: async () =>
             asyncIterable(
-              [
-                "gemini-3.8-flash",
-                "gemini-embedding-2",
-                "gemini-2.5-flash",
-                "spicy-mayo",
-              ].map((id) => ({ name: `publishers/google/models/${id}` })),
+              vertexListing.map((id) => ({
+                name: `publishers/google/models/${id}`,
+              })),
             ),
         },
       });
 
-      await expect(client.listModels()).resolves.toEqual([
-        "gemini-3.8-flash",
-        "gemini-embedding-2",
-      ]);
+      await expect(client.listModels()).resolves.toEqual(expected);
     },
   );
 

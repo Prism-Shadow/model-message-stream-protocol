@@ -32,34 +32,34 @@ class StreamCase:
 
 # Every client that parses the OpenAI Responses SSE shape.
 RESPONSES_STREAM_CASES = [
-    StreamCase(expected_client="GPT6Client", model="gpt-5.6", client_type="gpt-5.6"),
+    StreamCase(expected_client="OpenAIOfficialClient", model="gpt-5.6", client_type="openai-official"),
     StreamCase(expected_client="OpenaiResponsesClient", model="gpt-5.6", client_type="openai-responses"),
-    StreamCase(expected_client="DeepSeekV4Client", model="deepseek-v4", client_type="deepseek-v4"),
-    StreamCase(expected_client="MiniMaxM3Client", model="minimax-m3", client_type="minimax-m3"),
+    StreamCase(expected_client="DeepSeekOfficialClient", model="deepseek-v4", client_type="deepseek-official"),
+    StreamCase(expected_client="MiniMaxOfficialClient", model="minimax-m3", client_type="minimax-official"),
 ]
 
 # Every client that parses the OpenAI Chat Completions chunk shape.
 CHAT_STREAM_CASES = [
     StreamCase(expected_client="OpenaiChatClient", model="gpt-5.6", client_type="openai-chat"),
-    StreamCase(expected_client="GLM5_3Client", model="glm-5.3", client_type="glm-5.3"),
-    StreamCase(expected_client="KimiK3Client", model="kimi-k3", client_type="kimi-k3"),
+    StreamCase(expected_client="ZAIOfficialClient", model="glm-5.3", client_type="zai-official"),
+    StreamCase(expected_client="MoonshotOfficialClient", model="kimi-k3", client_type="moonshot-official"),
 ]
 
 # Every client that parses the Anthropic Messages event shape.
 MESSAGES_STREAM_CASES = [
-    StreamCase(expected_client="Claude5Client", model="claude-sonnet-5", client_type="claude-sonnet-5"),
+    StreamCase(expected_client="AnthropicOfficialClient", model="claude-sonnet-5", client_type="anthropic-official"),
     StreamCase(expected_client="AntMessagesClient", model="claude-sonnet-5", client_type="ant-messages"),
 ]
 
 # Every client that parses the Gemini Interactions event shape.
 GEMINI_STREAM_CASES = [
-    StreamCase(expected_client="Gemini3_8Client", model="gemini-3.8-flash", client_type="gemini-3.8"),
+    StreamCase(expected_client="GeminiOfficialClient", model="gemini-3.8-flash", client_type="gemini-official"),
 ]
 
 # Every client that parses the Gemini generateContent chunk shape.
 GENERATE_CONTENT_STREAM_CASES = [
     StreamCase(
-        expected_client="Gemini3_8GenerateContentClient",
+        expected_client="GeminiGenerateContentClient",
         model="gemini-3.8-flash",
         client_type="gemini-generate-content",
     ),

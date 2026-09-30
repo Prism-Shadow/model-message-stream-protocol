@@ -2,7 +2,7 @@
 description: AutoLLMClient, its methods, and the helpers exported next to it.
 ---
 
-`AutoLLMClient` is the one class you call. It picks the client that speaks the model's wire protocol and forwards to it.
+`AutoLLMClient` is the one class you call. It creates the client its `client_type` names and forwards to it.
 
 ## Create a client
 
@@ -11,35 +11,47 @@ description: AutoLLMClient, its methods, and the helpers exported next to it.
 ```python
 from mmsp import AutoLLMClient
 
-# by model id, with the key from the environment
+# the official OpenAI client, named by the model id's family
 client = AutoLLMClient(model="gpt-5.5")
 
-# with the key and the endpoint spelled out
+# the same, spelled out, with the key and the endpoint given in code
 client = AutoLLMClient(
     model="gpt-5.5",
+    client_type="openai-official",
     api_key="your-openai-api-key",
     base_url="https://api.openai.com/v1",
 )
 
-# through a named wire protocol, for any endpoint that serves it
-client = AutoLLMClient(model="custom-model", client_type="openai-chat")
+# a compatible client, for any endpoint that serves OpenAI Chat Completions
+client = AutoLLMClient(
+    model="custom-model",
+    client_type="openai-chat",
+    base_url="http://127.0.0.1:8000/v1/",
+    api_key="none",
+)
 ```
 
 ```typescript
 import { AutoLLMClient } from "@prismshadow/mmsp";
 
-// by model id, with the key from the environment
+// the official OpenAI client, named by the model id's family
 const client = new AutoLLMClient({ model: "gpt-5.5" });
 
-// with the key and the endpoint spelled out
+// the same, spelled out, with the key and the endpoint given in code
 const withEndpoint = new AutoLLMClient({
   model: "gpt-5.5",
+  clientType: "openai-official",
   apiKey: "your-openai-api-key",
   baseUrl: "https://api.openai.com/v1",
 });
 
-// through a named wire protocol, for any endpoint that serves it
-const withType = new AutoLLMClient({ model: "custom-model", clientType: "openai-chat" });
+// a compatible client, for any endpoint that serves OpenAI Chat Completions
+const withType = new AutoLLMClient({
+  model: "custom-model",
+  clientType: "openai-chat",
+  baseUrl: "http://127.0.0.1:8000/v1/",
+  apiKey: "none",
+});
 ```
 
 </div>
@@ -47,12 +59,12 @@ const withType = new AutoLLMClient({ model: "custom-model", clientType: "openai-
 | Option | Python | TypeScript | Meaning |
 | --- | --- | --- | --- |
 | Model | `model` | `model` | The exact model id. |
+| Client | `client_type` | `clientType` | An official client such as `openai-official`, or a compatible one such as `openai-chat`. May be omitted for a model id that begins with a known family, which names its official client; any other id raises. See [Models and endpoints](/docs/models/). |
 | Key | `api_key` | `apiKey` | Defaults to the provider's environment variable, but only when the endpoint comes from the environment too. |
 | Endpoint | `base_url` | `baseUrl` | Defaults to the provider's environment variable, then to its official endpoint. |
-| Protocol | `client_type` | `clientType` | Names the client instead of deducing it from the model id. See [Models and endpoints](/docs/models/). |
 | Headers | `default_headers` | `defaultHeaders` | Sent with every request, for endpoints that demand their own. |
 
-A key goes only where it was given for. A client that reads `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` from the environment sends it to the endpoint the environment names, `OPENAI_BASE_URL` or `ANTHROPIC_BASE_URL`, or the provider's own. Given a `base_url` and no `api_key`, it raises at construction rather than send that key to another endpoint: pass the key next to the URL. A vendor client such as `deepseek-v4` reads its own variable, `DEEPSEEK_API_KEY`, whatever endpoint it is given.
+A key goes only where it was given for. A client that reads `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` from the environment sends it to the endpoint the environment names, `OPENAI_BASE_URL` or `ANTHROPIC_BASE_URL`, or the provider's own. Given a `base_url` and no `api_key`, it raises at construction rather than send that key to another endpoint: pass the key next to the URL. An official client such as `deepseek-official` reads its own variable, `DEEPSEEK_API_KEY`, whatever endpoint it is given.
 
 ## Methods
 
@@ -91,7 +103,7 @@ Both streaming methods yield `delta` events, then exactly one `stop` event. The 
 
 `get_history` returns a copy, and `set_history` stores a copy, so the history never changes behind your back.
 
-`list_models` lists everything the endpoint serves when the client was named with `client_type`. A client deduced from a model id lists only the ids that deduce back to it.
+`list_models` lists everything the endpoint serves when the client was named with `client_type`. A client deduced from a model id lists only the ids of that family.
 
 ## Helpers
 

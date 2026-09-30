@@ -2,7 +2,7 @@
 description: AutoLLMClient、它的方法，以及随它一起导出的辅助函数。
 ---
 
-`AutoLLMClient` 是你唯一需要调用的类。它会自动选择支持对应模型协议的客户端，并将请求转发过去。
+`AutoLLMClient` 是你唯一需要调用的类。它根据 `client_type` 创建对应的客户端，并转发请求。
 
 ## 创建客户端
 
@@ -11,35 +11,47 @@ description: AutoLLMClient、它的方法，以及随它一起导出的辅助函
 ```python
 from mmsp import AutoLLMClient
 
-# 按模型 id，key 来自环境变量
+# OpenAI 官方客户端，由模型 id 的系列指名
 client = AutoLLMClient(model="gpt-5.5")
 
-# 显式给出 key 和端点
+# 同样的客户端，写全，key 和端点在代码里给出
 client = AutoLLMClient(
     model="gpt-5.5",
+    client_type="openai-official",
     api_key="your-openai-api-key",
     base_url="https://api.openai.com/v1",
 )
 
-# 按协议指定客户端，对接任何提供该协议的端点
-client = AutoLLMClient(model="custom-model", client_type="openai-chat")
+# 兼容客户端，对接任何提供 OpenAI Chat Completions 的端点
+client = AutoLLMClient(
+    model="custom-model",
+    client_type="openai-chat",
+    base_url="http://127.0.0.1:8000/v1/",
+    api_key="none",
+)
 ```
 
 ```typescript
 import { AutoLLMClient } from "@prismshadow/mmsp";
 
-// 按模型 id，key 来自环境变量
+// OpenAI 官方客户端，由模型 id 的系列指名
 const client = new AutoLLMClient({ model: "gpt-5.5" });
 
-// 显式给出 key 和端点
+// 同样的客户端，写全，key 和端点在代码里给出
 const withEndpoint = new AutoLLMClient({
   model: "gpt-5.5",
+  clientType: "openai-official",
   apiKey: "your-openai-api-key",
   baseUrl: "https://api.openai.com/v1",
 });
 
-// 按协议指定客户端，对接任何提供该协议的端点
-const withType = new AutoLLMClient({ model: "custom-model", clientType: "openai-chat" });
+// 兼容客户端，对接任何提供 OpenAI Chat Completions 的端点
+const withType = new AutoLLMClient({
+  model: "custom-model",
+  clientType: "openai-chat",
+  baseUrl: "http://127.0.0.1:8000/v1/",
+  apiKey: "none",
+});
 ```
 
 </div>
@@ -47,12 +59,12 @@ const withType = new AutoLLMClient({ model: "custom-model", clientType: "openai-
 | 选项 | Python | TypeScript | 含义 |
 | --- | --- | --- | --- |
 | 模型 | `model` | `model` | 精确的模型 id。 |
+| 客户端 | `client_type` | `clientType` | 官方客户端如 `openai-official`，或兼容客户端如 `openai-chat`。如果模型 id 以已知系列开头，可省略此参数，SDK 会自动选择官方客户端；其他 id 必须提供，否则报错。详见[模型与端点](/zh/docs/models/)。 |
 | Key | `api_key` | `apiKey` | 默认使用服务商的环境变量，但仅在端点也来自环境变量时生效。 |
 | 端点 | `base_url` | `baseUrl` | 默认使用服务商的环境变量，否则使用其官方端点。 |
-| 协议 | `client_type` | `clientType` | 直接指定客户端类型，而非从模型 id 推断。详见[模型与端点](/zh/docs/models/)。 |
 | 请求头 | `default_headers` | `defaultHeaders` | 随每个请求发送，用于需要自定义请求头的端点。 |
 
-API key 只会发送到它被指定的地方。从环境变量读取 `OPENAI_API_KEY` 或 `ANTHROPIC_API_KEY` 的客户端，只会将其发送到环境变量指定的端点（`OPENAI_BASE_URL` 或 `ANTHROPIC_BASE_URL`）或服务商的官方端点。如果指定了 `base_url` 但未提供 `api_key`，客户端会在构造时直接报错，而不是将 key 发送到其他端点。请将 key 与 URL 一同传入。对于厂商客户端（如 `deepseek-v4`），它会读取自己的环境变量 `DEEPSEEK_API_KEY`，无论给它哪个端点。
+API key 只会发送到它被指定的地方。从环境变量读取 `OPENAI_API_KEY` 或 `ANTHROPIC_API_KEY` 的客户端，只会将 key 发送到环境变量指定的端点（`OPENAI_BASE_URL` 或 `ANTHROPIC_BASE_URL`）或服务商的官方端点。如果指定了 `base_url` 但未提供 `api_key`，客户端会在构造时直接报错，而不是将 key 发送到其他端点。请将 key 与 URL 一同传入。其他官方客户端（如 `deepseek-official`）读取自己的环境变量 `DEEPSEEK_API_KEY`，无论给它哪个端点。
 
 ## 方法
 
@@ -91,7 +103,7 @@ clearHistory(): void;
 
 `get_history` 返回历史记录的副本，`set_history` 存储传入历史的副本，确保历史记录不会在你不知情时被修改。
 
-当客户端通过 `client_type` 指定时，`list_models` 会列出端点支持的所有模型。从模型 id 推断出的客户端，则只列出能推断回该客户端的模型 id。
+当客户端通过 `client_type` 指定时，`list_models` 会列出端点支持的所有模型。从模型 id 推断出的客户端，只列出同一系列的模型 id。
 
 ## 辅助函数
 

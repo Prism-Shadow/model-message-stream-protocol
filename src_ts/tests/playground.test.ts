@@ -100,9 +100,7 @@ describe("Playground", () => {
     expect(response.text).toContain(
       'data-combobox-option data-value="gpt-5.6-luna"',
     );
-    expect(response.text).toContain(
-      'data-value="text-embedding-3-large" data-client-type="openai-embedding"',
-    );
+    expect(response.text).toContain('data-value="text-embedding-3-large"');
     expect(response.text).toContain("getSelectedClientType()");
     expect(response.text).toContain("toggleCombobox('modelCombobox')");
     expect(response.text).toContain(
@@ -149,7 +147,9 @@ describe("Playground", () => {
     expect(response.text).not.toContain("partial_tool_call");
     expect(response.text).toContain("renderEmbedding");
     expect(response.text).toContain("item.embedding.slice(0, 5)");
-    expect(response.text).toContain("appendAudioChunk(contentDiv, item, audioStream)");
+    expect(response.text).toContain(
+      "appendAudioChunk(contentDiv, item, audioStream)",
+    );
     expect(response.text).toContain("finalizeAudioStream(audioStream)");
     expect(response.text).toContain(
       "renderAudioPlayer(audioStream.mimeType, audioStream.chunks)",

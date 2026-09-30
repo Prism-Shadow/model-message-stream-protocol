@@ -76,7 +76,7 @@ def test_chat_app_index_route():
         assert b'id="thinkingSummaryCombobox"' in response.data
         assert b'id="toolChoiceCombobox"' in response.data
         assert b'data-combobox-option data-value="gpt-5.6-luna"' in response.data
-        assert b'data-value="text-embedding-3-large" data-client-type="openai-embedding"' in response.data
+        assert b'data-value="text-embedding-3-large"' in response.data
         assert b"getSelectedClientType()" in response.data
         assert b"toggleCombobox('modelCombobox')" in response.data
         assert b"selectComboboxOption('modelCombobox', this)" in response.data
@@ -256,7 +256,7 @@ def test_chat_app_uses_client_connection_options(monkeypatch):
                     "model": "gpt-5.5",
                     "api_key": "test-key",
                     "base_url": "https://example.test/v1",
-                    "client_type": "gpt-5.5",
+                    "client_type": "openai-official",
                     "default_headers": {"X-Title": "MMSP"},
                     "thinking_level": "low",
                 },
@@ -270,7 +270,7 @@ def test_chat_app_uses_client_connection_options(monkeypatch):
         "model": "gpt-5.5",
         "api_key": "test-key",
         "base_url": "https://example.test/v1",
-        "client_type": "gpt-5.5",
+        "client_type": "openai-official",
         "default_headers": {"X-Title": "MMSP"},
     }
     assert captured["request_config"] == {"thinking_level": "low"}

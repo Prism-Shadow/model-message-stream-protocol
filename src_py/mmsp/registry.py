@@ -101,7 +101,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "gemini-3.8-flash",
         "base_url": _GOOGLE,
-        "client": "gemini-3.8",
+        "client": "gemini-official",
         "input_modalities": ["Text", "Image", "Video", "Audio"],
         "output_modalities": ["Text"],
         "context_window": 1048576,
@@ -113,7 +113,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "gemini-3.7-flash",
         "base_url": _GOOGLE,
-        "client": "gemini-3.8",
+        "client": "gemini-official",
         "input_modalities": ["Text", "Image", "Video", "Audio"],
         "output_modalities": ["Text"],
         "context_window": 1048576,
@@ -122,7 +122,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "gemini-3.6-flash",
         "base_url": _GOOGLE,
-        "client": "gemini-3.8",
+        "client": "gemini-official",
         "input_modalities": ["Text", "Image", "Video", "Audio"],
         "output_modalities": ["Text"],
         "context_window": 1048576,
@@ -131,7 +131,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "gemini-3.5-flash-lite",
         "base_url": _GOOGLE,
-        "client": "gemini-3.8",
+        "client": "gemini-official",
         "input_modalities": ["Text", "Image", "Video", "Audio"],
         "output_modalities": ["Text"],
         "context_window": 1048576,
@@ -140,7 +140,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "gemini-3.5-flash",
         "base_url": _GOOGLE,
-        "client": "gemini-3.8",
+        "client": "gemini-official",
         "input_modalities": ["Text", "Image", "Video", "Audio"],
         "output_modalities": ["Text"],
         "context_window": 1048576,
@@ -149,28 +149,28 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "gemini-3.1-flash-image",
         "base_url": _GOOGLE,
-        "client": "gemini-3.8",
+        "client": "gemini-official",
         "input_modalities": ["Text", "Image"],
         "output_modalities": ["Image"],
     },
     {
         "model": "gemini-3.1-flash-tts-preview",
         "base_url": _GOOGLE,
-        "client": "gemini-3.8",
+        "client": "gemini-official",
         "input_modalities": ["Text"],
         "output_modalities": ["Audio"],
     },
     {
         "model": "gemini-embedding-2",
         "base_url": _GOOGLE,
-        "client": "gemini-3.8",
+        "client": "gemini-official",
         "input_modalities": ["Text"],
         "output_modalities": ["Embed"],
     },
     {
         "model": "claude-fable-5",
         "base_url": _ANTHROPIC,
-        "client": "claude-5",
+        "client": "anthropic-official",
         "input_modalities": ["Text", "Image"],
         "output_modalities": ["Text"],
         "context_window": 1000000,
@@ -179,7 +179,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "claude-opus-5",
         "base_url": _ANTHROPIC,
-        "client": "claude-5",
+        "client": "anthropic-official",
         "input_modalities": ["Text", "Image"],
         "output_modalities": ["Text"],
         "context_window": 1000000,
@@ -188,7 +188,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "claude-sonnet-5",
         "base_url": _ANTHROPIC,
-        "client": "claude-5",
+        "client": "anthropic-official",
         "input_modalities": ["Text", "Image"],
         "output_modalities": ["Text"],
         "context_window": 1000000,
@@ -197,7 +197,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "claude-opus-4-8",
         "base_url": _ANTHROPIC,
-        "client": "claude-5",
+        "client": "anthropic-official",
         "input_modalities": ["Text", "Image"],
         "output_modalities": ["Text"],
         "context_window": 1000000,
@@ -206,7 +206,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "claude-sonnet-4-6",
         "base_url": _ANTHROPIC,
-        "client": "claude-4-6",
+        "client": "anthropic-official",
         "input_modalities": ["Text", "Image"],
         "output_modalities": ["Text"],
         "context_window": 1000000,
@@ -219,7 +219,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         # cache-written input from plain input.
         "model": "gpt-6-astra",
         "base_url": _OPENAI,
-        "client": "gpt-6",
+        "client": "openai-official",
         "input_modalities": ["Text", "Image"],
         "output_modalities": ["Text"],
         "context_window": 1050000,
@@ -229,7 +229,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         # official standard-tier list price; the bare gpt-5.6 alias also routes here
         "model": "gpt-5.6-sol",
         "base_url": _OPENAI,
-        "client": "gpt-6",
+        "client": "openai-official",
         "input_modalities": ["Text", "Image"],
         "output_modalities": ["Text"],
         "context_window": 1050000,
@@ -238,7 +238,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "gpt-5.6-terra",
         "base_url": _OPENAI,
-        "client": "gpt-6",
+        "client": "openai-official",
         "input_modalities": ["Text", "Image"],
         "output_modalities": ["Text"],
         "context_window": 1050000,
@@ -247,7 +247,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "gpt-5.6-luna",
         "base_url": _OPENAI,
-        "client": "gpt-6",
+        "client": "openai-official",
         "input_modalities": ["Text", "Image"],
         "output_modalities": ["Text"],
         "context_window": 1050000,
@@ -256,7 +256,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "gpt-5.5",
         "base_url": _OPENAI,
-        "client": "gpt-5.5",
+        "client": "openai-official",
         "input_modalities": ["Text", "Image"],
         "output_modalities": ["Text"],
         "context_window": 1050000,
@@ -265,7 +265,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "MiniMax-M3",
         "base_url": _MINIMAX,
-        "client": "minimax-m3",
+        "client": "minimax-official",
         "input_modalities": ["Text", "Image"],
         "output_modalities": ["Text"],
         "context_window": 1000000,
@@ -275,7 +275,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "text-embedding-3-large",
         "base_url": _OPENAI,
-        "client": "openai-embedding",
+        "client": "openai-official",
         "input_modalities": ["Text"],
         "output_modalities": ["Embed"],
         "pricing": _usd(0.13, 0.0),
@@ -283,7 +283,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "glm-5.3",
         "base_url": _ZAI,
-        "client": "glm-5.3",
+        "client": "zai-official",
         "input_modalities": ["Text"],
         "output_modalities": ["Text"],
         "context_window": 1000000,
@@ -292,7 +292,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "glm-5.3-flash",
         "base_url": _ZAI,
-        "client": "glm-5.3",
+        "client": "zai-official",
         "input_modalities": ["Text", "Image"],
         "output_modalities": ["Text"],
         "context_window": 1000000,
@@ -303,7 +303,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "glm-5.2",
         "base_url": _ZAI,
-        "client": "glm-5.3",
+        "client": "zai-official",
         "input_modalities": ["Text"],
         "output_modalities": ["Text"],
         "context_window": 1000000,
@@ -312,7 +312,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "glm-5.1",
         "base_url": _ZAI,
-        "client": "glm-5.3",
+        "client": "zai-official",
         "input_modalities": ["Text"],
         "output_modalities": ["Text"],
         "context_window": 200000,
@@ -321,7 +321,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "kimi-k3",
         "base_url": _MOONSHOT,
-        "client": "kimi-k3",
+        "client": "moonshot-official",
         "input_modalities": ["Text", "Image"],
         "output_modalities": ["Text"],
         "context_window": 1048576,
@@ -330,7 +330,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "kimi-k2.6",
         "base_url": _MOONSHOT,
-        "client": "kimi-k2.6",
+        "client": "moonshot-official",
         "input_modalities": ["Text", "Image"],
         "output_modalities": ["Text"],
         "context_window": 262144,
@@ -339,7 +339,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "deepseek-v4.1-flash",
         "base_url": _DEEPSEEK,
-        "client": "deepseek-v4",
+        "client": "deepseek-official",
         # announced by DeepSeek for release after 2026-09-10 and not yet served on
         # 2026-09-09; multimodal per the announcement
         "input_modalities": ["Text", "Image"],
@@ -353,7 +353,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "deepseek-v4-flash",
         "base_url": _DEEPSEEK,
-        "client": "deepseek-v4",
+        "client": "deepseek-official",
         "input_modalities": ["Text"],
         "output_modalities": ["Text"],
         "context_window": 1000000,
@@ -365,7 +365,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "deepseek-v4-flash-vision-exp",
         "base_url": _DEEPSEEK,
-        "client": "deepseek-v4",
+        "client": "deepseek-official",
         "input_modalities": ["Text", "Image"],
         "output_modalities": ["Text"],
         "context_window": 1000000,
@@ -377,7 +377,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "deepseek-v4-pro",
         "base_url": _DEEPSEEK,
-        "client": "deepseek-v4",
+        "client": "deepseek-official",
         "input_modalities": ["Text"],
         "output_modalities": ["Text"],
         "context_window": 1000000,
@@ -434,7 +434,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "deepseek/deepseek-v4-flash",
         "base_url": _OPENROUTER,
-        "client": "deepseek-v4",
+        "client": "deepseek-official",
         "input_modalities": ["Text"],
         "output_modalities": ["Text"],
         "context_window": 1048576,
@@ -443,7 +443,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "deepseek/deepseek-v4-pro",
         "base_url": _OPENROUTER,
-        "client": "deepseek-v4",
+        "client": "deepseek-official",
         "input_modalities": ["Text"],
         "output_modalities": ["Text"],
         "context_window": 1048576,
@@ -470,7 +470,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "moonshotai/kimi-k3",
         "base_url": _OPENROUTER,
-        "client": "kimi-k3",
+        "client": "moonshot-official",
         "input_modalities": ["Text", "Image"],
         "output_modalities": ["Text"],
         "context_window": 1048576,
@@ -479,7 +479,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "moonshotai/kimi-k2.6",
         "base_url": _OPENROUTER,
-        "client": "kimi-k2.6",
+        "client": "moonshot-official",
         "input_modalities": ["Text", "Image"],
         "output_modalities": ["Text"],
         "context_window": 262144,
@@ -598,7 +598,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "z-ai/glm-5.3",
         "base_url": _OPENROUTER,
-        "client": "glm-5.3",
+        "client": "zai-official",
         "input_modalities": ["Text"],
         "output_modalities": ["Text"],
         "context_window": 1048576,
@@ -607,7 +607,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "z-ai/glm-5.2",
         "base_url": _OPENROUTER,
-        "client": "glm-5.2",
+        "client": "zai-official",
         "input_modalities": ["Text"],
         "output_modalities": ["Text"],
         "context_window": 1048576,
@@ -616,7 +616,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "z-ai/glm-5.1",
         "base_url": _OPENROUTER,
-        "client": "glm-5.1",
+        "client": "zai-official",
         "input_modalities": ["Text"],
         "output_modalities": ["Text"],
         "context_window": 204800,
@@ -662,7 +662,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "zai-org/GLM-5.2",
         "base_url": _SILICONFLOW,
-        "client": "glm-5.2",
+        "client": "zai-official",
         "input_modalities": ["Text"],
         "output_modalities": ["Text"],
         "context_window": 1000000,
@@ -671,7 +671,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "Pro/zai-org/GLM-5.1",
         "base_url": _SILICONFLOW,
-        "client": "glm-5.1",
+        "client": "zai-official",
         "input_modalities": ["Text"],
         "output_modalities": ["Text"],
         "context_window": 200000,
@@ -679,7 +679,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         "model": "Pro/moonshotai/Kimi-K2.6",
         "base_url": _SILICONFLOW,
-        "client": "kimi-k2.6",
+        "client": "moonshot-official",
         "input_modalities": ["Text", "Image"],
         "output_modalities": ["Text"],
         "context_window": 262144,

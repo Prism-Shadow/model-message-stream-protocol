@@ -50,15 +50,15 @@ GENERATE_CONTENT_ORDER = ["user:text", "model:thinking,text,function_call", "use
 CHAT_ORDER = ["user:text", "assistant:text,tool_calls,thinking", "tool:call_1"]
 
 MESSAGE_ORDER_CASES = [
-    MessageOrderCase("GPT6Client", "gpt-5.6", None, "responses", RESPONSES_ORDER),
+    MessageOrderCase("OpenAIOfficialClient", "gpt-5.6", None, "responses", RESPONSES_ORDER),
     MessageOrderCase("OpenaiResponsesClient", "gpt-5.6", "openai-responses", "responses", RESPONSES_ORDER),
-    MessageOrderCase("DeepSeekV4Client", "deepseek-v4", "deepseek-v4", "responses", RESPONSES_ORDER),
-    MessageOrderCase("MiniMaxM3Client", "MiniMax-M3", "minimax-m3", "responses", RESPONSES_ORDER),
-    MessageOrderCase("Claude5Client", "claude-sonnet-5", None, "messages", MESSAGES_ORDER),
+    MessageOrderCase("DeepSeekOfficialClient", "deepseek-v4", "deepseek-official", "responses", RESPONSES_ORDER),
+    MessageOrderCase("MiniMaxOfficialClient", "MiniMax-M3", "minimax-official", "responses", RESPONSES_ORDER),
+    MessageOrderCase("AnthropicOfficialClient", "claude-sonnet-5", None, "messages", MESSAGES_ORDER),
     MessageOrderCase("AntMessagesClient", "claude-sonnet-5", "ant-messages", "messages", MESSAGES_ORDER),
-    MessageOrderCase("Gemini3_8Client", "gemini-3.8-flash", None, "gemini", GEMINI_ORDER),
+    MessageOrderCase("GeminiOfficialClient", "gemini-3.8-flash", None, "gemini", GEMINI_ORDER),
     MessageOrderCase(
-        "Gemini3_8GenerateContentClient",
+        "GeminiGenerateContentClient",
         "gemini-3.8-flash",
         "gemini-generate-content",
         "generate_content",
@@ -66,8 +66,8 @@ MESSAGE_ORDER_CASES = [
         GENERATE_CONTENT_SIGNATURE,
     ),
     MessageOrderCase("OpenaiChatClient", "gpt-5.6", "openai-chat", "chat", CHAT_ORDER),
-    MessageOrderCase("GLM5_3Client", "glm-5.3", None, "chat", CHAT_ORDER),
-    MessageOrderCase("KimiK3Client", "kimi-k3", None, "chat", CHAT_ORDER),
+    MessageOrderCase("ZAIOfficialClient", "glm-5.3", None, "chat", CHAT_ORDER),
+    MessageOrderCase("MoonshotOfficialClient", "kimi-k3", None, "chat", CHAT_ORDER),
 ]
 
 
@@ -197,7 +197,7 @@ async def test_message_transform_keeps_content_item_order(case: MessageOrderCase
 @pytest.mark.asyncio
 async def test_gemini_sends_an_image_only_tool_result_without_an_empty_text_block():
     client = AutoLLMClient(model="gemini-3.8-flash", api_key="test-key")
-    assert client._client.__class__.__name__ == "Gemini3_8Client"  # noqa: SLF001
+    assert client._client.__class__.__name__ == "GeminiOfficialClient"  # noqa: SLF001
     messages = _messages()
     messages[2]["content_items"] = [
         {
@@ -215,7 +215,7 @@ async def test_gemini_sends_an_image_only_tool_result_without_an_empty_text_bloc
 
 def _generate_content_client(model: str = "gemini-3.8-flash") -> AutoLLMClient:
     client = AutoLLMClient(model=model, api_key="test-key", client_type="gemini-generate-content")
-    assert client._client.__class__.__name__ == "Gemini3_8GenerateContentClient"  # noqa: SLF001
+    assert client._client.__class__.__name__ == "GeminiGenerateContentClient"  # noqa: SLF001
     return client
 
 

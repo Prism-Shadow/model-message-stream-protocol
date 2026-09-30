@@ -91,7 +91,6 @@ if os.getenv("OPENAI_API_KEY"):
             support_text=False,
             support_image_understanding=False,
             support_embedding=True,
-            client_type="openai-embedding",
         )
     )
 
@@ -128,7 +127,7 @@ if os.getenv("MOONSHOT_API_KEY"):
     AVAILABLE_MODELS.append(Model(name="kimi-k3"))
 
 if os.getenv("MINIMAX_API_KEY"):
-    AVAILABLE_MODELS.append(Model(name="MiniMax-M3", client_type="minimax-m3"))
+    AVAILABLE_MODELS.append(Model(name="MiniMax-M3"))
 
 if os.getenv("DEEPSEEK_API_KEY"):
     AVAILABLE_MODELS.append(Model(name="deepseek-v4-flash-vision-exp"))
@@ -144,7 +143,10 @@ if os.getenv("DEEPSEEK_API_KEY"):
         )
 
 if os.getenv("BEDROCK_API_KEY"):
-    AVAILABLE_MODELS.append(Model(name="global.anthropic.claude-sonnet-4-6", provider="bedrock"))
+    # a Bedrock id begins with no model family, so the client is named
+    AVAILABLE_MODELS.append(
+        Model(name="global.anthropic.claude-sonnet-4-6", provider="bedrock", client_type="anthropic-official")
+    )
 
 if os.getenv("VERTEX_API_KEY"):
     AVAILABLE_MODELS.append(Model(name="gemini-3.8-flash", provider="vertex"))
@@ -476,11 +478,61 @@ async def test_concat_uni_events_to_uni_message(model: Model):
     assert all_text == text
 
 
-@pytest.mark.asyncio
-async def test_unknown_model():
-    """Test that unknown models raise ValueError."""
-    with pytest.raises(ValueError, match="not support"):
-        AutoLLMClient(model="unknown-model")
+# A model id of a known family routes to its official client on its own; a client type names
+# any client, whatever the model id, and is read in any casing.
+ROUTING_CASES = [
+    ("gpt-5.6-luna", None, "OpenAIOfficialClient"),
+    ("GPT-5.5", None, "OpenAIOfficialClient"),
+    ("text-embedding-3-large", None, "OpenaiEmbeddingClient"),
+    ("text-embedding-3-large", "openai-official", "OpenaiEmbeddingClient"),
+    ("claude-sonnet-5", None, "AnthropicOfficialClient"),
+    ("gemini-3.8-flash", None, "GeminiOfficialClient"),
+    ("gemini-embedding-2", None, "GeminiOfficialClient"),
+    ("gemini-3.8-flash", "gemini-generate-content", "GeminiGenerateContentClient"),
+    ("glm-5.3", None, "ZAIOfficialClient"),
+    ("kimi-k3", None, "MoonshotOfficialClient"),
+    ("deepseek-v4-pro", None, "DeepSeekOfficialClient"),
+    # a version-free DeepSeek id routes on the family too
+    ("deepseek-flash", None, "DeepSeekOfficialClient"),
+    ("MiniMax-M3", None, "MiniMaxOfficialClient"),
+    ("deepseek-v4-pro", "OpenAI-Responses", "OpenaiResponsesClient"),
+    ("qwen/qwen3.6-35b-a3b", "openai-responses", "OpenaiResponsesClient"),
+    ("qwen3.6", "openai-chat", "OpenaiChatClient"),
+    ("qwen3.6", "openai", "OpenaiChatClient"),
+    ("qwen3.6", "openai-chat-vllm-adapter", "OpenaiChatVllmAdapterClient"),
+    ("qwen3-embedding", "openai-embedding", "OpenaiEmbeddingClient"),
+    ("claude-opus-5", "ant-messages", "AntMessagesClient"),
+]
+
+
+@pytest.mark.parametrize(
+    ("model", "client_type", "client_name"), ROUTING_CASES, ids=[f"{m}:{c or 'auto'}" for m, c, _ in ROUTING_CASES]
+)
+def test_client_type_or_model_family_names_the_client(model: str, client_type: str | None, client_name: str):
+    client = AutoLLMClient(model=model, api_key="test-key", client_type=client_type)
+
+    assert client._client.__class__.__name__ == client_name
+
+
+def test_a_model_of_no_known_family_asks_for_a_client_type():
+    with pytest.raises(ValueError, match="Pass client_type.*openai-official.*openai-responses"):
+        AutoLLMClient(model="qwen3.6", api_key="test-key")
+
+
+def test_an_unknown_client_type_is_refused_whatever_the_model():
+    # a model id is not a client type, and neither are the names of the clients before 0.5.0
+    with pytest.raises(ValueError, match="Unknown client type 'gpt-5.5'"):
+        AutoLLMClient(model="gpt-5.5", api_key="test-key", client_type="gpt-5.5")
+
+
+def test_the_environment_names_the_client_when_the_code_does_not(monkeypatch):
+    monkeypatch.setenv("CLIENT_TYPE", "openai-chat")
+
+    assert AutoLLMClient(model="gpt-5.5", api_key="test-key")._client.__class__.__name__ == "OpenaiChatClient"
+    assert (
+        AutoLLMClient(model="gpt-5.5", api_key="test-key", client_type="openai-responses")._client.__class__.__name__
+        == "OpenaiResponsesClient"
+    )
 
 
 @pytest.mark.asyncio
@@ -489,7 +541,7 @@ async def test_list_supported_models():
     entries = list_supported_models()
     kimi = next(entry for entry in entries if entry["model"] == "kimi-k3")
     assert kimi["base_url"] == "https://api.moonshot.cn/v1"
-    assert kimi["client"] == "kimi-k3"
+    assert kimi["client"] == "moonshot-official"
     assert kimi["context_window"] == 1048576
     assert kimi["input_modalities"] == ["Text", "Image"]
     assert kimi["output_modalities"] == ["Text"]
@@ -506,7 +558,7 @@ async def test_list_supported_models():
     # rows is not recorded here, so the catalog rate is what every entry reports.
     for model in ("gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash"):
         gemini = next(entry for entry in entries if entry["model"] == model)
-        assert gemini["client"] == "gemini-3.8"
+        assert gemini["client"] == "gemini-official"
         assert gemini["pricing"]["prompt_tokens"] == 1.5
         assert gemini["pricing"]["response_tokens"] == 7.5
         assert gemini["pricing"]["cached_tokens"] == 0.15
@@ -520,7 +572,7 @@ async def test_list_supported_models():
 
     glm_5_2 = next(entry for entry in entries if entry["model"] == "z-ai/glm-5.2")
     assert glm_5_2["base_url"] == "https://openrouter.ai/api/v1"
-    assert glm_5_2["client"] == "glm-5.2"
+    assert glm_5_2["client"] == "zai-official"
 
     for entry in entries:
         assert {"model", "base_url", "client", "input_modalities", "output_modalities"} <= set(entry)
@@ -528,24 +580,6 @@ async def test_list_supported_models():
             model=entry["model"], api_key="test-key", base_url=entry["base_url"], client_type=entry["client"]
         )
         assert client._client is not None
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("client_type", "client_name"),
-    [
-        ("openai-compatible", "OpenaiChatClient"),
-        ("openai-chat-compatible", "OpenaiChatClient"),
-        ("openai-responses-compatible", "OpenaiResponsesClient"),
-        ("ant-messages-compatible", "AntMessagesClient"),
-        ("openai-embedding-compatible", "OpenaiEmbeddingClient"),
-    ],
-)
-async def test_openai_client_type_routes(client_type: str, client_name: str):
-    """Test client_type override for OpenAI-compatible models."""
-    client = AutoLLMClient(model="unknown-model", api_key="test-key", client_type=client_type)
-
-    assert client._client.__class__.__name__ == client_name
 
 
 @pytest.mark.asyncio
