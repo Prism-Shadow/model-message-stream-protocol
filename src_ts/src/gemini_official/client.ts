@@ -27,6 +27,7 @@ import {
   EventType,
   FinishReason,
   PromptCaching,
+  ThinkingDeltaItem,
   ThinkingLevel,
   ToolChoice,
   UniConfig,
@@ -817,8 +818,52 @@ export class GeminiOfficialClient extends LLMClient {
       { signal: options.signal },
     );
 
+    // A thought step that summarized nothing streams its signature alone, and every response opens with one
+    // when no summary is asked for (verified live 2026-09-30). Its signature rides on the first delta of the
+    // text, image or call the next step opens instead of making an empty thinking item; the history transform
+    // takes it back as a thought step in front of that item.
+    let summarizedStep: number | undefined;
+    let held: ThinkingDeltaItem | undefined;
     for await (const event of stream) {
-      yield this.transformModelOutputToUniEvent(event);
+      const uniEvent = this.transformModelOutputToUniEvent(event);
+      if (
+        event.event_type === "step.delta" &&
+        event.delta.type === "thought_summary"
+      ) {
+        summarizedStep = event.index;
+      } else if (
+        event.event_type === "step.delta" &&
+        event.delta.type === "thought_signature" &&
+        event.index !== summarizedStep
+      ) {
+        held = uniEvent.content_items[0] as ThinkingDeltaItem;
+        continue;
+      }
+
+      const contentItems = uniEvent.content_items;
+      if (held !== undefined && contentItems.length > 0) {
+        const first = contentItems[0];
+        if (
+          first.type === "text.delta" ||
+          first.type === "inline_data.delta" ||
+          first.type === "tool_call.delta"
+        ) {
+          first.fidelity = {
+            ...first.fidelity,
+            signature: held.fidelity?.signature,
+          };
+        } else {
+          // a thought step follows, which signs its own summary
+          contentItems.unshift(held);
+        }
+        held = undefined;
+      } else if (held !== undefined && uniEvent.event_type === "stop") {
+        // nothing followed the thought, so its signature stays on a thinking item of its own
+        contentItems.unshift(held);
+        held = undefined;
+      }
+
+      yield uniEvent;
     }
   }
 

@@ -16,6 +16,7 @@ import base64
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 from stream_grammar import assert_stream_grammar
@@ -656,6 +657,97 @@ async def test_gemini_client_streams_every_image_as_an_item_and_audio_chunks_as_
         {"type": "inline_data.done", "data": b"image 2", "mime_type": "image/png"},
         {"type": "inline_data.done", "data": b"pcm 1pcm 2", "mime_type": "audio/l16; rate=24000; channels=1"},
     ]
+
+
+def _bare_signature_streams() -> dict[str, tuple[list[object], list[dict[str, Any]]]]:
+    """Streams opening with a thought step, each with the done items it should yield."""
+    thought_start = SimpleNamespace(event_type="step.start", index=0, step=SimpleNamespace(type="thought"))
+    signature = _gemini_delta_event(0, SimpleNamespace(type="thought_signature", signature="sig-1"))
+    thought_stop = SimpleNamespace(event_type="step.stop", index=0)
+    answer = [
+        SimpleNamespace(event_type="step.start", index=1, step=SimpleNamespace(type="model_output")),
+        _gemini_delta_event(1, SimpleNamespace(type="text", text="Yes.")),
+    ]
+    return {
+        # a thought step that summarized nothing signs the answer that follows it
+        "text": (
+            [thought_start, signature, thought_stop, *answer, _gemini_completed_event()],
+            [{"type": "text.done", "text": "Yes.", "fidelity": {"signature": "sig-1"}}],
+        ),
+        "call": (
+            [
+                thought_start,
+                signature,
+                thought_stop,
+                SimpleNamespace(
+                    event_type="step.start",
+                    index=1,
+                    step=SimpleNamespace(
+                        type="function_call", id="call_1", name="get_weather", arguments={"city": "Beijing"}
+                    ),
+                ),
+                _gemini_completed_event("requires_action"),
+            ],
+            [
+                {
+                    "type": "tool_call.done",
+                    "name": "get_weather",
+                    "arguments": {"city": "Beijing"},
+                    "tool_call_id": "call_1",
+                    "fidelity": {"signature": "sig-1"},
+                }
+            ],
+        ),
+        # a summary keeps the signature of its step
+        "summary": (
+            [
+                thought_start,
+                _gemini_delta_event(
+                    0, SimpleNamespace(type="thought_summary", content=SimpleNamespace(type="text", text="Checking."))
+                ),
+                signature,
+                thought_stop,
+                *answer,
+                _gemini_completed_event(),
+            ],
+            [
+                {"type": "thinking.done", "thinking": "Checking.", "fidelity": {"signature": "sig-1"}},
+                {"type": "text.done", "text": "Yes."},
+            ],
+        ),
+        # a thought step that follows signs its own summary, so the bare signature keeps a thinking item
+        "thoughts": (
+            [
+                thought_start,
+                signature,
+                thought_stop,
+                _gemini_delta_event(
+                    1, SimpleNamespace(type="thought_summary", content=SimpleNamespace(type="text", text="Checking."))
+                ),
+                _gemini_delta_event(1, SimpleNamespace(type="thought_signature", signature="sig-2")),
+                _gemini_delta_event(2, SimpleNamespace(type="text", text="Yes.")),
+                _gemini_completed_event(),
+            ],
+            [
+                {"type": "thinking.done", "thinking": "", "fidelity": {"signature": "sig-1"}},
+                {"type": "thinking.done", "thinking": "Checking.", "fidelity": {"signature": "sig-2"}},
+                {"type": "text.done", "text": "Yes."},
+            ],
+        ),
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", GEMINI_STREAM_CASES, ids=[case.client_type for case in GEMINI_STREAM_CASES])
+@pytest.mark.parametrize("stream", ["text", "call", "summary", "thoughts"])
+async def test_gemini_client_puts_a_bare_thought_signature_on_the_item_it_signs(case: StreamCase, stream: str):
+    events_in, expected = _bare_signature_streams()[stream]
+    client = _create_auto_client(case)
+    _install_fake_gemini_stream(client, events_in)
+
+    events = [event async for event in client.streaming_response(MESSAGES, {})]
+    assert_stream_grammar(events)
+    assert [item for event in events for item in event["content_items"] if item["type"].endswith(".done")] == expected
 
 
 @pytest.mark.asyncio

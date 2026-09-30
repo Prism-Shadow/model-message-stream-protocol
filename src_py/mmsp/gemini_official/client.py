@@ -640,8 +640,39 @@ class GeminiOfficialClient(LLMClient):
 
         stream = await self._client.aio.interactions.create(**gemini_config, input=steps)
 
+        # A thought step that summarized nothing streams its signature alone, and every response opens with one
+        # when no summary is asked for (verified live 2026-09-30). Its signature rides on the first delta of the
+        # text, image or call the next step opens instead of making an empty thinking item; the history transform
+        # takes it back as a thought step in front of that item.
+        summarized_step: int | None = None
+        held: EventContentItem | None = None
         async for event in stream:
-            yield self.transform_model_output_to_uni_event(event)
+            uni_event = self.transform_model_output_to_uni_event(event)
+            if event.event_type == "step.delta" and event.delta.type == "thought_summary":
+                summarized_step = event.index
+            elif (
+                event.event_type == "step.delta"
+                and event.delta.type == "thought_signature"
+                and event.index != summarized_step
+            ):
+                held = uni_event["content_items"][0]
+                continue
+
+            content_items = uni_event["content_items"]
+            if held is not None and content_items:
+                first = content_items[0]
+                if first["type"] in ("text.delta", "inline_data.delta", "tool_call.delta"):
+                    first["fidelity"] = {**(first.get("fidelity") or {}), "signature": held["fidelity"]["signature"]}
+                else:
+                    # a thought step follows, which signs its own summary
+                    content_items.insert(0, held)
+                held = None
+            elif held is not None and uni_event["event_type"] == "stop":
+                # nothing followed the thought, so its signature stays on a thinking item of its own
+                content_items.insert(0, held)
+                held = None
+
+            yield uni_event
 
     async def list_models(self) -> list[str]:
         """

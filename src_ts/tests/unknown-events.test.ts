@@ -790,8 +790,129 @@ describe.each(GEMINI_STREAM_CASES)(
         },
       ]);
     });
+
+    test.each(["text", "call", "summary", "thoughts"])(
+      "puts a bare thought signature on the item it signs (%s)",
+      async (stream) => {
+        const [eventsIn, expected] = bareSignatureStreams()[stream];
+        const client = createAutoClient(testCase);
+        installFakeGeminiStream(client, eventsIn);
+
+        const events = await collectEvents(
+          client.streamingResponse({ messages, config: {} }),
+        );
+        assertStreamGrammar(events);
+        expect(
+          events
+            .flatMap((event): EventContentItem[] => event.content_items)
+            .filter((item) => item.type.endsWith(".done")),
+        ).toEqual(expected);
+      },
+    );
   },
 );
+
+// Streams opening with a thought step, each with the done items it should yield.
+function bareSignatureStreams(): Record<string, [unknown[], object[]]> {
+  const thoughtStart = {
+    event_type: "step.start",
+    index: 0,
+    step: { type: "thought" },
+  };
+  const signature = geminiDeltaEvent(0, {
+    type: "thought_signature",
+    signature: "sig-1",
+  });
+  const thoughtStop = { event_type: "step.stop", index: 0 };
+  const answer = [
+    { event_type: "step.start", index: 1, step: { type: "model_output" } },
+    geminiDeltaEvent(1, { type: "text", text: "Yes." }),
+  ];
+  return {
+    // a thought step that summarized nothing signs the answer that follows it
+    text: [
+      [thoughtStart, signature, thoughtStop, ...answer, geminiCompletedEvent()],
+      [{ type: "text.done", text: "Yes.", fidelity: { signature: "sig-1" } }],
+    ],
+    call: [
+      [
+        thoughtStart,
+        signature,
+        thoughtStop,
+        {
+          event_type: "step.start",
+          index: 1,
+          step: {
+            type: "function_call",
+            id: "call_1",
+            name: "get_weather",
+            arguments: { city: "Beijing" },
+          },
+        },
+        geminiCompletedEvent("requires_action"),
+      ],
+      [
+        {
+          type: "tool_call.done",
+          name: "get_weather",
+          arguments: { city: "Beijing" },
+          tool_call_id: "call_1",
+          fidelity: { signature: "sig-1" },
+        },
+      ],
+    ],
+    // a summary keeps the signature of its step
+    summary: [
+      [
+        thoughtStart,
+        geminiDeltaEvent(0, {
+          type: "thought_summary",
+          content: { type: "text", text: "Checking." },
+        }),
+        signature,
+        thoughtStop,
+        ...answer,
+        geminiCompletedEvent(),
+      ],
+      [
+        {
+          type: "thinking.done",
+          thinking: "Checking.",
+          fidelity: { signature: "sig-1" },
+        },
+        { type: "text.done", text: "Yes." },
+      ],
+    ],
+    // a thought step that follows signs its own summary, so the bare signature keeps a thinking item
+    thoughts: [
+      [
+        thoughtStart,
+        signature,
+        thoughtStop,
+        geminiDeltaEvent(1, {
+          type: "thought_summary",
+          content: { type: "text", text: "Checking." },
+        }),
+        geminiDeltaEvent(1, { type: "thought_signature", signature: "sig-2" }),
+        geminiDeltaEvent(2, { type: "text", text: "Yes." }),
+        geminiCompletedEvent(),
+      ],
+      [
+        {
+          type: "thinking.done",
+          thinking: "",
+          fidelity: { signature: "sig-1" },
+        },
+        {
+          type: "thinking.done",
+          thinking: "Checking.",
+          fidelity: { signature: "sig-2" },
+        },
+        { type: "text.done", text: "Yes." },
+      ],
+    ],
+  };
+}
 
 describe.each(GENERATE_CONTENT_STREAM_CASES)(
   "Stream event handling for $clientType",
