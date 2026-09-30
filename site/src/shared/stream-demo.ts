@@ -1,5 +1,6 @@
-// The streams the overview page plays: recorded shapes, replayed event by event. The same
-// functions render the finished state at build time and every step in the browser.
+// The streams the overview page plays: one input, sent to three models, and the events each
+// one streamed back, replayed event by event. The same functions render the finished state at
+// build time and every step in the browser.
 
 export interface DemoItem {
   type: string;
@@ -15,80 +16,124 @@ export interface DemoEvent {
 
 export interface Scenario {
   id: string;
+  // the model id, the one thing that changes between the scenarios
   model: string;
-  prompt: string;
+  label: string;
   events: DemoEvent[];
 }
 
-// the words of the message column, in the page's language
+// the words of the player, in the page's language
 export interface PlayerWords {
   nothing: string;
   running: string;
   streaming: string;
+  finish: string;
+  usage: string;
+  tokens: string;
+  cached: string;
+  prompt: string;
+  thoughts: string;
+  response: string;
 }
 
+// what every scenario sends: the same message and the same tool, to a different model
+export const INPUT = {
+  message: {
+    role: "user",
+    content_items: [{ type: "text.done", text: "What's the weather in Paris?" }],
+  },
+  config: {
+    tools: [{ name: "get_weather", description: "Current weather for a city.", parameters: "…" }],
+  },
+};
+
 const delta = (item: DemoItem): DemoEvent => ({ event_type: "delta", item });
+const stop = (finish_reason: string, usage_metadata: Record<string, number | null>): DemoEvent => ({
+  event_type: "stop",
+  finish_reason,
+  usage_metadata,
+});
 
 export const SCENARIOS: Scenario[] = [
   {
-    id: "text",
-    model: "gpt-5.6-sol",
-    prompt: "Say 'Hello, World!'",
-    events: [
-      delta({ type: "text.delta", text: "Hello" }),
-      delta({ type: "text.delta", text: "," }),
-      delta({ type: "text.delta", text: " World" }),
-      delta({ type: "text.delta", text: "!" }),
-      delta({ type: "text.done", text: "Hello, World!" }),
-      {
-        event_type: "stop",
-        usage_metadata: {
-          cached_tokens: 0,
-          prompt_tokens: 12,
-          thoughts_tokens: 0,
-          response_tokens: 8,
-        },
-        finish_reason: "stop",
-      },
-    ],
-  },
-  {
-    id: "tool",
+    id: "claude",
     model: "claude-opus-5",
-    prompt: "What's the weather in Paris?",
+    label: "Claude",
     events: [
-      delta({ type: "thinking.delta", thinking: "Let me" }),
-      delta({ type: "thinking.delta", thinking: " check" }),
-      delta({ type: "thinking.delta", thinking: "", fidelity: { signature: "EuYB..." } }),
+      delta({ type: "thinking.delta", thinking: "The user wants" }),
+      delta({ type: "thinking.delta", thinking: " the weather in Paris." }),
+      delta({ type: "thinking.delta", thinking: "", fidelity: { signature: "EuYBCkYIBxgC…" } }),
       delta({
         type: "thinking.done",
-        thinking: "Let me check",
-        fidelity: { signature: "EuYB..." },
+        thinking: "The user wants the weather in Paris.",
+        fidelity: { signature: "EuYBCkYIBxgC…" },
       }),
-      delta({
-        type: "tool_call.delta",
-        name: "get_weather",
-        arguments: "",
-        tool_call_id: "toolu_1",
-      }),
+      delta({ type: "tool_call.delta", name: "get_weather", arguments: "", tool_call_id: "toolu_01A3" }),
       delta({ type: "tool_call.delta", name: "", arguments: '{"location": ', tool_call_id: "" }),
       delta({ type: "tool_call.delta", name: "", arguments: '"Paris"}', tool_call_id: "" }),
       delta({
         type: "tool_call.done",
         name: "get_weather",
         arguments: { location: "Paris" },
-        tool_call_id: "toolu_1",
+        tool_call_id: "toolu_01A3",
       }),
-      {
-        event_type: "stop",
-        usage_metadata: {
-          cached_tokens: 0,
-          prompt_tokens: 412,
-          thoughts_tokens: 31,
-          response_tokens: 27,
-        },
-        finish_reason: "tool_call",
-      },
+      stop("tool_call", { cached_tokens: 0, prompt_tokens: 412, thoughts_tokens: 31, response_tokens: 27 }),
+    ],
+  },
+  {
+    id: "gpt",
+    model: "gpt-5.6-sol",
+    label: "GPT",
+    events: [
+      delta({ type: "thinking.delta", thinking: "**Checking the weather**" }),
+      delta({ type: "thinking.delta", thinking: " I need the current conditions in Paris." }),
+      delta({
+        type: "thinking.delta",
+        thinking: "",
+        fidelity: { encrypted_content: "gAAAAABo9…" },
+      }),
+      delta({
+        type: "thinking.done",
+        thinking: "**Checking the weather** I need the current conditions in Paris.",
+        fidelity: { encrypted_content: "gAAAAABo9…" },
+      }),
+      delta({ type: "tool_call.delta", name: "get_weather", arguments: "", tool_call_id: "call_x7Kq" }),
+      delta({ type: "tool_call.delta", name: "", arguments: '{"location":', tool_call_id: "" }),
+      delta({ type: "tool_call.delta", name: "", arguments: '"Paris"}', tool_call_id: "" }),
+      delta({
+        type: "tool_call.done",
+        name: "get_weather",
+        arguments: { location: "Paris" },
+        tool_call_id: "call_x7Kq",
+      }),
+      stop("tool_call", { cached_tokens: 256, prompt_tokens: 138, thoughts_tokens: 64, response_tokens: 19 }),
+    ],
+  },
+  {
+    id: "gemini",
+    model: "gemini-3.8-flash",
+    label: "Gemini",
+    events: [
+      delta({ type: "thinking.delta", thinking: "Paris weather:" }),
+      delta({ type: "thinking.delta", thinking: " call the tool.", fidelity: { signature: "CqEBAXCw…" } }),
+      delta({
+        type: "thinking.done",
+        thinking: "Paris weather: call the tool.",
+        fidelity: { signature: "CqEBAXCw…" },
+      }),
+      delta({
+        type: "tool_call.delta",
+        name: "get_weather",
+        arguments: '{"location": "Paris"}',
+        tool_call_id: "fc_9d2e",
+      }),
+      delta({
+        type: "tool_call.done",
+        name: "get_weather",
+        arguments: { location: "Paris" },
+        tool_call_id: "fc_9d2e",
+      }),
+      stop("tool_call", { cached_tokens: 0, prompt_tokens: 97, thoughts_tokens: 22, response_tokens: 12 }),
     ],
   },
 ];
@@ -97,6 +142,10 @@ const escapeHtml = (value: string): string =>
   value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 const json = (value: unknown): string => escapeHtml(JSON.stringify(value));
+
+// JSON with a space after each colon and comma, for the input card, whose strings hold neither
+const spaced = (value: unknown): string =>
+  escapeHtml(JSON.stringify(value).replace(/":/g, '": ').replace(/,"/g, ', "'));
 
 // the one field a kind grows, as the protocol defines it
 const GROWS: Record<string, string> = {
@@ -119,6 +168,23 @@ function preview(item: DemoItem): string {
     parts.push(`fidelity ${json(item.fidelity)}`);
   }
   return parts.join("  ");
+}
+
+const KEY = "text-gray-400 dark:text-gray-500";
+
+/**
+ * The input, as the code sends it: the model id is the one line that changes between the
+ * scenarios, so it is the one line that is marked.
+ */
+export function renderInput(scenario: Scenario): string {
+  const line = (key: string, value: string, mark = false) =>
+    `<div class="grid grid-cols-[4.5rem_1fr] gap-x-2"><span class="${KEY}">${key}</span>` +
+    `<span class="min-w-0 break-all ${mark ? "font-medium text-brand-700 dark:text-brand-300" : "text-gray-800 dark:text-gray-200"}">${value}</span></div>`;
+  return (
+    line("model", json(scenario.model), true) +
+    line("message", spaced(INPUT.message)) +
+    line("config", spaced(INPUT.config))
+  );
 }
 
 const ROW =
@@ -144,17 +210,71 @@ export function renderEvent(event: DemoEvent): string {
   );
 }
 
+// the four counts of usage_metadata, in the order they add up: input first, then output
+const USAGE: [keyof PlayerWords, string, string][] = [
+  ["cached", "cached_tokens", "bg-gray-400 dark:bg-gray-500"],
+  ["prompt", "prompt_tokens", "bg-brand-300 dark:bg-brand-400"],
+  ["thoughts", "thoughts_tokens", "bg-brand-500"],
+  ["response", "response_tokens", "bg-brand-700 dark:bg-brand-600"],
+];
+
+const PILL =
+  "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium";
+
 /**
- * The assistant message after the first `count` events: the done items that arrived, and the
- * item still streaming, which is not part of the message until its done item arrives.
+ * The stop event as a reader wants it: the finish reason as a pill, and the usage as a bar per
+ * count, scaled to the largest, with the total beside it.
+ */
+export function renderStop(event: DemoEvent, words: PlayerWords): string {
+  const usage = event.usage_metadata ?? {};
+  const counts = USAGE.map(([word, field, color]) => ({ word, color, value: usage[field] ?? 0 }));
+  const largest = Math.max(1, ...counts.map((count) => count.value));
+  const total = counts.reduce((sum, count) => sum + count.value, 0);
+  const finish = String(event.finish_reason);
+  const finishTone =
+    finish === "tool_call"
+      ? "border-brand-200 bg-brand-50 text-brand-800 dark:border-brand-800 dark:bg-brand-950/60 dark:text-brand-200"
+      : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-200";
+  const bars = counts
+    .map((count) => {
+      // a count too small for its share of the bar still shows
+      const width = count.value === 0 ? "0%" : `${Math.max(1.5, (100 * count.value) / largest)}%`;
+      return (
+        `<div class="grid grid-cols-[4.5rem_1fr_3rem] items-center gap-x-2">` +
+        `<span class="${KEY} truncate">${words[count.word]}</span>` +
+        `<span class="h-2.5 overflow-hidden rounded-sm bg-gray-100 dark:bg-gray-800"><span class="block h-full rounded-sm ${count.color} transition-[width] duration-700 ease-out" style="width: ${width}" data-bar="${width}"></span></span>` +
+        `<span class="mono text-right tabular-nums text-gray-700 dark:text-gray-300">${count.value}</span></div>`
+      );
+    })
+    .join("");
+  const row = (name: string, pill: string) =>
+    `<div class="flex items-center justify-between gap-2"><span class="${KEY}">${name}</span>${pill}</div>`;
+  return (
+    row(
+      words.finish,
+      `<span class="${PILL} mono ${finishTone}"><span class="h-1.5 w-1.5 rounded-full bg-current"></span>${escapeHtml(finish)}</span>`,
+    ) +
+    `<div class="mt-2">` +
+    row(
+      words.usage,
+      `<span class="${PILL} border-gray-200 bg-white text-gray-700 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-300"><span class="mono tabular-nums">${total}</span> ${words.tokens}</span>`,
+    ) +
+    `<div class="mt-2 space-y-1.5">${bars}</div></div>`
+  );
+}
+
+/**
+ * The assistant message after the first `count` events: the done items that arrived, the item
+ * still streaming, which is not part of the message until its done item arrives, and once the
+ * stop event has arrived, the finish reason and the usage.
  */
 export function renderMessage(events: DemoEvent[], count: number, words: PlayerWords): string {
   const done: DemoItem[] = [];
   let open: { kind: string; value: string } | null = null;
-  let stop: DemoEvent | null = null;
+  let stopped: DemoEvent | null = null;
   for (const event of events.slice(0, count)) {
     if (event.event_type === "stop") {
-      stop = event;
+      stopped = event;
       continue;
     }
     const item = event.item as DemoItem;
@@ -184,8 +304,8 @@ export function renderMessage(events: DemoEvent[], count: number, words: PlayerW
     rows.push(`<li class="px-0.5 py-1.5 text-gray-400 dark:text-gray-500">${words.nothing}</li>`);
   }
   const meta =
-    stop === null
-      ? `<p class="mt-2 px-0.5 text-gray-400 dark:text-gray-500">${words.running}</p>`
-      : `<p class="mt-2 px-0.5 break-all text-gray-700 dark:text-gray-300">finish_reason ${json(stop.finish_reason)}<br />usage_metadata ${json(stop.usage_metadata)}</p>`;
+    stopped === null
+      ? `<p class="mt-3 px-0.5 text-gray-400 dark:text-gray-500">${words.running}</p>`
+      : `<div class="mt-3 border-t border-gray-200 pt-3 dark:border-gray-800" data-stop>${renderStop(stopped, words)}</div>`;
   return `<ul class="space-y-1.5">${rows.join("")}</ul>${meta}`;
 }

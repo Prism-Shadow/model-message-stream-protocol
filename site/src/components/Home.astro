@@ -55,7 +55,10 @@ const COPY = {
     h1: "Model Message Stream Protocol",
     lede: "MMSP is one message format and one streaming grammar for every model provider. Write your agent once, and Claude, GPT, Gemini, DeepSeek, Kimi, GLM, MiniMax and Qwen all read and stream the same way, in Python and TypeScript.",
     quickstart: "Read the quickstart",
-    stream: "See how a stream reads",
+    copyPrompt: "Copy the prompt for your AI",
+    copied: "Copied",
+    copyFailed: "Copy failed",
+    copyHint: "Paste it into Claude Code, Codex or any coding agent, and it writes MMSP code from the docs.",
     why: "Why MMSP",
     whyText1:
       "Model APIs have settled on the same building blocks: messages, thinking, tool calls, streaming. Every provider still encodes them its own way. Anthropic streams content blocks, OpenAI streams output items, Gemini streams steps, and Chat Completions streams chunks that name nothing. An agent written against one of them is rewritten for the next.",
@@ -88,7 +91,10 @@ const COPY = {
     h1: "Model Message Stream Protocol",
     lede: "MMSP 为所有模型服务商提供同一套消息格式与同一套流式语法。agent 只写一次，Claude、GPT、Gemini、DeepSeek、Kimi、GLM、MiniMax 与 Qwen 读到的消息、流出的事件都是同一个样子，Python 与 TypeScript 两种实现。",
     quickstart: "阅读快速开始",
-    stream: "看看一条流长什么样",
+    copyPrompt: "复制给 AI 的指令",
+    copied: "已复制",
+    copyFailed: "复制失败",
+    copyHint: "粘贴给 Claude Code、Codex 或任何编码助手，它就能照着文档写 MMSP 代码。",
     why: "为什么是 MMSP",
     whyText1:
       "各家模型 API 早已用上同样的积木：消息、思考、工具调用、流式输出。可每家的编码方式仍然各不相同：Anthropic 流出 content block，OpenAI 流出 output item，Gemini 流出 step，Chat Completions 流出的 chunk 连名字都没有。照着一家写的 agent，换下一家就得重写。",
@@ -157,7 +163,7 @@ const code = "mono text-[0.9em]";
 ---
 
 <section>
-  <div class="mx-auto grid max-w-7xl items-start gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:py-20">
+  <div class="mx-auto grid max-w-7xl grid-cols-1 items-start gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:py-20">
     <div>
       <h1 class="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">{COPY.h1}</h1>
       <p class="mt-5 text-[17px] leading-8 text-gray-700 dark:text-gray-300">{COPY.lede}</p>
@@ -174,13 +180,21 @@ const code = "mono text-[0.9em]";
         >
           {COPY.quickstart}
         </a>
-        <a
-          href={href("/docs/streaming/")}
-          class="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-800 transition-colors hover:bg-gray-50 dark:border-gray-800 dark:text-gray-200 dark:hover:bg-gray-900"
+        <button
+          type="button"
+          data-copy-prompt={COPY.agentPrompt}
+          data-copied={COPY.copied}
+          data-failed={COPY.copyFailed}
+          class="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-800 transition-colors hover:bg-gray-50 dark:border-gray-800 dark:text-gray-200 dark:hover:bg-gray-900"
         >
-          {COPY.stream}
-        </a>
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="9" y="9" width="11" height="11" rx="2"></rect>
+            <path d="M5 15V6a2 2 0 0 1 2-2h9"></path>
+          </svg>
+          <span>{COPY.copyPrompt}</span>
+        </button>
       </div>
+      <p class="mt-3 text-[13px] leading-6 text-gray-500 dark:text-gray-400">{COPY.copyHint}</p>
     </div>
 
     <StreamPlayer locale={locale} />
@@ -206,7 +220,7 @@ const code = "mono text-[0.9em]";
 </section>
 
 <section class={section} id="grammar">
-  <div class:list={[inner, "grid gap-10 lg:grid-cols-2"]}>
+  <div class:list={[inner, "grid grid-cols-1 gap-10 lg:grid-cols-2"]}>
     <div>
       <h2 class={heading}>{COPY.grammarTitle}</h2>
       <p class={prose}>
@@ -249,7 +263,7 @@ const code = "mono text-[0.9em]";
 </section>
 
 <section class={section} id="start">
-  <div class:list={[inner, "grid gap-10 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]"]}>
+  <div class:list={[inner, "grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]"]}>
     <div>
       <h2 class={heading}>{COPY.startTitle}</h2>
       <p class={prose}>{COPY.startText1}</p>
@@ -265,7 +279,7 @@ const code = "mono text-[0.9em]";
 </section>
 
 <section class={section} id="agents">
-  <div class:list={[inner, "grid gap-10 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]"]}>
+  <div class:list={[inner, "grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]"]}>
     <div>
       <h2 class={heading}>{COPY.agentTitle}</h2>
       <p class={prose}>{COPY.agentText1}</p>
@@ -296,3 +310,26 @@ const code = "mono text-[0.9em]";
     </p>
   </div>
 </section>
+
+<script>
+  // the prompt for a coding agent, copied from the hero
+  const copy = document.querySelector<HTMLButtonElement>("[data-copy-prompt]");
+  if (copy) {
+    const label = copy.querySelector("span")!;
+    const idle = label.textContent;
+    let reset: number | undefined;
+    const say = (text: string) => {
+      label.textContent = text;
+      window.clearTimeout(reset);
+      reset = window.setTimeout(() => (label.textContent = idle), 2000);
+    };
+    copy.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(copy.dataset.copyPrompt!);
+        say(copy.dataset.copied!);
+      } catch {
+        say(copy.dataset.failed!);
+      }
+    });
+  }
+</script>
