@@ -10,13 +10,15 @@
 [![PyPI](https://img.shields.io/pypi/v/mmsp)](https://pypi.org/project/mmsp/)
 [![NPM](https://img.shields.io/npm/v/@prismshadow/mmsp)](https://www.npmjs.com/package/@prismshadow/mmsp)
 
-MMSP, the Model Message Stream Protocol: one message format and one streaming grammar for every model provider, in Python and TypeScript.
+**Integrate every model the same way, and keep one API in your head instead of one per provider.**
+
+MMSP, the Model Message Stream Protocol, takes the per-provider differences off a developer's mind: one message format and one streaming grammar for every model provider, in Python and TypeScript.
 
 📖 Documentation: [mmsp.penguin.ooo](https://mmsp.penguin.ooo)
 
 Using a coding agent? Install the MMSP SKILL files from [`skills/`](skills/) so it can use MMSP correctly in generated code.
 
-📢 Follow us on X: [![Twitter](https://img.shields.io/twitter/follow/prismshadow_ai)](https://twitter.com/prismshadow_ai) or join our [Discord Community](https://discord.gg/4TQ2bsSb)
+📢 Follow us on [![X](https://img.shields.io/badge/X-code%5Fhiyouga-000000?logo=x&logoColor=white)](https://x.com/code_hiyouga) or join our [![Discord](https://img.shields.io/badge/Discord-join%20chat-5865F2?logo=discord&logoColor=white)](https://discord.gg/eFHKqqcU3D)
 
 ## Why MMSP?
 

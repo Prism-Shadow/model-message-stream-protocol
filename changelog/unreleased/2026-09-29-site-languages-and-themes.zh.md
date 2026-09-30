@@ -17,6 +17,9 @@
 - 参照 killaislop.com 去掉站点上千篇一律的 AI 模板痕迹：紫色只留给选中的标签页和输出柱，不再铺满每段行内代码；“为什么选择 MMSP”去掉彩色左边框，改写成具体的特性；文档页去掉标题上方的大写小标；顶栏由毛玻璃改为实色；图标换成 Lucide 的，不再手绘。
 - 中文页面与界面文案按地道的技术中文润色，事实一律以英文为准。`site/scripts/polish-zh.mjs` 通过 TokenDance 网关上的 DeepSeek 模型完成润色；代码块和 HTML 从原文还原，改动了行内代码、链接或页面结构的结果会被拒绝。
 - 播放器的暂停按钮现在会在暂停与播放图标之间切换。
+- 播放器在流播放期间和切换模型标签时保持同一高度，下方内容不再跳动。
+- 首页与 README 在标题下用一句口号说明 MMSP 的目的：用同一种方式接入所有模型，减轻开发者接入不同模型的心智负担。
+- 站点与 README 中的 Discord 和 X 链接改为 penguin-harness 使用的社区：`discord.gg/eFHKqqcU3D` 与 `x.com/code_hiyouga`。
 - 标志改为二乘二棋盘格上的四个字母，两格为紫色，格子之间没有空隙。favicon、README 的 header 和 social preview 都使用它。
 - 新增“Agent 循环”一页，描述每个 agent 在 MMSP 上运行的循环，并给出 Python 与 TypeScript 的完整实现：流式输出，运行该轮请求的每个工具，把结果放在一条消息里送回，直到某一轮不再请求工具。
 - 每个文档页的目录跟随阅读位置高亮，并有“复制 Markdown”按钮把本页作为 Markdown 复制。每个页面也以 Markdown 形式在自身 URL 加 `.md` 处提供，`/llms.txt` 为它们建立索引。

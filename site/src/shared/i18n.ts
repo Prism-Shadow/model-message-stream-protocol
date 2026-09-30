@@ -23,7 +23,7 @@ export const STRINGS = {
     htmlLang: "en",
     siteTitle: "MMSP: Model Message Stream Protocol",
     description:
-      "MMSP is one message format and one streaming grammar for every model provider, in Python and TypeScript.",
+      "Integrate every model the same way. MMSP is one message format and one streaming grammar for every model provider, in Python and TypeScript.",
     nav: {
       overview: "Overview",
       quickstart: "Quickstart",
@@ -78,7 +78,7 @@ export const STRINGS = {
   zh: {
     htmlLang: "zh-CN",
     siteTitle: "MMSP：Model Message Stream Protocol",
-    description: "MMSP 为所有模型服务商提供统一的消息格式和流式语法，支持 Python 与 TypeScript。",
+    description: "用同一种方式接入所有模型，减轻开发者接入不同模型的心智负担。MMSP 为所有模型服务商提供统一的消息格式和流式语法，支持 Python 与 TypeScript。",
     nav: {
       overview: "概览",
       quickstart: "快速开始",

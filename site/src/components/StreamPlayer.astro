@@ -82,11 +82,19 @@ const themes = { light: "github-light", dark: "github-dark" } as const;
   <div class="grid gap-px bg-gray-200 lg:grid-cols-[1.35fr_1fr] dark:bg-gray-800">
     <div class="min-w-0 bg-gray-50 p-3 dark:bg-gray-900">
       <h3 class={label}>{s.events}</h3>
-      <ol class="mt-2 min-h-[15.5rem] space-y-px" data-events set:html={first.events.map(renderEvent).join("")} />
+      <!-- the finished stream of every scenario, invisible in the same cell, holds the column at
+           its tallest, so the page below never moves while a stream plays -->
+      <div class="mt-2 grid">
+        {SCENARIOS.map((scenario) => <ol aria-hidden="true" class="invisible col-start-1 row-start-1 space-y-px" set:html={scenario.events.map(renderEvent).join("")} />)}
+        <ol class="col-start-1 row-start-1 space-y-px" data-events set:html={first.events.map(renderEvent).join("")} />
+      </div>
     </div>
     <div class="min-w-0 bg-gray-50 p-3 dark:bg-gray-900">
       <h3 class={label}>{s.message}</h3>
-      <div class="mono mt-2 text-[12.5px] leading-5" data-message set:html={renderMessage(first.events, first.events.length, words)} />
+      <div class="mono mt-2 grid text-[12.5px] leading-5">
+        {SCENARIOS.map((scenario) => <div aria-hidden="true" class="invisible col-start-1 row-start-1" set:html={renderMessage(scenario.events, scenario.events.length, words)} />)}
+        <div class="col-start-1 row-start-1" data-message set:html={renderMessage(first.events, first.events.length, words)} />
+      </div>
     </div>
   </div>
 </div>

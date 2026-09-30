@@ -6,8 +6,8 @@ export const REPO_URL = "https://github.com/Prism-Shadow/model-message-stream-pr
 export const RAW_URL = "https://raw.githubusercontent.com/Prism-Shadow/model-message-stream-protocol/main";
 export const PYPI_URL = "https://pypi.org/project/mmsp/";
 export const NPM_URL = "https://www.npmjs.com/package/@prismshadow/mmsp";
-export const DISCORD_URL = "https://discord.gg/4TQ2bsSb";
-export const X_URL = "https://twitter.com/prismshadow_ai";
+export const DISCORD_URL = "https://discord.gg/eFHKqqcU3D";
+export const X_URL = "https://x.com/code_hiyouga";
 
 type Text = Record<Locale, string>;
 

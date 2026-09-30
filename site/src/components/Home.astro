@@ -56,6 +56,7 @@ const installPrompt = `Install the two skills in ${REPO_URL}/tree/main/skills, m
 const COPY = {
   en: {
     h1: "Model Message Stream Protocol",
+    slogan: "Integrate every model the same way, and keep one API in your head instead of one per provider.",
     lede: "MMSP is one message format and one streaming grammar for every model provider. Write your agent once, and Claude, GPT, Gemini, DeepSeek, Kimi, GLM, MiniMax and Qwen all read and stream the same way, in Python and TypeScript.",
     quickstart: "Read the quickstart",
     copyPrompt: "Install Agent Skill",
@@ -90,41 +91,42 @@ const COPY = {
     contributingText1: ["MMSP is built in the open. A new model, a gateway that streams differently, a stream that breaks the grammar: ", "open an issue", " or send a pull request. The repository carries the provider documentation snapshots and the workflow a client is built by."],
     contributingText2: ["Questions and releases are on ", "Discord", " and ", "X", ". MMSP is what ", "PenguinHarness", " talks to models with."],
   },
-zh: {
-  h1: "Model Message Stream Protocol",
-  lede: "MMSP 为所有模型服务商提供统一的消息格式和流式语法。你的 agent 只需写一次，Claude、GPT、Gemini、DeepSeek、Kimi、GLM、MiniMax 和 Qwen 都能以相同的方式读取和流式输出，支持 Python 和 TypeScript。",
-  quickstart: "阅读快速开始",
-  copyPrompt: "Install Agent Skill",
-  copied: "已复制",
-  copyFailed: "复制失败",
-  copyHint: "复制这段指令。粘贴到 Claude Code、Codex 或任何编码助手，它会安装 MMSP skill 并据此编写 MMSP 代码。",
-  why: "为什么选择 MMSP",
-  whyText1: "模型 API 的核心组件已经趋同：消息、思考、工具调用、流式输出。但每家服务商的编码方式依然各异。Anthropic 流式输出 content block，OpenAI 输出 output item，Gemini 输出 step，而 Chat Completions 输出的 chunk 甚至没有命名。为一个服务商编写的 agent，换一个就得重写。",
-  whyText2: "MMSP 将它们统一为一种形态：",
-  goals: [
-    ["三种类型", "一个 UniConfig、一个 UniMessage、一个 UniEvent。切换模型只需更换模型 id，无需为任何服务商单独编码。"],
-    ["流会告诉你何时结束", "每条流由多个 delta 事件和恰好一个 stop 事件组成，每个内容项由多个 .delta 片段和收尾的 .done 项组成。调用方无需猜测响应是否结束。"],
-    ["工具调用间保留思考", "思考签名、阶段和加密推理内容作为 fidelity 随内容项传递，并原样返回给服务商，确保多步工具调用间的交错思考不会丢失。"],
-    ["无需数据库的追踪", "在配置中添加 trace_id，每一轮对话都会保存到磁盘，并附带本地查看器。"],
-  ],
-  grammarTitle: "所有流共用一套语法",
-  grammarText1: ["一条流包含多个 ", " 事件，每个事件携带一个内容项，最后由恰好一个携带用量和结束原因的 ", " 事件收尾。内容项逐个到达：先片段，后完整项。"],
-  grammarText2: ["完整的项按顺序组成 assistant 消息。从 ", " 读取工具调用，参数已解析完毕；片段则视为实时进度。", "流式文档", "列出了全部规则。"],
-  modelsTitle: "支持的模型",
-  modelsText: ["每个模型都通过其服务商自己的协议访问；另有四个通用客户端可调用任何提供 Chat Completions、Responses、Anthropic Messages 或 OpenAI embeddings 的端点。", "模型与端点", "列出了 id、密钥和 base URL。"],
-  modelsHead: ["模型", "提供方", "示例 id", "输出"],
-  startTitle: "开始使用",
-  startText1: "将服务商的 API key 设为环境变量，指定模型，然后迭代流。有状态的调用会保存对话（包括思考），下一轮只需发送新消息。",
-  startText2: ["快速开始", "接着演示一次工具调用及其结果。"],
-  agentTitle: "交给你的编码助手",
-  agentText1: "仓库附带了 skill 文件，可指导 Claude Code、Codex 及任何支持 skill 的助手编写正确的 MMSP 代码：安装命令、可运行的工具调用循环、数据模型、模型 id。一行命令即可安装 skill 及其参考文件。",
-  agentText2: "skill 会安装到 ~/.claude/skills。单项目使用可装到 .claude/skills，Codex 则用 .agents/skills。不支持 skill 的助手可直接读取链接：",
-  agentPrompt: `读取 ${REPO_URL}/blob/main/skills/mmsp-python/SKILL.md 及其链接的参考文件，然后用 MMSP 编写一个调用 get_weather 的 agent。`,
-  agentLinks: ["skill 文件", "在 GitHub 上", "skill 内容"],
-  contributingTitle: "参与贡献",
-  contributingText1: ["MMSP 是开源项目。新增模型、流式方式不同的网关、破坏语法的流：", "提交 issue", " 或直接发起 pull request。仓库包含各服务商文档的快照，以及构建客户端的开发流程。"],
-  contributingText2: ["问题讨论和版本发布请关注 ", "Discord", " 和 ", "X", "。", "PenguinHarness", " 正是使用 MMSP 与模型对话的。"],
-},
+  zh: {
+    h1: "Model Message Stream Protocol",
+    slogan: "用同一种方式接入所有模型，减轻开发者接入不同模型的心智负担。",
+    lede: "MMSP 为所有模型服务商提供统一的消息格式和流式语法。你的 agent 只需写一次，Claude、GPT、Gemini、DeepSeek、Kimi、GLM、MiniMax 和 Qwen 都能以相同的方式读取和流式输出，支持 Python 和 TypeScript。",
+    quickstart: "阅读快速开始",
+    copyPrompt: "Install Agent Skill",
+    copied: "已复制",
+    copyFailed: "复制失败",
+    copyHint: "复制这段指令。粘贴到 Claude Code、Codex 或任何编码助手，它会安装 MMSP skill 并据此编写 MMSP 代码。",
+    why: "为什么选择 MMSP",
+    whyText1: "模型 API 的核心组件已经趋同：消息、思考、工具调用、流式输出。但每家服务商的编码方式依然各异。Anthropic 流式输出 content block，OpenAI 输出 output item，Gemini 输出 step，而 Chat Completions 输出的 chunk 甚至没有命名。为一个服务商编写的 agent，换一个就得重写。",
+    whyText2: "MMSP 将它们统一为一种形态：",
+    goals: [
+      ["三种类型", "一个 UniConfig、一个 UniMessage、一个 UniEvent。切换模型只需更换模型 id，无需为任何服务商单独编码。"],
+      ["流会告诉你何时结束", "每条流由多个 delta 事件和恰好一个 stop 事件组成，每个内容项由多个 .delta 片段和收尾的 .done 项组成。调用方无需猜测响应是否结束。"],
+      ["工具调用间保留思考", "思考签名、阶段和加密推理内容作为 fidelity 随内容项传递，并原样返回给服务商，确保多步工具调用间的交错思考不会丢失。"],
+      ["无需数据库的追踪", "在配置中添加 trace_id，每一轮对话都会保存到磁盘，并附带本地查看器。"],
+    ],
+    grammarTitle: "所有流共用一套语法",
+    grammarText1: ["一条流包含多个 ", " 事件，每个事件携带一个内容项，最后由恰好一个携带用量和结束原因的 ", " 事件收尾。内容项逐个到达：先片段，后完整项。"],
+    grammarText2: ["完整的项按顺序组成 assistant 消息。从 ", " 读取工具调用，参数已解析完毕；片段则视为实时进度。", "流式文档", "列出了全部规则。"],
+    modelsTitle: "支持的模型",
+    modelsText: ["每个模型都通过其服务商自己的协议访问；另有四个通用客户端可调用任何提供 Chat Completions、Responses、Anthropic Messages 或 OpenAI embeddings 的端点。", "模型与端点", "列出了 id、密钥和 base URL。"],
+    modelsHead: ["模型", "提供方", "示例 id", "输出"],
+    startTitle: "开始使用",
+    startText1: "将服务商的 API key 设为环境变量，指定模型，然后迭代流。有状态的调用会保存对话（包括思考），下一轮只需发送新消息。",
+    startText2: ["快速开始", "接着演示一次工具调用及其结果。"],
+    agentTitle: "交给你的编码助手",
+    agentText1: "仓库附带了 skill 文件，可指导 Claude Code、Codex 及任何支持 skill 的助手编写正确的 MMSP 代码：安装命令、可运行的工具调用循环、数据模型、模型 id。一行命令即可安装 skill 及其参考文件。",
+    agentText2: "skill 会安装到 ~/.claude/skills。单项目使用可装到 .claude/skills，Codex 则用 .agents/skills。不支持 skill 的助手可直接读取链接：",
+    agentPrompt: `读取 ${REPO_URL}/blob/main/skills/mmsp-python/SKILL.md 及其链接的参考文件，然后用 MMSP 编写一个调用 get_weather 的 agent。`,
+    agentLinks: ["skill 文件", "在 GitHub 上", "skill 内容"],
+    contributingTitle: "参与贡献",
+    contributingText1: ["MMSP 是开源项目。新增模型、流式方式不同的网关、破坏语法的流：", "提交 issue", " 或直接发起 pull request。仓库包含各服务商文档的快照，以及构建客户端的开发流程。"],
+    contributingText2: ["问题讨论和版本发布请关注 ", "Discord", " 和 ", "X", "。", "PenguinHarness", " 正是使用 MMSP 与模型对话的。"],
+  },
 }[locale];
 
 const models = [
@@ -168,7 +170,8 @@ const code = "mono text-[0.9em]";
   <div class="mx-auto grid max-w-7xl grid-cols-1 items-start gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:py-20">
     <div>
       <h1 class="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">{COPY.h1}</h1>
-      <p class="mt-5 text-[17px] leading-8 text-gray-700 dark:text-gray-300">{COPY.lede}</p>
+      <p class="mt-5 text-xl leading-8 font-medium text-balance text-gray-900 sm:text-2xl sm:leading-9 dark:text-gray-100">{COPY.slogan}</p>
+      <p class="mt-4 text-[17px] leading-8 text-gray-700 dark:text-gray-300">{COPY.lede}</p>
 
       <div class="code-group mt-7" data-labels="Python,TypeScript">
         <pre class="astro-code"><code>pip install mmsp</code></pre>

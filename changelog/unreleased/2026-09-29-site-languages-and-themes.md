@@ -17,6 +17,9 @@
 - The site drops the generic AI-template look, after killaislop.com: violet is kept for the selected tab and the output bars instead of every inline code span, the "Why MMSP" list loses its colored left borders and names concrete properties, docs pages lose the uppercase kicker above the title, the top bar is solid instead of blurred glass, and the icons are Lucide's instead of hand-drawn.
 - The Chinese pages and interface strings were polished for natural technical Chinese, with the English as the source of every fact. `site/scripts/polish-zh.mjs` does it through a DeepSeek model on the TokenDance gateway; code blocks and HTML are restored from the original, and an answer that changes inline code, a link or the page's structure is refused.
 - The player's pause button now switches between the pause and play icons.
+- The player keeps one height while a stream plays and when the model tab changes, so the page below it no longer jumps.
+- The home page and the README state MMSP's purpose as a slogan under the title: integrate every model the same way, and keep one API in your head instead of one per provider.
+- The Discord and X links on the site and in the README point to the community penguin-harness uses: `discord.gg/eFHKqqcU3D` and `x.com/code_hiyouga`.
 - The mark is the four letters on a two-by-two checkerboard, two squares violet, with no gap between them. The favicon, the README header and the social preview use it.
 - A new page, The agent loop, describes the loop every agent runs on MMSP and gives a complete implementation in Python and TypeScript: stream, run every tool the turn asked for, send the results back in one message, stop when a turn asks for none.
 - On every documentation page the table of contents follows the reader, and a Copy Markdown button copies the page as Markdown. Every page is also served as Markdown at its own URL plus `.md`, and `/llms.txt` indexes them.
