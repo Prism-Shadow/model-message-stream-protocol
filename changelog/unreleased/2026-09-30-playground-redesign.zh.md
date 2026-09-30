@@ -1,4 +1,4 @@
-# Playground 界面重新设计
+# Playground 与 Tracer 界面重新设计
 
 - **Date:** 2026-09-30
 - **Type:** feature
@@ -22,3 +22,9 @@
 - Tools 与 Extra headers 输入无效时即时标出。
 - 只含签名的思考项不再显示。
 - 页面不再在运行时加载 Tailwind，唯一的外部请求是 Inter 与 JetBrains Mono 字体。
+- Tracer 采用同样的外观与主题，在一个页面选定的主题会带到另一个页面。
+  - 目录与 trace 以列表呈现，带图标、大小与时间，可按名称或修改时间排序。
+  - 打开 trace 时显示模型、消息数与保存时间，配置中的 system prompt 与 tools 可以折叠。
+  - 每条消息是可折叠的卡片，带角色标签、所在轮次与距上一条消息的耗时。
+  - 内容项的呈现与 playground 一致，只含 fidelity 的思考项会注明，页脚显示结束原因与 token 数。
+  - trace 旁的轮次导航会标出当前所在的轮次。

@@ -423,13 +423,13 @@ describe("Tracer", () => {
       "tool_call.done",
       "tool_result.done",
     ]) {
-      expect(response.text).toContain(`mb-2">${type}</div>`);
+      expect(response.text).toContain(`class="item-type">${type}</div>`);
     }
     expect(response.text).toContain("Weather in Paris?");
     expect(response.text).toContain("Look it up.");
     expect(response.text).toContain('get_weather(city="Paris")');
     expect(response.text).toContain("22 C");
-    expect(response.text).toContain("• 2 item(s)");
+    expect(response.text).toContain("<span>2 items</span>");
     expect(response.text).not.toContain("partial_tool_call");
     warn.mockRestore();
   });

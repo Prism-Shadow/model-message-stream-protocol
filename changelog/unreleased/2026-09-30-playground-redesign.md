@@ -1,4 +1,4 @@
-# The playground is redesigned
+# The playground and the tracer are redesigned
 
 - **Date:** 2026-09-30
 - **Type:** feature
@@ -22,3 +22,9 @@
 - An invalid Tools or Extra headers field is marked as you type.
 - A thinking item that carries only a signature is no longer shown.
 - The page no longer loads Tailwind at runtime. Its only outside requests are the Inter and JetBrains Mono fonts.
+- The tracer takes the same look and theme, and a theme picked in one page carries to the other.
+  - Folders and traces are a list with icons, sizes and times, sorted by name or by modified time.
+  - A trace opens with its model, message count and save time. The configuration folds its system prompt and tools.
+  - Each message is a collapsible card with a role pill, its round and the time since the message before.
+  - Items read as in the playground, a thinking item with only fidelity is labeled so, and the footer shows the finish reason and token counts.
+  - A rail beside the trace marks the round in view.

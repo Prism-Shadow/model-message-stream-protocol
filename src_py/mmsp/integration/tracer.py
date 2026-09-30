@@ -20,6 +20,7 @@ and serve them via a web interface for real-time monitoring.
 """
 
 import base64
+import html
 import io
 import json
 import os
@@ -33,6 +34,947 @@ from flask import Flask, Response, render_template_string, request
 
 from ..legacy import normalize_legacy_messages
 from ..types import UniMessage
+
+
+# The head every tracer page shares: the playground's tokens, fonts and light and dark themes.
+_TRACER_HEAD = """
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='1' y='1' width='6' height='6' rx='1.5' fill='%232f6fed'/%3E%3Crect x='9' y='1' width='6' height='6' rx='1.5' fill='%2316945b'/%3E%3Crect x='1' y='9' width='6' height='6' rx='1.5' fill='%23b16a0a'/%3E%3Crect x='9' y='9' width='6' height='6' rx='1.5' fill='%23d23b3b'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<script>
+    // the playground and the tracer share one origin, so they share the theme a reader picked
+    try {
+        const theme = localStorage.getItem('mmsp.playground.theme');
+        if (theme === 'light' || theme === 'dark') {
+            document.documentElement.dataset.theme = theme;
+        }
+    } catch (error) {
+        // storage refused: the system theme it is
+    }
+</script>
+<style>
+    :root {
+        --bg: #f5f5f6;
+        --surface: #ffffff;
+        --raised: #f0f0f2;
+        --hover: rgba(20, 22, 28, 0.05);
+        --ring: rgba(20, 22, 28, 0.09);
+        --ring-strong: rgba(20, 22, 28, 0.17);
+        --text: #16181d;
+        --muted: #5c616c;
+        --subtle: #8a8f99;
+        --accent: #2f6fed;
+        --accent-soft: rgba(47, 111, 237, 0.14);
+        --green: #16945b;
+        --green-soft: rgba(22, 148, 91, 0.12);
+        --amber: #b16a0a;
+        --amber-soft: rgba(177, 106, 10, 0.12);
+        --red: #d23b3b;
+        --red-soft: rgba(210, 59, 59, 0.1);
+        --violet: #7a4fd6;
+        --violet-soft: rgba(122, 79, 214, 0.12);
+        --shadow-card: 0 0 0 1px var(--ring), 0 1px 2px rgba(20, 22, 28, 0.04);
+        --ease: cubic-bezier(0.23, 1, 0.32, 1);
+        --font: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+        --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+        color-scheme: light;
+    }
+
+    @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+            --bg: #1b1c1f;
+            --surface: #222327;
+            --raised: #28292e;
+            --hover: rgba(255, 255, 255, 0.05);
+            --ring: rgba(255, 255, 255, 0.08);
+            --ring-strong: rgba(255, 255, 255, 0.15);
+            --text: #eceef1;
+            --muted: #a3a8b1;
+            --subtle: #6f747e;
+            --accent: #4d8ef7;
+            --accent-soft: rgba(77, 142, 247, 0.2);
+            --green: #43c283;
+            --green-soft: rgba(67, 194, 131, 0.14);
+            --amber: #e3a646;
+            --amber-soft: rgba(227, 166, 70, 0.14);
+            --red: #f06a6a;
+            --red-soft: rgba(240, 106, 106, 0.14);
+            --violet: #a98bf0;
+            --violet-soft: rgba(169, 139, 240, 0.16);
+            --shadow-card: 0 0 0 1px var(--ring), 0 1px 2px rgba(0, 0, 0, 0.3);
+            color-scheme: dark;
+        }
+    }
+
+    :root[data-theme="dark"] {
+        --bg: #1b1c1f;
+        --surface: #222327;
+        --raised: #28292e;
+        --hover: rgba(255, 255, 255, 0.05);
+        --ring: rgba(255, 255, 255, 0.08);
+        --ring-strong: rgba(255, 255, 255, 0.15);
+        --text: #eceef1;
+        --muted: #a3a8b1;
+        --subtle: #6f747e;
+        --accent: #4d8ef7;
+        --accent-soft: rgba(77, 142, 247, 0.2);
+        --green: #43c283;
+        --green-soft: rgba(67, 194, 131, 0.14);
+        --amber: #e3a646;
+        --amber-soft: rgba(227, 166, 70, 0.14);
+        --red: #f06a6a;
+        --red-soft: rgba(240, 106, 106, 0.14);
+        --violet: #a98bf0;
+        --violet-soft: rgba(169, 139, 240, 0.16);
+        --shadow-card: 0 0 0 1px var(--ring), 0 1px 2px rgba(0, 0, 0, 0.3);
+        color-scheme: dark;
+    }
+
+    *, *::before, *::after {
+        box-sizing: border-box;
+    }
+
+    html {
+        scroll-padding-top: 72px;
+    }
+
+    body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font: 14px/1.55 var(--font);
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+    }
+
+    a {
+        color: inherit;
+        text-decoration: none;
+    }
+
+    button {
+        font: inherit;
+        color: inherit;
+        cursor: pointer;
+        background: none;
+        border: 0;
+        padding: 0;
+    }
+
+    svg {
+        flex: none;
+    }
+
+    .mono {
+        font-family: var(--mono);
+    }
+
+    :focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+    }
+
+    ::selection {
+        background: var(--accent-soft);
+    }
+
+    /* top bar */
+
+    .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        height: 56px;
+        padding: 0 20px;
+        background: color-mix(in srgb, var(--bg) 86%, transparent);
+        backdrop-filter: saturate(1.4) blur(12px);
+        -webkit-backdrop-filter: saturate(1.4) blur(12px);
+        box-shadow: 0 1px 0 var(--ring);
+    }
+
+    .brand {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        flex: none;
+    }
+
+    .brand-name {
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+    }
+
+    .brand-sub {
+        color: var(--subtle);
+        font-size: 13px;
+    }
+
+    .crumbs {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+        overflow: hidden;
+        color: var(--subtle);
+        font-family: var(--mono);
+        font-size: 12.5px;
+        white-space: nowrap;
+    }
+
+    .crumbs a {
+        color: var(--muted);
+        border-radius: 4px;
+        transition: color 0.15s;
+    }
+
+    .crumbs a:hover {
+        color: var(--text);
+    }
+
+    .crumb-current {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: var(--text);
+    }
+
+    .crumb-sep {
+        color: var(--subtle);
+        opacity: 0.55;
+    }
+
+    .topbar-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-left: auto;
+    }
+
+    .ghost-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 32px;
+        padding: 0 10px;
+        border-radius: 8px;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 500;
+        white-space: nowrap;
+        transition: color 0.15s, background-color 0.15s;
+    }
+
+    .ghost-btn:hover {
+        color: var(--text);
+        background: var(--hover);
+    }
+
+    .segmented {
+        position: relative;
+        display: flex;
+        padding: 3px;
+        border-radius: 9px;
+        background: var(--raised);
+        box-shadow: inset 0 0 0 1px var(--ring);
+    }
+
+    .segmented button, .segmented a {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        place-items: center;
+        min-width: 0;
+        height: 26px;
+        padding: 0 10px;
+        border-radius: 6px;
+        color: var(--muted);
+        font-size: 12.5px;
+        font-weight: 500;
+        white-space: nowrap;
+        transition: color 0.15s, background-color 0.15s;
+    }
+
+    .segmented button:hover, .segmented a:hover {
+        color: var(--text);
+    }
+
+    .segmented [aria-checked="true"], .segmented [aria-current="true"] {
+        color: var(--text);
+    }
+
+    .segmented a[aria-current="true"] {
+        background: var(--surface);
+        box-shadow: 0 0 0 1px var(--ring), 0 1px 2px rgba(0, 0, 0, 0.12);
+    }
+
+    .seg-thumb {
+        position: absolute;
+        top: 3px;
+        bottom: 3px;
+        left: 0;
+        width: 0;
+        border-radius: 6px;
+        background: var(--surface);
+        box-shadow: 0 0 0 1px var(--ring), 0 1px 2px rgba(0, 0, 0, 0.12);
+        transition: transform 0.25s var(--ease), width 0.25s var(--ease);
+    }
+
+    .theme-toggle button {
+        width: 29px;
+        padding: 0;
+    }
+
+    /* pages */
+
+    .page {
+        max-width: 920px;
+        margin: 0 auto;
+        padding: 32px 20px 64px;
+    }
+
+    .page-head {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 20px;
+    }
+
+    .page-head h1 {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 600;
+        letter-spacing: -0.015em;
+        overflow-wrap: anywhere;
+    }
+
+    .page-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 14px;
+        margin: 6px 0 0;
+        color: var(--subtle);
+        font-size: 13px;
+    }
+
+    .page-meta b {
+        color: var(--muted);
+        font-weight: 500;
+    }
+
+    .card {
+        background: var(--surface);
+        border-radius: 12px;
+        box-shadow: var(--shadow-card);
+    }
+
+    /* directory */
+
+    .list {
+        overflow: hidden;
+    }
+
+    .row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 16px;
+        transition: background-color 0.12s;
+    }
+
+    .row + .row {
+        box-shadow: inset 0 1px 0 var(--ring);
+    }
+
+    .row:hover {
+        background: var(--hover);
+    }
+
+    .row-icon {
+        display: grid;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 7px;
+        background: var(--raised);
+        color: var(--muted);
+    }
+
+    .row-icon.dir {
+        background: var(--accent-soft);
+        color: var(--accent);
+    }
+
+    .row-name {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-weight: 500;
+    }
+
+    .row-size, .row-time {
+        flex: none;
+        color: var(--subtle);
+        font-family: var(--mono);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .row-size {
+        width: 72px;
+        text-align: right;
+    }
+
+    .row-time {
+        width: 150px;
+        text-align: right;
+    }
+
+    .empty {
+        padding: 48px 20px;
+        color: var(--muted);
+        text-align: center;
+    }
+
+    .empty code {
+        padding: 1px 5px;
+        border-radius: 5px;
+        background: var(--raised);
+        font-family: var(--mono);
+        font-size: 12.5px;
+    }
+
+    /* trace */
+
+    .viewer {
+        display: flex;
+        gap: 32px;
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 0 20px;
+    }
+
+    .viewer .page {
+        flex: 1;
+        min-width: 0;
+        max-width: 880px;
+        margin: 0;
+        padding: 32px 0 64px;
+    }
+
+    .rail {
+        width: 200px;
+        flex: none;
+        padding-top: 32px;
+    }
+
+    .rail-inner {
+        position: sticky;
+        top: 88px;
+        max-height: calc(100vh - 120px);
+        overflow-y: auto;
+    }
+
+    .rail-title {
+        margin-bottom: 10px;
+        color: var(--subtle);
+        font-size: 12px;
+        font-weight: 500;
+    }
+
+    .rail-list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        box-shadow: inset 1px 0 0 var(--ring);
+    }
+
+    .rail-list a {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 8px;
+        margin-left: -1px;
+        padding: 4px 0 4px 14px;
+        border-left: 1.5px solid transparent;
+        color: var(--muted);
+        font-size: 13px;
+        transition: color 0.15s, border-color 0.15s;
+    }
+
+    .rail-list a:hover {
+        color: var(--text);
+    }
+
+    .rail-list a.active {
+        border-left-color: var(--accent);
+        color: var(--text);
+        font-weight: 500;
+    }
+
+    .rail-list a span {
+        color: var(--subtle);
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 400;
+    }
+
+    .fold summary, .msg-card summary {
+        list-style: none;
+        cursor: pointer;
+    }
+
+    .fold summary::-webkit-details-marker, .msg-card summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .chevron {
+        color: var(--subtle);
+        transition: transform 0.25s var(--ease);
+    }
+
+    details[open] > summary .chevron {
+        transform: rotate(180deg);
+    }
+
+    .config {
+        margin-bottom: 20px;
+    }
+
+    .card-head {
+        padding: 12px 16px;
+        box-shadow: inset 0 -1px 0 var(--ring);
+        color: var(--muted);
+        font-size: 12.5px;
+        font-weight: 500;
+    }
+
+    .kv {
+        margin: 0;
+    }
+
+    .kv-row {
+        display: grid;
+        grid-template-columns: 160px 1fr;
+        gap: 16px;
+        padding: 9px 16px;
+    }
+
+    .kv-row + .kv-row {
+        box-shadow: inset 0 1px 0 var(--ring);
+    }
+
+    .kv-row dt {
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 12.5px;
+    }
+
+    .kv-row dd {
+        margin: 0;
+        min-width: 0;
+        font-family: var(--mono);
+        font-size: 12.5px;
+        overflow-wrap: anywhere;
+        white-space: pre-wrap;
+    }
+
+    .fold summary {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        color: var(--accent);
+        font-family: var(--font);
+        font-size: 12.5px;
+        font-weight: 500;
+    }
+
+    .fold pre {
+        margin: 8px 0 0;
+        padding: 10px 12px;
+        max-height: 360px;
+        overflow: auto;
+        border-radius: 8px;
+        background: var(--raised);
+        font-family: var(--mono);
+        font-size: 12px;
+        line-height: 1.6;
+        white-space: pre-wrap;
+    }
+
+    .msg-card {
+        margin-bottom: 14px;
+        overflow: hidden;
+    }
+
+    .msg-summary {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 14px;
+        padding: 11px 16px;
+        color: var(--subtle);
+        font-size: 12.5px;
+        transition: background-color 0.12s;
+    }
+
+    .msg-summary:hover {
+        background: var(--hover);
+    }
+
+    details[open] > .msg-summary {
+        box-shadow: inset 0 -1px 0 var(--ring);
+    }
+
+    .role {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 22px;
+        padding: 0 9px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .role::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+    }
+
+    .role-user { background: var(--accent-soft); color: var(--accent); }
+    .role-assistant { background: var(--green-soft); color: var(--green); }
+
+    .msg-summary .spacer {
+        flex: 1;
+    }
+
+    .msg-summary .num {
+        font-family: var(--mono);
+        font-size: 11.5px;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .msg-body {
+        padding: 16px;
+    }
+
+    .item + .item {
+        margin-top: 16px;
+    }
+
+    .item-type {
+        margin-bottom: 6px;
+        color: var(--subtle);
+        font-family: var(--mono);
+        font-size: 11px;
+    }
+
+    .item-text {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        line-height: 1.65;
+    }
+
+    .item-thinking {
+        padding: 2px 0 2px 14px;
+        box-shadow: inset 1.5px 0 0 var(--ring-strong);
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+
+    .item-note {
+        margin-bottom: 8px;
+        color: var(--subtle);
+        font-family: var(--mono);
+        font-size: 12px;
+    }
+
+    .item-img {
+        display: block;
+        max-width: min(100%, 360px);
+        max-height: 280px;
+        border-radius: 10px;
+        box-shadow: 0 0 0 1px var(--ring);
+    }
+
+    .item-images {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+    }
+
+    .item-audio {
+        display: block;
+        width: min(100%, 360px);
+        height: 36px;
+    }
+
+    .tool, .result {
+        border-radius: 10px;
+        background: var(--raised);
+        box-shadow: inset 0 0 0 1px var(--ring);
+        overflow: hidden;
+    }
+
+    .tool-head, .result-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        font-size: 13px;
+    }
+
+    .tool-icon, .result-icon {
+        display: grid;
+        place-items: center;
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+    }
+
+    .tool-icon { background: var(--amber-soft); color: var(--amber); }
+    .result-icon { background: var(--violet-soft); color: var(--violet); }
+
+    .tool-sig {
+        min-width: 0;
+        font-family: var(--mono);
+        font-size: 12.5px;
+        overflow-wrap: anywhere;
+    }
+
+    .tool-id {
+        margin-left: auto;
+        padding-left: 8px;
+        color: var(--subtle);
+        font-family: var(--mono);
+        font-size: 11px;
+        white-space: nowrap;
+    }
+
+    .result-text {
+        padding: 10px 12px;
+        box-shadow: inset 0 1px 0 var(--ring);
+        font-family: var(--mono);
+        font-size: 12.5px;
+        line-height: 1.6;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+
+    .result .item-images {
+        margin: 0;
+        padding: 0 12px 12px;
+    }
+
+    .embedding {
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: var(--raised);
+        font-family: var(--mono);
+        font-size: 12px;
+        overflow-wrap: anywhere;
+    }
+
+    .msg-foot {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 14px;
+        margin-top: 16px;
+        padding-top: 12px;
+        box-shadow: inset 0 1px 0 var(--ring);
+        color: var(--subtle);
+        font-size: 12px;
+    }
+
+    .reason {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 22px;
+        padding: 0 8px;
+        border-radius: 999px;
+        background: var(--raised);
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 11.5px;
+    }
+
+    .reason::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+    }
+
+    .reason-stop { background: var(--green-soft); color: var(--green); }
+    .reason-tool_call { background: var(--amber-soft); color: var(--amber); }
+    .reason-length, .reason-unknown { background: var(--red-soft); color: var(--red); }
+
+    .usage {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 4px 12px;
+        font-family: var(--mono);
+        font-size: 11.5px;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .usage b {
+        color: var(--muted);
+        font-weight: 500;
+    }
+
+    .text-file {
+        margin: 0;
+        padding: 16px 18px;
+        overflow-x: auto;
+        font-family: var(--mono);
+        font-size: 12.5px;
+        line-height: 1.65;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+
+    @media (max-width: 1000px) {
+        .rail {
+            display: none;
+        }
+    }
+
+    @media (max-width: 640px) {
+        .topbar {
+            gap: 10px;
+            padding: 0 12px;
+        }
+
+        .brand-sub, .label-wide {
+            display: none;
+        }
+
+        .page {
+            padding: 24px 16px 48px;
+        }
+
+        .viewer {
+            padding: 0 16px;
+        }
+
+        .row-time {
+            display: none;
+        }
+
+        .kv-row {
+            grid-template-columns: 1fr;
+            gap: 2px;
+        }
+
+        .page-head {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+            animation-duration: 0.01ms !important;
+            transition-duration: 0.01ms !important;
+        }
+    }
+</style>
+"""
+
+_TRACER_SCRIPT = """
+<script>
+    function updateSegmentThumb(root) {
+        const thumb = root && root.querySelector('.seg-thumb');
+        const checked = root && root.querySelector('[aria-checked="true"]');
+        if (!thumb || !checked || !checked.offsetWidth) {
+            return;
+        }
+        thumb.style.width = checked.offsetWidth + 'px';
+        thumb.style.transform = 'translateX(' + checked.offsetLeft + 'px)';
+    }
+
+    function updateThemeToggle() {
+        const stored = document.documentElement.dataset.theme;
+        const theme = stored || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.querySelectorAll('#themeToggle [data-theme-choice]').forEach(function (button) {
+            button.setAttribute('aria-checked', button.dataset.themeChoice === theme ? 'true' : 'false');
+        });
+        updateSegmentThumb(document.getElementById('themeToggle'));
+    }
+
+    function setTheme(theme) {
+        document.documentElement.dataset.theme = theme;
+        try {
+            localStorage.setItem('mmsp.playground.theme', theme);
+        } catch (error) {
+            // a browser that refuses storage keeps the choice for this page only
+        }
+        updateThemeToggle();
+    }
+
+    updateThemeToggle();
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', updateThemeToggle);
+    document.fonts.ready.then(updateThemeToggle);
+
+    // the rail marks the round whose first message is nearest the top of the view
+    const railLinks = Array.from(document.querySelectorAll('.rail-list a'));
+    if (railLinks.length) {
+        const targets = railLinks.map(function (link) {
+            return document.querySelector(link.getAttribute('href'));
+        });
+        const markActive = function () {
+            let active = 0;
+            targets.forEach(function (target, index) {
+                if (target && target.getBoundingClientRect().top < 140) {
+                    active = index;
+                }
+            });
+            // at the bottom of the page the last round is the one being read, however high it sits
+            if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) {
+                active = targets.length - 1;
+            }
+            railLinks.forEach(function (link, index) {
+                link.classList.toggle('active', index === active);
+            });
+        };
+        window.addEventListener('scroll', markActive, { passive: true });
+        markActive();
+    }
+</script>
+"""
+
+_ICONS = {
+    "github": '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.08 2.91.83.09-.65.35-1.08.63-1.33-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.6 9.6 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"></path></svg>',
+    "sun": '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>',
+    "moon": '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"></path></svg>',
+    "folder": '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"></path></svg>',
+    "file": '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"></path><path d="M14 3v5h5M9 13h6M9 17h4"></path></svg>',
+    "back": '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg>',
+    "chevron": '<svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>',
+    "tool": '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0 5 5L22 14l-8 8-2.3-2.3a4 4 0 0 0-5-5L2 10l8-8Z"></path></svg>',
+    "result": '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 10 4 15l5 5"></path><path d="M20 4v7a4 4 0 0 1-4 4H4"></path></svg>',
+}
 
 
 @dataclass
@@ -184,6 +1126,52 @@ class Tracer:
             return f"{base_path}/"
         return f"{base_path}{url}"
 
+    @staticmethod
+    def _format_duration(ms: float) -> str:
+        """Format milliseconds the way the playground does: 840 ms, 2.41 s, 1 min 5 s."""
+        if ms < 1000:
+            return f"{round(ms)} ms"
+        if ms < 60000:
+            return f"{ms / 1000:.{2 if ms < 10000 else 1}f} s"
+        return f"{int(ms // 60000)} min {round((ms % 60000) / 1000)} s"
+
+    def _breadcrumb(self, base_path: str, parts: list[str]) -> str:
+        """The path from the cache root to the page, every step but the last a link."""
+        steps = ["cache", *parts]
+        crumbs = []
+        for i, step in enumerate(steps):
+            if i == len(steps) - 1:
+                crumbs.append(f'<span class="crumb-current">{html.escape(step)}</span>')
+            else:
+                url = self._prefix_url(base_path, "/" + "/".join(parts[:i]))
+                crumbs.append(f'<a href="{html.escape(url)}">{html.escape(step)}</a>')
+        return '<span class="crumb-sep">/</span>'.join(crumbs)
+
+    @staticmethod
+    def _page(title: str, root_url: str, breadcrumb: str, body: str) -> str:
+        """Wrap a page body in the head, top bar and script every tracer page shares."""
+        return (
+            '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
+            f"<title>{html.escape(title)}</title>\n"
+            f"{_TRACER_HEAD}\n</head>\n<body>\n"
+            '<header class="topbar">'
+            f'<a class="brand" href="{html.escape(root_url)}"><span class="brand-name">MMSP</span>'
+            '<span class="brand-sub">Tracer</span></a>'
+            f'<nav class="crumbs" aria-label="Path">{breadcrumb}</nav>'
+            '<div class="topbar-actions">'
+            '<a href="https://github.com/Prism-Shadow/model-message-stream-protocol" target="_blank" '
+            f'rel="noopener noreferrer" class="ghost-btn" title="GitHub">{_ICONS["github"]}'
+            '<span class="label-wide">GitHub</span></a>'
+            '<div class="segmented theme-toggle" id="themeToggle" role="radiogroup" aria-label="Theme">'
+            '<span class="seg-thumb" aria-hidden="true"></span>'
+            '<button type="button" role="radio" aria-checked="false" aria-label="Light theme" title="Light" '
+            f'data-theme-choice="light" onclick="setTheme(\'light\')">{_ICONS["sun"]}</button>'
+            '<button type="button" role="radio" aria-checked="false" aria-label="Dark theme" title="Dark" '
+            f'data-theme-choice="dark" onclick="setTheme(\'dark\')">{_ICONS["moon"]}</button>'
+            "</div></div></header>\n"
+            f"{body}\n{_TRACER_SCRIPT}\n</body>\n</html>\n"
+        )
+
     def save_history(self, model: str, history: list[UniMessage], file_id: str, config: dict[str, Any]) -> None:
         """
         Save conversation history to files.
@@ -312,6 +1300,7 @@ class Tracer:
         app = Flask(__name__)
         app.jinja_env.policies["json.dumps_kwargs"] = {"ensure_ascii": False}
         base_path = self._normalize_base_path(base_path)
+        root_url = self._prefix_url(base_path, "/")
 
         @app.template_filter("format_ts")
         def format_ts(ms: int | None) -> str:
@@ -335,287 +1324,170 @@ class Tracer:
             """Render a concise inline_thinking summary."""
             return self._format_inline_data_summary(item, is_thinking=True)
 
+        @app.template_filter("duration")
+        def duration(ms: float) -> str:
+            """Format milliseconds as 840 ms, 2.41 s or 1 min 5 s."""
+            return self._format_duration(ms)
+
+        @app.template_filter("thousands")
+        def thousands(value: int) -> str:
+            """Group a count's digits by thousands."""
+            return f"{value:,}"
+
         @app.template_filter("embedding_preview")
         def embedding_preview(item: dict[str, Any]) -> str:
             """Render the first five embedding values."""
             return self._format_embedding_preview(item)
 
-        # HTML template for directory listing
+        # The page bodies; _page wraps each in the head, top bar and script every page shares.
         DIRECTORY_TEMPLATE = """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Tracer</title>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-            <script src="https://cdn.tailwindcss.com"></script>
-        </head>
-        <body class="bg-gray-50 min-h-screen">
-            <div class="max-w-5xl mx-auto p-6">
-                <div class="flex justify-between items-center mb-6">
-                    <h1 class="text-3xl font-bold text-gray-900">Tracer</h1>
-                    <a href="https://github.com/Prism-Shadow/model-message-stream-protocol" target="_blank" class="text-sm text-gray-500 hover:text-gray-700 transition-colors">GitHub</a>
+        <main class="page">
+            <div class="page-head">
+                <div>
+                    <h1>{{ title }}</h1>
+                    <p class="page-meta"><span>{{ items|length }} {{ 'entry' if items|length == 1 else 'entries' }}</span></p>
                 </div>
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-                    <p class="text-sm text-gray-600"><strong>Path:</strong> {{ breadcrumb|safe }}</p>
-                </div>
-                <div class="flex items-center gap-2 mb-3">
-                    <span class="text-xs text-gray-500">Sort by:</span>
-                    <a href="{{ sort_name_url }}" class="px-3 py-1 text-xs rounded border transition-colors {% if current_sort == 'name' %}bg-blue-600 text-white border-blue-600{% else %}bg-white text-gray-700 border-gray-300 hover:bg-gray-50{% endif %}">Name</a>
-                    <a href="{{ sort_mtime_url }}" class="px-3 py-1 text-xs rounded border transition-colors {% if current_sort == 'mtime' %}bg-blue-600 text-white border-blue-600{% else %}bg-white text-gray-700 border-gray-300 hover:bg-gray-50{% endif %}">Modified Time</a>
-                </div>
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                    {% if items %}
-                        {% for item in items %}
-                            <div class="border-b border-gray-200 last:border-b-0 hover:bg-gray-50 transition-colors">
-                                <a href="{{ item.url }}" class="flex items-center justify-between p-4 text-blue-600 hover:text-blue-800">
-                                    <span class="flex items-center">
-                                        <span class="mr-2">{% if item.is_dir %}📁{% else %}📄{% endif %}</span>
-                                        <span class="text-sm">{{ item.name }}</span>
-                                    </span>
-                                    <span class="flex items-center gap-4">
-                                        {% if item.size %}
-                                        <span class="text-xs text-gray-500">{{ item.size }}</span>
-                                        {% endif %}
-                                        {% if item.mtime %}
-                                        <span class="text-xs text-gray-400">{{ item.mtime }}</span>
-                                        {% endif %}
-                                    </span>
-                                </a>
-                            </div>
-                        {% endfor %}
-                    {% else %}
-                        <div class="p-8 text-center text-gray-500 italic">No files or directories found.</div>
-                    {% endif %}
+                <div class="segmented" role="group" aria-label="Sort by">
+                    <a href="{{ sort_name_url }}"{% if current_sort == 'name' %} aria-current="true"{% endif %}>Name</a>
+                    <a href="{{ sort_mtime_url }}"{% if current_sort == 'mtime' %} aria-current="true"{% endif %}>Modified</a>
                 </div>
             </div>
-        </body>
-        </html>
-        """
-
-        # HTML template for JSON conversation viewing
-        JSON_VIEWER_TEMPLATE = """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>{{ filename }}</title>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-            <script src="https://cdn.tailwindcss.com"></script>
-        </head>
-        <body class="bg-gray-50 min-h-screen">
-            {% set total_rounds = ((history|length) + 1) // 2 %}
-            <div class="flex gap-6 p-6 max-w-7xl mx-auto">
-                <div class="flex-1 min-w-0">
-                    <div class="flex justify-between items-center mb-4">
-                        <h1 class="text-3xl font-bold text-gray-900">{{ filename }}</h1>
-                        <a href="https://github.com/Prism-Shadow/model-message-stream-protocol" target="_blank" class="text-sm text-gray-500 hover:text-gray-700 transition-colors">GitHub</a>
-                    </div>
-                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-                        <p class="text-sm text-gray-600"><strong>Path:</strong> {{ breadcrumb|safe }}</p>
-                    </div>
-                    <a href="{{ back_url }}" class="inline-block mb-6 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-md border border-gray-300 text-sm transition-colors">
-                        ← Back to Directory
-                    </a>
-                    {% if config %}
-                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-                        <h2 class="text-xl font-semibold text-gray-900 mb-4">Configuration</h2>
-                        {% for key, value in config.items() %}
-                            {% if key != 'trace_id' %}
-                            <div class="py-2 text-sm">
-                                <strong class="text-gray-900">{{ key|e }}:</strong>
-                                {% if key == 'system_prompt' and value is not none %}
-                                    <button onclick="toggleConfig('{{ key|e }}')" class="ml-2 inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded border border-gray-300 transition-colors"><span id="icon-{{ key|e }}" class="transform transition-transform">▶</span> Show</button>
-                                    <div id="content-{{ key|e }}" class="mt-1 p-2 bg-gray-50 rounded text-xs whitespace-pre-wrap hidden">{{ value|e }}</div>
-                                {% elif key == 'tools' and value is iterable and value is not string %}
-                                    <button onclick="toggleConfig('{{ key|e }}')" class="ml-2 inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded border border-gray-300 transition-colors"><span id="icon-{{ key|e }}" class="transform transition-transform">▶</span> Show</button>
-                                    <div id="content-{{ key|e }}" class="mt-1 p-2 bg-gray-50 rounded text-xs whitespace-pre-wrap hidden">{{ value|tojson(indent=2)|e }}</div>
-                                {% else %}
-                                    <span class="text-gray-600">{{ value|e }}</span>
-                                {% endif %}
-                            </div>
-                            {% endif %}
-                        {% endfor %}
-                    </div>
-                    {% endif %}
-
-                    {% for msg_idx, message in enumerate(history) %}
-                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 overflow-hidden" id="msg-{{ msg_idx }}">
-                        <div class="bg-gray-50 border-b border-gray-200 p-4 cursor-pointer hover:bg-gray-100 transition-colors" onclick="toggleMessage({{ msg_idx }})">
-                            <div class="flex justify-between items-center">
-                                <div class="flex items-center gap-3">
-                                    <span class="font-semibold text-sm uppercase {% if message.role == 'user' %}text-blue-600{% else %}text-green-600{% endif %}">{{ message.role }}</span>
-                                    <span class="text-xs text-gray-500">• {{ message.content_items|length }} item(s)</span>
-                                    <span class="text-xs text-gray-400">• Round {{ msg_idx // 2 + 1 }} / {{ total_rounds }}</span>
-                                </div>
-                                <div class="flex items-center gap-3">
-                                    {% if msg_idx > 0 and message.created_at and history[msg_idx - 1].created_at %}
-                                    <span class="text-xs text-gray-400">Took {{ (message.created_at - history[msg_idx - 1].created_at) | abs }} ms</span>
-                                    {% endif %}
-                                    {% if message.created_at %}
-                                    <span class="text-xs text-gray-400">{{ message.created_at | format_ts }}</span>
-                                    {% endif %}
-                                    <span class="text-gray-400 transform transition-transform" id="icon-{{ msg_idx }}">▶</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="p-6 hidden" id="content-{{ msg_idx }}">
-                            {% for item in message.content_items %}
-                                <div class="mb-4 pb-4 border-b border-gray-100 last:border-b-0 last:mb-0 last:pb-0">
-                                    <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{{ item.type|e }}</div>
-                                    {% if item.type == 'text.done' %}
-                                        <div class="bg-gray-50 p-4 rounded-md font-mono text-sm whitespace-pre-wrap text-gray-800">{{ item.text|e }}</div>
-                                    {% elif item.type == 'thinking.done' %}
-                                        <div class="bg-blue-50 p-4 rounded-md border-l-4 border-blue-500 font-mono text-sm whitespace-pre-wrap text-gray-800">{{ item.thinking|e }}</div>
-                                    {% elif item.type == 'inline_thinking.done' %}
-                                        <div class="bg-blue-50 border-blue-500 p-4 rounded-md border-l-4">
-                                            <div class="text-xs text-blue-700 mb-2">{{ item|inline_thinking_summary }}</div>
-                                            {% if item.mime_type and item.mime_type.startswith('image/') %}
-                                                <img src="{{ item|inline_data_url|e }}" class="max-w-xs max-h-48 rounded-md" alt="Thinking Inline Image">
-                                            {% else %}
-                                                <div class="font-mono text-sm whitespace-pre-wrap text-gray-800">
-                                                    {{ item|inline_thinking_summary }}
-                                                </div>
-                                            {% endif %}
-                                        </div>
-                                    {% elif item.type == 'tool_call.done' %}
-                                        <div class="bg-yellow-50 p-4 rounded-md border-l-4 border-yellow-500">
-                                            <div class="font-mono text-sm whitespace-pre-wrap text-gray-800">{{ item.name|e }}({% for key, value in item.arguments.items() %}{{ key|e }}="{{ value|e }}"{% if not loop.last %}, {% endif %}{% endfor %})</div>
-                                        </div>
-                                    {% elif item.type == 'tool_result.done' %}
-                                        <div class="bg-green-50 p-4 rounded-md border-l-4 border-green-500">
-                                            <strong class="text-sm text-gray-900">Result:</strong> <span class="text-sm text-gray-700">{{ item.text|e }}</span><br>
-                                            <strong class="text-sm text-gray-900">Call ID:</strong> <span class="text-sm text-gray-700">{{ item.tool_call_id|e }}</span>
-                                            {% if item.images %}
-                                                <div class="mt-2 flex flex-wrap gap-2">
-                                                    {% for image_url in item.images %}
-                                                        <img src="{{ image_url|e }}" class="max-w-xs max-h-48 rounded-md" alt="Tool Result Image">
-                                                    {% endfor %}
-                                                </div>
-                                            {% endif %}
-                                        </div>
-                                    {% elif item.type == 'image_url.done' %}
-                                        <div class="bg-gray-50 p-4 rounded-md">
-                                            <img src="{{ item.image_url|e }}" class="max-w-xs max-h-48 rounded-md" alt="Preview">
-                                        </div>
-                                    {% elif item.type == 'inline_data.done' %}
-                                        <div class="bg-purple-50 border-purple-500 p-4 rounded-md border-l-4">
-                                            <div class="text-xs text-purple-700 mb-2">{{ item|inline_data_summary }}</div>
-                                            {% if item.mime_type and item.mime_type.startswith('image/') %}
-                                                <img src="{{ item|inline_data_url|e }}" class="max-w-xs max-h-48 rounded-md" alt="Inline Image">
-                                            {% elif item.mime_type and item.mime_type.startswith('audio/') %}
-                                                <audio controls preload="metadata" class="max-w-xs">
-                                                    <source src="{{ item|inline_data_url|e }}">
-                                                </audio>
-                                            {% else %}
-                                                <div class="font-mono text-sm whitespace-pre-wrap text-gray-800">
-                                                    {{ item|inline_data_summary }}
-                                                </div>
-                                            {% endif %}
-                                        </div>
-                                    {% elif item.type == 'embedding.done' %}
-                                        <div class="bg-indigo-50 p-4 rounded-md border-l-4 border-indigo-500">
-                                            <div class="font-mono text-sm whitespace-pre-wrap text-gray-800">{{ item|embedding_preview|e }}</div>
-                                        </div>
-                                    {% endif %}
-                                </div>
-                            {% endfor %}
-
-                            {% if message.usage_metadata or message.finish_reason %}
-                            <div class="mt-4 pt-4 border-t border-gray-200 text-right text-xs text-gray-500">
-                                {% if message.usage_metadata %}
-                                    {% set parts = [] %}
-                                    {% if message.usage_metadata.cached_tokens %}{% set _ = parts.append('Cached: ' ~ message.usage_metadata.cached_tokens ~ ' tokens') %}{% endif %}
-                                    {% if message.usage_metadata.prompt_tokens %}{% set _ = parts.append('Prompt: ' ~ message.usage_metadata.prompt_tokens ~ ' tokens') %}{% endif %}
-                                    {% if message.usage_metadata.thoughts_tokens %}{% set _ = parts.append('Thoughts: ' ~ message.usage_metadata.thoughts_tokens ~ ' tokens') %}{% endif %}
-                                    {% if message.usage_metadata.response_tokens %}{% set _ = parts.append('Response: ' ~ message.usage_metadata.response_tokens ~ ' tokens') %}{% endif %}
-                                    {% set input_tokens = (message.usage_metadata.cached_tokens or 0) + (message.usage_metadata.prompt_tokens or 0) %}
-                                    {% set output_tokens = (message.usage_metadata.thoughts_tokens or 0) + (message.usage_metadata.response_tokens or 0) %}
-                                    {% set total_tokens = input_tokens + output_tokens %}
-                                    {% set _ = parts.append('Total: ' ~ total_tokens ~ ' tokens') %}
-                                    {{ parts|join(' • ') }}
-                                {% endif %}
-                                {% if message.finish_reason %}{% if message.usage_metadata %} • {% endif %}Finish: {{ message.finish_reason|e }}{% endif %}
-                            </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-
-                <div class="w-52 flex-shrink-0">
-                    <div class="sticky top-6 bg-white rounded-lg shadow-sm border border-gray-200 p-4 max-h-[calc(100vh-3rem)] overflow-y-auto">
-                        <h3 class="font-semibold text-sm text-gray-900 mb-3">Rounds ({{ total_rounds }})</h3>
-                        {% for round_idx in range(total_rounds) %}
-                            {% set user_idx = round_idx * 2 %}
-                            {% set assistant_idx = round_idx * 2 + 1 %}
-                            <div class="mb-2 flex items-center gap-1">
-                                <a href="#msg-{{ user_idx }}" class="text-xs font-medium text-gray-700 hover:text-blue-600">
-                                    Round {{ round_idx + 1 }}
-                                </a>
-                                {% if round_idx > 0 and assistant_idx < history|length and (round_idx - 1) * 2 + 1 < history|length %}
-                                    {% set curr_ts = history[assistant_idx].created_at %}
-                                    {% set prev_ts = history[(round_idx - 1) * 2 + 1].created_at %}
-                                    {% if curr_ts and prev_ts %}
-                                    <span class="text-xs text-gray-400">({{ (curr_ts - prev_ts) | abs }} ms)</span>
-                                    {% endif %}
-                                {% endif %}
-                            </div>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-            <script>
-                function toggleConfig(key) {
-                    const content = document.getElementById('content-' + key);
-                    const icon = document.getElementById('icon-' + key);
-                    content.classList.toggle('hidden');
-                    icon.classList.toggle('rotate-90');
-                }
-                function toggleMessage(idx) {
-                    const content = document.getElementById('content-' + idx);
-                    const icon = document.getElementById('icon-' + idx);
-                    content.classList.toggle('hidden');
-                    icon.classList.toggle('rotate-90');
-                }
-                // Expand all messages by default
-                const numMessages = {{ history|length }};
-                for (let i = 0; i < numMessages; i++) {
-                    toggleMessage(i);
-                }
-            </script>
-        </body>
-        </html>
-        """
-
-        # HTML template for text file viewing
-        TEXT_VIEWER_TEMPLATE = """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>{{ filename }}</title>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-            <script src="https://cdn.tailwindcss.com"></script>
-        </head>
-        <body class="bg-gray-50 min-h-screen">
-            <div class="max-w-5xl mx-auto p-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h1 class="text-3xl font-bold text-gray-900">{{ filename }}</h1>
-                    <a href="https://github.com/Prism-Shadow/model-message-stream-protocol" target="_blank" class="text-sm text-gray-500 hover:text-gray-700 transition-colors">GitHub</a>
-                </div>
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-                    <p class="text-sm text-gray-600"><strong>Path:</strong> {{ breadcrumb|safe }}</p>
-                </div>
-                <a href="{{ back_url|e }}" class="inline-block mb-6 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-md border border-gray-300 text-sm transition-colors">
-                    ← Back to Directory
+            <div class="card list">
+                {% for item in items %}
+                <a class="row" href="{{ item.url }}">
+                    <span class="row-icon{% if item.is_dir %} dir{% endif %}">{% if item.is_dir %}{{ icons.folder|safe }}{% else %}{{ icons.file|safe }}{% endif %}</span>
+                    <span class="row-name">{{ item.name }}</span>
+                    <span class="row-size">{{ item.size or '' }}</span>
+                    <span class="row-time">{{ item.mtime }}</span>
                 </a>
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 overflow-x-auto">
-                    <div class="font-mono text-sm text-gray-800 whitespace-pre-wrap">{{ content|e }}</div>
-                </div>
+                {% else %}
+                <div class="empty">No traces here yet. Requests with a <code>trace_id</code> in their config are saved here.</div>
+                {% endfor %}
             </div>
-        </body>
-        </html>
+        </main>
+        """
+
+        JSON_VIEWER_TEMPLATE = """
+        {% set total_rounds = ((history|length) + 1) // 2 %}
+        <div class="viewer">
+            <main class="page">
+                <div class="page-head">
+                    <div>
+                        <h1>{{ filename }}</h1>
+                        <p class="page-meta">
+                            {% if config.model %}<span class="mono"><b>{{ config.model }}</b></span>{% endif %}
+                            <span>{{ history|length }} {{ 'message' if history|length == 1 else 'messages' }}</span>
+                            <span>{{ total_rounds }} {{ 'round' if total_rounds == 1 else 'rounds' }}</span>
+                            {% if saved_at %}<span>Saved {{ saved_at }}</span>{% endif %}
+                        </p>
+                    </div>
+                    <a class="ghost-btn" href="{{ back_url }}">{{ icons.back|safe }}Back</a>
+                </div>
+
+                {% if config %}
+                <section class="card config">
+                    <div class="card-head">Configuration</div>
+                    <dl class="kv">
+                        {% for key, value in config.items() %}{% if key != 'trace_id' %}
+                        <div class="kv-row"><dt>{{ key }}</dt><dd>{% if key == 'system_prompt' and value is not none %}<details class="fold"><summary>Show {{ icons.chevron|safe }}</summary><pre>{{ value }}</pre></details>{% elif key == 'tools' and value is iterable and value is not string %}<details class="fold"><summary>{{ value|length }} {{ 'tool' if value|length == 1 else 'tools' }} {{ icons.chevron|safe }}</summary><pre>{{ value|tojson(indent=2) }}</pre></details>{% elif value is string %}{{ value }}{% else %}{{ value|tojson }}{% endif %}</dd></div>
+                        {% endif %}{% endfor %}
+                    </dl>
+                </section>
+                {% endif %}
+
+                {% for msg_idx, message in enumerate(history) %}
+                <details class="card msg-card" id="msg-{{ msg_idx }}" open>
+                    <summary class="msg-summary">
+                        <span class="role role-{{ message.role }}">{{ message.role }}</span>
+                        <span>{{ message.content_items|length }} {{ 'item' if message.content_items|length == 1 else 'items' }}</span>
+                        <span>Round {{ msg_idx // 2 + 1 }} / {{ total_rounds }}</span>
+                        <span class="spacer"></span>
+                        {% if msg_idx > 0 and message.created_at and history[msg_idx - 1].created_at %}
+                        <span class="num" title="Time since the message before">{{ (message.created_at - history[msg_idx - 1].created_at)|abs|duration }}</span>
+                        {% endif %}
+                        {% if message.created_at %}<span class="num">{{ message.created_at|format_ts }}</span>{% endif %}
+                        {{ icons.chevron|safe }}
+                    </summary>
+                    <div class="msg-body">
+                        {% for item in message.content_items %}
+                        <div class="item">
+                            <div class="item-type">{{ item.type }}</div>
+                            {% if item.type == 'text.done' %}
+                            <div class="item-text">{{ item.text }}</div>
+                            {% elif item.type == 'thinking.done' %}
+                            {% if item.thinking|trim %}<div class="item-thinking">{{ item.thinking|trim }}</div>{% else %}<div class="item-note">No text{% if item.fidelity %}, only fidelity{% endif %}</div>{% endif %}
+                            {% elif item.type == 'inline_thinking.done' %}
+                            <div class="item-note">{{ item|inline_thinking_summary }}</div>
+                            {% if item.mime_type and item.mime_type.startswith('image/') %}<img class="item-img" src="{{ item|inline_data_url }}" alt="Thinking image">{% endif %}
+                            {% elif item.type == 'tool_call.done' %}
+                            <div class="tool"><div class="tool-head"><span class="tool-icon">{{ icons.tool|safe }}</span><span class="tool-sig">{{ item.name }}({% for key, value in item.arguments.items() %}{{ key }}="{{ value }}"{% if not loop.last %}, {% endif %}{% endfor %})</span><span class="tool-id">{{ item.tool_call_id }}</span></div></div>
+                            {% elif item.type == 'tool_result.done' %}
+                            <div class="result">
+                                <div class="result-head"><span class="result-icon">{{ icons.result|safe }}</span><span>Result</span><span class="tool-id">{{ item.tool_call_id }}</span></div>
+                                <div class="result-text">{{ item.text }}</div>
+                                {% if item.images %}<div class="item-images">{% for image_url in item.images %}<img class="item-img" src="{{ image_url }}" alt="Tool result image">{% endfor %}</div>{% endif %}
+                            </div>
+                            {% elif item.type == 'image_url.done' %}
+                            <img class="item-img" src="{{ item.image_url }}" alt="Image">
+                            {% elif item.type == 'inline_data.done' %}
+                            <div class="item-note">{{ item|inline_data_summary }}</div>
+                            {% if item.mime_type and item.mime_type.startswith('image/') %}
+                            <img class="item-img" src="{{ item|inline_data_url }}" alt="Inline image">
+                            {% elif item.mime_type and item.mime_type.startswith('audio/') %}
+                            <audio class="item-audio" controls preload="metadata"><source src="{{ item|inline_data_url }}"></audio>
+                            {% endif %}
+                            {% elif item.type == 'embedding.done' %}
+                            <div class="embedding">{{ item|embedding_preview }}</div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+
+                        {% if message.usage_metadata or message.finish_reason %}
+                        <div class="msg-foot">
+                            {% if message.finish_reason %}<span class="reason reason-{{ message.finish_reason }}" title="Finish reason">{{ message.finish_reason }}</span>{% endif %}
+                            {% if message.usage_metadata %}
+                            {% set usage = message.usage_metadata %}
+                            <span class="usage" title="Token usage">
+                                {% if usage.cached_tokens %}<span>Cached <b>{{ usage.cached_tokens|thousands }}</b></span>{% endif %}
+                                {% if usage.prompt_tokens %}<span>Prompt <b>{{ usage.prompt_tokens|thousands }}</b></span>{% endif %}
+                                {% if usage.thoughts_tokens %}<span>Thoughts <b>{{ usage.thoughts_tokens|thousands }}</b></span>{% endif %}
+                                {% if usage.response_tokens %}<span>Response <b>{{ usage.response_tokens|thousands }}</b></span>{% endif %}
+                                <span>Total <b>{{ ((usage.cached_tokens or 0) + (usage.prompt_tokens or 0) + (usage.thoughts_tokens or 0) + (usage.response_tokens or 0))|thousands }}</b></span>
+                            </span>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </details>
+                {% endfor %}
+            </main>
+
+            <aside class="rail" aria-label="Rounds">
+                <div class="rail-inner">
+                    <div class="rail-title">Rounds ({{ total_rounds }})</div>
+                    <ol class="rail-list">
+                        {% for round_idx in range(total_rounds) %}
+                        {% set curr_idx = round_idx * 2 + 1 %}
+                        {% set prev_idx = round_idx * 2 - 1 %}
+                        <li><a href="#msg-{{ round_idx * 2 }}">Round {{ round_idx + 1 }}{% if round_idx > 0 and curr_idx < history|length and history[curr_idx].created_at and history[prev_idx].created_at %}<span>{{ (history[curr_idx].created_at - history[prev_idx].created_at)|abs|duration }}</span>{% endif %}</a></li>
+                        {% endfor %}
+                    </ol>
+                </div>
+            </aside>
+        </div>
+        """
+
+        TEXT_VIEWER_TEMPLATE = """
+        <main class="page">
+            <div class="page-head">
+                <div>
+                    <h1>{{ filename }}</h1>
+                    <p class="page-meta"><span>Plain-text transcript</span></p>
+                </div>
+                <a class="ghost-btn" href="{{ back_url }}">{{ icons.back|safe }}Back</a>
+            </div>
+            <pre class="card text-file">{{ content }}</pre>
+        </main>
         """
 
         @app.route("/")
@@ -636,16 +1508,8 @@ class Tracer:
             # If it's a file, display its content
             if full_path.is_file():
                 try:
-                    # Build breadcrumb
                     parts = subpath.split("/") if subpath else []
-                    breadcrumb_parts = [f'<a href="{self._prefix_url(base_path, "/")}">cache</a>']
-                    for i, part in enumerate(parts[:-1]):
-                        path_to_part = "/".join(parts[: i + 1])
-                        breadcrumb_parts.append(
-                            f'<a href="{self._prefix_url(base_path, "/" + path_to_part)}">{part}</a>'
-                        )
-                    breadcrumb_parts.append(f"<strong>{parts[-1]}</strong>" if parts else "")
-                    breadcrumb = " / ".join(breadcrumb_parts)
+                    breadcrumb = self._breadcrumb(base_path, parts)
 
                     # Determine back URL
                     back_url = self._prefix_url(
@@ -660,27 +1524,30 @@ class Tracer:
                         # trace files written before 0.5.0 carry the legacy content item types
                         history = normalize_legacy_messages(data.get("history", []))
 
-                        return render_template_string(
+                        body = render_template_string(
                             JSON_VIEWER_TEMPLATE,
                             filename=full_path.name,
-                            breadcrumb=breadcrumb,
                             back_url=back_url,
                             history=history,
                             config=data.get("config", {}),
+                            saved_at=(data.get("timestamp") or "")[:19].replace("T", " "),
+                            icons=_ICONS,
                             enumerate=enumerate,
                         )
+                        return self._page(f"{full_path.name} - MMSP Tracer", root_url, breadcrumb, body)
                     else:
                         # For text files, use simple viewer
                         with open(full_path, "r", encoding="utf-8") as f:
                             content = f.read()
 
-                        return render_template_string(
+                        body = render_template_string(
                             TEXT_VIEWER_TEMPLATE,
                             filename=full_path.name,
                             content=content,
-                            breadcrumb=breadcrumb,
                             back_url=back_url,
+                            icons=_ICONS,
                         )
+                        return self._page(f"{full_path.name} - MMSP Tracer", root_url, breadcrumb, body)
                 except Exception as e:
                     return f"Error reading file: {str(e)}", 500
 
@@ -732,27 +1599,23 @@ class Tracer:
             except Exception as e:
                 return f"Error listing directory: {str(e)}", 500
 
-            # Build breadcrumb
-            parts = subpath.split("/") if subpath else []
-            breadcrumb_parts = [f'<a href="{self._prefix_url(base_path, "/")}">cache</a>']
-            for i, part in enumerate(parts):
-                if part:
-                    path_to_part = "/".join(parts[: i + 1])
-                    breadcrumb_parts.append(f'<a href="{self._prefix_url(base_path, "/" + path_to_part)}">{part}</a>')
-            breadcrumb = " / ".join(breadcrumb_parts)
+            parts = [part for part in subpath.split("/") if part] if subpath else []
+            breadcrumb = self._breadcrumb(base_path, parts)
 
             base_url = self._prefix_url(base_path, "/" + subpath if subpath else "/")
             sort_name_url = base_url + "?sort=name"
             sort_mtime_url = base_url + "?sort=mtime"
 
-            return render_template_string(
+            body = render_template_string(
                 DIRECTORY_TEMPLATE,
+                title=parts[-1] if parts else "Traces",
                 items=items,
-                breadcrumb=breadcrumb,
                 current_sort=sort_by,
                 sort_name_url=sort_name_url,
                 sort_mtime_url=sort_mtime_url,
+                icons=_ICONS,
             )
+            return self._page(f"{parts[-1] if parts else 'Traces'} - MMSP Tracer", root_url, breadcrumb, body)
 
         return app
 
