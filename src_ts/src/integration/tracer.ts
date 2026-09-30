@@ -206,12 +206,30 @@ const TRACER_HEAD = `
         font-size: 13px;
     }
 
+    .page-nav {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 20px;
+    }
+
+    .back-btn {
+        flex: none;
+        margin-left: -10px;
+    }
+
     .crumbs {
         display: flex;
         align-items: center;
         gap: 6px;
+        flex: 1;
         min-width: 0;
+        height: 34px;
+        padding: 0 12px;
         overflow: hidden;
+        border-radius: 8px;
+        background: var(--surface);
+        box-shadow: var(--shadow-card);
         color: var(--subtle);
         font-family: var(--mono);
         font-size: 12.5px;
@@ -219,13 +237,14 @@ const TRACER_HEAD = `
     }
 
     .crumbs a {
+        flex: none;
         color: var(--muted);
         border-radius: 4px;
         transition: color 0.15s;
     }
 
     .crumbs a:hover {
-        color: var(--text);
+        color: var(--accent);
     }
 
     .crumb-current {
@@ -235,6 +254,7 @@ const TRACER_HEAD = `
     }
 
     .crumb-sep {
+        flex: none;
         color: var(--subtle);
         opacity: 0.55;
     }
@@ -855,7 +875,7 @@ const TRACER_HEAD = `
             padding: 0 12px;
         }
 
-        .brand-sub, .label-wide {
+        .label-wide {
             display: none;
         }
 
@@ -1351,12 +1371,12 @@ export class Tracer {
           );
           const filename = path.basename(fullPath);
           const pageHead = (meta: string) => `
+        ${this._nav(breadcrumb, backUrl)}
         <div class="page-head">
             <div>
                 <h1>${esc(filename)}</h1>
                 <p class="page-meta">${meta}</p>
             </div>
-            <a class="ghost-btn" href="${esc(backUrl)}">${ICONS.back}Back</a>
         </div>`;
 
           if (!fullPath.endsWith(".json")) {
@@ -1366,12 +1386,7 @@ export class Tracer {
         <pre class="card text-file">${esc(content)}</pre>
     </main>`;
             return res.send(
-              this._page(
-                `${filename} - MMSP Tracer`,
-                rootUrl,
-                breadcrumb,
-                body,
-              ),
+              this._page(`${filename} - MMSP Tracer`, rootUrl, body),
             );
           }
 
@@ -1544,7 +1559,7 @@ export class Tracer {
         ${this._buildSidebarHtml(totalRounds, history)}
     </div>`;
           return res.send(
-            this._page(`${filename} - MMSP Tracer`, rootUrl, breadcrumb, body),
+            this._page(`${filename} - MMSP Tracer`, rootUrl, body),
           );
         } catch (error) {
           return res.status(500).send(`Error reading file: ${error}`);
@@ -1616,6 +1631,7 @@ export class Tracer {
 
         const body = `
     <main class="page">
+        ${this._nav(this._breadcrumb(basePath, parts))}
         <div class="page-head">
             <div>
                 <h1>${esc(title)}</h1>
@@ -1634,14 +1650,7 @@ export class Tracer {
         </div>
     </main>`;
 
-        return res.send(
-          this._page(
-            `${title} - MMSP Tracer`,
-            rootUrl,
-            this._breadcrumb(basePath, parts),
-            body,
-          ),
-        );
+        return res.send(this._page(`${title} - MMSP Tracer`, rootUrl, body));
       } catch (error) {
         return res.status(500).send(`Error listing directory: ${error}`);
       }
@@ -1776,20 +1785,28 @@ export class Tracer {
   }
 
   /**
+   * Build the row that opens a page: the back button, where there is one, then the path.
+   *
+   * @param breadcrumb - Breadcrumb HTML
+   * @param backUrl - Where the back button leads, if the page has one
+   * @returns Navigation row HTML
+   */
+  private _nav(breadcrumb: string, backUrl?: string): string {
+    const back = backUrl
+      ? `<a class="ghost-btn back-btn" href="${this._escapeHtml(backUrl)}">${ICONS.back}Back</a>`
+      : "";
+    return `<div class="page-nav">${back}<nav class="crumbs" aria-label="Path">${breadcrumb}</nav></div>`;
+  }
+
+  /**
    * Wrap a page body in the head, top bar and script every tracer page shares.
    *
    * @param title - Page title
    * @param rootUrl - URL of the cache root
-   * @param breadcrumb - Breadcrumb HTML
    * @param body - Page body HTML
    * @returns Full HTML page
    */
-  private _page(
-    title: string,
-    rootUrl: string,
-    breadcrumb: string,
-    body: string,
-  ): string {
+  private _page(title: string, rootUrl: string, body: string): string {
     return (
       '<!DOCTYPE html>\n<html lang="en">\n<head>\n' +
       `<title>${this._escapeHtml(title)}</title>\n` +
@@ -1797,7 +1814,6 @@ export class Tracer {
       '<header class="topbar">' +
       `<a class="brand" href="${this._escapeHtml(rootUrl)}"><span class="brand-name">MMSP</span>` +
       '<span class="brand-sub">Tracer</span></a>' +
-      `<nav class="crumbs" aria-label="Path">${breadcrumb}</nav>` +
       '<div class="topbar-actions">' +
       '<a href="https://github.com/Prism-Shadow/model-message-stream-protocol" target="_blank" ' +
       `rel="noopener noreferrer" class="ghost-btn" title="GitHub">${ICONS.github}` +

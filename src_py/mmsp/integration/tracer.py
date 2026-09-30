@@ -217,12 +217,30 @@ _TRACER_HEAD = """
         font-size: 13px;
     }
 
+    .page-nav {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 20px;
+    }
+
+    .back-btn {
+        flex: none;
+        margin-left: -10px;
+    }
+
     .crumbs {
         display: flex;
         align-items: center;
         gap: 6px;
+        flex: 1;
         min-width: 0;
+        height: 34px;
+        padding: 0 12px;
         overflow: hidden;
+        border-radius: 8px;
+        background: var(--surface);
+        box-shadow: var(--shadow-card);
         color: var(--subtle);
         font-family: var(--mono);
         font-size: 12.5px;
@@ -230,13 +248,14 @@ _TRACER_HEAD = """
     }
 
     .crumbs a {
+        flex: none;
         color: var(--muted);
         border-radius: 4px;
         transition: color 0.15s;
     }
 
     .crumbs a:hover {
-        color: var(--text);
+        color: var(--accent);
     }
 
     .crumb-current {
@@ -246,6 +265,7 @@ _TRACER_HEAD = """
     }
 
     .crumb-sep {
+        flex: none;
         color: var(--subtle);
         opacity: 0.55;
     }
@@ -866,7 +886,7 @@ _TRACER_HEAD = """
             padding: 0 12px;
         }
 
-        .brand-sub, .label-wide {
+        .label-wide {
             display: none;
         }
 
@@ -1148,7 +1168,17 @@ class Tracer:
         return '<span class="crumb-sep">/</span>'.join(crumbs)
 
     @staticmethod
-    def _page(title: str, root_url: str, breadcrumb: str, body: str) -> str:
+    def _nav(breadcrumb: str, back_url: str | None = None) -> str:
+        """The row that opens a page: the back button, where there is one, then the path."""
+        back = (
+            f'<a class="ghost-btn back-btn" href="{html.escape(back_url)}">{_ICONS["back"]}Back</a>'
+            if back_url
+            else ""
+        )
+        return f'<div class="page-nav">{back}<nav class="crumbs" aria-label="Path">{breadcrumb}</nav></div>'
+
+    @staticmethod
+    def _page(title: str, root_url: str, body: str) -> str:
         """Wrap a page body in the head, top bar and script every tracer page shares."""
         return (
             '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
@@ -1157,7 +1187,6 @@ class Tracer:
             '<header class="topbar">'
             f'<a class="brand" href="{html.escape(root_url)}"><span class="brand-name">MMSP</span>'
             '<span class="brand-sub">Tracer</span></a>'
-            f'<nav class="crumbs" aria-label="Path">{breadcrumb}</nav>'
             '<div class="topbar-actions">'
             '<a href="https://github.com/Prism-Shadow/model-message-stream-protocol" target="_blank" '
             f'rel="noopener noreferrer" class="ghost-btn" title="GitHub">{_ICONS["github"]}'
@@ -1342,6 +1371,7 @@ class Tracer:
         # The page bodies; _page wraps each in the head, top bar and script every page shares.
         DIRECTORY_TEMPLATE = """
         <main class="page">
+            {{ nav|safe }}
             <div class="page-head">
                 <div>
                     <h1>{{ title }}</h1>
@@ -1371,6 +1401,7 @@ class Tracer:
         {% set total_rounds = ((history|length) + 1) // 2 %}
         <div class="viewer">
             <main class="page">
+                {{ nav|safe }}
                 <div class="page-head">
                     <div>
                         <h1>{{ filename }}</h1>
@@ -1381,7 +1412,6 @@ class Tracer:
                             {% if saved_at %}<span>Saved {{ saved_at }}</span>{% endif %}
                         </p>
                     </div>
-                    <a class="ghost-btn" href="{{ back_url }}">{{ icons.back|safe }}Back</a>
                 </div>
 
                 {% if config %}
@@ -1479,12 +1509,12 @@ class Tracer:
 
         TEXT_VIEWER_TEMPLATE = """
         <main class="page">
+            {{ nav|safe }}
             <div class="page-head">
                 <div>
                     <h1>{{ filename }}</h1>
                     <p class="page-meta"><span>Plain-text transcript</span></p>
                 </div>
-                <a class="ghost-btn" href="{{ back_url }}">{{ icons.back|safe }}Back</a>
             </div>
             <pre class="card text-file">{{ content }}</pre>
         </main>
@@ -1527,14 +1557,14 @@ class Tracer:
                         body = render_template_string(
                             JSON_VIEWER_TEMPLATE,
                             filename=full_path.name,
-                            back_url=back_url,
+                            nav=self._nav(breadcrumb, back_url),
                             history=history,
                             config=data.get("config", {}),
                             saved_at=(data.get("timestamp") or "")[:19].replace("T", " "),
                             icons=_ICONS,
                             enumerate=enumerate,
                         )
-                        return self._page(f"{full_path.name} - MMSP Tracer", root_url, breadcrumb, body)
+                        return self._page(f"{full_path.name} - MMSP Tracer", root_url, body)
                     else:
                         # For text files, use simple viewer
                         with open(full_path, "r", encoding="utf-8") as f:
@@ -1544,10 +1574,10 @@ class Tracer:
                             TEXT_VIEWER_TEMPLATE,
                             filename=full_path.name,
                             content=content,
-                            back_url=back_url,
+                            nav=self._nav(breadcrumb, back_url),
                             icons=_ICONS,
                         )
-                        return self._page(f"{full_path.name} - MMSP Tracer", root_url, breadcrumb, body)
+                        return self._page(f"{full_path.name} - MMSP Tracer", root_url, body)
                 except Exception as e:
                     return f"Error reading file: {str(e)}", 500
 
@@ -1613,9 +1643,10 @@ class Tracer:
                 current_sort=sort_by,
                 sort_name_url=sort_name_url,
                 sort_mtime_url=sort_mtime_url,
+                nav=self._nav(breadcrumb),
                 icons=_ICONS,
             )
-            return self._page(f"{parts[-1] if parts else 'Traces'} - MMSP Tracer", root_url, breadcrumb, body)
+            return self._page(f"{parts[-1] if parts else 'Traces'} - MMSP Tracer", root_url, body)
 
         return app
 
