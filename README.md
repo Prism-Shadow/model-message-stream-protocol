@@ -53,7 +53,7 @@ Audit LLM executions by adding **a single `trace_id` parameter**, no database re
 | DeepSeek V4    | Official/OpenRouter/SiliconFlow     | `deepseek-flash`       | Text, Image      | Text                           |
 | GLM-5.1-5.3    | Official/OpenRouter/SiliconFlow     | `glm-5.3`              | Text, Image      | Text                           |
 | MiniMax-M3     | Official                            | `MiniMax-M3`           | Text, Image      | Text                           |
-| Qwen3.6        | OpenRouter/SiliconFlow/vLLM         | `qwen/qwen3.6-35b-a3b` | Text, Image      | Text, Embedding                |
+| Qwen3.8        | OpenRouter/SiliconFlow/vLLM         | `qwen/qwen3.8-27b`     | Text, Image      | Text, Embedding                |
 
 ### Clients
 
@@ -335,7 +335,7 @@ main().catch(console.error);
 ```
 </details>
 
-### SiliconFlow Qwen3.6 35B via OpenAI-compatible API
+### SiliconFlow Qwen3.8 27B via OpenAI-compatible API
 
 <details><summary><strong>Python Example</strong></summary>
 
@@ -348,7 +348,7 @@ os.environ["OPENAI_API_KEY"] = "your-siliconflow-api-key"
 os.environ["OPENAI_BASE_URL"] = "https://api.siliconflow.cn/v1"
 
 async def main():
-    client = AutoLLMClient(model="Qwen/Qwen3.6-35B-A3B", client_type="openai-chat")
+    client = AutoLLMClient(model="Qwen/Qwen3.8-27B", client_type="openai-chat")
     async for event in client.streaming_response_stateful(
         message={
             "role": "user",
@@ -372,7 +372,7 @@ process.env.OPENAI_BASE_URL = "https://api.siliconflow.cn/v1";
 
 async function main() {
   const client = new AutoLLMClient({
-    model: "Qwen/Qwen3.6-35B-A3B",
+    model: "Qwen/Qwen3.8-27B",
     clientType: "openai-chat",
   });
   for await (const event of client.streamingResponseStateful({
