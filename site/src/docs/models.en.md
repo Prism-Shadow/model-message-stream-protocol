@@ -73,7 +73,7 @@ Where a gateway serves more than one, prefer `openai-responses`. OpenRouter serv
 
 ```typescript
 const client = new AutoLLMClient({
-  model: "qwen/qwen3.6-35b-a3b",
+  model: "qwen/qwen3.8-27b",
   clientType: "openai-responses",
   baseUrl: "https://openrouter.ai/api/v1",
   apiKey: process.env.OPENROUTER_API_KEY,
@@ -82,7 +82,7 @@ const client = new AutoLLMClient({
 
 ```python
 client = AutoLLMClient(
-    model="qwen/qwen3.6-35b-a3b",
+    model="qwen/qwen3.8-27b",
     client_type="openai-responses",
     base_url="https://openrouter.ai/api/v1",
     api_key=os.environ["OPENROUTER_API_KEY"],

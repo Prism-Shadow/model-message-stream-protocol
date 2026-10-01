@@ -350,7 +350,7 @@ if (process.env.OPENROUTER_API_KEY && RUN_SLOW_TEST) {
     provider: "openrouter",
   });
   AVAILABLE_MODELS.push({
-    name: "qwen/qwen3.6-35b-a3b",
+    name: "qwen/qwen3.8-27b",
     supportTextGeneration: true,
     supportImageUnderstanding: true,
     supportImageGeneration: false,
@@ -391,7 +391,7 @@ if (process.env.SILICONFLOW_API_KEY && RUN_SLOW_TEST) {
     provider: "siliconflow",
   });
   AVAILABLE_MODELS.push({
-    name: "Qwen/Qwen3.6-35B-A3B",
+    name: "Qwen/Qwen3.8-27B",
     supportTextGeneration: true,
     supportImageUnderstanding: true,
     supportImageGeneration: false,
@@ -1389,7 +1389,7 @@ const ROUTING_CASES: [string, string | undefined, string][] = [
   ["deepseek-flash", undefined, "DeepSeekOfficialClient"],
   ["MiniMax-M3", undefined, "MiniMaxOfficialClient"],
   ["deepseek-v4-pro", "OpenAI-Responses", "OpenaiResponsesClient"],
-  ["qwen/qwen3.6-35b-a3b", "openai-responses", "OpenaiResponsesClient"],
+  ["qwen/qwen3.8-27b", "openai-responses", "OpenaiResponsesClient"],
   ["qwen3.6", "openai-chat", "OpenaiChatClient"],
   ["qwen3.6", "openai", "OpenaiChatClient"],
   ["qwen3.6", "openai-chat-vllm-adapter", "OpenaiChatVllmAdapterClient"],

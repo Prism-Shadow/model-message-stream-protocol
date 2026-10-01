@@ -223,7 +223,7 @@ if os.getenv("OPENROUTER_API_KEY") and RUN_SLOW_TEST:
             )
         )
     AVAILABLE_MODELS.append(Model(name="z-ai/glm-5.3", provider="openrouter", support_image_understanding=False))
-    AVAILABLE_MODELS.append(Model(name="qwen/qwen3.6-35b-a3b", provider="openrouter", client_type="openai-responses"))
+    AVAILABLE_MODELS.append(Model(name="qwen/qwen3.8-27b", provider="openrouter", client_type="openai-responses"))
     AVAILABLE_MODELS.append(
         Model(
             name="qwen/qwen3-embedding-4b",
@@ -238,7 +238,7 @@ if os.getenv("OPENROUTER_API_KEY") and RUN_SLOW_TEST:
 
 if os.getenv("SILICONFLOW_API_KEY") and RUN_SLOW_TEST:
     AVAILABLE_MODELS.append(Model(name="zai-org/GLM-5.2", provider="siliconflow", support_image_understanding=False))
-    AVAILABLE_MODELS.append(Model(name="Qwen/Qwen3.6-35B-A3B", provider="siliconflow", client_type="openai-chat"))
+    AVAILABLE_MODELS.append(Model(name="Qwen/Qwen3.8-27B", provider="siliconflow", client_type="openai-chat"))
     AVAILABLE_MODELS.append(Model(name="Pro/moonshotai/Kimi-K2.6", provider="siliconflow"))
     AVAILABLE_MODELS.append(
         Model(
@@ -503,7 +503,7 @@ ROUTING_CASES = [
     ("deepseek-flash", None, "DeepSeekOfficialClient"),
     ("MiniMax-M3", None, "MiniMaxOfficialClient"),
     ("deepseek-v4-pro", "OpenAI-Responses", "OpenaiResponsesClient"),
-    ("qwen/qwen3.6-35b-a3b", "openai-responses", "OpenaiResponsesClient"),
+    ("qwen/qwen3.8-27b", "openai-responses", "OpenaiResponsesClient"),
     ("qwen3.6", "openai-chat", "OpenaiChatClient"),
     ("qwen3.6", "openai", "OpenaiChatClient"),
     ("qwen3.6", "openai-chat-vllm-adapter", "OpenaiChatVllmAdapterClient"),
