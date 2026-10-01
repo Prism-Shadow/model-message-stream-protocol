@@ -55,8 +55,9 @@ CHROME=/path/to/chrome site/artwork/render.sh
 
 | Source | Image | Size |
 | --- | --- | --- |
-| `header.html` | `.github/images/header.png` | 3000 x 1000 |
-| `diagram.html` | `.github/images/mmsp.png` | 3000 x 1560 |
+| `header.html` | `.github/images/header.png` | 1760 x 587 |
+| `diagram.html` | `.github/images/mmsp.png` | 1760 x 915 |
 | `social-preview.html` | `.github/images/social-preview.png` | 1280 x 640 |
+| `logo.py` | `.github/images/mmsp-logo.svg`, `mmsp-logo-dark.svg` | 32 x 32 viewBox |
 
-The social preview is uploaded by hand in the repository settings, under Social preview. A copy in `public/` is the image links to the site unfurl with.
+`render.sh` renders at 3000 px; the committed PNGs are scaled down and reduced to 256 colours, as the `mmsp-dev` skill describes. The social preview is uploaded by hand in the repository settings, under Social preview; the site serves the same file at `/social-preview.png` (`src/pages/social-preview.png.ts`) for its link previews.

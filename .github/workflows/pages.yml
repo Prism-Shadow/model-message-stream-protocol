@@ -6,6 +6,7 @@ on:
       - "main"
     paths:
       - "site/**"
+      - ".github/images/social-preview.png"
       - "CHANGELOG.md"
       - "CHANGELOG.zh.md"
       - ".github/workflows/pages.yml"
@@ -15,6 +16,7 @@ on:
       - "dev"
     paths:
       - "site/**"
+      - ".github/images/social-preview.png"
       - "CHANGELOG.md"
       - "CHANGELOG.zh.md"
       - ".github/workflows/pages.yml"
