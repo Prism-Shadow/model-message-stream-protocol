@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-- [2026-10-01] 标志在亮色背景上不再有灰边，标志素材（SVG 与 PNG，亮色与暗色）存放在 `assets/logo/`。([详情](2026-10-01-logo-light.zh.md))
+- [2026-10-01] 标志在亮色背景上不再有灰边，标志素材（SVG 与 PNG，亮色与暗色）存放在 `.github/images/`。([详情](2026-10-01-logo-light.zh.md))
 - [2026-10-01] 站点、标志与图片的主题色改为 fennel flower 色相上的纯蓝 `#477dfb`，暗色文字使用 `#7aa2f7`；语言与主题按钮改为点击切换，首页在桌面端一屏展示。([详情](2026-10-01-fennel-theme.zh.md), [#238](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/238))
 - [2026-09-30] 发布 workflow 遇到 PyPI 或 npm 上已有的版本时跳过，不再失败。([详情](2026-09-30-publish-skip-existing.zh.md), [#237](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/237))
 - [2026-09-30] 只改站点时只运行站点构建，不再运行模型测试。([详情](2026-09-30-ci-site-paths.zh.md), [#236](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/236))

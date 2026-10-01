@@ -1,6 +1,6 @@
 # Builds the MMSP logo files: the mark of site/public/favicon.svg with its letters as outlines
 # (Noto Sans Bold), so it renders the same without the font, in a light and a dark variant.
-# Usage: uvx --with fonttools python site/artwork/logo.py NotoSans-Bold.ttf assets/logo
+# Usage: uvx --with fonttools python site/artwork/logo.py NotoSans-Bold.ttf .github/images
 import sys
 
 from fontTools.pens.boundsPen import BoundsPen
