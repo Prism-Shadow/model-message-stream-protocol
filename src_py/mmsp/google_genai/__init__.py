@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .client import GeminiGenerateContentClient
+from .client import GoogleGenaiClient
 
 
-__all__ = ["GeminiGenerateContentClient"]
+__all__ = ["GoogleGenaiClient"]

@@ -190,24 +190,18 @@ describe("listModels", () => {
     },
     {
       apiKey: serviceAccountKey,
-      clientType: undefined,
-      expectedClient: "GeminiGenerateContentClient",
-      expected: geminiFamily,
-    },
-    {
-      apiKey: serviceAccountKey,
-      clientType: "gemini-official",
-      expectedClient: "GeminiGenerateContentClient",
+      clientType: "google-genai",
+      expectedClient: "GoogleGenaiClient",
       expected: vertexListing,
     },
     {
       apiKey: "test-key",
-      clientType: "gemini-generate-content",
-      expectedClient: "GeminiGenerateContentClient",
+      clientType: "google-genai",
+      expectedClient: "GoogleGenaiClient",
       expected: vertexListing,
     },
   ])(
-    "routes Gemini by credential and pin, and lists the family of a deduced client ($expectedClient, $clientType)",
+    "the Gemini clients list the family of a deduced client and everything for a named one ($expectedClient, $clientType)",
     async ({ apiKey, clientType, expectedClient, expected }) => {
       const client = new AutoLLMClient({
         model: "gemini-3.8-flash",

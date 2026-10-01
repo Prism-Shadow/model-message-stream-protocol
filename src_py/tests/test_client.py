@@ -55,6 +55,8 @@ AVAILABLE_MODELS: list[Model] = []
 
 if os.getenv("GEMINI_API_KEY"):
     AVAILABLE_MODELS.append(Model(name="gemini-3.8-flash"))
+    # the Gemini API serves generateContent too, so google-genai is covered beyond Vertex AI
+    AVAILABLE_MODELS.append(Model(name="gemini-3.8-flash", client_type="google-genai"))
     AVAILABLE_MODELS.append(
         Model(
             name="gemini-3.1-flash-image",
@@ -149,11 +151,13 @@ if os.getenv("BEDROCK_API_KEY"):
     )
 
 if os.getenv("VERTEX_API_KEY"):
-    AVAILABLE_MODELS.append(Model(name="gemini-3.8-flash", provider="vertex"))
+    # Vertex AI serves Gemini through generateContent only, the google-genai client's protocol
+    AVAILABLE_MODELS.append(Model(name="gemini-3.8-flash", provider="vertex", client_type="google-genai"))
     AVAILABLE_MODELS.append(
         Model(
             name="gemini-3.1-flash-image",
             provider="vertex",
+            client_type="google-genai",
             support_text=False,
             support_image_understanding=False,
             support_image_generation=True,
@@ -163,6 +167,7 @@ if os.getenv("VERTEX_API_KEY"):
         Model(
             name="gemini-3.1-flash-tts-preview",
             provider="vertex",
+            client_type="google-genai",
             support_text=False,
             support_image_understanding=False,
             support_tts=True,
@@ -172,6 +177,7 @@ if os.getenv("VERTEX_API_KEY"):
         Model(
             name="gemini-embedding-2",
             provider="vertex",
+            client_type="google-genai",
             support_text=False,
             support_image_understanding=False,
             support_embedding=True,
@@ -217,7 +223,7 @@ if os.getenv("OPENROUTER_API_KEY") and RUN_SLOW_TEST:
             )
         )
     AVAILABLE_MODELS.append(Model(name="z-ai/glm-5.3", provider="openrouter", support_image_understanding=False))
-    AVAILABLE_MODELS.append(Model(name="qwen/qwen3.6-35b-a3b", provider="openrouter", client_type="openai-responses"))
+    AVAILABLE_MODELS.append(Model(name="qwen/qwen3.8-27b", provider="openrouter", client_type="openai-responses"))
     AVAILABLE_MODELS.append(
         Model(
             name="qwen/qwen3-embedding-4b",
@@ -232,7 +238,7 @@ if os.getenv("OPENROUTER_API_KEY") and RUN_SLOW_TEST:
 
 if os.getenv("SILICONFLOW_API_KEY") and RUN_SLOW_TEST:
     AVAILABLE_MODELS.append(Model(name="zai-org/GLM-5.2", provider="siliconflow", support_image_understanding=False))
-    AVAILABLE_MODELS.append(Model(name="Qwen/Qwen3.6-35B-A3B", provider="siliconflow", client_type="openai-chat"))
+    AVAILABLE_MODELS.append(Model(name="Qwen/Qwen3.8-27B", provider="siliconflow", client_type="openai-chat"))
     AVAILABLE_MODELS.append(Model(name="Pro/moonshotai/Kimi-K2.6", provider="siliconflow"))
     AVAILABLE_MODELS.append(
         Model(
@@ -488,7 +494,8 @@ ROUTING_CASES = [
     ("claude-sonnet-5", None, "AnthropicOfficialClient"),
     ("gemini-3.8-flash", None, "GeminiOfficialClient"),
     ("gemini-embedding-2", None, "GeminiOfficialClient"),
-    ("gemini-3.8-flash", "gemini-generate-content", "GeminiGenerateContentClient"),
+    ("gemini-3.8-flash", "google-genai", "GoogleGenaiClient"),
+    ("gemini-3.8-flash", "gemini-generate-content", "GoogleGenaiClient"),
     ("glm-5.3", None, "ZAIOfficialClient"),
     ("kimi-k3", None, "MoonshotOfficialClient"),
     ("deepseek-v4-pro", None, "DeepSeekOfficialClient"),
@@ -496,7 +503,7 @@ ROUTING_CASES = [
     ("deepseek-flash", None, "DeepSeekOfficialClient"),
     ("MiniMax-M3", None, "MiniMaxOfficialClient"),
     ("deepseek-v4-pro", "OpenAI-Responses", "OpenaiResponsesClient"),
-    ("qwen/qwen3.6-35b-a3b", "openai-responses", "OpenaiResponsesClient"),
+    ("qwen/qwen3.8-27b", "openai-responses", "OpenaiResponsesClient"),
     ("qwen3.6", "openai-chat", "OpenaiChatClient"),
     ("qwen3.6", "openai", "OpenaiChatClient"),
     ("qwen3.6", "openai-chat-vllm-adapter", "OpenaiChatVllmAdapterClient"),
@@ -512,6 +519,12 @@ def test_client_type_or_model_family_names_the_client(model: str, client_type: s
     client = AutoLLMClient(model=model, api_key="test-key", client_type=client_type)
 
     assert client._client.__class__.__name__ == client_name
+
+
+@pytest.mark.parametrize("client_type", [None, "gemini-official"])
+def test_gemini_official_refuses_a_vertex_service_account_key(client_type: str | None):
+    with pytest.raises(ValueError, match="google-genai"):
+        AutoLLMClient(model="gemini-3.8-flash", api_key='{"project_id": "test-project"}', client_type=client_type)
 
 
 def test_a_model_of_no_known_family_asks_for_a_client_type():

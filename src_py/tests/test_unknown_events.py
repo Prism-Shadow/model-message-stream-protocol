@@ -59,9 +59,9 @@ GEMINI_STREAM_CASES = [
 # Every client that parses the Gemini generateContent chunk shape.
 GENERATE_CONTENT_STREAM_CASES = [
     StreamCase(
-        expected_client="GeminiGenerateContentClient",
+        expected_client="GoogleGenaiClient",
         model="gemini-3.8-flash",
-        client_type="gemini-generate-content",
+        client_type="google-genai",
     ),
 ]
 

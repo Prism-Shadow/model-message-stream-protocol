@@ -649,13 +649,13 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(5.0, 30.0, 0.5),
   },
   {
-    model: "qwen/qwen3.6-35b-a3b",
+    model: "qwen/qwen3.8-27b",
     base_url: OPENROUTER,
     client: "openai-responses",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
-    context_window: 262144,
-    pricing: usd(0.14, 1.0),
+    context_window: 1000000,
+    pricing: usd(0.42, 3.0, 0.085),
   },
   {
     model: "qwen/qwen3-embedding-4b",
@@ -792,12 +792,11 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     context_window: 262144,
   },
   {
-    model: "Qwen/Qwen3.6-35B-A3B",
+    model: "Qwen/Qwen3.8-27B",
     base_url: SILICONFLOW,
     client: "openai-chat",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
-    context_window: 262144,
   },
   {
     model: "Qwen/Qwen3-Embedding-8B",

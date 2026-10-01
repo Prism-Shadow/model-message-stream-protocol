@@ -12,7 +12,7 @@ Use exact model ids. A model id that begins with a known family names its offici
 | --- | --- | --- | --- |
 | `openai-official` | `gpt-6.1-sol`, `gpt-6-astra`, `gpt-5.6-sol`, `gpt-5.5`; `text-embedding-3-large`, `text-embedding-3-small` | OpenAI Responses; Embeddings for `text-embedding-*` | `OPENAI_API_KEY` `OPENAI_BASE_URL` |
 | `anthropic-official` | `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-fable-5-1`, `claude-opus-5`, `claude-sonnet-5` | Anthropic Messages | `ANTHROPIC_API_KEY` `ANTHROPIC_BASE_URL` |
-| `gemini-official` | `gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-3.1-pro-preview`; `gemini-3.1-flash-image`, `gemini-3.8-flash-tts`; `gemini-embedding-2` | Gemini Interactions; generateContent for a Vertex AI key | `GEMINI_API_KEY` `GEMINI_BASE_URL` |
+| `gemini-official` | `gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-3.1-pro-preview`; `gemini-3.1-flash-image`, `gemini-3.8-flash-tts`; `gemini-embedding-2` | Gemini Interactions | `GEMINI_API_KEY` `GEMINI_BASE_URL` |
 | `zai-official` | `glm-5.3`, `glm-5.3-flash`, `glm-5.2` | Chat Completions | `ZAI_API_KEY` `ZAI_BASE_URL` |
 | `moonshot-official` | `kimi-k3`, `kimi-k2.6` | Chat Completions | `MOONSHOT_API_KEY` `MOONSHOT_BASE_URL` |
 | `deepseek-official` | `deepseek-flash`, `deepseek-v4-pro` | Responses | `DEEPSEEK_API_KEY` `DEEPSEEK_BASE_URL` |
@@ -56,7 +56,7 @@ models = list_supported_models(currency="CNY")  # "USD" by default
 
 ## Compatible clients
 
-Six compatible clients call any endpoint that serves their protocol. Name one with `client_type`, and give it the endpoint and its key together: as `base_url` and `api_key`, or as `OPENAI_BASE_URL` and `OPENAI_API_KEY` in the environment (the `ANTHROPIC_` pair for `ant-messages`, the `GEMINI_` pair for `gemini-generate-content`). A `base_url` without an `api_key` raises: the environment's key is not sent to an endpoint named in code.
+Six compatible clients call any endpoint that serves their protocol. Name one with `client_type`, and give it the endpoint and its key together: as `base_url` and `api_key`, or as `OPENAI_BASE_URL` and `OPENAI_API_KEY` in the environment (the `ANTHROPIC_` pair for `ant-messages`, the `GEMINI_` pair for `google-genai`). A `base_url` without an `api_key` raises: the environment's key is not sent to an endpoint named in code.
 
 | `client_type` | Protocol | Served by |
 | --- | --- | --- |
@@ -65,7 +65,7 @@ Six compatible clients call any endpoint that serves their protocol. Name one wi
 | `openai-chat-vllm-adapter` | Chat Completions as vLLM serves it. Maps `thinking_level` onto the template's own switches. | vLLM |
 | `openai-embedding` | OpenAI Embeddings | Any embedding endpoint |
 | `ant-messages` | Anthropic Messages | Anthropic, OpenRouter, DeepSeek, Z.AI, MiniMax |
-| `gemini-generate-content` | Gemini generateContent | Gateways that proxy it |
+| `google-genai` | Google generateContent, as the Google GenAI SDK speaks it | Vertex AI, the Gemini API, gateways that proxy it |
 
 Where a gateway serves more than one, prefer `openai-responses`. OpenRouter serves it for every model it hosts; SiliconFlow serves Chat Completions only.
 
@@ -73,7 +73,7 @@ Where a gateway serves more than one, prefer `openai-responses`. OpenRouter serv
 
 ```typescript
 const client = new AutoLLMClient({
-  model: "qwen/qwen3.6-35b-a3b",
+  model: "qwen/qwen3.8-27b",
   clientType: "openai-responses",
   baseUrl: "https://openrouter.ai/api/v1",
   apiKey: process.env.OPENROUTER_API_KEY,
@@ -82,7 +82,7 @@ const client = new AutoLLMClient({
 
 ```python
 client = AutoLLMClient(
-    model="qwen/qwen3.6-35b-a3b",
+    model="qwen/qwen3.8-27b",
     client_type="openai-responses",
     base_url="https://openrouter.ai/api/v1",
     api_key=os.environ["OPENROUTER_API_KEY"],
@@ -102,7 +102,27 @@ Common base URLs:
 
 ## Gemini on Vertex AI
 
-Pass the service-account JSON key as the API key. `gemini-official` serves such a key through generateContent, because Vertex AI's Interactions endpoint serves none of these models. Any other Gemini key uses the Interactions API. `gemini-generate-content` names generateContent for any endpoint, such as a gateway that proxies it.
+Name `google-genai` and pass the service-account JSON key as the API key. Vertex AI's Interactions endpoint serves none of these models, so `gemini-official`, which speaks Interactions, refuses such a key.
+
+<div class="code-group">
+
+```typescript
+const client = new AutoLLMClient({
+  model: "gemini-3.8-flash",
+  clientType: "google-genai",
+  apiKey: fs.readFileSync("service-account.json", "utf8"),
+});
+```
+
+```python
+client = AutoLLMClient(
+    model="gemini-3.8-flash",
+    client_type="google-genai",
+    api_key=open("service-account.json").read(),
+)
+```
+
+</div>
 
 Thought signatures replay only on the endpoint that issued them. See [Fidelity](/docs/fidelity/).
 
@@ -112,7 +132,7 @@ Every client speaks one provider protocol on the wire, whichever `client_type` r
 
 | `client_type` | Wire protocol |
 | --- | --- |
-| `gemini-official`, `gemini-generate-content` | `google-genai` |
+| `gemini-official`, `google-genai` | `google-genai` |
 | `anthropic-official`, `ant-messages` | `ant-messages` |
 | `openai-official`, `deepseek-official`, `minimax-official`, `openai-responses` | `openai-responses` |
 | `zai-official`, `moonshot-official`, `openai-chat`, `openai-chat-vllm-adapter` | `openai-chat` |

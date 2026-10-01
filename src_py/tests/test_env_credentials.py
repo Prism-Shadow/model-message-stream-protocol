@@ -41,6 +41,9 @@ _CREDENTIAL_ENV = [
     "ANTHROPIC_AUTH_TOKEN",
     "ANTHROPIC_BASE_URL",
     "ANTHROPIC_BEDROCK_BASE_URL",
+    "GEMINI_API_KEY",
+    "GEMINI_BASE_URL",
+    "GOOGLE_API_KEY",
     # the Python Bedrock client refuses AWS keys while this is set
     "AWS_BEARER_TOKEN_BEDROCK",
 ]
@@ -276,3 +279,45 @@ def test_claude5_client_on_bedrock_sends_no_anthropic_credential_to_aws(monkeypa
 
     assert type(_sdk(client)).__name__ == "AsyncAnthropicBedrock"
     assert _anthropic_auth_headers(client) == {}
+
+
+def _google_credential(client: AutoLLMClient) -> tuple[str | None, str | None]:
+    api_client = _sdk(client)._api_client  # noqa: SLF001
+    return api_client.api_key, api_client._http_options.base_url  # noqa: SLF001
+
+
+# The google-genai client, which GEMINI_API_KEY and GEMINI_BASE_URL belong to.
+def test_google_genai_client_reads_gemini_api_key_and_base_url(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "gm-env-PROBE")
+    monkeypatch.setenv("GEMINI_BASE_URL", "https://gateway.example/")
+
+    client = AutoLLMClient(model="gemini-3.8-flash", client_type="google-genai")
+
+    assert _routed_client_name(client) == "GoogleGenaiClient"
+    assert _google_credential(client) == ("gm-env-PROBE", "https://gateway.example/")
+
+
+def test_google_genai_client_with_a_base_url_refuses_to_build_on_gemini_api_key(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "gm-env-PROBE")
+    message = (
+        "api_key is required for GoogleGenaiClient with a base_url: GEMINI_API_KEY is not sent to another endpoint."
+    )
+
+    with pytest.raises(ValueError, match=re.escape(message)):
+        AutoLLMClient(model="gemini-3.8-flash", client_type="google-genai", base_url="https://gateway.example/")
+
+
+def test_google_genai_client_with_a_base_url_and_a_key_uses_both_over_the_environment(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("GEMINI_API_KEY", "gm-env-PROBE")
+    monkeypatch.setenv("GEMINI_BASE_URL", "https://env.example/")
+
+    client = AutoLLMClient(
+        model="gemini-3.8-flash",
+        client_type="google-genai",
+        api_key="gm-explicit-PROBE",
+        base_url="https://gateway.example/",
+    )
+
+    assert _google_credential(client) == ("gm-explicit-PROBE", "https://gateway.example/")

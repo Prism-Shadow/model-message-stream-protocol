@@ -117,20 +117,18 @@ function createGenerateContentAutoClient(model: string): AutoLLMClient {
   return new AutoLLMClient({
     model,
     apiKey: "test-key",
-    clientType: "gemini-generate-content",
+    clientType: "google-genai",
   });
 }
 
-describe("gemini_generate_content thinking level clamping", () => {
+describe("google_genai thinking level clamping", () => {
   test.each([
     ...GEMINI3_THINKING_LEVEL_CASES,
     ...GEMINI3_7_THINKING_LEVEL_CASES,
   ])("%s clamps %s to %s", (model, level, expected) => {
     const client = createGenerateContentAutoClient(model);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    expect((client as any)._client.constructor.name).toBe(
-      "GeminiGenerateContentClient",
-    );
+    expect((client as any)._client.constructor.name).toBe("GoogleGenaiClient");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect((client as any)._client._convertThinkingLevel(level)).toBe(
       expected?.toUpperCase(),
@@ -333,18 +331,8 @@ const THINKING_SUMMARY_CASES: Array<
   ["gpt-5.6", "openai-responses", { thinking_summary: true }, undefined],
   ["gemini-3.8-flash", undefined, { thinking_summary: true }, "auto"],
   ["gemini-3.8-flash", undefined, { thinking_summary: false }, "none"],
-  [
-    "gemini-3.8-flash",
-    "gemini-generate-content",
-    { thinking_summary: true },
-    true,
-  ],
-  [
-    "gemini-3.8-flash",
-    "gemini-generate-content",
-    { thinking_summary: false },
-    false,
-  ],
+  ["gemini-3.8-flash", "google-genai", { thinking_summary: true }, true],
+  ["gemini-3.8-flash", "google-genai", { thinking_summary: false }, false],
 ];
 
 /** Read the thinking-summary switch out of whichever field the client used. */

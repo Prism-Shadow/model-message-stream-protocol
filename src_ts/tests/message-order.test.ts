@@ -107,9 +107,9 @@ const MESSAGE_ORDER_CASES: MessageOrderCase[] = [
     expected: GEMINI_ORDER,
   },
   {
-    expectedClient: "GeminiGenerateContentClient",
+    expectedClient: "GoogleGenaiClient",
     model: "gemini-3.8-flash",
-    clientType: "gemini-generate-content",
+    clientType: "google-genai",
     protocol: "generate_content",
     expected: GENERATE_CONTENT_ORDER,
   },
@@ -291,10 +291,10 @@ describe("Message transform shape for GeminiOfficialClient", () => {
   });
 });
 
-describe("Message transform shape for GeminiGenerateContentClient", () => {
+describe("Message transform shape for GoogleGenaiClient", () => {
   test("moves a thought signature onto the first function call", async () => {
-    const client = routedClient("gemini-3.8-flash", "gemini-generate-content");
-    expect(client.constructor.name).toBe("GeminiGenerateContentClient");
+    const client = routedClient("gemini-3.8-flash", "google-genai");
+    expect(client.constructor.name).toBe("GoogleGenaiClient");
 
     const modelInput =
       await client.transformUniMessageToModelInput(messagesFor());
@@ -315,7 +315,7 @@ describe("Message transform shape for GeminiGenerateContentClient", () => {
   });
 
   test("splits function responses into contents of their own", async () => {
-    const client = routedClient("gemini-3.8-flash", "gemini-generate-content");
+    const client = routedClient("gemini-3.8-flash", "google-genai");
     const messages = messagesFor();
     messages[2].content_items = [
       { type: "text.done", text: "Here is the weather." },
@@ -346,10 +346,7 @@ describe("Message transform shape for GeminiGenerateContentClient", () => {
   });
 
   test("keeps the signature of a thought image on its own part", async () => {
-    const client = routedClient(
-      "gemini-3.1-flash-image",
-      "gemini-generate-content",
-    );
+    const client = routedClient("gemini-3.1-flash-image", "google-genai");
 
     const modelInput = await client.transformUniMessageToModelInput([
       {

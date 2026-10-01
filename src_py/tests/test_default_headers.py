@@ -46,7 +46,7 @@ HEADER_CASES = [
     ),
     # the generateContent client builds its own SDK client, and lists the Gemini family's ids
     HeaderCase(
-        client_type="gemini-generate-content",
+        client_type="google-genai",
         model="gemini-3.8-flash",
         base_url_suffix="",
         expected=["gemini-3.8-flash", "gemini-3.8-pro"],

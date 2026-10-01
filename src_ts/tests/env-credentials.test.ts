@@ -36,6 +36,9 @@ const CREDENTIAL_ENV = [
   "ANTHROPIC_AUTH_TOKEN",
   "ANTHROPIC_BASE_URL",
   "ANTHROPIC_BEDROCK_BASE_URL",
+  "GEMINI_API_KEY",
+  "GEMINI_BASE_URL",
+  "GOOGLE_API_KEY",
 ];
 
 let savedEnv: Record<string, string | undefined> = {};
@@ -337,5 +340,67 @@ describe("AnthropicOfficialClient on Bedrock", () => {
 
     expect((sdkOf(client) as object).constructor.name).toBe("AnthropicBedrock");
     expect(await anthropicAuthHeadersOf(client)).toEqual({});
+  });
+});
+
+function googleCredentialOf(client: AutoLLMClient): {
+  apiKey: string | undefined;
+  baseUrl: string;
+} {
+  const sdk = sdkOf(client) as {
+    apiKey?: string;
+    apiClient: { getBaseUrl(): string };
+  };
+  return { apiKey: sdk.apiKey, baseUrl: sdk.apiClient.getBaseUrl() };
+}
+
+// The google-genai client, which GEMINI_API_KEY and GEMINI_BASE_URL belong to.
+describe("GoogleGenaiClient credentials", () => {
+  test("reads GEMINI_API_KEY and GEMINI_BASE_URL", () => {
+    process.env.GEMINI_API_KEY = "gm-env-PROBE";
+    process.env.GEMINI_BASE_URL = "https://gateway.example/";
+
+    const client = new AutoLLMClient({
+      model: "gemini-3.8-flash",
+      clientType: "google-genai",
+    });
+
+    expect(routedClientName(client)).toBe("GoogleGenaiClient");
+    expect(googleCredentialOf(client)).toEqual({
+      apiKey: "gm-env-PROBE",
+      baseUrl: "https://gateway.example/",
+    });
+  });
+
+  test("with a baseUrl passed in, refuses to build on GEMINI_API_KEY", () => {
+    process.env.GEMINI_API_KEY = "gm-env-PROBE";
+
+    expect(
+      () =>
+        new AutoLLMClient({
+          model: "gemini-3.8-flash",
+          clientType: "google-genai",
+          baseUrl: "https://gateway.example/",
+        }),
+    ).toThrow(
+      "apiKey is required for GoogleGenaiClient with a baseUrl: GEMINI_API_KEY is not sent to another endpoint.",
+    );
+  });
+
+  test("with a baseUrl and a key passed in, uses both over the environment", () => {
+    process.env.GEMINI_API_KEY = "gm-env-PROBE";
+    process.env.GEMINI_BASE_URL = "https://env.example/";
+
+    const client = new AutoLLMClient({
+      model: "gemini-3.8-flash",
+      clientType: "google-genai",
+      apiKey: "gm-explicit-PROBE",
+      baseUrl: "https://gateway.example/",
+    });
+
+    expect(googleCredentialOf(client)).toEqual({
+      apiKey: "gm-explicit-PROBE",
+      baseUrl: "https://gateway.example/",
+    });
   });
 });

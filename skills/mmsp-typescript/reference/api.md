@@ -27,9 +27,9 @@ const clientWithType = new AutoLLMClient({
 });
 ```
 
-`clientType` is one of the official clients (`openai-official`, `anthropic-official`, `gemini-official`, `zai-official`, `moonshot-official`, `deepseek-official`, `minimax-official`) or one of the compatible clients (`openai-responses`, `openai-chat`, `openai-chat-vllm-adapter`, `openai-embedding`, `ant-messages`, `gemini-generate-content`). It may be omitted for a model id that begins with a known family (`gpt-`, `text-embedding-`, `claude-`, `gemini-`, `glm-`, `kimi-`, `deepseek-`, `minimax-`); any other id throws and asks for one. See [Model selection](models.md).
+`clientType` is one of the official clients (`openai-official`, `anthropic-official`, `gemini-official`, `zai-official`, `moonshot-official`, `deepseek-official`, `minimax-official`) or one of the compatible clients (`openai-responses`, `openai-chat`, `openai-chat-vllm-adapter`, `openai-embedding`, `ant-messages`, `google-genai`). It may be omitted for a model id that begins with a known family (`gpt-`, `text-embedding-`, `claude-`, `gemini-`, `glm-`, `kimi-`, `deepseek-`, `minimax-`); any other id throws and asks for one. See [Model selection](models.md).
 
-A key goes only where it was given for. `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` are read from the environment only together with `OPENAI_BASE_URL` / `ANTHROPIC_BASE_URL` (or the provider's own endpoint), so a `baseUrl` passed in needs an `apiKey` passed in with it, or the client raises at construction. A The other official clients (`deepseek-official`, `zai-official`, `moonshot-official`, `minimax-official`, `gemini-official`) read their own variable whatever endpoint they are given.
+A key goes only where it was given for. `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GEMINI_API_KEY` are read from the environment by `openai-official`, `anthropic-official` and the compatible clients only together with `OPENAI_BASE_URL` / `ANTHROPIC_BASE_URL` / `GEMINI_BASE_URL` (or the provider's own endpoint), so a `baseUrl` passed in needs an `apiKey` passed in with it, or the client raises at construction. The other official clients (`deepseek-official`, `zai-official`, `moonshot-official`, `minimax-official`, `gemini-official`) read their own variable whatever endpoint they are given.
 
 ## Method signatures
 

@@ -22,7 +22,6 @@ from typing import Any, AsyncIterator
 import httpx
 from google import genai
 from google.genai import interactions, types
-from google.oauth2 import service_account
 
 from ..base_client import LLMClient
 from ..errors import UnsupportedParameterError
@@ -44,12 +43,13 @@ from ..utils import is_debug_enabled, speaker_turns
 class GeminiOfficialClient(LLMClient):
     """Unified client for the Gemini family, named for the newest generation it serves (3.8).
 
-    It speaks the Interactions API statelessly (store=false, the whole history in every request) for
-    3.8 back through the 3.x text, image, and TTS models with an API key; Vertex AI is served by
-    gemini_generate_content. It embeds through embedContent, because the Interactions API does not
-    serve the embedding models. The API deprecated the temperature/top_p/top_k sampling parameters
-    starting with the 3.6 generation (silently ignored today, HTTP 400 in future generations), and this
-    client applies that contract to the whole family: temperature is rejected everywhere.
+    It speaks the Gemini API's Interactions endpoint statelessly (store=false, the whole history in every
+    request) for 3.8 back through the 3.x text, image, and TTS models. Vertex AI serves none of them
+    through Interactions, so its service-account keys belong to google_genai. It embeds through
+    embedContent, because the Interactions API does not serve the embedding models. The API deprecated
+    the temperature/top_p/top_k sampling parameters starting with the 3.6 generation (silently ignored
+    today, HTTP 400 in future generations), and this client applies that contract to the whole family:
+    temperature is rejected everywhere.
     """
 
     def __init__(
@@ -69,20 +69,13 @@ class GeminiOfficialClient(LLMClient):
             http_options["base_url"] = base_url
         if default_headers:
             http_options["headers"] = default_headers
+        # a service-account key carries a private key, which must not travel as an API key header
         if api_key and api_key.startswith("{"):
-            service_account_info = json.loads(api_key)
-            credentials = service_account.Credentials.from_service_account_info(
-                service_account_info, scopes=["https://www.googleapis.com/auth/cloud-platform"]
+            raise ValueError(
+                "GeminiOfficialClient does not serve a Vertex AI service-account key; "
+                "pass client_type='google-genai' for Vertex AI."
             )
-            self._client = genai.Client(
-                vertexai=True,
-                credentials=credentials,
-                project=service_account_info["project_id"],
-                location="global",
-                http_options=http_options or None,
-            )
-        else:
-            self._client = genai.Client(api_key=api_key, http_options=http_options or None)
+        self._client = genai.Client(api_key=api_key, http_options=http_options or None)
 
         self._history: list[UniMessage] = []
 
