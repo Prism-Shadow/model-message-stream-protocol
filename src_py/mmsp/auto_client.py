@@ -39,7 +39,7 @@ COMPATIBLE_CLIENT_TYPES = (
     "openai-chat-vllm-adapter",
     "openai-embedding",
     "ant-messages",
-    "gemini-generate-content",
+    "google-genai",
 )
 
 # Without a client type, the family a model id begins with names its official client.
@@ -79,7 +79,7 @@ def _client_types() -> str:
     )
 
 
-def _client_class(client_type: str, model: str, api_key: str | None) -> type[LLMClient] | None:
+def _client_class(client_type: str, model: str) -> type[LLMClient] | None:
     """
     The client class a client type names. Each is imported here, so that no client pays for
     another vendor's SDK.
@@ -87,7 +87,6 @@ def _client_class(client_type: str, model: str, api_key: str | None) -> type[LLM
     Args:
         client_type: A lowercased client type.
         model: The model id, which tells an official client's embedding models apart.
-        api_key: The key, which tells a Vertex AI service account apart.
 
     Returns:
         type[LLMClient] | None: The class, or None when no client is named so.
@@ -107,12 +106,6 @@ def _client_class(client_type: str, model: str, api_key: str | None) -> type[LLM
 
             return AnthropicOfficialClient
         case "gemini-official":
-            # Vertex AI serves none of the Gemini models through the Interactions API, so a
-            # service-account JSON key, which only Vertex AI takes, speaks generateContent
-            if (api_key or os.getenv("GEMINI_API_KEY") or "").startswith("{"):
-                from .gemini_generate_content import GeminiGenerateContentClient
-
-                return GeminiGenerateContentClient
             from .gemini_official import GeminiOfficialClient
 
             return GeminiOfficialClient
@@ -152,10 +145,10 @@ def _client_class(client_type: str, model: str, api_key: str | None) -> type[LLM
             from .ant_messages import AntMessagesClient
 
             return AntMessagesClient
-        case "gemini-generate-content":
-            from .gemini_generate_content import GeminiGenerateContentClient
+        case "google-genai" | "gemini-generate-content":
+            from .google_genai import GoogleGenaiClient
 
-            return GeminiGenerateContentClient
+            return GoogleGenaiClient
     return None
 
 
@@ -198,7 +191,7 @@ class AutoLLMClient(LLMClient):
                 f"No client for model {model!r}: its family is not known. "
                 f"Pass client_type, one of the {_client_types()}."
             )
-        client_class = _client_class(self._client_type, model, api_key)
+        client_class = _client_class(self._client_type, model)
         if client_class is None:
             raise ValueError(f"Unknown client type {named!r}. Pass one of the {_client_types()}.")
         # a client named explicitly speaks for whatever its endpoint serves (see list_models)

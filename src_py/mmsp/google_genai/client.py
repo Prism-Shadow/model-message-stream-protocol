@@ -15,7 +15,6 @@
 import base64
 import json
 import mimetypes
-import os
 import re
 from typing import Any, AsyncIterator
 
@@ -38,7 +37,7 @@ from ..types import (
     UniMessage,
     UsageMetadata,
 )
-from ..utils import is_debug_enabled, speaker_turns
+from ..utils import is_debug_enabled, resolve_credentials, speaker_turns
 
 
 def _split_function_response_runs(parts: list[types.Part]) -> list[list[types.Part]]:
@@ -59,11 +58,12 @@ def _split_function_response_runs(parts: list[types.Part]) -> list[list[types.Pa
     return runs if runs else [parts]
 
 
-class GeminiGenerateContentClient(LLMClient):
-    """Client for the Gemini family through generateContent, named for the newest generation it serves (3.8).
+class GoogleGenaiClient(LLMClient):
+    """Compatible client for Google's generateContent protocol, as the google-genai SDK speaks it.
 
-    It serves Gemini on Vertex AI, whose Interactions endpoint serves none of these models, and gateways
-    that proxy generateContent only: 3.8 back through the 3.x text, image, TTS, and embedding models. The
+    It serves any endpoint that speaks generateContent: Vertex AI with a service-account JSON key, whose
+    Interactions endpoint serves none of the Gemini models, the Gemini API, and gateways that proxy
+    generateContent: Gemini 3.8 back through the 3.x text, image, TTS, and embedding models. The
     API deprecated the temperature/top_p/top_k sampling parameters starting with the 3.6 generation
     (silently ignored today, HTTP 400 in future generations), and this client applies that contract to
     the whole family: temperature is rejected everywhere.
@@ -76,10 +76,11 @@ class GeminiGenerateContentClient(LLMClient):
         base_url: str | None = None,
         default_headers: dict[str, str] | None = None,
     ):
-        """Initialize Gemini 3.8 generateContent client with model and API key."""
+        """Initialize the generateContent client with a model and an API key or service-account JSON key."""
         self._model = model
-        api_key = api_key or os.getenv("GEMINI_API_KEY")
-        base_url = base_url or os.getenv("GEMINI_BASE_URL")
+        api_key, base_url = resolve_credentials(
+            self.__class__.__name__, api_key, base_url, "GEMINI_API_KEY", "GEMINI_BASE_URL"
+        )
         # the Gemini SDK carries connection headers inside http_options rather than its own argument
         http_options: dict[str, Any] = {}
         if base_url:

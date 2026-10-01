@@ -58,9 +58,9 @@ MESSAGE_ORDER_CASES = [
     MessageOrderCase("AntMessagesClient", "claude-sonnet-5", "ant-messages", "messages", MESSAGES_ORDER),
     MessageOrderCase("GeminiOfficialClient", "gemini-3.8-flash", None, "gemini", GEMINI_ORDER),
     MessageOrderCase(
-        "GeminiGenerateContentClient",
+        "GoogleGenaiClient",
         "gemini-3.8-flash",
-        "gemini-generate-content",
+        "google-genai",
         "generate_content",
         GENERATE_CONTENT_ORDER,
         GENERATE_CONTENT_SIGNATURE,
@@ -214,8 +214,8 @@ async def test_gemini_sends_an_image_only_tool_result_without_an_empty_text_bloc
 
 
 def _generate_content_client(model: str = "gemini-3.8-flash") -> AutoLLMClient:
-    client = AutoLLMClient(model=model, api_key="test-key", client_type="gemini-generate-content")
-    assert client._client.__class__.__name__ == "GeminiGenerateContentClient"  # noqa: SLF001
+    client = AutoLLMClient(model=model, api_key="test-key", client_type="google-genai")
+    assert client._client.__class__.__name__ == "GoogleGenaiClient"  # noqa: SLF001
     return client
 
 

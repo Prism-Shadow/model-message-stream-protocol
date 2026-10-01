@@ -573,11 +573,11 @@ function createGenerateContentClient(): AutoLLMClient {
   const client = new AutoLLMClient({
     model: "gemini-3.8-flash",
     apiKey: "test-key",
-    clientType: "gemini-generate-content",
+    clientType: "google-genai",
   });
   expect(
     (client as unknown as { _client: object })._client.constructor.name,
-  ).toBe("GeminiGenerateContentClient");
+  ).toBe("GoogleGenaiClient");
   return client;
 }
 

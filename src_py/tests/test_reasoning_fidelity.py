@@ -521,8 +521,8 @@ def _generate_content_stop_chunk(*parts: types.Part) -> types.GenerateContentRes
 
 
 def _generate_content_client() -> AutoLLMClient:
-    client = AutoLLMClient(model="gemini-3.8-flash", api_key="test-key", client_type="gemini-generate-content")
-    assert client._client.__class__.__name__ == "GeminiGenerateContentClient"  # noqa: SLF001
+    client = AutoLLMClient(model="gemini-3.8-flash", api_key="test-key", client_type="google-genai")
+    assert client._client.__class__.__name__ == "GoogleGenaiClient"  # noqa: SLF001
     return client
 
 

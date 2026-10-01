@@ -57,7 +57,7 @@ const HEADER_CASES: HeaderCase[] = [
   },
   {
     // the generateContent client builds its own SDK client, and lists the Gemini family's ids
-    clientType: "gemini-generate-content",
+    clientType: "google-genai",
     model: "gemini-3.8-flash",
     baseUrlSuffix: "",
     expected: ["gemini-3.8-flash", "gemini-3.8-pro"],

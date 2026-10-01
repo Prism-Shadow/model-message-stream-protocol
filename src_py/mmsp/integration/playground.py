@@ -123,7 +123,7 @@ _DEFAULT_BASE_URLS = {
     "openai-chat-vllm-adapter": ("OPENAI_BASE_URL", "https://api.openai.com/v1"),
     "openai-embedding": ("OPENAI_BASE_URL", "https://api.openai.com/v1"),
     "ant-messages": ("ANTHROPIC_BASE_URL", "https://api.anthropic.com"),
-    "gemini-generate-content": ("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com"),
+    "google-genai": ("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com"),
 }
 
 
@@ -2237,7 +2237,7 @@ def create_chat_app() -> Flask:
                 'openai-chat-vllm-adapter': 'Chat Completions on vLLM',
                 'openai-embedding': 'OpenAI Embeddings',
                 'ant-messages': 'Anthropic Messages',
-                'gemini-generate-content': 'Gemini generateContent'
+                'google-genai': 'Google generateContent'
             };
 
             function clientTypeOption(value, label, description) {

@@ -48,13 +48,13 @@ type TextImageBlocks = NonNullable<Interactions.ThoughtStep["summary"]>;
 
 /**
  * Unified client for the Gemini family, named for the newest generation it
- * serves (3.8). It speaks the Interactions API statelessly (store=false, the
- * whole history in every request) for 3.8 back through the 3.x text, image,
- * and TTS models with an API key; Vertex AI is served by
- * gemini_generate_content. It embeds through embedContent, because the
- * Interactions API does not serve the embedding models, and applies the
- * 3.6-generation parameter contract to the whole family: temperature is
- * rejected everywhere.
+ * serves (3.8). It speaks the Gemini API's Interactions endpoint statelessly
+ * (store=false, the whole history in every request) for 3.8 back through the
+ * 3.x text, image, and TTS models. Vertex AI serves none of them through
+ * Interactions, so its service-account keys belong to google_genai. It
+ * embeds through embedContent, because the Interactions API does not serve
+ * the embedding models, and applies the 3.6-generation parameter contract to
+ * the whole family: temperature is rejected everywhere.
  *
  * Starting with the 3.6 generation the API deprecates the temperature/top_p/top_k
  * sampling parameters (silently ignored today, HTTP 400 in future
@@ -86,25 +86,17 @@ export class GeminiOfficialClient extends LLMClient {
     if (options.defaultHeaders) {
       httpOptions.headers = options.defaultHeaders;
     }
+    // a service-account key carries a private key, which must not travel as an API key header
     if (key && key.startsWith("{")) {
-      const credentials = JSON.parse(key);
-      const googleAuthOptions = {
-        credentials,
-        scopes: ["https://www.googleapis.com/auth/cloud-platform"],
-      };
-      this._client = new GoogleGenAI({
-        vertexai: true,
-        location: "global",
-        project: credentials.project_id,
-        googleAuthOptions,
-        httpOptions,
-      });
-    } else {
-      this._client = new GoogleGenAI({
-        apiKey: key,
-        httpOptions,
-      });
+      throw new Error(
+        "GeminiOfficialClient does not serve a Vertex AI service-account key; " +
+          'pass clientType: "google-genai" for Vertex AI.',
+      );
     }
+    this._client = new GoogleGenAI({
+      apiKey: key,
+      httpOptions,
+    });
   }
 
   /**

@@ -65,7 +65,7 @@ a **compatible client** speaks one wire protocol for any endpoint that serves it
 | -------------------------- | ---------------------------------------------------------------------- | ---------------------------------------- |
 | `openai-official`          | OpenAI Responses; `text-embedding-*` models through OpenAI Embeddings  | `OPENAI_API_KEY`, `OPENAI_BASE_URL`      |
 | `anthropic-official`       | Anthropic Messages                                                     | `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL` |
-| `gemini-official`          | Gemini Interactions; generateContent for a Vertex AI service-account key | `GEMINI_API_KEY`, `GEMINI_BASE_URL`      |
+| `gemini-official`          | Gemini Interactions                                                    | `GEMINI_API_KEY`, `GEMINI_BASE_URL`      |
 | `zai-official`             | Z.AI Chat Completions                                                  | `ZAI_API_KEY`, `ZAI_BASE_URL`            |
 | `moonshot-official`        | Moonshot Chat Completions                                              | `MOONSHOT_API_KEY`, `MOONSHOT_BASE_URL`  |
 | `deepseek-official`        | DeepSeek Responses                                                     | `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`  |
@@ -75,7 +75,7 @@ a **compatible client** speaks one wire protocol for any endpoint that serves it
 | `openai-chat-vllm-adapter` | Chat Completions as vLLM serves it, mapping `thinking_level` onto the template's switches | `OPENAI_API_KEY`, `OPENAI_BASE_URL` |
 | `openai-embedding`         | OpenAI Embeddings, served by any embedding endpoint                    | `OPENAI_API_KEY`, `OPENAI_BASE_URL`      |
 | `ant-messages`             | Anthropic Messages, served by Anthropic, OpenRouter, DeepSeek, Z.AI, MiniMax | `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL` |
-| `gemini-generate-content`  | Gemini generateContent, for gateways that proxy it                     | `GEMINI_API_KEY`, `GEMINI_BASE_URL`      |
+| `google-genai`             | Google generateContent, served by Vertex AI, the Gemini API, and gateways that proxy it | `GEMINI_API_KEY`, `GEMINI_BASE_URL` |
 
 `client_type` may be omitted for a model id that begins with a known family: `gpt-` and
 `text-embedding-` route to `openai-official`, `claude-` to `anthropic-official`, `gemini-` to
@@ -84,9 +84,9 @@ a **compatible client** speaks one wire protocol for any endpoint that serves it
 `client_type`. The `CLIENT_TYPE` environment variable names one for every client the code does
 not.
 
-Gemini on Google Vertex AI takes the service-account JSON key as the API key; `gemini-official`
-serves such a key through generateContent, because Vertex AI's Interactions endpoint serves none
-of these models.
+Gemini on Google Vertex AI takes `client_type="google-genai"` and the service-account JSON key as
+the API key: Vertex AI's Interactions endpoint, which `gemini-official` speaks, serves none of these
+models.
 
 Where a gateway serves more than one protocol, prefer `"openai-responses"`: OpenRouter serves it
 for every model it hosts, while SiliconFlow serves Chat Completions only.
@@ -716,7 +716,7 @@ Every client speaks one vendor protocol on the wire, whichever `client_type` rea
 
 | `client_type`                                               | Wire protocol      |
 | ----------------------------------------------------------- | ------------------ |
-| `gemini-official`, `gemini-generate-content`                | `google-genai`     |
+| `gemini-official`, `google-genai`                           | `google-genai`     |
 | `anthropic-official`, `ant-messages`                        | `ant-messages`     |
 | `openai-official`, `deepseek-official`, `minimax-official`  | `openai-responses` |
 | `openai-responses`                                          | `openai-responses` |
