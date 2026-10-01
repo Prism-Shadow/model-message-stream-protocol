@@ -12,7 +12,7 @@
 - Google GenAI SDK 所用的 generateContent 协议的兼容客户端改名为 `google-genai`，与其他兼容客户端一样以线上协议命名。它服务 Vertex AI（服务账号 JSON key 作为 API key）、Gemini API，以及代理 generateContent 的网关。目录与类改为 `google_genai/GoogleGenaiClient`（原 `gemini_generate_content/GeminiGenerateContentClient`）。
 - `gemini-official` 只讲 Gemini API 的 Interactions 端点，不再把服务账号 key 转给 generateContent。收到这种 key 时抛出 `ValueError`（TypeScript 中为 `Error`），并提示改用 `google-genai`，私钥不会被当作 API key 发出去。
 - `google-genai` 遵守其他兼容客户端的凭证规则：只有端点也来自环境变量（`GEMINI_BASE_URL` 或 Google 自己的端点）时，才读取环境变量里的 `GEMINI_API_KEY`；传入 `base_url` 时必须同时传入 `api_key`。
-- e2e 测试中所有 Vertex AI 模型都显式指定 `google-genai`。
+- e2e 测试中所有 Vertex AI 模型都显式指定 `google-genai`；`gemini-3.8-flash` 在 Gemini API 上除了走 `gemini-official`，也走一遍 `google-genai`。
 
 ## 兼容性
 

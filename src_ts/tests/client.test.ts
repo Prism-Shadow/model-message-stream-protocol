@@ -64,6 +64,18 @@ if (process.env.GEMINI_API_KEY) {
     provider: "official",
   });
 
+  // the Gemini API serves generateContent too, so google-genai is covered beyond Vertex AI
+  AVAILABLE_MODELS.push({
+    name: "gemini-3.8-flash",
+    supportTextGeneration: true,
+    supportImageUnderstanding: true,
+    supportImageGeneration: false,
+    supportAudioGeneration: false,
+    supportEmbedding: false,
+    clientType: "google-genai",
+    provider: "official",
+  });
+
   AVAILABLE_MODELS.push({
     name: "gemini-3.1-flash-image",
     supportTextGeneration: false,
