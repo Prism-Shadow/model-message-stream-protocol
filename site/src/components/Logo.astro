@@ -1,6 +1,7 @@
 ---
 // the four letters on four tiles, no gap between them: the mark of the site, the favicon and
-// the artwork
+// the artwork. Each tile is its own shape: a dark square under the blue tiles would show as a
+// grey rim along their rounded corners on a light background.
 interface Props {
   class?: string;
 }
@@ -8,7 +9,10 @@ const { class: className = "h-7 w-7" } = Astro.props;
 ---
 
 <svg viewBox="0 0 32 32" class={className} aria-hidden="true">
-  <rect width="32" height="32" rx="7" class="fill-[#111116] dark:fill-[#2a2a33]"></rect>
+  <g class="fill-[#111116] dark:fill-[#2a2a33]">
+    <path d="M15.5 0H25a7 7 0 0 1 7 7v9.5H15.5Z"></path>
+    <path d="M0 15.5h16.5V32H7a7 7 0 0 1-7-7Z"></path>
+  </g>
   <path d="M0 16V7a7 7 0 0 1 7-7h9v16Z" fill="#477dfb"></path>
   <path d="M16 16h16v9a7 7 0 0 1-7 7h-9Z" fill="#477dfb"></path>
   <g
