@@ -96,7 +96,7 @@ def test_gemini3_8_thinking_level_clamps_to_model_support(model: str, level: Thi
 # The generateContent client clamps like the Interactions client, onto the SDK's ThinkingLevel, a
 # str enum whose values are the uppercase names.
 def _create_generate_content_auto_client(model: str) -> AutoLLMClient:
-    return AutoLLMClient(model=model, api_key="test-key", client_type="gemini-generate-content")
+    return AutoLLMClient(model=model, api_key="test-key", client_type="google-genai")
 
 
 @pytest.mark.parametrize(
@@ -106,7 +106,7 @@ def test_gemini3_8_generate_content_thinking_level_clamps_to_model_support(
     model: str, level: ThinkingLevel, expected: str
 ):
     client = _create_generate_content_auto_client(model)
-    assert client._client.__class__.__name__ == "GeminiGenerateContentClient"  # noqa: SLF001
+    assert client._client.__class__.__name__ == "GoogleGenaiClient"  # noqa: SLF001
     assert client._client._convert_thinking_level(level) == expected.upper()  # noqa: SLF001
 
 
@@ -250,8 +250,8 @@ THINKING_SUMMARY_CASES: list[tuple[str, str | None, dict[str, Any], Any]] = [
     ("gpt-5.6", "openai-responses", {"thinking_summary": True}, None),
     ("gemini-3.8-flash", None, {"thinking_summary": True}, "auto"),
     ("gemini-3.8-flash", None, {"thinking_summary": False}, "none"),
-    ("gemini-3.8-flash", "gemini-generate-content", {"thinking_summary": True}, True),
-    ("gemini-3.8-flash", "gemini-generate-content", {"thinking_summary": False}, False),
+    ("gemini-3.8-flash", "google-genai", {"thinking_summary": True}, True),
+    ("gemini-3.8-flash", "google-genai", {"thinking_summary": False}, False),
 ]
 
 

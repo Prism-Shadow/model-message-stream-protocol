@@ -138,7 +138,7 @@ async def test_gemini_client_strips_the_path_from_model_names():
     assert await client.list_models() == ["gemini-3.7-flash", "gemini-3.7-pro"]
 
 
-# A Vertex AI service-account key, which the Gemini clients recognize by its leading brace.
+# A Vertex AI service-account key, which the google-genai client recognizes by its leading brace.
 SERVICE_ACCOUNT_KEY = '{"project_id": "test-project"}'
 
 
@@ -151,12 +151,11 @@ GEMINI_FAMILY = ["gemini-3.8-flash", "gemini-embedding-2", "gemini-2.5-flash"]
     ("api_key", "client_type", "expected_client", "expected"),
     [
         ("test-key", None, "GeminiOfficialClient", GEMINI_FAMILY),
-        (SERVICE_ACCOUNT_KEY, None, "GeminiGenerateContentClient", GEMINI_FAMILY),
-        (SERVICE_ACCOUNT_KEY, "gemini-official", "GeminiGenerateContentClient", VERTEX_LISTING),
-        ("test-key", "gemini-generate-content", "GeminiGenerateContentClient", VERTEX_LISTING),
+        (SERVICE_ACCOUNT_KEY, "google-genai", "GoogleGenaiClient", VERTEX_LISTING),
+        ("test-key", "google-genai", "GoogleGenaiClient", VERTEX_LISTING),
     ],
 )
-async def test_gemini_routes_by_credential_and_pin_and_lists_the_family_of_a_deduced_client(
+async def test_gemini_clients_list_the_family_of_a_deduced_client_and_everything_for_a_named_one(
     api_key: str, client_type: str | None, expected_client: str, expected: list[str], monkeypatch
 ):
     # google-auth parses a real key's private key while the client is constructed

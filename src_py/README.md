@@ -33,13 +33,15 @@ client = AutoLLMClient(
     model="custom-model", client_type="openai-chat", base_url="http://127.0.0.1:8000/v1/", api_key="none"
 )
 
-# Gemini on Google Vertex AI: the service-account JSON key is the API key
-client = AutoLLMClient(model="gemini-3.8-flash", api_key=open("service-account.json").read())
+# Gemini on Google Vertex AI: the google-genai client, with the service-account JSON key as the API key
+client = AutoLLMClient(
+    model="gemini-3.8-flash", client_type="google-genai", api_key=open("service-account.json").read()
+)
 ```
 
-`client_type` names one of the official clients (`openai-official`, `anthropic-official`, `gemini-official`, `zai-official`, `moonshot-official`, `deepseek-official`, `minimax-official`) or one of the compatible clients (`openai-responses`, `openai-chat`, `openai-chat-vllm-adapter`, `openai-embedding`, `ant-messages`, `gemini-generate-content`). It may be omitted for a model id that begins with a known family (`gpt-`, `text-embedding-`, `claude-`, `gemini-`, `glm-`, `kimi-`, `deepseek-`, `minimax-`), which names its official client; any other id raises and asks for one.
+`client_type` names one of the official clients (`openai-official`, `anthropic-official`, `gemini-official`, `zai-official`, `moonshot-official`, `deepseek-official`, `minimax-official`) or one of the compatible clients (`openai-responses`, `openai-chat`, `openai-chat-vllm-adapter`, `openai-embedding`, `ant-messages`, `google-genai`). It may be omitted for a model id that begins with a known family (`gpt-`, `text-embedding-`, `claude-`, `gemini-`, `glm-`, `kimi-`, `deepseek-`, `minimax-`), which names its official client; any other id raises and asks for one.
 
-A Vertex AI service-account key is served through generateContent, because Vertex AI's Interactions endpoint serves none of the Gemini models; any other Gemini key uses the Interactions API. `client_type="gemini-generate-content"` names generateContent explicitly, for gateways that proxy it.
+`gemini-official` speaks the Gemini API's Interactions endpoint. `google-genai` speaks generateContent, as the `google-genai` SDK does, for Vertex AI (a service-account JSON key as the API key), the Gemini API, and gateways that proxy it; Vertex AI's Interactions endpoint serves none of the Gemini models, so a service-account key needs `google-genai`.
 
 ## Core Methods
 

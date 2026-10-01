@@ -12,7 +12,7 @@ description: MMSP 的客户端构成、各客户端支持的模型，以及如�
 | --- | --- | --- | --- |
 | `openai-official` | `gpt-6.1-sol`、`gpt-6-astra`、`gpt-5.6-sol`、`gpt-5.5`；`text-embedding-3-large`、`text-embedding-3-small` | OpenAI Responses；`text-embedding-*` 走 Embeddings | `OPENAI_API_KEY` `OPENAI_BASE_URL` |
 | `anthropic-official` | `claude-opus-5-5`、`claude-sonnet-5-5`、`claude-fable-5-1`、`claude-opus-5`、`claude-sonnet-5` | Anthropic Messages | `ANTHROPIC_API_KEY` `ANTHROPIC_BASE_URL` |
-| `gemini-official` | `gemini-3.8-flash`、`gemini-3.7-flash`、`gemini-3.1-pro-preview`；`gemini-3.1-flash-image`、`gemini-3.8-flash-tts`；`gemini-embedding-2` | Gemini Interactions；Vertex AI key 走 generateContent | `GEMINI_API_KEY` `GEMINI_BASE_URL` |
+| `gemini-official` | `gemini-3.8-flash`、`gemini-3.7-flash`、`gemini-3.1-pro-preview`；`gemini-3.1-flash-image`、`gemini-3.8-flash-tts`；`gemini-embedding-2` | Gemini Interactions | `GEMINI_API_KEY` `GEMINI_BASE_URL` |
 | `zai-official` | `glm-5.3`、`glm-5.3-flash`、`glm-5.2` | Chat Completions | `ZAI_API_KEY` `ZAI_BASE_URL` |
 | `moonshot-official` | `kimi-k3`、`kimi-k2.6` | Chat Completions | `MOONSHOT_API_KEY` `MOONSHOT_BASE_URL` |
 | `deepseek-official` | `deepseek-flash`、`deepseek-v4-pro` | Responses | `DEEPSEEK_API_KEY` `DEEPSEEK_BASE_URL` |
@@ -56,7 +56,7 @@ models = list_supported_models(currency="CNY")  # 默认 "USD"
 
 ## 兼容客户端
 
-六个兼容客户端可调用任何提供对应协议的端点。使用时需用 `client_type` 指定协议，并同时提供端点和 key：可以传入 `base_url` 和 `api_key` 参数，或在环境变量中设置 `OPENAI_BASE_URL` 和 `OPENAI_API_KEY`（`ant-messages` 对应 `ANTHROPIC_` 变量对，`gemini-generate-content` 对应 `GEMINI_` 变量对）。如果只传 `base_url` 而不提供 `api_key` 会报错：环境变量中的 key 不会自动用于代码指定的端点。
+六个兼容客户端可调用任何提供对应协议的端点。使用时需用 `client_type` 指定协议，并同时提供端点和 key：可以传入 `base_url` 和 `api_key` 参数，或在环境变量中设置 `OPENAI_BASE_URL` 和 `OPENAI_API_KEY`（`ant-messages` 对应 `ANTHROPIC_` 变量对，`google-genai` 对应 `GEMINI_` 变量对）。如果只传 `base_url` 而不提供 `api_key` 会报错：环境变量中的 key 不会自动用于代码指定的端点。
 
 | `client_type` | 协议 | 提供方 |
 | --- | --- | --- |
@@ -65,7 +65,7 @@ models = list_supported_models(currency="CNY")  # 默认 "USD"
 | `openai-chat-vllm-adapter` | vLLM 提供的 Chat Completions。将 `thinking_level` 映射到模板自有的开关。 | vLLM |
 | `openai-embedding` | OpenAI Embeddings | 任何向量端点 |
 | `ant-messages` | Anthropic Messages | Anthropic、OpenRouter、DeepSeek、Z.AI、MiniMax |
-| `gemini-generate-content` | Gemini generateContent | 代理此协议的网关 |
+| `google-genai` | Google generateContent，即 Google GenAI SDK 所用的协议 | Vertex AI、Gemini API、代理此协议的网关 |
 
 如果网关支持多种协议，优先选择 `openai-responses`。OpenRouter 为其所有托管模型提供此协议；SiliconFlow 仅提供 Chat Completions。
 
@@ -102,7 +102,27 @@ client = AutoLLMClient(
 
 ## Vertex AI 上的 Gemini
 
-将服务账号的 JSON key 作为 API key 传入。`gemini-official` 会使用此类 key 调用 generateContent 端点，因为 Vertex AI 的 Interactions 端点不提供这些模型。其他 Gemini key 则使用 Interactions API。`gemini-generate-content` 用于指名 generateContent 协议，适用于任何提供此协议的端点，例如代理它的网关。
+指定 `google-genai`，并将服务账号的 JSON key 作为 API key 传入。Vertex AI 的 Interactions 端点不提供这些模型，所以使用 Interactions 的 `gemini-official` 会拒绝此类 key。
+
+<div class="code-group">
+
+```typescript
+const client = new AutoLLMClient({
+  model: "gemini-3.8-flash",
+  clientType: "google-genai",
+  apiKey: fs.readFileSync("service-account.json", "utf8"),
+});
+```
+
+```python
+client = AutoLLMClient(
+    model="gemini-3.8-flash",
+    client_type="google-genai",
+    api_key=open("service-account.json").read(),
+)
+```
+
+</div>
 
 思考签名仅在签发它的端点上有效。详见 [Fidelity](/zh/docs/fidelity/)。
 
@@ -112,7 +132,7 @@ client = AutoLLMClient(
 
 | `client_type` | 接口协议 |
 | --- | --- |
-| `gemini-official`、`gemini-generate-content` | `google-genai` |
+| `gemini-official`、`google-genai` | `google-genai` |
 | `anthropic-official`、`ant-messages` | `ant-messages` |
 | `openai-official`、`deepseek-official`、`minimax-official`、`openai-responses` | `openai-responses` |
 | `zai-official`、`moonshot-official`、`openai-chat`、`openai-chat-vllm-adapter` | `openai-chat` |

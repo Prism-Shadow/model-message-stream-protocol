@@ -64,6 +64,18 @@ if (process.env.GEMINI_API_KEY) {
     provider: "official",
   });
 
+  // the Gemini API serves generateContent too, so google-genai is covered beyond Vertex AI
+  AVAILABLE_MODELS.push({
+    name: "gemini-3.8-flash",
+    supportTextGeneration: true,
+    supportImageUnderstanding: true,
+    supportImageGeneration: false,
+    supportAudioGeneration: false,
+    supportEmbedding: false,
+    clientType: "google-genai",
+    provider: "official",
+  });
+
   AVAILABLE_MODELS.push({
     name: "gemini-3.1-flash-image",
     supportTextGeneration: false,
@@ -231,6 +243,7 @@ if (process.env.BEDROCK_API_KEY) {
 }
 
 if (process.env.VERTEX_API_KEY) {
+  // Vertex AI serves Gemini through generateContent only, the google-genai client's protocol
   AVAILABLE_MODELS.push({
     name: "gemini-3.8-flash",
     supportTextGeneration: true,
@@ -238,6 +251,7 @@ if (process.env.VERTEX_API_KEY) {
     supportImageGeneration: false,
     supportAudioGeneration: false,
     supportEmbedding: false,
+    clientType: "google-genai",
     provider: "vertex",
   });
 
@@ -248,6 +262,7 @@ if (process.env.VERTEX_API_KEY) {
     supportImageGeneration: true,
     supportAudioGeneration: false,
     supportEmbedding: false,
+    clientType: "google-genai",
     provider: "vertex",
   });
 
@@ -258,6 +273,7 @@ if (process.env.VERTEX_API_KEY) {
     supportImageGeneration: false,
     supportAudioGeneration: true,
     supportEmbedding: false,
+    clientType: "google-genai",
     provider: "vertex",
   });
 
@@ -268,6 +284,7 @@ if (process.env.VERTEX_API_KEY) {
     supportImageGeneration: false,
     supportAudioGeneration: false,
     supportEmbedding: true,
+    clientType: "google-genai",
     provider: "vertex",
   });
 }
@@ -1363,11 +1380,8 @@ const ROUTING_CASES: [string, string | undefined, string][] = [
   ["claude-sonnet-5", undefined, "AnthropicOfficialClient"],
   ["gemini-3.8-flash", undefined, "GeminiOfficialClient"],
   ["gemini-embedding-2", undefined, "GeminiOfficialClient"],
-  [
-    "gemini-3.8-flash",
-    "gemini-generate-content",
-    "GeminiGenerateContentClient",
-  ],
+  ["gemini-3.8-flash", "google-genai", "GoogleGenaiClient"],
+  ["gemini-3.8-flash", "gemini-generate-content", "GoogleGenaiClient"],
   ["glm-5.3", undefined, "ZAIOfficialClient"],
   ["kimi-k3", undefined, "MoonshotOfficialClient"],
   ["deepseek-v4-pro", undefined, "DeepSeekOfficialClient"],
@@ -1397,6 +1411,20 @@ test.each(ROUTING_CASES)(
     });
 
     expect(routedClientName(client)).toBe(clientName);
+  },
+);
+
+test.each([undefined, "gemini-official"])(
+  "gemini-official refuses a Vertex AI service-account key (%s)",
+  (clientType) => {
+    expect(
+      () =>
+        new AutoLLMClient({
+          model: "gemini-3.8-flash",
+          apiKey: '{"project_id": "test-project"}',
+          clientType,
+        }),
+    ).toThrow(/google-genai/);
   },
 );
 

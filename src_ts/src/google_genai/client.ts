@@ -51,7 +51,7 @@ import {
   UniMessage,
   UsageMetadata,
 } from "../types";
-import { isDebugEnabled, speakerTurns } from "../utils";
+import { isDebugEnabled, resolveCredentials, speakerTurns } from "../utils";
 
 /**
  * Split a message's parts into consecutive runs of functionResponse and
@@ -74,10 +74,11 @@ function splitFunctionResponseRuns(parts: Part[]): Part[][] {
 }
 
 /**
- * Client for the Gemini family through generateContent, named for the newest
- * generation it serves (3.8). It serves Gemini on Vertex AI, whose Interactions
- * endpoint serves none of these models, and gateways that proxy generateContent
- * only: 3.8 back through the 3.x text, image, TTS, and embedding models. It
+ * Compatible client for Google's generateContent protocol, as the google-genai
+ * SDK speaks it. It serves any endpoint that speaks generateContent: Vertex AI
+ * with a service-account JSON key, whose Interactions endpoint serves none of
+ * the Gemini models, the Gemini API, and gateways that proxy generateContent:
+ * Gemini 3.8 back through the 3.x text, image, TTS, and embedding models. It
  * applies the 3.6-generation parameter contract to the whole family:
  * temperature is rejected everywhere.
  *
@@ -85,12 +86,13 @@ function splitFunctionResponseRuns(parts: Part[]): Part[][] {
  * sampling parameters (silently ignored today, HTTP 400 in future
  * generations), so this client rejects them instead of sending a no-op.
  */
-export class GeminiGenerateContentClient extends LLMClient {
+export class GoogleGenaiClient extends LLMClient {
   protected _model: string;
   private _client: GoogleGenAI;
 
   /**
-   * Initialize Gemini 3.8 generateContent client with model and API key.
+   * Initialize the generateContent client with a model and an API key or
+   * service-account JSON key.
    */
   constructor(options: {
     model: string;
@@ -100,8 +102,11 @@ export class GeminiGenerateContentClient extends LLMClient {
   }) {
     super();
     this._model = options.model;
-    const key = options.apiKey || process.env.GEMINI_API_KEY || undefined;
-    const url = options.baseUrl || process.env.GEMINI_BASE_URL || undefined;
+    const { apiKey: key, baseUrl: url } = resolveCredentials(
+      this.constructor.name,
+      options,
+      { key: "GEMINI_API_KEY", baseUrl: "GEMINI_BASE_URL" },
+    );
     // the Gemini SDK carries connection headers inside httpOptions rather than its own argument
     const httpOptions: { baseUrl?: string; headers?: Record<string, string> } =
       {};
@@ -225,7 +230,7 @@ export class GeminiGenerateContentClient extends LLMClient {
         GeminiThinkingLevel.HIGH,
       ];
     }
-    return GeminiGenerateContentClient.GEMINI_LEVEL_ORDER;
+    return GoogleGenaiClient.GEMINI_LEVEL_ORDER;
   }
 
   /**
@@ -263,7 +268,7 @@ export class GeminiGenerateContentClient extends LLMClient {
     // e.g. MEDIUM becomes HIGH on gemini-3-pro and NONE maps to LOW on
     // gemini-3.7-flash. `supported` is non-empty here, so the
     // initial-value-less reduce cannot throw.
-    const order = GeminiGenerateContentClient.GEMINI_LEVEL_ORDER;
+    const order = GoogleGenaiClient.GEMINI_LEVEL_ORDER;
     const index = order.indexOf(level);
     return supported.reduce((best, candidate) => {
       const bestDistance = Math.abs(order.indexOf(best) - index);

@@ -105,9 +105,9 @@ const GEMINI_STREAM_CASES: StreamCase[] = [
 // Every client that parses the Gemini generateContent chunk shape.
 const GENERATE_CONTENT_STREAM_CASES: StreamCase[] = [
   {
-    expectedClient: "GeminiGenerateContentClient",
+    expectedClient: "GoogleGenaiClient",
     model: "gemini-3.8-flash",
-    clientType: "gemini-generate-content",
+    clientType: "google-genai",
   },
 ];
 

@@ -50,8 +50,8 @@ export function fixOpenrouterUsageMetadata(
  * @returns Whether debug mode is on.
  */
 /**
- * The key and the endpoint of a client that reads the environment's OPENAI_API_KEY or
- * ANTHROPIC_API_KEY. A key passed in is used as it is. Without one, the environment's key goes
+ * The key and the endpoint of a client that reads the environment's OPENAI_API_KEY,
+ * ANTHROPIC_API_KEY or GEMINI_API_KEY. A key passed in is used as it is. Without one, the environment's key goes
  * out only to the endpoint the environment names: a base URL passed in is another endpoint,
  * which that key was not given for, so it needs a key of its own.
  *

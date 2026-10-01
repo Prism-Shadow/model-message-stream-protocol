@@ -14,7 +14,7 @@
 
 import { LLMClient } from "./baseClient";
 import { GeminiOfficialClient } from "./gemini_official";
-import { GeminiGenerateContentClient } from "./gemini_generate_content";
+import { GoogleGenaiClient } from "./google_genai";
 import { AnthropicOfficialClient } from "./anthropic_official";
 import { OpenAIOfficialClient } from "./openai_official";
 import { ZAIOfficialClient } from "./zai_official";
@@ -54,7 +54,7 @@ export const COMPATIBLE_CLIENT_TYPES = [
   "openai-chat-vllm-adapter",
   "openai-embedding",
   "ant-messages",
-  "gemini-generate-content",
+  "google-genai",
 ] as const;
 
 // Without a client type, the family a model id begins with names its official client.
@@ -97,12 +97,10 @@ function clientTypes(): string {
  *
  * @param clientType - A lowercased client type
  * @param model - The model id, which tells an official client's embedding models apart
- * @param apiKey - The key, which tells a Vertex AI service account apart
  */
 function clientClass(
   clientType: string,
   model: string,
-  apiKey?: string,
 ): LLMClientConstructor | null {
   switch (clientType) {
     case "openai-official":
@@ -113,11 +111,7 @@ function clientClass(
     case "anthropic-official":
       return AnthropicOfficialClient;
     case "gemini-official":
-      // Vertex AI serves none of the Gemini models through the Interactions API, so a
-      // service-account JSON key, which only Vertex AI takes, speaks generateContent
-      return (apiKey || process.env.GEMINI_API_KEY || "").startsWith("{")
-        ? GeminiGenerateContentClient
-        : GeminiOfficialClient;
+      return GeminiOfficialClient;
     case "zai-official":
       return ZAIOfficialClient;
     case "moonshot-official":
@@ -137,8 +131,9 @@ function clientClass(
       return OpenaiEmbeddingClient;
     case "ant-messages":
       return AntMessagesClient;
+    case "google-genai":
     case "gemini-generate-content":
-      return GeminiGenerateContentClient;
+      return GoogleGenaiClient;
     default:
       return null;
   }
@@ -185,7 +180,7 @@ export class AutoLLMClient extends LLMClient {
           `Pass clientType, one of the ${clientTypes()}.`,
       );
     }
-    const ClientClass = clientClass(clientType, options.model, options.apiKey);
+    const ClientClass = clientClass(clientType, options.model);
     if (ClientClass === null) {
       throw new Error(
         `Unknown client type ${JSON.stringify(named)}. Pass one of the ${clientTypes()}.`,
