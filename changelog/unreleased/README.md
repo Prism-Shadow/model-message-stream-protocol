@@ -2,7 +2,7 @@
 
 [中文版](README.zh.md)
 
-- [2026-10-01] The mark no longer shows a grey rim on light backgrounds, and the logo files (SVG and PNG, light and dark) are in `assets/logo/`. ([details](2026-10-01-logo-light.md))
+- [2026-10-01] The mark no longer shows a grey rim on light backgrounds, and the logo files (SVG and PNG, light and dark) are in `.github/images/`. ([details](2026-10-01-logo-light.md))
 - [2026-10-01] `#477dfb`, a pure blue at the hue of fennel flower, is the brand color of the site, the mark and the images, with `#7aa2f7` for dark-theme text; the language and theme buttons switch on click, and the home page fits one desktop window. ([details](2026-10-01-fennel-theme.md), [#238](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/238))
 - [2026-09-30] The publish workflow skips a version already on PyPI or npm instead of failing. ([details](2026-09-30-publish-skip-existing.md), [#237](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/237))
 - [2026-09-30] Site-only changes run the site build alone, not the model tests. ([details](2026-09-30-ci-site-paths.md), [#236](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/236))
