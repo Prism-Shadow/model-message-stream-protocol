@@ -3,6 +3,7 @@
 - **Date:** 2026-10-02
 - **Type:** feature
 - **Scope:** `integration`, `mmsp`, `wire`, `errors`, `docs`
+- **PR:** [#247](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/247)
 
 [中文版](2026-10-02-mmsp-server.zh.md)
 
