@@ -21,6 +21,8 @@
  */
 
 import express, { Express, NextFunction, Request, Response } from "express";
+import http from "http";
+import { AddressInfo } from "net";
 import {
   AutoLLMClient,
   COMPATIBLE_CLIENT_TYPES,
@@ -28,11 +30,30 @@ import {
   OFFICIAL_CLIENT_TYPES,
 } from "../autoClient";
 import { UniMessage, UniConfig } from "../types";
+import { DEFAULT_HOST, DEFAULT_PORT, serverBaseUrl } from "../wire";
+import { ServerConfig, createServerApp, resolveServerConfig } from "./server";
+import { SERVER_TEMPLATE } from "./serverPage";
 import { Tracer } from "./tracer";
 
 const sessionClients: Map<string, AutoLLMClient> = new Map();
 const sessionClientOptions: Map<string, PlaygroundClientOptions> = new Map();
 const sessionAbortControllers: Map<string, AbortController> = new Map();
+
+/**
+ * The MMSP server the playground started, until it is stopped.
+ */
+interface RunningServer {
+  server: http.Server;
+  host: string;
+  port: number;
+  modelIds: string[];
+  open: boolean;
+}
+
+// one server per process, dying with it; a start in flight counts as running, so that two
+// starts cannot both bind
+let mmspServer: RunningServer | null = null;
+let mmspServerStarting = false;
 
 interface PlaygroundConfig extends UniConfig {
   model?: string;
@@ -161,6 +182,152 @@ function playgroundDefaults(): string {
   });
 }
 
+function isObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * The server page's status: `{ running: false }`, or where the server listens and what it serves.
+ */
+function mmspServerStatus(): Record<string, unknown> {
+  if (mmspServer === null) {
+    return { running: false };
+  }
+  const { host, port, modelIds, open } = mmspServer;
+  return {
+    running: true,
+    host,
+    port,
+    base_url: serverBaseUrl(host, port),
+    models: modelIds,
+    open,
+  };
+}
+
+/**
+ * Stop the MMSP server the playground started, ending its open streams; nothing when none runs.
+ */
+async function stopMmspServer(): Promise<void> {
+  const running = mmspServer;
+  if (running === null) {
+    return;
+  }
+  mmspServer = null;
+  // a destroyed stream aborts its upstream request through the server's close handler
+  running.server.closeAllConnections();
+  await new Promise<void>((resolve) => running.server.close(() => resolve()));
+}
+
+/**
+ * Create the server page's app: the page at `/`, and `/api/status`, `/api/start`, `/api/stop`.
+ * The parent app parses the JSON bodies.
+ *
+ * @returns Express application instance, mounted at /server
+ */
+function createServerPageApp(): Express {
+  const app = express();
+
+  app.get("/", (_req: Request, res: Response) => {
+    res
+      .type("html")
+      .send(
+        SERVER_TEMPLATE.replace(
+          "__PLAYGROUND_DEFAULTS__",
+          playgroundDefaults(),
+        ),
+      );
+  });
+
+  app.get("/api/status", (_req: Request, res: Response) => {
+    res.json(mmspServerStatus());
+  });
+
+  app.post("/api/start", async (req: Request, res: Response) => {
+    const refuse = (status: number, message: string) =>
+      res.status(status).json({ error: message });
+    // express leaves an empty object behind for a body of another content type
+    const body: unknown = req.is("application/json") ? req.body : null;
+    if (!isObject(body)) {
+      return refuse(400, "Request body must be a JSON object.");
+    }
+    const host = "host" in body ? body.host : DEFAULT_HOST;
+    if (typeof host !== "string" || !host.trim()) {
+      return refuse(400, "host must be a non-empty string.");
+    }
+    const port = "port" in body ? body.port : DEFAULT_PORT;
+    if (
+      typeof port !== "number" ||
+      !Number.isInteger(port) ||
+      port < 0 ||
+      port > 65535
+    ) {
+      return refuse(400, "port must be an integer between 0 and 65535.");
+    }
+    let config: ServerConfig;
+    try {
+      config = resolveServerConfig({
+        models: body.models,
+        api_keys: body.api_keys,
+      });
+    } catch (error) {
+      return refuse(400, errorMessage(error));
+    }
+    if (mmspServer !== null || mmspServerStarting) {
+      return refuse(409, "The server is running; stop it first.");
+    }
+
+    mmspServerStarting = true;
+    try {
+      let serverApp: Express;
+      try {
+        serverApp = createServerApp({
+          models: config.models,
+          apiKeys: config.api_keys,
+        });
+      } catch (error) {
+        return refuse(400, errorMessage(error));
+      }
+      const server = http.createServer(serverApp);
+      try {
+        await new Promise<void>((resolve, reject) => {
+          server.once("error", reject);
+          server.listen(port, host, () => {
+            server.off("error", reject);
+            resolve();
+          });
+        });
+      } catch (error) {
+        return refuse(
+          400,
+          `Cannot listen on ${host}:${port}: ${errorMessage(error)}`,
+        );
+      }
+      mmspServer = {
+        server,
+        host,
+        // the bound port, so that port 0 reports the one the system chose
+        port: (server.address() as AddressInfo).port,
+        modelIds: serverApp.locals.serverModelIds as string[],
+        open: config.api_keys.length === 0,
+      };
+      return res.json(mmspServerStatus());
+    } finally {
+      mmspServerStarting = false;
+    }
+  });
+
+  app.post("/api/stop", async (_req: Request, res: Response) => {
+    await stopMmspServer();
+    res.json({ running: false });
+  });
+
+  return app;
+}
+
 export function createChatApp(): Express {
   const app = express();
   app.use(express.json({ limit: "50mb" }));
@@ -181,6 +348,7 @@ export function createChatApp(): Express {
     },
   );
   app.use("/tracer", new Tracer().createWebApp({ basePath: "/tracer" }));
+  app.use("/server", createServerPageApp());
 
   const CHAT_TEMPLATE = `
   <!DOCTYPE html>
@@ -1704,6 +1872,10 @@ export function createChatApp(): Express {
                       <a href="/tracer/" target="_blank" rel="noopener noreferrer" class="ghost-btn" title="Open Tracer">
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"></path></svg>
                           <span class="label-wide">Open Tracer</span>
+                      </a>
+                      <a href="/server/" target="_blank" rel="noopener noreferrer" class="ghost-btn" title="Open Server">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="20" height="8" rx="2"></rect><rect x="2" y="14" width="20" height="8" rx="2"></rect><path d="M6 6h.01M6 18h.01"></path></svg>
+                          <span class="label-wide">Open Server</span>
                       </a>
                       <button type="button" class="ghost-btn" onclick="clearChat()" title="New chat">
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>

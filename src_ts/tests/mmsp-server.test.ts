@@ -39,6 +39,7 @@ import {
   ModelRow,
   createServerApp,
   loadServerConfig,
+  resolveServerConfig,
   startServer,
 } from "../src/integration/server";
 import { MmspClient } from "../src/mmsp";
@@ -1198,6 +1199,27 @@ describe("MMSP server config", () => {
     });
   });
 
+  test("resolveServerConfig without a source has no prefix and leaves its input alone", () => {
+    const config = {
+      models: [row("gpt-5.5", "gpt-5.5", { api_key: "$PROBE_UPSTREAM_KEY" })],
+      comment: "not part of the config",
+    };
+    const copy = JSON.parse(JSON.stringify(config));
+
+    expect(() => resolveServerConfig(config)).toThrow(
+      new Error(
+        "models[0].api_key references $PROBE_UPSTREAM_KEY, which is not set in the environment.",
+      ),
+    );
+
+    process.env.PROBE_UPSTREAM_KEY = "sk-probe";
+    expect(resolveServerConfig(config)).toEqual({
+      models: [row("gpt-5.5", "gpt-5.5", { api_key: "sk-probe" })],
+      api_keys: [],
+    });
+    expect(config).toEqual(copy);
+  });
+
   test("startServer prints the base URL, the models and whether it is open", async () => {
     useUpstream((model) => new ScriptedClient([], model));
     const log = jest.spyOn(console, "log").mockImplementation(() => {});
@@ -1234,4 +1256,11 @@ describe("MMSP server config", () => {
       log.mockRestore();
     }
   });
+});
+
+test("the server base URL brackets an IPv6 host", () => {
+  expect(wire.serverBaseUrl("127.0.0.1", 25752)).toBe(
+    "http://127.0.0.1:25752/v1",
+  );
+  expect(wire.serverBaseUrl("::1", 25752)).toBe("http://[::1]:25752/v1");
 });

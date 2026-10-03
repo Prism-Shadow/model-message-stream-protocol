@@ -34,8 +34,15 @@ from mmsp import (
 from mmsp.abort_signal import AbortSignal
 from mmsp.base_client import LLMClient
 from mmsp.integration import server
-from mmsp.integration.server import ModelRow, create_server_app, load_server_config, start_server
+from mmsp.integration.server import (
+    ModelRow,
+    create_server_app,
+    load_server_config,
+    resolve_server_config,
+    start_server,
+)
 from mmsp.types import ContentItem, UniConfig, UniEvent, UniMessage
+from mmsp.wire import server_base_url
 
 
 # Every upstream the server builds here is a scripted client, so nothing reaches a vendor; the
@@ -867,6 +874,20 @@ def test_load_server_config_refuses_a_file_that_is_not_a_config(tmp_path: Path):
     assert load_server_config(_write_config(path, {"models": []})) == {"models": [], "api_keys": []}
 
 
+def test_resolve_server_config_without_a_source_has_no_prefix(monkeypatch: pytest.MonkeyPatch):
+    config = {"models": [_row("gpt-5.5", api_key="$PROBE_UPSTREAM_KEY")]}
+    with pytest.raises(ValueError) as exc_info:
+        resolve_server_config(config)
+    assert (
+        str(exc_info.value) == "models[0].api_key references $PROBE_UPSTREAM_KEY, which is not set in the environment."
+    )
+
+    monkeypatch.setenv("PROBE_UPSTREAM_KEY", "sk-probe")
+    assert resolve_server_config(config) == {"models": [_row("gpt-5.5", api_key="sk-probe")], "api_keys": []}
+    # the request body it came from is left as it was
+    assert config == {"models": [_row("gpt-5.5", api_key="$PROBE_UPSTREAM_KEY")]}
+
+
 def test_start_server_prints_the_base_url_the_models_and_whether_it_is_open(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ):
@@ -884,3 +905,8 @@ def test_start_server_prints_the_base_url_the_models_and_whether_it_is_open(
     assert capsys.readouterr().out == (
         "Starting MMSP server at http://127.0.0.1:25999/v1\nServing models: claude, gpt-5.5\n"
     )
+
+
+def test_server_base_url_brackets_an_ipv6_host():
+    assert server_base_url("127.0.0.1", 25752) == "http://127.0.0.1:25752/v1"
+    assert server_base_url("::1", 25752) == "http://[::1]:25752/v1"

@@ -33,7 +33,7 @@ import os
 import threading
 import time
 from contextlib import suppress
-from typing import TypedDict
+from typing import Any, TypedDict
 
 from flask import Flask, Response, jsonify, request
 from werkzeug.exceptions import MethodNotAllowed, NotFound, RequestEntityTooLarge
@@ -42,7 +42,6 @@ from .. import AutoLLMClient
 from ..abort_signal import AbortSignal
 from ..base_client import LLMClient
 from ..wire import (
-    API_PREFIX,
     DEFAULT_HOST,
     DEFAULT_PORT,
     KEEPALIVE_SECONDS,
@@ -50,6 +49,7 @@ from ..wire import (
     STREAM_PATH,
     decode_wire,
     encode_wire,
+    server_base_url,
     to_wire_error,
 )
 
@@ -106,34 +106,30 @@ def _error_response(status: int, error_type: str, message: str) -> tuple[Respons
     return jsonify({"error": {"type": error_type, "message": message}}), status
 
 
-def load_server_config(path: str | os.PathLike[str]) -> ServerConfig:
+def resolve_server_config(config: Any, source: str = "") -> ServerConfig:
     """
-    Read a config file, with the environment references of its cells resolved.
+    Check a config's shape and resolve the environment references of its cells.
 
+    `config` is what a config file or a request body holds: `{"models": [...], "api_keys": [...]}`.
     A `base_url`, `api_key` or `client_type` cell of a row, or an entry of `api_keys`, that starts
-    with `$` is read from the environment (`$NAME` and `${NAME}` both name NAME). The rows are
-    checked by `create_server_app`, as rows from code are.
-
-    Args:
-        path: The JSON file: `{"models": [...], "api_keys": [...]}`
+    with `$` is read from the environment (`$NAME` and `${NAME}` both name NAME). `source` prefixes
+    every message (the file's path for `load_server_config`); empty, the messages carry no prefix.
+    The rows are checked by `create_server_app`, as rows from code are.
 
     Returns:
-        The parsed config with those cells replaced and `api_keys` defaulting to an empty list
+        `{"models": rows, "api_keys": keys}` with those cells replaced, `api_keys` defaulting to [].
+        The input is not modified.
 
     Raises:
-        ValueError: When the file is not JSON, not a config, or references a variable that is unset or empty.
+        ValueError: When the config is not an object with a models list, api_keys is not a list, or a
+        reference names a variable that is unset or empty.
     """
-    with open(path, encoding="utf-8") as file:
-        text = file.read()
-    try:
-        config = json.loads(text)
-    except ValueError as exc:
-        raise ValueError(f"{path}: not valid JSON: {exc}") from exc
+    prefix = f"{source}: " if source else ""
     if not isinstance(config, dict) or not isinstance(config.get("models"), list):
-        raise ValueError(f"{path}: the config must be a JSON object with a models list.")
-    config.setdefault("api_keys", [])
-    if not isinstance(config["api_keys"], list):
-        raise ValueError(f"{path}: api_keys must be a list.")
+        raise ValueError(f"{prefix}the config must be a JSON object with a models list.")
+    api_keys = config.get("api_keys", [])
+    if not isinstance(api_keys, list):
+        raise ValueError(f"{prefix}api_keys must be a list.")
 
     def resolve(cell: object, where: str) -> object:
         """The value a cell stands for: the variable it names, or the cell itself."""
@@ -144,17 +140,43 @@ def load_server_config(path: str | os.PathLike[str]) -> ServerConfig:
             name = name[1:-1]
         value = os.getenv(name)
         if not value:
-            raise ValueError(f"{path}: {where} references {cell}, which is not set in the environment.")
+            raise ValueError(f"{prefix}{where} references {cell}, which is not set in the environment.")
         return value
 
+    models = []
     for i, row in enumerate(config["models"]):
         # a row that is not an object is left for create_server_app to refuse
         if isinstance(row, dict):
+            row = dict(row)
             for column in _RESOLVED_COLUMNS:
                 if column in row:
                     row[column] = resolve(row[column], f"models[{i}].{column}")
-    config["api_keys"] = [resolve(key, f"api_keys[{i}]") for i, key in enumerate(config["api_keys"])]
-    return config
+        models.append(row)
+    return {"models": models, "api_keys": [resolve(key, f"api_keys[{i}]") for i, key in enumerate(api_keys)]}
+
+
+def load_server_config(path: str | os.PathLike[str]) -> ServerConfig:
+    """
+    Read a config file, with the environment references of its cells resolved.
+
+    The cells are resolved as `resolve_server_config` resolves them, and every message starts with the path.
+
+    Args:
+        path: The JSON file: `{"models": [...], "api_keys": [...]}`
+
+    Returns:
+        The models table and the keys, with those cells replaced and `api_keys` defaulting to an empty list
+
+    Raises:
+        ValueError: When the file is not JSON, not a config, or references a variable that is unset or empty.
+    """
+    with open(path, encoding="utf-8") as file:
+        text = file.read()
+    try:
+        config = json.loads(text)
+    except ValueError as exc:
+        raise ValueError(f"{path}: not valid JSON: {exc}") from exc
+    return resolve_server_config(config, str(path))
 
 
 def create_server_app(models: list[ModelRow], api_keys: list[str] | None = None) -> Flask:
@@ -350,7 +372,7 @@ def start_server(
         debug: Enable debug mode
     """
     app = create_server_app(models, api_keys)
-    print(f"Starting MMSP server at http://{host}:{port}{API_PREFIX}")
+    print(f"Starting MMSP server at {server_base_url(host, port)}")
     print("Serving models: " + ", ".join(app.config["MMSP_SERVER_MODEL_IDS"]))
     if not api_keys:
         print("Open server: api_keys is empty, every request is accepted")

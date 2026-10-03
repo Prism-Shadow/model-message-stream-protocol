@@ -54,6 +54,20 @@ MODELS_PATH = "/v1/models"
 KEEPALIVE_SECONDS = 15
 
 
+def server_base_url(host: str, port: int) -> str:
+    """
+    The base URL a client of a server listening on host and port uses.
+
+    Args:
+        host: The host the server listens on; an IPv6 address goes in brackets.
+        port: The port it listens on.
+
+    Returns:
+        `http://host:port/v1`.
+    """
+    return f"http://{f'[{host}]' if ':' in host else host}:{port}{API_PREFIX}"
+
+
 def encode_wire(value: Any) -> Any:
     """
     A JSON-ready copy of an event or a message: every bytes value, wherever it sits, as base64 text.

@@ -180,6 +180,11 @@ describe("Playground", () => {
     expect(response.text.indexOf(">GitHub<")).toBeLessThan(
       response.text.indexOf(">Open Tracer<"),
     );
+    expect(response.text).toContain('href="/server/"');
+    expect(response.text).toContain("Open Server");
+    expect(response.text.indexOf(">Open Tracer<")).toBeLessThan(
+      response.text.indexOf(">Open Server<"),
+    );
     expect(response.text).not.toContain("temperatureInput");
     expect(response.text).not.toContain("maxTokensInput");
   });
@@ -231,6 +236,17 @@ describe("Playground", () => {
     expect(response.status).toBe(200);
     expect(response.text).toContain("Tracer");
     expect(response.text).toContain('href="/tracer/"');
+  });
+
+  test("should mount the server page on the same app", async () => {
+    const app = createChatApp();
+
+    const response = await request(app).get("/server/");
+
+    expect(response.status).toBe(200);
+    expect(response.text).toContain("MMSP Server");
+    expect(response.text).toContain('id="serverToggle"');
+    expect(response.text).toContain('href="/server/"');
   });
 
   test("should use client connection options outside request config", async () => {

@@ -34,7 +34,6 @@ import { AutoLLMClient } from "../autoClient";
 import { LLMClient } from "../baseClient";
 import { UniConfig, UniMessage } from "../types";
 import {
-  API_PREFIX,
   DEFAULT_HOST,
   DEFAULT_PORT,
   KEEPALIVE_SECONDS,
@@ -42,6 +41,7 @@ import {
   STREAM_PATH,
   decodeWire,
   encodeWire,
+  serverBaseUrl,
   toWireError,
 } from "../wire";
 
@@ -75,7 +75,7 @@ const COLUMNS = [
   "client_type",
 ] as const;
 
-// a config file may name these from the environment; the ids are always taken as written
+// a config may name these from the environment; the ids are always taken as written
 const ENVIRONMENT_COLUMNS = ["base_url", "api_key", "client_type"] as const;
 
 function errorBody(
@@ -90,31 +90,34 @@ function isObject(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * Read the server's config file, with its environment references resolved.
+ * Check a config's shape and resolve the environment references of its cells.
  *
+ * `config` is what a config file or a request body holds: `{"models": [...], "api_keys": [...]}`.
  * A `base_url`, `api_key` or `client_type` cell of a row, or an entry of `api_keys`, that starts
- * with `$` is read from the environment: `$NAME` and `${NAME}` both name NAME. The rows are not
- * validated here; createServerApp does that, for rows from a file and from code alike.
+ * with `$` is read from the environment (`$NAME` and `${NAME}` both name NAME). `source` prefixes
+ * every message (the file's path for loadServerConfig); empty, the messages carry no prefix. The
+ * rows are checked by createServerApp, as rows from code are.
  *
- * @param path - The JSON file: `{"models": [...], "api_keys": [...]}`
- * @returns The parsed config, `api_keys` empty when the file has none
+ * @param config - The parsed config
+ * @param source - Where the config comes from, for the messages
+ * @returns `{ models, api_keys }` with those cells replaced, `api_keys` defaulting to []; the
+ *   input is not modified
+ * @throws Error when the config is not an object with a models list, api_keys is not a list, or
+ *   a reference names a variable that is unset or empty
  */
-export function loadServerConfig(path: string): ServerConfig {
-  const text = fs.readFileSync(path, "utf-8");
-  let config: unknown;
-  try {
-    config = JSON.parse(text);
-  } catch (error) {
-    throw new Error(`${path}: not valid JSON: ${(error as Error).message}`);
-  }
+export function resolveServerConfig(
+  config: unknown,
+  source = "",
+): ServerConfig {
+  const prefix = source ? `${source}: ` : "";
   if (!isObject(config) || !Array.isArray(config.models)) {
     throw new Error(
-      `${path}: the config must be a JSON object with a models list.`,
+      `${prefix}the config must be a JSON object with a models list.`,
     );
   }
   const apiKeys = config.api_keys === undefined ? [] : config.api_keys;
   if (!Array.isArray(apiKeys)) {
-    throw new Error(`${path}: api_keys must be a list.`);
+    throw new Error(`${prefix}api_keys must be a list.`);
   }
 
   const resolve = (cell: unknown, where: string): unknown => {
@@ -125,12 +128,13 @@ export function loadServerConfig(path: string): ServerConfig {
     // an empty variable is as good as none: no upstream takes an empty key or endpoint
     if (!value) {
       throw new Error(
-        `${path}: ${where} references ${cell}, which is not set in the environment.`,
+        `${prefix}${where} references ${cell}, which is not set in the environment.`,
       );
     }
     return value;
   };
   const models = config.models.map((row: unknown, i) => {
+    // a row that is not an object is left for createServerApp to refuse
     if (!isObject(row)) {
       return row;
     }
@@ -143,12 +147,28 @@ export function loadServerConfig(path: string): ServerConfig {
     return resolved;
   });
   return {
-    ...config,
     models: models as ModelRow[],
     api_keys: apiKeys.map((key, i) =>
       resolve(key, `api_keys[${i}]`),
     ) as string[],
   };
+}
+
+/**
+ * Read the server's config file, with its environment references resolved.
+ *
+ * @param path - The JSON file: `{"models": [...], "api_keys": [...]}`
+ * @returns The config as resolveServerConfig returns it
+ */
+export function loadServerConfig(path: string): ServerConfig {
+  const text = fs.readFileSync(path, "utf-8");
+  let config: unknown;
+  try {
+    config = JSON.parse(text);
+  } catch (error) {
+    throw new Error(`${path}: not valid JSON: ${(error as Error).message}`);
+  }
+  return resolveServerConfig(config, path);
 }
 
 /**
@@ -417,7 +437,7 @@ export function startServer(options: {
   const server = app.listen(port, host, () => {
     // the bound port, so that port 0 prints the one the system chose
     const { port: bound } = server.address() as AddressInfo;
-    console.log(`Starting MMSP server at http://${host}:${bound}${API_PREFIX}`);
+    console.log(`Starting MMSP server at ${serverBaseUrl(host, bound)}`);
     console.log(
       `Serving models: ${(app.locals.serverModelIds as string[]).join(", ")}`,
     );

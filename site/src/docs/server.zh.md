@@ -69,7 +69,7 @@ start_server(
 
 </div>
 
-也可以从文件读取：`loadServerConfig(path)` / `load_server_config(path)` 返回 `{ models, api_keys }`，其中的 `$VAR` 已替换为环境变量的值。在 shell 中启动（TypeScript 脚本在仓库的 `src_ts` 目录下运行）：
+也可以从文件读取：`loadServerConfig(path)` / `load_server_config(path)` 返回 `{ models, api_keys }`，其中的 `$VAR` 已替换为环境变量的值；`resolveServerConfig(config)` / `resolve_server_config(config)` 对已解析的配置做同样的处理。在 shell 中启动（TypeScript 脚本在仓库的 `src_ts` 目录下运行）：
 
 <div class="code-group" data-labels="TypeScript,Python">
 
@@ -139,6 +139,12 @@ client = AutoLLMClient(
 它返回的流与该行客户端返回的相同。不传 `base_url` 时读取 `MMSP_BASE_URL` 和 `MMSP_API_KEY`，默认 `http://127.0.0.1:25752/v1`。传入 `base_url` 时必须同时传入 `api_key`，服务端开放时传 `"none"`。`listModels()` / `list_models()` 返回表中的 id。错误原样抛出，见[错误](/zh/docs/errors/#经由-mmsp-服务端)。
 
 在 [Playground](/zh/docs/tracing/#playground) 中选择客户端类型 `mmsp`，即可经由服务端对话。
+
+## 在 Playground 里启动
+
+[Playground](/zh/docs/tracing/#playground) 顶栏的 Open Server 打开位于 `/server/` 的 server 页面。每个模型添加一行（填入模型 id 后会自动填入它的客户端类型和端点，与聊天页面相同），再填写调用方发送的 key（不填则对所有请求开放）、host 和 port，然后点 Start。状态栏显示 base URL 和提供的 id。点 Stop 或停止 Playground，服务端随之停止。
+
+`$VAR` 形式的值从 Playground 的环境变量读取。这张表只保存在浏览器里，不写入磁盘。
 
 ## 追踪
 

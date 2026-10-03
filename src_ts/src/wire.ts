@@ -53,6 +53,17 @@ export const STREAM_PATH = "/v1/stream";
 export const MODELS_PATH = "/v1/models";
 export const KEEPALIVE_SECONDS = 15;
 
+/**
+ * The base URL a client of a server listening on host and port uses.
+ *
+ * @param host - The host the server listens on; an IPv6 address goes in brackets
+ * @param port - The port it listens on
+ * @returns `http://host:port/v1`
+ */
+export function serverBaseUrl(host: string, port: number): string {
+  return `http://${host.includes(":") ? `[${host}]` : host}:${port}${API_PREFIX}`;
+}
+
 // an event, a message, an item or an error as JSON parsed it
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type WireRecord = Record<string, any>;

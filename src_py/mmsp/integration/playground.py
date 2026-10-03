@@ -26,16 +26,22 @@ import base64
 import concurrent.futures
 import json
 import os
+import socket
 import threading
+from dataclasses import dataclass
 from typing import Any
 
 from flask import Flask, Response, jsonify, render_template_string, request
 from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
+from werkzeug.serving import BaseWSGIServer, make_server
 
 from .. import AutoLLMClient
 from ..abort_signal import AbortSignal
 from ..auto_client import COMPATIBLE_CLIENT_TYPES, MODEL_FAMILIES, OFFICIAL_CLIENT_TYPES
+from ..wire import DEFAULT_HOST, DEFAULT_PORT, server_base_url
+from .server import create_server_app, resolve_server_config
+from .server_page import SERVER_TEMPLATE
 from .tracer import Tracer
 
 
@@ -45,6 +51,22 @@ _loop_lock = threading.Lock()
 _session_clients: dict[str, AutoLLMClient] = {}
 _session_client_options: dict[str, tuple[str, str | None, str | None, str | None, dict[str, str] | None]] = {}
 _session_abort_signals: dict[str, AbortSignal] = {}
+
+
+@dataclass
+class _RunningServer:
+    """The MMSP server the playground started, until it is stopped."""
+
+    http_server: BaseWSGIServer
+    host: str
+    port: int
+    model_ids: list[str]
+    open: bool
+
+
+# one server per process, dying with it; the lock keeps two starts from both binding
+_mmsp_server_lock = threading.Lock()
+_mmsp_server: _RunningServer | None = None
 
 
 def _get_event_loop() -> asyncio.AbstractEventLoop:
@@ -138,6 +160,116 @@ def _playground_defaults() -> str:
             "baseUrls": {name: os.getenv(env) or url for name, (env, url) in _DEFAULT_BASE_URLS.items()},
         }
     )
+
+
+def _mmsp_server_status() -> dict[str, Any]:
+    """The server page's status: `{"running": False}`, or where the server listens and what it serves."""
+    running = _mmsp_server
+    if running is None:
+        return {"running": False}
+    return {
+        "running": True,
+        "host": running.host,
+        "port": running.port,
+        "base_url": server_base_url(running.host, running.port),
+        "models": running.model_ids,
+        "open": running.open,
+    }
+
+
+def _stop_mmsp_server() -> None:
+    """Stop the MMSP server the playground started; nothing when none runs."""
+    global _mmsp_server
+    with _mmsp_server_lock:
+        running, _mmsp_server = _mmsp_server, None
+        if running is not None:
+            # the handler threads are daemons, so an open stream does not hold this up
+            running.http_server.shutdown()
+            running.http_server.server_close()
+
+
+def _create_server_page_app() -> Flask:
+    """
+    Create the server page's app: the page at `/`, and `/api/status`, `/api/start`, `/api/stop`.
+
+    Returns:
+        Flask application instance, mounted at /server
+    """
+    app = Flask(__name__)
+    app.json.ensure_ascii = False
+    app.json.sort_keys = False
+
+    @app.route("/")
+    def index() -> Response:
+        """Serve the server page."""
+        # not through Jinja, unlike the chat page: the page is served as it is written
+        return Response(
+            SERVER_TEMPLATE.replace("__PLAYGROUND_DEFAULTS__", _playground_defaults()), mimetype="text/html"
+        )
+
+    @app.route("/api/status")
+    def status() -> Response:
+        """Report whether the server runs, and where and what it serves."""
+        return jsonify(_mmsp_server_status())
+
+    @app.route("/api/start", methods=["POST"])
+    def start() -> Response | tuple[Response, int]:
+        """Start the server from the page's table, keys, host and port."""
+        global _mmsp_server
+        body = request.get_json(silent=True)
+        if not isinstance(body, dict):
+            return jsonify({"error": "Request body must be a JSON object."}), 400
+        host = body.get("host", DEFAULT_HOST)
+        if not isinstance(host, str) or not host.strip():
+            return jsonify({"error": "host must be a non-empty string."}), 400
+        port = body.get("port", DEFAULT_PORT)
+        # JavaScript cannot tell 25752.0 from 25752, so neither server does
+        if isinstance(port, float) and port.is_integer():
+            port = int(port)
+        if isinstance(port, bool) or not isinstance(port, int) or not 0 <= port <= 65535:
+            return jsonify({"error": "port must be an integer between 0 and 65535."}), 400
+        try:
+            config = resolve_server_config({"models": body.get("models"), "api_keys": body.get("api_keys", [])})
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+
+        with _mmsp_server_lock:
+            if _mmsp_server is not None:
+                return jsonify({"error": "The server is running; stop it first."}), 409
+            try:
+                server_app = create_server_app(config["models"], config["api_keys"])
+            except ValueError as exc:
+                return jsonify({"error": str(exc)}), 400
+            # werkzeug answers a failed bind by printing it and exiting the process, and takes a "unix://"
+            # host for a socket file to replace, so the socket is bound here, as werkzeug binds it, and handed over
+            listener = socket.socket(socket.AF_INET6 if ":" in host else socket.AF_INET)
+            try:
+                listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                listener.bind((host, port))
+                listener.listen()
+            except OSError as exc:
+                listener.close()
+                return jsonify({"error": f"Cannot listen on {host}:{port}: {exc.strerror or exc}"}), 400
+            with listener:
+                http_server = make_server(host, port, server_app, threaded=True, fd=listener.fileno())
+            threading.Thread(target=http_server.serve_forever, daemon=True, name="mmsp-server").start()
+            _mmsp_server = _RunningServer(
+                http_server=http_server,
+                host=host,
+                # the bound port, so that port 0 reports the one the system chose
+                port=http_server.port,
+                model_ids=server_app.config["MMSP_SERVER_MODEL_IDS"],
+                open=not config["api_keys"],
+            )
+            return jsonify(_mmsp_server_status())
+
+    @app.route("/api/stop", methods=["POST"])
+    def stop() -> Response:
+        """Stop the server; stopping a stopped server is fine."""
+        _stop_mmsp_server()
+        return jsonify({"running": False})
+
+    return app
 
 
 def create_chat_app() -> Flask:
@@ -1678,6 +1810,10 @@ def create_chat_app() -> Flask:
                         <a href="/tracer/" target="_blank" rel="noopener noreferrer" class="ghost-btn" title="Open Tracer">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"></path></svg>
                             <span class="label-wide">Open Tracer</span>
+                        </a>
+                        <a href="/server/" target="_blank" rel="noopener noreferrer" class="ghost-btn" title="Open Server">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="20" height="8" rx="2"></rect><rect x="2" y="14" width="20" height="8" rx="2"></rect><path d="M6 6h.01M6 18h.01"></path></svg>
+                            <span class="label-wide">Open Server</span>
                         </a>
                         <button type="button" class="ghost-btn" onclick="clearChat()" title="New chat">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
@@ -3273,7 +3409,9 @@ def create_chat_app() -> Flask:
         return jsonify({"models": models})
 
     tracer_app = Tracer().create_web_app(base_path="/tracer")
-    app.wsgi_app = DispatcherMiddleware(app.wsgi_app, {"/tracer": tracer_app.wsgi_app})
+    app.wsgi_app = DispatcherMiddleware(
+        app.wsgi_app, {"/tracer": tracer_app.wsgi_app, "/server": _create_server_page_app().wsgi_app}
+    )
 
     return app
 

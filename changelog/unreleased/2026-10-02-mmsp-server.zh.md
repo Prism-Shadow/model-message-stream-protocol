@@ -17,5 +17,6 @@
 - **`mmsp` 客户端**（`mmsp/`、`MmspClient`），兼容客户端类型 `mmsp`：返回服务端那一侧客户端产生的公开流。按凭证规则读取 `MMSP_API_KEY` / `MMSP_BASE_URL`，默认 `http://127.0.0.1:25752/v1`；请求 `{base_url}/stream` 和 `{base_url}/models`。`list_models` 返回表中的 id。
 - 五种 MMSP 错误带着各自的字段穿过服务端，在客户端以原类型再次抛出；其他错误一律抛出新增的 `UpstreamError`（`client`、`status`、`error_type` / `errorType`），两个包都导出。
 - `mmsp.wire` / `src_ts/src/wire.ts`：服务端与客户端共用的路由、默认值、字节编解码和错误编解码。
-- Playground：客户端类型选择器中新增 `mmsp`（"MMSP server"），默认 base URL 为 `MMSP_BASE_URL` 或 `http://127.0.0.1:25752/v1`。
+- `resolve_server_config(config, source)` / `resolveServerConfig(config, source)`：`load_server_config` 的结构检查和 `$VAR` 解析，与 Playground 共用。
+- Playground：客户端类型选择器中新增 `mmsp`（"MMSP server"），默认 base URL 为 `MMSP_BASE_URL` 或 `http://127.0.0.1:25752/v1`；新增 `/server/` 页面（从顶栏进入），在页面上填写模型表、`api_keys`、host 和 port，并在 Playground 进程内启动和停止服务端（`GET /server/api/status`、`POST /server/api/start`、`POST /server/api/stop`；`$VAR` 形式的值从 Playground 的环境变量读取；草稿保存在浏览器的 `mmsp.playground.server` 下）。
 - 文档：README 新增 MMSP Server 一节，站点 Tools 下新增 Server 页面，客户端列表加入 `mmsp`，错误页新增经由服务端的错误一节，并更新了 skills 参考文档。

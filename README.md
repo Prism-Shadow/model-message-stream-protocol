@@ -710,6 +710,7 @@ cd src_ts && npm run playground
 
 You can access the playground at `http://localhost:25751/`.
 The integrated tracer is available at `http://localhost:25751/tracer/`.
+The server page at `http://localhost:25751/server/` starts an MMSP server from the models you add there.
 
 ## MMSP Server
 

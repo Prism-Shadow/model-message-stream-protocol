@@ -69,7 +69,7 @@ start_server(
 
 </div>
 
-Or from the file: `loadServerConfig(path)` / `load_server_config(path)` returns `{ models, api_keys }` with its `$VAR` cells resolved. From a shell (the TypeScript script runs in `src_ts` of a clone of the repository):
+Or from the file: `loadServerConfig(path)` / `load_server_config(path)` returns `{ models, api_keys }` with its `$VAR` cells resolved, and `resolveServerConfig(config)` / `resolve_server_config(config)` does the same for a config already parsed. From a shell (the TypeScript script runs in `src_ts` of a clone of the repository):
 
 <div class="code-group" data-labels="TypeScript,Python">
 
@@ -139,6 +139,12 @@ client = AutoLLMClient(
 It yields the stream the row's client yields. Without a `base_url` it reads `MMSP_BASE_URL` and `MMSP_API_KEY`, and defaults to `http://127.0.0.1:25752/v1`. A `base_url` passed in needs an `api_key` passed in: `"none"` for an open server. `listModels()` / `list_models()` returns the table's ids. Errors come back as themselves; see [Errors](/docs/errors/#through-an-mmsp-server).
 
 In the [playground](/docs/tracing/#playground), the client type `mmsp` chats through a server.
+
+## From the playground
+
+Open Server, in the top bar of the [playground](/docs/tracing/#playground), opens the server page at `/server/`. Add a row per model (a model id fills in its client type and endpoint, as on the chat page), the keys clients send (none for an open server), the host and port, and press Start. The status line shows the base URL and the served ids. Stop, or stopping the playground, stops the server.
+
+A `$VAR` cell is read from the playground's environment. The table stays in the browser; nothing is written to disk.
 
 ## Traces
 
