@@ -21,11 +21,11 @@ The server serves the rows of its models table. Each row is an upstream model, b
 named by its `server_model_id`; a row without a client type or a base URL gets the official client
 its model id names and that client's default endpoint. `POST /v1/stream` streams one stateless
 response of the model a request names, `GET /v1/models` lists the models in OpenAI's list shape, and
-`GET /v1/metrics` reports what the server has served since it started, which the dashboard at `/`
-shows. Requests to `/v1/` carry one of the `api_keys` as a bearer token, or none when the list is
-empty. The table comes from a JSON file (`load_server_config`) or from code, and a client's base URL
-is `http://host:port/v1`. The wire protocol is the one `mmsp.wire` describes, and the mmsp client
-(`client_type="mmsp"`) speaks it.
+`GET /v1/metrics` reports what the server has served since it started, which the playground's server
+page shows while it runs the server. Requests to `/v1/` carry one of the `api_keys` as a bearer token,
+or none when the list is empty. The table comes from a JSON file (`load_server_config`) or from code,
+and a client's base URL is `http://host:port/v1`. The wire protocol is the one `mmsp.wire` describes,
+and the mmsp client (`client_type="mmsp"`) speaks it.
 """
 
 import asyncio
@@ -58,10 +58,8 @@ from ..wire import (
     decode_wire,
     encode_wire,
     server_base_url,
-    server_dashboard_url,
     to_wire_error,
 )
-from .dashboard_page import DASHBOARD_TEMPLATE
 
 
 # Global event loop and lock for thread-safe async operations
@@ -458,6 +456,7 @@ def create_server_app(models: list[ModelRow], api_keys: list[str] | None = None)
     # Flask sorts keys by default; the bodies keep the order they are written in, as the TypeScript server's do
     app.json.sort_keys = False
     app.config["MMSP_SERVER_MODEL_IDS"] = list(upstreams)
+    app.config["MMSP_SERVER_METRICS"] = metrics
 
     @app.errorhandler(RequestEntityTooLarge)
     def request_entity_too_large(_error: RequestEntityTooLarge) -> tuple[Response, int]:
@@ -472,8 +471,8 @@ def create_server_app(models: list[ModelRow], api_keys: list[str] | None = None)
         return _error_response(
             404,
             "NotFoundError",
-            f"No route for {request.method} {request.path}; the server serves POST /v1/stream, GET /v1/models,"
-            " GET /v1/metrics and the dashboard at /.",
+            f"No route for {request.method} {request.path}; the server serves POST /v1/stream, GET /v1/models"
+            " and GET /v1/metrics.",
         )
 
     expected = [f"Bearer {key}".encode() for key in api_keys]
@@ -595,17 +594,12 @@ def create_server_app(models: list[ModelRow], api_keys: list[str] | None = None)
         """What the server has served since it started, per model and in total."""
         return jsonify(metrics.snapshot())
 
-    @app.route("/", methods=["GET"])
-    def dashboard() -> Response:
-        """The dashboard page, which holds no secret: it asks for a key and reads GET /v1/metrics with it."""
-        return Response(DASHBOARD_TEMPLATE, mimetype="text/html")
-
     return app
 
 
 def announce_server(host: str, port: int, model_ids: list[str], open: bool) -> None:
     """
-    Print where the server listens, what it serves, where its dashboard is, and whether it is open.
+    Print where the server listens, what it serves, and whether it is open.
 
     Args:
         host: The host it listens on
@@ -615,7 +609,6 @@ def announce_server(host: str, port: int, model_ids: list[str], open: bool) -> N
     """
     print(f"Starting MMSP server at {server_base_url(host, port)}")
     print("Serving models: " + ", ".join(model_ids))
-    print(f"Dashboard at {server_dashboard_url(host, port)}")
     if open:
         print("Open server: api_keys is empty, every request is accepted")
 

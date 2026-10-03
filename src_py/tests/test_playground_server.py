@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import re
 import socket
 import urllib.error
 import urllib.request
@@ -85,6 +86,12 @@ def _status(client: FlaskClient) -> dict[str, Any]:
     return response.get_json()
 
 
+def _metrics(client: FlaskClient) -> dict[str, Any]:
+    response = client.get("/server/api/metrics")
+    assert response.status_code == 200
+    return response.get_json()
+
+
 def _model_ids(base_url: str, headers: dict[str, str] | None = None) -> list[str]:
     request = urllib.request.Request(base_url + "/models", headers=headers or {})
     with urllib.request.urlopen(request, timeout=5) as response:
@@ -112,11 +119,20 @@ def test_server_page_is_served(client: FlaskClient):
         "statusUrl",
         "statusModels",
         "serverError",
-        "keyVisibilityToggle",
         "themeToggle",
         "saveButton",
-        "restartButton",
-        "dashboardLink",
+        "applyButton",
+        "metricsBar",
+        "statRequests",
+        "statSuccess",
+        "statLatency",
+        "statFirstEvent",
+        "statTokens",
+        "statStreaming",
+        "statRefused",
+        "copyUrlButton",
+        "tableHead",
+        "saveKey",
         "configPath",
         "listenState",
     ):
@@ -128,7 +144,7 @@ def test_server_page_is_served(client: FlaskClient):
         "removeKey(",
         "handleModelIdInput(",
         "handleRowClientType(",
-        "toggleKeyVisibility()",
+        "toggleKeyVisibility(this)",
         "collectConfig()",
         "saveDraft()",
         "restoreTable()",
@@ -144,20 +160,32 @@ def test_server_page_is_served(client: FlaskClient):
         "startServer()",
         "stopServer()",
         "markRow(",
+        "fetchMetrics()",
+        "renderMetrics(",
+        "renderActions()",
+        "renderRow(",
+        "toggleRow(",
+        "handleShortcut(",
+        "formatRange(",
         "mmsp.playground.server",
         "mmsp.playground.theme",
         "/server/api",
+        "/server/api/metrics",
         '"openai-official"',
         "setTheme('dark')",
         ">Auto<",
         'placeholder="Default"',
+        'data-state="unsaved"',
     ):
         assert text.encode() in response.data, text
+    # the state words are set by the script
+    assert re.search(rb"STATE_LABELS = \{[^}]*'Live'", response.data)
     # the server hands the page its client types and their default endpoints
     assert b"__PLAYGROUND_DEFAULTS__" not in response.data
     # a client type no longer fills the base URL
     assert b"filledBaseUrl" not in response.data
     assert b"restoreDraft()" not in response.data
+    assert b"In effect" not in response.data
     assert b"<select" not in response.data
     assert b"0.6" not in response.data
 
@@ -323,20 +351,16 @@ def test_start_serves_the_saved_table_and_stop_closes_it(client: FlaskClient):
 
     assert response.status_code == 200
     status = response.get_json()
-    assert list(status) == ["running", "host", "port", "base_url", "dashboard_url", "models", "open", "config"]
+    assert list(status) == ["running", "host", "port", "base_url", "models", "open", "config"]
     port = status["port"]
     assert status["running"] is True
     assert port > 0
     assert status["base_url"] == f"http://127.0.0.1:{port}/v1"
-    assert status["dashboard_url"] == f"http://127.0.0.1:{port}/"
     assert status["models"] == ["gpt-5.5", "claude"]
     assert status["open"] is True
     # the config as saved, with the port it names rather than the one the system chose
     assert status["config"] == saved
     assert _model_ids(status["base_url"]) == ["gpt-5.5", "claude"]
-    with urllib.request.urlopen(status["dashboard_url"], timeout=5) as dashboard:
-        assert dashboard.status == 200
-        assert dashboard.headers.get_content_type() == "text/html"
     with urllib.request.urlopen(status["base_url"] + "/metrics", timeout=5) as metrics:
         assert metrics.status == 200
         assert [model["id"] for model in json.load(metrics)["models"]] == ["gpt-5.5", "claude"]
@@ -348,6 +372,45 @@ def test_start_serves_the_saved_table_and_stop_closes_it(client: FlaskClient):
     assert _status(client) == {"running": False}
     with pytest.raises(urllib.error.URLError):
         _model_ids(status["base_url"])
+
+
+def test_metrics_are_read_in_process(client: FlaskClient):
+    assert _metrics(client) == {"running": False}
+    # a server with a key, which the page does not hold
+    _save(
+        client,
+        [_row(), _row(model_id="claude-sonnet-5-5", server_model_id="claude", client_type="ant-messages")],
+        api_keys=["srv"],
+    )
+    status = _start(client).get_json()
+    key = {"Authorization": "Bearer srv"}
+
+    metrics = _metrics(client)
+
+    assert metrics["running"] is True
+    assert [model["id"] for model in metrics["models"]] == status["models"]
+    assert metrics["requests"] == 0
+    # running first, then the snapshot in the order GET /v1/metrics reports it
+    served = urllib.request.Request(status["base_url"] + "/metrics", headers=key)
+    with urllib.request.urlopen(served, timeout=5) as response:
+        assert list(metrics) == ["running", *json.load(response)]
+
+    unknown = urllib.request.Request(
+        status["base_url"] + "/stream",
+        data=json.dumps({"model": "nope", "messages": []}).encode(),
+        headers={**key, "Content-Type": "application/json"},
+    )
+    with pytest.raises(urllib.error.HTTPError) as exc_info:
+        urllib.request.urlopen(unknown, timeout=5)
+    assert exc_info.value.code == 404
+    assert _metrics(client)["refused"] == {"unauthorized": 0, "invalid_request": 0, "unknown_model": 1}
+
+    # a restart serves a new server, counted from zero
+    _restart(client)
+    assert _metrics(client)["refused"]["unknown_model"] == 0
+
+    client.post("/server/api/stop", json={})
+    assert _metrics(client) == {"running": False}
 
 
 def test_start_and_stop_print_the_console_lines(client: FlaskClient, capsys: pytest.CaptureFixture[str]):
@@ -362,7 +425,6 @@ def test_start_and_stop_print_the_console_lines(client: FlaskClient, capsys: pyt
     assert started == (
         f"Starting MMSP server at http://127.0.0.1:{port}/v1\n"
         "Serving models: gpt-5.5, claude\n"
-        f"Dashboard at http://127.0.0.1:{port}/\n"
         "Open server: api_keys is empty, every request is accepted\n"
     )
     assert stopped == f"Stopped MMSP server at http://127.0.0.1:{port}/v1\n"
@@ -413,7 +475,6 @@ def test_restart_applies_the_saved_table(client: FlaskClient, capsys: pytest.Cap
         f"Stopped MMSP server at {first['base_url']}\n"
         f"Starting MMSP server at {status['base_url']}\n"
         "Serving models: gpt-5.6\n"
-        f"Dashboard at {status['dashboard_url']}\n"
     )
 
 

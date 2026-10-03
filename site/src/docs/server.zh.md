@@ -86,7 +86,6 @@ python -m mmsp.integration.server --config mmsp-server.json
 ```text
 Starting MMSP server at http://127.0.0.1:25752/v1
 Serving models: claude, gpt-5.5, qwen3.8
-Dashboard at http://127.0.0.1:25752/
 ```
 
 `--config` 默认取 `MMSP_SERVER_CONFIG`；`--host`、`--port` 默认 `127.0.0.1:25752`，因此调用方的 base URL 是 `http://127.0.0.1:25752/v1`。`createServerApp({ models, apiKeys })` / `create_server_app(models, api_keys)` 返回 Express / Flask 应用，但不启动它；`startServer` 返回 `http.Server`。上面几行由 `announceServer` / `announce_server` 打印，服务端开放时还会多一行 `Open server: api_keys is empty, every request is accepted`。
@@ -97,8 +96,7 @@ Dashboard at http://127.0.0.1:25752/
 | --- | --- | --- |
 | `GET /v1/models` | | `{"object": "list", "data": [{"id": "claude", "object": "model", "created": …, "owned_by": "mmsp"}, …]}`，每行一项 |
 | `POST /v1/stream` | `{"model", "messages", "config"}` | Server-sent events：每个事件一行 `data: <UniEvent>`，最后是 `data: [DONE]` |
-| `GET /v1/metrics` | | 服务端自启动以来的处理情况，见[仪表盘](#仪表盘) |
-| `GET /` | | 仪表盘页面 |
+| `GET /v1/metrics` | | 服务端自启动以来的处理情况，见[指标](#指标) |
 
 ```text
 data: {"role":"assistant","event_type":"delta","content_items":[{"type":"text.delta","text":"Hel"}],...}
@@ -115,7 +113,7 @@ data: [DONE]
 - 模型没有输出时，服务端每 15 秒写一行 `: keep-alive` 注释。
 - 错误格式为 `{"error": {"type", "message", ...}}`：没有带其中一个 key 返回 HTTP 401 `AuthenticationError`，请求体格式错误返回 400 `InvalidRequestError`，模型不在表中（`The model 'x' does not exist; GET /v1/models lists the models this server serves.`）或路径不存在（`No route for GET /models; ...`）返回 404 `NotFoundError`，请求体超过 50 MB 返回 413。流开始之后，错误是一个 `data:` 事件，随后是 `data: [DONE]`。
 
-## 仪表盘
+## 指标
 
 `GET /v1/metrics` 与其他 `/v1/` 接口一样需要 key，返回服务端自启动以来的处理情况，包括总计和每个模型：
 
@@ -145,7 +143,7 @@ data: [DONE]
 
 每个模型的条目包含同样的计数，另有 `last_request_at` 和 `last_outcome`。时间均为 unix 秒。
 
-服务端根路径 `/`（`http://127.0.0.1:25752/`）上的仪表盘展示这些数据，每 3 秒刷新一次。页面本身不含 key：服务端设置了 key 时，页面会询问一次，并保存在浏览器里（`mmsp.dashboard.key`）。
+Playground 的 [server 页面](#在-playground-里启动)运行服务端期间展示这些数据，每 3 秒刷新一次。
 
 ## mmsp 客户端
 
@@ -179,9 +177,11 @@ client = AutoLLMClient(
 
 [Playground](/zh/docs/tracing/#playground) 顶栏的 Open Server 打开位于 `/server/` 的 server 页面。每个模型添加一行，再填写调用方发送的 key（不填则对所有请求开放）、host 和 port。填入模型 id 只会同步填入 Served as；不手动设置时，Client type 保持 Auto，Base URL 保持 Default。
 
-Save 把页面内容写入 `MMSP_SERVER_CONFIG`，未设置时写入 `cache`（或 `MMSP_CACHE_DIR`）下的 `server.json`，页面上会显示这个路径。文件就是上面的[配置](#配置)，外加 `host` 和 `port`，命令行会忽略这两项，所以两者可以用 `MMSP_SERVER_CONFIG` 指向同一个文件。值按输入原样写入：写成 `$VAR` 的 key 不会进入文件，启动时从 Playground 的环境变量读取。
+每个模型收起为一行（提供的 id、上游、状态），点开即可编辑。模型行、key 和监听地址都标有 Live（正在运行）、Saved（已写入文件）或 Unsaved（只在浏览器里）。
 
-Start 运行的是已保存的文件，而不是页面上的内容。每一行、每个 key 和监听地址前都有一个圆点：绿色为 In effect，琥珀色为 Saved，空心为 Unsaved；未保存的修改留在浏览器里。页面与文件不一致时 Save 可点，文件与正在运行的不一致时出现 Restart。Restart 先构建新服务端再停掉旧的，因此新表被拒绝时，旧服务端照常运行。状态栏显示 base URL、提供的 id 和[仪表盘](#仪表盘)链接。点 Stop 或停止 Playground，服务端随之停止。
+Save（Ctrl/Cmd+S）把页面内容写入 `MMSP_SERVER_CONFIG`，未设置时写入 `cache`（或 `MMSP_CACHE_DIR`）下的 `server.json`，页面上会显示这个路径。文件就是上面的[配置](#配置)，外加 `host` 和 `port`，命令行会忽略这两项，所以两者可以用 `MMSP_SERVER_CONFIG` 指向同一个文件。值按输入原样写入：写成 `$VAR` 的 key 不会进入文件，启动时从 Playground 的环境变量读取。
+
+Start 运行的是文件，而不是页面上的内容，保存过文件后才可点。文件与正在运行的不一致时出现 Apply，它用文件替换正在运行的服务端：先构建新服务端再停掉旧的，因此新表被拒绝时，旧服务端照常运行。运行期间，页面显示请求数、成功率、耗时、token 用量和每个模型最近一次请求的结果。点 Stop 或停止 Playground，服务端随之停止。
 
 ## 追踪
 

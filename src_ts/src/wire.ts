@@ -19,16 +19,16 @@
  * `POST /v1/stream` takes `{"model", "messages", "config"}` and answers with server-sent events:
  * one `data: <UniEvent JSON>` per public event, then `data: [DONE]`. `GET /v1/models` lists the
  * models of the server's table in OpenAI's list shape (`{"object": "list", "data": [{"id": ...},
- * ...]}`), and a model id not in the table is a 404 NotFoundError. `GET /v1/metrics` reports the
- * server's request counts and latencies, which its dashboard at `/` shows. A server with keys wants
- * `Authorization: Bearer <key>` on every `/v1/` request. JSON has no bytes, so every Buffer goes
- * out as base64 text, and only the `data` of `inline_data.*` and `inline_thinking.*` items, the
- * protocol's byte fields, is decoded back. While the model is silent, the server writes an SSE
- * comment every KEEPALIVE_SECONDS, which a reader skips; it keeps proxies and clients from timing
- * out a long thought. An error is `{"error": {"type", "message", ...fields}}`: the body of an HTTP
- * error before a stream starts, an event followed by `data: [DONE]` once it has. The five MMSP
- * errors cross with their fields and are raised again as themselves; anything else becomes an
- * UpstreamError.
+ * ...]}`), and a model id not in the table is a 404 NotFoundError. The server's request counts
+ * and latencies are read by the playground's server page in-process or by `GET /v1/metrics`. A
+ * server with keys wants `Authorization: Bearer <key>` on every `/v1/` request. JSON has no bytes,
+ * so every Buffer goes out as base64 text, and only the `data` of `inline_data.*` and
+ * `inline_thinking.*` items, the protocol's byte fields, is decoded back. While the model is
+ * silent, the server writes an SSE comment every KEEPALIVE_SECONDS, which a reader skips; it keeps
+ * proxies and clients from timing out a long thought. An error is `{"error": {"type", "message",
+ * ...fields}}`: the body of an HTTP error before a stream starts, an event followed by
+ * `data: [DONE]` once it has. The five MMSP errors cross with their fields and are raised again as
+ * themselves; anything else becomes an UpstreamError.
  */
 
 import {
@@ -64,17 +64,6 @@ export const KEEPALIVE_SECONDS = 15;
  */
 export function serverBaseUrl(host: string, port: number): string {
   return `http://${host.includes(":") ? `[${host}]` : host}:${port}${API_PREFIX}`;
-}
-
-/**
- * The dashboard of a server listening on host and port.
- *
- * @param host - The host the server listens on; an IPv6 address goes in brackets
- * @param port - The port it listens on
- * @returns `http://host:port/`
- */
-export function serverDashboardUrl(host: string, port: number): string {
-  return `http://${host.includes(":") ? `[${host}]` : host}:${port}/`;
 }
 
 // an event, a message, an item or an error as JSON parsed it

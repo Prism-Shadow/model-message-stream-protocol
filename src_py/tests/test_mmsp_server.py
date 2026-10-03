@@ -34,7 +34,6 @@ from mmsp import (
 from mmsp.abort_signal import AbortSignal
 from mmsp.base_client import LLMClient
 from mmsp.integration import server
-from mmsp.integration.dashboard_page import DASHBOARD_TEMPLATE
 from mmsp.integration.server import (
     LATENCY_WINDOW,
     ModelRow,
@@ -47,7 +46,7 @@ from mmsp.integration.server import (
     start_server,
 )
 from mmsp.types import ContentItem, UniConfig, UniEvent, UniMessage
-from mmsp.wire import server_base_url, server_dashboard_url
+from mmsp.wire import server_base_url
 
 
 # Every upstream the server builds here is a scripted client, so nothing reaches a vendor; the
@@ -753,8 +752,8 @@ def test_unknown_route_is_a_json_not_found():
     assert unprefixed.get_json() == {
         "error": {
             "type": "NotFoundError",
-            "message": "No route for GET /models; the server serves POST /v1/stream, GET /v1/models, GET /v1/metrics"
-            " and the dashboard at /.",
+            "message": "No route for GET /models; the server serves POST /v1/stream, GET /v1/models"
+            " and GET /v1/metrics.",
         }
     }
     # a known path with another method, which Flask alone would answer with a 405
@@ -762,8 +761,8 @@ def test_unknown_route_is_a_json_not_found():
     assert wrong_method.get_json() == {
         "error": {
             "type": "NotFoundError",
-            "message": "No route for GET /v1/stream; the server serves POST /v1/stream, GET /v1/models, GET /v1/metrics"
-            " and the dashboard at /.",
+            "message": "No route for GET /v1/stream; the server serves POST /v1/stream, GET /v1/models"
+            " and GET /v1/metrics.",
         }
     }
 
@@ -774,8 +773,8 @@ def test_unknown_route_is_a_json_not_found():
     assert uppercase.get_json() == {
         "error": {
             "type": "NotFoundError",
-            "message": "No route for GET /V1/models; the server serves POST /v1/stream, GET /v1/models, GET /v1/metrics"
-            " and the dashboard at /.",
+            "message": "No route for GET /V1/models; the server serves POST /v1/stream, GET /v1/models"
+            " and GET /v1/metrics.",
         }
     }
 
@@ -936,38 +935,30 @@ def test_start_server_prints_the_base_url_the_models_and_whether_it_is_open(
     assert capsys.readouterr().out == (
         "Starting MMSP server at http://127.0.0.1:25999/v1\n"
         "Serving models: claude, gpt-5.5\n"
-        "Dashboard at http://127.0.0.1:25999/\n"
         "Open server: api_keys is empty, every request is accepted\n"
     )
 
     start_server(models, api_keys=["k"], host="127.0.0.1", port=25999)
     assert capsys.readouterr().out == (
-        "Starting MMSP server at http://127.0.0.1:25999/v1\n"
-        "Serving models: claude, gpt-5.5\n"
-        "Dashboard at http://127.0.0.1:25999/\n"
+        "Starting MMSP server at http://127.0.0.1:25999/v1\nServing models: claude, gpt-5.5\n"
     )
 
 
-def test_announce_server_prints_the_four_lines(capsys: pytest.CaptureFixture[str]):
+def test_announce_server_prints_the_three_lines(capsys: pytest.CaptureFixture[str]):
     announce_server("127.0.0.1", 25752, ["claude", "gpt-5.5"], True)
     assert capsys.readouterr().out == (
         "Starting MMSP server at http://127.0.0.1:25752/v1\n"
         "Serving models: claude, gpt-5.5\n"
-        "Dashboard at http://127.0.0.1:25752/\n"
         "Open server: api_keys is empty, every request is accepted\n"
     )
 
     announce_server("::1", 8080, ["claude"], False)
-    assert capsys.readouterr().out == (
-        "Starting MMSP server at http://[::1]:8080/v1\nServing models: claude\nDashboard at http://[::1]:8080/\n"
-    )
+    assert capsys.readouterr().out == "Starting MMSP server at http://[::1]:8080/v1\nServing models: claude\n"
 
 
 def test_server_base_url_brackets_an_ipv6_host():
     assert server_base_url("127.0.0.1", 25752) == "http://127.0.0.1:25752/v1"
     assert server_base_url("::1", 25752) == "http://[::1]:25752/v1"
-    assert server_dashboard_url("127.0.0.1", 25752) == "http://127.0.0.1:25752/"
-    assert server_dashboard_url("::1", 25752) == "http://[::1]:25752/"
 
 
 def test_read_server_config_returns_the_file_as_written(tmp_path: Path):
@@ -1223,54 +1214,35 @@ def test_metrics_percentiles_are_nearest_rank_over_the_last_thousand():
     assert snapshot["successes"] == 1010
 
 
-def test_metrics_require_the_key_but_the_dashboard_does_not():
+def test_metrics_require_the_key():
     app = _server_app(api_keys=["secret"])
 
     with app.test_client() as client:
         refused = client.get("/v1/metrics")
-        page = client.get("/")
+        root = client.get("/")
     metrics = _metrics(app, {"Authorization": "Bearer secret"})
 
     assert refused.status_code == 401
     assert metrics["refused"]["unauthorized"] == 1
-    assert page.status_code == 200
-    assert page.content_type == "text/html; charset=utf-8"
-    assert page.get_data(as_text=True) == DASHBOARD_TEMPLATE
+    # the root serves nothing, and is outside /v1/, so it names no route rather than asking for the key
+    assert root.status_code == 404
+    assert root.get_json() == {
+        "error": {
+            "type": "NotFoundError",
+            "message": "No route for GET /; the server serves POST /v1/stream, GET /v1/models and GET /v1/metrics.",
+        }
+    }
 
 
-def test_dashboard_page_is_served():
-    with _server_app().test_client() as client:
-        response = client.get("/")
+def test_create_server_app_exposes_its_metrics():
+    app = _server_app([_row("claude-sonnet-5-5", "claude"), _row("gpt-5.5")])
 
-    assert response.status_code == 200
-    assert b"<title>MMSP Dashboard</title>" in response.data
-    for element_id in (
-        "statusDot",
-        "statusText",
-        "statusSince",
-        "keyPrompt",
-        "keyInput",
-        "statRequests",
-        "statSuccess",
-        "statLatency",
-        "statFirstEvent",
-        "statTokens",
-        "modelRows",
-        "themeToggle",
-    ):
-        assert f'id="{element_id}"'.encode() in response.data, element_id
-    for text in (
-        "fetchMetrics()",
-        "submitKey(",
-        "render(",
-        "renderModels(",
-        "formatMs(",
-        "formatAgo(",
-        "mmsp.dashboard.key",
-        "/v1/metrics",
-        "mmsp.playground.theme",
-    ):
-        assert text.encode() in response.data, text
-    assert b"__PLAYGROUND_DEFAULTS__" not in response.data
-    assert b"0.6" not in response.data
-    assert b"<select" not in response.data
+    metrics = app.config["MMSP_SERVER_METRICS"]
+
+    assert isinstance(metrics, ServerMetrics)
+    assert [model["id"] for model in metrics.snapshot()["models"]] == ["claude", "gpt-5.5"]
+    # the object the routes count into, so what it reports is what GET /v1/metrics reports
+    with app.test_client() as client:
+        assert client.post("/v1/stream", json={"model": "nope", "messages": []}).status_code == 404
+    assert metrics.snapshot()["refused"]["unknown_model"] == 1
+    assert _metrics(app)["refused"] == metrics.snapshot()["refused"]

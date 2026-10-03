@@ -2,4 +2,4 @@
 
 [中文版](README.zh.md)
 
-- [2026-10-02] An MMSP server serves the models of a table over HTTP as MMSP streams (`python -m mmsp.integration.server --config FILE`, `npm run server -- --config FILE`), with a dashboard at the server's root; the playground's `/server/` page saves a table to a config file and starts one from it, and the `mmsp` client calls it; an error that is not an MMSP error comes back as the new `UpstreamError`. ([details](2026-10-02-mmsp-server.md), [#247](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/247))
+- [2026-10-02] An MMSP server serves the models of a table over HTTP as MMSP streams (`python -m mmsp.integration.server --config FILE`, `npm run server -- --config FILE`); the playground's `/server/` page saves a table to a config file, starts one from it and shows its metrics, and the `mmsp` client calls it; an error that is not an MMSP error comes back as the new `UpstreamError`. ([details](2026-10-02-mmsp-server.md), [#247](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/247))

@@ -19,11 +19,11 @@
  * `new AutoLLMClient({ model: model_id, apiKey: api_key, baseUrl: base_url, clientType:
  * client_type })` and named by its `server_model_id`; an empty or absent `base_url` or
  * `client_type` is left to AutoLLMClient. `POST /v1/stream` streams the model a request names,
- * `GET /v1/models` lists them in OpenAI's shape, `GET /v1/metrics` reports what the server has
- * served (ServerMetrics), and `/` is the dashboard that shows it. Requests to `/v1/` carry one of
- * the `api_keys` as a bearer token, or none when the list is empty. The table comes from a JSON
- * file (`loadServerConfig`) or from code, and a client's base URL is `http://host:port/v1`. The
- * protocol is described in `wire`.
+ * `GET /v1/models` lists them in OpenAI's shape, and `GET /v1/metrics` reports what the server has
+ * served since it started (ServerMetrics), which the playground's server page shows while it runs
+ * the server. Requests to `/v1/` carry one of the `api_keys` as a bearer token, or none when the
+ * list is empty. The table comes from a JSON file (`loadServerConfig`) or from code, and a
+ * client's base URL is `http://host:port/v1`. The protocol is described in `wire`.
  */
 
 import { timingSafeEqual } from "crypto";
@@ -46,10 +46,8 @@ import {
   decodeWire,
   encodeWire,
   serverBaseUrl,
-  serverDashboardUrl,
   toWireError,
 } from "../wire";
-import { DASHBOARD_TEMPLATE } from "./dashboardPage";
 
 /**
  * One row of the models table: an upstream model and the id clients name it by. Keys are the
@@ -205,7 +203,7 @@ export function loadServerConfig(path: string): ServerConfig {
 }
 
 /**
- * Print where the server listens, what it serves, where its dashboard is, and whether it is open.
+ * Print where the server listens, what it serves, and whether it is open.
  *
  * @param host - The host it listens on
  * @param port - The port it listens on
@@ -220,7 +218,6 @@ export function announceServer(
 ): void {
   console.log(`Starting MMSP server at ${serverBaseUrl(host, port)}`);
   console.log(`Serving models: ${modelIds.join(", ")}`);
-  console.log(`Dashboard at ${serverDashboardUrl(host, port)}`);
   if (open) {
     console.log("Open server: api_keys is empty, every request is accepted");
   }
@@ -554,6 +551,7 @@ export function createServerApp(options: {
   // Express would match /V1/stream to /v1/stream, past the key check below
   app.set("case sensitive routing", true);
   app.locals.serverModelIds = [...upstreams.keys()];
+  app.locals.metrics = metrics;
   const expected = (apiKeys as string[]).map((key) =>
     Buffer.from(`Bearer ${key}`),
   );
@@ -730,11 +728,6 @@ export function createServerApp(options: {
     res.json(metrics.snapshot());
   });
 
-  // public: the page holds no data, and asks for a key when /v1/metrics wants one
-  app.get("/", (_req: Request, res: Response) => {
-    res.type("html").send(DASHBOARD_TEMPLATE);
-  });
-
   // a JSON answer where Express would send its HTML page, naming the routes there are
   app.use((req: Request, res: Response) => {
     res
@@ -742,7 +735,7 @@ export function createServerApp(options: {
       .json(
         errorBody(
           "NotFoundError",
-          `No route for ${req.method} ${req.path}; the server serves POST /v1/stream, GET /v1/models, GET /v1/metrics and the dashboard at /.`,
+          `No route for ${req.method} ${req.path}; the server serves POST /v1/stream, GET /v1/models and GET /v1/metrics.`,
         ),
       );
   });

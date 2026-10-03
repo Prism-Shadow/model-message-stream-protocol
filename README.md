@@ -710,7 +710,7 @@ cd src_ts && npm run playground
 
 You can access the playground at `http://localhost:25751/`.
 The integrated tracer is available at `http://localhost:25751/tracer/`.
-The server page at `http://localhost:25751/server/` saves its table to `MMSP_SERVER_CONFIG` (else `cache/server.json`) and starts an MMSP server from it.
+The server page at `http://localhost:25751/server/` saves its table to `MMSP_SERVER_CONFIG` (else `cache/server.json`), starts an MMSP server from it and shows what it serves.
 
 ## MMSP Server
 
@@ -737,7 +737,6 @@ cd src_ts && npm run server -- --config mmsp-server.json
 ```
 Starting MMSP server at http://127.0.0.1:25752/v1
 Serving models: claude, qwen3.8
-Dashboard at http://127.0.0.1:25752/
 ```
 
 A row is `model_id`, `api_key` and `server_model_id` (the id clients name), required, and `client_type`, `base_url` (empty or absent: the official client the model id names, and that client's default endpoint); adding a model is adding a row. `api_keys` are the bearer keys clients may send; an empty list is an open server. A cell that starts with `$` is read from the server's environment when the file is loaded. `--config` defaults to `MMSP_SERVER_CONFIG`.
@@ -752,7 +751,7 @@ curl -N http://127.0.0.1:25752/v1/stream -H "Authorization: Bearer $MMSP_SERVER_
 # data: [DONE]
 ```
 
-`GET /v1/metrics` reports requests, success rate and latency percentiles since start; the dashboard at `http://127.0.0.1:25752/` shows them.
+`GET /v1/metrics` reports requests, success rate and latency percentiles since start; the playground's server page shows them while it runs the server.
 
 The `mmsp` client calls it and yields the same stream:
 

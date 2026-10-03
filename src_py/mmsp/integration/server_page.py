@@ -539,14 +539,14 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
         /* the server page */
 
         .page {
-            max-width: 1120px;
+            max-width: 1040px;
             margin: 0 auto;
             padding: 32px 20px 64px;
         }
 
-        /* the dot, the first line of the text and the button share one center line, 20px down,
-           however many lines the served ids wrap to */
-        .status-bar {
+        /* the dot, the status word and the buttons share one center line, 20px down, however many lines the
+           served ids wrap to */
+        .status {
             display: flex;
             align-items: flex-start;
             gap: 12px;
@@ -573,8 +573,9 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             align-items: baseline;
             gap: 4px 12px;
             min-width: 0;
-            padding-top: 9px;
-            font-weight: 500;
+            padding-top: 8px;
+            font-size: 15px;
+            font-weight: 600;
         }
 
         .status-text .mono {
@@ -584,8 +585,41 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             overflow-wrap: anywhere;
         }
 
-        /* right-aligned with Restart left of Save: the buttons that come and go (Dashboard, Restart) sit at the
-           left end, so none slides another under the pointer, as Restart would under a Save just clicked */
+        .status-url {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .icon-btn.small {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            color: var(--subtle);
+        }
+
+        /* the chat page's shimmer, on the status word while a start, an apply or a stop is on its way */
+        #statusText.loading {
+            background: linear-gradient(90deg, var(--subtle) 0%, var(--subtle) 35%, var(--text) 50%, var(--subtle) 65%, var(--subtle) 100%);
+            background-size: 250% 100%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            animation: shimmer 1.8s linear infinite;
+        }
+
+        @keyframes shimmer {
+            from {
+                background-position: 100% 0;
+            }
+
+            to {
+                background-position: -150% 0;
+            }
+        }
+
+        /* right-aligned with Apply left of Save: when Apply goes after a click, what slides under the pointer is
+           a disabled Save, never Stop */
         .actions {
             display: flex;
             align-items: center;
@@ -600,95 +634,343 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             gap: 6px;
             height: 32px;
             padding: 0 12px;
-            margin: 0;
             border-radius: 8px;
             background: var(--accent);
             color: var(--on-accent);
             font-size: 13px;
             font-weight: 500;
             white-space: nowrap;
-            transition: opacity 0.15s;
+            transition: opacity 0.15s, background-color 0.15s;
         }
 
         .btn:hover {
             opacity: 0.9;
         }
 
+        /* Stop is a ring: a running server has a filled button only while Apply waits */
+        .btn.secondary {
+            background: var(--surface);
+            color: var(--text);
+            box-shadow: 0 0 0 1px var(--ring-strong);
+        }
+
         .btn:disabled {
             opacity: 0.5;
         }
 
-        .config-line {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 4px 10px;
-            margin: 8px 0 0 20px;
+        .kbd {
+            margin-left: 2px;
+            padding: 0 5px;
+            border-radius: 4px;
+            box-shadow: 0 0 0 1px var(--ring);
+            color: var(--subtle);
+            font: 500 11px/18px var(--mono);
         }
 
-        .config-line .mono {
-            overflow-wrap: anywhere;
+        /* the Saved flash reads at full strength, though the button is disabled again by then */
+        #saveButton[data-flash="true"] {
+            color: var(--text);
+            opacity: 1;
         }
 
         #serverError {
             margin: 10px 0 0 20px;
+            font-size: 12.5px;
+        }
+
+        /* the running server's numbers: a flat baseline list */
+        .metrics {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 32px;
+            margin: 14px 0 0 20px;
+        }
+
+        .stat {
+            display: inline-flex;
+            align-items: baseline;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+        .stat b {
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .stat span {
+            color: var(--subtle);
+            font-size: 12px;
+        }
+
+        /* no number yet: the dash stays quiet instead of a bold bar */
+        .stat b[data-empty="true"] {
+            color: var(--subtle);
+            font-weight: 400;
         }
 
         .group {
-            margin-top: 32px;
+            margin-top: 36px;
+        }
+
+        .group-models {
+            margin-top: 40px;
         }
 
         .table {
-            --cols: 16px minmax(140px, 1.1fr) minmax(170px, 1fr) minmax(220px, 1.6fr) minmax(150px, 1fr) minmax(120px, 0.9fr) 32px;
+            --cols: minmax(140px, 1fr) minmax(180px, 2fr) 96px 20px;
         }
 
+        .table[data-running="true"] {
+            --cols: minmax(140px, 1fr) minmax(180px, 2fr) 96px 72px 64px 64px 128px 20px;
+        }
+
+        /* no side padding: a summary's negative margins and its padding cancel, so the columns line up */
         .table-head {
             display: grid;
-            grid-template-columns: var(--cols);
+            grid-template-columns: var(--cols) 32px;
             gap: 8px;
-            align-items: center;
-            padding-bottom: 8px;
+            padding: 0 0 8px;
             color: var(--subtle);
             font-size: 12px;
             font-weight: 500;
         }
 
-        /* the legend and the eye sit past the hairline, at the right end of the title; the negative margin keeps the
-           title row as tall as the others */
-        .legend {
-            display: flex;
-            gap: 14px;
-            order: 1;
+        .table-head .row-metrics, .summary .row-metrics {
+            display: contents;
         }
 
-        .group-title .icon-btn {
-            order: 1;
-            width: 24px;
-            height: 24px;
-            margin: -4px 0;
+        .table[data-running="false"] .row-metrics {
+            display: none;
         }
 
+        .table-head .row-metrics span:not(:last-child), .metric:not(.last) {
+            text-align: right;
+        }
+
+        /* Last is words after a column of numbers: room between them, or "1.9 s ok 2 s ago" reads as one value */
+        .table-head .row-metrics span:last-child, .metric.last {
+            padding-left: 16px;
+        }
+
+        /* a row scrolled to (a refusal under it) stops below the sticky top bar */
         .row {
             display: grid;
-            grid-template-columns: var(--cols);
-            gap: 8px;
+            grid-template-columns: minmax(0, 1fr) 32px;
+            column-gap: 8px;
             align-items: center;
-            padding: 6px 0;
+            scroll-margin-top: 72px;
         }
 
         .row + .row {
             border-top: 1px solid var(--ring);
         }
 
-        .row.invalid .control {
-            box-shadow: 0 0 0 1px var(--red), 0 0 0 4px var(--red-soft);
+        /* the editor follows the summary in the tab order and Remove comes last, though Remove sits beside the summary */
+        .row > .remove-btn {
+            grid-row: 1;
+            grid-column: 2;
+        }
+
+        .summary {
+            display: grid;
+            grid-template-columns: var(--cols);
+            gap: 8px;
+            align-items: center;
+            min-height: 44px;
+            padding: 10px 8px;
+            margin: 0 -8px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.15s;
+        }
+
+        /* only where a pointer hovers: on a touch screen a tapped row would keep the tint */
+        @media (hover: hover) {
+            .summary:hover {
+                background: var(--hover);
+            }
+        }
+
+        .summary:focus-visible {
+            outline-offset: -2px;
+        }
+
+        .summary .cell {
+            min-width: 0;
+        }
+
+        .served {
+            color: var(--text);
+            font-size: 13px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .served[data-empty="true"] {
+            color: var(--subtle);
+        }
+
+        .upstream {
+            color: var(--muted);
+            font-size: 12px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .metric {
+            color: var(--muted);
+            font-size: 12.5px;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+
+        .row-chevron {
+            display: grid;
+            place-items: center;
+            color: var(--subtle);
+        }
+
+        .row-chevron svg {
+            transition: transform 0.2s var(--ease);
+        }
+
+        .row[data-open="true"] .row-chevron svg {
+            transform: rotate(180deg);
+        }
+
+        .row-note {
+            grid-column: 1 / -1;
+            margin: -4px 0 10px;
+            color: var(--muted);
+            font-size: 12px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .row-note.err {
+            color: var(--red);
+            white-space: normal;
+            overflow-wrap: anywhere;
+        }
+
+        /* only opacity and a 4px rise: the layout itself never animates */
+        .editor {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px 16px;
+            padding: 4px 0 16px;
+            animation: editor-in 0.18s var(--ease);
+        }
+
+        @keyframes editor-in {
+            from {
+                opacity: 0;
+                transform: translateY(-4px);
+            }
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-width: 0;
+        }
+
+        .field > span {
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .key-wrap {
+            position: relative;
+            min-width: 0;
+        }
+
+        .key-wrap .control {
+            padding-right: 36px;
+        }
+
+        .key-eye {
+            position: absolute;
+            top: 50%;
+            right: 4px;
+            display: grid;
+            place-items: center;
+            width: 26px;
+            height: 26px;
+            margin-top: -13px;
+            border-radius: 6px;
+            color: var(--subtle);
+            transition: color 0.15s, background-color 0.15s;
+        }
+
+        .key-eye:hover {
+            color: var(--text);
+            background: var(--hover);
+        }
+
+        .remove-btn {
+            align-self: start;
+            margin-top: 6px;
+            color: var(--subtle);
+        }
+
+        /* wider than its field, so every client type and both headings fit on one line */
+        .row [data-combobox-menu] {
+            right: auto;
+            width: max(100%, 300px);
+        }
+
+        /* the plus lines up with the text above it */
+        .add-btn {
+            margin: 8px 0 0 -8px;
+            padding: 0 8px;
         }
 
         .key-row {
-            --cols: 16px minmax(200px, 420px) 32px;
+            grid-template-columns: 96px minmax(200px, 420px) 32px;
+            justify-content: start;
+            padding: 6px 0;
         }
 
-        /* a row's state: green filled in effect, amber filled saved, a hollow ring unsaved; the word shows on
-           narrow screens and in the legend */
+        .key-row > .remove-btn {
+            grid-column: 3;
+            align-self: center;
+            margin-top: 0;
+        }
+
+        #keysNote {
+            margin: 0;
+        }
+
+        .listen-row {
+            display: grid;
+            grid-template-columns: auto minmax(160px, 260px) auto 120px 96px;
+            justify-content: start;
+            gap: 8px 10px;
+            align-items: center;
+        }
+
+        .file-line {
+            display: flex;
+            gap: 10px;
+            margin-top: 40px;
+        }
+
+        .file-line .mono {
+            min-width: 0;
+            overflow-wrap: anywhere;
+        }
+
+        /* a state is a dot and its word, everywhere: amber ring unsaved, neutral saved, green live */
         .state {
             display: inline-flex;
             align-items: center;
@@ -704,66 +986,21 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             width: 8px;
             height: 8px;
             border-radius: 50%;
-            box-shadow: inset 0 0 0 1.5px var(--subtle);
+            box-shadow: inset 0 0 0 1.5px var(--amber);
         }
 
         .state[data-state="saved"]::before {
             box-shadow: none;
-            background: var(--amber);
+            background: var(--subtle);
         }
 
-        .state[data-state="effect"]::before {
+        .state[data-state="live"]::before {
             box-shadow: none;
             background: var(--green);
         }
 
-        .state::after {
-            content: attr(data-label);
-            display: none;
-        }
-
-        .legend .state::after {
-            display: inline;
-        }
-
-        .cell {
-            display: block;
-            min-width: 0;
-        }
-
-        .cell::before {
-            content: attr(data-label);
-            display: none;
-            margin-bottom: 4px;
-            color: var(--subtle);
-            font-size: 12px;
-        }
-
-        /* wider than its column, so every client type and both headings fit on one line */
-        .row [data-combobox-menu] {
-            right: auto;
-            width: max(100%, 300px);
-        }
-
-        .remove-btn {
-            color: var(--subtle);
-        }
-
-        .add-btn {
-            margin-top: 8px;
-            padding: 0 8px;
-        }
-
-        .listen-row {
-            display: grid;
-            grid-template-columns: auto minmax(160px, 260px) auto 120px 16px;
-            justify-content: start;
-            gap: 8px 10px;
-            align-items: center;
-        }
-
         @media (max-width: 900px) {
-            .status-bar {
+            .status {
                 flex-wrap: wrap;
             }
 
@@ -772,37 +1009,68 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
                 margin: 8px 0 0 20px;
             }
 
+            .kbd {
+                display: none;
+            }
+
+            .metrics {
+                gap: 6px 24px;
+            }
+
             .table-head {
                 display: none;
             }
 
-            .row {
-                position: relative;
+            .summary {
+                grid-template-columns: minmax(0, 1fr) auto 20px;
+                row-gap: 4px;
+            }
+
+            .summary .state {
+                grid-row: 1;
+                grid-column: 2;
+            }
+
+            .summary .row-chevron {
+                grid-row: 1;
+                grid-column: 3;
+            }
+
+            .upstream {
+                grid-column: 1 / -1;
+            }
+
+            /* a line that would only repeat the served id goes */
+            .upstream:empty, .upstream[data-same="true"] {
+                display: none;
+            }
+
+            .table[data-running="true"] .row-metrics {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 2px 12px;
+                grid-column: 1 / -1;
+            }
+
+            .metric:not(.last) {
+                text-align: left;
+            }
+
+            .metric.last {
+                padding-left: 0;
+            }
+
+            .metric::before {
+                content: attr(data-label) " ";
+                color: var(--subtle);
+            }
+
+            .editor {
                 grid-template-columns: 1fr;
-                gap: 10px;
-                padding: 14px 0;
-            }
-
-            .row .remove-btn {
-                position: absolute;
-                top: 10px;
-                right: 0;
-            }
-
-            .state::after {
-                display: inline;
-            }
-
-            .row .state {
-                padding-right: 40px;
-            }
-
-            .cell::before {
-                display: block;
             }
 
             .key-row {
-                grid-template-columns: 1fr;
+                grid-template-columns: 96px minmax(0, 1fr) 32px;
             }
 
             .listen-row {
@@ -850,40 +1118,44 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
         </div>
     </header>
     <main class="page">
-        <section class="status-bar">
+        <section class="status" id="statusBar">
             <span class="status-dot" id="statusDot" data-state="stopped" aria-hidden="true"></span>
             <div class="status-text" role="status">
                 <span id="statusText">Stopped</span>
-                <span id="statusUrl" class="mono hidden"></span>
+                <span id="statusUrlWrap" class="status-url hidden">
+                    <span id="statusUrl" class="mono"></span>
+                    <button type="button" id="copyUrlButton" class="icon-btn small" title="Copy" aria-label="Copy base URL" onclick="copyBaseUrl()"><svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg><svg class="copied-icon hidden" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></button>
+                </span>
                 <span id="statusModels" class="mono hidden"></span>
             </div>
             <div class="actions">
-                <a id="dashboardLink" class="ghost-btn hidden" target="_blank" rel="noopener noreferrer" title="Dashboard" aria-label="Dashboard"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg><span class="label-wide">Dashboard</span></a>
-                <button type="button" id="restartButton" class="ghost-btn hidden" onclick="restartServer()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path><path d="M16 16h5v5"></path></svg><span>Restart</span></button>
-                <button type="button" id="saveButton" class="ghost-btn" onclick="saveServerConfig()" disabled><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><path d="M17 21v-8H7v8M7 3v5h8"></path></svg><span>Save</span></button>
-                <button type="button" class="btn" id="serverToggle" data-state="stopped" onclick="toggleServer()">
+                <button type="button" id="applyButton" class="btn hidden" onclick="restartServer()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path><path d="M16 16h5v5"></path></svg><span id="applyLabel">Apply</span></button>
+                <button type="button" id="saveButton" class="ghost-btn" onclick="saveServerConfig()" disabled><svg class="save-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><path d="M17 21v-8H7v8M7 3v5h8"></path></svg><svg class="saved-icon hidden" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg><span id="saveLabel">Save</span><kbd id="saveKey" class="kbd" aria-hidden="true">⌘S</kbd></button>
+                <button type="button" id="serverToggle" class="btn" data-state="stopped" onclick="toggleServer()" disabled title="Save first">
                     <svg id="serverToggleStart" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4l14 8-14 8Z"></path></svg>
                     <svg id="serverToggleStop" class="hidden" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"></rect></svg>
                     <span id="serverToggleLabel">Start</span>
                 </button>
             </div>
         </section>
-        <p class="field-note config-line"><span id="configPath" class="mono"></span><span>Written as typed; use $VAR for keys.</span></p>
         <p id="serverError" class="field-error hidden" role="alert"></p>
+        <section id="metricsBar" class="metrics hidden" aria-label="Metrics">
+            <span class="stat"><b id="statRequests">–</b><span>requests</span></span>
+            <span class="stat"><b id="statSuccess">–</b><span>success</span></span>
+            <span class="stat"><b id="statLatency">–</b><span>latency p50–p90</span></span>
+            <span class="stat"><b id="statFirstEvent">–</b><span>first event p50–p90</span></span>
+            <span class="stat"><b id="statTokens">–</b><span>tokens out</span></span>
+            <span class="stat hidden" id="statStreaming"><b>–</b><span>streaming</span></span>
+            <span class="stat hidden" id="statRefused"><b>–</b><span>refused</span></span>
+        </section>
 
-        <section class="group">
-            <div class="group-title">
-                <span>Models</span>
-                <span class="legend" aria-hidden="true"><span class="state" data-state="effect" data-label="In effect"></span><span class="state" data-state="saved" data-label="Saved"></span><span class="state" data-state="unsaved" data-label="Unsaved"></span></span>
-                <button type="button" id="keyVisibilityToggle" class="icon-btn" data-visible="false" aria-label="Show keys" title="Show keys" onclick="toggleKeyVisibility()">
-                    <svg id="keyVisibilityShowIcon" class="hidden" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                    <svg id="keyVisibilityHideIcon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.7 5.1A10.9 10.9 0 0 1 12 5c6.5 0 10 7 10 7a18.5 18.5 0 0 1-3.3 4.3"></path><path d="M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7a10.9 10.9 0 0 0 5.4-1.4"></path><path d="M9.9 9.9A3 3 0 0 0 14.1 14.1"></path><path d="M3 3l18 18"></path></svg>
-                </button>
-            </div>
-            <div class="table">
-                <div class="table-head" aria-hidden="true">
-                    <span></span><span>Model id</span><span>Client type</span><span>Base URL</span><span>API key</span>
-                    <span>Served as</span><span></span>
+        <section class="group group-models">
+            <div class="group-title"><span>Models</span></div>
+            <div class="table" id="modelTable" data-running="false">
+                <div class="table-head" id="tableHead" aria-hidden="true">
+                    <span>Served as</span><span>Model</span><span></span>
+                    <span class="row-metrics"><span>Requests</span><span>Success</span><span>p90</span><span>Last</span></span>
+                    <span></span><span></span>
                 </div>
                 <div id="modelRows" role="list"></div>
             </div>
@@ -904,9 +1176,11 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
                 <input id="hostInput" class="control code" type="text" value="127.0.0.1" placeholder="127.0.0.1" spellcheck="false" autocomplete="off" oninput="saveDraft()">
                 <label class="field-label" for="portInput">Port</label>
                 <input id="portInput" class="control code" type="number" min="0" max="65535" value="25752" placeholder="25752" oninput="saveDraft()">
-                <span class="state" id="listenState" data-state="unsaved" data-label="Unsaved" title="Unsaved" role="img" aria-label="Unsaved"></span>
+                <span class="state" id="listenState" data-state="unsaved">Unsaved</span>
             </div>
         </section>
+
+        <p class="file-line field-note"><span>File</span><span id="configPath" class="mono"></span></p>
     </main>
 
     <script>
@@ -935,15 +1209,35 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
         // a row's cells in the order the server's config lists them; the last two may be left out
         const COLUMNS = ['model_id', 'base_url', 'api_key', 'server_model_id', 'client_type'];
         const OPTIONAL_COLUMNS = ['base_url', 'client_type'];
-        const STATE_LABELS = { effect: 'In effect', saved: 'Saved', unsaved: 'Unsaved' };
+        const METRICS = '/server/api/metrics';
+        const METRICS_MS = 3000;
+        const STATE_LABELS = { live: 'Live', saved: 'Saved', unsaved: 'Unsaved' };
+        const OUTCOME_WORDS = { success: 'ok', failure: 'failed', disconnect: 'dropped' };
         const CHEVRON_ICON = '<svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>';
         const REMOVE_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg>';
-        // set while the saved draft is laid out again, which is not the user typing
+        const EYE_BUTTON = '<button type="button" class="key-eye" data-visible="false" aria-label="Show key" title="Show key" onclick="toggleKeyVisibility(this)">'
+            + '<svg class="eye-on hidden" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>'
+            + '<svg class="eye-off" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.7 5.1A10.9 10.9 0 0 1 12 5c6.5 0 10 7 10 7a18.5 18.5 0 0 1-3.3 4.3"></path><path d="M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7a10.9 10.9 0 0 0 5.4-1.4"></path><path d="M9.9 9.9A3 3 0 0 0 14.1 14.1"></path><path d="M3 3l18 18"></path></svg>'
+            + '</button>';
+        // set while the saved table is laid out again, which is not the user typing
         let restoring = false;
         let saved = null; // the GET /config body
         let status = { running: false };
+        // stopped, starting, running, applying or stopping: what the buttons offer
+        let phase = 'stopped';
+        let metrics = null; // the last /api/metrics body while the server runs
+        let pollTimer = null;
+        // bumped by every poll and by a stop, so an answer that arrives late is dropped
+        let metricsSeq = 0;
+        let saving = false;
+        let flashTimer = null;
+        let copyTimer = null;
         let nextRowId = 1;
         let nextKeyId = 1;
+
+        function $(id) {
+            return document.getElementById(id);
+        }
 
         function updateSegmentThumb(root) {
             const thumb = root && root.querySelector('.seg-thumb');
@@ -1046,6 +1340,10 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
                 event.preventDefault();
                 toggleCombobox(comboboxId);
             } else if (event.key === 'Escape') {
+                // an open menu takes the Escape, so the editor around it stays open
+                if (!document.getElementById(comboboxId + '-menu').classList.contains('hidden')) {
+                    event.preventDefault();
+                }
                 closeCombobox(comboboxId);
             }
         }
@@ -1140,31 +1438,45 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             }
             selectComboboxOption('clientType-' + rowId, option);
         }
-
         function addRow(cells) {
             const rowId = 'r' + nextRowId++;
             const row = document.createElement('div');
             row.className = 'row';
             row.setAttribute('role', 'listitem');
             row.dataset.rowId = rowId;
+            row.dataset.open = 'false';
             row.innerHTML = `
-                <span class="state" data-state="unsaved" data-label="Unsaved" title="Unsaved" role="img" aria-label="Unsaved"></span>
-                <label class="cell" data-label="Model id"><input class="control code" data-column="model_id" type="text" placeholder="claude-sonnet-5-5" aria-label="Model id" spellcheck="false" autocomplete="off" oninput="handleModelIdInput(this)"></label>
-                <div class="cell" data-label="Client type">
-                    <div id="clientType-${rowId}" data-combobox>
-                        <input type="hidden" data-combobox-value data-column="client_type" value="">
-                        <button type="button" role="combobox" aria-expanded="false" aria-controls="clientType-${rowId}-menu" aria-label="Client type" class="control code combo-button" onclick="toggleCombobox('clientType-${rowId}')" onkeydown="handleComboboxKeydown(event, 'clientType-${rowId}')" data-combobox-button><span data-combobox-label>Auto</span>${CHEVRON_ICON}</button>
-                        <div id="clientType-${rowId}-menu" class="hidden" role="listbox" aria-label="Client type" data-combobox-menu onkeydown="handleMenuKeydown(event, 'clientType-${rowId}')"></div>
-                    </div>
+                <div class="summary" role="button" tabindex="0" aria-expanded="false" aria-controls="editor-${rowId}" aria-label="Edit" onclick="toggleRow('${rowId}')" onkeydown="handleSummaryKeydown(event, '${rowId}')">
+                    <span class="cell served mono" data-label="Served as" data-empty="true">–</span>
+                    <span class="cell upstream mono" data-label="Model"></span>
+                    <span class="state" data-state="unsaved">Unsaved</span>
+                    <span class="row-metrics">
+                        <span class="cell metric mono" data-label="Requests">–</span>
+                        <span class="cell metric mono" data-label="Success">–</span>
+                        <span class="cell metric mono" data-label="p90">–</span>
+                        <span class="cell metric mono last" data-label="Last">–</span>
+                    </span>
+                    <span class="row-chevron" aria-hidden="true">${CHEVRON_ICON}</span>
                 </div>
-                <label class="cell" data-label="Base URL"><input class="control code" data-column="base_url" type="url" placeholder="Default" aria-label="Base URL" spellcheck="false" autocomplete="off" oninput="handleCellInput(this)"></label>
-                <label class="cell" data-label="API key"><input class="control code key" data-column="api_key" type="password" placeholder="$ANTHROPIC_API_KEY" aria-label="API key" autocomplete="off" oninput="handleCellInput(this)"></label>
-                <label class="cell" data-label="Served as"><input class="control code" data-column="server_model_id" type="text" placeholder="claude" aria-label="Served as" spellcheck="false" autocomplete="off" oninput="handleServerIdInput(this)"></label>
+                <p class="row-note mono hidden"></p>
+                <div class="editor hidden" id="editor-${rowId}">
+                    <label class="field"><span>Model id</span><input class="control code" data-column="model_id" type="text" placeholder="claude-sonnet-5-5" aria-label="Model id" spellcheck="false" autocomplete="off" oninput="handleModelIdInput(this)"></label>
+                    <label class="field"><span>Served as</span><input class="control code" data-column="server_model_id" type="text" placeholder="claude" aria-label="Served as" spellcheck="false" autocomplete="off" oninput="handleServerIdInput(this)"></label>
+                    <div class="field"><span>API key</span><div class="key-wrap"><input class="control code key" data-column="api_key" type="password" placeholder="$ANTHROPIC_API_KEY" aria-label="API key" autocomplete="off" oninput="handleCellInput(this)">${EYE_BUTTON}</div></div>
+                    <div class="field">
+                        <span>Client type</span>
+                        <div id="clientType-${rowId}" data-combobox>
+                            <input type="hidden" data-combobox-value data-column="client_type" value="">
+                            <button type="button" role="combobox" aria-expanded="false" aria-controls="clientType-${rowId}-menu" aria-label="Client type" class="control code combo-button" onclick="toggleCombobox('clientType-${rowId}')" onkeydown="handleComboboxKeydown(event, 'clientType-${rowId}')" data-combobox-button><span data-combobox-label>Auto</span>${CHEVRON_ICON}</button>
+                            <div id="clientType-${rowId}-menu" class="hidden" role="listbox" aria-label="Client type" data-combobox-menu onkeydown="handleMenuKeydown(event, 'clientType-${rowId}')"></div>
+                        </div>
+                    </div>
+                    <label class="field"><span>Base URL</span><input class="control code" data-column="base_url" type="url" placeholder="Default" aria-label="Base URL" spellcheck="false" autocomplete="off" oninput="handleCellInput(this)"></label>
+                </div>
                 <button type="button" class="icon-btn remove-btn" onclick="removeRow('${rowId}')" aria-label="Remove model" title="Remove">${REMOVE_ICON}</button>
             `;
-            document.getElementById('modelRows').appendChild(row);
+            $('modelRows').appendChild(row);
             populateClientTypes('clientType-' + rowId);
-            applyKeyVisibility(rowCell(row, 'api_key'));
 
             const serverId = rowCell(row, 'server_model_id');
             serverId.dataset.auto = 'true';
@@ -1176,11 +1488,12 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
                 rowCell(row, 'api_key').value = text('api_key');
                 serverId.value = text('server_model_id');
                 serverId.dataset.auto = text('server_model_id') === text('model_id') ? 'true' : 'false';
-            }
-            if (!restoring) {
+            } else if (!restoring) {
+                toggleRow(rowId, true);
                 rowCell(row, 'model_id').focus();
             }
             saveDraft();
+            return row;
         }
 
         function removeRow(rowId) {
@@ -1191,8 +1504,31 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             saveDraft();
         }
 
+        // one editor open at a time: opening a row closes the others
+        function toggleRow(rowId, open) {
+            const row = document.querySelector('#modelRows [data-row-id="' + rowId + '"]');
+            if (!row) {
+                return;
+            }
+            const next = open === undefined ? row.dataset.open !== 'true' : !!open;
+            modelRows().forEach((item) => {
+                const isOpen = item === row ? next : next ? false : item.dataset.open === 'true';
+                item.dataset.open = isOpen ? 'true' : 'false';
+                item.querySelector('.summary').setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+                item.querySelector('.editor').classList.toggle('hidden', !isOpen);
+            });
+            closeComboboxes();
+        }
+
+        function handleSummaryKeydown(event, rowId) {
+            if ((event.key === 'Enter' || event.key === ' ') && event.target === event.currentTarget) {
+                event.preventDefault();
+                toggleRow(rowId);
+            }
+        }
+
         function updateKeysNote() {
-            document.getElementById('keysNote').classList.toggle('hidden', document.getElementById('apiKeyRows').children.length > 0);
+            $('keysNote').classList.toggle('hidden', $('apiKeyRows').children.length > 0);
         }
 
         function addKey(value) {
@@ -1202,14 +1538,13 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             row.setAttribute('role', 'listitem');
             row.dataset.keyId = keyId;
             row.innerHTML = `
-                <span class="state" data-state="unsaved" data-label="Unsaved" title="Unsaved" role="img" aria-label="Unsaved"></span>
-                <label class="cell" data-label="Key"><input class="control code key" data-key type="password" placeholder="$MMSP_SERVER_API_KEY" aria-label="Key" autocomplete="off" oninput="handleCellInput(this)"></label>
+                <span class="state" data-state="unsaved">Unsaved</span>
+                <div class="key-wrap"><input class="control code key" data-key type="password" placeholder="$MMSP_SERVER_API_KEY" aria-label="Key" autocomplete="off" oninput="handleCellInput(this)">${EYE_BUTTON}</div>
                 <button type="button" class="icon-btn remove-btn" onclick="removeKey('${keyId}')" aria-label="Remove key" title="Remove">${REMOVE_ICON}</button>
             `;
-            document.getElementById('apiKeyRows').appendChild(row);
+            $('apiKeyRows').appendChild(row);
             const input = row.querySelector('[data-key]');
             input.value = typeof value === 'string' ? value : '';
-            applyKeyVisibility(input);
             updateKeysNote();
             if (!restoring) {
                 input.focus();
@@ -1257,19 +1592,16 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             saveDraft();
         }
 
-        function applyKeyVisibility(input) {
-            input.type = document.getElementById('keyVisibilityToggle').dataset.visible === 'true' ? 'text' : 'password';
-        }
-
-        function toggleKeyVisibility() {
-            const toggle = document.getElementById('keyVisibilityToggle');
-            const visible = toggle.dataset.visible !== 'true';
-            toggle.dataset.visible = visible ? 'true' : 'false';
-            toggle.setAttribute('aria-label', visible ? 'Hide keys' : 'Show keys');
-            toggle.setAttribute('title', visible ? 'Hide keys' : 'Show keys');
-            document.getElementById('keyVisibilityShowIcon').classList.toggle('hidden', !visible);
-            document.getElementById('keyVisibilityHideIcon').classList.toggle('hidden', visible);
-            document.querySelectorAll('input.key').forEach(applyKeyVisibility);
+        function toggleKeyVisibility(button) {
+            const input = button.parentElement.querySelector('input');
+            const visible = button.dataset.visible !== 'true';
+            const label = visible ? 'Hide key' : 'Show key';
+            button.dataset.visible = visible ? 'true' : 'false';
+            button.setAttribute('aria-label', label);
+            button.setAttribute('title', label);
+            button.querySelector('.eye-on').classList.toggle('hidden', !visible);
+            button.querySelector('.eye-off').classList.toggle('hidden', visible);
+            input.type = visible ? 'text' : 'password';
         }
 
         function rowCells(row) {
@@ -1305,28 +1637,25 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
 
         // empty keys stay in, so the server can name them by index
         function collectConfig() {
-            const port = document.getElementById('portInput').value.trim();
+            const port = $('portInput').value.trim();
             return {
                 models: modelRows().map((row) => normalizeRow(rowCells(row))),
                 api_keys: keyInputs().map((input) => input.value.trim()),
-                host: document.getElementById('hostInput').value.trim() || DEFAULT_HOST,
+                host: $('hostInput').value.trim() || DEFAULT_HOST,
                 port: port === '' ? DEFAULT_PORT : Number(port)
             };
         }
 
         function rowState(key, savedKeys, runningKeys) {
             if (runningKeys.has(key)) {
-                return 'effect';
+                return 'live';
             }
             return savedKeys.has(key) ? 'saved' : 'unsaved';
         }
 
         function setState(element, state) {
-            const label = STATE_LABELS[state];
             element.dataset.state = state;
-            element.dataset.label = label;
-            element.setAttribute('title', label);
-            element.setAttribute('aria-label', label);
+            element.textContent = STATE_LABELS[state];
         }
 
         function isDirty() {
@@ -1347,10 +1676,69 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             const runningKeys = apiKeys(runningConfig);
             keyInputs().forEach((input) => setState(input.closest('.row').querySelector('.state'), rowState(input.value.trim(), savedKeys, runningKeys)));
             const current = collectConfig();
-            setState(document.getElementById('listenState'), rowState(JSON.stringify([current.host, current.port]), listenKeys(savedConfig), listenKeys(runningConfig)));
-            document.getElementById('saveButton').disabled = !isDirty();
-            const pending = !!(status.running && savedConfig && runningConfig && configKey(savedConfig) !== configKey(runningConfig));
-            document.getElementById('restartButton').classList.toggle('hidden', !pending);
+            setState($('listenState'), rowState(JSON.stringify([current.host, current.port]), listenKeys(savedConfig), listenKeys(runningConfig)));
+            $('modelTable').dataset.running = status.running ? 'true' : 'false';
+            const byId = new Map(metrics && Array.isArray(metrics.models) ? metrics.models.map((entry) => [entry.id, entry]) : []);
+            modelRows().forEach((row) => renderRow(row, byId));
+            renderActions();
+        }
+
+        // the summary line: the served id, where it goes, and how it has been doing while the server runs
+        function renderRow(row, byId) {
+            const cells = normalizeRow(rowCells(row));
+            const served = row.querySelector('.served');
+            served.textContent = cells.server_model_id || '–';
+            served.dataset.empty = cells.server_model_id ? 'false' : 'true';
+            served.title = cells.server_model_id;
+            const parts = [cells.model_id, cells.client_type, cells.base_url && hostOf(cells.base_url)].filter((part) => part);
+            const upstream = row.querySelector('.upstream');
+            upstream.textContent = parts.join(' · ');
+            upstream.title = upstream.textContent;
+            upstream.dataset.same = parts.length === 1 && cells.model_id === cells.server_model_id ? 'true' : 'false';
+            row.querySelector('.summary').setAttribute('aria-label', cells.server_model_id ? 'Edit ' + cells.server_model_id : 'Edit');
+
+            const entry = metrics && cells.server_model_id ? byId.get(cells.server_model_id) : undefined;
+            const [requests, success, p90, last] = row.querySelectorAll('.metric');
+            requests.textContent = entry ? formatCount(entry.requests) : '–';
+            success.textContent = entry ? formatRate(entry.success_rate) : '–';
+            p90.textContent = entry ? formatMs(entry.latency_ms.total.p90) : '–';
+            const now = metrics ? metrics.started_at + metrics.uptime_s : 0;
+            last.textContent = entry && entry.last_outcome && entry.last_request_at != null
+                ? OUTCOME_WORDS[entry.last_outcome] + ' ' + formatAgo(Math.max(0, now - entry.last_request_at))
+                : '–';
+
+            // a refusal shown under the row stays until the next action; otherwise the note is the last error
+            const note = row.querySelector('.row-note');
+            if (!note.classList.contains('err')) {
+                const message = entry && entry.last_error ? entry.last_error.message : '';
+                note.textContent = message;
+                note.title = message;
+                note.classList.toggle('hidden', !message);
+            }
+        }
+
+        // one filled button at a time: Start while stopped, Apply while the saved table waits; Stop is a ring
+        function renderActions() {
+            const savable = !!(saved && saved.config);
+            const pending = !!(status.running && savable && status.config && configKey(saved.config) !== configKey(status.config));
+            const apply = $('applyButton');
+            apply.classList.toggle('hidden', !(phase === 'applying' || (phase === 'running' && pending)));
+            apply.disabled = phase === 'applying';
+            $('applyLabel').textContent = phase === 'applying' ? 'Applying…' : 'Apply';
+            $('saveButton').disabled = saving || phase === 'starting' || phase === 'applying' || !isDirty();
+            const toggle = $('serverToggle');
+            const live = phase === 'running' || phase === 'applying' || phase === 'stopping';
+            toggle.classList.toggle('secondary', live);
+            toggle.dataset.state = live ? 'running' : 'stopped';
+            toggle.disabled = phase === 'starting' || phase === 'applying' || phase === 'stopping' || (phase === 'stopped' && !savable);
+            $('serverToggleLabel').textContent = { stopped: 'Start', starting: 'Starting…', running: 'Stop', applying: 'Stop', stopping: 'Stopping…' }[phase];
+            $('serverToggleStart').classList.toggle('hidden', live);
+            $('serverToggleStop').classList.toggle('hidden', !live);
+            if (phase === 'stopped' && !savable) {
+                toggle.setAttribute('title', 'Save first');
+            } else {
+                toggle.removeAttribute('title');
+            }
         }
 
         // the draft is kept only while it differs from the saved file, so a reload after Save reads the file
@@ -1361,8 +1749,8 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             const draft = {
                 models: modelRows().map(rowCells),
                 api_keys: keyInputs().map((input) => input.value),
-                host: document.getElementById('hostInput').value,
-                port: document.getElementById('portInput').value
+                host: $('hostInput').value,
+                port: $('portInput').value
             };
             try {
                 if (isDirty()) {
@@ -1389,18 +1777,23 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             const source = draft || (saved && saved.config) || null;
             restoring = true;
             try {
-                const models = source && Array.isArray(source.models) ? source.models : [];
-                if (models.length) {
-                    models.forEach((row) => addRow(row && typeof row === 'object' ? row : {}));
-                } else {
-                    addRow();
-                }
+                (source && Array.isArray(source.models) ? source.models : []).forEach((row) => addRow(row && typeof row === 'object' ? row : {}));
                 (source && Array.isArray(source.api_keys) ? source.api_keys : []).forEach((key) => addKey(String(key)));
                 if (source && typeof source.host === 'string') {
-                    document.getElementById('hostInput').value = source.host;
+                    $('hostInput').value = source.host;
                 }
                 if (source && (typeof source.port === 'string' || typeof source.port === 'number')) {
-                    document.getElementById('portInput').value = String(source.port);
+                    $('portInput').value = String(source.port);
+                }
+                // an empty table opens its one empty row, so a first visit starts at the fields
+                const rows = modelRows();
+                if (!rows.length) {
+                    toggleRow(addRow().dataset.rowId, true);
+                } else if (rows.length === 1) {
+                    const cells = normalizeRow(rowCells(rows[0]));
+                    if (!cells.model_id && !cells.server_model_id && !cells.api_key) {
+                        toggleRow(rows[0].dataset.rowId, true);
+                    }
                 }
             } finally {
                 restoring = false;
@@ -1435,7 +1828,7 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
                 }
                 const body = await response.json();
                 saved = body;
-                document.getElementById('configPath').textContent = body.path || '';
+                $('configPath').textContent = body.path || '';
                 if (body.error) {
                     showError(body.error);
                 }
@@ -1445,28 +1838,47 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
         }
 
         async function saveServerConfig() {
+            if (saving) {
+                return;
+            }
+            saving = true;
             hideError();
-            document.getElementById('saveButton').disabled = true;
             try {
                 const { response, answer } = await sendJson('PUT', '/config', collectConfig());
                 if (response.ok) {
                     saved = answer;
-                    document.getElementById('configPath').textContent = answer.path || '';
+                    $('configPath').textContent = answer.path || '';
                     if (answer.config) {
-                        document.getElementById('hostInput').value = answer.config.host;
-                        document.getElementById('portInput').value = String(answer.config.port);
+                        $('hostInput').value = answer.config.host;
+                        $('portInput').value = String(answer.config.port);
                     }
                     saveDraft();
+                    flashSaved();
                 } else {
                     const message = answer.error || ('HTTP ' + response.status);
-                    showError(message);
-                    markRow(message, 'page');
+                    showError(message, markRow(message, 'page'));
                 }
             } catch (error) {
                 showError(error.message);
             } finally {
+                saving = false;
                 renderStates();
             }
+        }
+
+        function flashSaved() {
+            const button = $('saveButton');
+            button.dataset.flash = 'true';
+            $('saveLabel').textContent = 'Saved';
+            button.querySelector('.save-icon').classList.add('hidden');
+            button.querySelector('.saved-icon').classList.remove('hidden');
+            clearTimeout(flashTimer);
+            flashTimer = setTimeout(() => {
+                delete button.dataset.flash;
+                $('saveLabel').textContent = 'Save';
+                button.querySelector('.save-icon').classList.remove('hidden');
+                button.querySelector('.saved-icon').classList.add('hidden');
+            }, 1500);
         }
 
         async function refreshStatus() {
@@ -1485,45 +1897,128 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             await refreshStatus();
         }
 
+        function setLoading(word) {
+            $('statusText').textContent = word;
+            $('statusText').classList.add('loading');
+        }
+
         function renderStatus(next) {
             status = next && typeof next === 'object' ? next : { running: false };
             const running = !!status.running;
-            document.getElementById('statusDot').dataset.state = running ? 'running' : 'stopped';
-            document.getElementById('statusText').textContent = running ? 'Running' : 'Stopped';
-            const url = document.getElementById('statusUrl');
-            const models = document.getElementById('statusModels');
-            url.textContent = running ? status.base_url : '';
-            models.textContent = running ? status.models.join(', ') + (status.open ? ' · open' : '') : '';
-            url.classList.toggle('hidden', !running);
+            phase = running ? 'running' : 'stopped';
+            $('statusDot').dataset.state = running ? 'running' : 'stopped';
+            $('statusText').textContent = running ? 'Running' : 'Stopped';
+            $('statusText').classList.remove('loading');
+            $('statusUrl').textContent = running ? status.base_url : '';
+            $('statusUrlWrap').classList.toggle('hidden', !running);
+            const models = $('statusModels');
+            models.textContent = running ? (status.models || []).join(', ') + (status.open ? ' · open' : '') : '';
             models.classList.toggle('hidden', !running);
-            const dashboard = document.getElementById('dashboardLink');
-            dashboard.href = running && status.dashboard_url ? status.dashboard_url : '#';
-            dashboard.classList.toggle('hidden', !(running && status.dashboard_url));
-            const toggle = document.getElementById('serverToggle');
-            toggle.dataset.state = running ? 'running' : 'stopped';
-            document.getElementById('serverToggleLabel').textContent = running ? 'Stop' : 'Start';
-            document.getElementById('serverToggleStart').classList.toggle('hidden', running);
-            document.getElementById('serverToggleStop').classList.toggle('hidden', !running);
+            if (running) {
+                // the strip shows at once, with dashes until the first numbers arrive, so nothing jumps
+                $('metricsBar').classList.remove('hidden');
+                startPolling();
+            } else {
+                stopPolling();
+                metrics = null;
+                renderMetrics(null);
+            }
             renderStates();
+        }
+
+        function startPolling() {
+            if (pollTimer === null) {
+                pollTimer = setInterval(() => {
+                    if (!document.hidden) {
+                        fetchMetrics();
+                    }
+                }, METRICS_MS);
+            }
+            fetchMetrics();
+        }
+
+        function stopPolling() {
+            clearInterval(pollTimer);
+            pollTimer = null;
+            metricsSeq += 1;
+        }
+
+        async function fetchMetrics() {
+            const seq = ++metricsSeq;
+            let body = null;
+            try {
+                const response = await fetch(METRICS, { cache: 'no-store' });
+                if (!response.ok) {
+                    return;
+                }
+                body = await response.json();
+            } catch (error) {
+                // out of reach for a moment: the last numbers stay
+                return;
+            }
+            if (seq !== metricsSeq || !status.running) {
+                return;
+            }
+            metrics = body && body.running ? body : null;
+            renderMetrics(metrics);
+            renderStates();
+            // the server went away under the page (stopped from another tab): read the status again
+            if (!metrics) {
+                refreshStatus();
+            }
+        }
+
+        function setStat(stat, value, title) {
+            stat.querySelector('b').textContent = value;
+            stat.querySelector('b').dataset.empty = value === '–' ? 'true' : 'false';
+            if (title) {
+                stat.setAttribute('title', title);
+            } else {
+                stat.removeAttribute('title');
+            }
+        }
+
+        function renderMetrics(m) {
+            const stat = (id) => $(id).closest('.stat');
+            if (!m) {
+                $('metricsBar').classList.add('hidden');
+                ['statRequests', 'statSuccess', 'statLatency', 'statFirstEvent', 'statTokens', 'statStreaming', 'statRefused'].forEach((id) => setStat(stat(id), '–'));
+                $('statStreaming').classList.add('hidden');
+                $('statRefused').classList.add('hidden');
+                $('statusText').removeAttribute('title');
+                return;
+            }
+            $('metricsBar').classList.remove('hidden');
+            const refused = m.refused.unauthorized + m.refused.invalid_request + m.refused.unknown_model;
+            setStat(stat('statRequests'), formatCount(m.requests));
+            setStat(stat('statSuccess'), formatRate(m.success_rate), formatCount(m.successes) + ' ok · ' + formatCount(m.failures) + ' failed · ' + formatCount(m.disconnects) + ' dropped');
+            setStat(stat('statLatency'), formatRange(m.latency_ms.total.p50, m.latency_ms.total.p90));
+            setStat(stat('statFirstEvent'), formatRange(m.latency_ms.first_event.p50, m.latency_ms.first_event.p90));
+            setStat(stat('statTokens'), formatCount(m.tokens.response), formatCount(m.tokens.prompt) + ' prompt · ' + formatCount(m.tokens.cached) + ' cached · ' + formatCount(m.tokens.thoughts) + ' thinking');
+            setStat($('statStreaming'), formatCount(m.in_flight));
+            $('statStreaming').classList.toggle('hidden', !(m.in_flight > 0));
+            setStat($('statRefused'), formatCount(refused), 'unauthorized ' + m.refused.unauthorized + ' · invalid ' + m.refused.invalid_request + ' · unknown model ' + m.refused.unknown_model);
+            $('statRefused').classList.toggle('hidden', !(refused > 0));
+            $('statusText').setAttribute('title', 'up ' + formatUptime(m.uptime_s));
         }
 
         function toggleServer() {
             return status.running ? stopServer() : startServer();
         }
 
-        // Start and Restart run the saved file, so the body is empty and unsaved edits stay unsaved
+        // Start and Apply run the saved file, so the body is empty and unsaved edits stay unsaved
         async function startServer() {
-            const toggle = document.getElementById('serverToggle');
             hideError();
-            toggle.disabled = true;
+            phase = 'starting';
+            renderActions();
+            setLoading('Starting…');
             try {
                 const { response, answer } = await postJson('/start', {});
                 if (response.ok) {
                     renderStatus(answer);
                 } else {
                     const message = answer.error || ('HTTP ' + response.status);
-                    showError(message);
-                    markRow(message, 'saved');
+                    showError(message, markRow(message, 'saved'));
                     // started from another tab: the button becomes Stop
                     if (response.status === 409) {
                         refreshAll();
@@ -1532,39 +2027,41 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             } catch (error) {
                 showError(error.message);
             } finally {
-                toggle.disabled = false;
+                if (phase === 'starting') {
+                    renderStatus(status);
+                }
             }
         }
 
         // a refused table leaves the old server running; a failed bind leaves none, so the status is read again
         async function restartServer() {
-            const restart = document.getElementById('restartButton');
-            const toggle = document.getElementById('serverToggle');
             hideError();
-            restart.disabled = true;
-            toggle.disabled = true;
+            phase = 'applying';
+            renderActions();
+            setLoading('Applying…');
             try {
                 const { response, answer } = await postJson('/restart', {});
                 if (response.ok) {
                     renderStatus(answer);
                 } else {
                     const message = answer.error || ('HTTP ' + response.status);
-                    showError(message);
-                    markRow(message, 'saved');
+                    showError(message, markRow(message, 'saved'));
                     await refreshStatus();
                 }
             } catch (error) {
                 showError(error.message);
             } finally {
-                restart.disabled = false;
-                toggle.disabled = false;
+                if (phase === 'applying') {
+                    renderStatus(status);
+                }
             }
         }
 
         async function stopServer() {
-            const toggle = document.getElementById('serverToggle');
             hideError();
-            toggle.disabled = true;
+            phase = 'stopping';
+            renderActions();
+            setLoading('Stopping…');
             try {
                 const { response, answer } = await postJson('/stop', {});
                 if (response.ok) {
@@ -1575,19 +2072,37 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             } catch (error) {
                 showError(error.message);
             } finally {
-                toggle.disabled = false;
+                if (phase === 'stopping') {
+                    renderStatus(status);
+                }
             }
         }
 
         function hideError() {
-            const error = document.getElementById('serverError');
+            const error = $('serverError');
             error.textContent = '';
             error.classList.add('hidden');
             document.querySelectorAll('.invalid').forEach((item) => item.classList.remove('invalid'));
+            document.querySelectorAll('.row-note.err').forEach((note) => {
+                note.classList.remove('err');
+                note.textContent = '';
+                note.classList.add('hidden');
+            });
+            renderStates();
         }
 
-        function showError(message) {
-            const error = document.getElementById('serverError');
+        // a refusal that names a model row is shown under that row; anything else under the header
+        function showError(message, target) {
+            if (target && target.dataset && target.dataset.rowId) {
+                const note = target.querySelector('.row-note');
+                note.textContent = message;
+                note.removeAttribute('title');
+                note.classList.add('err');
+                note.classList.remove('hidden');
+                target.scrollIntoView({ block: 'nearest' });
+                return;
+            }
+            const error = $('serverError');
             error.textContent = message;
             error.classList.remove('hidden');
         }
@@ -1597,9 +2112,9 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             row.querySelectorAll('.invalid').forEach((item) => item.classList.remove('invalid'));
         }
 
-        // the server names a row by its index, and mostly the cell too: that cell is ringed, else the whole row.
-        // A save names the index of the page's table; a start or restart the index of the saved file, which
-        // the page finds again by content, as the table may have changed since
+        // the server names a row by its index, and mostly the cell too: that cell is ringed and its editor opened.
+        // A save names the index of the page's table; a start or apply the index of the saved file, which the
+        // page finds again by content, as the table may have changed since. Returns the row or key it found.
         function markRow(message, source) {
             const config = source === 'saved' && saved && saved.config ? saved.config : null;
             const key = /^api_keys\\[(\\d+)\\]/.exec(message);
@@ -1610,35 +2125,153 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
                     const wanted = config && Array.isArray(config.api_keys) ? config.api_keys[index] : undefined;
                     input = typeof wanted === 'string' ? keyInputs().find((item) => item.value.trim() === wanted.trim()) : null;
                 } else {
-                    input = keyInputs()[index];
+                    input = keyInputs()[index] || null;
                 }
                 if (input) {
                     input.classList.add('invalid');
                 }
-                return;
+                return input;
             }
             const model = /^models\\[(\\d+)\\](?:(?:: |\\.)(model_id|base_url|api_key|server_model_id|client_type)\\b)?/.exec(message);
             if (!model) {
-                return;
+                return null;
             }
             const index = Number(model[1]);
             let row = null;
             if (source === 'saved') {
                 const wanted = config && Array.isArray(config.models) ? config.models[index] : undefined;
-                row = wanted && typeof wanted === 'object' ? modelRows().find((item) => rowKey(rowCells(item)) === rowKey(wanted)) : null;
+                row = wanted && typeof wanted === 'object' ? modelRows().find((item) => rowKey(rowCells(item)) === rowKey(wanted)) || null : null;
             } else {
-                row = modelRows()[index];
+                row = modelRows()[index] || null;
             }
             if (!row) {
+                return null;
+            }
+            // the client's own refusal of a type names no cell, but it can only mean that one
+            const column = model[2] || (/Unknown client type/.test(message) ? 'client_type' : null);
+            if (column) {
+                const cell = column === 'client_type' ? row.querySelector('[data-combobox-button]') : rowCell(row, column);
+                cell.classList.add('invalid');
+                toggleRow(row.dataset.rowId, true);
+            }
+            return row;
+        }
+
+        // Ctrl/Cmd+S saves from anywhere, inputs included; Escape closes the editor the focus is in
+        function handleShortcut(event) {
+            const key = (event.key || '').toLowerCase();
+            if ((event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey && key === 's') {
+                event.preventDefault();
+                if (phase !== 'starting' && phase !== 'applying') {
+                    saveServerConfig();
+                }
                 return;
             }
-            if (!model[2]) {
-                row.classList.add('invalid');
-            } else if (model[2] === 'client_type') {
-                row.querySelector('[data-combobox-button]').classList.add('invalid');
-            } else {
-                rowCell(row, model[2]).classList.add('invalid');
+            if (key === 'escape' && !event.defaultPrevented) {
+                const active = document.activeElement;
+                const editor = active && active.closest ? active.closest('.editor') : null;
+                if (editor) {
+                    const row = editor.closest('.row');
+                    toggleRow(row.dataset.rowId, false);
+                    row.querySelector('.summary').focus();
+                }
             }
+        }
+
+        function shortcutLabel() {
+            return /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘S' : 'Ctrl+S';
+        }
+
+        async function copyBaseUrl() {
+            const button = $('copyUrlButton');
+            try {
+                await navigator.clipboard.writeText(status.base_url || '');
+            } catch (error) {
+                // no clipboard (an insecure origin, a refused permission): the URL stays selectable
+                return;
+            }
+            button.setAttribute('title', 'Copied');
+            button.querySelector('.copy-icon').classList.add('hidden');
+            button.querySelector('.copied-icon').classList.remove('hidden');
+            clearTimeout(copyTimer);
+            copyTimer = setTimeout(() => {
+                button.setAttribute('title', 'Copy');
+                button.querySelector('.copy-icon').classList.remove('hidden');
+                button.querySelector('.copied-icon').classList.add('hidden');
+            }, 1500);
+        }
+
+        function hostOf(url) {
+            try {
+                return new URL(url).host;
+            } catch (error) {
+                return url;
+            }
+        }
+
+        function formatMs(ms) {
+            if (ms == null) {
+                return '–';
+            }
+            return ms < 1000 ? ms + ' ms' : (ms / 1000).toFixed(1) + ' s';
+        }
+
+        // p50–p90 in one unit where both share it; one value when there is only one, or both are the same
+        function formatRange(p50, p90) {
+            if (p50 == null && p90 == null) {
+                return '–';
+            }
+            if (p50 == null || p90 == null || p50 === p90) {
+                return formatMs(p50 == null ? p90 : p50);
+            }
+            if (p50 < 1000 && p90 < 1000) {
+                return p50 + '–' + p90 + ' ms';
+            }
+            if (p50 >= 1000 && p90 >= 1000) {
+                const low = (p50 / 1000).toFixed(1);
+                const high = (p90 / 1000).toFixed(1);
+                // 1250 and 1290 ms both read 1.3 s, and a range of one value says nothing
+                return low === high ? low + ' s' : low + '–' + high + ' s';
+            }
+            return formatMs(p50) + '–' + formatMs(p90);
+        }
+
+        function formatRate(rate) {
+            return rate == null ? '–' : (rate * 100).toFixed(1) + '%';
+        }
+
+        function formatCount(n) {
+            return n == null ? '–' : n.toLocaleString('en-US');
+        }
+
+        function formatAgo(seconds) {
+            if (seconds == null) {
+                return '–';
+            }
+            if (seconds < 60) {
+                return Math.floor(seconds) + ' s ago';
+            }
+            if (seconds < 3600) {
+                return Math.floor(seconds / 60) + ' min ago';
+            }
+            if (seconds < 86400) {
+                return Math.floor(seconds / 3600) + ' h ago';
+            }
+            return Math.floor(seconds / 86400) + ' d ago';
+        }
+
+        function formatUptime(seconds) {
+            const s = Math.max(0, Math.floor(seconds));
+            if (s < 60) {
+                return s + ' s';
+            }
+            if (s < 3600) {
+                return Math.floor(s / 60) + ' min';
+            }
+            if (s < 86400) {
+                return Math.floor(s / 3600) + ' h ' + Math.floor((s % 3600) / 60) + ' min';
+            }
+            return Math.floor(s / 86400) + ' d ' + Math.floor((s % 86400) / 3600) + ' h';
         }
 
         (async () => {
@@ -1647,8 +2280,11 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             await refreshStatus();
         })();
         updateThemeToggle();
+        $('saveKey').textContent = shortcutLabel();
+        $('saveButton').setAttribute('title', shortcutLabel());
         window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', updateThemeToggle);
         document.fonts.ready.then(updateThemeToggle);
+        document.addEventListener('keydown', handleShortcut);
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) {
                 refreshAll();

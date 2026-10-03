@@ -40,10 +40,11 @@ from werkzeug.serving import BaseWSGIServer, make_server
 from .. import AutoLLMClient
 from ..abort_signal import AbortSignal
 from ..auto_client import COMPATIBLE_CLIENT_TYPES, MODEL_FAMILIES, OFFICIAL_CLIENT_TYPES
-from ..wire import DEFAULT_HOST, DEFAULT_PORT, server_base_url, server_dashboard_url
+from ..wire import DEFAULT_HOST, DEFAULT_PORT, server_base_url
 from .server import (
     _COLUMNS,
     ServerConfig,
+    ServerMetrics,
     announce_server,
     create_server_app,
     read_server_config,
@@ -71,6 +72,7 @@ class _RunningServer:
     model_ids: list[str]
     open: bool
     config: dict[str, Any]  # the saved config it was started from, as typed (`_saved_config_view`)
+    metrics: ServerMetrics
 
 
 # one server per process, dying with it; the lock keeps two starts from both binding
@@ -265,7 +267,6 @@ def _mmsp_server_status() -> dict[str, Any]:
         "host": running.host,
         "port": running.port,
         "base_url": server_base_url(running.host, running.port),
-        "dashboard_url": server_dashboard_url(running.host, running.port),
         "models": running.model_ids,
         "open": running.open,
         "config": running.config,
@@ -315,6 +316,7 @@ def _launch(
         model_ids=server_app.config["MMSP_SERVER_MODEL_IDS"],
         open=not config["api_keys"],
         config=view,
+        metrics=server_app.config["MMSP_SERVER_METRICS"],
     )
     announce_server(host, http_server.port, _mmsp_server.model_ids, _mmsp_server.open)
     return jsonify(_mmsp_server_status())
@@ -324,8 +326,8 @@ def _create_server_page_app(config_path: Path) -> Flask:
     """
     Create the server page's app: the page and the API it calls.
 
-    The page is served at `/`, and the API at `/api/config` (GET, PUT), `/api/status`, `/api/start`,
-    `/api/restart` and `/api/stop`.
+    The page is served at `/`, and the API at `/api/config` (GET, PUT), `/api/status`, `/api/metrics`,
+    `/api/start`, `/api/restart` and `/api/stop`.
 
     Args:
         config_path: The absolute path the page saves its table to, and every start reads
@@ -395,6 +397,18 @@ def _create_server_page_app(config_path: Path) -> Flask:
     def status() -> Response:
         """Report whether the server runs, and where and what it serves."""
         return jsonify(_mmsp_server_status())
+
+    @app.route("/api/metrics")
+    def metrics() -> Response:
+        """
+        What the running server has served, read in-process, so the page needs no server key.
+
+        `{"running": false}` when none runs; otherwise `"running": true` followed by the server's snapshot.
+        """
+        running = _mmsp_server
+        if running is None:
+            return jsonify({"running": False})
+        return jsonify({"running": True, **running.metrics.snapshot()})
 
     @app.route("/api/start", methods=["POST"])
     def start() -> Response | tuple[Response, int]:

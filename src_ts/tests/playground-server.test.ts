@@ -167,15 +167,24 @@ describe("Playground server page", () => {
       "serverToggle",
       "serverToggleLabel",
       "saveButton",
-      "restartButton",
-      "dashboardLink",
+      "saveKey",
+      "applyButton",
       "configPath",
       "statusDot",
       "statusText",
       "statusUrl",
+      "copyUrlButton",
       "statusModels",
       "serverError",
-      "keyVisibilityToggle",
+      "metricsBar",
+      "statRequests",
+      "statSuccess",
+      "statLatency",
+      "statFirstEvent",
+      "statTokens",
+      "statStreaming",
+      "statRefused",
+      "tableHead",
       "themeToggle",
     ]) {
       expect(response.text).toContain(`id="${id}"`);
@@ -187,11 +196,18 @@ describe("Playground server page", () => {
       "removeKey(",
       "handleModelIdInput(",
       "handleRowClientType(",
-      "toggleKeyVisibility()",
+      "toggleKeyVisibility(this)",
       "collectConfig()",
       "rowKey(",
       "configKey(",
       "renderStates()",
+      "renderActions()",
+      "renderRow(",
+      "toggleRow(",
+      "handleShortcut(",
+      "fetchMetrics()",
+      "renderMetrics(",
+      "formatRange(",
       "saveDraft()",
       "restoreTable()",
       "loadServerConfig()",
@@ -206,6 +222,8 @@ describe("Playground server page", () => {
       "mmsp.playground.server",
       "mmsp.playground.theme",
       "/server/api",
+      "/server/api/metrics",
+      'data-state="unsaved"',
       // the client type starts at Auto and the base URL at the client's default
       ">Auto<",
       'placeholder="Default"',
@@ -215,9 +233,12 @@ describe("Playground server page", () => {
     ]) {
       expect(response.text).toContain(fragment);
     }
+    // the state words are set by the script
+    expect(response.text).toMatch(/STATE_LABELS = \{[^}]*'Live'/);
     // a client type no longer fills the base URL
     expect(response.text).not.toContain("filledBaseUrl");
     expect(response.text).not.toContain("restoreDraft()");
+    expect(response.text).not.toContain("In effect");
     expect(response.text).not.toContain("__PLAYGROUND_DEFAULTS__");
     expect(response.text).not.toContain("<select");
     expect(response.text).not.toContain("0.6");
@@ -461,21 +482,15 @@ describe("Playground server page", () => {
       "host",
       "port",
       "base_url",
-      "dashboard_url",
       "models",
       "open",
       "config",
     ]);
-    const {
-      port,
-      base_url: baseUrl,
-      dashboard_url: dashboardUrl,
-    } = started.body;
+    const { port, base_url: baseUrl } = started.body;
     expect(started.body.running).toBe(true);
     expect(started.body.host).toBe("127.0.0.1");
     expect(port).toBeGreaterThan(0);
     expect(baseUrl).toBe(`http://127.0.0.1:${port}/v1`);
-    expect(dashboardUrl).toBe(`http://127.0.0.1:${port}/`);
     expect(started.body.models).toEqual(["gpt-5.5", "claude"]);
     expect(started.body.open).toBe(true);
     expect(started.body.config).toEqual(view);
@@ -483,11 +498,6 @@ describe("Playground server page", () => {
       status: 200,
       ids: ["gpt-5.5", "claude"],
     });
-    const dashboard = await fetch(dashboardUrl);
-    expect(dashboard.status).toBe(200);
-    expect(dashboard.headers.get("content-type")).toBe(
-      "text/html; charset=utf-8",
-    );
     expect((await fetch(`${baseUrl}/metrics`)).status).toBe(200);
     expect(await status()).toEqual(started.body);
 
@@ -509,10 +519,68 @@ describe("Playground server page", () => {
     expect(log.mock.calls).toEqual([
       [`Starting MMSP server at ${baseUrl}`],
       ["Serving models: gpt-5.5"],
-      [`Dashboard at ${started.body.dashboard_url}`],
       ["Open server: api_keys is empty, every request is accepted"],
       [`Stopped MMSP server at ${baseUrl}`],
     ]);
+  });
+
+  test("metrics are read in-process", async () => {
+    const metrics = async () => {
+      const response = await request(app).get("/server/api/metrics");
+      expect(response.status).toBe(200);
+      return response.body;
+    };
+    expect(await metrics()).toEqual({ running: false });
+    // a server with a key, which the page does not hold
+    await saved({
+      models: [
+        row(),
+        row({
+          model_id: "claude-sonnet-5-5",
+          server_model_id: "claude",
+          client_type: "ant-messages",
+        }),
+      ],
+      api_keys: ["srv"],
+    });
+    const started = await start();
+    const key = { Authorization: "Bearer srv" };
+
+    const running = await metrics();
+
+    expect(running.running).toBe(true);
+    expect(running.models.map((model: { id: string }) => model.id)).toEqual(
+      started.body.models,
+    );
+    expect(running.requests).toBe(0);
+    // running first, then the snapshot in the order GET /v1/metrics reports it
+    const served = await fetch(`${started.body.base_url}/metrics`, {
+      headers: key,
+    });
+    expect(Object.keys(running)).toEqual([
+      "running",
+      ...Object.keys((await served.json()) as object),
+    ]);
+
+    const unknown = await fetch(`${started.body.base_url}/stream`, {
+      method: "POST",
+      headers: { ...key, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "nope", messages: [] }),
+    });
+    await unknown.arrayBuffer();
+    expect(unknown.status).toBe(404);
+    expect((await metrics()).refused).toEqual({
+      unauthorized: 0,
+      invalid_request: 0,
+      unknown_model: 1,
+    });
+
+    // a restart serves a new server, counted from zero
+    await restart();
+    expect((await metrics()).refused.unknown_model).toBe(0);
+
+    await stop();
+    expect(await metrics()).toEqual({ running: false });
   });
 
   test("start while running is refused", async () => {

@@ -86,7 +86,6 @@ python -m mmsp.integration.server --config mmsp-server.json
 ```text
 Starting MMSP server at http://127.0.0.1:25752/v1
 Serving models: claude, gpt-5.5, qwen3.8
-Dashboard at http://127.0.0.1:25752/
 ```
 
 `--config` defaults to `MMSP_SERVER_CONFIG`; `--host`, `--port` default to `127.0.0.1:25752`, so a client's base URL is `http://127.0.0.1:25752/v1`. `createServerApp({ models, apiKeys })` / `create_server_app(models, api_keys)` return the Express / Flask app without starting it; `startServer` returns the `http.Server`. `announceServer` / `announce_server` prints the lines above, with `Open server: api_keys is empty, every request is accepted` for an open server.
@@ -97,8 +96,7 @@ Dashboard at http://127.0.0.1:25752/
 | --- | --- | --- |
 | `GET /v1/models` | | `{"object": "list", "data": [{"id": "claude", "object": "model", "created": …, "owned_by": "mmsp"}, …]}`, one entry per row |
 | `POST /v1/stream` | `{"model", "messages", "config"}` | Server-sent events: one `data: <UniEvent>` per event, then `data: [DONE]` |
-| `GET /v1/metrics` | | What the server has served since it started; see [Dashboard](#dashboard) |
-| `GET /` | | The dashboard page |
+| `GET /v1/metrics` | | What the server has served since it started; see [Metrics](#metrics) |
 
 ```text
 data: {"role":"assistant","event_type":"delta","content_items":[{"type":"text.delta","text":"Hel"}],...}
@@ -115,7 +113,7 @@ data: [DONE]
 - While the model is silent, the server writes a `: keep-alive` comment every 15 seconds.
 - An error is `{"error": {"type", "message", ...}}`: HTTP 401 `AuthenticationError` without one of the keys, 400 `InvalidRequestError` for a malformed body, 404 `NotFoundError` for a model not in the table (`The model 'x' does not exist; GET /v1/models lists the models this server serves.`) and for any other path (`No route for GET /models; ...`), 413 for a body over 50 MB. Once a stream has begun, it is one `data:` event, then `data: [DONE]`.
 
-## Dashboard
+## Metrics
 
 `GET /v1/metrics`, under the same key rule as the other `/v1/` routes, reports what the server has served since it started, in total and per model:
 
@@ -145,7 +143,7 @@ data: [DONE]
 
 A model entry holds the same counts, with its `last_request_at` and `last_outcome`. Times are unix seconds.
 
-The dashboard at the server's `/` (`http://127.0.0.1:25752/`) shows them and refreshes every 3 seconds. The page holds no key: on a server with keys it asks for one once and keeps it in the browser (`mmsp.dashboard.key`).
+The playground's [server page](#from-the-playground) shows them while it runs the server, refreshed every 3 seconds.
 
 ## The mmsp client
 
@@ -179,9 +177,11 @@ In the [playground](/docs/tracing/#playground), the client type `mmsp` chats thr
 
 Open Server, in the top bar of the [playground](/docs/tracing/#playground), opens the server page at `/server/`. Add a row per model, the keys clients send (none for an open server), the host and the port. A model id fills in Served as only; Client type stays Auto and Base URL Default until set.
 
-Save writes the page to `MMSP_SERVER_CONFIG`, else `server.json` in `cache` (or `MMSP_CACHE_DIR`); the page shows the path. The file is the [config](#configure) plus `host` and `port`, which the command line ignores, so `MMSP_SERVER_CONFIG` can name one file for both. Cells are written as typed: a key written as `$VAR` stays out of the file and is read from the playground's environment at start.
+A row collapses to one line (served id, upstream, state) and opens to edit. Rows, keys and the listen pair read Live (running), Saved (in the file) or Unsaved (only in the browser).
 
-Start runs the saved file, not the page. A dot marks each row, each key and the listen pair: green In effect, amber Saved, hollow Unsaved; unsaved edits stay in the browser. Save is enabled while the page differs from the file, and Restart shows while the file differs from what runs. Restart builds the new server before it stops the old one, so a table the server refuses leaves the old one running. The status line shows the base URL, the served ids and a link to the [dashboard](#dashboard). Stop, or stopping the playground, stops the server.
+Save (Ctrl/Cmd+S) writes the page to `MMSP_SERVER_CONFIG`, else `server.json` in `cache` (or `MMSP_CACHE_DIR`); the page shows the path. The file is the [config](#configure) plus `host` and `port`, which the command line ignores, so `MMSP_SERVER_CONFIG` can name one file for both. Cells are written as typed: a key written as `$VAR` stays out of the file and is read from the playground's environment at start.
+
+Start runs the file, not the page, and is enabled once one is saved. Apply, shown while the file differs from what runs, replaces the running server with the file; it builds the new one first, so a table the server refuses leaves the old one running. While it runs, the page shows requests, success rate, latency, tokens and each model's last outcome. Stop, or stopping the playground, stops the server.
 
 ## Traces
 

@@ -32,15 +32,11 @@ import {
   OFFICIAL_CLIENT_TYPES,
 } from "../autoClient";
 import { UniMessage, UniConfig } from "../types";
-import {
-  DEFAULT_HOST,
-  DEFAULT_PORT,
-  serverBaseUrl,
-  serverDashboardUrl,
-} from "../wire";
+import { DEFAULT_HOST, DEFAULT_PORT, serverBaseUrl } from "../wire";
 import {
   COLUMNS,
   ServerConfig,
+  ServerMetrics,
   announceServer,
   createServerApp,
   readServerConfig,
@@ -75,6 +71,7 @@ interface RunningServer {
   open: boolean;
   /** The saved config it was started from */
   config: SavedConfig;
+  metrics: ServerMetrics;
 }
 
 // one server per process, dying with it; a start or restart in flight counts as running, so that
@@ -281,7 +278,6 @@ function mmspServerStatus(): Record<string, unknown> {
     host,
     port,
     base_url: serverBaseUrl(host, port),
-    dashboard_url: serverDashboardUrl(host, port),
     models: modelIds,
     open,
     config,
@@ -307,8 +303,8 @@ async function stopMmspServer(): Promise<void> {
 
 /**
  * Create the server page's app: the page at `/`, and `/api/config`, `/api/status`, `/api/start`,
- * `/api/restart`, `/api/stop`. Start and restart serve the saved config file, never a request
- * body. The parent app parses the JSON bodies.
+ * `/api/restart`, `/api/stop`, `/api/metrics`. Start and restart serve the saved config file,
+ * never a request body. The parent app parses the JSON bodies.
  *
  * @param configPath - The absolute path of the config file the page saves
  * @returns Express application instance, mounted at /server
@@ -412,6 +408,7 @@ function createServerPageApp(configPath: string): Express {
         modelIds: serverApp.locals.serverModelIds as string[],
         open: config.api_keys.length === 0,
         config: view,
+        metrics: serverApp.locals.metrics as ServerMetrics,
       };
       announceServer(
         host,
@@ -516,6 +513,15 @@ function createServerPageApp(configPath: string): Express {
   app.post("/api/stop", async (_req: Request, res: Response) => {
     await stopMmspServer();
     res.json({ running: false });
+  });
+
+  // read in-process, so the page needs no server key
+  app.get("/api/metrics", (_req: Request, res: Response) => {
+    res.json(
+      mmspServer === null
+        ? { running: false }
+        : { running: true, ...mmspServer.metrics.snapshot() },
+    );
   });
 
   return app;

@@ -1066,7 +1066,7 @@ describe("MMSP server requests", () => {
     const notFound = (route: string) => ({
       error: {
         type: "NotFoundError",
-        message: `No route for ${route}; the server serves POST /v1/stream, GET /v1/models, GET /v1/metrics and the dashboard at /.`,
+        message: `No route for ${route}; the server serves POST /v1/stream, GET /v1/models and GET /v1/metrics.`,
       },
     });
 
@@ -1459,11 +1459,11 @@ describe("MMSP server metrics", () => {
     });
   });
 
-  test("metrics require the key but the dashboard does not", async () => {
+  test("metrics require the key", async () => {
     const app = serverApp({ apiKeys: ["secret"] });
 
     const refused = await request(app).get("/v1/metrics");
-    const dashboard = await request(app).get("/");
+    const root = await request(app).get("/");
 
     expect([refused.status, refused.body]).toEqual([
       401,
@@ -1474,49 +1474,40 @@ describe("MMSP server metrics", () => {
         },
       },
     ]);
-    expect(dashboard.status).toBe(200);
-    expect(dashboard.headers["content-type"]).toBe("text/html; charset=utf-8");
-    expect((await metricsOf(app, "secret")).models).toEqual([
-      untouched("gpt-5.5"),
+    expect([root.status, root.body]).toEqual([
+      404,
+      {
+        error: {
+          type: "NotFoundError",
+          message:
+            "No route for GET /; the server serves POST /v1/stream, GET /v1/models and GET /v1/metrics.",
+        },
+      },
     ]);
+    const metrics = await metricsOf(app, "secret");
+    expect(metrics.refused.unauthorized).toBe(1);
+    expect(metrics.models).toEqual([untouched("gpt-5.5")]);
   });
 
-  test("the dashboard page is served", async () => {
-    const response = await request(serverApp()).get("/");
+  test("createServerApp exposes its metrics", async () => {
+    const app = serverApp({
+      models: [row("claude-sonnet-5-5", "claude"), row("gpt-5.5")],
+    });
 
-    expect(response.status).toBe(200);
-    expect(response.text).toContain("<title>MMSP Dashboard</title>");
-    for (const id of [
-      "statusDot",
-      "statusText",
-      "statusSince",
-      "keyPrompt",
-      "keyInput",
-      "statRequests",
-      "statSuccess",
-      "statLatency",
-      "statFirstEvent",
-      "statTokens",
-      "modelRows",
-      "themeToggle",
-    ]) {
-      expect(response.text).toContain(`id="${id}"`);
-    }
-    for (const fragment of [
-      "fetchMetrics()",
-      "submitKey(",
-      "render(",
-      "renderModels(",
-      "formatMs(",
-      "formatAgo(",
-      "mmsp.dashboard.key",
-      "/v1/metrics",
-      "mmsp.playground.theme",
-    ]) {
-      expect(response.text).toContain(fragment);
-    }
-    expect(response.text).not.toContain("0.6");
-    expect(response.text).not.toContain("<select");
+    const metrics = app.locals.metrics as ServerMetrics;
+
+    expect(metrics).toBeInstanceOf(ServerMetrics);
+    expect(metrics.snapshot().models).toEqual([
+      untouched("claude"),
+      untouched("gpt-5.5"),
+    ]);
+    // the object the routes count into, so what it reports is what GET /v1/metrics reports
+    const unknown = await request(app)
+      .post("/v1/stream")
+      .send({ model: "nope", messages: [] });
+    expect(unknown.status).toBe(404);
+    expect(metrics.snapshot().refused).toMatchObject({ unknown_model: 1 });
+    expect((await metricsOf(app)).refused).toEqual(metrics.snapshot().refused);
   });
 });
 
@@ -1694,7 +1685,7 @@ describe("MMSP server config", () => {
     );
   });
 
-  test("announceServer prints the four lines", () => {
+  test("announceServer prints the three lines", () => {
     const log = jest.spyOn(console, "log").mockImplementation(() => {});
 
     try {
@@ -1702,7 +1693,6 @@ describe("MMSP server config", () => {
       expect(log.mock.calls).toEqual([
         ["Starting MMSP server at http://127.0.0.1:25752/v1"],
         ["Serving models: claude, gpt-5.5"],
-        ["Dashboard at http://127.0.0.1:25752/"],
         ["Open server: api_keys is empty, every request is accepted"],
       ]);
 
@@ -1711,7 +1701,6 @@ describe("MMSP server config", () => {
       expect(log.mock.calls).toEqual([
         ["Starting MMSP server at http://[::1]:8080/v1"],
         ["Serving models: claude"],
-        ["Dashboard at http://[::1]:8080/"],
       ]);
     } finally {
       log.mockRestore();
@@ -1731,7 +1720,6 @@ describe("MMSP server config", () => {
       expect(log.mock.calls).toEqual([
         [`Starting MMSP server at http://127.0.0.1:${openPort}/v1`],
         ["Serving models: claude, gpt-5.5"],
-        [`Dashboard at http://127.0.0.1:${openPort}/`],
         ["Open server: api_keys is empty, every request is accepted"],
       ]);
 
@@ -1748,7 +1736,6 @@ describe("MMSP server config", () => {
       expect(log.mock.calls).toEqual([
         [`Starting MMSP server at http://127.0.0.1:${keyedPort}/v1`],
         ["Serving models: claude, gpt-5.5"],
-        [`Dashboard at http://127.0.0.1:${keyedPort}/`],
       ]);
     } finally {
       log.mockRestore();
@@ -1756,13 +1743,9 @@ describe("MMSP server config", () => {
   });
 });
 
-test("the server base URL and dashboard URL bracket an IPv6 host", () => {
+test("the server base URL brackets an IPv6 host", () => {
   expect(wire.serverBaseUrl("127.0.0.1", 25752)).toBe(
     "http://127.0.0.1:25752/v1",
   );
   expect(wire.serverBaseUrl("::1", 25752)).toBe("http://[::1]:25752/v1");
-  expect(wire.serverDashboardUrl("127.0.0.1", 25752)).toBe(
-    "http://127.0.0.1:25752/",
-  );
-  expect(wire.serverDashboardUrl("::1", 25752)).toBe("http://[::1]:25752/");
 });
