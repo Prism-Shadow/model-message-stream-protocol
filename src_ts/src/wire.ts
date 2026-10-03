@@ -27,18 +27,16 @@
  * silent, the server writes an SSE comment every KEEPALIVE_SECONDS, which a reader skips; it keeps
  * proxies and clients from timing out a long thought. An error is `{"error": {"type", "message",
  * ...fields}}`: the body of an HTTP error before a stream starts, an event followed by
- * `data: [DONE]` once it has. The five MMSP errors cross with their fields and are raised again as
- * themselves; anything else becomes an UpstreamError.
+ * `data: [DONE]` once it has. The five MMSP errors travel with their fields; the mmsp client
+ * raises every error the server reports as an UpstreamError carrying the object.
  */
 
 import {
   EmptyResponseError,
-  MMSPError,
   StreamProtocolError,
   ToolCallArgumentParseError,
   UnsupportedOperationError,
   UnsupportedParameterError,
-  UpstreamError,
 } from "./errors";
 
 export const DEFAULT_HOST = "127.0.0.1";
@@ -116,8 +114,8 @@ export function decodeWire<T>(record: T): T {
 /**
  * The wire form of an error a stream or a listing raised.
  *
- * The MMSP errors carry their fields, so the client raises them again as they were. Anything
- * else is named by its class, with the upstream's HTTP status when it carries one.
+ * The MMSP errors carry their fields, which the mmsp client's UpstreamError holds in `error`.
+ * Anything else is named by its class, with the upstream's HTTP status when it carries one.
  *
  * @param error - What was thrown
  * @returns The object that goes under `"error"`
@@ -149,13 +147,9 @@ export function toWireError(error: unknown): Record<string, unknown> {
     };
   }
   if (error instanceof StreamProtocolError) {
-    // the client's constructor adds the prefix again
-    const prefix = `${error.client} broke the streaming protocol: `;
     return {
       type: "StreamProtocolError",
-      message: error.message.startsWith(prefix)
-        ? error.message.slice(prefix.length)
-        : error.message,
+      message: error.message,
       client: error.client,
     };
   }
@@ -185,68 +179,4 @@ export function toWireError(error: unknown): Record<string, unknown> {
     wire.status = status;
   }
   return wire;
-}
-
-/**
- * The error to raise for a wire error the server reported.
- *
- * @param error - The object under `"error"`, read field by field, missing fields as null
- * @param status - The HTTP status when it was not 200, else null
- * @param client - The client that raises an UpstreamError
- * @returns The MMSP error the server raised, or an UpstreamError for anything else
- */
-export function fromWireError(
-  error: Record<string, unknown>,
-  status: number | null,
-  client = "MmspClient",
-): MMSPError {
-  const wire = error as WireRecord;
-  const message: string = wire.message || wire.type || "unknown error";
-  switch (wire.type) {
-    case "UnsupportedParameterError":
-      return new UnsupportedParameterError({
-        client: wire.client ?? null,
-        parameter: wire.parameter ?? null,
-        message,
-      });
-    case "UnsupportedOperationError":
-      return new UnsupportedOperationError({
-        client: wire.client ?? null,
-        operation: wire.operation ?? null,
-        message,
-      });
-    case "EmptyResponseError":
-      // the constructor rebuilds the message, equal to the upstream's
-      return new EmptyResponseError({
-        client: wire.client ?? null,
-        finishReason: wire.finish_reason ?? null,
-        usageMetadata: wire.usage_metadata ?? null,
-      });
-    case "StreamProtocolError":
-      return new StreamProtocolError({ client: wire.client ?? null, message });
-    case "ToolCallArgumentParseError": {
-      const cut = message.lastIndexOf("): ");
-      const parseError = new ToolCallArgumentParseError({
-        client: wire.client ?? null,
-        toolName: wire.tool_name ?? null,
-        toolCallId: wire.tool_call_id ?? null,
-        rawArguments: wire.raw_arguments_preview || "",
-        reason: cut === -1 ? message : message.slice(cut + "): ".length),
-      });
-      // the raw arguments stayed on the server, so the length, the preview (which a long preview
-      // would truncate twice) and the message are the upstream's own
-      return Object.assign(parseError, {
-        rawArgumentsLength: wire.raw_arguments_length ?? null,
-        rawArgumentsPreview: wire.raw_arguments_preview ?? null,
-        message,
-      });
-    }
-    default:
-      return new UpstreamError({
-        client,
-        status: status ?? wire.status ?? null,
-        errorType: wire.type ?? null,
-        message,
-      });
-  }
 }

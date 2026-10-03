@@ -38,10 +38,12 @@ import {
   SERVER_TEMPLATE,
   ServerConfig,
   ServerMetrics,
+  WINDOW_ERROR,
   announceServer,
   createServerApp,
   readServerConfig,
   resolveServerConfig,
+  parseWindow,
 } from "./server";
 import { Tracer } from "./tracer";
 
@@ -515,13 +517,24 @@ function createServerPageApp(configPath: string): Express {
     res.json({ running: false });
   });
 
-  // read in-process, so the page needs no server key
-  app.get("/api/metrics", (_req: Request, res: Response) => {
-    res.json(
-      mmspServer === null
-        ? { running: false }
-        : { running: true, ...mmspServer.metrics.snapshot() },
-    );
+  // read in-process, so the page needs no server key; `?window=N` as GET /v1/metrics takes it
+  app.get("/api/metrics", (req: Request, res: Response) => {
+    if (mmspServer === null) {
+      return res.json({ running: false });
+    }
+    const { metrics } = mmspServer;
+    if (req.query.window === undefined) {
+      return res.json({ running: true, ...metrics.snapshot() });
+    }
+    const seconds = parseWindow(req.query.window);
+    if (seconds === null) {
+      return res.status(400).json({ error: WINDOW_ERROR });
+    }
+    res.json({
+      running: true,
+      ...metrics.snapshot(),
+      window: metrics.window(seconds),
+    });
   });
 
   return app;

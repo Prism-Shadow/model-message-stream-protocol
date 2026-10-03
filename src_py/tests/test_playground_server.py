@@ -26,7 +26,7 @@ from werkzeug.test import TestResponse
 
 from mmsp.integration import playground
 from mmsp.integration.playground import create_chat_app
-from mmsp.integration.server import load_server_config
+from mmsp.integration.server import SERVER_TEMPLATE, load_server_config
 
 
 # The rows build real upstream clients, whose constructors reach no network, and the server listens
@@ -102,6 +102,7 @@ def test_server_page_is_served(client: FlaskClient):
     response = client.get("/server/")
 
     assert response.status_code == 200
+    assert SERVER_TEMPLATE.count("__PLAYGROUND_DEFAULTS__") == 1
     assert b"<title>MMSP Server</title>" in response.data
     assert b'<span class="brand-sub">Server</span>' in response.data
     for element_id in (
@@ -117,24 +118,42 @@ def test_server_page_is_served(client: FlaskClient):
         "statusDot",
         "statusText",
         "statusUrl",
-        "statusModels",
+        "statusMeta",
+        "statusOpen",
+        "statusUptime",
+        "statusStreaming",
         "serverError",
         "themeToggle",
         "saveButton",
         "applyButton",
-        "metricsBar",
-        "statRequests",
-        "statSuccess",
-        "statLatency",
-        "statFirstEvent",
-        "statTokens",
-        "statStreaming",
-        "statRefused",
         "copyUrlButton",
         "tableHead",
         "saveKey",
         "configPath",
         "listenState",
+        "tabs",
+        "tabOverview",
+        "tabModels",
+        "tabSettings",
+        "panelOverview",
+        "panelModels",
+        "panelSettings",
+        "checklist",
+        "checklistSave",
+        "dashboard",
+        "rangeControl",
+        "tiles",
+        "tileRequests",
+        "tileSuccess",
+        "tileLatencyP50",
+        "tileLatencyP90",
+        "tileTokens",
+        "tileTps",
+        "modelCards",
+        "requestsChart",
+        "latencyChart",
+        "errorList",
+        "chartTip",
     ):
         assert f'id="{element_id}"'.encode() in response.data, element_id
     for text in (
@@ -166,8 +185,34 @@ def test_server_page_is_served(client: FlaskClient):
         "renderRow(",
         "toggleRow(",
         "handleShortcut(",
-        "formatRange(",
+        "showTab(",
+        "handleTabKeydown(",
+        "setRange(",
+        "renderOverview(",
+        "renderTiles(",
+        "renderModelCards(",
+        "openModel(",
+        "handleCardKeydown(",
+        "renderRequestsChart(",
+        "renderLatencyChart(",
+        "renderErrors(",
+        "renderChecklist(",
+        "sparkline(",
+        "mergeBuckets(",
+        "attachTooltip(",
+        "formatCompact(",
+        "formatTps(",
+        "?window=",
+        "tokens_out",
+        "generation_ms",
+        "Apply to serve",
+        "Start to serve",
+        'class="models-grid"',
+        'role="tablist"',
+        'role="tabpanel"',
+        'aria-label="Range"',
         "mmsp.playground.server",
+        "mmsp.playground.server.range",
         "mmsp.playground.theme",
         "/server/api",
         "/server/api/metrics",
@@ -180,14 +225,23 @@ def test_server_page_is_served(client: FlaskClient):
         assert text.encode() in response.data, text
     # the state words are set by the script
     assert re.search(rb"STATE_LABELS = \{[^}]*'Live'", response.data)
-    # the server hands the page its client types and their default endpoints
-    assert b"__PLAYGROUND_DEFAULTS__" not in response.data
-    # a client type no longer fills the base URL
-    assert b"filledBaseUrl" not in response.data
-    assert b"restoreDraft()" not in response.data
-    assert b"In effect" not in response.data
-    assert b"<select" not in response.data
-    assert b"0.6" not in response.data
+    for text in (
+        # the server hands the page its client types and their default endpoints
+        "__PLAYGROUND_DEFAULTS__",
+        # a client type no longer fills the base URL
+        "filledBaseUrl",
+        "restoreDraft()",
+        "In effect",
+        "<select",
+        "0.6",
+        # p50 and p90 are two values, never a range, and the header names no models
+        "formatRange",
+        "p50–p90",
+        "statusModels",
+        "overviewRows",
+        "Dashboard at",
+    ):
+        assert text.encode() not in response.data, text
 
 
 def test_status_is_stopped_before_a_start(client: FlaskClient):
@@ -404,6 +458,19 @@ def test_metrics_are_read_in_process(client: FlaskClient):
         urllib.request.urlopen(unknown, timeout=5)
     assert exc_info.value.code == 404
     assert _metrics(client)["refused"] == {"unauthorized": 0, "invalid_request": 0, "unknown_model": 1}
+    assert "window" not in _metrics(client)
+
+    windowed = client.get("/server/api/metrics?window=300")
+    assert windowed.status_code == 200
+    assert list(windowed.get_json()) == [*_metrics(client), "window"]
+    window = windowed.get_json()["window"]
+    assert window["seconds"] == 300
+    assert sum(window["total"]["series"]["refused"]) == 1
+    refused = client.get("/server/api/metrics?window=x")
+    assert (refused.status_code, refused.get_json()) == (
+        400,
+        {"error": "window must be an integer number of seconds from 10 to 7200."},
+    )
 
     # a restart serves a new server, counted from zero
     _restart(client)
@@ -411,6 +478,7 @@ def test_metrics_are_read_in_process(client: FlaskClient):
 
     client.post("/server/api/stop", json={})
     assert _metrics(client) == {"running": False}
+    assert client.get("/server/api/metrics?window=300").get_json() == {"running": False}
 
 
 def test_start_and_stop_print_the_console_lines(client: FlaskClient, capsys: pytest.CaptureFixture[str]):

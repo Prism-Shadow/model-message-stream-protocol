@@ -13,7 +13,8 @@
 // limitations under the License.
 
 import { LLMClient } from "../baseClient";
-import { EventContentItem, UniConfig, UniEvent, UniMessage } from "../types";
+import { UpstreamError } from "../errors";
+import { UniConfig, UniEvent, UniMessage } from "../types";
 import { resolveCredentials } from "../utils";
 import {
   DEFAULT_BASE_URL,
@@ -21,7 +22,6 @@ import {
   STREAM_ROUTE,
   decodeWire,
   encodeWire,
-  fromWireError,
 } from "../wire";
 
 /**
@@ -46,6 +46,26 @@ async function errorPayload(
     type: "HTTPError",
     message: `HTTP ${response.status}: ${text.slice(0, 200)}`,
   };
+}
+
+/**
+ * The UpstreamError an error the server reported is raised as: a refusal's status, else the
+ * error's own.
+ */
+function upstreamError(
+  error: Record<string, unknown>,
+  status: number | null,
+): UpstreamError {
+  return new UpstreamError({
+    client: "MmspClient",
+    status: status ?? (error.status as number | undefined) ?? null,
+    errorType: (error.type as string | undefined) ?? null,
+    message:
+      (error.message as string | undefined) ||
+      (error.type as string | undefined) ||
+      "unknown error",
+    error,
+  });
 }
 
 /**
@@ -93,8 +113,8 @@ async function* sseData(
 }
 
 /**
- * MMSP client for an MMSP server, which streams the models of its table. It speaks MMSP itself,
- * over the server's HTTP protocol (see `wire`).
+ * A client of an MMSP server: what `curl -N` shows on /v1/stream is what it yields, bytes decoded.
+ * It speaks MMSP itself, over the server's HTTP protocol (see `wire`).
  */
 export class MmspClient extends LLMClient {
   protected _model: string;
@@ -142,50 +162,19 @@ export class MmspClient extends LLMClient {
   }
 
   /**
-   * One event of the server's stream. Its done items are dropped, since the base class closes
-   * the items again; its deltas carry `itemId` as fidelity.item_id, so the items the server
-   * closed stay apart.
+   * One event of the server's stream as it was sent, deltas and done items alike; only the data
+   * of its inline items is decoded from base64 back to bytes.
    *
    * @param modelOutput - One wire event parsed from JSON, its bytes still base64 text
-   * @param itemId - The id of the item streaming now: the number of done items seen so far
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  transformModelOutputToUniEvent(modelOutput: any, itemId = "0"): UniEvent {
-    const event = decodeWire(modelOutput);
-    const contentItems: EventContentItem[] = [];
-    for (const item of event.content_items) {
-      const [kind, phase] = item.type.split(".");
-      if (phase !== "delta") {
-        continue;
-      }
-      const fidelity = { item_id: itemId, ...item.fidelity };
-      if (
-        (kind === "inline_data" || kind === "inline_thinking") &&
-        item.data.length === 0 &&
-        Object.keys(fidelity).length > 1
-      ) {
-        // the fidelity the server closed an image item with (an Interactions thought signature
-        // after an image thought): sent alone under the item's id as a thinking delta,
-        // StreamItems gives it to the item streaming now; as an image delta of its own it would
-        // begin another item
-        contentItems.push({ type: "thinking.delta", thinking: "", fidelity });
-      } else {
-        contentItems.push({ ...item, fidelity });
-      }
-    }
-
-    return {
-      role: "assistant",
-      event_type: event.event_type,
-      content_items: contentItems,
-      usage_metadata: event.usage_metadata ?? null,
-      finish_reason: event.finish_reason ?? null,
-      created_at: event.created_at,
-    };
+  transformModelOutputToUniEvent(modelOutput: any): UniEvent {
+    return decodeWire(modelOutput);
   }
 
   /**
-   * Stream one response from the MMSP server.
+   * One request; the server's events as they arrive, an error it reports raised as
+   * UpstreamError. The signal goes to the request, so an abort ends the read wherever it is.
    */
   async *_streamingResponseInternal(options: {
     messages: UniMessage[];
@@ -210,24 +199,33 @@ export class MmspClient extends LLMClient {
       signal: options.signal,
     });
     if (response.status !== 200) {
-      throw fromWireError(await errorPayload(response), response.status);
+      throw upstreamError(await errorPayload(response), response.status);
     }
 
-    let itemIndex = 0;
     for await (const data of sseData(response.body!)) {
       if (data === "[DONE]") {
-        break;
+        return;
       }
       const wire = JSON.parse(data);
       if ("error" in wire) {
-        throw fromWireError(wire.error, null);
+        throw upstreamError(wire.error, null);
       }
-      yield this.transformModelOutputToUniEvent(wire, String(itemIndex));
-      // the deltas of item N arrive while N done items have been seen
-      itemIndex += wire.content_items.filter((item: { type: string }) =>
-        item.type.endsWith(".done"),
-      ).length;
+      yield this.transformModelOutputToUniEvent(wire);
     }
+  }
+
+  /**
+   * The server's public stream, forwarded; `signal` ends it between events or mid-read.
+   *
+   * The server's upstream client already closed the items, stamped the events and saved any
+   * trace, so nothing is rebuilt here.
+   */
+  async *streamingResponse(options: {
+    messages: UniMessage[];
+    config: UniConfig;
+    signal?: AbortSignal;
+  }): AsyncGenerator<UniEvent> {
+    yield* this._streamingResponseInternal(options);
   }
 
   /**
@@ -240,7 +238,7 @@ export class MmspClient extends LLMClient {
       headers: this._headers,
     });
     if (response.status !== 200) {
-      throw fromWireError(await errorPayload(response), response.status);
+      throw upstreamError(await errorPayload(response), response.status);
     }
 
     const { data } = (await response.json()) as { data: { id: string }[] };

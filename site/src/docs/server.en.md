@@ -96,7 +96,7 @@ Serving models: claude, gpt-5.5, qwen3.8
 | --- | --- | --- |
 | `GET /v1/models` | | `{"object": "list", "data": [{"id": "claude", "object": "model", "created": …, "owned_by": "mmsp"}, …]}`, one entry per row |
 | `POST /v1/stream` | `{"model", "messages", "config"}` | Server-sent events: one `data: <UniEvent>` per event, then `data: [DONE]` |
-| `GET /v1/metrics` | | What the server has served since it started; see [Metrics](#metrics) |
+| `GET /v1/metrics` | `?window=N`, optional | What the server has served since it started; see [Metrics](#metrics) |
 
 ```text
 data: {"role":"assistant","event_type":"delta","content_items":[{"type":"text.delta","text":"Hel"}],...}
@@ -122,9 +122,11 @@ data: [DONE]
   "started_at": 1790000000, "uptime_s": 125,
   "requests": 10, "successes": 8, "failures": 1, "disconnects": 1, "in_flight": 0, "success_rate": 0.8889,
   "latency_ms": {"first_event": {"p50": 120, "p90": 400}, "total": {"p50": 900, "p90": 2300}},
-  "tokens": {"prompt": 30, "cached": 0, "thoughts": 0, "response": 50},
+  "tokens": {"prompt": 30, "cached": 0, "thoughts": 120, "response": 50},
+  "tokens_out": 170, "generation_ms": 6800, "tps": 25.0,
   "refused": {"unauthorized": 0, "invalid_request": 0, "unknown_model": 0},
   "last_request_at": 1790000100.123,
+  "errors": [{"at": 1790000090.456, "model": "gpt-5.5", "message": "Error code: 529 - …"}],
   "models": [{"id": "claude", "requests": 5, …, "last_request_at": 1790000100.123, "last_outcome": "success", "last_error": null}]
 }
 ```
@@ -139,11 +141,32 @@ data: [DONE]
 | `success_rate` | `successes / (successes + failures)`, `null` before either |
 | `latency_ms` | p50 and p90 of the time to the first event and to the end, over the latest 1000 successes |
 | `tokens` | The usage of the successes, summed |
+| `tokens_out` | Thinking + response tokens of the successes |
+| `generation_ms` | First event to end of each success, summed; at least 1 ms each |
+| `tps` | `tokens_out / generation_ms × 1000`, one decimal; `null` before a success |
 | `refused` | Requests refused before a model, by cause; in total only |
+| `errors` | The latest 20 failures, newest first; in total only |
 
-A model entry holds the same counts, with its `last_request_at` and `last_outcome`. Times are unix seconds.
+A model entry holds the same counts, with its `last_request_at`, `last_outcome` and `last_error`. Times are unix seconds.
 
-The playground's [server page](#from-the-playground) shows them while it runs the server, refreshed every 3 seconds.
+`?window=N`, N from 10 to 7200, adds `window`: the last N seconds in 10 s buckets of the clock, rounded up to whole buckets and ending with the current one. Buckets are kept for two hours. A request counts in the bucket it began in; a bucket's percentiles are over its first 64 successes. Any other `window` is a 400 `InvalidRequestError`.
+
+```json
+"window": {
+  "seconds": 300, "bucket_s": 10, "start": 1790000000, "end": 1790000130,
+  "total": {"requests": 10, …, "refused": 0, "tokens_out": 170, "thoughts": 120, "response": 50, "generation_ms": 6800, "tps": 25.0,
+            "latency_ms": {…},
+            "series": {"requests": [0, 2, …], "successes": […], "failures": […], "disconnects": […], "refused": […],
+                       "tokens_out": […], "thoughts": […], "response": […], "generation_ms": […], "tps": [null, 24.1, …],
+                       "p50": [null, 880, …], "p90": […], "first_event_p50": […], "first_event_p90": […]}},
+  "models": [{"id": "claude", "requests": 5, …, "series": {…}}],
+  "previous": null
+}
+```
+
+`total` and each model entry hold the window's sums and `series`, one value per bucket from `start` to `end`; `refused` is in total only. `start` is never before the server's first bucket. `previous` holds the sums of the window before, `null` unless the server ran through all of it.
+
+The playground's [server page](#from-the-playground) draws them while it runs the server.
 
 ## The mmsp client
 
@@ -169,20 +192,35 @@ client = AutoLLMClient(
 
 </div>
 
-It yields the stream the row's client yields. Without a `base_url` it reads `MMSP_BASE_URL` and `MMSP_API_KEY`, and defaults to `http://127.0.0.1:25752/v1`. A `base_url` passed in needs an `api_key` passed in: `"none"` for an open server. `listModels()` / `list_models()` returns the table's ids. Errors come back as themselves; see [Errors](/docs/errors/#through-an-mmsp-server).
+The client is a forwarding client: it posts the messages, reads the events and yields them as they are, bytes decoded. `curl -N` shows the same stream:
+
+```bash
+curl -N http://127.0.0.1:25752/v1/stream -H "Authorization: Bearer $MMSP_SERVER_API_KEY" -H "Content-Type: application/json" \
+  -d '{"model": "claude", "messages": [{"role": "user", "content_items": [{"type": "text.done", "text": "Hello"}]}]}'
+```
+
+Without a `base_url` it reads `MMSP_BASE_URL` and `MMSP_API_KEY`, and defaults to `http://127.0.0.1:25752/v1`. A `base_url` passed in needs an `api_key` passed in: `"none"` for an open server. `listModels()` / `list_models()` returns the table's ids. An error the server reports is raised as `UpstreamError`; see [Errors](/docs/errors/#through-an-mmsp-server).
 
 In the [playground](/docs/tracing/#playground), the client type `mmsp` chats through a server.
 
 ## From the playground
 
-Open Server, in the top bar of the [playground](/docs/tracing/#playground), opens the server page at `/server/`. Add a row per model, the keys clients send (none for an open server), the host and the port. A model id fills in Served as only; Client type stays Auto and Base URL Default until set.
+Open Server, in the top bar of the [playground](/docs/tracing/#playground), opens the server page at `/server/`. Its header shows the state and the base URL; three tabs follow: Overview, Models and Settings.
 
-A row collapses to one line (served id, upstream, state) and opens to edit. Rows, keys and the listen pair read Live (running), Saved (in the file) or Unsaved (only in the browser).
+Models holds a row per model. A model id fills in Served as only; Client type stays Auto and Base URL Default until set. A row collapses to one line (served id, upstream, state) and opens to edit. Settings holds the keys clients send (none for an open server), the host, the port and the file's path. Rows, keys and the listen pair read Live (running), Saved (in the file) or Unsaved (only in the browser).
 
-Save (Ctrl/Cmd+S) writes the page to `MMSP_SERVER_CONFIG`, else `server.json` in `cache` (or `MMSP_CACHE_DIR`); the page shows the path. The file is the [config](#configure) plus `host` and `port`, which the command line ignores, so `MMSP_SERVER_CONFIG` can name one file for both. Cells are written as typed: a key written as `$VAR` stays out of the file and is read from the playground's environment at start.
+Save (Ctrl/Cmd+S) writes the page to `MMSP_SERVER_CONFIG`, else `server.json` in `cache` (or `MMSP_CACHE_DIR`). The file is the [config](#configure) plus `host` and `port`, which the command line ignores, so `MMSP_SERVER_CONFIG` can name one file for both. Cells are written as typed: a key written as `$VAR` stays out of the file and is read from the playground's environment at start.
 
-Start runs the file, not the page, and is enabled once one is saved. Apply, shown while the file differs from what runs, replaces the running server with the file; it builds the new one first, so a table the server refuses leaves the old one running. While it runs, the page shows requests, success rate, latency, tokens and each model's last outcome. Stop, or stopping the playground, stops the server.
+Start runs the file, not the page, and is enabled once one is saved. Apply, shown while the file differs from what runs, replaces the running server with the file; it builds the new one first, so a table the server refuses leaves the old one running. Stop, or stopping the playground, stops the server.
+
+Overview shows a checklist while the server is stopped (add a model, save, start). While it runs, it shows, over a range of 5 min, 15 min or 1 h, refreshed every 3 seconds:
+
+- six tiles, Requests, Success, Latency p50, Latency p90, Tokens out and TPS, each with its change against the previous range;
+- a card per model with its state, requests, success, p50, p90, TPS, last outcome and a trend; a card opens its row on Models;
+- the Requests chart, by outcome (ok, failed, dropped);
+- the Latency chart, p50 and p90;
+- the Errors list.
 
 ## Traces
 
-A `trace_id` in the config reaches the server, so the turn is saved twice: by the client on its machine, and by the server under its own `cache` (or `MMSP_CACHE_DIR`). Start the [tracer](/docs/tracing/) on the server's machine to read the server's copy.
+A `trace_id` in the config reaches the server, which saves the turn under its own `cache` (or `MMSP_CACHE_DIR`); the client saves nothing. A server the playground started shares the playground's cache, so its [tracer](/docs/tracing/) lists the turn.

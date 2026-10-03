@@ -48,6 +48,7 @@ from .server import (
     ServerMetrics,
     announce_server,
     create_server_app,
+    parse_window,
     read_server_config,
     resolve_server_config,
 )
@@ -399,16 +400,25 @@ def _create_server_page_app(config_path: Path) -> Flask:
         return jsonify(_mmsp_server_status())
 
     @app.route("/api/metrics")
-    def metrics() -> Response:
+    def metrics() -> Response | tuple[Response, int]:
         """
         What the running server has served, read in-process, so the page needs no server key.
 
-        `{"running": false}` when none runs; otherwise `"running": true` followed by the server's snapshot.
+        `{"running": false}` when none runs, whatever the query; otherwise `"running": true` followed by
+        the server's snapshot, and with `?window=N` its window of the last N seconds, as `GET /v1/metrics`
+        reports them.
         """
         running = _mmsp_server
         if running is None:
             return jsonify({"running": False})
-        return jsonify({"running": True, **running.metrics.snapshot()})
+        value = request.args.get("window")
+        if value is None:
+            return jsonify({"running": True, **running.metrics.snapshot()})
+        try:
+            seconds = parse_window(value)
+        except ValueError as exc:
+            return refuse(str(exc))
+        return jsonify({"running": True, **running.metrics.snapshot(), "window": running.metrics.window(seconds)})
 
     @app.route("/api/start", methods=["POST"])
     def start() -> Response | tuple[Response, int]:

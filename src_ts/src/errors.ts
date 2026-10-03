@@ -145,27 +145,29 @@ export class ToolCallArgumentParseError extends MMSPError {
 }
 
 /**
- * Raised by the mmsp client for an error its server reported that is not one of the MMSP
- * errors above: the server's own refusal (a rejected key, a model not in its table) or an
- * exception the upstream client raised, named by its class. `status` is the HTTP status that
- * explains it, when there is one.
+ * Raised by the mmsp client for anything its server reported: a refusal before the stream
+ * (`status` is the HTTP status) or an error event inside it (`status` is the upstream's own when
+ * the error carries one); `errorType` is the server-side class name; `error` the object as sent.
  */
 export class UpstreamError extends MMSPError {
   readonly client: string;
   readonly status: number | null;
   readonly errorType: string | null;
+  readonly error: Record<string, unknown>;
 
   constructor(args: {
     client: string;
     status: number | null;
     errorType: string | null;
     message: string;
+    error?: Record<string, unknown> | null;
   }) {
     super(args.message);
     this.name = "UpstreamError";
     this.client = args.client;
     this.status = args.status;
     this.errorType = args.errorType;
+    this.error = args.error ? { ...args.error } : {};
   }
 }
 

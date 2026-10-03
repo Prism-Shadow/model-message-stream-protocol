@@ -17,10 +17,12 @@ from typing import Any, AsyncIterator
 
 import httpx
 
+from ..abort_signal import AbortSignal, run_with_abort
 from ..base_client import LLMClient
-from ..types import EventContentItem, UniConfig, UniEvent, UniMessage
+from ..errors import UpstreamError
+from ..types import UniConfig, UniEvent, UniMessage
 from ..utils import resolve_credentials
-from ..wire import DEFAULT_BASE_URL, MODELS_ROUTE, STREAM_ROUTE, decode_wire, encode_wire, from_wire_error
+from ..wire import DEFAULT_BASE_URL, MODELS_ROUTE, STREAM_ROUTE, decode_wire, encode_wire
 
 
 async def _sse_data(lines: AsyncIterator[str]) -> AsyncIterator[str]:
@@ -53,8 +55,19 @@ def _error_payload(body: bytes, status: int) -> dict[str, Any]:
     return {"type": "HTTPError", "message": f"HTTP {status}: {body.decode('utf-8', errors='replace')[:200]}"}
 
 
+def _upstream_error(error: dict[str, Any], status: int | None) -> UpstreamError:
+    """The UpstreamError an error the server reported is raised as: a refusal's status, else the error's own."""
+    return UpstreamError(
+        "MmspClient",
+        status if status is not None else error.get("status"),
+        error.get("type"),
+        error.get("message") or error.get("type") or "unknown error",
+        error,
+    )
+
+
 class MmspClient(LLMClient):
-    """MMSP client for an MMSP server, which streams the models of its table."""
+    """A client of an MMSP server: what `curl -N` shows on /v1/stream is what it yields, bytes decoded."""
 
     def __init__(
         self,
@@ -108,50 +121,27 @@ class MmspClient(LLMClient):
         """
         return [encode_wire(message) for message in messages]
 
-    def transform_model_output_to_uni_event(self, model_output: dict[str, Any], item_id: str = "0") -> UniEvent:
+    def transform_model_output_to_uni_event(self, model_output: dict[str, Any]) -> UniEvent:
         """
         Transform one event of the server's stream into a universal event.
 
-        Its done items are dropped, since the base class closes the items again; its deltas carry
-        `item_id` as fidelity.item_id, so the items the server closed stay apart.
+        The event is the server's public stream event as sent, deltas and done items alike; only the
+        data of its inline items is decoded from base64 back to bytes.
 
         Args:
             model_output: One event of the server's stream, parsed from JSON
-            item_id: The id of the item streaming now: the number of done items the server sent before it
 
         Returns:
             Universal event dictionary
         """
-        event = decode_wire(model_output)
-        content_items: list[EventContentItem] = []
-        for item in event["content_items"]:
-            kind, _, phase = item["type"].partition(".")
-            if phase != "delta":
-                continue
-
-            fidelity = {"item_id": item_id, **(item.get("fidelity") or {})}
-            if kind in ("inline_data", "inline_thinking") and len(item["data"]) == 0 and len(fidelity) > 1:
-                # the fidelity the server closed an image item with (an Interactions thought signature after
-                # an image thought): sent alone under the item's id as a thinking delta, StreamItems gives it
-                # to the item streaming now, while an image delta of its own would begin another item
-                item = {"type": "thinking.delta", "thinking": ""}
-            content_items.append({**item, "fidelity": fidelity})
-
-        return {
-            "role": "assistant",
-            "event_type": event["event_type"],
-            "content_items": content_items,
-            "usage_metadata": event.get("usage_metadata"),
-            "finish_reason": event.get("finish_reason"),
-            "created_at": event.get("created_at"),
-        }
+        return decode_wire(model_output)
 
     async def _streaming_response_internal(
         self,
         messages: list[UniMessage],
         config: UniConfig,
     ) -> AsyncIterator[UniEvent]:
-        """Stream generate through an MMSP server."""
+        """One request; the server's events as they arrive, an error it reports raised as UpstreamError."""
         body = {
             "model": self._model,
             "messages": self.transform_uni_message_to_model_input(messages),
@@ -162,22 +152,53 @@ class MmspClient(LLMClient):
         headers = {"Content-Type": "application/json", "Accept": "text/event-stream"}
         async with self._client.stream("POST", STREAM_ROUTE, content=content, headers=headers) as response:
             if response.status_code != 200:
-                raise from_wire_error(
+                raise _upstream_error(
                     _error_payload(await response.aread(), response.status_code), response.status_code
                 )
 
-            item_index = 0
             async for data in _sse_data(response.aiter_lines()):
                 if data == "[DONE]":
-                    break
+                    return
 
                 wire = json.loads(data)
                 if "error" in wire:
-                    raise from_wire_error(wire["error"], None)
+                    raise _upstream_error(wire["error"], None)
 
-                yield self.transform_model_output_to_uni_event(wire, str(item_index))
-                # counted after the event: the deltas of an item arrive while the done items before it are seen
-                item_index += sum(1 for item in wire["content_items"] if item["type"].endswith(".done"))
+                yield self.transform_model_output_to_uni_event(wire)
+
+    async def streaming_response(
+        self,
+        messages: list[UniMessage],
+        config: UniConfig,
+        signal: AbortSignal | None = None,
+    ) -> AsyncIterator[UniEvent]:
+        """
+        The server's public stream, forwarded; `signal` ends it between events or mid-read.
+
+        The server's upstream client already closed the items, stamped the events and saved any trace,
+        so nothing is rebuilt here.
+
+        Args:
+            messages: List of universal message dictionaries containing conversation history
+            config: Universal configuration dict
+            signal: Optional abort signal used to cancel the active request
+
+        Yields:
+            The events of the server's public stream, in order
+        """
+        if signal is not None:
+            signal.throw_if_aborted()
+        stream = self._streaming_response_internal(messages, config)
+        try:
+            while True:
+                try:
+                    # StopAsyncIteration crosses run_with_abort's task intact: only StopIteration is barred
+                    event = await (anext(stream) if signal is None else run_with_abort(anext(stream), signal))
+                except StopAsyncIteration:
+                    break
+                yield event
+        finally:
+            await stream.aclose()
 
     async def list_models(self) -> list[str]:
         """
@@ -188,5 +209,5 @@ class MmspClient(LLMClient):
         """
         response = await self._client.get(MODELS_ROUTE)
         if response.status_code != 200:
-            raise from_wire_error(_error_payload(response.content, response.status_code), response.status_code)
+            raise _upstream_error(_error_payload(response.content, response.status_code), response.status_code)
         return [model["id"] for model in response.json()["data"]]

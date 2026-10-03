@@ -27,7 +27,11 @@ import {
   test,
 } from "@jest/globals";
 import { createChatApp } from "../src/integration/playground";
-import { ModelRow, loadServerConfig } from "../src/integration/server";
+import {
+  ModelRow,
+  SERVER_TEMPLATE,
+  loadServerConfig,
+} from "../src/integration/server";
 
 // The rows build real upstream clients, whose constructors touch no network, and the live checks
 // reach the MMSP server the playground starts on a port the system picks. Node's fetch ignores
@@ -174,16 +178,34 @@ describe("Playground server page", () => {
       "statusText",
       "statusUrl",
       "copyUrlButton",
-      "statusModels",
+      "statusMeta",
+      "statusOpen",
+      "statusUptime",
+      "statusStreaming",
       "serverError",
-      "metricsBar",
-      "statRequests",
-      "statSuccess",
-      "statLatency",
-      "statFirstEvent",
-      "statTokens",
-      "statStreaming",
-      "statRefused",
+      "tabs",
+      "tabOverview",
+      "tabModels",
+      "tabSettings",
+      "panelOverview",
+      "panelModels",
+      "panelSettings",
+      "checklist",
+      "checklistSave",
+      "dashboard",
+      "rangeControl",
+      "tiles",
+      "tileRequests",
+      "tileSuccess",
+      "tileLatencyP50",
+      "tileLatencyP90",
+      "tileTokens",
+      "tileTps",
+      "modelCards",
+      "requestsChart",
+      "latencyChart",
+      "errorList",
+      "chartTip",
       "tableHead",
       "themeToggle",
     ]) {
@@ -207,7 +229,32 @@ describe("Playground server page", () => {
       "handleShortcut(",
       "fetchMetrics()",
       "renderMetrics(",
-      "formatRange(",
+      "showTab(",
+      "handleTabKeydown(",
+      "setRange(",
+      "renderOverview(",
+      "renderTiles(",
+      "renderModelCards(",
+      "openModel(",
+      "handleCardKeydown(",
+      "renderRequestsChart(",
+      "renderLatencyChart(",
+      "renderErrors(",
+      "renderChecklist(",
+      "sparkline(",
+      "mergeBuckets(",
+      "attachTooltip(",
+      "formatCompact(",
+      "formatTps(",
+      "?window=",
+      "tokens_out",
+      "generation_ms",
+      'role="tablist"',
+      'role="tabpanel"',
+      'aria-label="Range"',
+      'class="models-grid"',
+      "Apply to serve",
+      "Start to serve",
       "saveDraft()",
       "restoreTable()",
       "loadServerConfig()",
@@ -220,6 +267,7 @@ describe("Playground server page", () => {
       "stopServer()",
       "markRow(",
       "mmsp.playground.server",
+      "mmsp.playground.server.range",
       "mmsp.playground.theme",
       "/server/api",
       "/server/api/metrics",
@@ -242,6 +290,17 @@ describe("Playground server page", () => {
     expect(response.text).not.toContain("__PLAYGROUND_DEFAULTS__");
     expect(response.text).not.toContain("<select");
     expect(response.text).not.toContain("0.6");
+    // latencies are one value each, the header names no models, and the old overview is gone
+    for (const fragment of [
+      "formatRange",
+      "p50–p90",
+      "statusModels",
+      "overviewRows",
+      "Dashboard at",
+    ]) {
+      expect(response.text).not.toContain(fragment);
+    }
+    expect(SERVER_TEMPLATE.split("__PLAYGROUND_DEFAULTS__")).toHaveLength(2);
   });
 
   test("status is stopped before a start", async () => {
@@ -574,6 +633,16 @@ describe("Playground server page", () => {
       invalid_request: 0,
       unknown_model: 1,
     });
+    const windowed = await request(app).get("/server/api/metrics?window=300");
+    expect(windowed.status).toBe(200);
+    expect(windowed.body.window.seconds).toBe(300);
+    const refused: number[] = windowed.body.window.total.series.refused;
+    expect(refused.reduce((total, count) => total + count, 0)).toBe(1);
+    const bad = await request(app).get("/server/api/metrics?window=x");
+    expect([bad.status, bad.body]).toEqual([
+      400,
+      { error: "window must be an integer number of seconds from 10 to 7200." },
+    ]);
 
     // a restart serves a new server, counted from zero
     await restart();
@@ -581,6 +650,8 @@ describe("Playground server page", () => {
 
     await stop();
     expect(await metrics()).toEqual({ running: false });
+    const stopped = await request(app).get("/server/api/metrics?window=300");
+    expect([stopped.status, stopped.body]).toEqual([200, { running: false }]);
   });
 
   test("start while running is refused", async () => {

@@ -27,7 +27,8 @@ While the model is silent, the server writes an SSE comment every KEEPALIVE_SECO
 skips; it keeps proxies and clients from timing out a long thought.
 An error is `{"error": {"type", "message", ...}}`: the HTTP body when the server refuses a request,
 or one event followed by `data: [DONE]` once the stream has begun. The five MMSP errors travel with
-their fields and are raised again as themselves; every other error is raised as an `UpstreamError`.
+their fields; the mmsp client raises every error the server reports as an `UpstreamError` carrying
+the object.
 """
 
 import base64
@@ -35,12 +36,10 @@ from typing import Any
 
 from .errors import (
     EmptyResponseError,
-    MMSPError,
     StreamProtocolError,
     ToolCallArgumentParseError,
     UnsupportedOperationError,
     UnsupportedParameterError,
-    UpstreamError,
 )
 
 
@@ -140,12 +139,7 @@ def to_wire_error(exc: BaseException) -> dict[str, Any]:
             "usage_metadata": exc.usage_metadata,
         }
     if isinstance(exc, StreamProtocolError):
-        # the constructor that raises it again adds the prefix back
-        return {
-            "type": "StreamProtocolError",
-            "message": str(exc).removeprefix(f"{exc.client} broke the streaming protocol: "),
-            "client": exc.client,
-        }
+        return {"type": "StreamProtocolError", "message": str(exc), "client": exc.client}
     if isinstance(exc, ToolCallArgumentParseError):
         return {
             "type": "ToolCallArgumentParseError",
@@ -163,44 +157,3 @@ def to_wire_error(exc: BaseException) -> dict[str, Any]:
     if isinstance(status, int):
         error["status"] = status
     return error
-
-
-def from_wire_error(error: dict[str, Any], status: int | None, client: str = "MmspClient") -> MMSPError:
-    """
-    The exception a wire error stands for: the MMSP error it was, or an UpstreamError.
-
-    Args:
-        error: The error object of a response body or of an error event.
-        status: The HTTP status of a refused request, None for an error inside a stream.
-        client: The client an UpstreamError is raised by.
-
-    Returns:
-        The exception to raise.
-    """
-    error_type = error.get("type")
-    message = error.get("message") or error_type or "unknown error"
-    match error_type:
-        case "UnsupportedParameterError":
-            return UnsupportedParameterError(error.get("client"), error.get("parameter"), message)
-        case "UnsupportedOperationError":
-            return UnsupportedOperationError(error.get("client"), error.get("operation"), message)
-        case "EmptyResponseError":
-            return EmptyResponseError(error.get("client"), error.get("finish_reason"), error.get("usage_metadata"))
-        case "StreamProtocolError":
-            return StreamProtocolError(error.get("client"), message)
-        case "ToolCallArgumentParseError":
-            exc = ToolCallArgumentParseError(
-                error.get("client"),
-                error.get("tool_name"),
-                error.get("tool_call_id"),
-                error.get("raw_arguments_preview") or "",
-                message.rpartition("): ")[2],
-            )
-            # the raw arguments stayed on the server, so the length, the preview (which a long preview
-            # would truncate twice) and the message are the upstream's own
-            exc.raw_arguments_length = error.get("raw_arguments_length")
-            exc.raw_arguments_preview = error.get("raw_arguments_preview")
-            exc.args = (message,)
-            return exc
-
-    return UpstreamError(client, status if status is not None else error.get("status"), error_type, message)

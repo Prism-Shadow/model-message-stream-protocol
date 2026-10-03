@@ -29,14 +29,13 @@ Thinking levels never raise. Every client maps the level you ask for to the clos
 
 ## Through an MMSP server
 
-The [`mmsp` client](/docs/server/) raises what the server's client raised.
+The [`mmsp` client](/docs/server/) raises one error for anything its server reports.
 
 | Error | Raised when | Carries |
 | --- | --- | --- |
-| The five errors above | The server's client raised one | The same fields; `client` names the server's client |
-| `UpstreamError` | Anything else: the server refused the request (a wrong key, a model not in its table), or its client raised another error | `client`, `status`, `error_type` |
+| `UpstreamError` | The server refused the request (a wrong key, a model not in its table, a malformed body), or its client raised an error | `client`, `status`, `error_type`, `message`, `error` |
 
-`status` is the HTTP status of a refused request, or the upstream's own, such as a 429, when its SDK reported one. TypeScript names the type `errorType`.
+`client` is `MmspClient`. `status` is the HTTP status of a refusal, else the upstream's own, such as a 429, when the error names one. `error_type` is the server-side class, such as `AuthenticationError`, `NotFoundError`, `EmptyResponseError`, `UnsupportedParameterError` or `RuntimeError`. `error` is the error object as the server sent it, with that error's fields, such as `parameter` or `usage_metadata`. TypeScript names them `errorType` and `error`.
 
 ## Output MMSP does not recognize
 

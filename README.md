@@ -710,7 +710,7 @@ cd src_ts && npm run playground
 
 You can access the playground at `http://localhost:25751/`.
 The integrated tracer is available at `http://localhost:25751/tracer/`.
-The server page at `http://localhost:25751/server/` saves its table to `MMSP_SERVER_CONFIG` (else `cache/server.json`), starts an MMSP server from it and shows what it serves.
+The server page at `http://localhost:25751/server/` saves its table to `MMSP_SERVER_CONFIG` (else `cache/server.json`), starts an MMSP server from it and shows what it serves: a card per model, requests, outcomes, latency and throughput over time.
 
 ## MMSP Server
 
@@ -751,9 +751,9 @@ curl -N http://127.0.0.1:25752/v1/stream -H "Authorization: Bearer $MMSP_SERVER_
 # data: [DONE]
 ```
 
-`GET /v1/metrics` reports requests, success rate and latency percentiles since start; the playground's server page shows them while it runs the server.
+`GET /v1/metrics` reports requests, success rate, latency percentiles, tokens and tokens per second since start, and with `?window=N` the last N seconds in 10 s buckets; the playground's server page draws them while it runs the server.
 
-The `mmsp` client calls it and yields the same stream:
+The `mmsp` client calls it and yields the server's stream as it is; an error the server reports is raised as `UpstreamError` with the server's error object:
 
 ```python
 client = AutoLLMClient(model="claude", client_type="mmsp", base_url="http://127.0.0.1:25752/v1", api_key=os.environ["MMSP_SERVER_API_KEY"])

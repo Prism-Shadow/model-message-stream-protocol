@@ -29,14 +29,13 @@ Python 将这些字段命名为 `tool_name`、`tool_call_id`、`raw_arguments_le
 
 ## 经由 MMSP 服务端
 
-[`mmsp` 客户端](/zh/docs/server/)抛出的就是服务端那一侧客户端抛出的错误。
+服务端报告的任何错误，[`mmsp` 客户端](/zh/docs/server/)都以同一个错误抛出。
 
 | 错误 | 何时抛出 | 携带 |
 | --- | --- | --- |
-| 上面五种错误 | 服务端的客户端抛出了其中一种 | 相同的字段；`client` 是服务端那一侧的客户端 |
-| `UpstreamError` | 其他所有情况：服务端拒绝了请求（key 不对、不在它的表里的模型），或它的客户端抛出了别的错误 | `client`、`status`、`error_type` |
+| `UpstreamError` | 服务端拒绝了请求（key 不对、不在它的表里的模型、请求体格式错误），或它的客户端抛出了错误 | `client`、`status`、`error_type`、`message`、`error` |
 
-`status` 是被拒请求的 HTTP 状态码；若上游 SDK 报告了状态码（比如 429），则是上游的状态码。TypeScript 中类型字段名为 `errorType`。
+`client` 是 `MmspClient`。`status` 是被拒请求的 HTTP 状态码；否则，若错误带有上游的状态码（比如 429），则是该状态码。`error_type` 是服务端那一侧的类名，比如 `AuthenticationError`、`NotFoundError`、`EmptyResponseError`、`UnsupportedParameterError` 或 `RuntimeError`。`error` 是服务端发来的错误对象，带着该错误自己的字段，比如 `parameter` 或 `usage_metadata`。TypeScript 中这两个字段名为 `errorType` 和 `error`。
 
 ## MMSP 不认识的输出
 

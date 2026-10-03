@@ -106,17 +106,25 @@ class ToolCallArgumentParseError(MMSPError):
 
 
 class UpstreamError(MMSPError):
-    """Raised by the mmsp client for an error its server reported that is not one of the MMSP errors above.
+    """Raised by the mmsp client for anything its server reported.
 
-    It is the server's own refusal (a rejected key, a model not in its table) or an exception the
-    upstream client raised, named by its class in `error_type`. `status` is the HTTP status that
-    explains it, when there is one: the server's refusal, or the upstream's own status.
+    A refusal before the stream (`status` is the HTTP status) or an error event inside it (`status`
+    is the upstream's own when the error carries one); `error_type` is the server-side class name;
+    `error` the object as sent.
     """
 
-    def __init__(self, client: str, status: int | None, error_type: str | None, message: str) -> None:
+    def __init__(
+        self,
+        client: str,
+        status: int | None,
+        error_type: str | None,
+        message: str,
+        error: dict[str, Any] | None = None,
+    ) -> None:
         self.client = client
         self.status = status
         self.error_type = error_type
+        self.error = dict(error) if error else {}
         super().__init__(message)
 
 

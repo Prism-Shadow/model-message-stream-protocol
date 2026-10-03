@@ -17,6 +17,7 @@ import json
 import threading
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, AsyncIterator, Callable
 
 import pytest
@@ -24,13 +25,7 @@ from flask import Flask
 from stream_grammar import assert_stream_grammar
 from werkzeug.serving import make_server
 
-from mmsp import (
-    AutoLLMClient,
-    EmptyResponseError,
-    ToolCallArgumentParseError,
-    UnsupportedParameterError,
-    UpstreamError,
-)
+from mmsp import AutoLLMClient, UnsupportedParameterError, UpstreamError, base_client
 from mmsp.abort_signal import AbortSignal
 from mmsp.base_client import LLMClient
 from mmsp.integration import server
@@ -46,7 +41,7 @@ from mmsp.integration.server import (
     start_server,
 )
 from mmsp.types import ContentItem, UniConfig, UniEvent, UniMessage
-from mmsp.wire import server_base_url
+from mmsp.wire import decode_wire, server_base_url
 
 
 # Every upstream the server builds here is a scripted client, so nothing reaches a vendor; the
@@ -417,38 +412,66 @@ async def test_stream_through_the_server_equals_the_upstream_stream(case: Stream
 
 
 @pytest.mark.asyncio
-async def test_thinking_only_response_raises_the_upstream_empty_response_error(use_upstream, serve):
+async def test_client_yields_the_server_events_as_sent(monkeypatch: pytest.MonkeyPatch, use_upstream, serve):
+    script = next(case.script for case in STREAM_CASES if case.name == "two_text_items_of_different_phase")
+    use_upstream(lambda model: ScriptedClient(script, model))
+    # one wall clock for the server's two responses, so that it stamps their events alike
+    monkeypatch.setattr(base_client, "time", SimpleNamespace(time=lambda: 1790000000.0))
+    app = _server_app()
+
+    with app.test_client() as client:
+        response = client.post("/v1/stream", json={"model": "gpt-5.5", "messages": _messages()})
+    raw = [decode_wire(json.loads(event)) for event in _sse_events(response.data) if event != "[DONE]"]
+    actual = [event async for event in _mmsp_client(serve(app)).streaming_response(_messages(), {})]
+
+    assert actual == raw
+
+
+@pytest.mark.asyncio
+async def test_thinking_only_response_raises_an_upstream_error_carrying_the_empty_response_error(use_upstream, serve):
     script = [_delta({"type": "thinking.delta", "thinking": "Hmm.", "fidelity": {"item_id": "0"}}), _stop()]
     use_upstream(lambda model: ScriptedClient(script, model))
     url = serve(_server_app())
 
-    with pytest.raises(EmptyResponseError) as exc_info:
+    with pytest.raises(UpstreamError) as exc_info:
         async for _ in _mmsp_client(url).streaming_response(_messages(), {}):
             pass
 
-    assert exc_info.value.client == "ScriptedClient"
-    assert exc_info.value.finish_reason == "stop"
-    assert exc_info.value.usage_metadata == USAGE
-    assert str(exc_info.value) == str(await _direct_error(script, {}))
+    direct = await _direct_error(script, {})
+    assert exc_info.value.client == "MmspClient"
+    assert exc_info.value.status is None
+    assert exc_info.value.error_type == "EmptyResponseError"
+    assert str(exc_info.value) == str(direct)
+    assert exc_info.value.error == {
+        "type": "EmptyResponseError",
+        "message": str(direct),
+        "client": "ScriptedClient",
+        "finish_reason": "stop",
+        "usage_metadata": USAGE,
+    }
 
 
 @pytest.mark.asyncio
-async def test_unsupported_parameter_raises_the_upstream_unsupported_parameter_error(use_upstream, serve):
+async def test_unsupported_parameter_raises_an_upstream_error_carrying_the_unsupported_parameter_error(
+    use_upstream, serve
+):
     script = [_delta({"type": "text.delta", "text": "Hi"}), _stop()]
     use_upstream(lambda model: ScriptedClient(script, model))
     url = serve(_server_app())
 
-    with pytest.raises(UnsupportedParameterError) as exc_info:
+    with pytest.raises(UpstreamError) as exc_info:
         async for _ in _mmsp_client(url).streaming_response(_messages(), {"temperature": 0.1}):
             pass
 
-    assert exc_info.value.client == "ScriptedClient"
-    assert exc_info.value.parameter == "temperature"
+    assert exc_info.value.client == "MmspClient"
+    assert exc_info.value.error_type == "UnsupportedParameterError"
+    assert exc_info.value.error["parameter"] == "temperature"
+    assert exc_info.value.error["client"] == "ScriptedClient"
     assert str(exc_info.value) == "ScriptedClient does not support temperature."
 
 
 @pytest.mark.asyncio
-async def test_unparsable_tool_call_arguments_raise_the_upstream_parse_error(use_upstream, serve):
+async def test_unparsable_tool_call_arguments_raise_an_upstream_error_carrying_the_parse_error(use_upstream, serve):
     script = [
         _delta({"type": "tool_call.delta", "name": "f", "arguments": '{"a":', "tool_call_id": "call_1"}),
         _stop("tool_call"),
@@ -456,16 +479,16 @@ async def test_unparsable_tool_call_arguments_raise_the_upstream_parse_error(use
     use_upstream(lambda model: ScriptedClient(script, model))
     url = serve(_server_app())
 
-    with pytest.raises(ToolCallArgumentParseError) as exc_info:
+    with pytest.raises(UpstreamError) as exc_info:
         async for _ in _mmsp_client(url).streaming_response(_messages(), {}):
             pass
 
     direct = await _direct_error(script, {})
-    assert exc_info.value.client == "ScriptedClient"
-    assert exc_info.value.tool_name == "f"
-    assert exc_info.value.tool_call_id == "call_1"
-    assert exc_info.value.raw_arguments_preview == '{"a":'
-    assert exc_info.value.raw_arguments_length == 5
+    assert exc_info.value.error_type == "ToolCallArgumentParseError"
+    assert exc_info.value.error["tool_name"] == "f"
+    assert exc_info.value.error["tool_call_id"] == "call_1"
+    assert exc_info.value.error["raw_arguments_preview"] == '{"a":'
+    assert exc_info.value.error["raw_arguments_length"] == 5
     assert str(exc_info.value) == str(direct)
 
 
@@ -488,6 +511,7 @@ async def test_other_upstream_failure_raises_an_upstream_error_after_the_deltas_
     assert exc_info.value.status is None
     assert exc_info.value.error_type == "RuntimeError"
     assert str(exc_info.value) == "connection reset"
+    assert exc_info.value.error == {"type": "RuntimeError", "message": "connection reset"}
 
 
 @pytest.mark.parametrize(
@@ -540,6 +564,7 @@ async def test_client_with_a_wrong_key_raises_an_upstream_error_with_the_status(
     assert exc_info.value.status == 401
     assert exc_info.value.error_type == "AuthenticationError"
     assert str(exc_info.value) == "Invalid or missing API key."
+    assert exc_info.value.error == {"type": "AuthenticationError", "message": "Invalid or missing API key."}
 
 
 def test_failing_stream_ends_with_an_error_event_then_the_done_marker(use_upstream):
@@ -640,6 +665,7 @@ async def test_request_for_a_model_not_in_the_table_is_not_found(serve):
             pass
     assert exc_info.value.status == 404
     assert exc_info.value.error_type == "NotFoundError"
+    assert exc_info.value.error["type"] == "NotFoundError"
     assert str(exc_info.value) == message
 
 
@@ -1002,6 +1028,22 @@ def _metrics(app: Flask, headers: dict[str, str] | None = None) -> dict[str, Any
 _COUNTS = ("requests", "successes", "failures", "disconnects", "in_flight", "success_rate")
 _NO_LATENCY = {"first_event": {"p50": None, "p90": None}, "total": {"p50": None, "p90": None}}
 _NO_TOKENS = {"prompt": 0, "cached": 0, "thoughts": 0, "response": 0}
+_OUTPUT = ("tokens_out", "thoughts", "response", "generation_ms", "tps")
+# the window's sums and columns of the total, which alone count the refusals
+_TOTAL_SUMMARY = [*_COUNTS, "refused", *_OUTPUT, "latency_ms"]
+_TOTAL_COLUMNS = [
+    "requests",
+    "successes",
+    "failures",
+    "disconnects",
+    "refused",
+    *_OUTPUT,
+    "p50",
+    "p90",
+    "first_event_p50",
+    "first_event_p90",
+]
+_WINDOW_ERROR = "window must be an integer number of seconds from 10 to 7200."
 
 
 def _counts(series: dict[str, Any]) -> dict[str, Any]:
@@ -1026,15 +1068,30 @@ def test_metrics_count_a_success_with_its_latency_and_tokens(use_upstream):
         *_COUNTS,
         "latency_ms",
         "tokens",
+        "tokens_out",
+        "generation_ms",
+        "tps",
         "refused",
         "last_request_at",
+        "errors",
         "models",
     ]
     assert (before["requests"], before["last_request_at"]) == (0, None)
     assert metrics["started_at"] == created
     assert metrics["uptime_s"] >= 0
     claude, gpt = metrics["models"]
-    assert list(claude) == ["id", *_COUNTS, "latency_ms", "tokens", "last_request_at", "last_outcome", "last_error"]
+    assert list(claude) == [
+        "id",
+        *_COUNTS,
+        "latency_ms",
+        "tokens",
+        "tokens_out",
+        "generation_ms",
+        "tps",
+        "last_request_at",
+        "last_outcome",
+        "last_error",
+    ]
     for series in (metrics, claude):
         assert _counts(series) == {
             "requests": 1,
@@ -1049,10 +1106,14 @@ def test_metrics_count_a_success_with_its_latency_and_tokens(use_upstream):
         assert total["p50"] == total["p90"]
         assert 0 <= first_event["p50"] <= total["p50"]
         assert series["tokens"] == {"prompt": 3, "cached": 0, "thoughts": 0, "response": 5}
+        assert series["tokens_out"] == 5
+        assert series["generation_ms"] >= 1
+        assert series["tps"] == int(5 * 10000 / series["generation_ms"] + 0.5) / 10
     assert (claude["id"], claude["last_outcome"], claude["last_error"]) == ("claude", "success", None)
     assert isinstance(claude["last_request_at"], float)
     assert claude["last_request_at"] == metrics["last_request_at"]
     assert metrics["refused"] == {"unauthorized": 0, "invalid_request": 0, "unknown_model": 0}
+    assert metrics["errors"] == []
     # every row is reported from the start, with nothing counted
     assert gpt == {
         "id": "gpt-5.5",
@@ -1064,6 +1125,9 @@ def test_metrics_count_a_success_with_its_latency_and_tokens(use_upstream):
         "success_rate": None,
         "latency_ms": _NO_LATENCY,
         "tokens": _NO_TOKENS,
+        "tokens_out": 0,
+        "generation_ms": 0,
+        "tps": None,
         "last_request_at": None,
         "last_outcome": None,
         "last_error": None,
@@ -1098,10 +1162,13 @@ def test_metrics_count_a_failure_with_its_error(use_upstream):
     }
     assert gpt["latency_ms"] == _NO_LATENCY
     assert gpt["tokens"] == _NO_TOKENS
+    assert gpt["tokens_out"] == 0
+    assert gpt["tps"] is None
     assert gpt["last_outcome"] == "failure"
     assert list(gpt["last_error"]) == ["at", "message"]
     assert gpt["last_error"]["message"] == "connection reset"
     assert isinstance(gpt["last_error"]["at"], float)
+    assert metrics["errors"] == [{"at": gpt["last_error"]["at"], "model": "gpt-5.5", "message": "connection reset"}]
     assert (claude["success_rate"], claude["last_error"]) == (1.0, None)
     assert _counts(metrics) == {
         "requests": 2,
@@ -1212,6 +1279,172 @@ def test_metrics_percentiles_are_nearest_rank_over_the_last_thousand():
     # the first ten fell out of the window
     assert snapshot["latency_ms"] == {"first_event": {"p50": 5, "p90": 5}, "total": {"p50": 10, "p90": 10}}
     assert snapshot["successes"] == 1010
+
+
+def test_metrics_sum_output_tokens_and_tps_over_generation_time():
+    moment = [0.0]
+    metrics = ServerMetrics(["m"], now=lambda: moment[0], clock=lambda: 1790000000.0 + moment[0])
+
+    def request(begin: float, first_event: float, end: float, usage: dict[str, int]) -> None:
+        moment[0] = begin
+        sample = metrics.begin("m")
+        moment[0] = first_event
+        metrics.first_event(sample)
+        moment[0] = end
+        metrics.finish(sample, "success", usage=usage)
+
+    request(0.0, 0.5, 2.5, {"thoughts_tokens": 20, "response_tokens": 80})
+    # its first event is its stop event: a generation of 0 ms, counted as 1 ms
+    request(3.0, 3.2, 3.2, {"response_tokens": 5})
+    snapshot = metrics.snapshot()
+    total = metrics.window(60)["total"]
+
+    for series in (snapshot, snapshot["models"][0]):
+        assert series["tokens"] == {"prompt": 0, "cached": 0, "thoughts": 20, "response": 85}
+        assert (series["tokens_out"], series["generation_ms"], series["tps"]) == (105, 2001, 52.5)
+    assert {name: total[name] for name in _OUTPUT} == {
+        "tokens_out": 105,
+        "thoughts": 20,
+        "response": 85,
+        "generation_ms": 2001,
+        "tps": 52.5,
+    }
+    # both requests began in the bucket of 1790000000
+    assert {name: total["series"][name] for name in _OUTPUT} == {
+        "tokens_out": [105],
+        "thoughts": [20],
+        "response": [85],
+        "generation_ms": [2001],
+        "tps": [52.5],
+    }
+
+    moment[0] = 15.0
+    assert metrics.window(60)["total"]["series"]["tps"] == [52.5, None]
+
+
+def test_metrics_window_counts_a_request_in_the_bucket_it_began_in():
+    wall = [1790000005.0]
+    metrics = ServerMetrics(["m"], now=lambda: wall[0], clock=lambda: wall[0])
+
+    sample = metrics.begin("m")
+    wall[0] = 1790000017.0
+    metrics.first_event(sample)
+    metrics.finish(sample, "success", usage={"response_tokens": 7})
+    window = metrics.window(60)
+
+    assert list(window) == ["seconds", "bucket_s", "start", "end", "total", "models", "previous"]
+    # the current bucket ends the window, which starts no earlier than the bucket the server started in
+    assert (window["seconds"], window["bucket_s"], window["start"], window["end"]) == (60, 10, 1790000000, 1790000020)
+    total, model = window["total"], window["models"][0]
+    assert list(total) == [*_TOTAL_SUMMARY, "series"]
+    assert list(total["series"]) == _TOTAL_COLUMNS
+    assert list(model) == ["id", *(name for name in _TOTAL_SUMMARY if name != "refused"), "series"]
+    assert list(model["series"]) == [name for name in _TOTAL_COLUMNS if name != "refused"]
+    assert model["id"] == "m"
+    for series in (total["series"], model["series"]):
+        assert series["requests"] == [1, 0]
+        assert series["successes"] == [1, 0]
+        assert series["tokens_out"] == [7, 0]
+        assert series["thoughts"] == [0, 0]
+        assert series["response"] == [7, 0]
+        assert series["p90"] == [12000, None]
+    assert total["series"]["refused"] == [0, 0]
+    assert total["in_flight"] == 0
+    assert total["latency_ms"] == {"first_event": {"p50": 12000, "p90": 12000}, "total": {"p50": 12000, "p90": 12000}}
+    assert window["previous"] is None
+
+
+def test_metrics_window_slices_the_range_and_reports_the_previous_window():
+    wall = [1790000000.0]
+    metrics = ServerMetrics(["m"], now=lambda: wall[0], clock=lambda: wall[0])
+
+    for minute in range(30):
+        wall[0] = 1790000001.0 + 60 * minute
+        sample = metrics.begin("m")
+        metrics.first_event(sample)
+        metrics.finish(sample, "success")
+    five = metrics.window(300)
+    hour = metrics.window(3600)
+
+    assert len(five["total"]["series"]["requests"]) == 30
+    assert sum(five["total"]["series"]["requests"]) == five["total"]["requests"] == 5
+    assert list(five["previous"]) == _TOTAL_SUMMARY
+    assert five["previous"]["requests"] == 5
+    # the hour before the end began before the server, so it has no hour to compare with
+    assert hour["previous"] is None
+    assert hour["start"] == 1790000000
+    assert len(hour["total"]["series"]["requests"]) == (hour["end"] - hour["start"]) // 10
+    assert hour["total"]["requests"] == 30
+
+
+def test_metrics_window_drops_buckets_older_than_two_hours():
+    wall = [1790000005.0]
+    metrics = ServerMetrics(["m"], now=lambda: wall[0], clock=lambda: wall[0])
+
+    metrics.finish(metrics.begin("m"), "success")
+    late = metrics.begin("m")
+    wall[0] += 7300
+    metrics.finish(metrics.begin("m"), "success")
+
+    assert len(metrics._total.buckets) == 1
+    assert len(metrics._models["m"].buckets) == 1
+    # begun before the cutoff: counted since start, in no bucket
+    metrics.finish(late, "failure", error="late")
+    assert len(metrics._total.buckets) == 1
+    window = metrics.window(7200)
+    assert (window["total"]["requests"], window["total"]["successes"], window["total"]["failures"]) == (1, 1, 0)
+    snapshot = metrics.snapshot()
+    assert (snapshot["requests"], snapshot["successes"], snapshot["failures"]) == (3, 2, 1)
+
+
+def test_metrics_window_percentiles_are_over_the_first_sixty_four_samples_of_a_bucket():
+    moment = [0.0]
+    metrics = ServerMetrics(["m"], now=lambda: moment[0], clock=lambda: 1790000000.0)
+
+    for total_ms in range(1, 101):
+        moment[0] = 0.0
+        sample = metrics.begin("m")
+        moment[0] = total_ms / 1000
+        metrics.finish(sample, "success")
+    window = metrics.window(10)
+
+    # the nearest rank of 1..64
+    assert window["total"]["series"]["requests"] == [100]
+    assert window["total"]["series"]["p90"] == [58]
+    assert window["total"]["latency_ms"]["total"]["p90"] == 58
+    # the since-start percentiles keep every one of the hundred
+    assert metrics.snapshot()["latency_ms"]["total"]["p90"] == 90
+
+
+def test_metrics_window_refuses_a_bad_window():
+    app = _server_app()
+
+    with app.test_client() as client:
+        for value in ("abc", "5", "7201"):
+            response = client.get(f"/v1/metrics?window={value}")
+            assert response.status_code == 400, value
+            assert response.get_json() == {"error": {"type": "InvalidRequestError", "message": _WINDOW_ERROR}}
+        assert client.post("/v1/stream", json={"model": "nope", "messages": []}).status_code == 404
+        response = client.get("/v1/metrics?window=300")
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert list(body) == [*_metrics(app), "window"]
+    assert body["window"]["seconds"] == 300
+    assert sum(body["window"]["total"]["series"]["refused"]) == body["window"]["total"]["refused"] == 1
+    # a bad window is no refusal: refusals count stream requests
+    assert body["refused"] == {"unauthorized": 0, "invalid_request": 0, "unknown_model": 1}
+
+
+def test_metrics_keep_the_latest_twenty_errors():
+    metrics = ServerMetrics(["m"])
+
+    for i in range(25):
+        metrics.finish(metrics.begin("m"), "failure", error=f"error {i}")
+    errors = metrics.snapshot()["errors"]
+
+    assert [entry["message"] for entry in errors] == [f"error {i}" for i in range(24, 4, -1)]
+    assert {(tuple(entry), entry["model"]) for entry in errors} == {(("at", "model", "message"), "m")}
 
 
 def test_metrics_require_the_key():

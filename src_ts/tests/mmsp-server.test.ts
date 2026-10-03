@@ -29,12 +29,7 @@ import {
 } from "@jest/globals";
 import { AutoLLMClient } from "../src/autoClient";
 import { LLMClient } from "../src/baseClient";
-import {
-  EmptyResponseError,
-  ToolCallArgumentParseError,
-  UnsupportedParameterError,
-  UpstreamError,
-} from "../src/errors";
+import { UnsupportedParameterError, UpstreamError } from "../src/errors";
 import {
   ModelRow,
   ServerMetrics,
@@ -600,7 +595,35 @@ describe("MMSP server stream", () => {
     },
   );
 
-  test("a thinking-only response raises the upstream EmptyResponseError", async () => {
+  test("the client yields the server's events as sent", async () => {
+    const [testCase] = STREAM_CASES;
+    expect(testCase.name).toBe("two_text_items_of_different_phase");
+    useUpstream((model) => new ScriptedClient(testCase.script, model));
+    const url = await serve(serverApp());
+    // a copy of the body the client reads: two requests would be stamped at two moments
+    const realFetch = globalThis.fetch;
+    const bodies: Promise<string>[] = [];
+    const spy = jest
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async (input, init) => {
+        const response = await realFetch(input, init);
+        bodies.push(response.clone().text());
+        return response;
+      });
+
+    const actual = await collect(mmspClient(url)).finally(() =>
+      spy.mockRestore(),
+    );
+
+    expect(bodies).toHaveLength(1);
+    const raw = sseEvents(await bodies[0])
+      .filter((data) => data !== "[DONE]")
+      .map((data) => wire.decodeWire(JSON.parse(data)));
+    expect(actual).toEqual(raw);
+    expect(actual.every((event) => event.created_at !== undefined)).toBe(true);
+  });
+
+  test("a thinking-only response raises an UpstreamError carrying the EmptyResponseError", async () => {
     const script = [
       delta({
         type: "thinking.delta",
@@ -613,34 +636,43 @@ describe("MMSP server stream", () => {
     const url = await serve(serverApp());
 
     const error = await raised(mmspClient(url));
+    const direct = await raised(new ScriptedClient(script));
 
-    expect(error).toBeInstanceOf(EmptyResponseError);
+    expect(error).toBeInstanceOf(UpstreamError);
     expect(error).toMatchObject({
-      client: "ScriptedClient",
-      finishReason: "stop",
-      usageMetadata: USAGE,
+      client: "MmspClient",
+      status: null,
+      errorType: "EmptyResponseError",
+      message: direct.message,
     });
-    expect(error.message).toBe(
-      (await raised(new ScriptedClient(script))).message,
-    );
+    expect((error as UpstreamError).error).toEqual({
+      type: "EmptyResponseError",
+      message: direct.message,
+      client: "ScriptedClient",
+      finish_reason: "stop",
+      usage_metadata: USAGE,
+    });
   });
 
-  test("an unsupported parameter raises the upstream UnsupportedParameterError", async () => {
+  test("an unsupported parameter raises an UpstreamError carrying the UnsupportedParameterError", async () => {
     const script = [delta({ type: "text.delta", text: "Hi" }), stop()];
     useUpstream((model) => new ScriptedClient(script, model));
     const url = await serve(serverApp());
 
     const error = await raised(mmspClient(url), { temperature: 0.1 });
 
-    expect(error).toBeInstanceOf(UnsupportedParameterError);
+    expect(error).toBeInstanceOf(UpstreamError);
     expect(error).toMatchObject({
-      client: "ScriptedClient",
-      parameter: "temperature",
+      errorType: "UnsupportedParameterError",
       message: "ScriptedClient does not support temperature.",
+    });
+    expect((error as UpstreamError).error).toMatchObject({
+      parameter: "temperature",
+      client: "ScriptedClient",
     });
   });
 
-  test("unparsable tool call arguments raise the upstream ToolCallArgumentParseError", async () => {
+  test("unparsable tool call arguments raise an UpstreamError carrying the ToolCallArgumentParseError", async () => {
     const script = [
       delta({
         type: "tool_call.delta",
@@ -655,17 +687,17 @@ describe("MMSP server stream", () => {
 
     const error = await raised(mmspClient(url));
 
-    expect(error).toBeInstanceOf(ToolCallArgumentParseError);
+    expect(error).toBeInstanceOf(UpstreamError);
     expect(error).toMatchObject({
-      client: "ScriptedClient",
-      toolName: "f",
-      toolCallId: "call_1",
-      rawArgumentsPreview: '{"a":',
-      rawArgumentsLength: 5,
+      errorType: "ToolCallArgumentParseError",
+      message: (await raised(new ScriptedClient(script))).message,
     });
-    expect(error.message).toBe(
-      (await raised(new ScriptedClient(script))).message,
-    );
+    expect((error as UpstreamError).error).toMatchObject({
+      tool_name: "f",
+      tool_call_id: "call_1",
+      raw_arguments_preview: '{"a":',
+      raw_arguments_length: 5,
+    });
   });
 
   test("any other upstream failure raises an UpstreamError after the deltas before it", async () => {
@@ -683,6 +715,10 @@ describe("MMSP server stream", () => {
       client: "MmspClient",
       status: null,
       errorType: "RuntimeError",
+      message: "connection reset",
+    });
+    expect((error as UpstreamError).error).toEqual({
+      type: "RuntimeError",
       message: "connection reset",
     });
   });
@@ -829,6 +865,10 @@ describe("MMSP server requests", () => {
       errorType: "AuthenticationError",
       message: "Invalid or missing API key.",
     });
+    expect((error as UpstreamError).error).toEqual({
+      type: "AuthenticationError",
+      message: "Invalid or missing API key.",
+    });
   });
 
   test("a failing stream ends with an error event, then the done marker", async () => {
@@ -921,6 +961,7 @@ describe("MMSP server requests", () => {
       errorType: "NotFoundError",
       message,
     });
+    expect((error as UpstreamError).error.type).toBe("NotFoundError");
   });
 
   test("the server accepts any of its keys", async () => {
@@ -1149,8 +1190,12 @@ const SNAPSHOT_KEYS = [
   "success_rate",
   "latency_ms",
   "tokens",
+  "tokens_out",
+  "generation_ms",
+  "tps",
   "refused",
   "last_request_at",
+  "errors",
   "models",
 ];
 
@@ -1164,10 +1209,62 @@ const MODEL_KEYS = [
   "success_rate",
   "latency_ms",
   "tokens",
+  "tokens_out",
+  "generation_ms",
+  "tps",
   "last_request_at",
   "last_outcome",
   "last_error",
 ];
+
+// the keys of a window's summary, total and per model, which carry `series` last
+const SUMMARY_KEYS = [
+  "requests",
+  "successes",
+  "failures",
+  "disconnects",
+  "in_flight",
+  "success_rate",
+  "tokens_out",
+  "thoughts",
+  "response",
+  "generation_ms",
+  "tps",
+  "latency_ms",
+];
+
+const COLUMN_KEYS = [
+  "requests",
+  "successes",
+  "failures",
+  "disconnects",
+  "tokens_out",
+  "thoughts",
+  "response",
+  "generation_ms",
+  "tps",
+  "p50",
+  "p90",
+  "first_event_p50",
+  "first_event_p90",
+];
+
+/**
+ * A usage with only the given fields reported.
+ */
+function usage(fields: Partial<UsageMetadata>): UsageMetadata {
+  return {
+    cached_tokens: null,
+    prompt_tokens: null,
+    thoughts_tokens: null,
+    response_tokens: null,
+    ...fields,
+  };
+}
+
+function sum(values: number[]): number {
+  return values.reduce((total, value) => total + value, 0);
+}
 
 const NO_LATENCY = {
   first_event: { p50: null, p90: null },
@@ -1190,6 +1287,9 @@ function untouched(id: string): Metrics {
     success_rate: null,
     latency_ms: NO_LATENCY,
     tokens: NO_TOKENS,
+    tokens_out: 0,
+    generation_ms: 0,
+    tps: null,
     last_request_at: null,
     last_outcome: null,
     last_error: null,
@@ -1220,6 +1320,7 @@ describe("MMSP server metrics", () => {
       tokens: NO_TOKENS,
       refused: { unauthorized: 0, invalid_request: 0, unknown_model: 0 },
       last_request_at: null,
+      errors: [],
       models: [untouched("claude"), untouched("gpt-5.5")],
     });
     expect(Number.isInteger(after.started_at)).toBe(true);
@@ -1232,7 +1333,11 @@ describe("MMSP server metrics", () => {
       in_flight: 0,
       success_rate: 1,
       tokens: { prompt: 3, cached: 0, thoughts: 0, response: 5 },
+      tokens_out: 5,
+      errors: [],
     });
+    expect(after.generation_ms).toBeGreaterThanOrEqual(1);
+    expect(after.tps).toBe(Math.round((5 * 10000) / after.generation_ms) / 10);
     const { first_event: firstEvent, total } = after.latency_ms;
     expect(Number.isInteger(total.p50)).toBe(true);
     expect(total.p90).toBe(total.p50);
@@ -1253,6 +1358,9 @@ describe("MMSP server metrics", () => {
       success_rate: 1,
       latency_ms: after.latency_ms,
       tokens: after.tokens,
+      tokens_out: 5,
+      generation_ms: after.generation_ms,
+      tps: after.tps,
       last_request_at: after.last_request_at,
       last_outcome: "success",
       last_error: null,
@@ -1280,10 +1388,19 @@ describe("MMSP server metrics", () => {
     expect(model).toMatchObject({
       failures: 1,
       success_rate: 0,
+      tokens_out: 0,
+      tps: null,
       last_outcome: "failure",
       last_error: { message: "connection reset" },
     });
     expect(Math.abs(model.last_error.at - Date.now() / 1000)).toBeLessThan(60);
+    expect(metrics.errors).toEqual([
+      {
+        at: model.last_error.at,
+        model: "gpt-5.5",
+        message: "connection reset",
+      },
+    ]);
   });
 
   test("metrics count a disconnect apart from failures", async () => {
@@ -1508,6 +1625,243 @@ describe("MMSP server metrics", () => {
     expect(unknown.status).toBe(404);
     expect(metrics.snapshot().refused).toMatchObject({ unknown_model: 1 });
     expect((await metricsOf(app)).refused).toEqual(metrics.snapshot().refused);
+  });
+
+  test("metrics sum output tokens and TPS over generation time", () => {
+    let moment = 0;
+    const metrics = new ServerMetrics(
+      ["m"],
+      () => moment,
+      () => 1790000000 + moment,
+    );
+    const first = metrics.begin("m");
+    moment = 0.5;
+    metrics.firstEvent(first);
+    moment = 2.5;
+    metrics.finish(first, "success", {
+      usage: usage({ thoughts_tokens: 20, response_tokens: 80 }),
+    });
+    moment = 3.0;
+    const second = metrics.begin("m");
+    moment = 3.2;
+    metrics.firstEvent(second);
+    metrics.finish(second, "success", {
+      usage: usage({ response_tokens: 5 }),
+    });
+
+    const snapshot = metrics.snapshot() as Metrics;
+    const { total } = metrics.window(60) as Metrics;
+
+    // 2000 ms of generation and 1 ms for the stream whose first event was its last
+    for (const series of [snapshot, snapshot.models[0]]) {
+      expect(series).toMatchObject({
+        tokens: { prompt: 0, cached: 0, thoughts: 20, response: 85 },
+        tokens_out: 105,
+        generation_ms: 2001,
+        tps: 52.5,
+      });
+    }
+    // both began in the bucket 1790000000
+    expect(total).toMatchObject({
+      tokens_out: 105,
+      thoughts: 20,
+      response: 85,
+      generation_ms: 2001,
+      tps: 52.5,
+    });
+    expect(total.series).toMatchObject({
+      tokens_out: [105],
+      thoughts: [20],
+      response: [85],
+      generation_ms: [2001],
+      tps: [52.5],
+    });
+    moment = 15;
+    expect((metrics.window(60) as Metrics).total.series.tps).toEqual([
+      52.5,
+      null,
+    ]);
+  });
+
+  test("metrics window counts a request in the bucket it began in", () => {
+    let wall = 1790000005;
+    const metrics = new ServerMetrics(
+      ["m"],
+      () => wall,
+      () => wall,
+    );
+    const sample = metrics.begin("m");
+    wall = 1790000017;
+    metrics.firstEvent(sample);
+    metrics.finish(sample, "success", {
+      usage: usage({ response_tokens: 7 }),
+    });
+
+    const windowed = metrics.window(60) as Metrics;
+
+    // the server's first bucket bounds the window, and the current bucket is its last
+    expect(Object.keys(windowed)).toEqual([
+      "seconds",
+      "bucket_s",
+      "start",
+      "end",
+      "total",
+      "models",
+      "previous",
+    ]);
+    expect(windowed).toMatchObject({
+      seconds: 60,
+      bucket_s: 10,
+      start: 1790000000,
+      end: 1790000020,
+    });
+    expect(windowed.total.series).toMatchObject({
+      requests: [1, 0],
+      successes: [1, 0],
+      tokens_out: [7, 0],
+      thoughts: [0, 0],
+      response: [7, 0],
+      p90: [12000, null],
+    });
+    expect(windowed.total.in_flight).toBe(0);
+    expect(windowed.previous).toBeNull();
+    expect(Object.keys(windowed.total)).toEqual([
+      ...SUMMARY_KEYS.slice(0, 6),
+      "refused",
+      ...SUMMARY_KEYS.slice(6),
+      "series",
+    ]);
+    expect(Object.keys(windowed.total.series)).toEqual([
+      ...COLUMN_KEYS.slice(0, 4),
+      "refused",
+      ...COLUMN_KEYS.slice(4),
+    ]);
+    const [model] = windowed.models;
+    expect(Object.keys(model)).toEqual(["id", ...SUMMARY_KEYS, "series"]);
+    expect(Object.keys(model.series)).toEqual(COLUMN_KEYS);
+  });
+
+  test("metrics window slices the range and reports the previous window", () => {
+    let wall = 1790000000;
+    const metrics = new ServerMetrics(
+      ["m"],
+      () => wall,
+      () => wall,
+    );
+    for (let minute = 0; minute < 30; minute++) {
+      wall = 1790000000 + minute * 60;
+      metrics.finish(metrics.begin("m"), "success");
+    }
+
+    const fiveMinutes = metrics.window(300) as Metrics;
+    const hour = metrics.window(3600) as Metrics;
+
+    expect(fiveMinutes.total.series.requests).toHaveLength(30);
+    expect(sum(fiveMinutes.total.series.requests)).toBe(5);
+    expect(fiveMinutes.previous.requests).toBe(5);
+    // the hour before began before the server
+    expect(hour.previous).toBeNull();
+    expect(hour.start).toBe(1790000000);
+  });
+
+  test("metrics window drops buckets older than two hours", () => {
+    let wall = 1790000000;
+    const metrics = new ServerMetrics(
+      ["m"],
+      () => wall,
+      () => wall,
+    );
+    // the total's buckets, a private field read through a cast
+    const { buckets } = (
+      metrics as unknown as { total: { buckets: Map<number, unknown> } }
+    ).total;
+    metrics.finish(metrics.begin("m"), "success");
+    const late = metrics.begin("m");
+    wall += 7300;
+    metrics.finish(metrics.begin("m"), "success");
+
+    expect(buckets.size).toBe(1);
+    expect((metrics.window(7200) as Metrics).total.requests).toBe(1);
+
+    // begun before the cutoff: the since-start counts take it, the buckets do not
+    metrics.finish(late, "success");
+    expect(buckets.size).toBe(1);
+    expect((metrics.snapshot() as Metrics).successes).toBe(3);
+    expect((metrics.window(7200) as Metrics).total).toMatchObject({
+      requests: 1,
+      successes: 1,
+    });
+  });
+
+  test("metrics window percentiles are over the first sixty-four samples of a bucket", () => {
+    let time = 0;
+    const metrics = new ServerMetrics(
+      ["m"],
+      () => time,
+      () => 1790000000,
+    );
+    for (let ms = 1; ms <= 100; ms++) {
+      time = 0;
+      const sample = metrics.begin("m");
+      time = ms / 1000;
+      metrics.finish(sample, "success");
+    }
+
+    const { series } = (metrics.window(60) as Metrics).total;
+
+    expect(series.requests).toEqual([100]);
+    // the nearest rank of 1..64, while the since-start p90 is over all of them
+    expect(series.p90).toEqual([58]);
+    expect((metrics.snapshot() as Metrics).latency_ms.total.p90).toBe(90);
+  });
+
+  test("metrics window refuses a bad window", async () => {
+    const app = serverApp();
+    const unknown = await request(app)
+      .post("/v1/stream")
+      .send({ model: "nope", messages: [] });
+    expect(unknown.status).toBe(404);
+
+    for (const value of ["abc", "5", "7201"]) {
+      const response = await request(app).get(`/v1/metrics?window=${value}`);
+
+      expect([response.status, response.body]).toEqual([
+        400,
+        {
+          error: {
+            type: "InvalidRequestError",
+            message:
+              "window must be an integer number of seconds from 10 to 7200.",
+          },
+        },
+      ]);
+    }
+    const response = await request(app).get("/v1/metrics?window=300");
+
+    expect(response.status).toBe(200);
+    expect(Object.keys(response.body)).toEqual([...SNAPSHOT_KEYS, "window"]);
+    expect(response.body.window.seconds).toBe(300);
+    // a bad window is not a refusal; the unknown model is, in the bucket it happened in
+    expect(response.body.refused).toEqual({
+      unauthorized: 0,
+      invalid_request: 0,
+      unknown_model: 1,
+    });
+    expect(response.body.window.total.refused).toBe(1);
+    expect(sum(response.body.window.total.series.refused)).toBe(1);
+  });
+
+  test("metrics keep the latest twenty errors", () => {
+    const metrics = new ServerMetrics(["m"]);
+    for (let i = 0; i < 25; i++) {
+      metrics.finish(metrics.begin("m"), "failure", { error: `error ${i}` });
+    }
+
+    const { errors } = metrics.snapshot() as Metrics;
+
+    expect(errors.map((error: { message: string }) => error.message)).toEqual(
+      Array.from({ length: 20 }, (_, i) => `error ${24 - i}`),
+    );
   });
 });
 
