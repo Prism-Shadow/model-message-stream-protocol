@@ -35,6 +35,7 @@ import { UniMessage, UniConfig } from "../types";
 import { DEFAULT_HOST, DEFAULT_PORT, serverBaseUrl } from "../wire";
 import {
   COLUMNS,
+  SERVER_TEMPLATE,
   ServerConfig,
   ServerMetrics,
   announceServer,
@@ -42,7 +43,6 @@ import {
   readServerConfig,
   resolveServerConfig,
 } from "./server";
-import { SERVER_TEMPLATE } from "./serverPage";
 import { Tracer } from "./tracer";
 
 const sessionClients: Map<string, AutoLLMClient> = new Map();

@@ -43,6 +43,7 @@ from ..auto_client import COMPATIBLE_CLIENT_TYPES, MODEL_FAMILIES, OFFICIAL_CLIE
 from ..wire import DEFAULT_HOST, DEFAULT_PORT, server_base_url
 from .server import (
     _COLUMNS,
+    SERVER_TEMPLATE,
     ServerConfig,
     ServerMetrics,
     announce_server,
@@ -50,7 +51,6 @@ from .server import (
     read_server_config,
     resolve_server_config,
 )
-from .server_page import SERVER_TEMPLATE
 from .tracer import Tracer
 
 
