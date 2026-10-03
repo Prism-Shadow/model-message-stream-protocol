@@ -3719,5 +3719,7 @@ export function startPlaygroundServer(
   const app = createChatApp();
   app.listen(port, host, () => {
     console.log(`Starting LLM Playground at http://${host}:${port}`);
+    console.log(`Tracer at http://${host}:${port}/tracer/`);
+    console.log(`MMSP server page at http://${host}:${port}/server/`);
   });
 }

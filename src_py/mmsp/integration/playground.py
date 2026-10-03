@@ -3633,6 +3633,8 @@ def start_playground_server(host: str = "127.0.0.1", port: int = 25751, debug: b
     os.environ.setdefault("MMSP_DEBUG", "1")
     app = create_chat_app()
     print(f"Starting LLM Playground at http://{host}:{port}")
+    print(f"Tracer at http://{host}:{port}/tracer/")
+    print(f"MMSP server page at http://{host}:{port}/server/")
     app.run(host=host, port=port, debug=debug)
 
 
