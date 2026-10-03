@@ -16,9 +16,11 @@ import asyncio
 import json
 import threading
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, AsyncIterator, Callable
 
 import pytest
+from flask import Flask
 from stream_grammar import assert_stream_grammar
 from werkzeug.serving import make_server
 
@@ -32,23 +34,13 @@ from mmsp import (
 from mmsp.abort_signal import AbortSignal
 from mmsp.base_client import LLMClient
 from mmsp.integration import server
-from mmsp.integration.server import create_server_app
+from mmsp.integration.server import ModelRow, create_server_app, load_server_config, start_server
 from mmsp.types import ContentItem, UniConfig, UniEvent, UniMessage
 
 
-# Every client the server routes to here is a scripted one, so nothing reaches a vendor; the
-# environment still decides what /v1/models lists and whether the server wants a key.
-_SERVER_ENV = [
-    "CLIENT_TYPE",
-    "MMSP_SERVER_API_KEY",
-    "OPENAI_API_KEY",
-    "ANTHROPIC_API_KEY",
-    "GEMINI_API_KEY",
-    "ZAI_API_KEY",
-    "MOONSHOT_API_KEY",
-    "DEEPSEEK_API_KEY",
-    "MINIMAX_API_KEY",
-]
+# Every upstream the server builds here is a scripted client, so nothing reaches a vendor; the
+# table decides what is served and which keys open it.
+_SERVER_ENV = ["MMSP_SERVER_CONFIG", "PROBE_UPSTREAM_KEY", "PROBE_SERVER_KEY", "PROBE_BASE_URL"]
 
 USAGE = {"cached_tokens": None, "prompt_tokens": 3, "thoughts_tokens": None, "response_tokens": 5}
 
@@ -150,11 +142,6 @@ class SilentScriptedClient(ScriptedClient):
             yield event
 
 
-class FailingListClient(ScriptedClient):
-    async def list_models(self) -> list[str]:
-        raise RuntimeError("401 unauthorized")
-
-
 @pytest.fixture(autouse=True)
 def _controlled_env(monkeypatch: pytest.MonkeyPatch) -> None:
     for name in _SERVER_ENV:
@@ -163,20 +150,29 @@ def _controlled_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("no_proxy", "127.0.0.1")
 
 
+Construction = tuple[str, str | None, str | None, str | None]
+
+
 @pytest.fixture
-def constructions() -> list[tuple[str, str | None]]:
-    """The (model, client_type) of every client the server constructed."""
+def constructions() -> list[Construction]:
+    """The (model, client_type, api_key, base_url) of every upstream the server constructed."""
     return []
 
 
 @pytest.fixture
-def route_to(monkeypatch: pytest.MonkeyPatch, constructions: list[tuple[str, str | None]]):
-    """Routes every model the server is asked for to the client `upstream(model)` builds."""
+def use_upstream(monkeypatch: pytest.MonkeyPatch, constructions: list[Construction]):
+    """Builds every row's upstream with `factory(model)` in place of `AutoLLMClient`."""
 
-    def patch(upstream: Callable[[str], LLMClient]) -> None:
-        def fake_auto_client(model: str, client_type: str | None = None) -> LLMClient:
-            constructions.append((model, client_type))
-            return upstream(model)
+    def patch(factory: Callable[[str], LLMClient]) -> None:
+        def fake_auto_client(
+            model: str,
+            api_key: str | None = None,
+            base_url: str | None = None,
+            client_type: str | None = None,
+            default_headers: dict[str, str] | None = None,
+        ) -> LLMClient:
+            constructions.append((model, client_type, api_key, base_url))
+            return factory(model)
 
         monkeypatch.setattr(server, "AutoLLMClient", fake_auto_client)
 
@@ -185,14 +181,14 @@ def route_to(monkeypatch: pytest.MonkeyPatch, constructions: list[tuple[str, str
 
 @pytest.fixture
 def serve():
-    """Serves an app on a free local port and returns its base URL."""
+    """Serves an app on a free local port and returns the base URL a client is given."""
     http_servers = []
 
     def start(app) -> str:
         http_server = make_server("127.0.0.1", 0, app, threaded=True)
         threading.Thread(target=http_server.serve_forever, daemon=True).start()
         http_servers.append(http_server)
-        return f"http://127.0.0.1:{http_server.server_port}"
+        return f"http://127.0.0.1:{http_server.server_port}/v1"
 
     yield start
     for http_server in http_servers:
@@ -200,8 +196,28 @@ def serve():
         http_server.server_close()
 
 
-def _mmsp_client(url: str) -> AutoLLMClient:
-    return AutoLLMClient(model="gpt-5.5", client_type="mmsp", base_url=url, api_key="test-key")
+def _row(model_id: str, server_model_id: str | None = None, **overrides: str) -> ModelRow:
+    return {
+        "model_id": model_id,
+        "base_url": "https://upstream.example/v1",
+        "api_key": "sk-upstream",
+        "server_model_id": server_model_id or model_id,
+        "client_type": "openai-responses",
+        **overrides,
+    }
+
+
+def _server_app(models: list[ModelRow] | None = None, api_keys: list[str] | None = None) -> Flask:
+    return create_server_app(models or [_row("gpt-5.5")], api_keys)
+
+
+def _mmsp_client(url: str, model: str = "gpt-5.5") -> AutoLLMClient:
+    return AutoLLMClient(model=model, client_type="mmsp", base_url=url, api_key="test-key")
+
+
+def _write_config(path: Path, config: Any) -> Path:
+    path.write_text(json.dumps(config, ensure_ascii=False), encoding="utf-8")
+    return path
 
 
 def _strip(events: list[UniEvent]) -> list[dict[str, Any]]:
@@ -377,9 +393,9 @@ STREAM_CASES = [
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("case", STREAM_CASES, ids=[case.name for case in STREAM_CASES])
-async def test_stream_through_the_server_equals_the_upstream_stream(case: StreamCase, route_to, serve):
-    route_to(lambda model: ScriptedClient(case.script, model))
-    url = serve(create_server_app())
+async def test_stream_through_the_server_equals_the_upstream_stream(case: StreamCase, use_upstream, serve):
+    use_upstream(lambda model: ScriptedClient(case.script, model))
+    url = serve(_server_app())
 
     expected = [event async for event in ScriptedClient(case.script).streaming_response(_messages(), {})]
     actual = [event async for event in _mmsp_client(url).streaming_response(_messages(), {})]
@@ -390,10 +406,10 @@ async def test_stream_through_the_server_equals_the_upstream_stream(case: Stream
 
 
 @pytest.mark.asyncio
-async def test_thinking_only_response_raises_the_upstream_empty_response_error(route_to, serve):
+async def test_thinking_only_response_raises_the_upstream_empty_response_error(use_upstream, serve):
     script = [_delta({"type": "thinking.delta", "thinking": "Hmm.", "fidelity": {"item_id": "0"}}), _stop()]
-    route_to(lambda model: ScriptedClient(script, model))
-    url = serve(create_server_app())
+    use_upstream(lambda model: ScriptedClient(script, model))
+    url = serve(_server_app())
 
     with pytest.raises(EmptyResponseError) as exc_info:
         async for _ in _mmsp_client(url).streaming_response(_messages(), {}):
@@ -406,10 +422,10 @@ async def test_thinking_only_response_raises_the_upstream_empty_response_error(r
 
 
 @pytest.mark.asyncio
-async def test_unsupported_parameter_raises_the_upstream_unsupported_parameter_error(route_to, serve):
+async def test_unsupported_parameter_raises_the_upstream_unsupported_parameter_error(use_upstream, serve):
     script = [_delta({"type": "text.delta", "text": "Hi"}), _stop()]
-    route_to(lambda model: ScriptedClient(script, model))
-    url = serve(create_server_app())
+    use_upstream(lambda model: ScriptedClient(script, model))
+    url = serve(_server_app())
 
     with pytest.raises(UnsupportedParameterError) as exc_info:
         async for _ in _mmsp_client(url).streaming_response(_messages(), {"temperature": 0.1}):
@@ -421,13 +437,13 @@ async def test_unsupported_parameter_raises_the_upstream_unsupported_parameter_e
 
 
 @pytest.mark.asyncio
-async def test_unparsable_tool_call_arguments_raise_the_upstream_parse_error(route_to, serve):
+async def test_unparsable_tool_call_arguments_raise_the_upstream_parse_error(use_upstream, serve):
     script = [
         _delta({"type": "tool_call.delta", "name": "f", "arguments": '{"a":', "tool_call_id": "call_1"}),
         _stop("tool_call"),
     ]
-    route_to(lambda model: ScriptedClient(script, model))
-    url = serve(create_server_app())
+    use_upstream(lambda model: ScriptedClient(script, model))
+    url = serve(_server_app())
 
     with pytest.raises(ToolCallArgumentParseError) as exc_info:
         async for _ in _mmsp_client(url).streaming_response(_messages(), {}):
@@ -443,13 +459,13 @@ async def test_unparsable_tool_call_arguments_raise_the_upstream_parse_error(rou
 
 
 @pytest.mark.asyncio
-async def test_other_upstream_failure_raises_an_upstream_error_after_the_deltas_before_it(route_to, serve):
+async def test_other_upstream_failure_raises_an_upstream_error_after_the_deltas_before_it(use_upstream, serve):
     script = [
         _delta({"type": "text.delta", "text": "Hel", "fidelity": {"item_id": "0"}}),
         RuntimeError("connection reset"),
     ]
-    route_to(lambda model: ScriptedClient(script, model))
-    url = serve(create_server_app())
+    use_upstream(lambda model: ScriptedClient(script, model))
+    url = serve(_server_app())
 
     events = []
     with pytest.raises(UpstreamError) as exc_info:
@@ -474,7 +490,7 @@ async def test_other_upstream_failure_raises_an_upstream_error_after_the_deltas_
     ids=["not_json", "no_model", "no_messages", "config_not_an_object"],
 )
 def test_malformed_stream_request_is_refused(body: Any, message: str):
-    app = create_server_app()
+    app = _server_app()
 
     with app.test_client() as client:
         if isinstance(body, str):
@@ -486,9 +502,9 @@ def test_malformed_stream_request_is_refused(body: Any, message: str):
     assert response.get_json() == {"error": {"type": "InvalidRequestError", "message": message}}
 
 
-def test_server_with_a_key_refuses_requests_without_it(route_to):
-    route_to(lambda model: ScriptedClient([], model))
-    app = create_server_app(api_key="secret")
+def test_server_with_a_key_refuses_requests_without_it(use_upstream):
+    use_upstream(lambda model: ScriptedClient([], model))
+    app = _server_app(api_keys=["secret"])
     refusal = {"error": {"type": "AuthenticationError", "message": "Invalid or missing API key."}}
 
     with app.test_client() as client:
@@ -501,20 +517,10 @@ def test_server_with_a_key_refuses_requests_without_it(route_to):
     assert right.status_code == 200
 
 
-def test_server_reads_its_key_from_the_environment(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("MMSP_SERVER_API_KEY", "secret")
-    app = create_server_app()
-
-    with app.test_client() as client:
-        response = client.get("/v1/models")
-
-    assert response.status_code == 401
-
-
 @pytest.mark.asyncio
-async def test_client_with_a_wrong_key_raises_an_upstream_error_with_the_status(route_to, serve):
-    route_to(lambda model: ScriptedClient([], model))
-    url = serve(create_server_app(api_key="secret"))
+async def test_client_with_a_wrong_key_raises_an_upstream_error_with_the_status(use_upstream, serve):
+    use_upstream(lambda model: ScriptedClient([], model))
+    url = serve(_server_app(api_keys=["secret"]))
 
     with pytest.raises(UpstreamError) as exc_info:
         async for _ in _mmsp_client(url).streaming_response(_messages(), {}):
@@ -525,24 +531,13 @@ async def test_client_with_a_wrong_key_raises_an_upstream_error_with_the_status(
     assert str(exc_info.value) == "Invalid or missing API key."
 
 
-def test_model_of_no_known_family_is_refused_with_the_routing_error():
-    app = create_server_app()
-
-    with app.test_client() as client:
-        response = client.post("/v1/stream", json={"model": "qwen3.6", "messages": _messages()})
-
-    assert response.status_code == 400
-    assert response.get_json()["error"]["type"] == "InvalidRequestError"
-    assert "Pass client_type" in response.get_json()["error"]["message"]
-
-
-def test_failing_stream_ends_with_an_error_event_then_the_done_marker(route_to):
+def test_failing_stream_ends_with_an_error_event_then_the_done_marker(use_upstream):
     script = [
         _delta({"type": "text.delta", "text": "Hel", "fidelity": {"item_id": "0"}}),
         RuntimeError("connection reset"),
     ]
-    route_to(lambda model: ScriptedClient(script, model))
-    app = create_server_app()
+    use_upstream(lambda model: ScriptedClient(script, model))
+    app = _server_app()
 
     with app.test_client() as client:
         response = client.post("/v1/stream", json={"model": "gpt-5.5", "messages": _messages()})
@@ -554,82 +549,197 @@ def test_failing_stream_ends_with_an_error_event_then_the_done_marker(route_to):
     assert events[-1] == "[DONE]"
 
 
-def test_server_refuses_to_route_to_an_mmsp_server(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("CLIENT_TYPE", "mmsp")
-
-    with pytest.raises(ValueError, match="CLIENT_TYPE=mmsp"):
-        create_server_app()
-
-
 @pytest.mark.asyncio
-async def test_models_lists_each_official_client_whose_key_the_environment_holds(
-    monkeypatch: pytest.MonkeyPatch, route_to, constructions, serve
-):
-    monkeypatch.setenv("OPENAI_API_KEY", "sk-openai")
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant")
-    route_to(lambda model: ScriptedClient([], model))
-    app = create_server_app()
-    expected = ["gpt--a", "gpt--b", "claude--a", "claude--b"]
+async def test_models_lists_every_row_in_openai_format(use_upstream, serve):
+    use_upstream(lambda model: ScriptedClient([], model))
+    app = _server_app([_row("claude-sonnet-5-5", "claude"), _row("gpt-5.5")])
 
     with app.test_client() as client:
         response = client.get("/v1/models")
 
     assert response.status_code == 200
-    assert response.get_json() == {"models": expected}
-    # built by family alone, so each listing keeps the ids that route to that client
-    assert constructions == [("gpt-", None), ("claude-", None)]
-    assert await _mmsp_client(serve(app)).list_models() == expected
+    body = response.get_json()
+    assert [list(body), list(body["data"][0])] == [["object", "data"], ["id", "object", "created", "owned_by"]]
+    created = [entry.pop("created") for entry in body["data"]]
+    assert body == {
+        "object": "list",
+        "data": [
+            {"id": "claude", "object": "model", "owned_by": "mmsp"},
+            {"id": "gpt-5.5", "object": "model", "owned_by": "mmsp"},
+        ],
+    }
+    assert isinstance(created[0], int)
+    assert created[0] == created[1]
+    assert await _mmsp_client(serve(app)).list_models() == ["claude", "gpt-5.5"]
 
 
 @pytest.mark.asyncio
-async def test_models_lists_the_endpoint_of_the_client_type_whole(
-    monkeypatch: pytest.MonkeyPatch, route_to, constructions, serve
-):
-    monkeypatch.setenv("CLIENT_TYPE", "openai-chat")
-    monkeypatch.setenv("OPENAI_API_KEY", "sk-openai")
-    route_to(lambda model: ScriptedClient([], model))
-    app = create_server_app()
+async def test_each_row_streams_its_own_upstream_with_its_own_columns(use_upstream, constructions, serve):
+    scripts = {
+        "gpt-5.5": [_delta({"type": "text.delta", "text": "from gpt", "fidelity": {"item_id": "0"}}), _stop()],
+        "claude-sonnet-5-5": [
+            _delta({"type": "text.delta", "text": "from claude", "fidelity": {"item_id": "0"}}),
+            _stop(),
+        ],
+    }
+    use_upstream(lambda model: ScriptedClient(scripts[model], model))
+    app = _server_app(
+        [
+            _row("gpt-5.5"),
+            _row(
+                "claude-sonnet-5-5",
+                "claude",
+                base_url="https://gw.example",
+                api_key="sk-row",
+                client_type="ant-messages",
+            ),
+        ]
+    )
+    url = serve(app)
 
+    assert constructions == [
+        ("gpt-5.5", "openai-responses", "sk-upstream", "https://upstream.example/v1"),
+        ("claude-sonnet-5-5", "ant-messages", "sk-row", "https://gw.example"),
+    ]
+    for model, upstream_model in (("gpt-5.5", "gpt-5.5"), ("claude", "claude-sonnet-5-5")):
+        expected = [
+            event async for event in ScriptedClient(scripts[upstream_model]).streaming_response(_messages(), {})
+        ]
+        actual = [event async for event in _mmsp_client(url, model).streaming_response(_messages(), {})]
+        assert _strip(actual) == _strip(expected)
+
+    # the upstream id is not an alias of the row
     with app.test_client() as client:
-        response = client.get("/v1/models")
-
-    assert response.get_json() == {"models": ["-a", "-b"]}
-    assert constructions == [("", None)]
-    assert await _mmsp_client(serve(app)).list_models() == ["-a", "-b"]
-
-
-def test_models_without_any_vendor_key_is_empty(route_to):
-    route_to(lambda model: ScriptedClient([], model))
-    app = create_server_app()
-
-    with app.test_client() as client:
-        response = client.get("/v1/models")
-
-    assert response.get_json() == {"models": []}
+        response = client.post("/v1/stream", json={"model": "claude-sonnet-5-5", "messages": _messages()})
+    assert response.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_failing_listing_is_a_bad_gateway(monkeypatch: pytest.MonkeyPatch, route_to, serve):
-    monkeypatch.setenv("OPENAI_API_KEY", "sk-openai")
-    route_to(lambda model: FailingListClient([], model))
-    app = create_server_app()
+async def test_request_for_a_model_not_in_the_table_is_not_found(serve):
+    app = _server_app()
+    message = "The model 'gpt-4' does not exist; GET /v1/models lists the models this server serves."
 
     with app.test_client() as client:
-        response = client.get("/v1/models")
+        response = client.post("/v1/stream", json={"model": "gpt-4", "messages": _messages()})
 
-    assert response.status_code == 502
-    assert response.get_json() == {"error": {"type": "RuntimeError", "message": "401 unauthorized"}}
+    assert response.status_code == 404
+    assert response.get_json() == {"error": {"type": "NotFoundError", "message": message}}
     with pytest.raises(UpstreamError) as exc_info:
-        await _mmsp_client(serve(app)).list_models()
-    assert exc_info.value.status == 502
-    assert exc_info.value.error_type == "RuntimeError"
+        async for _ in _mmsp_client(serve(app), "gpt-4").streaming_response(_messages(), {}):
+            pass
+    assert exc_info.value.status == 404
+    assert exc_info.value.error_type == "NotFoundError"
+    assert str(exc_info.value) == message
 
 
 @pytest.mark.asyncio
-async def test_aborting_the_client_cancels_the_upstream_through_the_server(route_to, serve):
+async def test_server_accepts_any_of_its_keys(use_upstream, serve):
+    script = [_delta({"type": "text.delta", "text": "Hi", "fidelity": {"item_id": "0"}}), _stop()]
+    use_upstream(lambda model: ScriptedClient(script, model))
+    app = _server_app(api_keys=["k1", "k2"])
+
+    with app.test_client() as client:
+        statuses = [
+            client.get("/v1/models", headers={"Authorization": f"Bearer {key}"}).status_code
+            for key in ("k1", "k2", "k3")
+        ]
+        missing = client.get("/v1/models")
+
+    assert statuses == [200, 200, 401]
+    assert missing.status_code == 401
+    mmsp_client = AutoLLMClient(model="gpt-5.5", client_type="mmsp", base_url=serve(app), api_key="k2")
+    events = [event async for event in mmsp_client.streaming_response(_messages(), {})]
+    assert _done_items(events) == [{"type": "text.done", "text": "Hi"}]
+
+
+def test_server_without_keys_is_open():
+    for app in (_server_app(), _server_app(api_keys=[])):
+        with app.test_client() as client:
+            assert client.get("/v1/models").status_code == 200
+
+
+def test_empty_table_refuses_to_start():
+    with pytest.raises(ValueError) as exc_info:
+        create_server_app(models=[])
+
+    assert str(exc_info.value) == "models is empty: the server needs at least one model row."
+
+
+@pytest.mark.parametrize("column", ["model_id", "base_url", "api_key", "server_model_id", "client_type"])
+def test_row_with_a_missing_or_empty_column_refuses_to_start(column: str):
+    missing = {name: value for name, value in _row("gpt-5.5").items() if name != column}
+    empty = {**_row("gpt-5.5"), column: ""}
+
+    for row in (missing, empty):
+        with pytest.raises(ValueError) as exc_info:
+            create_server_app([row])
+        assert str(exc_info.value) == f"models[0]: {column} must be a non-empty string."
+
+
+def test_duplicate_server_model_id_refuses_to_start():
+    with pytest.raises(ValueError) as exc_info:
+        create_server_app([_row("gpt-5.5"), _row("gpt-5.5-mini", "gpt-5.5")])
+
+    assert str(exc_info.value) == "models[1]: server_model_id 'gpt-5.5' is already used by models[0]."
+
+
+def test_row_the_upstream_client_refuses_names_the_row_and_a_relay_row_builds():
+    with pytest.raises(ValueError) as exc_info:
+        create_server_app([_row("gpt-5.5"), _row("qwen3.8", client_type="nope")])
+    assert str(exc_info.value).startswith("models[1] 'qwen3.8': Unknown client type")
+
+    # a row may name another MMSP server as its upstream
+    relay = create_server_app(
+        [_row("claude", "claude-relayed", base_url="http://127.0.0.1:1/v1", api_key="none", client_type="mmsp")]
+    )
+    with relay.test_client() as client:
+        assert [model["id"] for model in client.get("/v1/models").get_json()["data"]] == ["claude-relayed"]
+
+    with pytest.raises(ValueError) as exc_info:
+        create_server_app([_row("gpt-5.5")], api_keys=[1])
+    assert str(exc_info.value) == "api_keys must be a list of non-empty strings."
+
+
+def test_unknown_route_is_a_json_not_found():
+    app = _server_app()
+
+    with app.test_client() as client:
+        unprefixed = client.get("/models")
+        wrong_method = client.get("/v1/stream")
+
+    assert unprefixed.status_code == 404
+    assert unprefixed.get_json() == {
+        "error": {
+            "type": "NotFoundError",
+            "message": "No route for GET /models; the server serves POST /v1/stream and GET /v1/models.",
+        }
+    }
+    # a known path with another method, which Flask alone would answer with a 405
+    assert wrong_method.status_code == 404
+    assert wrong_method.get_json() == {
+        "error": {
+            "type": "NotFoundError",
+            "message": "No route for GET /v1/stream; the server serves POST /v1/stream and GET /v1/models.",
+        }
+    }
+
+    # routes are case-sensitive, so a path that slips past the /v1/ key check names no route either
+    with _server_app(api_keys=["secret"]).test_client() as client:
+        uppercase = client.get("/V1/models")
+    assert uppercase.status_code == 404
+    assert uppercase.get_json() == {
+        "error": {
+            "type": "NotFoundError",
+            "message": "No route for GET /V1/models; the server serves POST /v1/stream and GET /v1/models.",
+        }
+    }
+
+
+@pytest.mark.asyncio
+async def test_aborting_the_client_cancels_the_upstream_through_the_server(use_upstream, serve):
     upstream = SlowScriptedClient()
-    route_to(lambda model: upstream)
-    url = serve(create_server_app())
+    use_upstream(lambda model: upstream)
+    url = serve(_server_app())
     signal = AbortSignal()
     stream = _mmsp_client(url).streaming_response(_messages(), {}, signal)
 
@@ -649,12 +759,12 @@ async def test_aborting_the_client_cancels_the_upstream_through_the_server(route
 
 @pytest.mark.asyncio
 async def test_silent_upstream_is_kept_alive_with_comments_the_client_skips(
-    monkeypatch: pytest.MonkeyPatch, route_to, serve
+    monkeypatch: pytest.MonkeyPatch, use_upstream, serve
 ):
     monkeypatch.setattr(server, "KEEPALIVE_SECONDS", 0.05)
     script = [_delta({"type": "text.delta", "text": "Hello", "fidelity": {"item_id": "0"}}), _stop()]
-    route_to(lambda model: SilentScriptedClient(script, model))
-    app = create_server_app()
+    use_upstream(lambda model: SilentScriptedClient(script, model))
+    app = _server_app()
 
     with app.test_client() as client:
         response = client.post("/v1/stream", json={"model": "gpt-5.5", "messages": _messages()})
@@ -668,3 +778,109 @@ async def test_silent_upstream_is_kept_alive_with_comments_the_client_skips(
     expected = [event async for event in ScriptedClient(script).streaming_response(_messages(), {})]
     actual = [event async for event in _mmsp_client(serve(app)).streaming_response(_messages(), {})]
     assert _strip(actual) == _strip(expected)
+
+
+def test_load_server_config_resolves_environment_references(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, use_upstream, constructions
+):
+    monkeypatch.setenv("PROBE_BASE_URL", "https://probe.example/v1")
+    monkeypatch.setenv("PROBE_UPSTREAM_KEY", "sk-probe")
+    monkeypatch.setenv("PROBE_SERVER_KEY", "srv-probe")
+    path = _write_config(
+        tmp_path / "server.json",
+        {
+            "models": [
+                _row("claude-sonnet-5-5", "claude", base_url="$PROBE_BASE_URL", api_key="$PROBE_UPSTREAM_KEY"),
+                _row("gpt-5.5"),
+                # the ids are names, read as written
+                _row("$literal"),
+            ],
+            "api_keys": ["${PROBE_SERVER_KEY}", "second-key"],
+        },
+    )
+
+    config = load_server_config(path)
+
+    assert config == {
+        "models": [
+            _row("claude-sonnet-5-5", "claude", base_url="https://probe.example/v1", api_key="sk-probe"),
+            _row("gpt-5.5"),
+            _row("$literal"),
+        ],
+        "api_keys": ["srv-probe", "second-key"],
+    }
+    use_upstream(lambda model: ScriptedClient([], model))
+    app = create_server_app(**config)
+    with app.test_client() as client:
+        response = client.get("/v1/models", headers={"Authorization": "Bearer srv-probe"})
+    assert [model["id"] for model in response.get_json()["data"]] == ["claude", "gpt-5.5", "$literal"]
+    assert constructions[0] == ("claude-sonnet-5-5", "openai-responses", "sk-probe", "https://probe.example/v1")
+
+
+def test_load_server_config_refuses_an_unset_reference(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    path = tmp_path / "server.json"
+    cases = [
+        (
+            {"models": [_row("gpt-5.5", api_key="$PROBE_UPSTREAM_KEY")]},
+            "models[0].api_key references $PROBE_UPSTREAM_KEY",
+        ),
+        (
+            {"models": [_row("gpt-5.5", base_url="${PROBE_BASE_URL}")]},
+            "models[0].base_url references ${PROBE_BASE_URL}",
+        ),
+        ({"models": [_row("gpt-5.5")], "api_keys": ["$PROBE_SERVER_KEY"]}, "api_keys[0] references $PROBE_SERVER_KEY"),
+    ]
+
+    for config, reference in cases:
+        _write_config(path, config)
+        with pytest.raises(ValueError) as exc_info:
+            load_server_config(path)
+        assert str(exc_info.value) == f"{path}: {reference}, which is not set in the environment."
+
+    # empty is as good as unset
+    monkeypatch.setenv("PROBE_UPSTREAM_KEY", "")
+    _write_config(path, cases[0][0])
+    with pytest.raises(ValueError) as exc_info:
+        load_server_config(path)
+    assert str(exc_info.value) == (
+        f"{path}: models[0].api_key references $PROBE_UPSTREAM_KEY, which is not set in the environment."
+    )
+
+
+def test_load_server_config_refuses_a_file_that_is_not_a_config(tmp_path: Path):
+    path = tmp_path / "server.json"
+    path.write_text("not json", encoding="utf-8")
+    with pytest.raises(ValueError) as exc_info:
+        load_server_config(path)
+    assert str(exc_info.value).startswith(f"{path}: not valid JSON: ")
+
+    for config, message in (
+        ([], "the config must be a JSON object with a models list."),
+        ({"models": [], "api_keys": "k"}, "api_keys must be a list."),
+    ):
+        _write_config(path, config)
+        with pytest.raises(ValueError) as exc_info:
+            load_server_config(path)
+        assert str(exc_info.value) == f"{path}: {message}"
+
+    # an empty table is create_server_app's to refuse
+    assert load_server_config(_write_config(path, {"models": []})) == {"models": [], "api_keys": []}
+
+
+def test_start_server_prints_the_base_url_the_models_and_whether_it_is_open(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):
+    monkeypatch.setattr(Flask, "run", lambda self, **kwargs: None)
+    models = [_row("claude-sonnet-5-5", "claude"), _row("gpt-5.5")]
+
+    start_server(models, host="127.0.0.1", port=25999)
+    assert capsys.readouterr().out == (
+        "Starting MMSP server at http://127.0.0.1:25999/v1\n"
+        "Serving models: claude, gpt-5.5\n"
+        "Open server: api_keys is empty, every request is accepted\n"
+    )
+
+    start_server(models, api_keys=["k"], host="127.0.0.1", port=25999)
+    assert capsys.readouterr().out == (
+        "Starting MMSP server at http://127.0.0.1:25999/v1\nServing models: claude, gpt-5.5\n"
+    )

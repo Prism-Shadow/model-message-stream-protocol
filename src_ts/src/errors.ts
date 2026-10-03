@@ -146,7 +146,7 @@ export class ToolCallArgumentParseError extends MMSPError {
 
 /**
  * Raised by the mmsp client for an error its server reported that is not one of the MMSP
- * errors above: the server's own refusal (a rejected key, a model it cannot route) or an
+ * errors above: the server's own refusal (a rejected key, a model not in its table) or an
  * exception the upstream client raised, named by its class. `status` is the HTTP status that
  * explains it, when there is one.
  */

@@ -48,7 +48,7 @@ main().catch(console.error);
 
 `gemini-official` speaks the Gemini API's Interactions endpoint. `google-genai` speaks generateContent, as the `@google/genai` SDK does, for Vertex AI (a service-account JSON key as the API key), the Gemini API, and gateways that proxy it; Vertex AI's Interactions endpoint serves none of the Gemini models, so a service-account key needs `google-genai`.
 
-`mmsp` speaks MMSP itself to an MMSP server (`npm run server`), with the key and endpoint of `MMSP_API_KEY` and `MMSP_BASE_URL`, by default `http://127.0.0.1:25752`.
+`mmsp` speaks MMSP itself to an MMSP server (`npm run server -- --config <file>`), with the key and endpoint of `MMSP_API_KEY` and `MMSP_BASE_URL`, by default `http://127.0.0.1:25752/v1`.
 
 Both streaming methods yield `delta` events, each carrying exactly one content item, then exactly one `stop` event, always last, carrying `usage_metadata` and `finish_reason`. Each item streams as one or more `.delta` fragments (`text.delta`, `tool_call.delta`, …) followed by its complete `.done` item (`text.done`, `tool_call.done`, …); items never interleave.
 

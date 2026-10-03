@@ -108,7 +108,7 @@ class ToolCallArgumentParseError(MMSPError):
 class UpstreamError(MMSPError):
     """Raised by the mmsp client for an error its server reported that is not one of the MMSP errors above.
 
-    It is the server's own refusal (a rejected key, a model it cannot route) or an exception the
+    It is the server's own refusal (a rejected key, a model not in its table) or an exception the
     upstream client raised, named by its class in `error_type`. `status` is the HTTP status that
     explains it, when there is one: the server's refusal, or the upstream's own status.
     """

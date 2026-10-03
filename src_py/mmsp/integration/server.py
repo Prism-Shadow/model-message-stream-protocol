@@ -14,13 +14,15 @@
 # limitations under the License.
 
 """
-MMSP server: the MMSP stream of every model the server's environment can reach, over HTTP.
+MMSP server: the models of a table, over HTTP as MMSP streams.
 
-`POST /v1/stream` streams one stateless response of the model the request names, routed as
-`AutoLLMClient(model=...)` routes it: by the CLIENT_TYPE variable, else by the model id's family,
-with the vendor keys of the server's environment. `GET /v1/models` lists the model ids it can route.
-The wire protocol is the one `mmsp.wire` describes, and the mmsp client (`client_type="mmsp"`)
-speaks it.
+The server serves the rows of its models table. Each row is an upstream model, built once with
+`AutoLLMClient(model=model_id, api_key=api_key, base_url=base_url, client_type=client_type)` and
+named by its `server_model_id`. `POST /v1/stream` streams one stateless response of the model a
+request names, and `GET /v1/models` lists the models in OpenAI's list shape. Requests carry one of
+the `api_keys` as a bearer token, or none when the list is empty. The table comes from a JSON file
+(`load_server_config`) or from code, and a client's base URL is `http://host:port/v1`. The wire
+protocol is the one `mmsp.wire` describes, and the mmsp client (`client_type="mmsp"`) speaks it.
 """
 
 import asyncio
@@ -29,14 +31,18 @@ import hmac
 import json
 import os
 import threading
+import time
 from contextlib import suppress
+from typing import TypedDict
 
 from flask import Flask, Response, jsonify, request
-from werkzeug.exceptions import RequestEntityTooLarge
+from werkzeug.exceptions import MethodNotAllowed, NotFound, RequestEntityTooLarge
 
 from .. import AutoLLMClient
 from ..abort_signal import AbortSignal
+from ..base_client import LLMClient
 from ..wire import (
+    API_PREFIX,
     DEFAULT_HOST,
     DEFAULT_PORT,
     KEEPALIVE_SECONDS,
@@ -73,16 +79,26 @@ def _get_event_loop() -> asyncio.AbstractEventLoop:
     return _event_loop
 
 
-# The vendor key each official client reads, and an id of its family to construct it with.
-_OFFICIAL_KEYS = {
-    "openai-official": ("OPENAI_API_KEY", "gpt-"),
-    "anthropic-official": ("ANTHROPIC_API_KEY", "claude-"),
-    "gemini-official": ("GEMINI_API_KEY", "gemini-"),
-    "zai-official": ("ZAI_API_KEY", "glm-"),
-    "moonshot-official": ("MOONSHOT_API_KEY", "kimi-"),
-    "deepseek-official": ("DEEPSEEK_API_KEY", "deepseek-"),
-    "minimax-official": ("MINIMAX_API_KEY", "minimax-"),
-}
+class ModelRow(TypedDict):
+    """One row of the models table: an upstream model and the id clients name it by. Every column is required."""
+
+    model_id: str  # the upstream model id, as AutoLLMClient takes it
+    base_url: str  # the upstream endpoint
+    api_key: str  # the upstream key
+    server_model_id: str  # the id clients name
+    client_type: str  # the upstream client type, one of AutoLLMClient's
+
+
+class ServerConfig(TypedDict):
+    """What a config file holds: the models table and the keys clients may send."""
+
+    models: list[ModelRow]
+    api_keys: list[str]
+
+
+_COLUMNS = ("model_id", "base_url", "api_key", "server_model_id", "client_type")
+# the ids are names, not settings, so a `$` in them is taken as written
+_RESOLVED_COLUMNS = ("base_url", "api_key", "client_type")
 
 
 def _error_response(status: int, error_type: str, message: str) -> tuple[Response, int]:
@@ -90,40 +106,140 @@ def _error_response(status: int, error_type: str, message: str) -> tuple[Respons
     return jsonify({"error": {"type": error_type, "message": message}}), status
 
 
-def create_server_app(api_key: str | None = None) -> Flask:
+def load_server_config(path: str | os.PathLike[str]) -> ServerConfig:
     """
-    Create the MMSP server's Flask application.
+    Read a config file, with the environment references of its cells resolved.
+
+    A `base_url`, `api_key` or `client_type` cell of a row, or an entry of `api_keys`, that starts
+    with `$` is read from the environment (`$NAME` and `${NAME}` both name NAME). The rows are
+    checked by `create_server_app`, as rows from code are.
 
     Args:
-        api_key: The key every request must carry as a bearer token; MMSP_SERVER_API_KEY when omitted,
-            and no key at all when neither is set
+        path: The JSON file: `{"models": [...], "api_keys": [...]}`
+
+    Returns:
+        The parsed config with those cells replaced and `api_keys` defaulting to an empty list
+
+    Raises:
+        ValueError: When the file is not JSON, not a config, or references a variable that is unset or empty.
+    """
+    with open(path, encoding="utf-8") as file:
+        text = file.read()
+    try:
+        config = json.loads(text)
+    except ValueError as exc:
+        raise ValueError(f"{path}: not valid JSON: {exc}") from exc
+    if not isinstance(config, dict) or not isinstance(config.get("models"), list):
+        raise ValueError(f"{path}: the config must be a JSON object with a models list.")
+    config.setdefault("api_keys", [])
+    if not isinstance(config["api_keys"], list):
+        raise ValueError(f"{path}: api_keys must be a list.")
+
+    def resolve(cell: object, where: str) -> object:
+        """The value a cell stands for: the variable it names, or the cell itself."""
+        if not isinstance(cell, str) or not cell.startswith("$"):
+            return cell
+        name = cell[1:]
+        if name.startswith("{") and name.endswith("}"):
+            name = name[1:-1]
+        value = os.getenv(name)
+        if not value:
+            raise ValueError(f"{path}: {where} references {cell}, which is not set in the environment.")
+        return value
+
+    for i, row in enumerate(config["models"]):
+        # a row that is not an object is left for create_server_app to refuse
+        if isinstance(row, dict):
+            for column in _RESOLVED_COLUMNS:
+                if column in row:
+                    row[column] = resolve(row[column], f"models[{i}].{column}")
+    config["api_keys"] = [resolve(key, f"api_keys[{i}]") for i, key in enumerate(config["api_keys"])]
+    return config
+
+
+def create_server_app(models: list[ModelRow], api_keys: list[str] | None = None) -> Flask:
+    """
+    Create the MMSP server's Flask application, with the upstream client of every row built.
+
+    The rows are taken as they are: code that has its rows reads its own environment, and only
+    `load_server_config` resolves `$` cells.
+
+    Args:
+        models: The models table, served in its order
+        api_keys: The keys a request may carry as a bearer token; an empty or omitted list is an open server
 
     Returns:
         Flask application instance
-    """
-    if (os.getenv("CLIENT_TYPE") or "").strip().lower() == "mmsp":
-        raise ValueError(
-            "CLIENT_TYPE=mmsp would route the MMSP server to an MMSP server; unset it or name another client type."
-        )
 
-    api_key = api_key or os.getenv("MMSP_SERVER_API_KEY") or None
+    Raises:
+        ValueError: When the table or the keys are malformed, or a row's upstream client refuses to build.
+    """
+    if not isinstance(models, list):
+        raise ValueError("models must be a list of model rows.")
+    if not models:
+        raise ValueError("models is empty: the server needs at least one model row.")
+    seen: dict[str, int] = {}
+    for i, row in enumerate(models):
+        if not isinstance(row, dict):
+            raise ValueError(f"models[{i}] must be an object.")
+        for column in _COLUMNS:
+            if not isinstance(row.get(column), str) or not row[column]:
+                raise ValueError(f"models[{i}]: {column} must be a non-empty string.")
+        server_model_id = row["server_model_id"]
+        if server_model_id in seen:
+            raise ValueError(
+                f"models[{i}]: server_model_id '{server_model_id}' is already used by models[{seen[server_model_id]}]."
+            )
+        seen[server_model_id] = i
+    api_keys = [] if api_keys is None else api_keys
+    if not isinstance(api_keys, list) or not all(isinstance(key, str) and key for key in api_keys):
+        raise ValueError("api_keys must be a list of non-empty strings.")
+
+    # after the whole table is checked, so every structural fault is reported before a client's own refusal
+    upstreams: dict[str, LLMClient] = {}
+    for i, row in enumerate(models):
+        try:
+            upstreams[row["server_model_id"]] = AutoLLMClient(
+                model=row["model_id"], api_key=row["api_key"], base_url=row["base_url"], client_type=row["client_type"]
+            )
+        except Exception as exc:
+            raise ValueError(f"models[{i}] '{row['server_model_id']}': {str(exc) or type(exc).__name__}") from exc
+    created = int(time.time())
+
     app = Flask(__name__)
     app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
     app.json.ensure_ascii = False
+    # Flask sorts keys by default; the bodies keep the order they are written in, as the TypeScript server's do
+    app.json.sort_keys = False
+    app.config["MMSP_SERVER_MODEL_IDS"] = list(upstreams)
 
     @app.errorhandler(RequestEntityTooLarge)
     def request_entity_too_large(_error: RequestEntityTooLarge) -> tuple[Response, int]:
         """Refuse a request whose inline images or audio exceed the body limit."""
         return _error_response(413, "InvalidRequestError", "Request body is too large.")
 
+    @app.errorhandler(NotFound)
+    @app.errorhandler(MethodNotAllowed)
+    def no_route(_error: NotFound | MethodNotAllowed) -> tuple[Response, int]:
+        """Refuse a path or a method the server does not serve, in JSON."""
+        # Flask would answer GET /v1/stream with a 405 page; to a client it is a route that does not exist
+        return _error_response(
+            404,
+            "NotFoundError",
+            f"No route for {request.method} {request.path}; the server serves POST /v1/stream and GET /v1/models.",
+        )
+
+    expected = [f"Bearer {key}".encode() for key in api_keys]
+
     @app.before_request
     def authenticate() -> tuple[Response, int] | None:
-        """Refuse a /v1/ request that does not carry the server's key, when it has one."""
-        if api_key is None or not request.path.startswith("/v1/"):
+        """Refuse a /v1/ request that does not carry one of the server's keys, when it has any."""
+        if not expected or not request.path.startswith("/v1/"):
             return None
 
-        # constant-time, so the time a refusal takes tells nothing about the key
-        if not hmac.compare_digest(request.headers.get("Authorization", "").encode(), f"Bearer {api_key}".encode()):
+        given = request.headers.get("Authorization", "").encode()
+        # constant-time per key, so the time a refusal takes tells nothing about the keys
+        if not any(hmac.compare_digest(given, candidate) for candidate in expected):
             return _error_response(401, "AuthenticationError", "Invalid or missing API key.")
 
         return None
@@ -147,10 +263,13 @@ def create_server_app(api_key: str | None = None) -> Flask:
         if not isinstance(config, dict):
             return _error_response(400, "InvalidRequestError", "config must be an object.")
 
-        try:
-            client = AutoLLMClient(model=model)
-        except Exception as exc:  # an unknown family or client type, or a vendor key the environment lacks
-            return _error_response(400, "InvalidRequestError", str(exc) or type(exc).__name__)
+        upstream = upstreams.get(model)
+        if upstream is None:
+            return _error_response(
+                404,
+                "NotFoundError",
+                f"The model '{model}' does not exist; GET /v1/models lists the models this server serves.",
+            )
 
         def generate():
             """Generate streaming response using the persistent event loop."""
@@ -162,7 +281,7 @@ def create_server_app(api_key: str | None = None) -> Flask:
                 request_messages = [decode_wire(message) for message in messages]
 
                 async def stream_events():
-                    async for event in client.streaming_response(request_messages, config, signal):
+                    async for event in upstream.streaming_response(request_messages, config, signal):
                         yield f"data: {json.dumps(encode_wire(event), ensure_ascii=False)}\n\n"
 
                 async_gen = stream_events()
@@ -197,60 +316,67 @@ def create_server_app(api_key: str | None = None) -> Flask:
         return Response(generate(), mimetype="text/event-stream", headers={"Cache-Control": "no-cache"})
 
     @app.route(MODELS_PATH, methods=["GET"])
-    def list_models() -> Response | tuple[Response, int]:
-        """List the model ids the server can route."""
-        if os.getenv("CLIENT_TYPE"):
-            # the client CLIENT_TYPE names serves every id its endpoint lists
-            families = [""]
-        else:
-            # each official client whose key the environment holds, filtered down to its own family
-            families = [family for key_env, family in _OFFICIAL_KEYS.values() if os.getenv(key_env)]
-
-        models: list[str] = []
-        try:
-            loop = _get_event_loop()
-            for family in families:
-                client = AutoLLMClient(model=family)
-                models.extend(asyncio.run_coroutine_threadsafe(client.list_models(), loop).result())
-        except Exception as exc:  # one misconfigured vendor fails the listing, since the operator must see it
-            return jsonify({"error": to_wire_error(exc)}), 502
-
-        return jsonify({"models": models})
+    def list_models() -> Response:
+        """The models of the table, in the list shape OpenAI-style tools read."""
+        return jsonify(
+            {
+                "object": "list",
+                "data": [
+                    {"id": model_id, "object": "model", "created": created, "owned_by": "mmsp"}
+                    for model_id in upstreams
+                ],
+            }
+        )
 
     return app
 
 
 def start_server(
-    host: str = DEFAULT_HOST, port: int = DEFAULT_PORT, api_key: str | None = None, debug: bool = False
+    models: list[ModelRow],
+    api_keys: list[str] | None = None,
+    *,
+    host: str = DEFAULT_HOST,
+    port: int = DEFAULT_PORT,
+    debug: bool = False,
 ) -> None:
     """
     Start the MMSP server.
 
     Args:
+        models: The models table, served in its order
+        api_keys: The keys a request may carry as a bearer token; an empty or omitted list is an open server
         host: Host address to bind to
         port: Port number to listen on
-        api_key: The key every request must carry as a bearer token; MMSP_SERVER_API_KEY when omitted
         debug: Enable debug mode
     """
-    app = create_server_app(api_key)
-    print(f"Starting MMSP server at http://{host}:{port}")
+    app = create_server_app(models, api_keys)
+    print(f"Starting MMSP server at http://{host}:{port}{API_PREFIX}")
+    print("Serving models: " + ", ".join(app.config["MMSP_SERVER_MODEL_IDS"]))
+    if not api_keys:
+        print("Open server: api_keys is empty, every request is accepted")
     app.run(host=host, port=port, debug=debug)
 
 
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Start the MMSP server")
-    parser.add_argument("--host", type=str, default=DEFAULT_HOST, help="Host address to bind to")
-    parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="Port number to listen on")
+    parser = argparse.ArgumentParser(
+        description="Start the MMSP server, which serves the models of its table as MMSP streams"
+    )
     parser.add_argument(
-        "--api-key",
+        "--config",
         type=str,
         default=None,
-        help="The key every request must carry as a bearer token (default: MMSP_SERVER_API_KEY, else none)",
+        help='The JSON config file: {"models": [...], "api_keys": [...]} (default: MMSP_SERVER_CONFIG)',
     )
+    parser.add_argument("--host", type=str, default=DEFAULT_HOST, help="Host address to bind to")
+    parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="Port number to listen on")
     parser.add_argument("--debug", action="store_true", help="Enable debug mode")
 
     args = parser.parse_args()
+    config_path = args.config or os.getenv("MMSP_SERVER_CONFIG")
+    if not config_path:
+        parser.error("A config file is required: pass --config PATH or set MMSP_SERVER_CONFIG.")
 
-    start_server(host=args.host, port=args.port, api_key=args.api_key, debug=args.debug)
+    config = load_server_config(config_path)
+    start_server(config["models"], config["api_keys"], host=args.host, port=args.port, debug=args.debug)

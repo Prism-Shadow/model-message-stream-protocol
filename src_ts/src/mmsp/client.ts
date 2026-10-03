@@ -17,8 +17,8 @@ import { EventContentItem, UniConfig, UniEvent, UniMessage } from "../types";
 import { resolveCredentials } from "../utils";
 import {
   DEFAULT_BASE_URL,
-  MODELS_PATH,
-  STREAM_PATH,
+  MODELS_ROUTE,
+  STREAM_ROUTE,
   decodeWire,
   encodeWire,
   fromWireError,
@@ -93,8 +93,8 @@ async function* sseData(
 }
 
 /**
- * Client for an MMSP server: it speaks MMSP itself, over the server's HTTP protocol (see
- * `wire`), to whatever model the server routes the model id to.
+ * MMSP client for an MMSP server, which streams the models of its table. It speaks MMSP itself,
+ * over the server's HTTP protocol (see `wire`).
  */
 export class MmspClient extends LLMClient {
   protected _model: string;
@@ -103,6 +103,9 @@ export class MmspClient extends LLMClient {
 
   /**
    * Initialize the MMSP client with model, API key, and base URL.
+   *
+   * The default endpoint is `http://127.0.0.1:25752/v1`; a base URL passed in or read from
+   * MMSP_BASE_URL ends with `/v1` too, as OpenAI's and vLLM's do.
    */
   constructor(options: {
     model: string;
@@ -196,7 +199,7 @@ export class MmspClient extends LLMClient {
     };
     // undici's 300 s limit between two chunks of a body never fires: the server writes a
     // keep-alive comment whenever the model is silent
-    const response = await fetch(`${this._baseUrl}${STREAM_PATH}`, {
+    const response = await fetch(`${this._baseUrl}${STREAM_ROUTE}`, {
       method: "POST",
       headers: {
         ...this._headers,
@@ -228,19 +231,19 @@ export class MmspClient extends LLMClient {
   }
 
   /**
-   * List the model ids the MMSP server can route.
+   * The model ids the server's table names, read from its OpenAI-shaped listing.
    *
    * @returns The model ids, in the order the server returned them.
    */
   async listModels(): Promise<string[]> {
-    const response = await fetch(`${this._baseUrl}${MODELS_PATH}`, {
+    const response = await fetch(`${this._baseUrl}${MODELS_ROUTE}`, {
       headers: this._headers,
     });
     if (response.status !== 200) {
       throw fromWireError(await errorPayload(response), response.status);
     }
 
-    const { models } = (await response.json()) as { models: string[] };
-    return models;
+    const { data } = (await response.json()) as { data: { id: string }[] };
+    return data.map((model) => model.id);
   }
 }

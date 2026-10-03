@@ -471,7 +471,7 @@ describe("MmspClient credentials", () => {
 
     expect(mmspCredentialOf(client)).toEqual({
       authorization: undefined,
-      baseUrl: "http://127.0.0.1:25752",
+      baseUrl: "http://127.0.0.1:25752/v1",
     });
   });
 });

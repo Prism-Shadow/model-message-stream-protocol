@@ -445,7 +445,7 @@ if (process.env.MODELVERSE_API_KEY && RUN_SLOW_TEST) {
 }
 
 if (process.env.MMSP_API_KEY && process.env.MMSP_BASE_URL) {
-  // a running MMSP server, which routes MMSP_MODEL to its upstream
+  // a running MMSP server started from a config file; MMSP_MODEL is a server_model_id of its table, MMSP_BASE_URL ends with /v1
   AVAILABLE_MODELS.push({
     name: process.env.MMSP_MODEL || "gpt-6.1-sol",
     supportTextGeneration: true,

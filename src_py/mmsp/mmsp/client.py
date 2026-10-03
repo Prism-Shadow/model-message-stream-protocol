@@ -20,7 +20,7 @@ import httpx
 from ..base_client import LLMClient
 from ..types import EventContentItem, UniConfig, UniEvent, UniMessage
 from ..utils import resolve_credentials
-from ..wire import DEFAULT_BASE_URL, MODELS_PATH, STREAM_PATH, decode_wire, encode_wire, from_wire_error
+from ..wire import DEFAULT_BASE_URL, MODELS_ROUTE, STREAM_ROUTE, decode_wire, encode_wire, from_wire_error
 
 
 async def _sse_data(lines: AsyncIterator[str]) -> AsyncIterator[str]:
@@ -54,7 +54,7 @@ def _error_payload(body: bytes, status: int) -> dict[str, Any]:
 
 
 class MmspClient(LLMClient):
-    """MMSP client for an MMSP server, which streams whatever model it routes the request to."""
+    """MMSP client for an MMSP server, which streams the models of its table."""
 
     def __init__(
         self,
@@ -63,7 +63,12 @@ class MmspClient(LLMClient):
         base_url: str | None = None,
         default_headers: dict[str, str] | None = None,
     ):
-        """Initialize MMSP client with model, API key, and base URL."""
+        """
+        Initialize MMSP client with model, API key, and base URL.
+
+        The default endpoint is http://127.0.0.1:25752/v1; a base URL passed in or read from MMSP_BASE_URL
+        ends with /v1 too, as OpenAI's and vLLM's do.
+        """
         self._model = model
         api_key, base_url = resolve_credentials(
             self.__class__.__name__, api_key, base_url, "MMSP_API_KEY", "MMSP_BASE_URL"
@@ -87,7 +92,7 @@ class MmspClient(LLMClient):
             config: Universal configuration dict
 
         Returns:
-            The same configuration, which the server hands to the client it routes to
+            The same configuration, which the server hands to the model's upstream client
         """
         return dict(config)
 
@@ -155,7 +160,7 @@ class MmspClient(LLMClient):
         # httpx's json= would escape CJK text
         content = json.dumps(body, ensure_ascii=False).encode("utf-8")
         headers = {"Content-Type": "application/json", "Accept": "text/event-stream"}
-        async with self._client.stream("POST", STREAM_PATH, content=content, headers=headers) as response:
+        async with self._client.stream("POST", STREAM_ROUTE, content=content, headers=headers) as response:
             if response.status_code != 200:
                 raise from_wire_error(
                     _error_payload(await response.aread(), response.status_code), response.status_code
@@ -176,12 +181,12 @@ class MmspClient(LLMClient):
 
     async def list_models(self) -> list[str]:
         """
-        List the model ids the configured endpoint serves.
+        The model ids the server's table names, read from its OpenAI-shaped listing.
 
         Returns:
-            list[str]: The model ids, in the order the endpoint returned them.
+            list[str]: The model ids, in the order the server returned them.
         """
-        response = await self._client.get(MODELS_PATH)
+        response = await self._client.get(MODELS_ROUTE)
         if response.status_code != 200:
             raise from_wire_error(_error_payload(response.content, response.status_code), response.status_code)
-        return response.json()["models"]
+        return [model["id"] for model in response.json()["data"]]

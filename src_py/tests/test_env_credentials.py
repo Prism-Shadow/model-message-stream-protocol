@@ -365,4 +365,4 @@ def test_mmsp_client_without_a_key_or_a_base_url_sends_no_key_to_the_local_serve
     client = AutoLLMClient(model="gpt-5.5", client_type="mmsp")
 
     assert "authorization" not in _sdk(client).headers
-    assert str(_sdk(client).base_url) == "http://127.0.0.1:25752"
+    assert str(_sdk(client).base_url) == "http://127.0.0.1:25752/v1/"

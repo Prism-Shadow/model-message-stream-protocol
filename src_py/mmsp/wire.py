@@ -16,9 +16,12 @@
 The wire protocol an MMSP server and the mmsp client speak.
 
 `POST /v1/stream` takes `{"model", "messages", "config"}` and answers with server-sent events: one
-`data: <json>` line per event of the public stream, then `data: [DONE]`. `GET /v1/models` answers
-`{"models": [...]}`. JSON has no bytes, so every bytes value travels as base64 text, and only the
-`data` of `inline_data.*` and `inline_thinking.*` items, the protocol's byte fields, is decoded back.
+`data: <json>` line per event of the public stream, then `data: [DONE]`. A client's base URL ends with
+`/v1` and the client appends `/stream` and `/models`. `GET /v1/models` lists the models of the
+server's table in OpenAI's list shape (`{"object": "list", "data": [{"id": ...}, ...]}`); a model id
+not in the table is a 404 `NotFoundError`. JSON has no bytes, so every bytes value travels as base64
+text, and only the `data` of `inline_data.*` and `inline_thinking.*` items, the protocol's byte fields,
+is decoded back.
 While the model is silent, the server writes an SSE comment every KEEPALIVE_SECONDS, which a reader
 skips; it keeps proxies and clients from timing out a long thought.
 An error is `{"error": {"type", "message", ...}}`: the HTTP body when the server refuses a request,
@@ -42,8 +45,11 @@ from .errors import (
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 25752
-DEFAULT_BASE_URL = "http://127.0.0.1:25752"
-STREAM_PATH = "/v1/stream"
+API_PREFIX = "/v1"  # a base URL ends with it, as OpenAI's and vLLM's do
+DEFAULT_BASE_URL = "http://127.0.0.1:25752/v1"
+STREAM_ROUTE = "/stream"  # what a client appends to its base URL
+MODELS_ROUTE = "/models"
+STREAM_PATH = "/v1/stream"  # what the server serves (API_PREFIX + the route)
 MODELS_PATH = "/v1/models"
 KEEPALIVE_SECONDS = 15
 

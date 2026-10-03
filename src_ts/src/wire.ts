@@ -15,15 +15,19 @@
 /**
  * MMSP over HTTP, as the MMSP server serves it and the mmsp client speaks it.
  *
+ * A client's base URL ends with `/v1`, and the client appends `/stream` and `/models`.
  * `POST /v1/stream` takes `{"model", "messages", "config"}` and answers with server-sent events:
- * one `data: <UniEvent JSON>` per public event, then `data: [DONE]`. `GET /v1/models` answers
- * `{"models": [...]}`. A server with a key wants `Authorization: Bearer <key>` on every `/v1/`
- * request. JSON has no bytes, so every Buffer goes out as base64 text, and only the `data` of
- * `inline_data.*` and `inline_thinking.*` items, the protocol's byte fields, is decoded back.
- * While the model is silent, the server writes an SSE comment every KEEPALIVE_SECONDS, which a
- * reader skips; it keeps proxies and clients from timing out a long thought. An error is `{"error": {"type", "message", ...fields}}`: the body of an HTTP error before a
- * stream starts, an event followed by `data: [DONE]` once it has. The five MMSP errors cross with
- * their fields and are raised again as themselves; anything else becomes an UpstreamError.
+ * one `data: <UniEvent JSON>` per public event, then `data: [DONE]`. `GET /v1/models` lists the
+ * models of the server's table in OpenAI's list shape (`{"object": "list", "data": [{"id": ...},
+ * ...]}`), and a model id not in the table is a 404 NotFoundError. A server with keys wants
+ * `Authorization: Bearer <key>` on every `/v1/` request. JSON has no bytes, so every Buffer goes
+ * out as base64 text, and only the `data` of `inline_data.*` and `inline_thinking.*` items, the
+ * protocol's byte fields, is decoded back. While the model is silent, the server writes an SSE
+ * comment every KEEPALIVE_SECONDS, which a reader skips; it keeps proxies and clients from timing
+ * out a long thought. An error is `{"error": {"type", "message", ...fields}}`: the body of an HTTP
+ * error before a stream starts, an event followed by `data: [DONE]` once it has. The five MMSP
+ * errors cross with their fields and are raised again as themselves; anything else becomes an
+ * UpstreamError.
  */
 
 import {
@@ -38,7 +42,13 @@ import {
 
 export const DEFAULT_HOST = "127.0.0.1";
 export const DEFAULT_PORT = 25752;
-export const DEFAULT_BASE_URL = "http://127.0.0.1:25752";
+// a base URL ends with it, as OpenAI's and vLLM's do
+export const API_PREFIX = "/v1";
+export const DEFAULT_BASE_URL = "http://127.0.0.1:25752/v1";
+// what a client appends to its base URL
+export const STREAM_ROUTE = "/stream";
+export const MODELS_ROUTE = "/models";
+// what the server serves: API_PREFIX and the route
 export const STREAM_PATH = "/v1/stream";
 export const MODELS_PATH = "/v1/models";
 export const KEEPALIVE_SECONDS = 15;

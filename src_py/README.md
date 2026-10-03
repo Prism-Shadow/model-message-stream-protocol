@@ -43,7 +43,7 @@ client = AutoLLMClient(
 
 `gemini-official` speaks the Gemini API's Interactions endpoint. `google-genai` speaks generateContent, as the `google-genai` SDK does, for Vertex AI (a service-account JSON key as the API key), the Gemini API, and gateways that proxy it; Vertex AI's Interactions endpoint serves none of the Gemini models, so a service-account key needs `google-genai`.
 
-`mmsp` speaks MMSP itself to an MMSP server (`python -m mmsp.integration.server`), with the key and endpoint of `MMSP_API_KEY` and `MMSP_BASE_URL`, by default `http://127.0.0.1:25752`.
+`mmsp` speaks MMSP itself to an MMSP server (`python -m mmsp.integration.server --config <file>`), with the key and endpoint of `MMSP_API_KEY` and `MMSP_BASE_URL`, by default `http://127.0.0.1:25752/v1`.
 
 ## Core Methods
 

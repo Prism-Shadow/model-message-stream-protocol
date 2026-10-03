@@ -34,7 +34,7 @@ The [`mmsp` client](/docs/server/) raises what the server's client raised.
 | Error | Raised when | Carries |
 | --- | --- | --- |
 | The five errors above | The server's client raised one | The same fields; `client` names the server's client |
-| `UpstreamError` | Anything else: the server refused the request (a wrong key, a model it cannot route), or its client raised another error | `client`, `status`, `error_type` |
+| `UpstreamError` | Anything else: the server refused the request (a wrong key, a model not in its table), or its client raised another error | `client`, `status`, `error_type` |
 
 `status` is the HTTP status of a refused request, or the upstream's own, such as a 429, when its SDK reported one. TypeScript names the type `errorType`.
 

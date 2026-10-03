@@ -267,7 +267,7 @@ if os.getenv("MODELVERSE_API_KEY") and RUN_SLOW_TEST:
     AVAILABLE_MODELS.append(Model(name="gpt-5.5", provider="modelverse"))
 
 if os.getenv("MMSP_API_KEY") and os.getenv("MMSP_BASE_URL"):
-    # a running MMSP server, which routes MMSP_MODEL to its upstream
+    # a running MMSP server started from a config file; MMSP_MODEL is a server_model_id of its table, MMSP_BASE_URL ends with /v1
     AVAILABLE_MODELS.append(
         Model(
             name=os.getenv("MMSP_MODEL") or "gpt-6.1-sol",

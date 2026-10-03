@@ -713,34 +713,47 @@ The integrated tracer is available at `http://localhost:25751/tracer/`.
 
 ## MMSP Server
 
-The MMSP server streams every model its environment can reach over HTTP, as MMSP events.
+The MMSP server serves the models of a table over HTTP as MMSP streams. Each row maps an upstream model to the id clients name; the upstream keys stay on the server, and clients send one of the server's own keys.
 
-```bash
-cd src_py && uv run python -m mmsp.integration.server --host 127.0.0.1 --port 25752
+```json
+{
+  "models": [
+    {"model_id": "claude-sonnet-5-5", "base_url": "https://api.anthropic.com", "api_key": "$ANTHROPIC_API_KEY", "server_model_id": "claude", "client_type": "anthropic-official"},
+    {"model_id": "qwen/qwen3.8-27b", "base_url": "https://openrouter.ai/api/v1", "api_key": "$OPENROUTER_API_KEY", "server_model_id": "qwen3.8", "client_type": "openai-responses"}
+  ],
+  "api_keys": ["$MMSP_SERVER_API_KEY"]
+}
 ```
 
 ```bash
-cd src_ts && npm run server -- --port 25752
+cd src_py && uv run python -m mmsp.integration.server --config mmsp-server.json
 ```
 
-With `--api-key KEY` (or `MMSP_SERVER_API_KEY`), every request must carry `Authorization: Bearer KEY`.
-It routes a model id as `AutoLLMClient` would on the server, with the server's vendor keys:
+```bash
+cd src_ts && npm run server -- --config mmsp-server.json
+```
 
-- several vendor keys: each id goes to its family's official client;
-- `CLIENT_TYPE=openai-responses OPENAI_BASE_URL=https://openrouter.ai/api/v1 OPENAI_API_KEY=...`: every id goes through OpenRouter.
+```
+Starting MMSP server at http://127.0.0.1:25752/v1
+Serving models: claude, qwen3.8
+```
+
+A row is `model_id`, `base_url`, `api_key` and `client_type` (the upstream, exactly as `AutoLLMClient` takes them) and `server_model_id` (the id clients name); every column is required, and adding a model is adding a row. `api_keys` are the bearer keys clients may send; an empty list is an open server. A cell that starts with `$` is read from the server's environment when the file is loaded. `--config` defaults to `MMSP_SERVER_CONFIG`.
+
+A client's base URL ends with `/v1`, as OpenAI's and vLLM's do: `GET /v1/models` lists the table in OpenAI's shape, `POST /v1/stream` streams the model a request names.
 
 ```bash
-curl -N http://127.0.0.1:25752/v1/stream -H "Content-Type: application/json" \
-  -d '{"model": "claude-sonnet-5-5", "messages": [{"role": "user", "content_items": [{"type": "text.done", "text": "Hello"}]}]}'
+curl -N http://127.0.0.1:25752/v1/stream -H "Authorization: Bearer $MMSP_SERVER_API_KEY" -H "Content-Type: application/json" \
+  -d '{"model": "claude", "messages": [{"role": "user", "content_items": [{"type": "text.done", "text": "Hello"}]}]}'
 # data: {"role": "assistant", "event_type": "delta", "content_items": [{"type": "text.delta", "text": "Hi"}], ...}
 # ...
 # data: [DONE]
 ```
 
-`GET /v1/models` lists the ids it can route. The `mmsp` client calls it and yields the same stream:
+The `mmsp` client calls it and yields the same stream:
 
 ```python
-client = AutoLLMClient(model="claude-sonnet-5-5", client_type="mmsp", base_url="http://127.0.0.1:25752", api_key="none")
+client = AutoLLMClient(model="claude", client_type="mmsp", base_url="http://127.0.0.1:25752/v1", api_key=os.environ["MMSP_SERVER_API_KEY"])
 ```
 
 ## Wire Protocols

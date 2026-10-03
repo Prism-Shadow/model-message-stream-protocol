@@ -124,7 +124,7 @@ _DEFAULT_BASE_URLS = {
     "openai-embedding": ("OPENAI_BASE_URL", "https://api.openai.com/v1"),
     "ant-messages": ("ANTHROPIC_BASE_URL", "https://api.anthropic.com"),
     "google-genai": ("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com"),
-    "mmsp": ("MMSP_BASE_URL", "http://127.0.0.1:25752"),
+    "mmsp": ("MMSP_BASE_URL", "http://127.0.0.1:25752/v1"),
 }
 
 
