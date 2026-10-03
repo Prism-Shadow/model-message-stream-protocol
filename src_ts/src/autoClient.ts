@@ -26,6 +26,7 @@ import { OpenaiEmbeddingClient } from "./openai_embedding";
 import { DeepSeekOfficialClient } from "./deepseek_official";
 import { MiniMaxOfficialClient } from "./minimax_official";
 import { OpenaiChatVllmAdapterClient } from "./openai_chat_vllm_adapter";
+import { MmspClient } from "./mmsp";
 import { UniConfig, UniEvent, UniMessage } from "./types";
 
 type LLMClientConstructor = new (options: {
@@ -55,6 +56,7 @@ export const COMPATIBLE_CLIENT_TYPES = [
   "openai-embedding",
   "ant-messages",
   "google-genai",
+  "mmsp",
 ] as const;
 
 // Without a client type, the family a model id begins with names its official client.
@@ -134,6 +136,8 @@ function clientClass(
     case "google-genai":
     case "gemini-generate-content":
       return GoogleGenaiClient;
+    case "mmsp":
+      return MmspClient;
     default:
       return null;
   }

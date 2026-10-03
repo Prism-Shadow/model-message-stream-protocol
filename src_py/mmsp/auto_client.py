@@ -40,6 +40,7 @@ COMPATIBLE_CLIENT_TYPES = (
     "openai-embedding",
     "ant-messages",
     "google-genai",
+    "mmsp",
 )
 
 # Without a client type, the family a model id begins with names its official client.
@@ -149,6 +150,10 @@ def _client_class(client_type: str, model: str) -> type[LLMClient] | None:
             from .google_genai import GoogleGenaiClient
 
             return GoogleGenaiClient
+        case "mmsp":
+            from .mmsp import MmspClient
+
+            return MmspClient
     return None
 
 

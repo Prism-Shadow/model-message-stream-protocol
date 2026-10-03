@@ -51,6 +51,8 @@ HEADER_CASES = [
         base_url_suffix="",
         expected=["gemini-3.8-flash", "gemini-3.8-pro"],
     ),
+    # the mmsp client holds an httpx client of its own and lists in OpenAI's shape, which the default branch answers
+    HeaderCase(client_type="mmsp", model="gpt-5.6", base_url_suffix="/v1", expected=["m1", "m2"]),
 ]
 
 EXTRA_HEADERS = {"X-App": "cli", "HTTP-Referer": "https://example.test"}

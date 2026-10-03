@@ -44,6 +44,8 @@ _CREDENTIAL_ENV = [
     "GEMINI_API_KEY",
     "GEMINI_BASE_URL",
     "GOOGLE_API_KEY",
+    "MMSP_API_KEY",
+    "MMSP_BASE_URL",
     # the Python Bedrock client refuses AWS keys while this is set
     "AWS_BEARER_TOKEN_BEDROCK",
 ]
@@ -321,3 +323,46 @@ def test_google_genai_client_with_a_base_url_and_a_key_uses_both_over_the_enviro
     )
 
     assert _google_credential(client) == ("gm-explicit-PROBE", "https://gateway.example/")
+
+
+# The mmsp client, which MMSP_API_KEY and MMSP_BASE_URL belong to; it holds an httpx client of its own.
+def test_mmsp_client_reads_mmsp_api_key_and_base_url(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("MMSP_API_KEY", "mm-env-PROBE")
+    monkeypatch.setenv("MMSP_BASE_URL", "https://gateway.example/mmsp")
+
+    client = AutoLLMClient(model="gpt-5.5", client_type="mmsp")
+
+    assert _routed_client_name(client) == "MmspClient"
+    assert _sdk(client).headers.get("authorization") == "Bearer mm-env-PROBE"
+    # the trailing slash keeps a server behind a path prefix: requests join under it
+    assert str(_sdk(client).base_url) == "https://gateway.example/mmsp/"
+
+
+def test_mmsp_client_with_a_base_url_refuses_to_build_on_mmsp_api_key(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("MMSP_API_KEY", "mm-env-PROBE")
+    message = "api_key is required for MmspClient with a base_url: MMSP_API_KEY is not sent to another endpoint."
+
+    with pytest.raises(ValueError, match=re.escape(message)):
+        AutoLLMClient(model="gpt-5.5", client_type="mmsp", base_url="https://gateway.example/mmsp")
+
+
+def test_mmsp_client_with_a_base_url_and_a_key_uses_both_over_the_environment(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("MMSP_API_KEY", "mm-env-PROBE")
+    monkeypatch.setenv("MMSP_BASE_URL", "https://env.example/mmsp")
+
+    client = AutoLLMClient(
+        model="gpt-5.5",
+        client_type="mmsp",
+        api_key="mm-explicit-PROBE",
+        base_url="https://gateway.example/mmsp",
+    )
+
+    assert _sdk(client).headers.get("authorization") == "Bearer mm-explicit-PROBE"
+    assert str(_sdk(client).base_url) == "https://gateway.example/mmsp/"
+
+
+def test_mmsp_client_without_a_key_or_a_base_url_sends_no_key_to_the_local_server():
+    client = AutoLLMClient(model="gpt-5.5", client_type="mmsp")
+
+    assert "authorization" not in _sdk(client).headers
+    assert str(_sdk(client).base_url) == "http://127.0.0.1:25752/v1/"

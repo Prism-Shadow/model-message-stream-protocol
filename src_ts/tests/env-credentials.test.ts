@@ -39,6 +39,8 @@ const CREDENTIAL_ENV = [
   "GEMINI_API_KEY",
   "GEMINI_BASE_URL",
   "GOOGLE_API_KEY",
+  "MMSP_API_KEY",
+  "MMSP_BASE_URL",
 ];
 
 let savedEnv: Record<string, string | undefined> = {};
@@ -401,6 +403,75 @@ describe("GoogleGenaiClient credentials", () => {
     expect(googleCredentialOf(client)).toEqual({
       apiKey: "gm-explicit-PROBE",
       baseUrl: "https://gateway.example/",
+    });
+  });
+});
+
+function mmspCredentialOf(client: AutoLLMClient): {
+  authorization: string | undefined;
+  baseUrl: string;
+} {
+  const mmsp = (
+    client as unknown as {
+      _client: { _baseUrl: string; _headers: Record<string, string> };
+    }
+  )._client;
+  return { authorization: mmsp._headers.Authorization, baseUrl: mmsp._baseUrl };
+}
+
+// The mmsp client, which MMSP_API_KEY and MMSP_BASE_URL belong to.
+describe("MmspClient credentials", () => {
+  test("reads MMSP_API_KEY and MMSP_BASE_URL", () => {
+    process.env.MMSP_API_KEY = "mm-env-PROBE";
+    process.env.MMSP_BASE_URL = "https://gateway.example/mmsp/";
+
+    const client = new AutoLLMClient({ model: "gpt-5.5", clientType: "mmsp" });
+
+    expect(routedClientName(client)).toBe("MmspClient");
+    expect(mmspCredentialOf(client)).toEqual({
+      authorization: "Bearer mm-env-PROBE",
+      baseUrl: "https://gateway.example/mmsp",
+    });
+  });
+
+  test("with a baseUrl passed in, refuses to build on MMSP_API_KEY", () => {
+    process.env.MMSP_API_KEY = "mm-env-PROBE";
+
+    expect(
+      () =>
+        new AutoLLMClient({
+          model: "gpt-5.5",
+          clientType: "mmsp",
+          baseUrl: "https://gateway.example/mmsp/",
+        }),
+    ).toThrow(
+      "apiKey is required for MmspClient with a baseUrl: MMSP_API_KEY is not sent to another endpoint.",
+    );
+  });
+
+  test("with a baseUrl and a key passed in, uses both over the environment", () => {
+    process.env.MMSP_API_KEY = "mm-env-PROBE";
+    process.env.MMSP_BASE_URL = "https://env.example/mmsp/";
+
+    const client = new AutoLLMClient({
+      model: "gpt-5.5",
+      clientType: "mmsp",
+      apiKey: "mm-explicit-PROBE",
+      baseUrl: "https://gateway.example/mmsp/",
+    });
+
+    expect(mmspCredentialOf(client)).toEqual({
+      authorization: "Bearer mm-explicit-PROBE",
+      baseUrl: "https://gateway.example/mmsp",
+    });
+  });
+
+  test("without a key or a baseUrl, sends no key to the local server", () => {
+    const client = new AutoLLMClient({ model: "gpt-5.5", clientType: "mmsp" });
+
+    expect(mmspCredentialOf(client)).toEqual({
+      authorization: undefined,
+      baseUrl: "http://127.0.0.1:25752/v1",
     });
   });
 });

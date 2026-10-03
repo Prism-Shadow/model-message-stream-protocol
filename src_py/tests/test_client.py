@@ -39,7 +39,16 @@ class Model:
     support_tts: bool = False
     support_embedding: bool = False
     provider: Literal[
-        "official", "bedrock", "vertex", "siliconflow", "openrouter", "modelverse", "deepseek", "zai", "minimax"
+        "official",
+        "bedrock",
+        "vertex",
+        "siliconflow",
+        "openrouter",
+        "modelverse",
+        "deepseek",
+        "zai",
+        "minimax",
+        "mmsp",
     ] = "official"
     client_type: str | None = None
     base_url: str | None = None
@@ -257,6 +266,17 @@ if os.getenv("MODELVERSE_API_KEY") and RUN_SLOW_TEST:
     )
     AVAILABLE_MODELS.append(Model(name="gpt-5.5", provider="modelverse"))
 
+if os.getenv("MMSP_API_KEY") and os.getenv("MMSP_BASE_URL"):
+    # a running MMSP server started from a config file; MMSP_MODEL is a server_model_id of its table, MMSP_BASE_URL ends with /v1
+    AVAILABLE_MODELS.append(
+        Model(
+            name=os.getenv("MMSP_MODEL") or "gpt-6.1-sol",
+            provider="mmsp",
+            client_type="mmsp",
+            base_url=os.getenv("MMSP_BASE_URL"),
+        )
+    )
+
 
 _PROVIDER_API_KEY_ENVS = {
     "bedrock": "BEDROCK_API_KEY",
@@ -267,6 +287,7 @@ _PROVIDER_API_KEY_ENVS = {
     "deepseek": "DEEPSEEK_API_KEY",
     "zai": "ZAI_API_KEY",
     "minimax": "MINIMAX_API_KEY",
+    "mmsp": "MMSP_API_KEY",
 }
 
 _PROVIDER_BASE_URLS = {
@@ -509,6 +530,7 @@ ROUTING_CASES = [
     ("qwen3.6", "openai-chat-vllm-adapter", "OpenaiChatVllmAdapterClient"),
     ("qwen3-embedding", "openai-embedding", "OpenaiEmbeddingClient"),
     ("claude-opus-5", "ant-messages", "AntMessagesClient"),
+    ("gpt-5.5", "mmsp", "MmspClient"),
 ]
 
 

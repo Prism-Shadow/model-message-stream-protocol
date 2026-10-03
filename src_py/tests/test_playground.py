@@ -102,6 +102,10 @@ def test_chat_app_index_route():
         assert b'"openai-official"' in response.data
         assert b"handleClientTypeChange()" in response.data
         assert b"handleBaseUrlInput()" in response.data
+        # an entry is a model id, a client type, an API key and a base URL, and the selected one is the element
+        assert b"handleApiKeyInput()" in response.data
+        assert b"entryKey(" in response.data
+        assert b'[aria-selected="true"]' in response.data
         assert b">Connection</span>" in response.data
         assert b">Generation</span>" in response.data
         assert b"getExtraHeaders()" in response.data
@@ -142,6 +146,9 @@ def test_chat_app_index_route():
         assert b"Open Tracer" in response.data
         assert response.data.index(b'<h1 class="brand-name">') < response.data.index(b">GitHub<")
         assert response.data.index(b">GitHub<") < response.data.index(b">Open Tracer<")
+        assert b'href="/server/"' in response.data
+        assert b"Open Server" in response.data
+        assert response.data.index(b">Open Tracer<") < response.data.index(b">Open Server<")
         assert b"temperatureInput" not in response.data
         assert b"maxTokensInput" not in response.data
 
@@ -167,6 +174,18 @@ def test_chat_app_mounts_tracer():
         assert response.status_code == 200
         assert b"Tracer" in response.data
         assert b'href="/tracer/"' in response.data
+
+
+def test_chat_app_mounts_server_page():
+    """Test that the playground app also serves the server page on the same port."""
+    app = create_chat_app()
+
+    with app.test_client() as client:
+        response = client.get("/server/")
+        assert response.status_code == 200
+        assert b"MMSP Server" in response.data
+        assert b'id="serverToggle"' in response.data
+        assert b'href="/server/"' in response.data
 
 
 def test_chat_app_lists_the_models_the_endpoint_serves(monkeypatch):

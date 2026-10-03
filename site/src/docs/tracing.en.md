@@ -72,7 +72,7 @@ python -m mmsp.integration.tracer --cache_dir ./cache --host 127.0.0.1 --port 25
 
 ## Playground
 
-The playground is a local chat page for trying a model by hand: pick a model, set the config, send messages, watch the events. Picking a model fills in its client type and the endpoint that client reaches, the environment's or the vendor's own; change either to try the model through another protocol or a gateway. List models adds what the endpoint serves, with the same client type and endpoint. Open `http://127.0.0.1:25751`; the tracer is served at `/tracer/` next to it.
+The playground is a local chat page for trying a model by hand: pick a model, set the config, send messages, watch the events. Picking a model fills in its client type and the endpoint that client reaches, the environment's or the vendor's own; change either to try the model through another protocol or a gateway. List models adds what the endpoint serves as entries that keep the client type, endpoint and API key they were listed with. Open `http://127.0.0.1:25751`; the tracer is served at `/tracer/` next to it. The server page at `/server/` starts an MMSP server from a table saved to a config file.
 
 <div class="code-group">
 

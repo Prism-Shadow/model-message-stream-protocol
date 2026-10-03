@@ -27,6 +27,17 @@ Python names the fields `tool_name`, `tool_call_id`, `raw_arguments_length`, `ra
 
 Thinking levels never raise. Every client maps the level you ask for to the closest one the model supports.
 
+## Through an MMSP server
+
+The [`mmsp` client](/docs/server/) raises what the server's client raised.
+
+| Error | Raised when | Carries |
+| --- | --- | --- |
+| The five errors above | The server's client raised one | The same fields; `client` names the server's client |
+| `UpstreamError` | Anything else: the server refused the request (a wrong key, a model not in its table), or its client raised another error | `client`, `status`, `error_type` |
+
+`status` is the HTTP status of a refused request, or the upstream's own, such as a 429, when its SDK reported one. TypeScript names the type `errorType`.
+
 ## Output MMSP does not recognize
 
 Gateways put their own frames into a stream: heartbeats, cost tickers. MMSP skips what it does not recognize, so one such frame cannot end a long generation.

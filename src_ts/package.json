@@ -10,7 +10,8 @@
   "exports": {
     ".": "./dist/index.js",
     "./integration/tracer": "./dist/integration/tracer.js",
-    "./integration/playground": "./dist/integration/playground.js"
+    "./integration/playground": "./dist/integration/playground.js",
+    "./integration/server": "./dist/integration/server.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -18,7 +19,8 @@
     "start": "node dist/index.js",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest --verbose",
     "tracer": "tsx examples/tracerExample.ts",
-    "playground": "tsx examples/playgroundExample.ts"
+    "playground": "tsx examples/playgroundExample.ts",
+    "server": "tsx src/integration/server.ts"
   },
   "dependencies": {
     "@anthropic-ai/bedrock-sdk": "^0.26.4",
