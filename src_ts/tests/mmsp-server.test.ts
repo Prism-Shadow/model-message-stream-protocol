@@ -37,8 +37,11 @@ import {
 } from "../src/errors";
 import {
   ModelRow,
+  ServerMetrics,
+  announceServer,
   createServerApp,
   loadServerConfig,
+  readServerConfig,
   resolveServerConfig,
   startServer,
 } from "../src/integration/server";
@@ -77,13 +80,7 @@ const SERVER_ENV = [
   "PROBE_BASE_URL",
 ];
 
-const COLUMNS = [
-  "model_id",
-  "base_url",
-  "api_key",
-  "server_model_id",
-  "client_type",
-] as const;
+const REQUIRED_COLUMNS = ["model_id", "api_key", "server_model_id"] as const;
 
 const USAGE: UsageMetadata = {
   cached_tokens: null,
@@ -968,7 +965,7 @@ describe("MMSP server requests", () => {
     );
   });
 
-  test.each(COLUMNS)(
+  test.each(REQUIRED_COLUMNS)(
     "a row with a missing or empty column refuses to start: %s",
     (column) => {
       const missing: Partial<ModelRow> = row("gpt-5.5");
@@ -1027,7 +1024,41 @@ describe("MMSP server requests", () => {
         models: [row("gpt-5.5")],
         apiKeys: [1] as unknown as string[],
       }),
+    ).toThrow("api_keys[0] must be a non-empty string.");
+    expect(() =>
+      createServerApp({
+        models: [row("gpt-5.5")],
+        apiKeys: "k" as unknown as string[],
+      }),
     ).toThrow("api_keys must be a list of non-empty strings.");
+  });
+
+  test("a row without client_type or base_url builds with the defaults", () => {
+    useUpstream((model) => new ScriptedClient([], model));
+    const bare = {
+      model_id: "gpt-5.5",
+      api_key: "sk-upstream",
+      server_model_id: "gpt",
+    };
+
+    createServerApp({
+      models: [
+        bare,
+        { ...bare, server_model_id: "empty", base_url: "", client_type: "" },
+        { ...bare, server_model_id: "null", base_url: null, client_type: null },
+      ] as unknown as ModelRow[],
+    });
+
+    expect(constructions()).toEqual([
+      ["gpt-5.5", null, "sk-upstream", null],
+      ["gpt-5.5", null, "sk-upstream", null],
+      ["gpt-5.5", null, "sk-upstream", null],
+    ]);
+    expect(() =>
+      createServerApp({
+        models: [{ ...bare, client_type: 5 } as unknown as ModelRow],
+      }),
+    ).toThrow("models[0]: client_type must be a string.");
   });
 
   test("an unknown route is a JSON not found", async () => {
@@ -1035,7 +1066,7 @@ describe("MMSP server requests", () => {
     const notFound = (route: string) => ({
       error: {
         type: "NotFoundError",
-        message: `No route for ${route}; the server serves POST /v1/stream and GET /v1/models.`,
+        message: `No route for ${route}; the server serves POST /v1/stream, GET /v1/models, GET /v1/metrics and the dashboard at /.`,
       },
     });
 
@@ -1088,6 +1119,404 @@ describe("MMSP server models", () => {
       "claude",
       "gpt-5.5",
     ]);
+  });
+});
+
+// a metrics body as JSON parsed it
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Metrics = Record<string, any>;
+
+/**
+ * What an app's `GET /v1/metrics` reports, with `key` as the bearer token when given.
+ */
+async function metricsOf(app: Express, key?: string): Promise<Metrics> {
+  const call = request(app).get("/v1/metrics");
+  const response = await (key
+    ? call.set("Authorization", `Bearer ${key}`)
+    : call);
+  expect(response.status).toBe(200);
+  return response.body;
+}
+
+const SNAPSHOT_KEYS = [
+  "started_at",
+  "uptime_s",
+  "requests",
+  "successes",
+  "failures",
+  "disconnects",
+  "in_flight",
+  "success_rate",
+  "latency_ms",
+  "tokens",
+  "refused",
+  "last_request_at",
+  "models",
+];
+
+const MODEL_KEYS = [
+  "id",
+  "requests",
+  "successes",
+  "failures",
+  "disconnects",
+  "in_flight",
+  "success_rate",
+  "latency_ms",
+  "tokens",
+  "last_request_at",
+  "last_outcome",
+  "last_error",
+];
+
+const NO_LATENCY = {
+  first_event: { p50: null, p90: null },
+  total: { p50: null, p90: null },
+};
+
+const NO_TOKENS = { prompt: 0, cached: 0, thoughts: 0, response: 0 };
+
+/**
+ * A model's entry before any request.
+ */
+function untouched(id: string): Metrics {
+  return {
+    id,
+    requests: 0,
+    successes: 0,
+    failures: 0,
+    disconnects: 0,
+    in_flight: 0,
+    success_rate: null,
+    latency_ms: NO_LATENCY,
+    tokens: NO_TOKENS,
+    last_request_at: null,
+    last_outcome: null,
+    last_error: null,
+  };
+}
+
+describe("MMSP server metrics", () => {
+  test("metrics count a success with its latency and tokens", async () => {
+    const script = [
+      delta({ type: "text.delta", text: "Hi", fidelity: { item_id: "0" } }),
+      stop(),
+    ];
+    useUpstream((model) => new ScriptedClient(script, model));
+    const app = serverApp({
+      models: [row("claude-sonnet-5-5", "claude"), row("gpt-5.5")],
+    });
+
+    const before = await metricsOf(app);
+    await collect(mmspClient(await serve(app)));
+    const after = await metricsOf(app);
+
+    expect(Object.keys(before)).toEqual(SNAPSHOT_KEYS);
+    expect(before).toMatchObject({
+      requests: 0,
+      in_flight: 0,
+      success_rate: null,
+      latency_ms: NO_LATENCY,
+      tokens: NO_TOKENS,
+      refused: { unauthorized: 0, invalid_request: 0, unknown_model: 0 },
+      last_request_at: null,
+      models: [untouched("claude"), untouched("gpt-5.5")],
+    });
+    expect(Number.isInteger(after.started_at)).toBe(true);
+    expect(after.uptime_s).toBeGreaterThanOrEqual(0);
+    expect(after).toMatchObject({
+      requests: 1,
+      successes: 1,
+      failures: 0,
+      disconnects: 0,
+      in_flight: 0,
+      success_rate: 1,
+      tokens: { prompt: 3, cached: 0, thoughts: 0, response: 5 },
+    });
+    const { first_event: firstEvent, total } = after.latency_ms;
+    expect(Number.isInteger(total.p50)).toBe(true);
+    expect(total.p90).toBe(total.p50);
+    expect(firstEvent.p50).toBeLessThanOrEqual(total.p50);
+    expect(Math.abs(after.last_request_at - Date.now() / 1000)).toBeLessThan(
+      60,
+    );
+    expect(after.models[0]).toEqual(untouched("claude"));
+    const [, gpt] = after.models;
+    expect(Object.keys(gpt)).toEqual(MODEL_KEYS);
+    expect(gpt).toEqual({
+      id: "gpt-5.5",
+      requests: 1,
+      successes: 1,
+      failures: 0,
+      disconnects: 0,
+      in_flight: 0,
+      success_rate: 1,
+      latency_ms: after.latency_ms,
+      tokens: after.tokens,
+      last_request_at: after.last_request_at,
+      last_outcome: "success",
+      last_error: null,
+    });
+  });
+
+  test("metrics count a failure with its error", async () => {
+    useUpstream((model) => new ScriptedClient(FAILING_SCRIPT, model));
+    const app = serverApp();
+
+    await raised(mmspClient(await serve(app)));
+    const metrics = await metricsOf(app);
+
+    expect(metrics).toMatchObject({
+      requests: 1,
+      successes: 0,
+      failures: 1,
+      disconnects: 0,
+      in_flight: 0,
+      success_rate: 0,
+      latency_ms: NO_LATENCY,
+      tokens: NO_TOKENS,
+    });
+    const [model] = metrics.models;
+    expect(model).toMatchObject({
+      failures: 1,
+      success_rate: 0,
+      last_outcome: "failure",
+      last_error: { message: "connection reset" },
+    });
+    expect(Math.abs(model.last_error.at - Date.now() / 1000)).toBeLessThan(60);
+  });
+
+  test("metrics count a disconnect apart from failures", async () => {
+    const upstream = new SlowScriptedClient([]);
+    useUpstream(() => upstream);
+    const app = serverApp();
+    const url = await serve(app);
+    const controller = new AbortController();
+    let streaming: Metrics | undefined;
+
+    try {
+      try {
+        for await (const _event of mmspClient(url).streamingResponse({
+          messages: messages(),
+          config: {},
+          signal: controller.signal,
+        })) {
+          streaming = await metricsOf(app);
+          controller.abort();
+        }
+      } catch {
+        // the abort ends the stream
+      }
+
+      expect(streaming).toMatchObject({ requests: 1, in_flight: 1 });
+      let metrics = await metricsOf(app);
+      const deadline = Date.now() + 5000;
+      while (metrics.disconnects === 0 && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        metrics = await metricsOf(app);
+      }
+      expect(metrics).toMatchObject({
+        requests: 1,
+        successes: 0,
+        failures: 0,
+        disconnects: 1,
+        in_flight: 0,
+        success_rate: null,
+      });
+      expect(metrics.models[0]).toMatchObject({
+        disconnects: 1,
+        last_outcome: "disconnect",
+        last_error: null,
+      });
+    } finally {
+      upstream.stopped = true;
+    }
+  }, 10_000);
+
+  test("metrics count refusals without touching the models", async () => {
+    useUpstream((model) => new ScriptedClient([], model));
+    const app = serverApp({ apiKeys: ["secret"] });
+    const keyed = (route: string) =>
+      request(app).post(route).set("Authorization", "Bearer secret");
+
+    const statuses = [
+      (await request(app).get("/v1/models")).status,
+      (await keyed("/v1/stream").send({})).status,
+      (
+        await keyed("/v1/stream")
+          .set("Content-Type", "application/json")
+          .send("not json")
+      ).status,
+      (await keyed("/v1/stream").send({ model: "gpt-4", messages: [] })).status,
+    ];
+    const metrics = await metricsOf(app, "secret");
+
+    expect(statuses).toEqual([401, 400, 400, 404]);
+    expect(metrics).toMatchObject({
+      requests: 0,
+      in_flight: 0,
+      refused: { unauthorized: 1, invalid_request: 2, unknown_model: 1 },
+      last_request_at: null,
+      models: [untouched("gpt-5.5")],
+    });
+  });
+
+  test("metrics percentiles are nearest rank over the last thousand", () => {
+    let time = 0;
+    const metrics = new ServerMetrics(["m"], () => time);
+    for (let ms = 100; ms <= 1000; ms += 100) {
+      time = 0;
+      const sample = metrics.begin("m");
+      time = ms / 2000;
+      metrics.firstEvent(sample);
+      time = ms / 1000;
+      // a later event is not the first, and a finished request stays finished
+      metrics.firstEvent(sample);
+      metrics.finish(sample, "success");
+      metrics.finish(sample, "failure", { error: "late" });
+    }
+
+    const latency = {
+      first_event: { p50: 250, p90: 450 },
+      total: { p50: 500, p90: 900 },
+    };
+    const snapshot = metrics.snapshot() as Metrics;
+    expect(snapshot).toMatchObject({
+      requests: 10,
+      successes: 10,
+      failures: 0,
+      latency_ms: latency,
+    });
+    expect(snapshot.models[0]).toMatchObject({
+      successes: 10,
+      latency_ms: latency,
+      last_error: null,
+    });
+
+    const windowed = new ServerMetrics(["m"], () => time);
+    const succeed = (ms: number) => {
+      time = 0;
+      const sample = windowed.begin("m");
+      time = ms / 1000;
+      windowed.finish(sample, "success");
+    };
+    for (let i = 0; i < 500; i++) {
+      succeed(100);
+    }
+    for (let i = 0; i < 500; i++) {
+      succeed(900);
+    }
+    const full = windowed.snapshot() as Metrics;
+    expect(full.latency_ms.total).toEqual({ p50: 100, p90: 900 });
+    expect(full.latency_ms.first_event).toEqual({ p50: null, p90: null });
+
+    succeed(900);
+    // the first success left the window, so the median moves to the upper half
+    const moved = windowed.snapshot() as Metrics;
+    expect(moved.latency_ms.total).toEqual({ p50: 900, p90: 900 });
+    expect(moved.models[0].latency_ms.total).toEqual({ p50: 900, p90: 900 });
+  });
+
+  test("metrics round the success rate half to even and stamp milliseconds", () => {
+    const metrics = new ServerMetrics(
+      ["m"],
+      () => 0,
+      () => 1790000000.1234,
+    );
+    const outcomes: ["success" | "failure", number][] = [
+      ["success", 1],
+      ["failure", 31],
+    ];
+    for (const [outcome, count] of outcomes) {
+      for (let i = 0; i < count; i++) {
+        metrics.finish(metrics.begin("m"), outcome);
+      }
+    }
+
+    const snapshot = metrics.snapshot() as Metrics;
+    // 1 / 32 is 0.03125 exactly, which Python's round() takes to 0.0312
+    expect(snapshot.success_rate).toBe(0.0312);
+    expect(snapshot).toMatchObject({
+      started_at: 1790000000,
+      uptime_s: 0,
+      last_request_at: 1790000000.123,
+    });
+    expect(snapshot.models[0].last_error).toEqual({
+      at: 1790000000.123,
+      message: null,
+    });
+
+    const thirds = new ServerMetrics(["m"]);
+    thirds.finish(thirds.begin("m"), "success");
+    thirds.finish(thirds.begin("m"), "success");
+    thirds.finish(thirds.begin("m"), "failure", { error: "boom" });
+    thirds.finish(thirds.begin("m"), "disconnect");
+    expect(thirds.snapshot()).toMatchObject({
+      requests: 4,
+      disconnects: 1,
+      in_flight: 0,
+      success_rate: 0.6667,
+    });
+  });
+
+  test("metrics require the key but the dashboard does not", async () => {
+    const app = serverApp({ apiKeys: ["secret"] });
+
+    const refused = await request(app).get("/v1/metrics");
+    const dashboard = await request(app).get("/");
+
+    expect([refused.status, refused.body]).toEqual([
+      401,
+      {
+        error: {
+          type: "AuthenticationError",
+          message: "Invalid or missing API key.",
+        },
+      },
+    ]);
+    expect(dashboard.status).toBe(200);
+    expect(dashboard.headers["content-type"]).toBe("text/html; charset=utf-8");
+    expect((await metricsOf(app, "secret")).models).toEqual([
+      untouched("gpt-5.5"),
+    ]);
+  });
+
+  test("the dashboard page is served", async () => {
+    const response = await request(serverApp()).get("/");
+
+    expect(response.status).toBe(200);
+    expect(response.text).toContain("<title>MMSP Dashboard</title>");
+    for (const id of [
+      "statusDot",
+      "statusText",
+      "statusSince",
+      "keyPrompt",
+      "keyInput",
+      "statRequests",
+      "statSuccess",
+      "statLatency",
+      "statFirstEvent",
+      "statTokens",
+      "modelRows",
+      "themeToggle",
+    ]) {
+      expect(response.text).toContain(`id="${id}"`);
+    }
+    for (const fragment of [
+      "fetchMetrics()",
+      "submitKey(",
+      "render(",
+      "renderModels(",
+      "formatMs(",
+      "formatAgo(",
+      "mmsp.dashboard.key",
+      "/v1/metrics",
+      "mmsp.playground.theme",
+    ]) {
+      expect(response.text).toContain(fragment);
+    }
+    expect(response.text).not.toContain("0.6");
+    expect(response.text).not.toContain("<select");
   });
 });
 
@@ -1220,6 +1649,75 @@ describe("MMSP server config", () => {
     expect(config).toEqual(copy);
   });
 
+  test("readServerConfig returns the file as written", () => {
+    process.env.PROBE_UPSTREAM_KEY = "sk-probe";
+    const content = {
+      models: [
+        {
+          model_id: "gpt-5.5",
+          api_key: "$PROBE_UPSTREAM_KEY",
+          server_model_id: "gpt",
+          note: "kept",
+        },
+      ],
+      api_keys: ["${PROBE_SERVER_KEY}"],
+      host: "0.0.0.0",
+      port: 8080,
+      comment: "kept too",
+    };
+
+    expect(readServerConfig(configFile(content))).toEqual(content);
+    expect(readServerConfig(configFile({ models: [] }))).toEqual({
+      models: [],
+    });
+
+    const missing = path.join(path.dirname(configFile({})), "missing.json");
+    let error: unknown;
+    try {
+      readServerConfig(missing);
+    } catch (caught) {
+      error = caught;
+    }
+    expect((error as { code?: string }).code).toBe("ENOENT");
+
+    const notJson = configFile("not json");
+    const notAnObject = configFile([]);
+    const keysNotAList = configFile({ models: [], api_keys: "k" });
+    expect(() => readServerConfig(notJson)).toThrow(
+      `${notJson}: not valid JSON: `,
+    );
+    expect(() => readServerConfig(notAnObject)).toThrow(
+      `${notAnObject}: the config must be a JSON object with a models list.`,
+    );
+    expect(() => readServerConfig(keysNotAList)).toThrow(
+      `${keysNotAList}: api_keys must be a list.`,
+    );
+  });
+
+  test("announceServer prints the four lines", () => {
+    const log = jest.spyOn(console, "log").mockImplementation(() => {});
+
+    try {
+      announceServer("127.0.0.1", 25752, ["claude", "gpt-5.5"], true);
+      expect(log.mock.calls).toEqual([
+        ["Starting MMSP server at http://127.0.0.1:25752/v1"],
+        ["Serving models: claude, gpt-5.5"],
+        ["Dashboard at http://127.0.0.1:25752/"],
+        ["Open server: api_keys is empty, every request is accepted"],
+      ]);
+
+      log.mockClear();
+      announceServer("::1", 8080, ["claude"], false);
+      expect(log.mock.calls).toEqual([
+        ["Starting MMSP server at http://[::1]:8080/v1"],
+        ["Serving models: claude"],
+        ["Dashboard at http://[::1]:8080/"],
+      ]);
+    } finally {
+      log.mockRestore();
+    }
+  });
+
   test("startServer prints the base URL, the models and whether it is open", async () => {
     useUpstream((model) => new ScriptedClient([], model));
     const log = jest.spyOn(console, "log").mockImplementation(() => {});
@@ -1229,11 +1727,11 @@ describe("MMSP server config", () => {
       const open = startServer({ models, host: "127.0.0.1", port: 0 });
       servers.push(open);
       await new Promise((resolve) => open.on("listening", resolve));
+      const openPort = (open.address() as AddressInfo).port;
       expect(log.mock.calls).toEqual([
-        [
-          `Starting MMSP server at http://127.0.0.1:${(open.address() as AddressInfo).port}/v1`,
-        ],
+        [`Starting MMSP server at http://127.0.0.1:${openPort}/v1`],
         ["Serving models: claude, gpt-5.5"],
+        [`Dashboard at http://127.0.0.1:${openPort}/`],
         ["Open server: api_keys is empty, every request is accepted"],
       ]);
 
@@ -1246,11 +1744,11 @@ describe("MMSP server config", () => {
       });
       servers.push(keyed);
       await new Promise((resolve) => keyed.on("listening", resolve));
+      const keyedPort = (keyed.address() as AddressInfo).port;
       expect(log.mock.calls).toEqual([
-        [
-          `Starting MMSP server at http://127.0.0.1:${(keyed.address() as AddressInfo).port}/v1`,
-        ],
+        [`Starting MMSP server at http://127.0.0.1:${keyedPort}/v1`],
         ["Serving models: claude, gpt-5.5"],
+        [`Dashboard at http://127.0.0.1:${keyedPort}/`],
       ]);
     } finally {
       log.mockRestore();
@@ -1258,9 +1756,13 @@ describe("MMSP server config", () => {
   });
 });
 
-test("the server base URL brackets an IPv6 host", () => {
+test("the server base URL and dashboard URL bracket an IPv6 host", () => {
   expect(wire.serverBaseUrl("127.0.0.1", 25752)).toBe(
     "http://127.0.0.1:25752/v1",
   );
   expect(wire.serverBaseUrl("::1", 25752)).toBe("http://[::1]:25752/v1");
+  expect(wire.serverDashboardUrl("127.0.0.1", 25752)).toBe(
+    "http://127.0.0.1:25752/",
+  );
+  expect(wire.serverDashboardUrl("::1", 25752)).toBe("http://[::1]:25752/");
 });

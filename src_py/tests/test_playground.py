@@ -102,6 +102,10 @@ def test_chat_app_index_route():
         assert b'"openai-official"' in response.data
         assert b"handleClientTypeChange()" in response.data
         assert b"handleBaseUrlInput()" in response.data
+        # an entry is a model id, a client type, an API key and a base URL, and the selected one is the element
+        assert b"handleApiKeyInput()" in response.data
+        assert b"entryKey(" in response.data
+        assert b'[aria-selected="true"]' in response.data
         assert b">Connection</span>" in response.data
         assert b">Generation</span>" in response.data
         assert b"getExtraHeaders()" in response.data

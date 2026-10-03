@@ -126,6 +126,11 @@ describe("Playground", () => {
     expect(response.text).toContain('"openai-official"');
     expect(response.text).toContain("handleClientTypeChange()");
     expect(response.text).toContain("handleBaseUrlInput()");
+    // an entry is a model id, a client type, an API key and a base URL, and the selected one is
+    // the element, not the first with its id
+    expect(response.text).toContain("handleApiKeyInput()");
+    expect(response.text).toContain("entryKey(");
+    expect(response.text).toContain('[aria-selected="true"]');
     expect(response.text).toContain(">Connection</span>");
     expect(response.text).toContain(">Generation</span>");
     expect(response.text).toContain("getExtraHeaders()");

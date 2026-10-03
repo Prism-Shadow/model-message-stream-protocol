@@ -710,7 +710,7 @@ cd src_ts && npm run playground
 
 You can access the playground at `http://localhost:25751/`.
 The integrated tracer is available at `http://localhost:25751/tracer/`.
-The server page at `http://localhost:25751/server/` starts an MMSP server from the models you add there.
+The server page at `http://localhost:25751/server/` saves its table to `MMSP_SERVER_CONFIG` (else `cache/server.json`) and starts an MMSP server from it.
 
 ## MMSP Server
 
@@ -719,7 +719,7 @@ The MMSP server serves the models of a table over HTTP as MMSP streams. Each row
 ```json
 {
   "models": [
-    {"model_id": "claude-sonnet-5-5", "base_url": "https://api.anthropic.com", "api_key": "$ANTHROPIC_API_KEY", "server_model_id": "claude", "client_type": "anthropic-official"},
+    {"model_id": "claude-sonnet-5-5", "api_key": "$ANTHROPIC_API_KEY", "server_model_id": "claude"},
     {"model_id": "qwen/qwen3.8-27b", "base_url": "https://openrouter.ai/api/v1", "api_key": "$OPENROUTER_API_KEY", "server_model_id": "qwen3.8", "client_type": "openai-responses"}
   ],
   "api_keys": ["$MMSP_SERVER_API_KEY"]
@@ -737,9 +737,10 @@ cd src_ts && npm run server -- --config mmsp-server.json
 ```
 Starting MMSP server at http://127.0.0.1:25752/v1
 Serving models: claude, qwen3.8
+Dashboard at http://127.0.0.1:25752/
 ```
 
-A row is `model_id`, `base_url`, `api_key` and `client_type` (the upstream, exactly as `AutoLLMClient` takes them) and `server_model_id` (the id clients name); every column is required, and adding a model is adding a row. `api_keys` are the bearer keys clients may send; an empty list is an open server. A cell that starts with `$` is read from the server's environment when the file is loaded. `--config` defaults to `MMSP_SERVER_CONFIG`.
+A row is `model_id`, `api_key` and `server_model_id` (the id clients name), required, and `client_type`, `base_url` (empty or absent: the official client the model id names, and that client's default endpoint); adding a model is adding a row. `api_keys` are the bearer keys clients may send; an empty list is an open server. A cell that starts with `$` is read from the server's environment when the file is loaded. `--config` defaults to `MMSP_SERVER_CONFIG`.
 
 A client's base URL ends with `/v1`, as OpenAI's and vLLM's do: `GET /v1/models` lists the table in OpenAI's shape, `POST /v1/stream` streams the model a request names.
 
@@ -750,6 +751,8 @@ curl -N http://127.0.0.1:25752/v1/stream -H "Authorization: Bearer $MMSP_SERVER_
 # ...
 # data: [DONE]
 ```
+
+`GET /v1/metrics` reports requests, success rate and latency percentiles since start; the dashboard at `http://127.0.0.1:25752/` shows them.
 
 The `mmsp` client calls it and yields the same stream:
 

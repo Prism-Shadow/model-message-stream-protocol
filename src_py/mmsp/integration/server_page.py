@@ -257,6 +257,12 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             background: var(--hover);
         }
 
+        .ghost-btn:disabled {
+            color: var(--muted);
+            background: none;
+            opacity: 0.5;
+        }
+
         .segmented {
             position: relative;
             display: flex;
@@ -411,6 +417,12 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+        }
+
+        /* Auto is a word, the client types are ids */
+        .combo-button [data-combobox-label]:not(.mono) {
+            font-family: var(--font);
+            font-size: 13px;
         }
 
         .combo-button svg {
@@ -572,13 +584,23 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             overflow-wrap: anywhere;
         }
 
+        /* right-aligned with Restart left of Save: the buttons that come and go (Dashboard, Restart) sit at the
+           left end, so none slides another under the pointer, as Restart would under a Save just clicked */
+        .actions {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            margin: 4px 0 0 auto;
+        }
+
         .btn {
             display: inline-flex;
             align-items: center;
             gap: 6px;
             height: 32px;
             padding: 0 12px;
-            margin: 4px 0 0 auto;
+            margin: 0;
             border-radius: 8px;
             background: var(--accent);
             color: var(--on-accent);
@@ -596,6 +618,17 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             opacity: 0.5;
         }
 
+        .config-line {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px 10px;
+            margin: 8px 0 0 20px;
+        }
+
+        .config-line .mono {
+            overflow-wrap: anywhere;
+        }
+
         #serverError {
             margin: 10px 0 0 20px;
         }
@@ -605,7 +638,7 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
         }
 
         .table {
-            --cols: minmax(140px, 1.1fr) minmax(170px, 1fr) minmax(220px, 1.6fr) minmax(150px, 1fr) minmax(120px, 0.9fr) 32px;
+            --cols: 16px minmax(140px, 1.1fr) minmax(170px, 1fr) minmax(220px, 1.6fr) minmax(150px, 1fr) minmax(120px, 0.9fr) 32px;
         }
 
         .table-head {
@@ -619,7 +652,14 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             font-weight: 500;
         }
 
-        /* past the hairline, at the right end of the title; the negative margin keeps the title row as tall as the others */
+        /* the legend and the eye sit past the hairline, at the right end of the title; the negative margin keeps the
+           title row as tall as the others */
+        .legend {
+            display: flex;
+            gap: 14px;
+            order: 1;
+        }
+
         .group-title .icon-btn {
             order: 1;
             width: 24px;
@@ -644,7 +684,46 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
         }
 
         .key-row {
-            --cols: minmax(200px, 420px) 32px;
+            --cols: 16px minmax(200px, 420px) 32px;
+        }
+
+        /* a row's state: green filled in effect, amber filled saved, a hollow ring unsaved; the word shows on
+           narrow screens and in the legend */
+        .state {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--muted);
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .state::before {
+            content: "";
+            flex: none;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            box-shadow: inset 0 0 0 1.5px var(--subtle);
+        }
+
+        .state[data-state="saved"]::before {
+            box-shadow: none;
+            background: var(--amber);
+        }
+
+        .state[data-state="effect"]::before {
+            box-shadow: none;
+            background: var(--green);
+        }
+
+        .state::after {
+            content: attr(data-label);
+            display: none;
+        }
+
+        .legend .state::after {
+            display: inline;
         }
 
         .cell {
@@ -658,10 +737,6 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             margin-bottom: 4px;
             color: var(--subtle);
             font-size: 12px;
-        }
-
-        .combo-button .placeholder {
-            color: var(--subtle);
         }
 
         /* wider than its column, so every client type and both headings fit on one line */
@@ -681,13 +756,22 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
 
         .listen-row {
             display: grid;
-            grid-template-columns: auto minmax(160px, 260px) auto 120px;
+            grid-template-columns: auto minmax(160px, 260px) auto 120px 16px;
             justify-content: start;
             gap: 8px 10px;
             align-items: center;
         }
 
         @media (max-width: 900px) {
+            .status-bar {
+                flex-wrap: wrap;
+            }
+
+            .actions {
+                width: 100%;
+                margin: 8px 0 0 20px;
+            }
+
             .table-head {
                 display: none;
             }
@@ -705,7 +789,11 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
                 right: 0;
             }
 
-            .row .cell:first-child {
+            .state::after {
+                display: inline;
+            }
+
+            .row .state {
                 padding-right: 40px;
             }
 
@@ -721,6 +809,9 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
                 grid-template-columns: auto 1fr;
             }
 
+            .listen-row .state {
+                grid-column: 1 / -1;
+            }
         }
 
         @media (max-width: 640px) {
@@ -766,17 +857,24 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
                 <span id="statusUrl" class="mono hidden"></span>
                 <span id="statusModels" class="mono hidden"></span>
             </div>
-            <button type="button" class="btn" id="serverToggle" data-state="stopped" onclick="toggleServer()">
-                <svg id="serverToggleStart" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4l14 8-14 8Z"></path></svg>
-                <svg id="serverToggleStop" class="hidden" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"></rect></svg>
-                <span id="serverToggleLabel">Start</span>
-            </button>
+            <div class="actions">
+                <a id="dashboardLink" class="ghost-btn hidden" target="_blank" rel="noopener noreferrer" title="Dashboard" aria-label="Dashboard"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg><span class="label-wide">Dashboard</span></a>
+                <button type="button" id="restartButton" class="ghost-btn hidden" onclick="restartServer()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path><path d="M16 16h5v5"></path></svg><span>Restart</span></button>
+                <button type="button" id="saveButton" class="ghost-btn" onclick="saveServerConfig()" disabled><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><path d="M17 21v-8H7v8M7 3v5h8"></path></svg><span>Save</span></button>
+                <button type="button" class="btn" id="serverToggle" data-state="stopped" onclick="toggleServer()">
+                    <svg id="serverToggleStart" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4l14 8-14 8Z"></path></svg>
+                    <svg id="serverToggleStop" class="hidden" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"></rect></svg>
+                    <span id="serverToggleLabel">Start</span>
+                </button>
+            </div>
         </section>
+        <p class="field-note config-line"><span id="configPath" class="mono"></span><span>Written as typed; use $VAR for keys.</span></p>
         <p id="serverError" class="field-error hidden" role="alert"></p>
 
         <section class="group">
             <div class="group-title">
                 <span>Models</span>
+                <span class="legend" aria-hidden="true"><span class="state" data-state="effect" data-label="In effect"></span><span class="state" data-state="saved" data-label="Saved"></span><span class="state" data-state="unsaved" data-label="Unsaved"></span></span>
                 <button type="button" id="keyVisibilityToggle" class="icon-btn" data-visible="false" aria-label="Show keys" title="Show keys" onclick="toggleKeyVisibility()">
                     <svg id="keyVisibilityShowIcon" class="hidden" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                     <svg id="keyVisibilityHideIcon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.7 5.1A10.9 10.9 0 0 1 12 5c6.5 0 10 7 10 7a18.5 18.5 0 0 1-3.3 4.3"></path><path d="M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7a10.9 10.9 0 0 0 5.4-1.4"></path><path d="M9.9 9.9A3 3 0 0 0 14.1 14.1"></path><path d="M3 3l18 18"></path></svg>
@@ -784,7 +882,7 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             </div>
             <div class="table">
                 <div class="table-head" aria-hidden="true">
-                    <span>Model id</span><span>Client type</span><span>Base URL</span><span>API key</span>
+                    <span></span><span>Model id</span><span>Client type</span><span>Base URL</span><span>API key</span>
                     <span>Served as</span><span></span>
                 </div>
                 <div id="modelRows" role="list"></div>
@@ -806,13 +904,13 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
                 <input id="hostInput" class="control code" type="text" value="127.0.0.1" placeholder="127.0.0.1" spellcheck="false" autocomplete="off" oninput="saveDraft()">
                 <label class="field-label" for="portInput">Port</label>
                 <input id="portInput" class="control code" type="number" min="0" max="65535" value="25752" placeholder="25752" oninput="saveDraft()">
+                <span class="state" id="listenState" data-state="unsaved" data-label="Unsaved" title="Unsaved" role="img" aria-label="Unsaved"></span>
             </div>
         </section>
     </main>
 
     <script>
-        // the client types, their model families, and the endpoint each type reaches when no base
-        // URL is given (the environment's or the vendor's own), as the playground knows them
+        // the client types the playground knows, official and compatible, for the client type menus
         const PLAYGROUND = __PLAYGROUND_DEFAULTS__;
         const CLIENT_TYPE_DESCRIPTIONS = {
             'openai-official': 'OpenAI',
@@ -834,13 +932,16 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
         const API = '/server/api';
         const DEFAULT_HOST = '127.0.0.1';
         const DEFAULT_PORT = 25752;
-        // a row's cells in the order the server's config lists them
+        // a row's cells in the order the server's config lists them; the last two may be left out
         const COLUMNS = ['model_id', 'base_url', 'api_key', 'server_model_id', 'client_type'];
+        const OPTIONAL_COLUMNS = ['base_url', 'client_type'];
+        const STATE_LABELS = { effect: 'In effect', saved: 'Saved', unsaved: 'Unsaved' };
         const CHEVRON_ICON = '<svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>';
         const REMOVE_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg>';
         // set while the saved draft is laid out again, which is not the user typing
         let restoring = false;
-        let running = false;
+        let saved = null; // the GET /config body
+        let status = { running: false };
         let nextRowId = 1;
         let nextKeyId = 1;
 
@@ -911,7 +1012,7 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             menu.classList.remove('hidden');
             root.querySelector('[data-combobox-button]').setAttribute('aria-expanded', 'true');
 
-            // a row with no client type yet opens on the first one, so the arrows have somewhere to start
+            // the arrows need somewhere to start: the selected option, else the first
             const selected = menu.querySelector('[data-combobox-option][aria-selected="true"]') || visibleOptions(menu)[0];
             if (selected) {
                 selected.scrollIntoView({ block: 'nearest' });
@@ -924,7 +1025,7 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             root.querySelector('[data-combobox-value]').value = option.dataset.value || '';
             const label = root.querySelector('[data-combobox-label]');
             label.textContent = option.dataset.label;
-            label.classList.remove('placeholder');
+            label.classList.toggle('mono', !!option.dataset.value);
 
             root.querySelectorAll('[data-combobox-option]').forEach((item) => {
                 item.setAttribute('aria-selected', item === option ? 'true' : 'false');
@@ -982,19 +1083,21 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             }
         });
 
-        function clientTypeOption(comboboxId, type) {
+        function clientTypeOption(comboboxId, value, label, description) {
             const option = document.createElement('button');
             option.type = 'button';
             option.setAttribute('role', 'option');
             option.setAttribute('aria-selected', 'false');
             option.className = 'combo-option';
             option.setAttribute('data-combobox-option', '');
-            option.dataset.value = type;
-            option.dataset.label = type;
-            option.dataset.description = CLIENT_TYPE_DESCRIPTIONS[type] || '';
+            option.dataset.value = value;
+            option.dataset.label = label;
+            option.dataset.description = description;
             const text = document.createElement('span');
-            text.textContent = type;
-            text.className = 'mono';
+            text.textContent = label;
+            if (value) {
+                text.className = 'mono';
+            }
             option.appendChild(text);
             option.onclick = () => selectComboboxOption(comboboxId, option);
             return option;
@@ -1002,12 +1105,15 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
 
         function populateClientTypes(comboboxId) {
             const menu = document.getElementById(comboboxId + '-menu');
+            const auto = clientTypeOption(comboboxId, '', 'Auto', 'The official client the model id names');
+            auto.setAttribute('aria-selected', 'true');
+            menu.appendChild(auto);
             [['Official: the vendor’s own API', PLAYGROUND.official], ['Compatible: any endpoint serving the protocol', PLAYGROUND.compatible]].forEach(([title, types]) => {
                 const header = document.createElement('div');
                 header.className = 'menu-heading';
                 header.textContent = title;
                 menu.appendChild(header);
-                types.forEach((type) => menu.appendChild(clientTypeOption(comboboxId, type)));
+                types.forEach((type) => menu.appendChild(clientTypeOption(comboboxId, type, type, CLIENT_TYPE_DESCRIPTIONS[type] || '')));
             });
         }
 
@@ -1023,29 +1129,35 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             return row.querySelector('[data-column="' + column + '"]');
         }
 
+        // a type the menu does not list (written into the file by hand) is kept, listed after Auto, so the
+        // row still equals its saved form and the server can name it
         function setRowClientType(rowId, type) {
-            const option = visibleOptions(document.getElementById('clientType-' + rowId + '-menu')).find((item) => item.dataset.value === type);
-            if (option) {
-                selectComboboxOption('clientType-' + rowId, option);
+            const menu = document.getElementById('clientType-' + rowId + '-menu');
+            let option = visibleOptions(menu).find((item) => item.dataset.value === type);
+            if (!option) {
+                option = clientTypeOption('clientType-' + rowId, type, type, '');
+                menu.insertBefore(option, menu.querySelector('.menu-heading'));
             }
+            selectComboboxOption('clientType-' + rowId, option);
         }
 
-        function addRow(saved) {
+        function addRow(cells) {
             const rowId = 'r' + nextRowId++;
             const row = document.createElement('div');
             row.className = 'row';
             row.setAttribute('role', 'listitem');
             row.dataset.rowId = rowId;
             row.innerHTML = `
+                <span class="state" data-state="unsaved" data-label="Unsaved" title="Unsaved" role="img" aria-label="Unsaved"></span>
                 <label class="cell" data-label="Model id"><input class="control code" data-column="model_id" type="text" placeholder="claude-sonnet-5-5" aria-label="Model id" spellcheck="false" autocomplete="off" oninput="handleModelIdInput(this)"></label>
                 <div class="cell" data-label="Client type">
                     <div id="clientType-${rowId}" data-combobox>
                         <input type="hidden" data-combobox-value data-column="client_type" value="">
-                        <button type="button" role="combobox" aria-expanded="false" aria-controls="clientType-${rowId}-menu" aria-label="Client type" class="control code combo-button" onclick="toggleCombobox('clientType-${rowId}')" onkeydown="handleComboboxKeydown(event, 'clientType-${rowId}')" data-combobox-button><span class="mono placeholder" data-combobox-label>Client type</span>${CHEVRON_ICON}</button>
+                        <button type="button" role="combobox" aria-expanded="false" aria-controls="clientType-${rowId}-menu" aria-label="Client type" class="control code combo-button" onclick="toggleCombobox('clientType-${rowId}')" onkeydown="handleComboboxKeydown(event, 'clientType-${rowId}')" data-combobox-button><span data-combobox-label>Auto</span>${CHEVRON_ICON}</button>
                         <div id="clientType-${rowId}-menu" class="hidden" role="listbox" aria-label="Client type" data-combobox-menu onkeydown="handleMenuKeydown(event, 'clientType-${rowId}')"></div>
                     </div>
                 </div>
-                <label class="cell" data-label="Base URL"><input class="control code" data-column="base_url" type="url" placeholder="https://api.anthropic.com" aria-label="Base URL" spellcheck="false" autocomplete="off" oninput="handleCellInput(this)"></label>
+                <label class="cell" data-label="Base URL"><input class="control code" data-column="base_url" type="url" placeholder="Default" aria-label="Base URL" spellcheck="false" autocomplete="off" oninput="handleCellInput(this)"></label>
                 <label class="cell" data-label="API key"><input class="control code key" data-column="api_key" type="password" placeholder="$ANTHROPIC_API_KEY" aria-label="API key" autocomplete="off" oninput="handleCellInput(this)"></label>
                 <label class="cell" data-label="Served as"><input class="control code" data-column="server_model_id" type="text" placeholder="claude" aria-label="Served as" spellcheck="false" autocomplete="off" oninput="handleServerIdInput(this)"></label>
                 <button type="button" class="icon-btn remove-btn" onclick="removeRow('${rowId}')" aria-label="Remove model" title="Remove">${REMOVE_ICON}</button>
@@ -1056,10 +1168,9 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
 
             const serverId = rowCell(row, 'server_model_id');
             serverId.dataset.auto = 'true';
-            if (saved) {
-                const text = (column) => (typeof saved[column] === 'string' ? saved[column] : '');
+            if (cells) {
+                const text = (column) => (typeof cells[column] === 'string' ? cells[column] : '');
                 rowCell(row, 'model_id').value = text('model_id');
-                // the type first: picking it fills the base URL with its default, which the saved cell then replaces
                 setRowClientType(rowId, text('client_type'));
                 rowCell(row, 'base_url').value = text('base_url');
                 rowCell(row, 'api_key').value = text('api_key');
@@ -1084,19 +1195,20 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             document.getElementById('keysNote').classList.toggle('hidden', document.getElementById('apiKeyRows').children.length > 0);
         }
 
-        function addKey(saved) {
+        function addKey(value) {
             const keyId = 'k' + nextKeyId++;
             const row = document.createElement('div');
             row.className = 'row key-row';
             row.setAttribute('role', 'listitem');
             row.dataset.keyId = keyId;
             row.innerHTML = `
+                <span class="state" data-state="unsaved" data-label="Unsaved" title="Unsaved" role="img" aria-label="Unsaved"></span>
                 <label class="cell" data-label="Key"><input class="control code key" data-key type="password" placeholder="$MMSP_SERVER_API_KEY" aria-label="Key" autocomplete="off" oninput="handleCellInput(this)"></label>
                 <button type="button" class="icon-btn remove-btn" onclick="removeKey('${keyId}')" aria-label="Remove key" title="Remove">${REMOVE_ICON}</button>
             `;
             document.getElementById('apiKeyRows').appendChild(row);
             const input = row.querySelector('[data-key]');
-            input.value = typeof saved === 'string' ? saved : '';
+            input.value = typeof value === 'string' ? value : '';
             applyKeyVisibility(input);
             updateKeysNote();
             if (!restoring) {
@@ -1114,15 +1226,9 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             saveDraft();
         }
 
+        // only Served as follows the model id: an empty client type and base URL are the defaults
         function handleModelIdInput(input) {
             const row = input.closest('.row');
-            if (!rowCell(row, 'client_type').value) {
-                const lowered = input.value.trim().toLowerCase();
-                const family = PLAYGROUND.families.find(([prefix]) => lowered.startsWith(prefix));
-                if (family) {
-                    setRowClientType(row.dataset.rowId, family[1]);
-                }
-            }
             const serverId = rowCell(row, 'server_model_id');
             if (serverId.dataset.auto !== 'false') {
                 serverId.value = input.value;
@@ -1142,18 +1248,11 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             saveDraft();
         }
 
-        // an untouched base URL follows the client type to its default
         function handleRowClientType(rowId) {
             const row = document.querySelector('#modelRows [data-row-id="' + rowId + '"]');
             if (!row) {
                 return;
             }
-            const url = PLAYGROUND.baseUrls[rowCell(row, 'client_type').value] || '';
-            const baseUrl = rowCell(row, 'base_url');
-            if (!baseUrl.value.trim() || baseUrl.value.trim() === row.dataset.filledBaseUrl) {
-                baseUrl.value = url;
-            }
-            row.dataset.filledBaseUrl = url;
             clearRing(row);
             saveDraft();
         }
@@ -1173,98 +1272,145 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             document.querySelectorAll('input.key').forEach(applyKeyVisibility);
         }
 
+        function rowCells(row) {
+            return Object.fromEntries(COLUMNS.map((column) => [column, rowCell(row, column).value]));
+        }
+
+        // a row as it is saved: trimmed cells in COLUMNS order, an empty client type or base URL left out
+        function normalizeRow(row) {
+            const normalized = {};
+            COLUMNS.forEach((column) => {
+                const value = row && typeof row[column] === 'string' ? row[column].trim() : '';
+                if (value || !OPTIONAL_COLUMNS.includes(column)) {
+                    normalized[column] = value;
+                }
+            });
+            return normalized;
+        }
+
+        // rows are told apart by content, not position: removing a row moves every index after it
+        function rowKey(row) {
+            return JSON.stringify(normalizeRow(row));
+        }
+
+        function configKey(config) {
+            const value = config || {};
+            return JSON.stringify({
+                models: (Array.isArray(value.models) ? value.models : []).map(normalizeRow),
+                api_keys: (Array.isArray(value.api_keys) ? value.api_keys : []).map((key) => (typeof key === 'string' ? key.trim() : '')),
+                host: value.host,
+                port: value.port
+            });
+        }
+
+        // empty keys stay in, so the server can name them by index
         function collectConfig() {
             const port = document.getElementById('portInput').value.trim();
             return {
-                models: modelRows().map((row) => Object.fromEntries(COLUMNS.map((column) => [column, rowCell(row, column).value.trim()]))),
-                api_keys: keyInputs().map((input) => input.value.trim()).filter((key) => key),
+                models: modelRows().map((row) => normalizeRow(rowCells(row))),
+                api_keys: keyInputs().map((input) => input.value.trim()),
                 host: document.getElementById('hostInput').value.trim() || DEFAULT_HOST,
                 port: port === '' ? DEFAULT_PORT : Number(port)
             };
         }
 
+        function rowState(key, savedKeys, runningKeys) {
+            if (runningKeys.has(key)) {
+                return 'effect';
+            }
+            return savedKeys.has(key) ? 'saved' : 'unsaved';
+        }
+
+        function setState(element, state) {
+            const label = STATE_LABELS[state];
+            element.dataset.state = state;
+            element.dataset.label = label;
+            element.setAttribute('title', label);
+            element.setAttribute('aria-label', label);
+        }
+
+        function isDirty() {
+            const savedConfig = saved && saved.config;
+            return !savedConfig || configKey(collectConfig()) !== configKey(savedConfig);
+        }
+
+        function renderStates() {
+            const savedConfig = saved && saved.config;
+            const runningConfig = status.running ? status.config : null;
+            const rowKeys = (config) => new Set(config && Array.isArray(config.models) ? config.models.map(rowKey) : []);
+            const apiKeys = (config) => new Set(config && Array.isArray(config.api_keys) ? config.api_keys.map((key) => (typeof key === 'string' ? key.trim() : '')) : []);
+            const listenKeys = (config) => new Set(config ? [JSON.stringify([config.host, config.port])] : []);
+            const savedRows = rowKeys(savedConfig);
+            const runningRows = rowKeys(runningConfig);
+            modelRows().forEach((row) => setState(row.querySelector('.state'), rowState(rowKey(rowCells(row)), savedRows, runningRows)));
+            const savedKeys = apiKeys(savedConfig);
+            const runningKeys = apiKeys(runningConfig);
+            keyInputs().forEach((input) => setState(input.closest('.row').querySelector('.state'), rowState(input.value.trim(), savedKeys, runningKeys)));
+            const current = collectConfig();
+            setState(document.getElementById('listenState'), rowState(JSON.stringify([current.host, current.port]), listenKeys(savedConfig), listenKeys(runningConfig)));
+            document.getElementById('saveButton').disabled = !isDirty();
+            const pending = !!(status.running && savedConfig && runningConfig && configKey(savedConfig) !== configKey(runningConfig));
+            document.getElementById('restartButton').classList.toggle('hidden', !pending);
+        }
+
+        // the draft is kept only while it differs from the saved file, so a reload after Save reads the file
         function saveDraft() {
             if (restoring) {
                 return;
             }
             const draft = {
-                models: modelRows().map((row) => Object.fromEntries(COLUMNS.map((column) => [column, rowCell(row, column).value]))),
+                models: modelRows().map(rowCells),
                 api_keys: keyInputs().map((input) => input.value),
                 host: document.getElementById('hostInput').value,
                 port: document.getElementById('portInput').value
             };
             try {
-                localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+                if (isDirty()) {
+                    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+                } else {
+                    localStorage.removeItem(DRAFT_KEY);
+                }
             } catch (error) {
                 // a browser that refuses storage keeps the table for this page only
             }
+            renderStates();
         }
 
-        function restoreDraft() {
+        function restoreTable() {
             let draft = null;
             try {
                 draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null');
             } catch (error) {
                 draft = null;
             }
-            if (!draft || typeof draft !== 'object') {
+            if (!draft || typeof draft !== 'object' || Array.isArray(draft)) {
                 draft = null;
             }
+            const source = draft || (saved && saved.config) || null;
             restoring = true;
             try {
-                const models = draft && Array.isArray(draft.models) ? draft.models : [];
+                const models = source && Array.isArray(source.models) ? source.models : [];
                 if (models.length) {
-                    models.forEach((saved) => addRow(saved && typeof saved === 'object' ? saved : {}));
+                    models.forEach((row) => addRow(row && typeof row === 'object' ? row : {}));
                 } else {
                     addRow();
                 }
-                (draft && Array.isArray(draft.api_keys) ? draft.api_keys : []).forEach((key) => addKey(String(key)));
-                if (draft && typeof draft.host === 'string') {
-                    document.getElementById('hostInput').value = draft.host;
+                (source && Array.isArray(source.api_keys) ? source.api_keys : []).forEach((key) => addKey(String(key)));
+                if (source && typeof source.host === 'string') {
+                    document.getElementById('hostInput').value = source.host;
                 }
-                if (draft && (typeof draft.port === 'string' || typeof draft.port === 'number')) {
-                    document.getElementById('portInput').value = String(draft.port);
+                if (source && (typeof source.port === 'string' || typeof source.port === 'number')) {
+                    document.getElementById('portInput').value = String(source.port);
                 }
             } finally {
                 restoring = false;
             }
+            renderStates();
         }
 
-        async function refreshStatus() {
-            try {
-                const response = await fetch(API + '/status');
-                if (response.ok) {
-                    renderStatus(await response.json());
-                }
-            } catch (error) {
-                // the playground is out of reach: the view keeps what it last knew
-            }
-        }
-
-        function renderStatus(status) {
-            running = !!status.running;
-            document.getElementById('statusDot').dataset.state = running ? 'running' : 'stopped';
-            document.getElementById('statusText').textContent = running ? 'Running' : 'Stopped';
-            const url = document.getElementById('statusUrl');
-            const models = document.getElementById('statusModels');
-            url.textContent = running ? status.base_url : '';
-            models.textContent = running ? status.models.join(', ') + (status.open ? ' · open' : '') : '';
-            url.classList.toggle('hidden', !running);
-            models.classList.toggle('hidden', !running);
-            const toggle = document.getElementById('serverToggle');
-            toggle.dataset.state = running ? 'running' : 'stopped';
-            document.getElementById('serverToggleLabel').textContent = running ? 'Stop' : 'Start';
-            document.getElementById('serverToggleStart').classList.toggle('hidden', running);
-            document.getElementById('serverToggleStop').classList.toggle('hidden', !running);
-        }
-
-        function toggleServer() {
-            return running ? stopServer() : startServer();
-        }
-
-        async function postJson(path, body) {
+        async function sendJson(method, path, body) {
             const response = await fetch(API + path, {
-                method: 'POST',
+                method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
             });
@@ -1277,24 +1423,140 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             return { response, answer };
         }
 
+        function postJson(path, body) {
+            return sendJson('POST', path, body);
+        }
+
+        async function loadServerConfig() {
+            try {
+                const response = await fetch(API + '/config', { cache: 'no-store' });
+                if (!response.ok) {
+                    return;
+                }
+                const body = await response.json();
+                saved = body;
+                document.getElementById('configPath').textContent = body.path || '';
+                if (body.error) {
+                    showError(body.error);
+                }
+            } catch (error) {
+                // the playground is out of reach: the page compares against what it last read
+            }
+        }
+
+        async function saveServerConfig() {
+            hideError();
+            document.getElementById('saveButton').disabled = true;
+            try {
+                const { response, answer } = await sendJson('PUT', '/config', collectConfig());
+                if (response.ok) {
+                    saved = answer;
+                    document.getElementById('configPath').textContent = answer.path || '';
+                    if (answer.config) {
+                        document.getElementById('hostInput').value = answer.config.host;
+                        document.getElementById('portInput').value = String(answer.config.port);
+                    }
+                    saveDraft();
+                } else {
+                    const message = answer.error || ('HTTP ' + response.status);
+                    showError(message);
+                    markRow(message, 'page');
+                }
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                renderStates();
+            }
+        }
+
+        async function refreshStatus() {
+            try {
+                const response = await fetch(API + '/status', { cache: 'no-store' });
+                if (response.ok) {
+                    renderStatus(await response.json());
+                }
+            } catch (error) {
+                // the playground is out of reach: the view keeps what it last knew
+            }
+        }
+
+        async function refreshAll() {
+            await loadServerConfig();
+            await refreshStatus();
+        }
+
+        function renderStatus(next) {
+            status = next && typeof next === 'object' ? next : { running: false };
+            const running = !!status.running;
+            document.getElementById('statusDot').dataset.state = running ? 'running' : 'stopped';
+            document.getElementById('statusText').textContent = running ? 'Running' : 'Stopped';
+            const url = document.getElementById('statusUrl');
+            const models = document.getElementById('statusModels');
+            url.textContent = running ? status.base_url : '';
+            models.textContent = running ? status.models.join(', ') + (status.open ? ' · open' : '') : '';
+            url.classList.toggle('hidden', !running);
+            models.classList.toggle('hidden', !running);
+            const dashboard = document.getElementById('dashboardLink');
+            dashboard.href = running && status.dashboard_url ? status.dashboard_url : '#';
+            dashboard.classList.toggle('hidden', !(running && status.dashboard_url));
+            const toggle = document.getElementById('serverToggle');
+            toggle.dataset.state = running ? 'running' : 'stopped';
+            document.getElementById('serverToggleLabel').textContent = running ? 'Stop' : 'Start';
+            document.getElementById('serverToggleStart').classList.toggle('hidden', running);
+            document.getElementById('serverToggleStop').classList.toggle('hidden', !running);
+            renderStates();
+        }
+
+        function toggleServer() {
+            return status.running ? stopServer() : startServer();
+        }
+
+        // Start and Restart run the saved file, so the body is empty and unsaved edits stay unsaved
         async function startServer() {
             const toggle = document.getElementById('serverToggle');
             hideError();
             toggle.disabled = true;
             try {
-                const { response, answer } = await postJson('/start', collectConfig());
+                const { response, answer } = await postJson('/start', {});
                 if (response.ok) {
                     renderStatus(answer);
                 } else {
-                    showError(answer.error || ('HTTP ' + response.status));
+                    const message = answer.error || ('HTTP ' + response.status);
+                    showError(message);
+                    markRow(message, 'saved');
                     // started from another tab: the button becomes Stop
                     if (response.status === 409) {
-                        refreshStatus();
+                        refreshAll();
                     }
                 }
             } catch (error) {
                 showError(error.message);
             } finally {
+                toggle.disabled = false;
+            }
+        }
+
+        // a refused table leaves the old server running; a failed bind leaves none, so the status is read again
+        async function restartServer() {
+            const restart = document.getElementById('restartButton');
+            const toggle = document.getElementById('serverToggle');
+            hideError();
+            restart.disabled = true;
+            toggle.disabled = true;
+            try {
+                const { response, answer } = await postJson('/restart', {});
+                if (response.ok) {
+                    renderStatus(answer);
+                } else {
+                    const message = answer.error || ('HTTP ' + response.status);
+                    showError(message);
+                    markRow(message, 'saved');
+                    await refreshStatus();
+                }
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                restart.disabled = false;
                 toggle.disabled = false;
             }
         }
@@ -1328,7 +1590,6 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             const error = document.getElementById('serverError');
             error.textContent = message;
             error.classList.remove('hidden');
-            markRow(message);
         }
 
         function clearRing(row) {
@@ -1336,19 +1597,38 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             row.querySelectorAll('.invalid').forEach((item) => item.classList.remove('invalid'));
         }
 
-        // the server names a row by its index in the request (empty keys are left out of it), and
-        // mostly the cell too: that cell is ringed, else the whole row
-        function markRow(message) {
+        // the server names a row by its index, and mostly the cell too: that cell is ringed, else the whole row.
+        // A save names the index of the page's table; a start or restart the index of the saved file, which
+        // the page finds again by content, as the table may have changed since
+        function markRow(message, source) {
+            const config = source === 'saved' && saved && saved.config ? saved.config : null;
             const key = /^api_keys\\[(\\d+)\\]/.exec(message);
             if (key) {
-                const input = keyInputs().filter((item) => item.value.trim())[Number(key[1])];
+                const index = Number(key[1]);
+                let input = null;
+                if (source === 'saved') {
+                    const wanted = config && Array.isArray(config.api_keys) ? config.api_keys[index] : undefined;
+                    input = typeof wanted === 'string' ? keyInputs().find((item) => item.value.trim() === wanted.trim()) : null;
+                } else {
+                    input = keyInputs()[index];
+                }
                 if (input) {
                     input.classList.add('invalid');
                 }
                 return;
             }
             const model = /^models\\[(\\d+)\\](?:(?:: |\\.)(model_id|base_url|api_key|server_model_id|client_type)\\b)?/.exec(message);
-            const row = model && modelRows()[Number(model[1])];
+            if (!model) {
+                return;
+            }
+            const index = Number(model[1]);
+            let row = null;
+            if (source === 'saved') {
+                const wanted = config && Array.isArray(config.models) ? config.models[index] : undefined;
+                row = wanted && typeof wanted === 'object' ? modelRows().find((item) => rowKey(rowCells(item)) === rowKey(wanted)) : null;
+            } else {
+                row = modelRows()[index];
+            }
             if (!row) {
                 return;
             }
@@ -1361,14 +1641,17 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             }
         }
 
-        restoreDraft();
-        refreshStatus();
+        (async () => {
+            await loadServerConfig();
+            restoreTable();
+            await refreshStatus();
+        })();
         updateThemeToggle();
         window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', updateThemeToggle);
         document.fonts.ready.then(updateThemeToggle);
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) {
-                refreshStatus();
+                refreshAll();
             }
         });
     </script>

@@ -34,15 +34,20 @@ from mmsp import (
 from mmsp.abort_signal import AbortSignal
 from mmsp.base_client import LLMClient
 from mmsp.integration import server
+from mmsp.integration.dashboard_page import DASHBOARD_TEMPLATE
 from mmsp.integration.server import (
+    LATENCY_WINDOW,
     ModelRow,
+    ServerMetrics,
+    announce_server,
     create_server_app,
     load_server_config,
+    read_server_config,
     resolve_server_config,
     start_server,
 )
 from mmsp.types import ContentItem, UniConfig, UniEvent, UniMessage
-from mmsp.wire import server_base_url
+from mmsp.wire import server_base_url, server_dashboard_url
 
 
 # Every upstream the server builds here is a scripted client, so nothing reaches a vendor; the
@@ -672,7 +677,7 @@ def test_empty_table_refuses_to_start():
     assert str(exc_info.value) == "models is empty: the server needs at least one model row."
 
 
-@pytest.mark.parametrize("column", ["model_id", "base_url", "api_key", "server_model_id", "client_type"])
+@pytest.mark.parametrize("column", ["model_id", "api_key", "server_model_id"])
 def test_row_with_a_missing_or_empty_column_refuses_to_start(column: str):
     missing = {name: value for name, value in _row("gpt-5.5").items() if name != column}
     empty = {**_row("gpt-5.5"), column: ""}
@@ -681,6 +686,30 @@ def test_row_with_a_missing_or_empty_column_refuses_to_start(column: str):
         with pytest.raises(ValueError) as exc_info:
             create_server_app([row])
         assert str(exc_info.value) == f"models[0]: {column} must be a non-empty string."
+
+
+def test_row_without_client_type_or_base_url_builds_with_the_defaults(use_upstream, constructions):
+    use_upstream(lambda model: ScriptedClient([], model))
+    bare: ModelRow = {"model_id": "gpt-5.5", "api_key": "sk-a", "server_model_id": "gpt"}
+    empty: ModelRow = {
+        "model_id": "claude-sonnet-5-5",
+        "api_key": "sk-b",
+        "server_model_id": "claude",
+        "base_url": "",
+        "client_type": "",
+    }
+
+    app = create_server_app([bare, empty])
+
+    assert constructions == [("gpt-5.5", None, "sk-a", None), ("claude-sonnet-5-5", None, "sk-b", None)]
+    with app.test_client() as client:
+        assert [model["id"] for model in client.get("/v1/models").get_json()["data"]] == ["gpt", "claude"]
+    # None reads as absent, as a JSON null in a file does
+    create_server_app([{**bare, "base_url": None, "client_type": None}])
+    for column in ("base_url", "client_type"):
+        with pytest.raises(ValueError) as exc_info:
+            create_server_app([{**bare, column: 5}])
+        assert str(exc_info.value) == f"models[0]: {column} must be a string."
 
 
 def test_duplicate_server_model_id_refuses_to_start():
@@ -704,6 +733,12 @@ def test_row_the_upstream_client_refuses_names_the_row_and_a_relay_row_builds():
 
     with pytest.raises(ValueError) as exc_info:
         create_server_app([_row("gpt-5.5")], api_keys=[1])
+    assert str(exc_info.value) == "api_keys[0] must be a non-empty string."
+    with pytest.raises(ValueError) as exc_info:
+        create_server_app([_row("gpt-5.5")], api_keys=["k", ""])
+    assert str(exc_info.value) == "api_keys[1] must be a non-empty string."
+    with pytest.raises(ValueError) as exc_info:
+        create_server_app([_row("gpt-5.5")], api_keys="k")
     assert str(exc_info.value) == "api_keys must be a list of non-empty strings."
 
 
@@ -718,7 +753,8 @@ def test_unknown_route_is_a_json_not_found():
     assert unprefixed.get_json() == {
         "error": {
             "type": "NotFoundError",
-            "message": "No route for GET /models; the server serves POST /v1/stream and GET /v1/models.",
+            "message": "No route for GET /models; the server serves POST /v1/stream, GET /v1/models, GET /v1/metrics"
+            " and the dashboard at /.",
         }
     }
     # a known path with another method, which Flask alone would answer with a 405
@@ -726,7 +762,8 @@ def test_unknown_route_is_a_json_not_found():
     assert wrong_method.get_json() == {
         "error": {
             "type": "NotFoundError",
-            "message": "No route for GET /v1/stream; the server serves POST /v1/stream and GET /v1/models.",
+            "message": "No route for GET /v1/stream; the server serves POST /v1/stream, GET /v1/models, GET /v1/metrics"
+            " and the dashboard at /.",
         }
     }
 
@@ -737,7 +774,8 @@ def test_unknown_route_is_a_json_not_found():
     assert uppercase.get_json() == {
         "error": {
             "type": "NotFoundError",
-            "message": "No route for GET /V1/models; the server serves POST /v1/stream and GET /v1/models.",
+            "message": "No route for GET /V1/models; the server serves POST /v1/stream, GET /v1/models, GET /v1/metrics"
+            " and the dashboard at /.",
         }
     }
 
@@ -898,15 +936,341 @@ def test_start_server_prints_the_base_url_the_models_and_whether_it_is_open(
     assert capsys.readouterr().out == (
         "Starting MMSP server at http://127.0.0.1:25999/v1\n"
         "Serving models: claude, gpt-5.5\n"
+        "Dashboard at http://127.0.0.1:25999/\n"
         "Open server: api_keys is empty, every request is accepted\n"
     )
 
     start_server(models, api_keys=["k"], host="127.0.0.1", port=25999)
     assert capsys.readouterr().out == (
-        "Starting MMSP server at http://127.0.0.1:25999/v1\nServing models: claude, gpt-5.5\n"
+        "Starting MMSP server at http://127.0.0.1:25999/v1\n"
+        "Serving models: claude, gpt-5.5\n"
+        "Dashboard at http://127.0.0.1:25999/\n"
+    )
+
+
+def test_announce_server_prints_the_four_lines(capsys: pytest.CaptureFixture[str]):
+    announce_server("127.0.0.1", 25752, ["claude", "gpt-5.5"], True)
+    assert capsys.readouterr().out == (
+        "Starting MMSP server at http://127.0.0.1:25752/v1\n"
+        "Serving models: claude, gpt-5.5\n"
+        "Dashboard at http://127.0.0.1:25752/\n"
+        "Open server: api_keys is empty, every request is accepted\n"
+    )
+
+    announce_server("::1", 8080, ["claude"], False)
+    assert capsys.readouterr().out == (
+        "Starting MMSP server at http://[::1]:8080/v1\nServing models: claude\nDashboard at http://[::1]:8080/\n"
     )
 
 
 def test_server_base_url_brackets_an_ipv6_host():
     assert server_base_url("127.0.0.1", 25752) == "http://127.0.0.1:25752/v1"
     assert server_base_url("::1", 25752) == "http://[::1]:25752/v1"
+    assert server_dashboard_url("127.0.0.1", 25752) == "http://127.0.0.1:25752/"
+    assert server_dashboard_url("::1", 25752) == "http://[::1]:25752/"
+
+
+def test_read_server_config_returns_the_file_as_written(tmp_path: Path):
+    path = tmp_path / "server.json"
+    config = {
+        "models": [{"model_id": "gpt-5.5", "api_key": "$PROBE_UPSTREAM_KEY", "server_model_id": "gpt-5.5"}],
+        "api_keys": ["${PROBE_SERVER_KEY}"],
+        "host": "0.0.0.0",
+        "port": 8080,
+        "note": "kept",
+    }
+    _write_config(path, config)
+
+    assert read_server_config(path) == config
+    assert read_server_config(str(path)) == config
+    with pytest.raises(FileNotFoundError):
+        read_server_config(tmp_path / "missing.json")
+
+    path.write_text("not json", encoding="utf-8")
+    with pytest.raises(ValueError) as exc_info:
+        read_server_config(path)
+    assert str(exc_info.value).startswith(f"{path}: not valid JSON: ")
+    for shape, message in (
+        ([], "the config must be a JSON object with a models list."),
+        ({"api_keys": []}, "the config must be a JSON object with a models list."),
+        ({"models": [], "api_keys": "k"}, "api_keys must be a list."),
+    ):
+        _write_config(path, shape)
+        with pytest.raises(ValueError) as exc_info:
+            read_server_config(path)
+        assert str(exc_info.value) == f"{path}: {message}"
+
+
+def _metrics(app: Flask, headers: dict[str, str] | None = None) -> dict[str, Any]:
+    with app.test_client() as client:
+        response = client.get("/v1/metrics", headers=headers or {})
+    assert response.status_code == 200
+    return response.get_json()
+
+
+_COUNTS = ("requests", "successes", "failures", "disconnects", "in_flight", "success_rate")
+_NO_LATENCY = {"first_event": {"p50": None, "p90": None}, "total": {"p50": None, "p90": None}}
+_NO_TOKENS = {"prompt": 0, "cached": 0, "thoughts": 0, "response": 0}
+
+
+def _counts(series: dict[str, Any]) -> dict[str, Any]:
+    return {name: series[name] for name in _COUNTS}
+
+
+def test_metrics_count_a_success_with_its_latency_and_tokens(use_upstream):
+    script = [_delta({"type": "text.delta", "text": "Hi", "fidelity": {"item_id": "0"}}), _stop()]
+    use_upstream(lambda model: ScriptedClient(script, model))
+    app = _server_app([_row("claude-sonnet-5-5", "claude"), _row("gpt-5.5")])
+    before = _metrics(app)
+
+    with app.test_client() as client:
+        response = client.post("/v1/stream", json={"model": "claude", "messages": _messages()})
+        assert _sse_events(response.data)[-1] == "[DONE]"
+        created = client.get("/v1/models").get_json()["data"][0]["created"]
+    metrics = _metrics(app)
+
+    assert list(metrics) == [
+        "started_at",
+        "uptime_s",
+        *_COUNTS,
+        "latency_ms",
+        "tokens",
+        "refused",
+        "last_request_at",
+        "models",
+    ]
+    assert (before["requests"], before["last_request_at"]) == (0, None)
+    assert metrics["started_at"] == created
+    assert metrics["uptime_s"] >= 0
+    claude, gpt = metrics["models"]
+    assert list(claude) == ["id", *_COUNTS, "latency_ms", "tokens", "last_request_at", "last_outcome", "last_error"]
+    for series in (metrics, claude):
+        assert _counts(series) == {
+            "requests": 1,
+            "successes": 1,
+            "failures": 0,
+            "disconnects": 0,
+            "in_flight": 0,
+            "success_rate": 1.0,
+        }
+        first_event, total = series["latency_ms"]["first_event"], series["latency_ms"]["total"]
+        assert first_event["p50"] == first_event["p90"]
+        assert total["p50"] == total["p90"]
+        assert 0 <= first_event["p50"] <= total["p50"]
+        assert series["tokens"] == {"prompt": 3, "cached": 0, "thoughts": 0, "response": 5}
+    assert (claude["id"], claude["last_outcome"], claude["last_error"]) == ("claude", "success", None)
+    assert isinstance(claude["last_request_at"], float)
+    assert claude["last_request_at"] == metrics["last_request_at"]
+    assert metrics["refused"] == {"unauthorized": 0, "invalid_request": 0, "unknown_model": 0}
+    # every row is reported from the start, with nothing counted
+    assert gpt == {
+        "id": "gpt-5.5",
+        "requests": 0,
+        "successes": 0,
+        "failures": 0,
+        "disconnects": 0,
+        "in_flight": 0,
+        "success_rate": None,
+        "latency_ms": _NO_LATENCY,
+        "tokens": _NO_TOKENS,
+        "last_request_at": None,
+        "last_outcome": None,
+        "last_error": None,
+    }
+
+
+def test_metrics_count_a_failure_with_its_error(use_upstream):
+    scripts = {
+        "gpt-5.5": [
+            _delta({"type": "text.delta", "text": "Hel", "fidelity": {"item_id": "0"}}),
+            RuntimeError("connection reset"),
+        ],
+        "claude-sonnet-5-5": [_delta({"type": "text.delta", "text": "Hi", "fidelity": {"item_id": "0"}}), _stop()],
+    }
+    use_upstream(lambda model: ScriptedClient(scripts[model], model))
+    app = _server_app([_row("gpt-5.5"), _row("claude-sonnet-5-5", "claude")])
+
+    with app.test_client() as client:
+        for model in ("gpt-5.5", "claude"):
+            response = client.post("/v1/stream", json={"model": model, "messages": _messages()})
+            assert _sse_events(response.data)[-1] == "[DONE]"
+    metrics = _metrics(app)
+
+    gpt, claude = metrics["models"]
+    assert _counts(gpt) == {
+        "requests": 1,
+        "successes": 0,
+        "failures": 1,
+        "disconnects": 0,
+        "in_flight": 0,
+        "success_rate": 0.0,
+    }
+    assert gpt["latency_ms"] == _NO_LATENCY
+    assert gpt["tokens"] == _NO_TOKENS
+    assert gpt["last_outcome"] == "failure"
+    assert list(gpt["last_error"]) == ["at", "message"]
+    assert gpt["last_error"]["message"] == "connection reset"
+    assert isinstance(gpt["last_error"]["at"], float)
+    assert (claude["success_rate"], claude["last_error"]) == (1.0, None)
+    assert _counts(metrics) == {
+        "requests": 2,
+        "successes": 1,
+        "failures": 1,
+        "disconnects": 0,
+        "in_flight": 0,
+        "success_rate": 0.5,
+    }
+    assert metrics["tokens"] == claude["tokens"]
+
+
+@pytest.mark.asyncio
+async def test_metrics_count_a_disconnect_apart_from_failures(use_upstream, serve):
+    upstream = SlowScriptedClient()
+    use_upstream(lambda model: upstream)
+    app = _server_app()
+    signal = AbortSignal()
+    stream = _mmsp_client(serve(app)).streaming_response(_messages(), {}, signal)
+
+    try:
+        await anext(stream)
+        assert _counts(_metrics(app))["in_flight"] == 1
+
+        signal.abort("stop")
+        with pytest.raises(asyncio.CancelledError):
+            await anext(stream)
+        assert upstream.cleaned.wait(5)
+        # the server counts the disconnect once its generator is closed, just after the upstream's
+        for _ in range(250):
+            metrics = _metrics(app)
+            if metrics["disconnects"]:
+                break
+            await asyncio.sleep(0.02)
+    finally:
+        upstream.stop.set()
+
+    model = metrics["models"][0]
+    for series in (metrics, model):
+        assert _counts(series) == {
+            "requests": 1,
+            "successes": 0,
+            "failures": 0,
+            "disconnects": 1,
+            "in_flight": 0,
+            "success_rate": None,
+        }
+        assert series["latency_ms"] == _NO_LATENCY
+    assert (model["last_outcome"], model["last_error"]) == ("disconnect", None)
+
+
+def test_metrics_count_refusals_without_touching_the_models(use_upstream):
+    use_upstream(lambda model: ScriptedClient([], model))
+    app = _server_app(api_keys=["secret"])
+    key = {"Authorization": "Bearer secret"}
+
+    with app.test_client() as client:
+        assert client.post("/v1/stream", json={"model": "gpt-5.5", "messages": []}).status_code == 401
+        assert client.post("/v1/stream", json={}, headers=key).status_code == 400
+        assert client.post("/v1/stream", json={"model": "gpt-4", "messages": []}, headers=key).status_code == 404
+    metrics = _metrics(app, key)
+
+    assert metrics["refused"] == {"unauthorized": 1, "invalid_request": 1, "unknown_model": 1}
+    assert _counts(metrics) == {
+        "requests": 0,
+        "successes": 0,
+        "failures": 0,
+        "disconnects": 0,
+        "in_flight": 0,
+        "success_rate": None,
+    }
+    assert metrics["last_request_at"] is None
+    assert (metrics["models"][0]["requests"], metrics["models"][0]["last_outcome"]) == (0, None)
+
+
+def test_metrics_percentiles_are_nearest_rank_over_the_last_thousand():
+    moment = [0.0]
+    metrics = ServerMetrics(["m"], now=lambda: moment[0], clock=lambda: 1790000000.1234)
+
+    def request(first_event_ms: int, total_ms: int) -> None:
+        moment[0] = 0.0
+        sample = metrics.begin("m")
+        moment[0] = first_event_ms / 1000
+        metrics.first_event(sample)
+        moment[0] = total_ms / 1000
+        # a later event is not the first, and a request ends once
+        metrics.first_event(sample)
+        metrics.finish(sample, "success")
+        metrics.finish(sample, "failure", error="late")
+
+    for total_ms in range(100, 1001, 100):
+        request(total_ms // 2, total_ms)
+    snapshot = metrics.snapshot()
+
+    assert snapshot["latency_ms"] == {"first_event": {"p50": 250, "p90": 450}, "total": {"p50": 500, "p90": 900}}
+    assert snapshot["models"][0]["latency_ms"] == snapshot["latency_ms"]
+    assert (snapshot["successes"], snapshot["failures"]) == (10, 0)
+    assert (snapshot["started_at"], snapshot["uptime_s"], snapshot["last_request_at"]) == (
+        1790000000,
+        0,
+        1790000000.123,
+    )
+
+    for _ in range(LATENCY_WINDOW):
+        request(5, 10)
+    snapshot = metrics.snapshot()
+
+    # the first ten fell out of the window
+    assert snapshot["latency_ms"] == {"first_event": {"p50": 5, "p90": 5}, "total": {"p50": 10, "p90": 10}}
+    assert snapshot["successes"] == 1010
+
+
+def test_metrics_require_the_key_but_the_dashboard_does_not():
+    app = _server_app(api_keys=["secret"])
+
+    with app.test_client() as client:
+        refused = client.get("/v1/metrics")
+        page = client.get("/")
+    metrics = _metrics(app, {"Authorization": "Bearer secret"})
+
+    assert refused.status_code == 401
+    assert metrics["refused"]["unauthorized"] == 1
+    assert page.status_code == 200
+    assert page.content_type == "text/html; charset=utf-8"
+    assert page.get_data(as_text=True) == DASHBOARD_TEMPLATE
+
+
+def test_dashboard_page_is_served():
+    with _server_app().test_client() as client:
+        response = client.get("/")
+
+    assert response.status_code == 200
+    assert b"<title>MMSP Dashboard</title>" in response.data
+    for element_id in (
+        "statusDot",
+        "statusText",
+        "statusSince",
+        "keyPrompt",
+        "keyInput",
+        "statRequests",
+        "statSuccess",
+        "statLatency",
+        "statFirstEvent",
+        "statTokens",
+        "modelRows",
+        "themeToggle",
+    ):
+        assert f'id="{element_id}"'.encode() in response.data, element_id
+    for text in (
+        "fetchMetrics()",
+        "submitKey(",
+        "render(",
+        "renderModels(",
+        "formatMs(",
+        "formatAgo(",
+        "mmsp.dashboard.key",
+        "/v1/metrics",
+        "mmsp.playground.theme",
+    ):
+        assert text.encode() in response.data, text
+    assert b"__PLAYGROUND_DEFAULTS__" not in response.data
+    assert b"0.6" not in response.data
+    assert b"<select" not in response.data

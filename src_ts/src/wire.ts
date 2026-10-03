@@ -19,7 +19,8 @@
  * `POST /v1/stream` takes `{"model", "messages", "config"}` and answers with server-sent events:
  * one `data: <UniEvent JSON>` per public event, then `data: [DONE]`. `GET /v1/models` lists the
  * models of the server's table in OpenAI's list shape (`{"object": "list", "data": [{"id": ...},
- * ...]}`), and a model id not in the table is a 404 NotFoundError. A server with keys wants
+ * ...]}`), and a model id not in the table is a 404 NotFoundError. `GET /v1/metrics` reports the
+ * server's request counts and latencies, which its dashboard at `/` shows. A server with keys wants
  * `Authorization: Bearer <key>` on every `/v1/` request. JSON has no bytes, so every Buffer goes
  * out as base64 text, and only the `data` of `inline_data.*` and `inline_thinking.*` items, the
  * protocol's byte fields, is decoded back. While the model is silent, the server writes an SSE
@@ -51,6 +52,7 @@ export const MODELS_ROUTE = "/models";
 // what the server serves: API_PREFIX and the route
 export const STREAM_PATH = "/v1/stream";
 export const MODELS_PATH = "/v1/models";
+export const METRICS_PATH = "/v1/metrics";
 export const KEEPALIVE_SECONDS = 15;
 
 /**
@@ -62,6 +64,17 @@ export const KEEPALIVE_SECONDS = 15;
  */
 export function serverBaseUrl(host: string, port: number): string {
   return `http://${host.includes(":") ? `[${host}]` : host}:${port}${API_PREFIX}`;
+}
+
+/**
+ * The dashboard of a server listening on host and port.
+ *
+ * @param host - The host the server listens on; an IPv6 address goes in brackets
+ * @param port - The port it listens on
+ * @returns `http://host:port/`
+ */
+export function serverDashboardUrl(host: string, port: number): string {
+  return `http://${host.includes(":") ? `[${host}]` : host}:${port}/`;
 }
 
 // an event, a message, an item or an error as JSON parsed it

@@ -19,7 +19,8 @@ The wire protocol an MMSP server and the mmsp client speak.
 `data: <json>` line per event of the public stream, then `data: [DONE]`. A client's base URL ends with
 `/v1` and the client appends `/stream` and `/models`. `GET /v1/models` lists the models of the
 server's table in OpenAI's list shape (`{"object": "list", "data": [{"id": ...}, ...]}`); a model id
-not in the table is a 404 `NotFoundError`. JSON has no bytes, so every bytes value travels as base64
+not in the table is a 404 `NotFoundError`. `GET /v1/metrics` reports the server's counters, and the
+server's root serves the dashboard that reads them. JSON has no bytes, so every bytes value travels as base64
 text, and only the `data` of `inline_data.*` and `inline_thinking.*` items, the protocol's byte fields,
 is decoded back.
 While the model is silent, the server writes an SSE comment every KEEPALIVE_SECONDS, which a reader
@@ -51,6 +52,7 @@ STREAM_ROUTE = "/stream"  # what a client appends to its base URL
 MODELS_ROUTE = "/models"
 STREAM_PATH = "/v1/stream"  # what the server serves (API_PREFIX + the route)
 MODELS_PATH = "/v1/models"
+METRICS_PATH = "/v1/metrics"
 KEEPALIVE_SECONDS = 15
 
 
@@ -66,6 +68,20 @@ def server_base_url(host: str, port: int) -> str:
         `http://host:port/v1`.
     """
     return f"http://{f'[{host}]' if ':' in host else host}:{port}{API_PREFIX}"
+
+
+def server_dashboard_url(host: str, port: int) -> str:
+    """
+    The dashboard of a server listening on host and port.
+
+    Args:
+        host: The host the server listens on; an IPv6 address goes in brackets.
+        port: The port it listens on.
+
+    Returns:
+        `http://host:port/`.
+    """
+    return f"http://{f'[{host}]' if ':' in host else host}:{port}/"
 
 
 def encode_wire(value: Any) -> Any:

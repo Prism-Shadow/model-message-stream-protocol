@@ -9,7 +9,7 @@ MMSP 服务端通过 HTTP 提供其表中的模型，输出 MMSP 事件。每一
 ```json
 {
   "models": [
-    {"model_id": "claude-sonnet-5-5", "base_url": "https://api.anthropic.com", "api_key": "$ANTHROPIC_API_KEY", "server_model_id": "claude", "client_type": "anthropic-official"},
+    {"model_id": "claude-sonnet-5-5", "api_key": "$ANTHROPIC_API_KEY", "server_model_id": "claude"},
     {"model_id": "gpt-5.5", "base_url": "https://api.openai.com/v1", "api_key": "$OPENAI_API_KEY", "server_model_id": "gpt-5.5", "client_type": "openai-official"},
     {"model_id": "qwen/qwen3.8-27b", "base_url": "https://openrouter.ai/api/v1", "api_key": "$OPENROUTER_API_KEY", "server_model_id": "qwen3.8", "client_type": "openai-responses"}
   ],
@@ -17,19 +17,19 @@ MMSP 服务端通过 HTTP 提供其表中的模型，输出 MMSP 事件。每一
 }
 ```
 
-每一行的所有列都必填：
+`base_url` 和 `client_type` 可以为空或不写，其余列必填：
 
 | 列 | 内容 |
 | --- | --- |
 | `model_id` | 上游 id，即 `AutoLLMClient` 接收的形式 |
-| `base_url` | 上游端点，例如 `https://api.anthropic.com`、`https://api.openai.com/v1`、`https://openrouter.ai/api/v1` |
+| `base_url` | 上游端点，例如 `https://api.openai.com/v1`、`https://openrouter.ai/api/v1`；为空或不写时用该客户端的默认端点（它的环境变量，否则是厂商官方的） |
 | `api_key` | 上游 key |
 | `server_model_id` | 调用方使用的 id |
-| `client_type` | 上游客户端，为某个[官方](/zh/docs/models/#官方客户端)或[兼容](/zh/docs/models/#兼容客户端)客户端类型；`mmsp` 加另一个服务端的 `/v1` 即可转发到该服务端 |
+| `client_type` | 上游客户端，为某个[官方](/zh/docs/models/#官方客户端)或[兼容](/zh/docs/models/#兼容客户端)客户端类型；`mmsp` 加另一个服务端的 `/v1` 即可转发到该服务端；为空或不写时由 `AutoLLMClient` 决定：先看 `CLIENT_TYPE`，否则用模型 id 对应的官方客户端 |
 
 `api_keys` 列出调用方可以发送的 bearer key，可以有一个或多个。为空或不写时，服务端对所有请求开放，并在启动时说明。
 
-`base_url`、`api_key`、`client_type` 或 `api_keys` 中以 `$` 开头的值（`$VAR` 或 `${VAR}`）在加载文件时从环境变量读取；模型 id 按原样使用。表只在启动时读取一次：表为空、某列缺失或为空、两行使用同一个 `server_model_id`、未知的 `client_type`、未设置的 `$VAR`，都会让服务端停止启动并指明是哪一行。key 不对或端点不可达，会在该行的第一个请求上以厂商的错误出现。
+`base_url`、`api_key`、`client_type` 或 `api_keys` 中以 `$` 开头的值（`$VAR` 或 `${VAR}`）在加载文件时从环境变量读取；模型 id 按原样使用。表只在启动时读取一次：表为空、某个必填列缺失或为空、两行使用同一个 `server_model_id`、未知的 `client_type`（或模型 id 不属于任何系列却没写 `client_type`）、未设置的 `$VAR`，都会让服务端停止启动并指明是哪一行。key 不对或端点不可达，会在该行的第一个请求上以厂商的错误出现。
 
 ## 启动服务端
 
@@ -69,7 +69,7 @@ start_server(
 
 </div>
 
-也可以从文件读取：`loadServerConfig(path)` / `load_server_config(path)` 返回 `{ models, api_keys }`，其中的 `$VAR` 已替换为环境变量的值；`resolveServerConfig(config)` / `resolve_server_config(config)` 对已解析的配置做同样的处理。在 shell 中启动（TypeScript 脚本在仓库的 `src_ts` 目录下运行）：
+也可以从文件读取：`loadServerConfig(path)` / `load_server_config(path)` 返回 `{ models, api_keys }`，其中的 `$VAR` 已替换为环境变量的值；`resolveServerConfig(config)` / `resolve_server_config(config)` 对已解析的配置做同样的处理；`readServerConfig(path)` / `read_server_config(path)` 按原样返回文件内容。在 shell 中启动（TypeScript 脚本在仓库的 `src_ts` 目录下运行）：
 
 <div class="code-group" data-labels="TypeScript,Python">
 
@@ -86,9 +86,10 @@ python -m mmsp.integration.server --config mmsp-server.json
 ```text
 Starting MMSP server at http://127.0.0.1:25752/v1
 Serving models: claude, gpt-5.5, qwen3.8
+Dashboard at http://127.0.0.1:25752/
 ```
 
-`--config` 默认取 `MMSP_SERVER_CONFIG`；`--host`、`--port` 默认 `127.0.0.1:25752`，因此调用方的 base URL 是 `http://127.0.0.1:25752/v1`。`createServerApp({ models, apiKeys })` / `create_server_app(models, api_keys)` 返回 Express / Flask 应用，但不启动它；`startServer` 返回 `http.Server`。
+`--config` 默认取 `MMSP_SERVER_CONFIG`；`--host`、`--port` 默认 `127.0.0.1:25752`，因此调用方的 base URL 是 `http://127.0.0.1:25752/v1`。`createServerApp({ models, apiKeys })` / `create_server_app(models, api_keys)` 返回 Express / Flask 应用，但不启动它；`startServer` 返回 `http.Server`。上面几行由 `announceServer` / `announce_server` 打印，服务端开放时还会多一行 `Open server: api_keys is empty, every request is accepted`。
 
 ## 接口
 
@@ -96,6 +97,8 @@ Serving models: claude, gpt-5.5, qwen3.8
 | --- | --- | --- |
 | `GET /v1/models` | | `{"object": "list", "data": [{"id": "claude", "object": "model", "created": …, "owned_by": "mmsp"}, …]}`，每行一项 |
 | `POST /v1/stream` | `{"model", "messages", "config"}` | Server-sent events：每个事件一行 `data: <UniEvent>`，最后是 `data: [DONE]` |
+| `GET /v1/metrics` | | 服务端自启动以来的处理情况，见[仪表盘](#仪表盘) |
+| `GET /` | | 仪表盘页面 |
 
 ```text
 data: {"role":"assistant","event_type":"delta","content_items":[{"type":"text.delta","text":"Hel"}],...}
@@ -111,6 +114,38 @@ data: [DONE]
 - 字节数据，即 `inline_data` 和 `inline_thinking` 项的 `data`，双向都以 base64 传输。
 - 模型没有输出时，服务端每 15 秒写一行 `: keep-alive` 注释。
 - 错误格式为 `{"error": {"type", "message", ...}}`：没有带其中一个 key 返回 HTTP 401 `AuthenticationError`，请求体格式错误返回 400 `InvalidRequestError`，模型不在表中（`The model 'x' does not exist; GET /v1/models lists the models this server serves.`）或路径不存在（`No route for GET /models; ...`）返回 404 `NotFoundError`，请求体超过 50 MB 返回 413。流开始之后，错误是一个 `data:` 事件，随后是 `data: [DONE]`。
+
+## 仪表盘
+
+`GET /v1/metrics` 与其他 `/v1/` 接口一样需要 key，返回服务端自启动以来的处理情况，包括总计和每个模型：
+
+```json
+{
+  "started_at": 1790000000, "uptime_s": 125,
+  "requests": 10, "successes": 8, "failures": 1, "disconnects": 1, "in_flight": 0, "success_rate": 0.8889,
+  "latency_ms": {"first_event": {"p50": 120, "p90": 400}, "total": {"p50": 900, "p90": 2300}},
+  "tokens": {"prompt": 30, "cached": 0, "thoughts": 0, "response": 50},
+  "refused": {"unauthorized": 0, "invalid_request": 0, "unknown_model": 0},
+  "last_request_at": 1790000100.123,
+  "models": [{"id": "claude", "requests": 5, …, "last_request_at": 1790000100.123, "last_outcome": "success", "last_error": null}]
+}
+```
+
+| 字段 | 统计的是 |
+| --- | --- |
+| `requests` | 到达某个模型的请求 |
+| `successes` | 以 `stop` 事件结束的流 |
+| `failures` | 以错误结束的流；模型的 `last_error` 记录最近一条错误信息 |
+| `disconnects` | 调用方提前断开的请求，不算失败 |
+| `in_flight` | 仍在输出的请求 |
+| `success_rate` | `successes / (successes + failures)`，两者都为 0 时为 `null` |
+| `latency_ms` | 首个事件耗时和整体耗时的 p50、p90，取最近 1000 次成功 |
+| `tokens` | 成功请求的用量之和 |
+| `refused` | 到达模型之前就被拒绝的请求，按原因分开计数；只有总计 |
+
+每个模型的条目包含同样的计数，另有 `last_request_at` 和 `last_outcome`。时间均为 unix 秒。
+
+服务端根路径 `/`（`http://127.0.0.1:25752/`）上的仪表盘展示这些数据，每 3 秒刷新一次。页面本身不含 key：服务端设置了 key 时，页面会询问一次，并保存在浏览器里（`mmsp.dashboard.key`）。
 
 ## mmsp 客户端
 
@@ -142,9 +177,11 @@ client = AutoLLMClient(
 
 ## 在 Playground 里启动
 
-[Playground](/zh/docs/tracing/#playground) 顶栏的 Open Server 打开位于 `/server/` 的 server 页面。每个模型添加一行（填入模型 id 后会自动填入它的客户端类型和端点，与聊天页面相同），再填写调用方发送的 key（不填则对所有请求开放）、host 和 port，然后点 Start。状态栏显示 base URL 和提供的 id。点 Stop 或停止 Playground，服务端随之停止。
+[Playground](/zh/docs/tracing/#playground) 顶栏的 Open Server 打开位于 `/server/` 的 server 页面。每个模型添加一行，再填写调用方发送的 key（不填则对所有请求开放）、host 和 port。填入模型 id 只会同步填入 Served as；不手动设置时，Client type 保持 Auto，Base URL 保持 Default。
 
-`$VAR` 形式的值从 Playground 的环境变量读取。这张表只保存在浏览器里，不写入磁盘。
+Save 把页面内容写入 `MMSP_SERVER_CONFIG`，未设置时写入 `cache`（或 `MMSP_CACHE_DIR`）下的 `server.json`，页面上会显示这个路径。文件就是上面的[配置](#配置)，外加 `host` 和 `port`，命令行会忽略这两项，所以两者可以用 `MMSP_SERVER_CONFIG` 指向同一个文件。值按输入原样写入：写成 `$VAR` 的 key 不会进入文件，启动时从 Playground 的环境变量读取。
+
+Start 运行的是已保存的文件，而不是页面上的内容。每一行、每个 key 和监听地址前都有一个圆点：绿色为 In effect，琥珀色为 Saved，空心为 Unsaved；未保存的修改留在浏览器里。页面与文件不一致时 Save 可点，文件与正在运行的不一致时出现 Restart。Restart 先构建新服务端再停掉旧的，因此新表被拒绝时，旧服务端照常运行。状态栏显示 base URL、提供的 id 和[仪表盘](#仪表盘)链接。点 Stop 或停止 Playground，服务端随之停止。
 
 ## 追踪
 

@@ -17,10 +17,12 @@
  *
  * The server serves the rows of its models table. Each row is an upstream model, built once with
  * `new AutoLLMClient({ model: model_id, apiKey: api_key, baseUrl: base_url, clientType:
- * client_type })` and named by its `server_model_id`. `POST /v1/stream` streams the model a
- * request names, and `GET /v1/models` lists them in OpenAI's shape. Requests carry one of the
- * `api_keys` as a bearer token, or none when the list is empty. The table comes from a JSON file
- * (`loadServerConfig`) or from code, and a client's base URL is `http://host:port/v1`. The
+ * client_type })` and named by its `server_model_id`; an empty or absent `base_url` or
+ * `client_type` is left to AutoLLMClient. `POST /v1/stream` streams the model a request names,
+ * `GET /v1/models` lists them in OpenAI's shape, `GET /v1/metrics` reports what the server has
+ * served (ServerMetrics), and `/` is the dashboard that shows it. Requests to `/v1/` carry one of
+ * the `api_keys` as a bearer token, or none when the list is empty. The table comes from a JSON
+ * file (`loadServerConfig`) or from code, and a client's base URL is `http://host:port/v1`. The
  * protocol is described in `wire`.
  */
 
@@ -29,37 +31,41 @@ import express, { Express, NextFunction, Request, Response } from "express";
 import * as fs from "fs";
 import http from "http";
 import { AddressInfo } from "net";
+import { performance } from "perf_hooks";
 import { parseArgs } from "util";
 import { AutoLLMClient } from "../autoClient";
 import { LLMClient } from "../baseClient";
-import { UniConfig, UniMessage } from "../types";
+import { UniConfig, UniMessage, UsageMetadata } from "../types";
 import {
   DEFAULT_HOST,
   DEFAULT_PORT,
   KEEPALIVE_SECONDS,
+  METRICS_PATH,
   MODELS_PATH,
   STREAM_PATH,
   decodeWire,
   encodeWire,
   serverBaseUrl,
+  serverDashboardUrl,
   toWireError,
 } from "../wire";
+import { DASHBOARD_TEMPLATE } from "./dashboardPage";
 
 /**
  * One row of the models table: an upstream model and the id clients name it by. Keys are the
- * config file's; every column is required.
+ * config file's; `base_url` and `client_type` may be empty or absent.
  */
 export interface ModelRow {
   /** The upstream model id, as AutoLLMClient takes it */
   model_id: string;
-  /** The upstream endpoint */
-  base_url: string;
   /** The upstream key */
   api_key: string;
   /** The id clients name */
   server_model_id: string;
-  /** The upstream client type, one of AutoLLMClient's */
-  client_type: string;
+  /** Empty or absent: the client's default endpoint (its variable, else the vendor's) */
+  base_url?: string;
+  /** Empty or absent: the official client the model id names */
+  client_type?: string;
 }
 
 export interface ServerConfig {
@@ -67,13 +73,16 @@ export interface ServerConfig {
   api_keys: string[];
 }
 
-const COLUMNS = [
+// the columns of a row, in the order a config file writes them
+export const COLUMNS = [
   "model_id",
   "base_url",
   "api_key",
   "server_model_id",
   "client_type",
 ] as const;
+const REQUIRED_COLUMNS = ["model_id", "api_key", "server_model_id"] as const;
+const OPTIONAL_COLUMNS = ["base_url", "client_type"] as const;
 
 // a config may name these from the environment; the ids are always taken as written
 const ENVIRONMENT_COLUMNS = ["base_url", "api_key", "client_type"] as const;
@@ -87,6 +96,23 @@ function errorBody(
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+/**
+ * Refuse a config that is not an object with a models list, or whose api_keys is not a list.
+ */
+function checkConfigShape(
+  config: unknown,
+  prefix: string,
+): asserts config is Record<string, unknown> & { models: unknown[] } {
+  if (!isObject(config) || !Array.isArray(config.models)) {
+    throw new Error(
+      `${prefix}the config must be a JSON object with a models list.`,
+    );
+  }
+  if (config.api_keys !== undefined && !Array.isArray(config.api_keys)) {
+    throw new Error(`${prefix}api_keys must be a list.`);
+  }
 }
 
 /**
@@ -110,15 +136,8 @@ export function resolveServerConfig(
   source = "",
 ): ServerConfig {
   const prefix = source ? `${source}: ` : "";
-  if (!isObject(config) || !Array.isArray(config.models)) {
-    throw new Error(
-      `${prefix}the config must be a JSON object with a models list.`,
-    );
-  }
-  const apiKeys = config.api_keys === undefined ? [] : config.api_keys;
-  if (!Array.isArray(apiKeys)) {
-    throw new Error(`${prefix}api_keys must be a list.`);
-  }
+  checkConfigShape(config, prefix);
+  const apiKeys = (config.api_keys ?? []) as unknown[];
 
   const resolve = (cell: unknown, where: string): unknown => {
     if (typeof cell !== "string" || !cell.startsWith("$")) {
@@ -155,12 +174,15 @@ export function resolveServerConfig(
 }
 
 /**
- * Read the server's config file, with its environment references resolved.
+ * Read a config file as written: parsed and shape-checked, its `$VAR` cells unresolved, every key
+ * kept (the playground keeps `host` and `port` in the file too).
  *
  * @param path - The JSON file: `{"models": [...], "api_keys": [...]}`
- * @returns The config as resolveServerConfig returns it
+ * @returns The parsed config
+ * @throws The fs error for a missing file (`code === "ENOENT"`); Error, prefixed with the path,
+ *   when the file is not JSON or not a config
  */
-export function loadServerConfig(path: string): ServerConfig {
+export function readServerConfig(path: string): Record<string, unknown> {
   const text = fs.readFileSync(path, "utf-8");
   let config: unknown;
   try {
@@ -168,7 +190,282 @@ export function loadServerConfig(path: string): ServerConfig {
   } catch (error) {
     throw new Error(`${path}: not valid JSON: ${(error as Error).message}`);
   }
-  return resolveServerConfig(config, path);
+  checkConfigShape(config, `${path}: `);
+  return config;
+}
+
+/**
+ * Read the server's config file, with its environment references resolved.
+ *
+ * @param path - The JSON file: `{"models": [...], "api_keys": [...]}`
+ * @returns The config as resolveServerConfig returns it
+ */
+export function loadServerConfig(path: string): ServerConfig {
+  return resolveServerConfig(readServerConfig(path), path);
+}
+
+/**
+ * Print where the server listens, what it serves, where its dashboard is, and whether it is open.
+ *
+ * @param host - The host it listens on
+ * @param port - The port it listens on
+ * @param modelIds - The ids it serves, in table order
+ * @param open - Whether it accepts every request, having no keys
+ */
+export function announceServer(
+  host: string,
+  port: number,
+  modelIds: string[],
+  open: boolean,
+): void {
+  console.log(`Starting MMSP server at ${serverBaseUrl(host, port)}`);
+  console.log(`Serving models: ${modelIds.join(", ")}`);
+  console.log(`Dashboard at ${serverDashboardUrl(host, port)}`);
+  if (open) {
+    console.log("Open server: api_keys is empty, every request is accepted");
+  }
+}
+
+// how many of the latest successes the latency percentiles are taken over, per model and in total
+export const LATENCY_WINDOW = 1000;
+
+export type RequestOutcome = "success" | "failure" | "disconnect";
+export type RefusalKind = "unauthorized" | "invalid_request" | "unknown_model";
+
+/**
+ * One request the server streams, from begin to finish.
+ */
+export interface RequestSample {
+  modelId: string;
+  /** `now()` at begin */
+  started: number;
+  /** `now()` at the first event, null until then */
+  firstEvent: number | null;
+  done: boolean;
+}
+
+interface Counters {
+  requests: number;
+  successes: number;
+  failures: number;
+  disconnects: number;
+  firstEventMs: number[];
+  totalMs: number[];
+  tokens: {
+    prompt: number;
+    cached: number;
+    thoughts: number;
+    response: number;
+  };
+  lastRequestAt: number | null;
+}
+
+interface ModelCounters extends Counters {
+  lastOutcome: RequestOutcome | null;
+  lastError: { at: number; message: string | null } | null;
+}
+
+function newCounters(): Counters {
+  return {
+    requests: 0,
+    successes: 0,
+    failures: 0,
+    disconnects: 0,
+    firstEventMs: [],
+    totalMs: [],
+    tokens: { prompt: 0, cached: 0, thoughts: 0, response: 0 },
+    lastRequestAt: null,
+  };
+}
+
+/**
+ * The nearest-rank percentile of a list of samples, null for none.
+ */
+function percentile(samples: number[], p: number): number | null {
+  if (samples.length === 0) {
+    return null;
+  }
+  const values = [...samples].sort((a, b) => a - b);
+  return values[Math.ceil((p / 100) * values.length) - 1];
+}
+
+/**
+ * What the server has served since it started, per `server_model_id` and in total.
+ *
+ * A request is counted when its model is found; it ends as a success (the stream reached its
+ * end), a failure (it raised) or a disconnect (the client went away), and is in flight until then.
+ * Refusals before a model is found are counted apart. The latency percentiles are taken over the
+ * last LATENCY_WINDOW successes.
+ */
+export class ServerMetrics {
+  /** Unix seconds at construction, whole */
+  readonly startedAt: number;
+  private readonly total: Counters = newCounters();
+  private readonly models = new Map<string, ModelCounters>();
+  private readonly refusals: Record<RefusalKind, number> = {
+    unauthorized: 0,
+    invalid_request: 0,
+    unknown_model: 0,
+  };
+
+  /**
+   * @param modelIds - The server's model ids, in table order
+   * @param now - A monotonic clock in seconds, for the latencies
+   * @param clock - Unix time in seconds, for the timestamps
+   */
+  constructor(
+    modelIds: string[],
+    private readonly now: () => number = () => performance.now() / 1000,
+    private readonly clock: () => number = () => Date.now() / 1000,
+  ) {
+    this.startedAt = Math.floor(clock());
+    for (const id of modelIds) {
+      this.models.set(id, {
+        ...newCounters(),
+        lastOutcome: null,
+        lastError: null,
+      });
+    }
+  }
+
+  // unix seconds with millisecond precision
+  private timestamp(): number {
+    return Math.round(this.clock() * 1000) / 1000;
+  }
+
+  begin(modelId: string): RequestSample {
+    const at = this.timestamp();
+    for (const counters of [this.models.get(modelId)!, this.total]) {
+      counters.requests += 1;
+      counters.lastRequestAt = at;
+    }
+    return { modelId, started: this.now(), firstEvent: null, done: false };
+  }
+
+  firstEvent(sample: RequestSample): void {
+    if (sample.firstEvent === null) {
+      sample.firstEvent = this.now();
+    }
+  }
+
+  /**
+   * End a request; a request already ended is left as it is.
+   */
+  finish(
+    sample: RequestSample,
+    outcome: RequestOutcome,
+    options: { error?: string | null; usage?: UsageMetadata | null } = {},
+  ): void {
+    if (sample.done) {
+      return;
+    }
+    sample.done = true;
+    const model = this.models.get(sample.modelId)!;
+    const finished = this.now();
+    for (const counters of [model, this.total]) {
+      if (outcome === "success") {
+        counters.successes += 1;
+        counters.totalMs.push(Math.round((finished - sample.started) * 1000));
+        if (sample.firstEvent !== null) {
+          counters.firstEventMs.push(
+            Math.round((sample.firstEvent - sample.started) * 1000),
+          );
+        }
+        for (const series of [counters.totalMs, counters.firstEventMs]) {
+          if (series.length > LATENCY_WINDOW) {
+            series.shift();
+          }
+        }
+        const usage = options.usage;
+        if (usage) {
+          for (const [bucket, field] of [
+            ["prompt", "prompt_tokens"],
+            ["cached", "cached_tokens"],
+            ["thoughts", "thoughts_tokens"],
+            ["response", "response_tokens"],
+          ] as const) {
+            const tokens = usage[field];
+            if (tokens != null) {
+              counters.tokens[bucket] += tokens;
+            }
+          }
+        }
+      } else if (outcome === "failure") {
+        counters.failures += 1;
+      } else {
+        counters.disconnects += 1;
+      }
+    }
+    model.lastOutcome = outcome;
+    if (outcome === "failure") {
+      model.lastError = {
+        at: this.timestamp(),
+        message: options.error ?? null,
+      };
+    }
+  }
+
+  refused(kind: RefusalKind): void {
+    this.refusals[kind] += 1;
+  }
+
+  /**
+   * The counts as `GET /v1/metrics` reports them.
+   */
+  snapshot(): Record<string, unknown> {
+    const series = (counters: Counters) => {
+      const { requests, successes, failures, disconnects } = counters;
+      // disconnects are the client's doing, not a failure of the server
+      const decided = successes + failures;
+      return {
+        requests,
+        successes,
+        failures,
+        disconnects,
+        in_flight: requests - successes - failures - disconnects,
+        success_rate: decided === 0 ? null : rate(successes, decided),
+        latency_ms: {
+          first_event: {
+            p50: percentile(counters.firstEventMs, 50),
+            p90: percentile(counters.firstEventMs, 90),
+          },
+          total: {
+            p50: percentile(counters.totalMs, 50),
+            p90: percentile(counters.totalMs, 90),
+          },
+        },
+        tokens: { ...counters.tokens },
+      };
+    };
+    return {
+      started_at: this.startedAt,
+      uptime_s: Math.floor(this.clock()) - this.startedAt,
+      ...series(this.total),
+      refused: { ...this.refusals },
+      last_request_at: this.total.lastRequestAt,
+      models: [...this.models].map(([id, counters]) => ({
+        id,
+        ...series(counters),
+        last_request_at: counters.lastRequestAt,
+        last_outcome: counters.lastOutcome,
+        last_error: counters.lastError && { ...counters.lastError },
+      })),
+    };
+  }
+}
+
+/**
+ * `part / whole` to four decimals, rounded half to even as Python's round() rounds it, so that
+ * both servers report the same rate.
+ */
+function rate(part: number, whole: number): number {
+  const scaled = part * 10000;
+  let quotient = Math.floor(scaled / whole);
+  const twice = 2 * (scaled - quotient * whole);
+  if (twice > whole || (twice === whole && quotient % 2 === 1)) {
+    quotient += 1;
+  }
+  return quotient / 10000;
 }
 
 /**
@@ -199,10 +496,16 @@ export function createServerApp(options: {
     if (!isObject(row)) {
       throw new Error(`models[${i}] must be an object.`);
     }
-    for (const column of COLUMNS) {
+    for (const column of REQUIRED_COLUMNS) {
       const cell = row[column];
       if (typeof cell !== "string" || !cell) {
         throw new Error(`models[${i}]: ${column} must be a non-empty string.`);
+      }
+    }
+    for (const column of OPTIONAL_COLUMNS) {
+      const cell = row[column];
+      if (cell !== undefined && cell !== null && typeof cell !== "string") {
+        throw new Error(`models[${i}]: ${column} must be a string.`);
       }
     }
     const serverModelId = row.server_model_id as string;
@@ -215,25 +518,25 @@ export function createServerApp(options: {
     seen.set(serverModelId, i);
   }
   const apiKeys: unknown = options.apiKeys ?? [];
-  if (
-    !Array.isArray(apiKeys) ||
-    !apiKeys.every((key) => typeof key === "string" && key)
-  ) {
+  if (!Array.isArray(apiKeys)) {
     throw new Error("api_keys must be a list of non-empty strings.");
+  }
+  for (const [i, key] of apiKeys.entries()) {
+    if (typeof key !== "string" || !key) {
+      throw new Error(`api_keys[${i}] must be a non-empty string.`);
+    }
   }
 
   const upstreams = new Map<string, LLMClient>();
   for (const [i, row] of (models as ModelRow[]).entries()) {
     try {
-      // the client type is always named, so AutoLLMClient neither deduces a family nor reads
-      // CLIENT_TYPE
       upstreams.set(
         row.server_model_id,
         new AutoLLMClient({
           model: row.model_id,
           apiKey: row.api_key,
-          baseUrl: row.base_url,
-          clientType: row.client_type,
+          baseUrl: row.base_url || undefined,
+          clientType: row.client_type || undefined,
         }),
       );
     } catch (error) {
@@ -244,7 +547,8 @@ export function createServerApp(options: {
       throw new Error(`models[${i}] '${row.server_model_id}': ${message}`);
     }
   }
-  const created = Math.floor(Date.now() / 1000);
+  const metrics = new ServerMetrics([...upstreams.keys()]);
+  const created = metrics.startedAt;
 
   const app = express();
   // Express would match /V1/stream to /v1/stream, past the key check below
@@ -267,6 +571,7 @@ export function createServerApp(options: {
           timingSafeEqual(candidate, given),
       )
     ) {
+      metrics.refused("unauthorized");
       return res
         .status(401)
         .json(errorBody("AuthenticationError", "Invalid or missing API key."));
@@ -277,7 +582,7 @@ export function createServerApp(options: {
   app.use(
     (
       err: { status?: number; type?: string },
-      _req: Request,
+      req: Request,
       res: Response,
       next: NextFunction,
     ) => {
@@ -287,6 +592,9 @@ export function createServerApp(options: {
           .json(errorBody("InvalidRequestError", "Request body is too large."));
       }
       if (err.type === "entity.parse.failed") {
+        if (req.path === STREAM_PATH) {
+          metrics.refused("invalid_request");
+        }
         return res
           .status(400)
           .json(
@@ -301,8 +609,10 @@ export function createServerApp(options: {
   );
 
   app.post(STREAM_PATH, async (req: Request, res: Response) => {
-    const invalid = (message: string) =>
-      res.status(400).json(errorBody("InvalidRequestError", message));
+    const invalid = (message: string) => {
+      metrics.refused("invalid_request");
+      return res.status(400).json(errorBody("InvalidRequestError", message));
+    };
     // express leaves an empty object behind for a body of another content type
     const body: unknown = req.is("application/json") ? req.body : null;
     if (!isObject(body)) {
@@ -322,6 +632,7 @@ export function createServerApp(options: {
 
     const upstream = upstreams.get(model);
     if (upstream === undefined) {
+      metrics.refused("unknown_model");
       return res
         .status(404)
         .json(
@@ -332,6 +643,7 @@ export function createServerApp(options: {
         );
     }
 
+    const sample = metrics.begin(model);
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
@@ -344,6 +656,7 @@ export function createServerApp(options: {
       clearTimeout(keepAlive);
       if (!completed) {
         abortController.abort();
+        metrics.finish(sample, "disconnect");
       }
     });
 
@@ -358,6 +671,7 @@ export function createServerApp(options: {
     };
     keepAlive = setTimeout(write, KEEPALIVE_SECONDS * 1000, ": keep-alive\n\n");
 
+    let usage: UsageMetadata | null = null;
     try {
       // decoded here, so that a message the client cannot read is an error event like any other
       const requestMessages = (messages as UniMessage[]).map(decodeWire);
@@ -366,9 +680,14 @@ export function createServerApp(options: {
         config: config as UniConfig,
         signal: abortController.signal,
       })) {
+        metrics.firstEvent(sample);
+        if (event.event_type === "stop") {
+          usage = event.usage_metadata;
+        }
         write(`data: ${JSON.stringify(encodeWire(event))}\n\n`);
       }
 
+      metrics.finish(sample, "success", { usage });
       completed = true;
       clearTimeout(keepAlive);
       res.write("data: [DONE]\n\n");
@@ -378,8 +697,15 @@ export function createServerApp(options: {
       clearTimeout(keepAlive);
       // the client went away, and nobody reads what would follow
       if (abortController.signal.aborted) {
+        metrics.finish(sample, "disconnect");
         return;
       }
+      metrics.finish(sample, "failure", {
+        error:
+          error instanceof Error
+            ? error.message || error.constructor.name
+            : String(error),
+      });
 
       // the status went out with the first event, so the error travels as an event of its own
       res.write(`data: ${JSON.stringify({ error: toWireError(error) })}\n\n`);
@@ -400,6 +726,15 @@ export function createServerApp(options: {
     });
   });
 
+  app.get(METRICS_PATH, (_req: Request, res: Response) => {
+    res.json(metrics.snapshot());
+  });
+
+  // public: the page holds no data, and asks for a key when /v1/metrics wants one
+  app.get("/", (_req: Request, res: Response) => {
+    res.type("html").send(DASHBOARD_TEMPLATE);
+  });
+
   // a JSON answer where Express would send its HTML page, naming the routes there are
   app.use((req: Request, res: Response) => {
     res
@@ -407,7 +742,7 @@ export function createServerApp(options: {
       .json(
         errorBody(
           "NotFoundError",
-          `No route for ${req.method} ${req.path}; the server serves POST /v1/stream and GET /v1/models.`,
+          `No route for ${req.method} ${req.path}; the server serves POST /v1/stream, GET /v1/models, GET /v1/metrics and the dashboard at /.`,
         ),
       );
   });
@@ -437,13 +772,12 @@ export function startServer(options: {
   const server = app.listen(port, host, () => {
     // the bound port, so that port 0 prints the one the system chose
     const { port: bound } = server.address() as AddressInfo;
-    console.log(`Starting MMSP server at ${serverBaseUrl(host, bound)}`);
-    console.log(
-      `Serving models: ${(app.locals.serverModelIds as string[]).join(", ")}`,
+    announceServer(
+      host,
+      bound,
+      app.locals.serverModelIds as string[],
+      !options.apiKeys?.length,
     );
-    if (!options.apiKeys?.length) {
-      console.log("Open server: api_keys is empty, every request is accepted");
-    }
   });
   return server;
 }
