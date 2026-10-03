@@ -1,0 +1,187 @@
+# Copyright 2025 Prism Shadow. and/or its affiliates
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import json
+from typing import Any, AsyncIterator
+
+import httpx
+
+from ..base_client import LLMClient
+from ..types import EventContentItem, UniConfig, UniEvent, UniMessage
+from ..utils import resolve_credentials
+from ..wire import DEFAULT_BASE_URL, MODELS_PATH, STREAM_PATH, decode_wire, encode_wire, from_wire_error
+
+
+async def _sse_data(lines: AsyncIterator[str]) -> AsyncIterator[str]:
+    """The data of each server-sent event.
+
+    The `data:` lines of a block are joined with newlines and dispatched at the blank line that ends
+    the block; other lines (comments, other fields) are ignored.
+    """
+    data: list[str] = []
+    async for line in lines:
+        line = line.rstrip("\r")
+        if line == "":
+            if data:
+                yield "\n".join(data)
+                data = []
+        elif line.startswith("data:"):
+            data.append(line[5:].removeprefix(" "))
+    if data:
+        yield "\n".join(data)
+
+
+def _error_payload(body: bytes, status: int) -> dict[str, Any]:
+    """The error object of a response the server refused, or one made of its status and text."""
+    try:
+        payload = json.loads(body)
+    except ValueError:
+        payload = None
+    if isinstance(payload, dict) and isinstance(payload.get("error"), dict):
+        return payload["error"]
+    return {"type": "HTTPError", "message": f"HTTP {status}: {body.decode('utf-8', errors='replace')[:200]}"}
+
+
+class MmspClient(LLMClient):
+    """MMSP client for an MMSP server, which streams whatever model it routes the request to."""
+
+    def __init__(
+        self,
+        model: str,
+        api_key: str | None = None,
+        base_url: str | None = None,
+        default_headers: dict[str, str] | None = None,
+    ):
+        """Initialize MMSP client with model, API key, and base URL."""
+        self._model = model
+        api_key, base_url = resolve_credentials(
+            self.__class__.__name__, api_key, base_url, "MMSP_API_KEY", "MMSP_BASE_URL"
+        )
+        headers = dict(default_headers or {})
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        self._client = httpx.AsyncClient(
+            base_url=base_url or DEFAULT_BASE_URL,
+            headers=headers,
+            # a stream is open-ended between events, for as long as the model thinks, so no read timeout
+            timeout=httpx.Timeout(connect=30.0, read=None, write=30.0, pool=30.0),
+        )
+        self._history: list[UniMessage] = []
+
+    def transform_uni_config_to_model_config(self, config: UniConfig) -> dict[str, Any]:
+        """
+        Transform universal configuration to the request config of an MMSP server.
+
+        Args:
+            config: Universal configuration dict
+
+        Returns:
+            The same configuration, which the server hands to the client it routes to
+        """
+        return dict(config)
+
+    def transform_uni_message_to_model_input(self, messages: list[UniMessage]) -> list[dict[str, Any]]:
+        """
+        Transform universal messages to the messages of an MMSP server request.
+
+        Args:
+            messages: List of universal message dictionaries
+
+        Returns:
+            The same messages, with their bytes as base64 text
+        """
+        return [encode_wire(message) for message in messages]
+
+    def transform_model_output_to_uni_event(self, model_output: dict[str, Any], item_id: str = "0") -> UniEvent:
+        """
+        Transform one event of the server's stream into a universal event.
+
+        Its done items are dropped, since the base class closes the items again; its deltas carry
+        `item_id` as fidelity.item_id, so the items the server closed stay apart.
+
+        Args:
+            model_output: One event of the server's stream, parsed from JSON
+            item_id: The id of the item streaming now: the number of done items the server sent before it
+
+        Returns:
+            Universal event dictionary
+        """
+        event = decode_wire(model_output)
+        content_items: list[EventContentItem] = []
+        for item in event["content_items"]:
+            kind, _, phase = item["type"].partition(".")
+            if phase != "delta":
+                continue
+
+            fidelity = {"item_id": item_id, **(item.get("fidelity") or {})}
+            if kind in ("inline_data", "inline_thinking") and len(item["data"]) == 0 and len(fidelity) > 1:
+                # the fidelity the server closed an image item with (an Interactions thought signature after
+                # an image thought): sent alone under the item's id as a thinking delta, StreamItems gives it
+                # to the item streaming now, while an image delta of its own would begin another item
+                item = {"type": "thinking.delta", "thinking": ""}
+            content_items.append({**item, "fidelity": fidelity})
+
+        return {
+            "role": "assistant",
+            "event_type": event["event_type"],
+            "content_items": content_items,
+            "usage_metadata": event.get("usage_metadata"),
+            "finish_reason": event.get("finish_reason"),
+            "created_at": event.get("created_at"),
+        }
+
+    async def _streaming_response_internal(
+        self,
+        messages: list[UniMessage],
+        config: UniConfig,
+    ) -> AsyncIterator[UniEvent]:
+        """Stream generate through an MMSP server."""
+        body = {
+            "model": self._model,
+            "messages": self.transform_uni_message_to_model_input(messages),
+            "config": self.transform_uni_config_to_model_config(config),
+        }
+        # httpx's json= would escape CJK text
+        content = json.dumps(body, ensure_ascii=False).encode("utf-8")
+        headers = {"Content-Type": "application/json", "Accept": "text/event-stream"}
+        async with self._client.stream("POST", STREAM_PATH, content=content, headers=headers) as response:
+            if response.status_code != 200:
+                raise from_wire_error(
+                    _error_payload(await response.aread(), response.status_code), response.status_code
+                )
+
+            item_index = 0
+            async for data in _sse_data(response.aiter_lines()):
+                if data == "[DONE]":
+                    break
+
+                wire = json.loads(data)
+                if "error" in wire:
+                    raise from_wire_error(wire["error"], None)
+
+                yield self.transform_model_output_to_uni_event(wire, str(item_index))
+                # counted after the event: the deltas of an item arrive while the done items before it are seen
+                item_index += sum(1 for item in wire["content_items"] if item["type"].endswith(".done"))
+
+    async def list_models(self) -> list[str]:
+        """
+        List the model ids the configured endpoint serves.
+
+        Returns:
+            list[str]: The model ids, in the order the endpoint returned them.
+        """
+        response = await self._client.get(MODELS_PATH)
+        if response.status_code != 200:
+            raise from_wire_error(_error_payload(response.content, response.status_code), response.status_code)
+        return response.json()["models"]

@@ -51,6 +51,8 @@ HEADER_CASES = [
         base_url_suffix="",
         expected=["gemini-3.8-flash", "gemini-3.8-pro"],
     ),
+    # the mmsp client holds an httpx client of its own; the prefix keeps its listing apart from OpenAI's
+    HeaderCase(client_type="mmsp", model="gpt-5.6", base_url_suffix="/mmsp", expected=["m1", "m2"]),
 ]
 
 EXTRA_HEADERS = {"X-App": "cli", "HTTP-Referer": "https://example.test"}
@@ -67,6 +69,8 @@ class _ModelListHandler(BaseHTTPRequestHandler):
         type(self).received_headers = {name.lower(): value for name, value in self.headers.items()}
         if "v1beta" in self.path:
             payload = {"models": [{"name": "models/gemini-3.8-flash"}, {"name": "models/gemini-3.8-pro"}]}
+        elif self.path.startswith("/mmsp/"):
+            payload = {"models": ["m1", "m2"]}
         else:
             payload = {"object": "list", "data": [{"id": "m1"}, {"id": "m2"}], "has_more": False}
 

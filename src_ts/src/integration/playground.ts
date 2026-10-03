@@ -141,6 +141,7 @@ const DEFAULT_BASE_URLS: Record<string, [string, string]> = {
     "GEMINI_BASE_URL",
     "https://generativelanguage.googleapis.com",
   ],
+  mmsp: ["MMSP_BASE_URL", "http://127.0.0.1:25752"],
 };
 
 /**
@@ -2263,7 +2264,8 @@ export function createChatApp(): Express {
               'openai-chat-vllm-adapter': 'Chat Completions on vLLM',
               'openai-embedding': 'OpenAI Embeddings',
               'ant-messages': 'Anthropic Messages',
-              'google-genai': 'Google generateContent'
+              'google-genai': 'Google generateContent',
+              'mmsp': 'MMSP server'
           };
 
           function clientTypeOption(value, label, description) {

@@ -124,6 +124,7 @@ _DEFAULT_BASE_URLS = {
     "openai-embedding": ("OPENAI_BASE_URL", "https://api.openai.com/v1"),
     "ant-messages": ("ANTHROPIC_BASE_URL", "https://api.anthropic.com"),
     "google-genai": ("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com"),
+    "mmsp": ("MMSP_BASE_URL", "http://127.0.0.1:25752"),
 }
 
 
@@ -2237,7 +2238,8 @@ def create_chat_app() -> Flask:
                 'openai-chat-vllm-adapter': 'Chat Completions on vLLM',
                 'openai-embedding': 'OpenAI Embeddings',
                 'ant-messages': 'Anthropic Messages',
-                'google-genai': 'Google generateContent'
+                'google-genai': 'Google generateContent',
+                'mmsp': 'MMSP server'
             };
 
             function clientTypeOption(value, label, description) {

@@ -76,6 +76,7 @@ a **compatible client** speaks one wire protocol for any endpoint that serves it
 | `openai-embedding`         | OpenAI Embeddings, served by any embedding endpoint                    | `OPENAI_API_KEY`, `OPENAI_BASE_URL`      |
 | `ant-messages`             | Anthropic Messages, served by Anthropic, OpenRouter, DeepSeek, Z.AI, MiniMax | `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL` |
 | `google-genai`             | Google generateContent, served by Vertex AI, the Gemini API, and gateways that proxy it | `GEMINI_API_KEY`, `GEMINI_BASE_URL` |
+| `mmsp`                     | MMSP itself, served by an [MMSP server](#mmsp-server)                  | `MMSP_API_KEY`, `MMSP_BASE_URL`          |
 
 `client_type` may be omitted for a model id that begins with a known family: `gpt-` and
 `text-embedding-` route to `openai-official`, `claude-` to `anthropic-official`, `gemini-` to
@@ -157,7 +158,7 @@ A key goes only where it was given for: a client reads `OPENAI_API_KEY` / `ANTHR
 
 - `(async) streaming_response(messages, config)`: Streams the response of LLMs in a stateless manner.
 - `(async) streaming_response_stateful(message, config)`: Streams the response of LLMs in a stateful manner.
-- `(async) list_models()`: Lists the model ids the configured endpoint serves. A protocol client (`openai-chat`, `openai-chat-vllm-adapter`, `openai-responses`, `ant-messages`, `openai-embedding`) is named explicitly and lists everything the endpoint serves; a client deduced from a model id lists only the ids that deduce back to it.
+- `(async) list_models()`: Lists the model ids the configured endpoint serves. A protocol client (`openai-chat`, `openai-chat-vllm-adapter`, `openai-responses`, `ant-messages`, `openai-embedding`, `google-genai`, `mmsp`) is named explicitly and lists everything the endpoint serves; a client deduced from a model id lists only the ids that deduce back to it.
 - `clear_history()`: Clears the history of the stateful LLM client.
 - `get_history()`: Returns the history of the stateful LLM client.
 - `set_history(history)`: Replaces the history of the stateful LLM client with a copy of the provided list.
@@ -710,9 +711,41 @@ cd src_ts && npm run playground
 You can access the playground at `http://localhost:25751/`.
 The integrated tracer is available at `http://localhost:25751/tracer/`.
 
+## MMSP Server
+
+The MMSP server streams every model its environment can reach over HTTP, as MMSP events.
+
+```bash
+cd src_py && uv run python -m mmsp.integration.server --host 127.0.0.1 --port 25752
+```
+
+```bash
+cd src_ts && npm run server -- --port 25752
+```
+
+With `--api-key KEY` (or `MMSP_SERVER_API_KEY`), every request must carry `Authorization: Bearer KEY`.
+It routes a model id as `AutoLLMClient` would on the server, with the server's vendor keys:
+
+- several vendor keys: each id goes to its family's official client;
+- `CLIENT_TYPE=openai-responses OPENAI_BASE_URL=https://openrouter.ai/api/v1 OPENAI_API_KEY=...`: every id goes through OpenRouter.
+
+```bash
+curl -N http://127.0.0.1:25752/v1/stream -H "Content-Type: application/json" \
+  -d '{"model": "claude-sonnet-5-5", "messages": [{"role": "user", "content_items": [{"type": "text.done", "text": "Hello"}]}]}'
+# data: {"role": "assistant", "event_type": "delta", "content_items": [{"type": "text.delta", "text": "Hi"}], ...}
+# ...
+# data: [DONE]
+```
+
+`GET /v1/models` lists the ids it can route. The `mmsp` client calls it and yields the same stream:
+
+```python
+client = AutoLLMClient(model="claude-sonnet-5-5", client_type="mmsp", base_url="http://127.0.0.1:25752", api_key="none")
+```
+
 ## Wire Protocols
 
-Every client speaks one vendor protocol on the wire, whichever `client_type` reaches it:
+Every client speaks one protocol on the wire, whichever `client_type` reaches it:
 
 | `client_type`                                               | Wire protocol      |
 | ----------------------------------------------------------- | ------------------ |
@@ -723,6 +756,7 @@ Every client speaks one vendor protocol on the wire, whichever `client_type` rea
 | `zai-official`, `moonshot-official`                         | `openai-chat`      |
 | `openai-chat` (alias `openai`), `openai-chat-vllm-adapter`  | `openai-chat`      |
 | `openai-embedding`, and `openai-official` for `text-embedding-*` | `openai-embedding` |
+| `mmsp`                                                      | `mmsp`             |
 
 ## Related Work
 

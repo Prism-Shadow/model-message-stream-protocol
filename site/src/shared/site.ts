@@ -76,6 +76,7 @@ export const DOC_SECTIONS: DocSection[] = [
     title: { en: "Tools", zh: "工具" },
     docs: [
       { slug: "tracing", title: { en: "Tracer and playground", zh: "Tracer 与 Playground" } },
+      { slug: "server", title: { en: "Server", zh: "服务端" } },
       { slug: "skills", title: { en: "Agent skills", zh: "Agent Skills" } },
     ],
   },
