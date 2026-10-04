@@ -21,6 +21,7 @@
  * - Streaming chat responses
  * - Message cards with token usage and finish reasons
  * - Integrated tracer at /tracer
+ * - MMSP server page at /server
  */
 
 import { startPlaygroundServer } from "../src/integration/playground";
@@ -28,9 +29,6 @@ import { startPlaygroundServer } from "../src/integration/playground";
 console.log("=".repeat(60));
 console.log("MMSP LLM Playground");
 console.log("=".repeat(60));
-console.log("\nStarting web server...");
-console.log("\nOpen http://127.0.0.1:25751 in your browser to start chatting!");
-console.log("Open http://127.0.0.1:25751/tracer/ to browse traces.");
 console.log("Press Ctrl+C to stop the server.\n");
 
 startPlaygroundServer("127.0.0.1", 25751);

@@ -20,6 +20,7 @@ from .errors import (
     ToolCallArgumentParseError,
     UnsupportedOperationError,
     UnsupportedParameterError,
+    UpstreamError,
 )
 from .legacy import normalize_legacy_messages
 from .registry import Currency, Modality, ModelPricing, SupportedModel, list_supported_models
@@ -40,6 +41,7 @@ __all__ = [
     "ToolCallArgumentParseError",
     "UnsupportedOperationError",
     "UnsupportedParameterError",
+    "UpstreamError",
     "list_supported_models",
     "normalize_legacy_messages",
 ]

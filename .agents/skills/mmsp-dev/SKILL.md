@@ -22,7 +22,7 @@ changelog/unreleased/             Where unshipped changes go; renamed to the ver
 changelog/<version>/              Release summary (README.md) plus one detail file per entry
 changelog/README.md               The entry format: metadata block, body rules, bilingual pairing
 CHANGELOG.md                      One brief line per release linking into changelog/
-src_py/mmsp/integration/          The playground and the tracer pages, mirrored in src_ts/src/integration/
+src_py/mmsp/integration/          The playground, the tracer pages and the MMSP server, mirrored in src_ts/src/integration/
 site/                             The Astro site at mmsp.penguin.ooo
 .agents/skills/mmsp-dev/kill-ai-slop/   Vendored AI-slop guide and scanner for the UI work below
 <name>.zh.md                      Chinese counterpart, required for every file in changelog/
@@ -48,7 +48,7 @@ site/                             The Astro site at mmsp.penguin.ooo
 
 ## Stage 3 — Implement the Python and TypeScript clients
 
-- One folder per client type, named after it: an **official client** per vendor (`openai_official/`, `anthropic_official/`, `gemini_official/`, `zai_official/`, `moonshot_official/`, `deepseek_official/`, `minimax_official/`) speaks the vendor's own API, knows every generation of the vendor's models, and reads the vendor's key from the environment; a **compatible client** per wire protocol (`openai_responses/`, `openai_chat/`, `openai_chat_vllm_adapter/`, `openai_embedding/`, `ant_messages/`, `google_genai/`) speaks that protocol for any endpoint. The class is named after the folder (`OpenAIOfficialClient`, `OpenaiChatClient`), and the client type is the folder name with hyphens (`openai-official`, `openai-chat`).
+- One folder per client type, named after it: an **official client** per vendor (`openai_official/`, `anthropic_official/`, `gemini_official/`, `zai_official/`, `moonshot_official/`, `deepseek_official/`, `minimax_official/`) speaks the vendor's own API, knows every generation of the vendor's models, and reads the vendor's key from the environment; a **compatible client** per wire protocol (`openai_responses/`, `openai_chat/`, `openai_chat_vllm_adapter/`, `openai_embedding/`, `ant_messages/`, `google_genai/`, `mmsp/`) speaks that protocol for any endpoint. The class is named after the folder (`OpenAIOfficialClient`, `OpenaiChatClient`), and the client type is the folder name with hyphens (`openai-official`, `openai-chat`).
   - A new generation of a vendor's models goes into the vendor's official client. Diff the new protocol (capture + docs) against what the client sends today; where a generation differs, even by a single key name, tell the generations apart inside the client by explicit version (`"4-6" in self._model`, `"gpt-6" in self._model`), never by a bare substring like `"claude" in model`, and keep the older generations working. Never drop a generation unless the user explicitly instructs it.
   - A new vendor gets a new official client folder, a new `<vendor>-official` client type in `auto_client.py` / `autoClient.ts`, and a new row in the model family table there: the family is the prefix every id of the vendor's models begins with (`glm-`, `kimi-`), matched case-insensitively.
   - A new wire protocol that several vendors serve gets a compatible client folder and client type; a compatible client carries no vendor's quirks.

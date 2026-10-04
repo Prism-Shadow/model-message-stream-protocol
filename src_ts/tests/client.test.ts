@@ -48,7 +48,8 @@ interface Model {
     | "modelverse"
     | "deepseek"
     | "zai"
-    | "minimax";
+    | "minimax"
+    | "mmsp";
 }
 
 const AVAILABLE_MODELS: Model[] = [];
@@ -443,6 +444,21 @@ if (process.env.MODELVERSE_API_KEY && RUN_SLOW_TEST) {
   });
 }
 
+if (process.env.MMSP_API_KEY && process.env.MMSP_BASE_URL) {
+  // a running MMSP server started from a config file; MMSP_MODEL is a server_model_id of its table, MMSP_BASE_URL ends with /v1
+  AVAILABLE_MODELS.push({
+    name: process.env.MMSP_MODEL || "gpt-6.1-sol",
+    supportTextGeneration: true,
+    supportImageUnderstanding: true,
+    supportImageGeneration: false,
+    supportAudioGeneration: false,
+    supportEmbedding: false,
+    provider: "mmsp",
+    clientType: "mmsp",
+    baseUrl: process.env.MMSP_BASE_URL,
+  });
+}
+
 const PROVIDER_API_KEY_ENVS: { [provider: string]: string } = {
   bedrock: "BEDROCK_API_KEY",
   vertex: "VERTEX_API_KEY",
@@ -452,6 +468,7 @@ const PROVIDER_API_KEY_ENVS: { [provider: string]: string } = {
   deepseek: "DEEPSEEK_API_KEY",
   zai: "ZAI_API_KEY",
   minimax: "MINIMAX_API_KEY",
+  mmsp: "MMSP_API_KEY",
 };
 
 const PROVIDER_BASE_URLS: { [provider: string]: string } = {
@@ -1395,6 +1412,7 @@ const ROUTING_CASES: [string, string | undefined, string][] = [
   ["qwen3.6", "openai-chat-vllm-adapter", "OpenaiChatVllmAdapterClient"],
   ["qwen3-embedding", "openai-embedding", "OpenaiEmbeddingClient"],
   ["claude-opus-5", "ant-messages", "AntMessagesClient"],
+  ["gpt-5.5", "mmsp", "MmspClient"],
 ];
 
 function routedClientName(client: AutoLLMClient): string {

@@ -126,6 +126,11 @@ describe("Playground", () => {
     expect(response.text).toContain('"openai-official"');
     expect(response.text).toContain("handleClientTypeChange()");
     expect(response.text).toContain("handleBaseUrlInput()");
+    // an entry is a model id, a client type, an API key and a base URL, and the selected one is
+    // the element, not the first with its id
+    expect(response.text).toContain("handleApiKeyInput()");
+    expect(response.text).toContain("entryKey(");
+    expect(response.text).toContain('[aria-selected="true"]');
     expect(response.text).toContain(">Connection</span>");
     expect(response.text).toContain(">Generation</span>");
     expect(response.text).toContain("getExtraHeaders()");
@@ -180,6 +185,11 @@ describe("Playground", () => {
     expect(response.text.indexOf(">GitHub<")).toBeLessThan(
       response.text.indexOf(">Open Tracer<"),
     );
+    expect(response.text).toContain('href="/server/"');
+    expect(response.text).toContain("Open Server");
+    expect(response.text.indexOf(">Open Tracer<")).toBeLessThan(
+      response.text.indexOf(">Open Server<"),
+    );
     expect(response.text).not.toContain("temperatureInput");
     expect(response.text).not.toContain("maxTokensInput");
   });
@@ -231,6 +241,17 @@ describe("Playground", () => {
     expect(response.status).toBe(200);
     expect(response.text).toContain("Tracer");
     expect(response.text).toContain('href="/tracer/"');
+  });
+
+  test("should mount the server page on the same app", async () => {
+    const app = createChatApp();
+
+    const response = await request(app).get("/server/");
+
+    expect(response.status).toBe(200);
+    expect(response.text).toContain("MMSP Server");
+    expect(response.text).toContain('id="serverToggle"');
+    expect(response.text).toContain('href="/server/"');
   });
 
   test("should use client connection options outside request config", async () => {

@@ -56,7 +56,7 @@ models = list_supported_models(currency="CNY")  # "USD" by default
 
 ## Compatible clients
 
-Six compatible clients call any endpoint that serves their protocol. Name one with `client_type`, and give it the endpoint and its key together: as `base_url` and `api_key`, or as `OPENAI_BASE_URL` and `OPENAI_API_KEY` in the environment (the `ANTHROPIC_` pair for `ant-messages`, the `GEMINI_` pair for `google-genai`). A `base_url` without an `api_key` raises: the environment's key is not sent to an endpoint named in code.
+Seven compatible clients call any endpoint that serves their protocol. Name one with `client_type`, and give it the endpoint and its key together: as `base_url` and `api_key`, or as `OPENAI_BASE_URL` and `OPENAI_API_KEY` in the environment (the `ANTHROPIC_` pair for `ant-messages`, the `GEMINI_` pair for `google-genai`, the `MMSP_` pair for `mmsp`). A `base_url` without an `api_key` raises: the environment's key is not sent to an endpoint named in code.
 
 | `client_type` | Protocol | Served by |
 | --- | --- | --- |
@@ -66,6 +66,7 @@ Six compatible clients call any endpoint that serves their protocol. Name one wi
 | `openai-embedding` | OpenAI Embeddings | Any embedding endpoint |
 | `ant-messages` | Anthropic Messages | Anthropic, OpenRouter, DeepSeek, Z.AI, MiniMax |
 | `google-genai` | Google generateContent, as the Google GenAI SDK speaks it | Vertex AI, the Gemini API, gateways that proxy it |
+| `mmsp` | MMSP itself | An [MMSP server](/docs/server/) |
 
 Where a gateway serves more than one, prefer `openai-responses`. OpenRouter serves it for every model it hosts; SiliconFlow serves Chat Completions only.
 
@@ -128,7 +129,7 @@ Thought signatures replay only on the endpoint that issued them. See [Fidelity](
 
 ## Wire protocols
 
-Every client speaks one provider protocol on the wire, whichever `client_type` reaches it.
+Every client speaks one protocol on the wire, whichever `client_type` reaches it.
 
 | `client_type` | Wire protocol |
 | --- | --- |
@@ -137,3 +138,4 @@ Every client speaks one provider protocol on the wire, whichever `client_type` r
 | `openai-official`, `deepseek-official`, `minimax-official`, `openai-responses` | `openai-responses` |
 | `zai-official`, `moonshot-official`, `openai-chat`, `openai-chat-vllm-adapter` | `openai-chat` |
 | `openai-embedding`, and `openai-official` for `text-embedding-*` | `openai-embedding` |
+| `mmsp` | `mmsp` |
