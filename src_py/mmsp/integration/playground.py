@@ -2626,14 +2626,14 @@ def create_chat_app() -> Flask:
                 try { return new URL(url).host; } catch (error) { return url; }
             }
 
-            // an entry is a model id, a client type, an API key and a base URL; entries alike in all four are one
-            function entryKey(modelId, clientType, apiKey, baseUrl) {
+            // an entry is a model id, a client type and a base URL; entries alike in all three are one, whatever key each was listed with
+            function entryKey(modelId, clientType, baseUrl) {
                 const type = clientType || familyClientType(modelId);
-                return JSON.stringify([modelId, type, apiKey || '', baseUrl || PLAYGROUND.baseUrls[type] || '']);
+                return JSON.stringify([modelId, type, baseUrl || PLAYGROUND.baseUrls[type] || '']);
             }
 
             function optionEntryKey(option) {
-                return entryKey(option.dataset.value, option.dataset.clientType || '', option.dataset.apiKey || '', option.dataset.baseUrl || '');
+                return entryKey(option.dataset.value, option.dataset.clientType || '', option.dataset.baseUrl || '');
             }
 
             function selectedModelOption() {
@@ -2759,7 +2759,7 @@ def create_chat_app() -> Flask:
             function addListedModels(modelIds) {
                 const menu = document.getElementById('modelComboboxMenu');
                 const options = Array.from(menu.querySelectorAll('[data-combobox-option]'));
-                const known = new Set(options.filter((option) => option.dataset.value !== '__custom__').map(optionEntryKey));
+                const known = new Map(options.filter((option) => option.dataset.value !== '__custom__').map((option) => [optionEntryKey(option), option]));
                 const customOption = options.find((option) => option.dataset.value === '__custom__') || null;
                 // a listed model is served by the endpoint that listed it, so it takes the current
                 // client type, base URL and API key
@@ -2769,8 +2769,11 @@ def create_chat_app() -> Flask:
 
                 let added = 0;
                 modelIds.forEach((modelId) => {
-                    const key = entryKey(modelId, clientType, apiKey, baseUrl);
+                    const key = entryKey(modelId, clientType, baseUrl);
                     if (known.has(key)) {
+                        if (apiKey) {
+                            known.get(key).dataset.apiKey = apiKey;
+                        }
                         return;
                     }
 
@@ -2799,7 +2802,7 @@ def create_chat_app() -> Flask:
                     label.textContent = modelId;
                     option.appendChild(label);
                     menu.insertBefore(option, customOption);
-                    known.add(key);
+                    known.set(key, option);
                     added += 1;
                 });
 

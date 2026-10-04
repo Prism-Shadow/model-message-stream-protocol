@@ -15,7 +15,6 @@
 import { LLMClient } from "../baseClient";
 import { UpstreamError } from "../errors";
 import { UniConfig, UniEvent, UniMessage } from "../types";
-import { resolveCredentials } from "../utils";
 import {
   DEFAULT_BASE_URL,
   MODELS_ROUTE,
@@ -135,11 +134,15 @@ export class MmspClient extends LLMClient {
   }) {
     super();
     this._model = options.model;
-    const { apiKey, baseUrl } = resolveCredentials(
-      this.constructor.name,
-      options,
-      { key: "MMSP_API_KEY", baseUrl: "MMSP_BASE_URL" },
-    );
+    // MMSP_API_KEY goes only to MMSP_BASE_URL; a base URL passed without a key is an open server,
+    // which is sent no key at all
+    let { apiKey, baseUrl } = options;
+    if (apiKey) {
+      baseUrl = baseUrl || process.env.MMSP_BASE_URL;
+    } else if (!baseUrl) {
+      apiKey = process.env.MMSP_API_KEY;
+      baseUrl = process.env.MMSP_BASE_URL;
+    }
     this._baseUrl = (baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, "");
     this._headers = {
       ...(options.defaultHeaders ?? {}),

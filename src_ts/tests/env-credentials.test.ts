@@ -434,19 +434,20 @@ describe("MmspClient credentials", () => {
     });
   });
 
-  test("with a baseUrl passed in, refuses to build on MMSP_API_KEY", () => {
+  test("with a baseUrl and no key passed in, sends no key", () => {
     process.env.MMSP_API_KEY = "mm-env-PROBE";
 
-    expect(
-      () =>
-        new AutoLLMClient({
-          model: "gpt-5.5",
-          clientType: "mmsp",
-          baseUrl: "https://gateway.example/mmsp/",
-        }),
-    ).toThrow(
-      "apiKey is required for MmspClient with a baseUrl: MMSP_API_KEY is not sent to another endpoint.",
-    );
+    // an open server needs no key, and MMSP_API_KEY is not sent to another endpoint
+    const client = new AutoLLMClient({
+      model: "gpt-5.5",
+      clientType: "mmsp",
+      baseUrl: "https://gateway.example/mmsp/",
+    });
+
+    expect(mmspCredentialOf(client)).toEqual({
+      authorization: undefined,
+      baseUrl: "https://gateway.example/mmsp",
+    });
   });
 
   test("with a baseUrl and a key passed in, uses both over the environment", () => {

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import os
 from typing import Any, AsyncIterator
 
 import httpx
@@ -21,7 +22,6 @@ from ..abort_signal import AbortSignal, run_with_abort
 from ..base_client import LLMClient
 from ..errors import UpstreamError
 from ..types import UniConfig, UniEvent, UniMessage
-from ..utils import resolve_credentials
 from ..wire import DEFAULT_BASE_URL, MODELS_ROUTE, STREAM_ROUTE, decode_wire, encode_wire
 
 
@@ -83,9 +83,12 @@ class MmspClient(LLMClient):
         ends with /v1 too, as OpenAI's and vLLM's do.
         """
         self._model = model
-        api_key, base_url = resolve_credentials(
-            self.__class__.__name__, api_key, base_url, "MMSP_API_KEY", "MMSP_BASE_URL"
-        )
+        # MMSP_API_KEY goes only to MMSP_BASE_URL; a base URL passed without a key is an open server,
+        # which is sent no key at all
+        if api_key:
+            base_url = base_url or os.getenv("MMSP_BASE_URL")
+        elif not base_url:
+            api_key, base_url = os.getenv("MMSP_API_KEY"), os.getenv("MMSP_BASE_URL")
         headers = dict(default_headers or {})
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"

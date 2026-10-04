@@ -338,12 +338,14 @@ def test_mmsp_client_reads_mmsp_api_key_and_base_url(monkeypatch: pytest.MonkeyP
     assert str(_sdk(client).base_url) == "https://gateway.example/mmsp/"
 
 
-def test_mmsp_client_with_a_base_url_refuses_to_build_on_mmsp_api_key(monkeypatch: pytest.MonkeyPatch):
+def test_mmsp_client_with_a_base_url_and_no_key_sends_no_key(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("MMSP_API_KEY", "mm-env-PROBE")
-    message = "api_key is required for MmspClient with a base_url: MMSP_API_KEY is not sent to another endpoint."
 
-    with pytest.raises(ValueError, match=re.escape(message)):
-        AutoLLMClient(model="gpt-5.5", client_type="mmsp", base_url="https://gateway.example/mmsp")
+    # an open server needs no key, and MMSP_API_KEY is not sent to another endpoint
+    client = AutoLLMClient(model="gpt-5.5", client_type="mmsp", base_url="https://gateway.example/mmsp")
+
+    assert "authorization" not in _sdk(client).headers
+    assert str(_sdk(client).base_url) == "https://gateway.example/mmsp/"
 
 
 def test_mmsp_client_with_a_base_url_and_a_key_uses_both_over_the_environment(monkeypatch: pytest.MonkeyPatch):

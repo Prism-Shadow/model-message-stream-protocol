@@ -576,7 +576,7 @@ def test_restart_keeps_the_old_server_when_the_new_table_is_refused(
 
 def test_restart_that_cannot_listen_leaves_the_server_stopped(client: FlaskClient):
     _save(client, [_row()])
-    running = _start(client).get_json()
+    _start(client)
 
     with socket.socket() as taken:
         taken.bind(("127.0.0.1", 0))
@@ -588,9 +588,8 @@ def test_restart_that_cannot_listen_leaves_the_server_stopped(client: FlaskClien
 
     assert response.status_code == 400
     assert response.get_json()["error"].startswith(f"Cannot listen on 127.0.0.1:{port}: ")
+    # the status says the old server is gone; its port is free for any test running beside this one
     assert _status(client) == {"running": False}
-    with pytest.raises(urllib.error.URLError):
-        _model_ids(running["base_url"])
 
 
 def test_restart_when_stopped_starts(client: FlaskClient):

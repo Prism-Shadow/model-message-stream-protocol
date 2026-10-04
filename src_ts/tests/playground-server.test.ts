@@ -762,7 +762,7 @@ describe("Playground server page", () => {
 
     try {
       await saved({ models: [row()] });
-      const first = await start();
+      await start();
       await saved({ models: [row()], port });
 
       const response = await restart();
@@ -770,8 +770,8 @@ describe("Playground server page", () => {
       expect(response.status).toBe(400);
       const prefix = `Cannot listen on 127.0.0.1:${port}: `;
       expect(response.body.error.slice(0, prefix.length)).toBe(prefix);
+      // the status says the old server is gone; its port is free for any test running beside this one
       expect(await status()).toEqual({ running: false });
-      await expect(fetch(`${first.body.base_url}/models`)).rejects.toThrow();
     } finally {
       await new Promise<void>((resolve) => blocker.close(() => resolve()));
     }

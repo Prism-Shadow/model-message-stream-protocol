@@ -199,7 +199,7 @@ curl -N http://127.0.0.1:25752/v1/stream -H "Authorization: Bearer $MMSP_SERVER_
   -d '{"model": "claude", "messages": [{"role": "user", "content_items": [{"type": "text.done", "text": "Hello"}]}]}'
 ```
 
-不传 `base_url` 时读取 `MMSP_BASE_URL` 和 `MMSP_API_KEY`，默认 `http://127.0.0.1:25752/v1`。传入 `base_url` 时必须同时传入 `api_key`，服务端开放时传 `"none"`。`listModels()` / `list_models()` 返回表中的 id。服务端报告的错误以 `UpstreamError` 抛出，见[错误](/zh/docs/errors/#经由-mmsp-服务端)。
+不传 `base_url` 时读取 `MMSP_BASE_URL` 和 `MMSP_API_KEY`，默认 `http://127.0.0.1:25752/v1`。只传 `base_url` 不传 `api_key` 时不发送 key，开放的服务端正是如此；`MMSP_API_KEY` 只发给 `MMSP_BASE_URL`。`listModels()` / `list_models()` 返回表中的 id。服务端报告的错误以 `UpstreamError` 抛出，见[错误](/zh/docs/errors/#经由-mmsp-服务端)。
 
 在 [Playground](/zh/docs/tracing/#playground) 中选择客户端类型 `mmsp`，即可经由服务端对话。
 

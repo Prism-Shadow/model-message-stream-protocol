@@ -199,7 +199,7 @@ curl -N http://127.0.0.1:25752/v1/stream -H "Authorization: Bearer $MMSP_SERVER_
   -d '{"model": "claude", "messages": [{"role": "user", "content_items": [{"type": "text.done", "text": "Hello"}]}]}'
 ```
 
-Without a `base_url` it reads `MMSP_BASE_URL` and `MMSP_API_KEY`, and defaults to `http://127.0.0.1:25752/v1`. A `base_url` passed in needs an `api_key` passed in: `"none"` for an open server. `listModels()` / `list_models()` returns the table's ids. An error the server reports is raised as `UpstreamError`; see [Errors](/docs/errors/#through-an-mmsp-server).
+Without a `base_url` it reads `MMSP_BASE_URL` and `MMSP_API_KEY`, and defaults to `http://127.0.0.1:25752/v1`. A `base_url` passed without an `api_key` is sent no key, which is what an open server takes; `MMSP_API_KEY` goes only to `MMSP_BASE_URL`. `listModels()` / `list_models()` returns the table's ids. An error the server reports is raised as `UpstreamError`; see [Errors](/docs/errors/#through-an-mmsp-server).
 
 In the [playground](/docs/tracing/#playground), the client type `mmsp` chats through a server.
 
