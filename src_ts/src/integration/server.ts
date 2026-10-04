@@ -20,12 +20,13 @@
  * client_type })` and named by its `server_model_id`; an empty or absent `base_url` or
  * `client_type` is left to AutoLLMClient. `POST /v1/stream` streams the model a request names,
  * `GET /v1/models` lists them in OpenAI's shape, and `GET /v1/metrics` reports what the server has
- * served since it started, and with `?window=N` the last N seconds in 10 s buckets
- * (ServerMetrics), which the playground's server page draws while it runs the server. Requests to `/v1/` carry one of the `api_keys` as a bearer token, or none when the
- * list is empty. The table comes from a JSON file (`loadServerConfig`) or from code, and a
- * client's base URL is `http://host:port/v1`. The protocol is described in `wire`. The module
- * also holds the playground's server page, `SERVER_TEMPLATE`, which `playground.ts` serves at
- * `/server/`.
+ * served since it started, and with `?window=N` the last N seconds, or `?from=F&to=T` that range,
+ * in columns of a span the range and `?columns=` call for (ServerMetrics, which keeps 60 days and
+ * with a history file survives restarts); the playground's server page draws it. Requests to
+ * `/v1/` carry one of the `api_keys` as a bearer token, or none when the list is empty. The table
+ * comes from a JSON file (`loadServerConfig`) or from code, and a client's base URL is
+ * `http://host:port/v1`. The protocol is described in `wire`. The module also holds the
+ * playground's server page, `SERVER_TEMPLATE`, which `playground.ts` serves at `/server/`.
  */
 
 import { timingSafeEqual } from "crypto";
@@ -33,6 +34,7 @@ import express, { Express, NextFunction, Request, Response } from "express";
 import * as fs from "fs";
 import http from "http";
 import { AddressInfo } from "net";
+import { dirname } from "path";
 import { performance } from "perf_hooks";
 import { parseArgs } from "util";
 import { AutoLLMClient } from "../autoClient";
@@ -183,7 +185,21 @@ export function resolveServerConfig(
  *   when the file is not JSON or not a config
  */
 export function readServerConfig(path: string): Record<string, unknown> {
-  const text = fs.readFileSync(path, "utf-8");
+  return parseServerConfig(fs.readFileSync(path, "utf-8"), path);
+}
+
+/**
+ * Parse a config file's text as readServerConfig does, for a caller that has read the file.
+ *
+ * @param text - The file's text
+ * @param path - The file's path, which prefixes every message
+ * @returns The parsed config
+ * @throws Error, prefixed with the path, when the text is not JSON or not a config
+ */
+export function parseServerConfig(
+  text: string,
+  path: string,
+): Record<string, unknown> {
   let config: unknown;
   try {
     config = JSON.parse(text);
@@ -228,16 +244,37 @@ export function announceServer(
 // how many of the latest successes the since-start latency percentiles are taken over, per model
 // and in total
 export const LATENCY_WINDOW = 1000;
-// the seconds of a time bucket, aligned to multiples of BUCKET_S of the wall clock
+// (bucket seconds, seconds kept), finest first: 10 s buckets for two hours, minutes for two days,
+// hours for sixty days; a bucket moves to the next tier when it ages out of its own
+export const TIERS: readonly (readonly [number, number])[] = [
+  [10, 7200],
+  [60, 172800],
+  [3600, 5184000],
+];
+// the finest bucket, which a request begins in
 export const BUCKET_S = 10;
-// buckets older than this are dropped: two hours, 720 per series
-export const SERIES_RETENTION_S = 7200;
-// the latencies a bucket keeps per measure, its first ones; its percentiles are over them
+// nothing older is kept: sixty days
+export const RETENTION_S = 5184000;
+// the spans a window's columns may have, from 10 s to 12 h
+export const COLUMN_SPANS = [
+  10, 20, 30, 60, 120, 300, 600, 900, 1200, 1800, 3600, 7200, 10800, 21600,
+  43200,
+];
+// the columns a window has at most unless ?columns= asks otherwise, and the most it may ask
+export const WINDOW_COLUMNS = 360;
+export const MAX_COLUMNS = 1440;
+// the latencies a bucket keeps per measure; a 10 s bucket keeps its first ones, a bucket rolled
+// up keeps evenly spaced order statistics of what it took in
 export const BUCKET_SAMPLES = 64;
-// the latest failures a snapshot lists
-export const ERRORS_KEPT = 20;
+// the latest failures a snapshot lists and the history keeps
+export const ERRORS_KEPT = 100;
+export const SAVE_EVERY_S = 60;
+export const HISTORY_VERSION = 1;
 
-export const WINDOW_ERROR = `window must be an integer number of seconds from ${BUCKET_S} to ${SERIES_RETENTION_S}.`;
+export const WINDOW_ERROR = `window must be an integer number of seconds from ${BUCKET_S} to ${RETENTION_S}.`;
+export const RANGE_ERROR = `from and to must be unix seconds, from before to and at most ${RETENTION_S} seconds apart.`;
+export const QUERY_ERROR = "window cannot be combined with from and to.";
+export const COLUMNS_ERROR = `columns must be an integer from 1 to ${MAX_COLUMNS}.`;
 
 export type RequestOutcome = "success" | "failure" | "disconnect";
 export type RefusalKind = "unauthorized" | "invalid_request" | "unknown_model";
@@ -249,7 +286,7 @@ export interface RequestSample {
   modelId: string;
   /** `now()` at begin */
   started: number;
-  /** The wall-clock bucket the request began in, which everything it produces is counted into */
+  /** The 10 s bucket the request began in, which everything it produces is counted into */
   bucket: number;
   /** `now()` at the first event, null until then */
   firstEvent: number | null;
@@ -257,7 +294,7 @@ export interface RequestSample {
 }
 
 /**
- * What the requests that began in one BUCKET_S stretch of the wall clock produced.
+ * What the requests that began in one stretch of the wall clock produced.
  */
 interface Bucket {
   requests: number;
@@ -275,6 +312,9 @@ interface Bucket {
   firstEventMs: number[];
 }
 
+/** One map per tier of TIERS, keyed by bucket start in unix seconds */
+type Tiers = Map<number, Bucket>[];
+
 interface Counters {
   requests: number;
   successes: number;
@@ -291,13 +331,74 @@ interface Counters {
   tokensOut: number;
   generationMs: number;
   lastRequestAt: number | null;
-  /** Keyed by bucket start, unix seconds */
-  buckets: Map<number, Bucket>;
+  tiers: Tiers;
 }
 
 interface ModelCounters extends Counters {
   lastOutcome: RequestOutcome | null;
   lastError: { at: number; message: string | null } | null;
+}
+
+/** A failure as the snapshot lists it and the history keeps it */
+export interface MetricsError {
+  at: number;
+  model: string;
+  message: string | null;
+}
+
+/**
+ * A bucket in the history file: the counts in Bucket's field order, then the two latency lists.
+ */
+export type HistoryBucket = [
+  requests: number,
+  successes: number,
+  failures: number,
+  disconnects: number,
+  refused: number,
+  tokensOut: number,
+  thoughts: number,
+  response: number,
+  generationMs: number,
+  totalMs: number[],
+  firstEventMs: number[],
+];
+
+/** A series in the history file: per tier size ("10", "60", "3600"), `[start, bucket]` by start */
+export type HistorySeries = Record<string, [number, HistoryBucket][]>;
+
+/**
+ * A metrics history file, version HISTORY_VERSION, as readHistory returns it.
+ */
+export interface MetricsHistory {
+  version: number;
+  /** The first moment the history covers, unix seconds */
+  since: number;
+  saved_at?: number;
+  /** Newest first */
+  errors: MetricsError[];
+  total: HistorySeries;
+  /** The table's series in table order, then those of ids no longer in it */
+  models: Record<string, HistorySeries>;
+}
+
+function newBucket(): Bucket {
+  return {
+    requests: 0,
+    successes: 0,
+    failures: 0,
+    disconnects: 0,
+    refused: 0,
+    tokensOut: 0,
+    thoughts: 0,
+    response: 0,
+    generationMs: 0,
+    totalMs: [],
+    firstEventMs: [],
+  };
+}
+
+function newTiers(): Tiers {
+  return TIERS.map(() => new Map<number, Bucket>());
 }
 
 function newCounters(): Counters {
@@ -312,8 +413,68 @@ function newCounters(): Counters {
     tokensOut: 0,
     generationMs: 0,
     lastRequestAt: null,
-    buckets: new Map(),
+    tiers: newTiers(),
   };
+}
+
+/**
+ * The bucket at `key` of a tier, created when absent.
+ */
+function bucketAt(tier: Map<number, Bucket>, key: number): Bucket {
+  let bucket = tier.get(key);
+  if (bucket === undefined) {
+    bucket = newBucket();
+    tier.set(key, bucket);
+  }
+  return bucket;
+}
+
+/**
+ * The counts of `source` added into `target`; the samples are left to the caller.
+ */
+function addCounts(target: Bucket, source: Bucket): void {
+  target.requests += source.requests;
+  target.successes += source.successes;
+  target.failures += source.failures;
+  target.disconnects += source.disconnects;
+  target.refused += source.refused;
+  target.tokensOut += source.tokensOut;
+  target.thoughts += source.thoughts;
+  target.response += source.response;
+  target.generationMs += source.generationMs;
+}
+
+/**
+ * At most BUCKET_SAMPLES samples standing for all of them: sorted, then evenly spaced order
+ * statistics.
+ */
+function thin(samples: number[]): number[] {
+  const values = [...samples].sort((a, b) => a - b);
+  const n = values.length;
+  if (n <= BUCKET_SAMPLES) {
+    return values;
+  }
+  return Array.from(
+    { length: BUCKET_SAMPLES },
+    (_, i) => values[Math.floor((i * n) / BUCKET_SAMPLES)],
+  );
+}
+
+/**
+ * Add the sources into the target: counts summed, the latency samples thinned together.
+ */
+function fold(target: Bucket, sources: Bucket[]): void {
+  for (const source of sources) {
+    addCounts(target, source);
+  }
+  target.totalMs = thin([
+    ...target.totalMs,
+    ...sources.flatMap((source) => source.totalMs),
+  ]);
+  target.firstEventMs = thin([
+    ...target.firstEventMs,
+    ...sources.flatMap((source) => source.firstEventMs),
+  ]);
 }
 
 /**
@@ -347,42 +508,48 @@ function successRate(successes: number, failures: number): number | null {
 }
 
 /**
- * The buckets of `start <= key < end` summed, with the percentiles over their samples together.
+ * One accumulator per column of `span` seconds from `start` to `end`: every stored bucket inside a
+ * column is added into it, whatever its tier, and its samples are thinned.
  */
-function summary(
-  buckets: Map<number, Bucket>,
+function columnsOf(
+  tiers: Tiers,
   start: number,
   end: number,
+  span: number,
+): Bucket[] {
+  const columns = Array.from({ length: (end - start) / span }, () =>
+    newBucket(),
+  );
+  for (const tier of tiers) {
+    for (const [key, bucket] of tier) {
+      if (key < start || key >= end) {
+        continue;
+      }
+      const column = columns[Math.floor((key - start) / span)];
+      addCounts(column, bucket);
+      column.totalMs.push(...bucket.totalMs);
+      column.firstEventMs.push(...bucket.firstEventMs);
+    }
+  }
+  for (const column of columns) {
+    column.totalMs = thin(column.totalMs);
+    column.firstEventMs = thin(column.firstEventMs);
+  }
+  return columns;
+}
+
+/**
+ * The columns summed, with the percentiles over their samples together.
+ */
+function summary(
+  columns: Bucket[],
   withRefused = false,
 ): Record<string, unknown> {
-  const sum: Bucket = {
-    requests: 0,
-    successes: 0,
-    failures: 0,
-    disconnects: 0,
-    refused: 0,
-    tokensOut: 0,
-    thoughts: 0,
-    response: 0,
-    generationMs: 0,
-    totalMs: [],
-    firstEventMs: [],
-  };
-  for (const [key, bucket] of buckets) {
-    if (key < start || key >= end) {
-      continue;
-    }
-    sum.requests += bucket.requests;
-    sum.successes += bucket.successes;
-    sum.failures += bucket.failures;
-    sum.disconnects += bucket.disconnects;
-    sum.refused += bucket.refused;
-    sum.tokensOut += bucket.tokensOut;
-    sum.thoughts += bucket.thoughts;
-    sum.response += bucket.response;
-    sum.generationMs += bucket.generationMs;
-    sum.totalMs.push(...bucket.totalMs);
-    sum.firstEventMs.push(...bucket.firstEventMs);
+  const sum = newBucket();
+  for (const column of columns) {
+    addCounts(sum, column);
+    sum.totalMs.push(...column.totalMs);
+    sum.firstEventMs.push(...column.firstEventMs);
   }
   return {
     requests: sum.requests,
@@ -411,23 +578,17 @@ function summary(
 }
 
 /**
- * One array per measure, index `i` the bucket `start + i * BUCKET_S`; a missing bucket counts
- * zero and has no percentiles.
+ * One array per measure, index `i` the column `i`; an empty column counts zero and has no
+ * percentiles.
  */
-function columns(
-  buckets: Map<number, Bucket>,
-  start: number,
-  end: number,
+function seriesOf(
+  columns: Bucket[],
   withRefused = false,
 ): Record<string, (number | null)[]> {
-  const slots = Array.from(
-    { length: Math.floor((end - start) / BUCKET_S) },
-    (_, i) => buckets.get(start + i * BUCKET_S),
-  );
   const count = (field: keyof Omit<Bucket, "totalMs" | "firstEventMs">) =>
-    slots.map((bucket) => bucket?.[field] ?? 0);
+    columns.map((column) => column[field]);
   const rank = (field: "totalMs" | "firstEventMs", p: number) =>
-    slots.map((bucket) => percentile(bucket?.[field] ?? [], p));
+    columns.map((column) => percentile(column[field], p));
   return {
     requests: count("requests"),
     successes: count("successes"),
@@ -438,9 +599,7 @@ function columns(
     thoughts: count("thoughts"),
     response: count("response"),
     generation_ms: count("generationMs"),
-    tps: slots.map((bucket) =>
-      tps(bucket?.tokensOut ?? 0, bucket?.generationMs ?? 0),
-    ),
+    tps: columns.map((column) => tps(column.tokensOut, column.generationMs)),
     p50: rank("totalMs", 50),
     p90: rank("totalMs", 90),
     first_event_p50: rank("firstEventMs", 50),
@@ -448,44 +607,209 @@ function columns(
   };
 }
 
+function isCount(value: unknown): boolean {
+  return Number.isInteger(value) && (value as number) >= 0;
+}
+
+function isHistoryBucket(value: unknown): value is HistoryBucket {
+  return (
+    Array.isArray(value) &&
+    value.length === 11 &&
+    value.slice(0, 9).every(isCount) &&
+    value
+      .slice(9)
+      .every(
+        (samples) =>
+          Array.isArray(samples) &&
+          samples.every((sample) => Number.isInteger(sample)),
+      )
+  );
+}
+
+function isHistorySeries(value: unknown): value is HistorySeries {
+  if (!isObject(value)) {
+    return false;
+  }
+  return TIERS.every(([size]) => {
+    const entries = value[String(size)];
+    return (
+      Array.isArray(entries) &&
+      entries.every(
+        (entry) =>
+          Array.isArray(entry) &&
+          entry.length === 2 &&
+          isCount(entry[0]) &&
+          isHistoryBucket(entry[1]),
+      )
+    );
+  });
+}
+
+function isMetricsHistory(value: unknown): value is MetricsHistory {
+  if (!isObject(value)) {
+    return false;
+  }
+  const { version, since, errors, total, models } = value;
+  return (
+    version === HISTORY_VERSION &&
+    isCount(since) &&
+    Array.isArray(errors) &&
+    errors.every(
+      (error) =>
+        isObject(error) &&
+        "at" in error &&
+        "model" in error &&
+        "message" in error,
+    ) &&
+    isHistorySeries(total) &&
+    isObject(models) &&
+    Object.values(models).every(isHistorySeries)
+  );
+}
+
 /**
- * What the server has served since it started, per `server_model_id` and in total, and over time
- * in BUCKET_S buckets kept for SERIES_RETENTION_S.
+ * Read a metrics history file.
+ *
+ * @param path - The file ServerMetrics saves its history to
+ * @returns The history as written
+ * @throws The fs error for a missing file (`code === "ENOENT"`); Error with `not valid JSON:
+ *   <reason>` or `not a version 1 metrics history` when the file is not one
+ */
+export function readHistory(path: string): MetricsHistory {
+  const raw = fs.readFileSync(path);
+  let data: unknown;
+  try {
+    // strict, so that a file the Python server refuses is refused here too: bytes that are not
+    // UTF-8 are not replaced, and a byte order mark is left for JSON.parse to refuse
+    data = JSON.parse(
+      new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(raw),
+    );
+  } catch (error) {
+    throw new Error(`not valid JSON: ${(error as Error).message}`);
+  }
+  if (!isMetricsHistory(data)) {
+    throw new Error(`not a version ${HISTORY_VERSION} metrics history`);
+  }
+  return data;
+}
+
+/**
+ * A history series as the store holds it; a list of more than BUCKET_SAMPLES samples is thinned.
+ */
+function tiersFromHistory(series: HistorySeries): Tiers {
+  const adopt = (samples: number[]) =>
+    samples.length > BUCKET_SAMPLES ? thin(samples) : [...samples];
+  return TIERS.map(
+    ([size]) =>
+      new Map(
+        series[String(size)].map(([start, bucket]) => [
+          start,
+          {
+            requests: bucket[0],
+            successes: bucket[1],
+            failures: bucket[2],
+            disconnects: bucket[3],
+            refused: bucket[4],
+            tokensOut: bucket[5],
+            thoughts: bucket[6],
+            response: bucket[7],
+            generationMs: bucket[8],
+            totalMs: adopt(bucket[9]),
+            firstEventMs: adopt(bucket[10]),
+          },
+        ]),
+      ),
+  );
+}
+
+function tiersToHistory(tiers: Tiers): HistorySeries {
+  return Object.fromEntries(
+    TIERS.map(([size], i) => [
+      String(size),
+      [...tiers[i]]
+        .sort(([a], [b]) => a - b)
+        .map(([start, bucket]): [number, HistoryBucket] => [
+          start,
+          [
+            bucket.requests,
+            bucket.successes,
+            bucket.failures,
+            bucket.disconnects,
+            bucket.refused,
+            bucket.tokensOut,
+            bucket.thoughts,
+            bucket.response,
+            bucket.generationMs,
+            bucket.totalMs,
+            bucket.firstEventMs,
+          ],
+        ]),
+    ]),
+  );
+}
+
+/**
+ * Where ServerMetrics keeps its history, and how often it writes it.
+ */
+export interface MetricsOptions {
+  /** The history file, read at construction; none, the history lives in memory only */
+  path?: string | null;
+  /** Seconds between saves of a changed history; 0 saves only on save() and close() */
+  saveEveryS?: number;
+}
+
+/**
+ * What the server has served since it started, per `server_model_id` and in total, and over the
+ * last RETENTION_S in the buckets of TIERS.
  *
  * A request is counted when its model is found; it ends as a success (the stream reached its
  * end), a failure (it raised) or a disconnect (the client went away), and is in flight until then.
  * Refusals before a model is found are counted apart. The since-start latency percentiles are
  * taken over the last LATENCY_WINDOW successes. Everything a request produces is counted into the
- * bucket it began in, so a bucket's requests are its outcomes plus what is still streaming.
+ * bucket it began in, so a bucket's requests are its outcomes plus what is still streaming. With a
+ * `path`, the history (the buckets and the errors, not the since-start counts) is read at
+ * construction and written there, so a restart continues it; a series is its `server_model_id`.
  */
 export class ServerMetrics {
   /** Unix seconds at construction, whole */
   readonly startedAt: number;
+  /** Unix seconds the history begins at: startedAt for a fresh store, the file's after a load */
+  since: number;
+  /** The history file, null when the history lives in memory only */
+  readonly path: string | null;
   private readonly total: Counters = newCounters();
   private readonly models = new Map<string, ModelCounters>();
+  // the history of ids no longer in the table: kept and saved until it ages out, back with its id
+  private readonly dormant = new Map<string, Tiers>();
   private readonly refusals: Record<RefusalKind, number> = {
     unauthorized: 0,
     invalid_request: 0,
     unknown_model: 0,
   };
   // newest first
-  private readonly errors: {
-    at: number;
-    model: string;
-    message: string | null;
-  }[] = [];
+  private readonly errors: MetricsError[] = [];
+  private dirty = false;
+  private compactedMinute: number | null = null;
+  private saver: ReturnType<typeof setInterval> | null = null;
+  // a write that fails is reported once, and again only after a write succeeded in between
+  private saveFailed = false;
 
   /**
    * @param modelIds - The server's model ids, in table order
    * @param now - A monotonic clock in seconds, for the latencies
    * @param clock - Unix time in seconds, for the timestamps and the buckets
+   * @param options - `path`, the history file, read now when it exists (one that cannot be read
+   *   is said once and replaced at the next save); `saveEveryS`, SAVE_EVERY_S by default
    */
   constructor(
     modelIds: string[],
     private readonly now: () => number = () => performance.now() / 1000,
     private readonly clock: () => number = () => Date.now() / 1000,
+    options: MetricsOptions = {},
   ) {
     this.startedAt = Math.floor(clock());
+    this.since = this.startedAt;
+    this.path = options.path || null;
     for (const id of modelIds) {
       this.models.set(id, {
         ...newCounters(),
@@ -493,6 +817,81 @@ export class ServerMetrics {
         lastError: null,
       });
     }
+    if (this.path !== null) {
+      this.load(this.path);
+      const saveEveryS = options.saveEveryS ?? SAVE_EVERY_S;
+      if (saveEveryS > 0) {
+        this.saver = setInterval(() => this.save(), saveEveryS * 1000);
+        // the saver never holds the process open; close() writes what is left
+        this.saver.unref();
+      }
+    }
+  }
+
+  /**
+   * Take over the history at `path`: none when the file is missing, none and a line saying so when
+   * it cannot be read (the next save replaces it).
+   */
+  private load(path: string): void {
+    let history: MetricsHistory;
+    try {
+      history = readHistory(path);
+    } catch (error) {
+      if ((error as { code?: unknown }).code !== "ENOENT") {
+        console.log(
+          `Metrics history at ${path} could not be read (${(error as Error).message}); starting fresh.`,
+        );
+      }
+      return;
+    }
+    this.adopt(history);
+  }
+
+  /**
+   * A store holding a history file for reading: no models, no path, no saver.
+   *
+   * @param path - The history file
+   * @param clock - Unix time in seconds
+   * @returns The store, or null when the file is missing or cannot be read
+   */
+  static fromHistory(
+    path: string,
+    clock: () => number = () => Date.now() / 1000,
+  ): ServerMetrics | null {
+    let history: MetricsHistory;
+    try {
+      history = readHistory(path);
+    } catch {
+      return null;
+    }
+    const metrics = new ServerMetrics([], undefined, clock);
+    metrics.adopt(history);
+    return metrics;
+  }
+
+  /**
+   * Take over a history: its start, its errors and its series; ids not in the table go dormant.
+   * The buckets that expired since it was written go.
+   */
+  private adopt(history: MetricsHistory): void {
+    this.since = history.since;
+    this.errors.splice(
+      0,
+      this.errors.length,
+      ...history.errors
+        .slice(0, ERRORS_KEPT)
+        .map(({ at, model, message }) => ({ at, model, message })),
+    );
+    this.total.tiers = tiersFromHistory(history.total);
+    for (const [id, series] of Object.entries(history.models)) {
+      const model = this.models.get(id);
+      if (model === undefined) {
+        this.dormant.set(id, tiersFromHistory(series));
+      } else {
+        model.tiers = tiersFromHistory(series);
+      }
+    }
+    this.compact(Math.floor(this.clock()));
   }
 
   // unix seconds with millisecond precision
@@ -500,54 +899,93 @@ export class ServerMetrics {
     return Math.round(this.clock() * 1000) / 1000;
   }
 
-  // the start of the bucket the wall clock is in, from whole seconds as the Python server takes it
-  private bucketStart(): number {
-    return Math.floor(Math.floor(this.clock()) / BUCKET_S) * BUCKET_S;
+  /**
+   * The oldest bucket start tier `i` holds; what is older belongs to the next tier, or to nothing
+   * for the last. Aligned to the next tier's bucket, so that a whole minute or hour moves at once.
+   */
+  private floor(i: number, nowS: number): number {
+    const [size, keep] = TIERS[i];
+    const align = i + 1 < TIERS.length ? TIERS[i + 1][0] : size;
+    return (
+      Math.floor(((Math.floor(nowS / size) + 1) * size - keep) / align) * align
+    );
   }
 
   /**
-   * A series' bucket at `start`, created when absent; a creation drops the buckets that have aged
-   * out of SERIES_RETENTION_S.
+   * The stored bucket a moment belongs to, created when missing; null once it is older than the
+   * retention.
    */
-  private bucket(counters: Counters, start: number): Bucket {
-    let bucket = counters.buckets.get(start);
-    if (bucket === undefined) {
-      const cutoff = this.bucketStart() - SERIES_RETENTION_S;
-      for (const key of counters.buckets.keys()) {
-        if (key <= cutoff) {
-          counters.buckets.delete(key);
+  private locate(tiers: Tiers, start: number, nowS: number): Bucket | null {
+    for (const [i, [size]] of TIERS.entries()) {
+      if (start >= this.floor(i, nowS)) {
+        return bucketAt(tiers[i], Math.floor(start / size) * size);
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Move what has aged out of a tier into the next and drop what is older than the retention; once
+   * a minute, so that a clock that stands still compacts once.
+   */
+  private compact(nowS: number): void {
+    const minute = Math.floor(nowS / 60);
+    if (minute === this.compactedMinute) {
+      return;
+    }
+    this.compactedMinute = minute;
+    const last = TIERS.length - 1;
+    for (const tiers of [
+      this.total.tiers,
+      ...[...this.models.values()].map((model) => model.tiers),
+      ...this.dormant.values(),
+    ]) {
+      for (let i = 0; i < last; i++) {
+        const floor = this.floor(i, nowS);
+        const nextSize = TIERS[i + 1][0];
+        const moved = new Map<number, Bucket[]>();
+        for (const [key, bucket] of [...tiers[i]]) {
+          if (key < floor) {
+            const target = Math.floor(key / nextSize) * nextSize;
+            const sources = moved.get(target);
+            if (sources === undefined) {
+              moved.set(target, [bucket]);
+            } else {
+              sources.push(bucket);
+            }
+            tiers[i].delete(key);
+          }
+        }
+        for (const [target, sources] of moved) {
+          fold(bucketAt(tiers[i + 1], target), sources);
+          this.dirty = true;
         }
       }
-      bucket = {
-        requests: 0,
-        successes: 0,
-        failures: 0,
-        disconnects: 0,
-        refused: 0,
-        tokensOut: 0,
-        thoughts: 0,
-        response: 0,
-        generationMs: 0,
-        totalMs: [],
-        firstEventMs: [],
-      };
-      counters.buckets.set(start, bucket);
+      const floor = this.floor(last, nowS);
+      for (const key of [...tiers[last].keys()]) {
+        if (key < floor) {
+          tiers[last].delete(key);
+          this.dirty = true;
+        }
+      }
     }
-    return bucket;
   }
 
   begin(modelId: string): RequestSample {
     const at = this.timestamp();
-    const bucket = this.bucketStart();
+    const nowS = Math.floor(this.clock());
+    this.compact(nowS);
+    const start = Math.floor(nowS / BUCKET_S) * BUCKET_S;
     for (const counters of [this.models.get(modelId)!, this.total]) {
       counters.requests += 1;
       counters.lastRequestAt = at;
-      this.bucket(counters, bucket).requests += 1;
+      this.locate(counters.tiers, start, nowS)!.requests += 1;
     }
+    this.dirty = true;
     return {
       modelId,
       started: this.now(),
-      bucket,
+      bucket: start,
       firstEvent: null,
       done: false,
     };
@@ -560,8 +998,9 @@ export class ServerMetrics {
   }
 
   /**
-   * End a request; a request already ended is left as it is. A request begun in a bucket that
-   * has aged out since changes the since-start counts only.
+   * End a request; a request already ended is left as it is. A request that outlived its 10 s
+   * bucket's tier is counted into the minute or hour holding it now, and one begun before the
+   * retention changes the since-start counts only.
    */
   finish(
     sample: RequestSample,
@@ -572,8 +1011,10 @@ export class ServerMetrics {
       return;
     }
     sample.done = true;
+    const nowS = Math.floor(this.clock());
+    this.compact(nowS);
+    this.dirty = true;
     const model = this.models.get(sample.modelId)!;
-    const kept = sample.bucket > this.bucketStart() - SERIES_RETENTION_S;
     if (outcome === "success") {
       const totalMs = Math.round((this.now() - sample.started) * 1000);
       const firstEventMs =
@@ -612,8 +1053,8 @@ export class ServerMetrics {
         }
         counters.tokensOut += thoughts + response;
         counters.generationMs += generationMs;
-        if (kept) {
-          const bucket = this.bucket(counters, sample.bucket);
+        const bucket = this.locate(counters.tiers, sample.bucket, nowS);
+        if (bucket !== null) {
           bucket.successes += 1;
           bucket.tokensOut += thoughts + response;
           bucket.thoughts += thoughts;
@@ -637,8 +1078,8 @@ export class ServerMetrics {
         } else {
           counters.disconnects += 1;
         }
-        if (kept) {
-          const bucket = this.bucket(counters, sample.bucket);
+        const bucket = this.locate(counters.tiers, sample.bucket, nowS);
+        if (bucket !== null) {
           if (outcome === "failure") {
             bucket.failures += 1;
           } else {
@@ -658,8 +1099,79 @@ export class ServerMetrics {
   }
 
   refused(kind: RefusalKind): void {
+    const nowS = Math.floor(this.clock());
+    this.compact(nowS);
     this.refusals[kind] += 1;
-    this.bucket(this.total, this.bucketStart()).refused += 1;
+    this.locate(
+      this.total.tiers,
+      Math.floor(nowS / BUCKET_S) * BUCKET_S,
+      nowS,
+    )!.refused += 1;
+    this.dirty = true;
+  }
+
+  /**
+   * Write the history to `path`, through a sibling file moved over it; nothing without a path or
+   * when nothing changed since the last write. A failed write is said once and retried at the
+   * next save.
+   */
+  save(): void {
+    if (this.path === null) {
+      return;
+    }
+    this.compact(Math.floor(this.clock()));
+    if (!this.dirty) {
+      return;
+    }
+    const head = JSON.stringify({
+      version: HISTORY_VERSION,
+      since: this.since,
+      saved_at: Math.floor(this.clock()),
+      errors: this.errors,
+      total: tiersToHistory(this.total.tiers),
+    });
+    // the models object is joined by hand, so that an id such as "1" keeps its place in the
+    // table's order, as the Python server writes it, where an object would list it first
+    const models = [
+      ...[...this.models].map(([id, model]): [string, Tiers] => [
+        id,
+        model.tiers,
+      ]),
+      ...this.dormant,
+    ]
+      .map(
+        ([id, tiers]) =>
+          `${JSON.stringify(id)}:${JSON.stringify(tiersToHistory(tiers))}`,
+      )
+      .join(",");
+    const text = `${head.slice(0, -1)},"models":{${models}}}\n`;
+    try {
+      fs.mkdirSync(dirname(this.path), { recursive: true });
+      const temporary = `${this.path}.tmp`;
+      fs.writeFileSync(temporary, text);
+      fs.renameSync(temporary, this.path);
+    } catch (error) {
+      if (!this.saveFailed) {
+        this.saveFailed = true;
+        console.log(
+          `Cannot write metrics history to ${this.path}: ${(error as Error).message}`,
+        );
+      }
+      return;
+    }
+    this.dirty = false;
+    this.saveFailed = false;
+  }
+
+  /**
+   * Stop the saver and write what changed since the last save; a second call writes nothing new.
+   */
+  close(): void {
+    if (this.saver !== null) {
+      clearInterval(this.saver);
+      this.saver = null;
+    }
+    this.save();
   }
 
   /**
@@ -694,6 +1206,7 @@ export class ServerMetrics {
     });
     return {
       started_at: this.startedAt,
+      since: this.since,
       uptime_s: Math.floor(this.clock()) - this.startedAt,
       ...counts(this.total),
       refused: { ...this.refusals },
@@ -710,45 +1223,137 @@ export class ServerMetrics {
   }
 
   /**
-   * The last `seconds` in BUCKET_S buckets, in total and per model, with the window before it for
-   * comparison.
-   *
-   * The current bucket is the last one, partial; nothing before the server's first bucket is
-   * listed, so a server younger than the window has shorter arrays and a later `start`.
-   * `previous` is null unless the whole window before lies inside the server's life.
+   * The last `seconds`, in columns of the span the range and `columns` call for, with the window
+   * before it for comparison. The current column is the last one, partial.
    */
-  window(seconds: number): Record<string, unknown> {
-    const end = this.bucketStart() + BUCKET_S;
-    const first = Math.floor(this.startedAt / BUCKET_S) * BUCKET_S;
-    // on a bucket boundary, so that the columns and the sums cover the same requests
-    const span = Math.ceil(seconds / BUCKET_S) * BUCKET_S;
-    const start = Math.max(end - span, first);
-    const previousStart = end - 2 * span;
+  window(
+    seconds: number,
+    columns: number = WINDOW_COLUMNS,
+  ): Record<string, unknown> {
+    const nowS = Math.floor(this.clock());
+    const [span, start, end] = this.resolution(
+      nowS,
+      seconds,
+      null,
+      null,
+      columns,
+    );
+    return this.windowBody(seconds, span, start, end);
+  }
+
+  /**
+   * From `fromS` to `toS`, aligned outward to the span the range and `columns` call for; the
+   * future and the time before the history are zeros.
+   */
+  between(
+    fromS: number,
+    toS: number,
+    columns: number = WINDOW_COLUMNS,
+  ): Record<string, unknown> {
+    const nowS = Math.floor(this.clock());
+    const [span, start, end] = this.resolution(nowS, null, fromS, toS, columns);
+    return this.windowBody(toS - fromS, span, start, end);
+  }
+
+  /**
+   * `[span, start, end]`: the smallest span of COLUMN_SPANS the tier storing `start` allows that
+   * fits `columns` (else its largest), and the range aligned to it.
+   */
+  private resolution(
+    nowS: number,
+    seconds: number | null,
+    fromS: number | null,
+    toS: number | null,
+    columns: number,
+  ): [number, number, number] {
+    let span = 0;
+    let start = 0;
+    let end = 0;
+    for (const [i, [size]] of TIERS.entries()) {
+      for (const candidate of COLUMN_SPANS) {
+        if (candidate % size !== 0) {
+          continue;
+        }
+        span = candidate;
+        if (seconds !== null) {
+          end = (Math.floor(nowS / span) + 1) * span;
+          start = end - Math.ceil(seconds / span) * span;
+        } else {
+          start = Math.floor(fromS! / span) * span;
+          end = Math.ceil(toS! / span) * span;
+        }
+        if ((end - start) / span <= columns) {
+          break;
+        }
+      }
+      // a column may not be finer than the tier that stores the start of the range; the last tier
+      // takes what is left, its largest span when none fits
+      if (start >= this.floor(i, nowS)) {
+        break;
+      }
+    }
+    return [span, start, end];
+  }
+
+  /**
+   * The window object of `start` to `end` in columns of `span`, total and per model; `previous`
+   * is null unless the window before lies inside the history.
+   */
+  private windowBody(
+    seconds: number,
+    span: number,
+    start: number,
+    end: number,
+  ): Record<string, unknown> {
+    const first = Math.floor(this.since / span) * span;
+    const length = end - start;
+    const total = columnsOf(this.total.tiers, start, end, span);
     return {
       seconds,
-      bucket_s: BUCKET_S,
+      bucket_s: span,
       start,
       end,
-      total: {
-        ...summary(this.total.buckets, start, end, true),
-        series: columns(this.total.buckets, start, end, true),
-      },
-      models: [...this.models].map(([id, counters]) => ({
-        id,
-        ...summary(counters.buckets, start, end),
-        series: columns(counters.buckets, start, end),
-      })),
+      total: { ...summary(total, true), series: seriesOf(total, true) },
+      models: [...this.models].map(([id, counters]) => {
+        const columns = columnsOf(counters.tiers, start, end, span);
+        return { id, ...summary(columns), series: seriesOf(columns) };
+      }),
       previous:
-        previousStart >= first
-          ? summary(this.total.buckets, previousStart, start, true)
+        start - length >= first
+          ? summary(
+              columnsOf(this.total.tiers, start - length, start, span),
+              true,
+            )
           : null,
     };
   }
 }
 
 /**
- * The seconds a `?window=` parameter names, or null when it names none of BUCKET_S to
- * SERIES_RETENTION_S.
+ * What a metrics request asks for: `?window=N`, or `?from=F&to=T`, in at most `?columns=C`.
+ */
+export interface MetricsQuery {
+  /** `?window=N`, null for a range */
+  seconds: number | null;
+  /** `?from=F`, unix seconds, null for a window */
+  start: number | null;
+  /** `?to=T`, unix seconds, null for a window */
+  end: number | null;
+  /** `?columns=C`, WINDOW_COLUMNS when absent */
+  columns: number;
+}
+
+// of a repeated parameter the first counts, as Flask reads it; a nested one (qs) is malformed
+function queryValue(value: unknown): string | null {
+  const text = Array.isArray(value) ? value[0] : value;
+  if (text === undefined) {
+    return null;
+  }
+  return typeof text === "string" ? text : "";
+}
+
+/**
+ * The seconds a `?window=` parameter names, or null when it names none of BUCKET_S to RETENTION_S.
  *
  * @param value - The parsed query value; of a repeated parameter the first counts, as Flask reads it
  */
@@ -758,7 +1363,58 @@ export function parseWindow(value: unknown): number | null {
     return null;
   }
   const seconds = Number(text);
-  return seconds >= BUCKET_S && seconds <= SERIES_RETENTION_S ? seconds : null;
+  return seconds >= BUCKET_S && seconds <= RETENTION_S ? seconds : null;
+}
+
+/**
+ * What a metrics request asks for, from its query.
+ *
+ * @param query - The request's parsed query: `window`, `from`, `to`, `columns`
+ * @returns The query, or null when it asks for the snapshot only (`columns` alone does nothing)
+ * @throws Error with COLUMNS_ERROR, QUERY_ERROR, WINDOW_ERROR or RANGE_ERROR, in that order of
+ *   checks
+ */
+export function parseMetricsQuery(
+  query: Request["query"],
+): MetricsQuery | null {
+  const window = queryValue(query.window);
+  const from = queryValue(query.from);
+  const to = queryValue(query.to);
+  const columnsText = queryValue(query.columns);
+  let columns = WINDOW_COLUMNS;
+  if (columnsText !== null) {
+    columns = /^[0-9]+$/.test(columnsText) ? Number(columnsText) : 0;
+    if (columns < 1 || columns > MAX_COLUMNS) {
+      throw new Error(COLUMNS_ERROR);
+    }
+  }
+  if (window !== null && (from !== null || to !== null)) {
+    throw new Error(QUERY_ERROR);
+  }
+  if (window !== null) {
+    const seconds = parseWindow(window);
+    if (seconds === null) {
+      throw new Error(WINDOW_ERROR);
+    }
+    return { seconds, start: null, end: null, columns };
+  }
+  if (from === null && to === null) {
+    return null;
+  }
+  // one to ten digits once the leading zeros go: unix seconds after 1970 and before 2286
+  const unix = (text: string | null) =>
+    text !== null && /^0*[1-9][0-9]{0,9}$/.test(text) ? Number(text) : null;
+  const start = unix(from);
+  const end = unix(to);
+  if (
+    start === null ||
+    end === null ||
+    start >= end ||
+    end - start > RETENTION_S
+  ) {
+    throw new Error(RANGE_ERROR);
+  }
+  return { seconds: null, start, end, columns };
 }
 
 /**
@@ -782,12 +1438,15 @@ function rate(part: number, whole: number): number {
  * exists: a bad row stops the server at start rather than on a request.
  *
  * @param options - `models`, the rows the server serves, taken as written; `apiKeys`, the keys a
- *   `/v1/` request may carry as a bearer token, none for an open server
- * @returns Express application instance
+ *   `/v1/` request may carry as a bearer token, none for an open server; `metricsPath`, the file
+ *   the metrics history is read from and saved to (one server per file), none to keep it in memory
+ * @returns Express application instance; `app.locals.metrics` is its ServerMetrics, for the
+ *   caller to close
  */
 export function createServerApp(options: {
   models: ModelRow[];
   apiKeys?: string[];
+  metricsPath?: string | null;
 }): Express {
   const models: unknown = options.models;
   if (!Array.isArray(models)) {
@@ -854,7 +1513,12 @@ export function createServerApp(options: {
       throw new Error(`models[${i}] '${row.server_model_id}': ${message}`);
     }
   }
-  const metrics = new ServerMetrics([...upstreams.keys()]);
+  const metrics = new ServerMetrics(
+    [...upstreams.keys()],
+    undefined,
+    undefined,
+    { path: options.metricsPath },
+  );
   const created = metrics.startedAt;
 
   const app = express();
@@ -1034,19 +1698,28 @@ export function createServerApp(options: {
     });
   });
 
-  // what the server has served since it started, and with ?window=N the last N seconds in 10 s
-  // buckets; a bad window is not a refusal, which counts stream requests
+  // what the server has served since it started, and with ?window=N the last N seconds, or
+  // ?from=F&to=T that range, in columns of a span the range and ?columns= call for; a bad query is
+  // not a refusal, which counts stream requests
   app.get(METRICS_PATH, (req: Request, res: Response) => {
-    if (req.query.window === undefined) {
-      return res.json(metrics.snapshot());
-    }
-    const seconds = parseWindow(req.query.window);
-    if (seconds === null) {
+    let query: MetricsQuery | null;
+    try {
+      query = parseMetricsQuery(req.query);
+    } catch (error) {
       return res
         .status(400)
-        .json(errorBody("InvalidRequestError", WINDOW_ERROR));
+        .json(errorBody("InvalidRequestError", (error as Error).message));
     }
-    res.json({ ...metrics.snapshot(), window: metrics.window(seconds) });
+    if (query === null) {
+      return res.json(metrics.snapshot());
+    }
+    res.json({
+      ...metrics.snapshot(),
+      window:
+        query.seconds !== null
+          ? metrics.window(query.seconds, query.columns)
+          : metrics.between(query.start!, query.end!, query.columns),
+    });
   });
 
   // a JSON answer where Express would send its HTML page, naming the routes there are
@@ -1067,20 +1740,23 @@ export function createServerApp(options: {
 /**
  * Start the MMSP server.
  *
- * @param options - `models` and `apiKeys` as createServerApp takes them; `host`, the address to
- *   bind to; `port`, the port to listen on
- * @returns The listening server, for the caller to close
+ * @param options - `models`, `apiKeys` and `metricsPath` as createServerApp takes them; `host`,
+ *   the address to bind to; `port`, the port to listen on
+ * @returns The listening server, for the caller to close; closing it saves the metrics history
  */
 export function startServer(options: {
   models: ModelRow[];
   apiKeys?: string[];
   host?: string;
   port?: number;
+  metricsPath?: string | null;
 }): http.Server {
   const app = createServerApp({
     models: options.models,
     apiKeys: options.apiKeys,
+    metricsPath: options.metricsPath,
   });
+  const metrics = app.locals.metrics as ServerMetrics;
   const host = options.host ?? DEFAULT_HOST;
   const port = options.port ?? DEFAULT_PORT;
   const server = app.listen(port, host, () => {
@@ -1093,18 +1769,26 @@ export function startServer(options: {
       !options.apiKeys?.length,
     );
   });
+  server.on("close", () => metrics.close());
   return server;
 }
 
 if (require.main === module) {
-  // npm run server -- --config mmsp-server.json
+  // npm run server -- --config mmsp-server.json [--metrics mmsp-server-metrics.json]
   const USAGE =
-    "Usage: npm run server -- --config PATH [--host HOST] [--port PORT]";
-  let values: { config?: string; host?: string; port?: string; help?: boolean };
+    "Usage: npm run server -- --config PATH [--metrics PATH] [--host HOST] [--port PORT]";
+  let values: {
+    config?: string;
+    metrics?: string;
+    host?: string;
+    port?: string;
+    help?: boolean;
+  };
   try {
     ({ values } = parseArgs({
       options: {
         config: { type: "string" },
+        metrics: { type: "string" },
         host: { type: "string" },
         port: { type: "string" },
         help: { type: "boolean", short: "h" },
@@ -1126,11 +1810,19 @@ if (require.main === module) {
     process.exit(2);
   }
   const config = loadServerConfig(configPath);
-  startServer({
+  const server = startServer({
     models: config.models,
     apiKeys: config.api_keys,
     host: values.host,
     port: values.port === undefined ? undefined : Number(values.port),
+    metricsPath: values.metrics,
+  });
+  // Ctrl-C closes the server, whose close handler saves the metrics history, then exits as an
+  // interrupted process does; the open streams are cut rather than waited for
+  process.once("SIGINT", () => {
+    server.once("close", () => process.exit(130));
+    server.closeAllConnections();
+    server.close();
   });
 }
 
@@ -1942,6 +2634,51 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
             padding: 0 12px;
         }
 
+        /* the range: six presets and a custom segment whose popover takes two local times */
+        .range {
+            position: relative;
+        }
+
+        #rangeCustom {
+            gap: 6px;
+            grid-auto-flow: column;
+        }
+
+        .popover {
+            position: absolute;
+            z-index: 30;
+            top: calc(100% + 6px);
+            right: 0;
+            width: min(280px, calc(100vw - 24px));
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr);
+            gap: 8px 10px;
+            align-items: center;
+            padding: 12px;
+            background: var(--surface);
+            border-radius: 10px;
+            box-shadow: var(--shadow-menu);
+            transform-origin: top right;
+            animation: menu-in 0.18s var(--ease);
+        }
+
+        .popover .field-note, .popover .field-error {
+            grid-column: 1 / -1;
+            margin: 0;
+        }
+
+        .popover .btn {
+            grid-column: 1 / -1;
+            justify-self: end;
+            height: 30px;
+            padding: 0 12px;
+        }
+
+        .popover input[type="datetime-local"] {
+            min-height: 32px;
+            padding: 5px 8px;
+        }
+
         /* tiles: a label, the number, its change, a line of context and a trend */
         .tile {
             display: grid;
@@ -2325,9 +3062,12 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
         }
 
         /* errors */
+        /* up to a hundred over a month: about ten rows show, the rest scroll inside the card */
         .errors {
+            max-height: 372px;
             margin: 0;
             padding: 6px 20px 10px;
+            overflow-y: auto;
             list-style: none;
         }
 
@@ -2364,6 +3104,11 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
             display: block;
             padding: 14px 0;
             color: var(--subtle);
+        }
+
+        /* a range of a day or more puts the day in front of the time */
+        .errors[data-days="true"] li {
+            grid-template-columns: 118px minmax(80px, 160px) minmax(0, 1fr);
         }
 
         /* the checklist while stopped */
@@ -2642,15 +3387,79 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
             align-items: center;
         }
 
-        .file-line {
-            display: flex;
-            gap: 10px;
-            margin-top: 20px;
+        /* the saved file, formatted: keys muted, strings in the accent, punctuation and masked keys subtle */
+        .file-card {
+            margin-top: 16px;
         }
 
-        .file-line .mono {
+        .file-path {
+            flex: 1;
             min-width: 0;
+            color: var(--muted);
+            font-size: 12px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .file-actions {
+            display: flex;
+            gap: 2px;
+            margin-right: -8px;
+        }
+
+        .icon-btn:disabled {
+            color: var(--subtle);
+            background: none;
+            opacity: 0.5;
+        }
+
+        .file-note {
+            margin: 0;
+            padding: 14px 20px;
+            color: var(--subtle);
+            font-size: 12.5px;
+        }
+
+        .file-note[data-error="true"] {
+            color: var(--red);
             overflow-wrap: anywhere;
+        }
+
+        .json {
+            margin: 0;
+            padding: 12px 20px 16px;
+            max-height: 520px;
+            overflow: auto;
+            font: 12px/1.65 var(--mono);
+            color: var(--text);
+            white-space: pre;
+        }
+
+        .json .k {
+            color: var(--muted);
+            font-weight: 500;
+        }
+
+        .json .s {
+            color: var(--accent);
+        }
+
+        .json .n {
+            color: var(--text);
+        }
+
+        .json .p, .json .m {
+            color: var(--subtle);
+        }
+
+        /* a file that is not JSON, shown as it is */
+        .json[data-raw="true"] {
+            color: var(--muted);
+        }
+
+        .json:focus-visible {
+            outline-offset: -2px;
         }
 
         /* a state is a dot and its word, everywhere: amber ring unsaved, neutral saved, green live */
@@ -2723,6 +3532,10 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
                 grid-template-columns: 62px minmax(0, 1fr);
             }
 
+            .errors[data-days="true"] li {
+                grid-template-columns: 118px minmax(0, 1fr);
+            }
+
             .errors .message {
                 grid-column: 1 / -1;
             }
@@ -2786,6 +3599,14 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
             .model-card {
                 padding: 14px 16px 12px;
             }
+
+            .toolbar .segmented button {
+                padding: 0 8px;
+            }
+
+            .errors[data-days="true"] li {
+                grid-template-columns: 110px minmax(0, 1fr);
+            }
         }
 
         @media (max-width: 640px) {
@@ -2826,6 +3647,29 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
 
             .chart-card .chart {
                 padding: 12px 10px 8px 4px;
+            }
+
+            /* seven segments fill a phone; a custom range's words go under the control, right-aligned with it */
+            .range[data-custom="true"] {
+                padding-bottom: 22px;
+            }
+
+            #rangeCustomLabel {
+                position: absolute;
+                top: calc(100% + 9px);
+                right: -3px;
+                color: var(--muted);
+                font-size: 12px;
+                font-weight: 400;
+            }
+
+            .json {
+                padding: 12px 14px 14px;
+                font-size: 11.5px;
+            }
+
+            .file-note {
+                padding: 12px 14px;
             }
         }
 
@@ -2889,11 +3733,24 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
             </div>
             <div class="dashboard hidden" id="dashboard" data-stale="false">
                 <div class="toolbar">
-                    <div class="segmented" id="rangeControl" role="radiogroup" aria-label="Range">
-                        <span class="seg-thumb" aria-hidden="true"></span>
-                        <button type="button" role="radio" aria-checked="false" data-range="300" onclick="setRange(300)">5 min</button>
-                        <button type="button" role="radio" aria-checked="true" data-range="900" onclick="setRange(900)">15 min</button>
-                        <button type="button" role="radio" aria-checked="false" data-range="3600" onclick="setRange(3600)">1 h</button>
+                    <div class="range" id="rangeWrap">
+                        <div class="segmented" id="rangeControl" role="radiogroup" aria-label="Range">
+                            <span class="seg-thumb" aria-hidden="true"></span>
+                            <button type="button" role="radio" aria-checked="true" data-range="900" onclick="setRange(900)">15 min</button>
+                            <button type="button" role="radio" aria-checked="false" data-range="3600" onclick="setRange(3600)">1 h</button>
+                            <button type="button" role="radio" aria-checked="false" data-range="21600" onclick="setRange(21600)">6 h</button>
+                            <button type="button" role="radio" aria-checked="false" data-range="86400" onclick="setRange(86400)">24 h</button>
+                            <button type="button" role="radio" aria-checked="false" data-range="604800" onclick="setRange(604800)">7 d</button>
+                            <button type="button" role="radio" aria-checked="false" data-range="2592000" onclick="setRange(2592000)">30 d</button>
+                            <button type="button" role="radio" aria-checked="false" data-range="custom" id="rangeCustom" aria-haspopup="dialog" aria-expanded="false" aria-controls="rangePopover" title="Custom range" onclick="toggleRangePopover()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg><span id="rangeCustomLabel" class="hidden"></span></button>
+                        </div>
+                        <div class="popover hidden" id="rangePopover" role="dialog" aria-label="Custom range" onkeydown="handleRangeKeydown(event)">
+                            <label class="field-label" for="rangeFrom">From</label><input id="rangeFrom" class="control code" type="datetime-local" step="60">
+                            <label class="field-label" for="rangeTo">To</label><input id="rangeTo" class="control code" type="datetime-local" step="60">
+                            <p class="field-note hidden" id="rangeSince"></p>
+                            <p class="field-error hidden" id="rangeError" role="alert"></p>
+                            <button type="button" class="btn" id="rangeApply" onclick="applyCustomRange()">Show</button>
+                        </div>
                     </div>
                 </div>
                 <div class="tiles" id="tiles">
@@ -2955,7 +3812,18 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
                     </div>
                 </div>
             </div>
-            <p class="file-line field-note"><span>File</span><span id="configPath" class="mono"></span></p>
+            <div class="card file-card" id="fileCard">
+                <div class="card-head">
+                    <span class="card-title">File</span>
+                    <span id="configPath" class="mono file-path"></span>
+                    <span class="file-actions">
+                        <button type="button" id="fileReveal" class="icon-btn small" data-visible="false" aria-label="Show keys" title="Show keys" onclick="toggleFileKeys()" disabled><svg class="eye-off" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.7 5.1A10.9 10.9 0 0 1 12 5c6.5 0 10 7 10 7a18.5 18.5 0 0 1-3.3 4.3"></path><path d="M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7a10.9 10.9 0 0 0 5.4-1.4"></path><path d="M9.9 9.9A3 3 0 0 0 14.1 14.1"></path><path d="M3 3l18 18"></path></svg><svg class="eye-on hidden" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
+                        <button type="button" id="fileCopy" class="icon-btn small" aria-label="Copy file" title="Copy" onclick="copyFile()" disabled><svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg><svg class="copied-icon hidden" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></button>
+                    </span>
+                </div>
+                <p id="fileNote" class="file-note hidden"></p>
+                <pre id="fileView" class="json" tabindex="0"><code></code></pre>
+            </div>
         </section>
     </main>
 
@@ -2988,11 +3856,20 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
         const COLUMNS = ['model_id', 'base_url', 'api_key', 'server_model_id', 'client_type'];
         const OPTIONAL_COLUMNS = ['base_url', 'client_type'];
         const METRICS_MS = 3000;
-        const RANGES = [300, 900, 3600];
+        const RANGES = [[900, '15 min'], [3600, '1 h'], [21600, '6 h'], [86400, '24 h'], [604800, '7 d'], [2592000, '30 d']];
+        // the history the server keeps: a custom range is at most this long
+        const MAX_RANGE_S = 5184000;
+        const DAY = 86400;
+        // the time axis steps, round local minutes up to a week
+        const TICK_STEPS = [60, 120, 300, 600, 900, 1800, 3600, 7200, 10800, 21600, 43200, 86400, 172800, 604800];
+        const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        // a key of the saved file shown masked, whatever its length
+        const MASK = '••••••••';
         const TABS = ['overview', 'models', 'settings'];
         const PANELS = { overview: 'panelOverview', models: 'panelModels', settings: 'panelSettings' };
-        // the plot inside a chart card: gutters for the y labels and the time axis, column width and gap
-        const CHART = { left: 44, right: 8, top: 8, bottom: 20, maxBar: 24, gap: 2, minSlot: 8 };
+        // the plot inside a chart card: gutters for the y labels and the time axis, column width and gap; the page
+        // asks the server for a column per wantSlot pixels; past 60 columns it merges below minSlot
+        const CHART = { left: 44, right: 8, top: 8, bottom: 20, maxBar: 24, gap: 2, minSlot: 8, wantSlot: 12 };
         // window columns that add up when buckets merge; percentiles merge to their peak, TPS is recomputed
         const SUMMED = ['requests', 'successes', 'failures', 'disconnects', 'refused', 'tokens_out', 'thoughts', 'response', 'generation_ms'];
         const STATE_LABELS = { live: 'Live', saved: 'Saved', unsaved: 'Unsaved' };
@@ -3010,9 +3887,13 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
         let status = { running: false };
         // stopped, starting, running, applying or stopping: what the buttons offer
         let phase = 'stopped';
-        let metrics = null; // the last /api/metrics body while the server runs
-        let series = null; // its window: the range in 10 s buckets
-        let range = 900;
+        let metrics = null; // the last /api/metrics body: the running server's, or the history's while stopped
+        let series = null; // its window: the range in columns of the span the server chose
+        let range = { seconds: 900 }; // a preset, or { from, to } in unix seconds
+        let lastColumns = 60; // the columns the last request asked for
+        let fileKeysVisible = false;
+        let fileText = ''; // what the File card shows, for Copy
+        let fileCopyTimer = null;
         let tab = 'overview';
         let tip = null; // the tooltip shown: which chart, which column, where
         let pollTimer = null;
@@ -3633,7 +4514,7 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
                 }
                 const body = await response.json();
                 saved = body;
-                $('configPath').textContent = body.path || '';
+                renderFile();
                 if (body.error) {
                     showError(body.error);
                 }
@@ -3652,7 +4533,7 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
                 const { response, answer } = await sendJson('PUT', '/config', collectConfig());
                 if (response.ok) {
                     saved = answer;
-                    $('configPath').textContent = answer.path || '';
+                    renderFile();
                     if (answer.config) {
                         $('hostInput').value = answer.config.host;
                         $('portInput').value = String(answer.config.port);
@@ -3718,16 +4599,15 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
             $('statusUrlWrap').classList.toggle('hidden', !running);
             $('statusMeta').classList.toggle('hidden', !running);
             $('statusOpen').classList.toggle('hidden', !(running && status.open));
-            $('dashboard').classList.toggle('hidden', !running);
             $('checklist').classList.toggle('hidden', running);
             if (running) {
                 requestAnimationFrame(paintRange);
                 startPolling();
             } else {
+                // a stopped server's history is read once; the last drawing waits at half strength for it
                 stopPolling();
-                metrics = null;
-                series = null;
-                renderMetrics(null);
+                $('dashboard').dataset.stale = 'true';
+                fetchMetrics();
             }
             renderStates();
         }
@@ -3749,13 +4629,29 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
             metricsSeq += 1;
         }
 
+        // the range as a query: the last N seconds, or from and to
+        function rangeQuery() {
+            return isCustom() ? '?from=' + range.from + '&to=' + range.to : '?window=' + range.seconds;
+        }
+
+        // a column per wantSlot pixels of the requests chart, 30 to 90; a hidden chart measures nothing
+        function wantedColumns() {
+            const plotW = chartGeometry($('requestsChart'), 1).plotW;
+            return plotW > 0 ? Math.max(30, Math.min(90, Math.round(plotW / CHART.wantSlot))) : lastColumns;
+        }
+
         async function fetchMetrics() {
             const seq = ++metricsSeq;
+            lastColumns = wantedColumns();
             let body = null;
+            let refusal = '';
             try {
-                const response = await fetch(METRICS + '?window=' + range, { cache: 'no-store' });
+                const response = await fetch(METRICS + rangeQuery() + '&columns=' + lastColumns, { cache: 'no-store' });
                 if (response.ok) {
                     body = await response.json();
+                } else if (response.status === 400) {
+                    const answer = await response.json().catch(() => ({}));
+                    refusal = answer.error || 'HTTP 400';
                 }
             } catch (error) {
                 // out of reach for a moment: the last numbers stay
@@ -3765,36 +4661,54 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
                 return;
             }
             $('dashboard').dataset.stale = 'false';
-            if (!body || !status.running) {
+            if (refusal) {
+                showError(refusal);
                 return;
             }
-            // the server went away under the page (stopped from another tab): read the status again
-            if (!body.running) {
+            if (!body) {
+                return;
+            }
+            // started or stopped under the page (from another tab): read the status again
+            if (!!status.running !== !!body.running) {
                 refreshStatus();
                 return;
             }
             metrics = body;
             series = body.window || null;
+            const dashboard = $('dashboard');
+            const appeared = dashboard.classList.contains('hidden') && !!series;
+            dashboard.classList.toggle('hidden', !series);
+            if (appeared) {
+                paintRange();
+            }
+            if (!series) {
+                resetOverview();
+            }
             renderMetrics(metrics);
             renderStates();
+            // the first answer came while the chart was hidden and could not measure: ask again at its width
+            if (series && tab === 'overview' && wantedColumns() !== lastColumns) {
+                fetchMetrics();
+            }
         }
 
-        // the header line (open, uptime, streaming), then the Overview
+        // the header line (open, uptime, streaming) while the server runs, then the Overview
         function renderMetrics(m) {
+            const live = !!(m && status.running);
+            $('statusUptime').textContent = live ? 'up ' + formatUptime(m.uptime_s) : '';
+            $('statusStreaming').textContent = live ? formatCount(m.in_flight) + ' streaming' : '';
+            $('statusStreaming').classList.toggle('hidden', !(live && m.in_flight > 0));
+            if (live) {
+                $('statusOpen').classList.toggle('hidden', !status.open);
+            }
             if (!m) {
-                $('statusUptime').textContent = '';
-                $('statusStreaming').classList.add('hidden');
                 resetOverview();
                 return;
             }
-            $('statusOpen').classList.toggle('hidden', !status.open);
-            $('statusUptime').textContent = 'up ' + formatUptime(m.uptime_s);
-            $('statusStreaming').textContent = formatCount(m.in_flight) + ' streaming';
-            $('statusStreaming').classList.toggle('hidden', !(m.in_flight > 0));
             renderOverview(series);
         }
 
-        // a stopped server leaves no numbers behind for the next start to show first
+        // nothing to show: no numbers stay behind for the next start to show first
         function resetOverview() {
             hideTip();
             document.querySelectorAll('#tiles .tile').forEach((tile) => {
@@ -3819,6 +4733,7 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
                 history.replaceState(null, '', '#' + tab);
             }
             closeComboboxes();
+            closeRangePopover(false);
             hideTip();
             // the checklist's + Model: the blank row if there is one, else a new one, open and focused
             if (withRow) {
@@ -3830,10 +4745,14 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
                     addRow();
                 }
             }
-            // charts measure their width, so they draw once their tab is visible
+            // charts measure their width, so they draw once their tab is visible, at the columns it calls for
             if (tab === 'overview') {
                 paintRange();
-                renderOverview(series);
+                if (series && wantedColumns() !== lastColumns) {
+                    fetchMetrics();
+                } else {
+                    renderOverview(series);
+                }
             }
         }
 
@@ -3853,33 +4772,152 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
             document.querySelector('#tabs [data-tab="' + next + '"]').focus();
         }
 
-        // the range scopes every number on Overview; the last render waits at half strength for the answer
-        function setRange(seconds) {
-            if (!RANGES.includes(seconds)) {
-                return;
-            }
-            range = seconds;
+        function isCustom() {
+            return range.seconds === undefined;
+        }
+
+        function storeRange(value) {
             try {
-                localStorage.setItem(RANGE_KEY, String(seconds));
+                localStorage.setItem(RANGE_KEY, value);
             } catch (error) {
                 // the choice holds for this page only
             }
-            paintRange();
-            if (status.running) {
-                $('dashboard').dataset.stale = 'true';
-                fetchMetrics();
+        }
+
+        function setRange(seconds) {
+            if (!RANGES.some(([value]) => value === seconds)) {
+                return;
             }
+            range = { seconds };
+            storeRange(String(seconds));
+            closeRangePopover(false);
+            refetchRange();
+        }
+
+        function setCustomRange(from, to) {
+            range = { from, to };
+            storeRange(from + '-' + to);
+            refetchRange();
+        }
+
+        // the range scopes every number on Overview; the last drawing waits at half strength for the answer
+        function refetchRange() {
+            paintRange();
+            if (series) {
+                $('dashboard').dataset.stale = 'true';
+            }
+            fetchMetrics();
         }
 
         function paintRange() {
+            const custom = isCustom();
             document.querySelectorAll('#rangeControl [data-range]').forEach((button) => {
-                button.setAttribute('aria-checked', Number(button.dataset.range) === range ? 'true' : 'false');
+                const checked = custom ? button.dataset.range === 'custom' : button.dataset.range === String(range.seconds);
+                button.setAttribute('aria-checked', checked ? 'true' : 'false');
             });
+            const label = $('rangeCustomLabel');
+            label.textContent = custom ? formatRangeLabel(range.from, range.to) : '';
+            label.classList.toggle('hidden', !custom);
+            $('rangeWrap').dataset.custom = custom ? 'true' : 'false';
             updateSegmentThumb($('rangeControl'));
         }
 
+        function rangePopoverOpen() {
+            return !$('rangePopover').classList.contains('hidden');
+        }
+
+        function toggleRangePopover() {
+            if (rangePopoverOpen()) {
+                closeRangePopover(true);
+            } else {
+                openRangePopover();
+            }
+        }
+
+        // From and To start at the custom range, else at the range on screen, To never past now
+        function openRangePopover() {
+            closeComboboxes();
+            const now = Math.ceil(Date.now() / 60000) * 60;
+            let from = now - (range.seconds || 3600);
+            let to = now;
+            if (isCustom()) {
+                from = range.from;
+                to = range.to;
+            } else if (series) {
+                from = series.start;
+                to = Math.min(series.end, now);
+            }
+            $('rangeFrom').value = toInputValue(from);
+            $('rangeTo').value = toInputValue(to);
+            const since = metrics && metrics.since;
+            $('rangeSince').textContent = since ? 'Since ' + formatStamp(since, { day: true }) : '';
+            $('rangeSince').classList.toggle('hidden', !since);
+            $('rangeError').textContent = '';
+            $('rangeError').classList.add('hidden');
+            $('rangePopover').classList.remove('hidden');
+            $('rangeCustom').setAttribute('aria-expanded', 'true');
+            $('rangeFrom').focus();
+        }
+
+        function closeRangePopover(restoreFocus) {
+            const popover = $('rangePopover');
+            if (popover.classList.contains('hidden')) {
+                return;
+            }
+            const inside = popover.contains(document.activeElement);
+            popover.classList.add('hidden');
+            $('rangeCustom').setAttribute('aria-expanded', 'false');
+            if (restoreFocus && inside) {
+                $('rangeCustom').focus();
+            }
+        }
+
+        // Escape closes, Enter in a time shows the range
+        function handleRangeKeydown(event) {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                closeRangePopover(true);
+            } else if (event.key === 'Enter' && event.target instanceof HTMLInputElement) {
+                event.preventDefault();
+                applyCustomRange();
+            }
+        }
+
+        function applyCustomRange() {
+            const from = fromInputValue($('rangeFrom').value);
+            const to = fromInputValue($('rangeTo').value);
+            let message = '';
+            if (from === null || to === null || to <= from) {
+                message = 'To must be after From.';
+            } else if (to - from > MAX_RANGE_S) {
+                message = 'At most 60 days.';
+            }
+            $('rangeError').textContent = message;
+            $('rangeError').classList.toggle('hidden', !message);
+            if (message) {
+                return;
+            }
+            setCustomRange(from, to);
+            closeRangePopover(true);
+        }
+
+        // a moment as a datetime-local value, local time to the minute
+        function toInputValue(unix) {
+            const d = new Date(unix * 1000);
+            return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + 'T' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+        }
+
+        function fromInputValue(value) {
+            const match = /^(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2})/.exec(value || '');
+            if (!match) {
+                return null;
+            }
+            const d = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), Number(match[4]), Number(match[5]));
+            return Number.isNaN(d.getTime()) ? null : Math.floor(d.getTime() / 1000);
+        }
+
         function renderOverview(w) {
-            if (!w || tab !== 'overview' || !status.running) {
+            if (!w || tab !== 'overview') {
                 return;
             }
             renderTiles(w);
@@ -3889,29 +4927,9 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
             renderErrors(w);
         }
 
-        // a window's columns padded on the left to the whole range: a server younger than the range has no
-        // buckets before its start, and those stay null so nothing is drawn there
-        function windowColumns(w, source) {
-            const n = Math.round(w.seconds / w.bucket_s);
-            const columns = {};
-            Object.keys(source || {}).forEach((key) => {
-                const values = Array.isArray(source[key]) ? source[key].slice(-n) : [];
-                columns[key] = Array(n - values.length).fill(null).concat(values);
-            });
-            if (!columns.requests) {
-                columns.requests = Array(n).fill(null);
-            }
-            return columns;
-        }
-
-        // the smallest k dividing n with n / k at most maxBars
+        // the smallest k with ceil(n / k) at most maxBars; the last merged column may hold fewer
         function mergeFactor(n, maxBars) {
-            for (let k = 1; k <= n; k += 1) {
-                if (n % k === 0 && n / k <= maxBars) {
-                    return k;
-                }
-            }
-            return n;
+            return Math.max(1, Math.ceil(n / Math.max(maxBars, 1)));
         }
 
         // k buckets into one: counts add up, percentiles keep their peak, TPS comes from the merged sums
@@ -3987,11 +5005,17 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
             sparkline(tile.querySelector('.spark'), values, { mode });
         }
 
+        // a count per minute, hour or day of the part of the range the history covers, by the range's length
+        function perUnit(n, elapsed, seconds) {
+            const [unit, word] = seconds <= 21600 ? [60, '/min'] : seconds <= 259200 ? [3600, '/h'] : [DAY, '/d'];
+            const value = n / (elapsed / unit);
+            return (value >= 100 ? formatCount(Math.round(value)) : value.toFixed(1)) + word;
+        }
+
         function renderTiles(w) {
             const t = w.total;
             const p = w.previous;
-            const n = Math.round(w.seconds / w.bucket_s);
-            const spark = mergeBuckets(windowColumns(w, t.series), mergeFactor(n, 60));
+            const spark = mergeBuckets(t.series, mergeFactor((t.series.requests || []).length, 60));
             const vs = 'vs previous ' + rangeLabel(w.seconds);
             // a delta is neutral for volumes, good or bad for rates and latencies
             const judged = (kind, current, previous, upIsGood) => {
@@ -4000,11 +5024,12 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
             };
             const latency = t.latency_ms || { first_event: {}, total: {} };
             const before = p && p.latency_ms ? p.latency_ms.total : {};
-            // the rate over the part of the range the server has lived
-            const minutes = Math.max((w.end - w.start) / 60, 1 / 6);
+            // the rate over the part of the range the history covers, up to now (the last column is partial)
+            const since = (metrics && metrics.since) || w.start;
+            const elapsed = Math.max(Math.min(w.end, Date.now() / 1000) - Math.max(w.start, since), w.bucket_s);
             const rates = spark.successes.map((ok, i) => (ok == null || ok + spark.failures[i] === 0 ? null : ok / (ok + spark.failures[i])));
             setTile('tileRequests', formatCount(t.requests), judged('pct', t.requests, p && p.requests, null),
-                (t.requests / minutes).toFixed(1) + '/min' + (t.refused > 0 ? ' · ' + formatCount(t.refused) + ' refused' : ''), spark.requests, 'count');
+                perUnit(t.requests, elapsed, w.seconds) + (t.refused > 0 ? ' · ' + formatCount(t.refused) + ' refused' : ''), spark.requests, 'count');
             setTile('tileSuccess', formatRate(t.success_rate), judged('pt', t.success_rate, p && p.success_rate, true),
                 formatCount(t.successes) + ' ok · ' + formatCount(t.failures) + ' failed · ' + formatCount(t.disconnects) + ' dropped', rates, 'level');
             setTile('tileLatencyP50', formatMs(latency.total.p50), judged('ms', latency.total.p50, before.p50, false),
@@ -4143,8 +5168,8 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
                 b.title = values[i];
             });
             if (entry && entry.series && w) {
-                const n = Math.round(w.seconds / w.bucket_s);
-                sparkline(spark, mergeBuckets(windowColumns(w, { requests: entry.series.requests }), mergeFactor(n, 30)).requests, { mode: 'count' });
+                const requests = entry.series.requests || [];
+                sparkline(spark, mergeBuckets({ requests }, mergeFactor(requests.length, 30)).requests, { mode: 'count' });
             } else {
                 spark.replaceChildren();
             }
@@ -4178,7 +5203,7 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
             const height = container.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
             const plotW = width - CHART.left - CHART.right;
             const plotH = height - CHART.top - CHART.bottom;
-            return { width, height, plotW, plotH, base: CHART.top + plotH, slot: plotW / Math.max(columns, 1), left: CHART.left, top: CHART.top };
+            return { width, height, plotW, plotH, base: CHART.top + plotH, slot: plotW / Math.max(columns, 1), left: CHART.left, top: CHART.top, padRight: parseFloat(style.paddingRight) };
         }
 
         // 1, 2, 2.5, 5 or 10 times a power of ten, the first at least v (2.5 only from 25 up, so ticks stay whole)
@@ -4198,24 +5223,44 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
             return 10 * scale;
         }
 
-        // round local minutes: the first step giving at most six labels that do not crowd the axis
+        // ticks at round local minutes, hours, days or Mondays: the first step giving at most \`limit\` labels, about
+        // one per 72px; past a week, every other Monday or fewer
         function timeTicks(from, to, plotW) {
-            const limit = Math.max(2, Math.min(6, Math.floor(plotW / 64)));
+            const limit = Math.max(2, Math.min(8, Math.floor(plotW / 72)));
             const offset = -new Date(from * 1000).getTimezoneOffset() * 60;
-            for (const step of [60, 120, 300, 600, 900, 1800, 3600]) {
+            const at = (step) => {
+                // unix 0 was a Thursday, so local Mondays lie 4 days past the multiples of a week
+                const phase = step === 604800 ? 345600 : 0;
                 const ticks = [];
-                for (let t = Math.ceil((from + offset) / step) * step - offset; t <= to; t += step) {
+                for (let t = Math.ceil((from + offset - phase) / step) * step + phase - offset; t <= to; t += step) {
                     ticks.push(t);
                 }
+                return ticks;
+            };
+            for (const step of TICK_STEPS) {
+                const ticks = at(step);
                 if (ticks.length <= limit) {
-                    return ticks;
+                    return { step, ticks };
                 }
             }
-            return [];
+            const step = TICK_STEPS[TICK_STEPS.length - 1];
+            const ticks = at(step);
+            const every = Math.ceil(ticks.length / limit);
+            return { step, ticks: ticks.filter((t, i) => i % every === 0) };
         }
 
-        // the frame every chart shares: three hairlines (0, half, top), their labels, the time labels
-        function chartFrame(g, max, label, from, seconds, whole) {
+        // HH:MM within a day, the day on day steps and at the midnights of a range of a day or more
+        function formatTick(t, step, rangeSeconds) {
+            const d = new Date(t * 1000);
+            if (step >= DAY || (rangeSeconds >= DAY && d.getHours() === 0 && d.getMinutes() === 0)) {
+                return formatDay(t);
+            }
+            return pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+        }
+
+        // the frame every chart shares: three hairlines (0, half, top), their labels, the time labels; a time label
+        // that would reach under the y labels or past the card's padding is set flush with its tick instead
+        function chartFrame(g, max, label, w, whole) {
             const levels = [0, max / 2, max].filter((v) => !whole || Number.isInteger(v));
             let grid = '';
             let axis = '';
@@ -4224,12 +5269,20 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
                 grid += '<line x1="' + g.left + '" x2="' + (g.left + g.plotW).toFixed(1) + '" y1="' + y + '" y2="' + y + '"></line>';
                 axis += '<text x="' + (g.left - 8) + '" y="' + y + '" dy="0.35em" text-anchor="end">' + label(v) + '</text>';
             });
-            timeTicks(from, from + seconds, g.plotW).forEach((t) => {
-                const x = g.left + ((t - from) / seconds) * g.plotW;
-                if (x - 18 < 0 || x + 18 > g.width) {
-                    return;
+            const rangeSeconds = w.end - w.start;
+            const { step, ticks } = timeTicks(w.start, w.end, g.plotW);
+            ticks.forEach((t) => {
+                const x = g.left + ((t - w.start) / rangeSeconds) * g.plotW;
+                const text = formatTick(t, step, rangeSeconds);
+                // 11px mono is 6.6px a character
+                const half = text.length * 3.3 + 2;
+                let anchor = 'middle';
+                if (x - half < g.left - 10) {
+                    anchor = 'start';
+                } else if (x + half > g.width + g.padRight - 2) {
+                    anchor = 'end';
                 }
-                axis += '<text x="' + x.toFixed(1) + '" y="' + (g.base + 15) + '" text-anchor="middle">' + formatTick(t) + '</text>';
+                axis += '<text class="tick" x="' + x.toFixed(1) + '" y="' + (g.base + 15) + '" text-anchor="' + anchor + '">' + text + '</text>';
             });
             return '<g class="grid">' + grid + '</g><g class="axis">' + axis + '</g>';
         }
@@ -4246,7 +5299,7 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
         }
 
         function hits(g, columns) {
-            return columns.map((column, i) => (column.absent ? '' : '<rect class="hit" x="' + (g.left + i * g.slot).toFixed(1) + '" y="' + g.top + '" width="' + g.slot.toFixed(1) + '" height="' + g.plotH.toFixed(1) + '"></rect>')).join('');
+            return columns.map((column, i) => '<rect class="hit" x="' + (g.left + i * g.slot).toFixed(1) + '" y="' + g.top + '" width="' + g.slot.toFixed(1) + '" height="' + g.plotH.toFixed(1) + '"></rect>').join('');
         }
 
         // a new drawing in place of the old; a keyboard user's focus stays on the chart
@@ -4266,23 +5319,24 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
                 + rows.map((cells) => '<tr>' + cells.map((cell) => '<td>' + cell + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>';
         }
 
-        // outcomes over time: ok, failed and dropped stacked from the baseline, columns merged to fit the width
+        // outcomes over time: ok, failed and dropped stacked from the baseline, one column per server column; past
+        // 60 columns narrower than minSlot (a long custom range on a phone) neighbours merge
         function renderRequestsChart(w) {
             const container = $('requestsChart');
-            const n = Math.round(w.seconds / w.bucket_s);
+            const t = w.total.series || {};
+            const n = (t.requests || []).length;
             const probe = chartGeometry(container, n);
-            if (!(probe.plotW > 0)) {
+            if (!(probe.plotW > 0) || !n) {
                 return;
             }
-            const k = mergeFactor(n, Math.min(60, Math.max(30, Math.floor(probe.plotW / CHART.minSlot))));
-            const t = w.total.series || {};
-            const merged = mergeBuckets(windowColumns(w, { requests: t.requests, successes: t.successes, failures: t.failures, disconnects: t.disconnects }), k);
+            const maxBars = Math.max(60, Math.floor(probe.plotW / CHART.minSlot));
+            const k = n > maxBars ? mergeFactor(n, maxBars) : 1;
+            const merged = mergeBuckets({ requests: t.requests, successes: t.successes, failures: t.failures, disconnects: t.disconnects }, k);
             const span = k * w.bucket_s;
-            const from = w.end - w.seconds;
+            const rangeSeconds = w.end - w.start;
             const columns = merged.requests.map((requests, i) => ({
-                start: from + i * span,
-                end: from + (i + 1) * span,
-                absent: requests == null,
+                start: w.start + i * span,
+                end: Math.min(w.start + (i + 1) * span, w.end),
                 requests: requests || 0,
                 successes: merged.successes[i] || 0,
                 failures: merged.failures[i] || 0,
@@ -4305,32 +5359,32 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
                 });
             });
             const total = w.total;
-            const label = 'Requests per ' + formatSpan(span) + ' over the last ' + rangeLabel(w.seconds) + ': ' + total.requests + ' requests, '
+            const label = 'Requests per ' + formatSpan(span) + ' ' + rangeText(w) + ': ' + total.requests + ' requests, '
                 + total.successes + ' ok, ' + total.failures + ' failed, ' + total.disconnects + ' dropped';
+            const stamp = { seconds: span < 60, day: rangeSeconds >= DAY };
             paintChart(container, '<svg role="img" tabindex="0" aria-label="' + label + '" viewBox="0 0 ' + g.width + ' ' + g.height + '">'
-                + chartFrame(g, max, formatCompact, from, w.seconds, true) + marks + '<g>' + hits(g, columns) + '</g></svg>'
-                + tableTwin('Requests', ['Time', 'ok', 'failed', 'dropped', 'streaming'], columns.filter((c) => !c.absent).map((c) => [formatClock(c.start), c.successes, c.failures, c.disconnects, streamingOf(c)])));
-            attachTooltip(container, columns, formatRequestsTip, g);
+                + chartFrame(g, max, formatCompact, w, true) + marks + '<g>' + hits(g, columns) + '</g></svg>'
+                + tableTwin('Requests', ['Time', 'ok', 'failed', 'dropped', 'streaming'], columns.filter((c) => c.requests).map((c) => [formatStamp(c.start, stamp), c.successes, c.failures, c.disconnects, streamingOf(c)])));
+            attachTooltip(container, columns, (c) => formatRequestsTip(c, span, rangeSeconds), g);
         }
 
         function streamingOf(c) {
             return Math.max(0, c.requests - c.successes - c.failures - c.disconnects);
         }
 
-        // p90, the headline, in the accent over p50 in the muted ink; one point per bucket, a gap where none
+        // p90, the headline, in the accent over p50 in the muted ink; one point per server column, a gap where none
         function renderLatencyChart(w) {
             const container = $('latencyChart');
-            const n = Math.round(w.seconds / w.bucket_s);
+            const t = w.total.series || {};
+            const n = (t.requests || []).length;
             const g = chartGeometry(container, n);
-            if (!(g.plotW > 0)) {
+            if (!(g.plotW > 0) || !n) {
                 return;
             }
-            const t = windowColumns(w, w.total.series || {});
-            const from = w.end - w.seconds;
+            const rangeSeconds = w.end - w.start;
             const columns = t.requests.map((requests, i) => ({
-                start: from + i * w.bucket_s,
-                end: from + (i + 1) * w.bucket_s,
-                absent: requests == null,
+                start: w.start + i * w.bucket_s,
+                end: w.start + (i + 1) * w.bucket_s,
                 p50: t.p50 ? t.p50[i] : null,
                 p90: t.p90 ? t.p90[i] : null,
                 successes: t.successes ? t.successes[i] || 0 : 0
@@ -4355,11 +5409,12 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
                 return (d ? '<path class="line ' + key + '" d="' + d + '"></path>' : '') + dots;
             };
             const summary = w.total.latency_ms ? w.total.latency_ms.total : {};
-            const label = 'Latency over the last ' + rangeLabel(w.seconds) + ': p50 ' + formatMs(summary.p50) + ', p90 ' + formatMs(summary.p90);
+            const label = 'Latency ' + rangeText(w) + ': p50 ' + formatMs(summary.p50) + ', p90 ' + formatMs(summary.p90);
+            const stamp = { seconds: w.bucket_s < 60, day: rangeSeconds >= DAY };
             paintChart(container, '<svg role="img" tabindex="0" aria-label="' + label + '" viewBox="0 0 ' + g.width + ' ' + g.height + '">'
-                + chartFrame(g, max, formatAxisMs, from, w.seconds, false) + line('p50') + line('p90') + '<g>' + hits(g, columns) + '</g></svg>'
-                + tableTwin('Latency', ['Time', 'p50', 'p90', 'ok'], columns.filter((c) => !c.absent).map((c) => [formatClock(c.start), formatMs(c.p50), formatMs(c.p90), c.successes])));
-            attachTooltip(container, columns, formatLatencyTip, g);
+                + chartFrame(g, max, formatAxisMs, w, false) + line('p50') + line('p90') + '<g>' + hits(g, columns) + '</g></svg>'
+                + tableTwin('Latency', ['Time', 'p50', 'p90', 'ok'], columns.filter((c) => c.p50 != null || c.successes).map((c) => [formatStamp(c.start, stamp), formatMs(c.p50), formatMs(c.p90), c.successes])));
+            attachTooltip(container, columns, (c) => formatLatencyTip(c, w.bucket_s, rangeSeconds), g);
         }
 
         // the chart's columns for its tooltip; the listeners are wired once per container and read them
@@ -4375,7 +5430,7 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
                     }
                     const x = event.clientX - svg.getBoundingClientRect().left;
                     const index = Math.floor((x - chart.g.left) / chart.g.slot);
-                    if (x < chart.g.left || index < 0 || index >= chart.columns.length || chart.columns[index].absent) {
+                    if (x < chart.g.left || index < 0 || index >= chart.columns.length) {
                         hideTip();
                         return;
                     }
@@ -4384,7 +5439,7 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
                 container.addEventListener('pointerleave', hideTip);
                 container.addEventListener('focusin', () => {
                     if (!container._swapping) {
-                        showTip(container, lastPresent(container._chart));
+                        showTip(container, lastIndex(container._chart));
                     }
                 });
                 container.addEventListener('focusout', () => {
@@ -4400,13 +5455,13 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
                     const current = tip && tip.chart === container.id ? tip.index : chart.columns.length;
                     let index = null;
                     if (event.key === 'ArrowLeft') {
-                        index = stepPresent(chart, current, -1);
+                        index = stepIndex(chart, current, -1);
                     } else if (event.key === 'ArrowRight') {
-                        index = stepPresent(chart, current, 1);
+                        index = stepIndex(chart, current, 1);
                     } else if (event.key === 'Home') {
-                        index = stepPresent(chart, -1, 1);
+                        index = stepIndex(chart, -1, 1);
                     } else if (event.key === 'End') {
-                        index = lastPresent(chart, 1);
+                        index = lastIndex(chart);
                     } else if (event.key === 'Escape') {
                         event.preventDefault();
                         hideTip();
@@ -4424,15 +5479,15 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
             }
         }
 
-        function lastPresent(chart) {
-            return stepPresent(chart, chart.columns.length, -1);
+        function lastIndex(chart) {
+            return chart && chart.columns.length ? chart.columns.length - 1 : null;
         }
 
-        function stepPresent(chart, from, direction) {
-            for (let i = from + direction; i >= 0 && i < chart.columns.length; i += direction) {
-                if (!chart.columns[i].absent) {
-                    return i;
-                }
+        // the next column in a direction; at either end the tooltip stays where it is
+        function stepIndex(chart, from, direction) {
+            const next = from + direction;
+            if (next >= 0 && next < chart.columns.length) {
+                return next;
             }
             return from >= 0 && from < chart.columns.length ? from : null;
         }
@@ -4441,7 +5496,7 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
         function showTip(container, index, clientX, clientY) {
             const chart = container._chart;
             const svg = container.querySelector('svg');
-            if (!chart || !svg || index === null || index < 0 || !chart.columns[index] || chart.columns[index].absent) {
+            if (!chart || !svg || index === null || index < 0 || !chart.columns[index]) {
                 hideTip();
                 return;
             }
@@ -4510,26 +5565,28 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
             document.querySelectorAll('.chart .cross').forEach((cross) => cross.remove());
         }
 
-        function formatRequestsTip(c) {
+        function formatRequestsTip(c, span, rangeSeconds) {
             const rows = [[formatCount(c.successes), 'ok', 'ok'], [formatCount(c.failures), 'failed', 'fail'], [formatCount(c.disconnects), 'dropped', 'drop']];
             if (streamingOf(c) > 0) {
                 rows.push([formatCount(streamingOf(c)), 'streaming', '']);
             }
-            return { when: formatClock(c.start) + '–' + formatClock(c.end), rows };
+            return { when: formatWhen(c.start, c.end, span, rangeSeconds), rows };
         }
 
-        function formatLatencyTip(c) {
-            return { when: formatClock(c.start) + '–' + formatClock(c.end), rows: [[formatMs(c.p90), 'p90', 'p90'], [formatMs(c.p50), 'p50', 'p50'], [formatCount(c.successes), 'ok', '']] };
+        function formatLatencyTip(c, span, rangeSeconds) {
+            return { when: formatWhen(c.start, c.end, span, rangeSeconds), rows: [[formatMs(c.p90), 'p90', 'p90'], [formatMs(c.p50), 'p50', 'p50'], [formatCount(c.successes), 'ok', '']] };
         }
 
-        // the range's failures, newest first, from the latest twenty the server keeps
+        // the range's failures, newest first, from the latest hundred the server keeps
         function renderErrors(w) {
             const list = $('errorList');
-            const errors = (metrics && Array.isArray(metrics.errors) ? metrics.errors : []).filter((error) => error.at >= w.start);
+            const days = w.end - w.start >= DAY;
+            list.dataset.days = days ? 'true' : 'false';
+            const errors = (metrics && Array.isArray(metrics.errors) ? metrics.errors : []).filter((error) => error.at >= w.start && error.at < w.end);
             if (!errors.length) {
                 const none = document.createElement('li');
                 none.className = 'none';
-                none.textContent = 'None in the last ' + rangeLabel(w.seconds);
+                none.textContent = isCustom() ? 'None in this range' : 'None in the last ' + rangeLabel(w.seconds);
                 list.replaceChildren(none);
                 return;
             }
@@ -4537,7 +5594,7 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
                 const item = document.createElement('li');
                 const time = document.createElement('span');
                 time.className = 'mono time';
-                time.textContent = formatClock(error.at);
+                time.textContent = formatStamp(error.at, { seconds: true, day: days });
                 const model = document.createElement('span');
                 model.className = 'mono model';
                 model.textContent = error.model || '';
@@ -4555,7 +5612,11 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
             clearTimeout(resizeTimer);
             resizeTimer = setTimeout(() => {
                 paintRange();
-                renderOverview(series);
+                if (series && tab === 'overview' && wantedColumns() !== lastColumns) {
+                    fetchMetrics();
+                } else {
+                    renderOverview(series);
+                }
                 renderModelCards(series);
             }, 150);
         }
@@ -4729,6 +5790,10 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
                 }
                 return;
             }
+            if (key === 'escape' && !event.defaultPrevented && rangePopoverOpen()) {
+                closeRangePopover(true);
+                return;
+            }
             if (key === 'escape' && !event.defaultPrevented) {
                 const active = document.activeElement;
                 const editor = active && active.closest ? active.closest('.editor') : null;
@@ -4830,37 +5895,235 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
             return n < 1e6 ? (n / 1e3).toFixed(1) + 'K' : (n / 1e6).toFixed(2) + 'M';
         }
 
-        // an axis label in milliseconds: 500 ms, 1 s, 1.5 s
+        // an axis label in milliseconds: 500 ms, 1 s, 1.25 s
         function formatAxisMs(ms) {
-            return ms < 1000 ? ms + ' ms' : Number((ms / 1000).toFixed(1)) + ' s';
+            return ms < 1000 ? ms + ' ms' : Number((ms / 1000).toFixed(2)) + ' s';
         }
 
         function pad2(n) {
             return String(n).padStart(2, '0');
         }
 
-        function formatClock(unix) {
+        // Oct 3: a local day without the year
+        function formatDay(unix) {
             const d = new Date(unix * 1000);
-            return pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
+            return MONTHS[d.getMonth()] + ' ' + d.getDate();
         }
 
-        function formatTick(unix) {
+        // [Oct 3 ]14:05[:09], local
+        function formatStamp(unix, options) {
+            const o = options || {};
             const d = new Date(unix * 1000);
-            return pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+            return (o.day ? formatDay(unix) + ' ' : '') + pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + (o.seconds ? ':' + pad2(d.getSeconds()) : '');
         }
 
+        function sameDay(a, b) {
+            return new Date(a * 1000).toDateString() === new Date(b * 1000).toDateString();
+        }
+
+        // a column's time: seconds for columns under a minute, the day once the range is a day or more, the
+        // second day only when the column ends on another
+        function formatWhen(start, end, span, rangeSeconds) {
+            const o = { seconds: span < 60, day: rangeSeconds >= DAY };
+            return formatStamp(start, o) + '–' + formatStamp(end, { seconds: o.seconds, day: o.day && !sameDay(start, end) });
+        }
+
+        // the custom segment's words: Oct 1 14:00–16:00, or Oct 1 14:00 – Oct 3 16:00
+        function formatRangeLabel(from, to) {
+            if (sameDay(from, to)) {
+                return formatStamp(from, { day: true }) + '–' + formatStamp(to);
+            }
+            return formatStamp(from, { day: true }) + ' – ' + formatStamp(to, { day: true });
+        }
+
+        // 20 s, 2.5 min, 1 h 30 min, 2 d 12 h
         function formatSpan(seconds) {
-            return seconds < 60 ? seconds + ' s' : seconds / 60 + ' min';
+            const s = Math.round(seconds);
+            if (s < 60) {
+                return s + ' s';
+            }
+            if (s < 3600) {
+                return Number((s / 60).toFixed(1)) + ' min';
+            }
+            if (s < DAY) {
+                const minutes = Math.floor((s % 3600) / 60);
+                return Math.floor(s / 3600) + ' h' + (minutes ? ' ' + minutes + ' min' : '');
+            }
+            const hours = Math.floor((s % DAY) / 3600);
+            return Math.floor(s / DAY) + ' d' + (hours ? ' ' + hours + ' h' : '');
         }
 
         function rangeLabel(seconds) {
-            return seconds >= 3600 ? seconds / 3600 + ' h' : seconds / 60 + ' min';
+            const preset = RANGES.find(([value]) => value === seconds);
+            return preset ? preset[1] : formatSpan(seconds);
         }
 
+        // what the charts cover, in words for their labels
+        function rangeText(w) {
+            return isCustom() ? 'from ' + formatStamp(w.start, { day: true }) + ' to ' + formatStamp(w.end, { day: true }) : 'over the last ' + rangeLabel(w.seconds);
+        }
+
+        // the saved file with its plain-text keys masked: a model's api_key and the server's api_keys that are not
+        // $VAR references; everything else as written, in its order
+        function maskKeys(config, reveal) {
+            const copy = JSON.parse(JSON.stringify(config));
+            if (reveal || !copy || typeof copy !== 'object' || Array.isArray(copy)) {
+                return copy;
+            }
+            const hide = (value) => (typeof value === 'string' && value !== '' && !value.startsWith('$') ? MASK : value);
+            if (Array.isArray(copy.models)) {
+                copy.models.forEach((row) => {
+                    if (row && typeof row === 'object' && !Array.isArray(row) && 'api_key' in row) {
+                        row.api_key = hide(row.api_key);
+                    }
+                });
+            }
+            if (Array.isArray(copy.api_keys)) {
+                copy.api_keys = copy.api_keys.map(hide);
+            }
+            return copy;
+        }
+
+        // the text of JSON.stringify(value, null, 2), its keys, strings, numbers and punctuation in spans; every
+        // string goes in as text, never as markup
+        function renderJson(code, value) {
+            const out = document.createDocumentFragment();
+            const span = (cls, text) => {
+                const el = document.createElement('span');
+                el.className = cls;
+                el.textContent = text;
+                out.append(el);
+            };
+            const walk = (v, indent) => {
+                const inner = indent + '  ';
+                if (Array.isArray(v) || (v && typeof v === 'object')) {
+                    const keys = Array.isArray(v) ? null : Object.keys(v);
+                    const items = keys || v;
+                    const [open, close] = keys ? ['{', '}'] : ['[', ']'];
+                    if (!items.length) {
+                        span('p', open + close);
+                        return;
+                    }
+                    span('p', open);
+                    items.forEach((item, i) => {
+                        out.append('\\n' + inner);
+                        if (keys) {
+                            span('k', JSON.stringify(item));
+                            span('p', ':');
+                            out.append(' ');
+                        }
+                        walk(keys ? v[item] : item, inner);
+                        if (i < items.length - 1) {
+                            span('p', ',');
+                        }
+                    });
+                    out.append('\\n' + indent);
+                    span('p', close);
+                } else if (typeof v === 'string') {
+                    span(v === MASK ? 'm' : 's', JSON.stringify(v));
+                } else {
+                    span('n', JSON.stringify(v));
+                }
+            };
+            walk(value, '');
+            code.replaceChildren(out);
+        }
+
+        // the File card on Settings: the saved file formatted, or why there is none, or the text that is not a config
+        function renderFile() {
+            if (!saved) {
+                return;
+            }
+            const path = $('configPath');
+            path.textContent = saved.path || '';
+            path.title = saved.path || '';
+            const note = $('fileNote');
+            const view = $('fileView');
+            const code = view.firstChild;
+            const reveal = $('fileReveal');
+            const copy = $('fileCopy');
+            delete note.dataset.error;
+            delete view.dataset.raw;
+            if (!saved.exists) {
+                note.textContent = 'Not saved yet';
+                note.classList.remove('hidden');
+                view.classList.add('hidden');
+                code.replaceChildren();
+                reveal.disabled = true;
+                copy.disabled = true;
+                fileText = '';
+                return;
+            }
+            view.classList.remove('hidden');
+            let value = null;
+            if (!saved.error) {
+                try {
+                    value = JSON.parse(typeof saved.text === 'string' ? saved.text : JSON.stringify(saved.config));
+                } catch (error) {
+                    value = null;
+                }
+            }
+            if (value === null || typeof value !== 'object') {
+                note.textContent = saved.error || '';
+                note.dataset.error = 'true';
+                note.classList.toggle('hidden', !saved.error);
+                view.dataset.raw = 'true';
+                fileText = typeof saved.text === 'string' ? saved.text : '';
+                code.textContent = fileText;
+                reveal.disabled = true;
+                copy.disabled = !fileText;
+                return;
+            }
+            note.classList.add('hidden');
+            // nothing written in plain text: there is nothing to reveal
+            const plain = JSON.stringify(maskKeys(value, false)) !== JSON.stringify(value);
+            fileKeysVisible = fileKeysVisible && plain;
+            const shown = maskKeys(value, fileKeysVisible);
+            fileText = JSON.stringify(shown, null, 2) + '\\n';
+            renderJson(code, shown);
+            reveal.disabled = !plain;
+            copy.disabled = false;
+            const label = fileKeysVisible ? 'Hide keys' : 'Show keys';
+            reveal.dataset.visible = fileKeysVisible ? 'true' : 'false';
+            reveal.setAttribute('aria-label', label);
+            reveal.setAttribute('title', label);
+            reveal.querySelector('.eye-on').classList.toggle('hidden', !fileKeysVisible);
+            reveal.querySelector('.eye-off').classList.toggle('hidden', fileKeysVisible);
+        }
+
+        function toggleFileKeys() {
+            fileKeysVisible = !fileKeysVisible;
+            renderFile();
+        }
+
+        // what the card shows goes to the clipboard: masked, revealed, or the raw text
+        async function copyFile() {
+            const button = $('fileCopy');
+            try {
+                await navigator.clipboard.writeText(fileText);
+            } catch (error) {
+                // no clipboard (an insecure origin, a refused permission): the text stays selectable
+                return;
+            }
+            button.setAttribute('title', 'Copied');
+            button.querySelector('.copy-icon').classList.add('hidden');
+            button.querySelector('.copied-icon').classList.remove('hidden');
+            clearTimeout(fileCopyTimer);
+            fileCopyTimer = setTimeout(() => {
+                button.setAttribute('title', 'Copy');
+                button.querySelector('.copy-icon').classList.remove('hidden');
+                button.querySelector('.copied-icon').classList.add('hidden');
+            }, 1500);
+        }
+
+        // a preset ("900"), or a custom range ("F-T", at most MAX_RANGE_S long); anything else is 15 min
         try {
-            const stored = Number(localStorage.getItem(RANGE_KEY));
-            if (RANGES.includes(stored)) {
-                range = stored;
+            const stored = localStorage.getItem(RANGE_KEY) || '';
+            const custom = /^(\\d{1,10})-(\\d{1,10})$/.exec(stored);
+            if (RANGES.some(([value]) => String(value) === stored)) {
+                range = { seconds: Number(stored) };
+            } else if (custom && Number(custom[1]) < Number(custom[2]) && Number(custom[2]) - Number(custom[1]) <= MAX_RANGE_S) {
+                range = { from: Number(custom[1]), to: Number(custom[2]) };
             }
         } catch (error) {
             // the default range it is
@@ -4880,6 +6143,17 @@ export const SERVER_TEMPLATE = `<!DOCTYPE html>
             paintRange();
         });
         document.addEventListener('keydown', handleShortcut);
+        // a press outside the range control closes its popover, and so does focus that leaves it
+        document.addEventListener('pointerdown', (event) => {
+            if (rangePopoverOpen() && event.target instanceof Node && !$('rangeWrap').contains(event.target)) {
+                closeRangePopover(false);
+            }
+        });
+        $('rangeWrap').addEventListener('focusout', (event) => {
+            if (event.relatedTarget instanceof Node && !$('rangeWrap').contains(event.relatedTarget)) {
+                closeRangePopover(false);
+            }
+        });
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) {
                 refreshAll();

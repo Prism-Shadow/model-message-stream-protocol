@@ -40,10 +40,15 @@ const PROBE_ENV = ["PROBE_UPSTREAM_KEY", "PROBE_SERVER_KEY", "NOPE_KEY"];
 
 const PORT_MESSAGE = "port must be an integer between 0 and 65535.";
 const HOST_MESSAGE = "host must be a non-empty string.";
+const WINDOW_ERROR =
+  "window must be an integer number of seconds from 10 to 5184000.";
+const QUERY_ERROR = "window cannot be combined with from and to.";
 
 // the page saves here; the app reads the variable once, when it is created
 const configDir = fs.mkdtempSync(path.join(os.tmpdir(), "mmsp-playground-"));
 const CONFIG_PATH = path.join(configDir, "server.json");
+// the server keeps its metrics history beside the config
+const METRICS_PATH = path.join(configDir, "server-metrics.json");
 const savedConfigEnv = process.env.MMSP_SERVER_CONFIG;
 process.env.MMSP_SERVER_CONFIG = CONFIG_PATH;
 
@@ -126,6 +131,7 @@ beforeEach(() => {
     delete process.env[name];
   }
   fs.rmSync(CONFIG_PATH, { force: true });
+  fs.rmSync(METRICS_PATH, { force: true });
   // a start and a stop print their lines, which only the console test reads
   log = jest.spyOn(console, "log").mockImplementation(() => {});
 });
@@ -193,7 +199,16 @@ describe("Playground server page", () => {
       "checklist",
       "checklistSave",
       "dashboard",
+      "rangeWrap",
       "rangeControl",
+      "rangeCustom",
+      "rangeCustomLabel",
+      "rangePopover",
+      "rangeFrom",
+      "rangeTo",
+      "rangeSince",
+      "rangeError",
+      "rangeApply",
       "tiles",
       "tileRequests",
       "tileSuccess",
@@ -207,6 +222,11 @@ describe("Playground server page", () => {
       "errorList",
       "chartTip",
       "tableHead",
+      "fileCard",
+      "fileNote",
+      "fileView",
+      "fileReveal",
+      "fileCopy",
       "themeToggle",
     ]) {
       expect(response.text).toContain(`id="${id}"`);
@@ -232,6 +252,10 @@ describe("Playground server page", () => {
       "showTab(",
       "handleTabKeydown(",
       "setRange(",
+      "setCustomRange(",
+      "applyCustomRange(",
+      "toggleRangePopover(",
+      "handleRangeKeydown(",
       "renderOverview(",
       "renderTiles(",
       "renderModelCards(",
@@ -246,12 +270,29 @@ describe("Playground server page", () => {
       "attachTooltip(",
       "formatCompact(",
       "formatTps(",
+      "formatStamp(",
+      "formatDay(",
+      "renderFile(",
+      "maskKeys(",
+      "renderJson(",
+      "copyFile(",
+      "toggleFileKeys(",
       "?window=",
+      "?from=",
+      "&columns=",
       "tokens_out",
       "generation_ms",
       'role="tablist"',
       'role="tabpanel"',
       'aria-label="Range"',
+      'data-range="2592000"',
+      'data-range="custom"',
+      'type="datetime-local"',
+      'role="dialog"',
+      ">15 min<",
+      ">30 d<",
+      "Not saved yet",
+      "Show keys",
       'class="models-grid"',
       "Apply to serve",
       "Start to serve",
@@ -290,13 +331,21 @@ describe("Playground server page", () => {
     expect(response.text).not.toContain("__PLAYGROUND_DEFAULTS__");
     expect(response.text).not.toContain("<select");
     expect(response.text).not.toContain("0.6");
-    // latencies are one value each, the header names no models, and the old overview is gone
+    // latencies are one value each (formatRangeLabel names a time range), the header names no
+    // models, and the old overview is gone
     for (const fragment of [
-      "formatRange",
+      "formatRange(",
       "p50–p90",
       "statusModels",
       "overviewRows",
       "Dashboard at",
+      // 15 minutes is the shortest range, and the server's arrays cover the whole range; the old
+      // label in its tags, since "5 min" is part of "15 min"
+      'data-range="300"',
+      ">5 min<",
+      "windowColumns(",
+      // the file is a card of its own
+      "file-line",
     ]) {
       expect(response.text).not.toContain(fragment);
     }
@@ -318,6 +367,7 @@ describe("Playground server page", () => {
       path: CONFIG_PATH,
       exists: false,
       config: null,
+      text: null,
     });
   });
 
@@ -361,16 +411,16 @@ describe("Playground server page", () => {
       });
 
     expect(response.status).toBe(200);
-    const body = { path: CONFIG_PATH, exists: true, config: written };
+    const text = JSON.stringify(written, null, 2) + "\n";
+    // the text as written, which the page shows
+    const body = { path: CONFIG_PATH, exists: true, config: written, text };
     expect(response.body).toEqual(body);
     expect(Object.keys(response.body.config.models[0])).toEqual([
       "model_id",
       "api_key",
       "server_model_id",
     ]);
-    expect(fs.readFileSync(CONFIG_PATH, "utf-8")).toBe(
-      JSON.stringify(written, null, 2) + "\n",
-    );
+    expect(fs.readFileSync(CONFIG_PATH, "utf-8")).toBe(text);
     expect(fs.existsSync(`${CONFIG_PATH}.tmp`)).toBe(false);
     expect(await savedBody()).toEqual(body);
     expect(loadServerConfig(CONFIG_PATH)).toEqual({
@@ -458,11 +508,18 @@ describe("Playground server page", () => {
 
     const notJson = (await savedBody()) as Record<string, unknown>;
 
-    expect(Object.keys(notJson)).toEqual(["path", "exists", "config", "error"]);
+    expect(Object.keys(notJson)).toEqual([
+      "path",
+      "exists",
+      "config",
+      "text",
+      "error",
+    ]);
     expect(notJson).toMatchObject({
       path: CONFIG_PATH,
       exists: true,
       config: null,
+      text: "not json",
     });
     const prefix = `${CONFIG_PATH}: not valid JSON: `;
     expect((notJson.error as string).slice(0, prefix.length)).toBe(prefix);
@@ -478,6 +535,7 @@ describe("Playground server page", () => {
       path: CONFIG_PATH,
       exists: true,
       config: null,
+      text: "[]",
       error: shape,
     });
 
@@ -584,12 +642,18 @@ describe("Playground server page", () => {
   });
 
   test("metrics are read in-process", async () => {
-    const metrics = async () => {
-      const response = await request(app).get("/server/api/metrics");
+    const metrics = async (query = "") => {
+      const response = await request(app).get(`/server/api/metrics${query}`);
       expect(response.status).toBe(200);
       return response.body;
     };
+    const refused = async (query: string) => {
+      const response = await request(app).get(`/server/api/metrics${query}`);
+      return [response.status, response.body];
+    };
     expect(await metrics()).toEqual({ running: false });
+    // a bad query is refused whether or not a server runs
+    expect(await refused("?window=x")).toEqual([400, { error: WINDOW_ERROR }]);
     // a server with a key, which the page does not hold
     await saved({
       models: [
@@ -633,25 +697,47 @@ describe("Playground server page", () => {
       invalid_request: 0,
       unknown_model: 1,
     });
-    const windowed = await request(app).get("/server/api/metrics?window=300");
-    expect(windowed.status).toBe(200);
-    expect(windowed.body.window.seconds).toBe(300);
-    const refused: number[] = windowed.body.window.total.series.refused;
-    expect(refused.reduce((total, count) => total + count, 0)).toBe(1);
-    const bad = await request(app).get("/server/api/metrics?window=x");
-    expect([bad.status, bad.body]).toEqual([
+    const windowed = await metrics("?window=300");
+    expect(windowed.window.seconds).toBe(300);
+    const counts: number[] = windowed.window.total.series.refused;
+    expect(counts.reduce((total, count) => total + count, 0)).toBe(1);
+    expect(await refused("?window=x")).toEqual([400, { error: WINDOW_ERROR }]);
+    expect(await refused("?from=1&to=2&window=3")).toEqual([
       400,
-      { error: "window must be an integer number of seconds from 10 to 7200." },
+      { error: QUERY_ERROR },
     ]);
 
-    // a restart serves a new server, counted from zero
+    // a restart serves a new server, counted from zero, which continues the history
     await restart();
     expect((await metrics()).refused.unknown_model).toBe(0);
+    expect((await metrics("?window=300")).window.total.refused).toBe(1);
 
+    // stopped, the history file answers
     await stop();
-    expect(await metrics()).toEqual({ running: false });
-    const stopped = await request(app).get("/server/api/metrics?window=300");
-    expect([stopped.status, stopped.body]).toEqual([200, { running: false }]);
+    const stopped = await metrics();
+    expect(Object.keys(stopped)).toEqual(["running", "since", "errors"]);
+    expect([stopped.running, stopped.errors]).toEqual([false, []]);
+    expect(Number.isInteger(stopped.since)).toBe(true);
+    const history = await metrics("?window=300");
+    expect(Object.keys(history)).toEqual([
+      "running",
+      "since",
+      "errors",
+      "window",
+    ]);
+    expect(history.window.total.refused).toBe(1);
+    expect(fs.existsSync(METRICS_PATH)).toBe(true);
+  });
+
+  test("metrics history is absent until the server counted something", async () => {
+    await saved({ models: [row()] });
+    await start();
+    await stop();
+
+    const response = await request(app).get("/server/api/metrics");
+
+    expect([response.status, response.body]).toEqual([200, { running: false }]);
+    expect(fs.existsSync(METRICS_PATH)).toBe(false);
   });
 
   test("start while running is refused", async () => {

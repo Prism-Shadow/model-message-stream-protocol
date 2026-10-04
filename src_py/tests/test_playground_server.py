@@ -92,6 +92,9 @@ def _metrics(client: FlaskClient) -> dict[str, Any]:
     return response.get_json()
 
 
+_WINDOW_ERROR = "window must be an integer number of seconds from 10 to 5184000."
+
+
 def _model_ids(base_url: str, headers: dict[str, str] | None = None) -> list[str]:
     request = urllib.request.Request(base_url + "/models", headers=headers or {})
     with urllib.request.urlopen(request, timeout=5) as response:
@@ -142,6 +145,20 @@ def test_server_page_is_served(client: FlaskClient):
         "checklistSave",
         "dashboard",
         "rangeControl",
+        "rangeWrap",
+        "rangeCustom",
+        "rangeCustomLabel",
+        "rangePopover",
+        "rangeFrom",
+        "rangeTo",
+        "rangeSince",
+        "rangeError",
+        "rangeApply",
+        "fileCard",
+        "fileNote",
+        "fileView",
+        "fileReveal",
+        "fileCopy",
         "tiles",
         "tileRequests",
         "tileSuccess",
@@ -188,6 +205,17 @@ def test_server_page_is_served(client: FlaskClient):
         "showTab(",
         "handleTabKeydown(",
         "setRange(",
+        "setCustomRange(",
+        "applyCustomRange(",
+        "toggleRangePopover(",
+        "handleRangeKeydown(",
+        "renderFile(",
+        "maskKeys(",
+        "renderJson(",
+        "copyFile(",
+        "toggleFileKeys(",
+        "formatStamp(",
+        "formatDay(",
         "renderOverview(",
         "renderTiles(",
         "renderModelCards(",
@@ -203,6 +231,16 @@ def test_server_page_is_served(client: FlaskClient):
         "formatCompact(",
         "formatTps(",
         "?window=",
+        "?from=",
+        "&columns=",
+        'data-range="2592000"',
+        'data-range="custom"',
+        'type="datetime-local"',
+        'role="dialog"',
+        ">15 min<",
+        ">30 d<",
+        "Not saved yet",
+        "Show keys",
         "tokens_out",
         "generation_ms",
         "Apply to serve",
@@ -234,12 +272,20 @@ def test_server_page_is_served(client: FlaskClient):
         "In effect",
         "<select",
         "0.6",
-        # p50 and p90 are two values, never a range, and the header names no models
-        "formatRange",
+        # p50 and p90 are two values, never a range (formatRangeLabel names a time range), and the header
+        # names no models
+        "formatRange(",
         "p50–p90",
         "statusModels",
         "overviewRows",
         "Dashboard at",
+        # 15 minutes is the shortest range, and the server's arrays cover the whole range; the old label
+        # in its tags, since "5 min" is part of "15 min"
+        'data-range="300"',
+        ">5 min<",
+        "windowColumns(",
+        # the file is a card of its own
+        "file-line",
     ):
         assert text.encode() not in response.data, text
 
@@ -252,8 +298,8 @@ def test_config_is_absent_before_a_save(client: FlaskClient, config_path: Path):
     response = client.get("/server/api/config")
 
     assert response.status_code == 200
-    assert response.get_json() == {"path": str(config_path), "exists": False, "config": None}
-    assert list(response.get_json()) == ["path", "exists", "config"]
+    assert response.get_json() == {"path": str(config_path), "exists": False, "config": None, "text": None}
+    assert list(response.get_json()) == ["path", "exists", "config", "text"]
 
 
 def test_save_writes_the_cli_config_file_and_reads_it_back(
@@ -288,8 +334,10 @@ def test_save_writes_the_cli_config_file_and_reads_it_back(
         "host": "127.0.0.1",
         "port": 25760,
     }
+    text = config_path.read_text(encoding="utf-8")
     assert response.status_code == 200
-    assert response.get_json() == {"path": str(config_path), "exists": True, "config": saved}
+    # the text it wrote, which the File card shows
+    assert response.get_json() == {"path": str(config_path), "exists": True, "config": saved, "text": text}
     assert list(response.get_json()["config"]["models"][1]) == [
         "model_id",
         "base_url",
@@ -297,7 +345,7 @@ def test_save_writes_the_cli_config_file_and_reads_it_back(
         "server_model_id",
         "client_type",
     ]
-    assert config_path.read_text(encoding="utf-8") == json.dumps(saved, ensure_ascii=False, indent=2) + "\n"
+    assert text == json.dumps(saved, ensure_ascii=False, indent=2) + "\n"
     assert client.get("/server/api/config").get_json() == response.get_json()
 
     # the file is the CLI's: it resolves the references and leaves host and port to the flags
@@ -346,8 +394,14 @@ def test_save_reports_an_unreadable_file(client: FlaskClient, config_path: Path)
 
     message = f"{config_path}: not valid JSON: Expecting value: line 1 column 1 (char 0)"
     assert unreadable.status_code == 200
-    assert unreadable.get_json() == {"path": str(config_path), "exists": True, "config": None, "error": message}
-    assert list(unreadable.get_json()) == ["path", "exists", "config", "error"]
+    assert unreadable.get_json() == {
+        "path": str(config_path),
+        "exists": True,
+        "config": None,
+        "text": "not json",
+        "error": message,
+    }
+    assert list(unreadable.get_json()) == ["path", "exists", "config", "text", "error"]
     assert (refused.status_code, refused.get_json()) == (400, {"error": message})
 
     config_path.write_text("[]", encoding="utf-8")
@@ -428,8 +482,11 @@ def test_start_serves_the_saved_table_and_stop_closes_it(client: FlaskClient):
         _model_ids(status["base_url"])
 
 
-def test_metrics_are_read_in_process(client: FlaskClient):
+def test_metrics_are_read_in_process(client: FlaskClient, tmp_path: Path):
     assert _metrics(client) == {"running": False}
+    # the query is read first, also when nothing runs
+    refused = client.get("/server/api/metrics?window=x")
+    assert (refused.status_code, refused.get_json()) == (400, {"error": _WINDOW_ERROR})
     # a server with a key, which the page does not hold
     _save(
         client,
@@ -467,18 +524,34 @@ def test_metrics_are_read_in_process(client: FlaskClient):
     assert window["seconds"] == 300
     assert sum(window["total"]["series"]["refused"]) == 1
     refused = client.get("/server/api/metrics?window=x")
-    assert (refused.status_code, refused.get_json()) == (
-        400,
-        {"error": "window must be an integer number of seconds from 10 to 7200."},
-    )
+    assert (refused.status_code, refused.get_json()) == (400, {"error": _WINDOW_ERROR})
+    mixed = client.get("/server/api/metrics?from=1&to=2&window=3")
+    assert (mixed.status_code, mixed.get_json()) == (400, {"error": "window cannot be combined with from and to."})
 
-    # a restart serves a new server, counted from zero
+    # a restart serves a new server, counted from zero, which continues the history
     _restart(client)
     assert _metrics(client)["refused"]["unknown_model"] == 0
+    assert client.get("/server/api/metrics?window=300").get_json()["window"]["total"]["refused"] == 1
 
+    # stopped, the page reads the history the server wrote beside the config
     client.post("/server/api/stop", json={})
+    stopped = _metrics(client)
+    assert list(stopped) == ["running", "since", "errors"]
+    assert (stopped["running"], stopped["errors"]) == (False, [])
+    assert isinstance(stopped["since"], int)
+    history = client.get("/server/api/metrics?window=300").get_json()
+    assert list(history) == ["running", "since", "errors", "window"]
+    assert history["window"]["total"]["refused"] == 1
+    assert (tmp_path / "server-metrics.json").exists()
+
+
+def test_metrics_history_is_absent_until_the_server_counted_something(client: FlaskClient, tmp_path: Path):
+    _save(client, [_row()])
+    _start(client)
+    client.post("/server/api/stop", json={})
+
     assert _metrics(client) == {"running": False}
-    assert client.get("/server/api/metrics?window=300").get_json() == {"running": False}
+    assert not (tmp_path / "server-metrics.json").exists()
 
 
 def test_start_and_stop_print_the_console_lines(client: FlaskClient, capsys: pytest.CaptureFixture[str]):

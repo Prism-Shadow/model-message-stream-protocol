@@ -15,6 +15,7 @@
 import asyncio
 import json
 import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
@@ -31,11 +32,13 @@ from mmsp.base_client import LLMClient
 from mmsp.integration import server
 from mmsp.integration.server import (
     LATENCY_WINDOW,
+    RETENTION_S,
     ModelRow,
     ServerMetrics,
     announce_server,
     create_server_app,
     load_server_config,
+    read_history,
     read_server_config,
     resolve_server_config,
     start_server,
@@ -952,7 +955,7 @@ def test_resolve_server_config_without_a_source_has_no_prefix(monkeypatch: pytes
 
 
 def test_start_server_prints_the_base_url_the_models_and_whether_it_is_open(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ):
     monkeypatch.setattr(Flask, "run", lambda self, **kwargs: None)
     models = [_row("claude-sonnet-5-5", "claude"), _row("gpt-5.5")]
@@ -968,6 +971,13 @@ def test_start_server_prints_the_base_url_the_models_and_whether_it_is_open(
     assert capsys.readouterr().out == (
         "Starting MMSP server at http://127.0.0.1:25999/v1\nServing models: claude, gpt-5.5\n"
     )
+
+    # a history file changes nothing printed, and a server that counted nothing writes none
+    start_server(models, api_keys=["k"], host="127.0.0.1", port=25999, metrics_path=str(tmp_path / "m.json"))
+    assert capsys.readouterr().out == (
+        "Starting MMSP server at http://127.0.0.1:25999/v1\nServing models: claude, gpt-5.5\n"
+    )
+    assert not (tmp_path / "m.json").exists()
 
 
 def test_announce_server_prints_the_three_lines(capsys: pytest.CaptureFixture[str]):
@@ -1043,7 +1053,10 @@ _TOTAL_COLUMNS = [
     "first_event_p50",
     "first_event_p90",
 ]
-_WINDOW_ERROR = "window must be an integer number of seconds from 10 to 7200."
+_WINDOW_ERROR = "window must be an integer number of seconds from 10 to 5184000."
+_RANGE_ERROR = "from and to must be unix seconds, from before to and at most 5184000 seconds apart."
+_QUERY_ERROR = "window cannot be combined with from and to."
+_COLUMNS_ERROR = "columns must be an integer from 1 to 1440."
 
 
 def _counts(series: dict[str, Any]) -> dict[str, Any]:
@@ -1064,6 +1077,7 @@ def test_metrics_count_a_success_with_its_latency_and_tokens(use_upstream):
 
     assert list(metrics) == [
         "started_at",
+        "since",
         "uptime_s",
         *_COUNTS,
         "latency_ms",
@@ -1078,6 +1092,8 @@ def test_metrics_count_a_success_with_its_latency_and_tokens(use_upstream):
     ]
     assert (before["requests"], before["last_request_at"]) == (0, None)
     assert metrics["started_at"] == created
+    # a store without a history file begins its history when it starts
+    assert metrics["since"] == metrics["started_at"]
     assert metrics["uptime_s"] >= 0
     claude, gpt = metrics["models"]
     assert list(claude) == [
@@ -1309,17 +1325,17 @@ def test_metrics_sum_output_tokens_and_tps_over_generation_time():
         "generation_ms": 2001,
         "tps": 52.5,
     }
-    # both requests began in the bucket of 1790000000
+    # both requests began in the bucket of 1790000000, the last of the six
     assert {name: total["series"][name] for name in _OUTPUT} == {
-        "tokens_out": [105],
-        "thoughts": [20],
-        "response": [85],
-        "generation_ms": [2001],
-        "tps": [52.5],
+        "tokens_out": [0, 0, 0, 0, 0, 105],
+        "thoughts": [0, 0, 0, 0, 0, 20],
+        "response": [0, 0, 0, 0, 0, 85],
+        "generation_ms": [0, 0, 0, 0, 0, 2001],
+        "tps": [None, None, None, None, None, 52.5],
     }
 
     moment[0] = 15.0
-    assert metrics.window(60)["total"]["series"]["tps"] == [52.5, None]
+    assert metrics.window(60)["total"]["series"]["tps"] == [None, None, None, None, 52.5, None]
 
 
 def test_metrics_window_counts_a_request_in_the_bucket_it_began_in():
@@ -1333,8 +1349,8 @@ def test_metrics_window_counts_a_request_in_the_bucket_it_began_in():
     window = metrics.window(60)
 
     assert list(window) == ["seconds", "bucket_s", "start", "end", "total", "models", "previous"]
-    # the current bucket ends the window, which starts no earlier than the bucket the server started in
-    assert (window["seconds"], window["bucket_s"], window["start"], window["end"]) == (60, 10, 1790000000, 1790000020)
+    # the current bucket ends the window, which covers the whole minute, before the history included
+    assert (window["seconds"], window["bucket_s"], window["start"], window["end"]) == (60, 10, 1789999960, 1790000020)
     total, model = window["total"], window["models"][0]
     assert list(total) == [*_TOTAL_SUMMARY, "series"]
     assert list(total["series"]) == _TOTAL_COLUMNS
@@ -1342,13 +1358,13 @@ def test_metrics_window_counts_a_request_in_the_bucket_it_began_in():
     assert list(model["series"]) == [name for name in _TOTAL_COLUMNS if name != "refused"]
     assert model["id"] == "m"
     for series in (total["series"], model["series"]):
-        assert series["requests"] == [1, 0]
-        assert series["successes"] == [1, 0]
-        assert series["tokens_out"] == [7, 0]
-        assert series["thoughts"] == [0, 0]
-        assert series["response"] == [7, 0]
-        assert series["p90"] == [12000, None]
-    assert total["series"]["refused"] == [0, 0]
+        assert series["requests"] == [0, 0, 0, 0, 1, 0]
+        assert series["successes"] == [0, 0, 0, 0, 1, 0]
+        assert series["tokens_out"] == [0, 0, 0, 0, 7, 0]
+        assert series["thoughts"] == [0, 0, 0, 0, 0, 0]
+        assert series["response"] == [0, 0, 0, 0, 7, 0]
+        assert series["p90"] == [None, None, None, None, 12000, None]
+    assert total["series"]["refused"] == [0, 0, 0, 0, 0, 0]
     assert total["in_flight"] == 0
     assert total["latency_ms"] == {"first_event": {"p50": 12000, "p90": 12000}, "total": {"p50": 12000, "p90": 12000}}
     assert window["previous"] is None
@@ -1370,14 +1386,14 @@ def test_metrics_window_slices_the_range_and_reports_the_previous_window():
     assert sum(five["total"]["series"]["requests"]) == five["total"]["requests"] == 5
     assert list(five["previous"]) == _TOTAL_SUMMARY
     assert five["previous"]["requests"] == 5
-    # the hour before the end began before the server, so it has no hour to compare with
+    # the hour before the end began before the history, so it has no hour to compare with
     assert hour["previous"] is None
-    assert hour["start"] == 1790000000
-    assert len(hour["total"]["series"]["requests"]) == (hour["end"] - hour["start"]) // 10
+    assert hour["start"] == hour["end"] - 3600
+    assert len(hour["total"]["series"]["requests"]) == 360
     assert hour["total"]["requests"] == 30
 
 
-def test_metrics_window_drops_buckets_older_than_two_hours():
+def test_metrics_roll_ten_second_buckets_into_minutes_after_two_hours():
     wall = [1790000005.0]
     metrics = ServerMetrics(["m"], now=lambda: wall[0], clock=lambda: wall[0])
 
@@ -1386,15 +1402,109 @@ def test_metrics_window_drops_buckets_older_than_two_hours():
     wall[0] += 7300
     metrics.finish(metrics.begin("m"), "success")
 
-    assert len(metrics._total.buckets) == 1
-    assert len(metrics._models["m"].buckets) == 1
-    # begun before the cutoff: counted since start, in no bucket
-    metrics.finish(late, "failure", error="late")
-    assert len(metrics._total.buckets) == 1
+    # the bucket of 1790000000 is in the minute of 1789999980
+    assert len(metrics._total.tiers[0]) == 1
+    assert list(metrics._total.tiers[1]) == [1789999980]
+    minute = metrics._total.tiers[1][1789999980]
+    assert (minute.requests, minute.successes, minute.failures) == (2, 1, 0)
+    assert list(metrics._models["m"].tiers[1]) == [1789999980]
+    # the ten-second columns of the last two hours begin after that minute
     window = metrics.window(7200)
     assert (window["total"]["requests"], window["total"]["successes"], window["total"]["failures"]) == (1, 1, 0)
+
+    # begun in a bucket that has since moved: counted into the minute that holds it now
+    metrics.finish(late, "failure", error="late")
+    assert minute.failures == 1
+    old = metrics.between(1789999980, 1790000040)
+    assert old["bucket_s"] == 60
+    assert (old["total"]["series"]["requests"], old["total"]["series"]["failures"]) == ([2], [1])
     snapshot = metrics.snapshot()
     assert (snapshot["requests"], snapshot["successes"], snapshot["failures"]) == (3, 2, 1)
+
+
+def test_metrics_roll_minutes_into_hours_and_thin_the_samples():
+    moment = [0.0]
+    wall = [1789999980.0]
+    metrics = ServerMetrics(["m"], now=lambda: moment[0], clock=lambda: wall[0])
+
+    # the six ten-second buckets of the minute of 1789999980, with latencies 1..20, 21..40, ..., 101..120 ms
+    for step in range(6):
+        wall[0] = 1789999980.0 + 10 * step
+        for total_ms in range(20 * step + 1, 20 * step + 21):
+            moment[0] = 0.0
+            sample = metrics.begin("m")
+            moment[0] = total_ms / 1000
+            metrics.finish(sample, "success")
+    wall[0] = 1789999980.0 + 7300
+    metrics.refused("unknown_model")
+    minute = metrics.between(1789999980, 1790000040, 1)
+
+    assert minute["bucket_s"] == 60
+    assert minute["total"]["series"]["requests"] == [120]
+    # the nearest rank over 64 evenly spaced of the 120; all of them would give 108
+    assert minute["total"]["series"]["p90"] == [107]
+    assert len(metrics._total.tiers[1][1789999980].total_ms) == 64
+
+    wall[0] = 1789999980.0 + 172800 + 3600
+    metrics.refused("unknown_model")
+    hour = metrics.between(1789999200, 1790002800, 1)
+
+    assert 1789999980 not in metrics._total.tiers[1]
+    assert metrics._total.tiers[2][1789999200].requests == 120
+    assert (hour["bucket_s"], hour["total"]["series"]["requests"], hour["total"]["series"]["p90"]) == (
+        3600,
+        [120],
+        [107],
+    )
+
+
+def test_metrics_pick_the_column_span_from_the_range_and_the_columns_asked():
+    metrics = ServerMetrics(["m"], clock=lambda: 1790000000.0)
+    # a history that began long ago, so that every range lies inside it
+    metrics.since = 1780000000
+
+    for args, bucket_s, columns in (
+        ((900, 90), 10, 90),
+        ((900, 30), 30, 30),
+        ((3600, 90), 60, 60),
+        ((21600, 90), 300, 72),
+        ((86400, 90), 1200, 72),
+        ((86400,), 300, 288),
+        ((604800, 90), 7200, 84),
+        ((2592000, 90), 43200, 60),
+        # no span of at most 12 hours gives 30 columns of 30 days
+        ((2592000, 30), 43200, 60),
+    ):
+        window = metrics.window(*args)
+        assert (window["bucket_s"], len(window["total"]["series"]["requests"])) == (bucket_s, columns), args
+        # the current column is the last one
+        assert window["end"] == (1790000000 // bucket_s + 1) * bucket_s, args
+        assert window["start"] == window["end"] - columns * bucket_s, args
+
+    ten_days_ago = 1790000000 - 864000
+    old = metrics.between(ten_days_ago, ten_days_ago + 3600, 90)
+    # ten days back only hours are stored, so an hour's range has hour columns
+    assert old["bucket_s"] == 3600
+    assert old["start"] % 3600 == old["end"] % 3600 == 0
+    assert old["start"] <= ten_days_ago < ten_days_ago + 3600 <= old["end"]
+    assert len(old["total"]["series"]["requests"]) == (old["end"] - old["start"]) // 3600
+
+
+def test_metrics_between_is_the_range_aligned_outward():
+    wall = [1790000005.0]
+    metrics = ServerMetrics(["m"], now=lambda: wall[0], clock=lambda: wall[0])
+
+    metrics.finish(metrics.begin("m"), "success")
+    wall[0] = 1790000200.0
+    window = metrics.between(1790000005, 1790000125, 360)
+    future = metrics.between(1790000300, 1790000400)
+
+    assert (window["seconds"], window["bucket_s"], window["start"], window["end"]) == (120, 10, 1790000000, 1790000130)
+    assert window["total"]["series"]["requests"] == [1, *[0] * 12]
+    # the 130 seconds before it began before the history
+    assert window["previous"] is None
+    assert future["total"]["series"]["requests"] == [0] * 10
+    assert future["previous"]["requests"] == 0
 
 
 def test_metrics_window_percentiles_are_over_the_first_sixty_four_samples_of_a_bucket():
@@ -1416,34 +1526,56 @@ def test_metrics_window_percentiles_are_over_the_first_sixty_four_samples_of_a_b
     assert metrics.snapshot()["latency_ms"]["total"]["p90"] == 90
 
 
-def test_metrics_window_refuses_a_bad_window():
+def test_metrics_refuse_a_bad_query():
     app = _server_app()
 
     with app.test_client() as client:
-        for value in ("abc", "5", "7201"):
-            response = client.get(f"/v1/metrics?window={value}")
-            assert response.status_code == 400, value
-            assert response.get_json() == {"error": {"type": "InvalidRequestError", "message": _WINDOW_ERROR}}
+        for query, message in (
+            ("window=abc", _WINDOW_ERROR),
+            ("window=5", _WINDOW_ERROR),
+            ("window=5184001", _WINDOW_ERROR),
+            ("window=300&from=1&to=2", _QUERY_ERROR),
+            ("from=1", _RANGE_ERROR),
+            ("to=2", _RANGE_ERROR),
+            ("from=2&to=1", _RANGE_ERROR),
+            ("from=a&to=2", _RANGE_ERROR),
+            ("from=1&to=5184002", _RANGE_ERROR),
+            ("columns=0", _COLUMNS_ERROR),
+            ("columns=1441", _COLUMNS_ERROR),
+            ("columns=x", _COLUMNS_ERROR),
+        ):
+            response = client.get(f"/v1/metrics?{query}")
+            assert response.status_code == 400, query
+            assert response.get_json() == {"error": {"type": "InvalidRequestError", "message": message}}, query
         assert client.post("/v1/stream", json={"model": "nope", "messages": []}).status_code == 404
-        response = client.get("/v1/metrics?window=300")
+        response = client.get("/v1/metrics?window=300&columns=90")
+        to = int(time.time())
+        ranged = client.get(f"/v1/metrics?from={to - 3600}&to={to}")
+        columns_only = client.get("/v1/metrics?columns=90")
 
     assert response.status_code == 200
     body = response.get_json()
     assert list(body) == [*_metrics(app), "window"]
-    assert body["window"]["seconds"] == 300
+    assert (body["window"]["seconds"], body["window"]["bucket_s"]) == (300, 10)
+    assert len(body["window"]["total"]["series"]["requests"]) == 30
     assert sum(body["window"]["total"]["series"]["refused"]) == body["window"]["total"]["refused"] == 1
-    # a bad window is no refusal: refusals count stream requests
+    assert ranged.status_code == 200
+    assert ranged.get_json()["window"]["seconds"] == 3600
+    # columns alone names no range
+    assert columns_only.status_code == 200
+    assert "window" not in columns_only.get_json()
+    # a bad query is no refusal: refusals count stream requests
     assert body["refused"] == {"unauthorized": 0, "invalid_request": 0, "unknown_model": 1}
 
 
-def test_metrics_keep_the_latest_twenty_errors():
+def test_metrics_keep_the_latest_hundred_errors():
     metrics = ServerMetrics(["m"])
 
-    for i in range(25):
+    for i in range(125):
         metrics.finish(metrics.begin("m"), "failure", error=f"error {i}")
     errors = metrics.snapshot()["errors"]
 
-    assert [entry["message"] for entry in errors] == [f"error {i}" for i in range(24, 4, -1)]
+    assert [entry["message"] for entry in errors] == [f"error {i}" for i in range(124, 24, -1)]
     assert {(tuple(entry), entry["model"]) for entry in errors} == {(("at", "model", "message"), "m")}
 
 
@@ -1467,7 +1599,7 @@ def test_metrics_require_the_key():
     }
 
 
-def test_create_server_app_exposes_its_metrics():
+def test_create_server_app_exposes_its_metrics(tmp_path: Path):
     app = _server_app([_row("claude-sonnet-5-5", "claude"), _row("gpt-5.5")])
 
     metrics = app.config["MMSP_SERVER_METRICS"]
@@ -1479,3 +1611,164 @@ def test_create_server_app_exposes_its_metrics():
         assert client.post("/v1/stream", json={"model": "nope", "messages": []}).status_code == 404
     assert metrics.snapshot()["refused"]["unknown_model"] == 1
     assert _metrics(app)["refused"] == metrics.snapshot()["refused"]
+
+    # with a history file, the store keeps it, and writes it at close once it counted something
+    path = tmp_path / "m.json"
+    persisted = create_server_app([_row("gpt-5.5")], metrics_path=str(path))
+    store = persisted.config["MMSP_SERVER_METRICS"]
+    assert (metrics.path, store.path) == (None, str(path))
+    with persisted.test_client() as client:
+        assert client.post("/v1/stream", json={"model": "nope", "messages": []}).status_code == 404
+    assert not path.exists()
+    store.close()
+    # the refusal, counted in the total's ten-second bucket
+    assert [bucket[4] for _, bucket in read_history(path)["total"]["10"]] == [1]
+
+
+def _fixed_clock() -> float:
+    return 1790000000.0
+
+
+def test_metrics_persist_their_history_and_a_new_server_continues_it(tmp_path: Path):
+    path = tmp_path / "h.json"
+    wall = [1790000000.0]
+    metrics = ServerMetrics(["m"], now=lambda: wall[0], clock=lambda: wall[0], path=str(path), save_every_s=0)
+
+    for outcome in ("success", "success", "failure"):
+        sample = metrics.begin("m")
+        metrics.first_event(sample)
+        metrics.finish(sample, outcome, error="upstream down" if outcome == "failure" else None)
+    metrics.save()
+    text = path.read_text(encoding="utf-8")
+    history = json.loads(text)
+
+    # one line, compact, as the TypeScript server writes it, an integral moment as an integer
+    assert text == json.dumps(history, ensure_ascii=False, separators=(",", ":")) + "\n"
+    assert '"errors":[{"at":1790000000,"model":"m","message":"upstream down"}]' in text
+    assert list(history) == ["version", "since", "saved_at", "errors", "total", "models"]
+    assert (history["version"], history["since"], history["saved_at"]) == (1, 1790000000, 1790000000)
+    assert list(history["total"]) == ["10", "60", "3600"]
+    # requests, successes, failures, disconnects, refused, tokens_out, thoughts, response, generation_ms, samples
+    assert history["total"]["10"] == [[1790000000, [3, 2, 1, 0, 0, 0, 0, 0, 2, [0, 0], [0, 0]]]]
+    assert (history["total"]["60"], history["total"]["3600"]) == ([], [])
+    assert list(history["models"]) == ["m"]
+    assert history["models"]["m"] == history["total"]
+
+    # nothing changed since the last write, so nothing is written
+    path.unlink()
+    metrics.save()
+    assert not path.exists()
+
+    path.write_text(text, encoding="utf-8")
+    wall[0] += 600
+    again = ServerMetrics(["m"], now=lambda: wall[0], clock=lambda: wall[0], path=str(path), save_every_s=0)
+    snapshot = again.snapshot()
+
+    assert (again.since, again.started_at) == (1790000000, 1790000600)
+    # the since-start counters are this run's, the history and its errors continue
+    assert (snapshot["started_at"], snapshot["since"], snapshot["requests"]) == (1790000600, 1790000000, 0)
+    assert snapshot["errors"] == [{"at": 1790000000, "model": "m", "message": "upstream down"}]
+    assert again.window(3600)["total"]["requests"] == 3
+
+    again.finish(again.begin("m"), "success")
+    again.close()
+    again.close()
+    assert [start for start, _ in read_history(path)["total"]["10"]] == [1790000000, 1790000600]
+
+
+def test_metrics_history_that_cannot_be_read_starts_fresh_and_says_so(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    path = tmp_path / "h.json"
+    path.write_text("not json", encoding="utf-8")
+
+    metrics = ServerMetrics(["m"], clock=_fixed_clock, path=str(path), save_every_s=0)
+
+    out = capsys.readouterr().out
+    assert out.startswith(f"Metrics history at {path} could not be read (not valid JSON: ")
+    assert out.endswith("; starting fresh.\n")
+    assert out.count("\n") == 1
+    assert metrics.since == metrics.started_at
+    assert ServerMetrics.from_history(path) is None
+
+    valid = {"version": 1, "since": 0, "errors": [], "total": {"10": [], "60": [], "3600": []}, "models": {}}
+    bucket = [1, 1, 0, 0, 0, 0, 0, 0, 1, [5], [3]]
+    for shape in (
+        {"version": 2},
+        [],
+        {**valid, "version": True},
+        {**valid, "total": {"10": [], "60": []}},
+        {**valid, "errors": [{"at": 1}]},
+        {**valid, "total": {**valid["total"], "10": [[0, bucket[:10]]]}},
+        {**valid, "models": {"m": {**valid["total"], "10": [[0, [-1, *bucket[1:]]]]}}},
+    ):
+        path.write_text(json.dumps(shape), encoding="utf-8")
+        with pytest.raises(ValueError) as exc_info:
+            read_history(path)
+        assert str(exc_info.value) == "not a version 1 metrics history", shape
+    fresh = ServerMetrics(["m"], clock=_fixed_clock, path=str(path), save_every_s=0)
+    assert capsys.readouterr().out == (
+        f"Metrics history at {path} could not be read (not a version 1 metrics history); starting fresh.\n"
+    )
+
+    # the next write replaces the file
+    fresh.finish(fresh.begin("m"), "success")
+    fresh.save()
+    assert [stored[0] for _, stored in read_history(path)["total"]["10"]] == [1]
+    assert ServerMetrics.from_history(tmp_path / "missing.json") is None
+    history = ServerMetrics.from_history(path, clock=_fixed_clock)
+    assert history is not None
+    assert (history.path, history.since) == (None, 1790000000)
+    assert history.window(3600)["total"]["requests"] == 1
+    assert history.snapshot()["models"] == []
+    assert capsys.readouterr().out == ""
+
+
+def test_metrics_thin_the_samples_of_a_history_on_reading(tmp_path: Path):
+    path = tmp_path / "h.json"
+    samples = list(range(1, 121))
+    total = {"10": [[1790000000, [120, 120, 0, 0, 0, 0, 0, 0, 120, samples, samples[:5]]]], "60": [], "3600": []}
+    history = {"version": 1, "since": 1790000000, "saved_at": 1790000000, "errors": [], "total": total, "models": {}}
+    path.write_text(json.dumps(history), encoding="utf-8")
+
+    metrics = ServerMetrics(["m"], clock=_fixed_clock, path=str(path), save_every_s=0)
+
+    bucket = metrics._total.tiers[0][1790000000]
+    assert (len(bucket.total_ms), bucket.first_event_ms) == (64, [1, 2, 3, 4, 5])
+    assert metrics.window(10)["total"]["series"]["p90"] == [107]
+
+
+def test_metrics_keep_a_removed_models_history_in_the_file(tmp_path: Path):
+    path = str(tmp_path / "h.json")
+    first = ServerMetrics(["m", "n"], clock=_fixed_clock, path=path, save_every_s=0)
+    for model_id in ("m", "n", "n"):
+        first.finish(first.begin(model_id), "success")
+    first.close()
+
+    without = ServerMetrics(["m"], clock=_fixed_clock, path=path, save_every_s=0)
+    window = without.window(3600)
+
+    assert [model["id"] for model in window["models"]] == ["m"]
+    assert window["total"]["requests"] == 3
+    without.finish(without.begin("m"), "success")
+    without.close()
+    # the table's series first, then the ones it no longer serves
+    assert list(read_history(path)["models"]) == ["m", "n"]
+
+    back = ServerMetrics(["n", "m"], clock=_fixed_clock, path=path, save_every_s=0)
+    assert [(model["id"], model["requests"]) for model in back.window(3600)["models"]] == [("n", 2), ("m", 2)]
+
+
+def test_metrics_drop_what_is_older_than_sixty_days():
+    wall = [1790000000.0]
+    metrics = ServerMetrics(["m"], now=lambda: wall[0], clock=lambda: wall[0])
+
+    metrics.finish(metrics.begin("m"), "success")
+    wall[0] += RETENTION_S + 3600
+    metrics.refused("unknown_model")
+
+    assert [list(tier) for tier in metrics._total.tiers] == [[int(wall[0]) // 10 * 10], [], []]
+    assert [list(tier) for tier in metrics._models["m"].tiers] == [[], [], []]
+    window = metrics.window(RETENTION_S)
+    assert (window["total"]["requests"], window["total"]["refused"]) == (0, 1)
+    assert metrics.snapshot()["requests"] == 1

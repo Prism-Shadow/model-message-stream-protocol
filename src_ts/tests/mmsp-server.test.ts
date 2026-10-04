@@ -32,10 +32,12 @@ import { LLMClient } from "../src/baseClient";
 import { UnsupportedParameterError, UpstreamError } from "../src/errors";
 import {
   ModelRow,
+  RETENTION_S,
   ServerMetrics,
   announceServer,
   createServerApp,
   loadServerConfig,
+  readHistory,
   readServerConfig,
   resolveServerConfig,
   startServer,
@@ -258,7 +260,11 @@ function row(
 }
 
 function serverApp(
-  options: { models?: ModelRow[]; apiKeys?: string[] } = {},
+  options: {
+    models?: ModelRow[];
+    apiKeys?: string[];
+    metricsPath?: string;
+  } = {},
 ): Express {
   return createServerApp({ models: [row("gpt-5.5")], ...options });
 }
@@ -279,12 +285,19 @@ async function serve(app: Express): Promise<string> {
 const tempDirs: string[] = [];
 
 /**
+ * A directory removed after the test.
+ */
+function tempDir(): string {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mmsp-"));
+  tempDirs.push(dir);
+  return dir;
+}
+
+/**
  * Writes a config file, JSON unless `content` is already text, and returns its path.
  */
 function configFile(content: unknown): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mmsp-"));
-  tempDirs.push(dir);
-  const file = path.join(dir, "server.json");
+  const file = path.join(tempDir(), "server.json");
   fs.writeFileSync(
     file,
     typeof content === "string" ? content : JSON.stringify(content),
@@ -1181,6 +1194,7 @@ async function metricsOf(app: Express, key?: string): Promise<Metrics> {
 
 const SNAPSHOT_KEYS = [
   "started_at",
+  "since",
   "uptime_s",
   "requests",
   "successes",
@@ -1249,6 +1263,45 @@ const COLUMN_KEYS = [
   "first_event_p90",
 ];
 
+const WINDOW_ERROR =
+  "window must be an integer number of seconds from 10 to 5184000.";
+const RANGE_ERROR =
+  "from and to must be unix seconds, from before to and at most 5184000 seconds apart.";
+const QUERY_ERROR = "window cannot be combined with from and to.";
+const COLUMNS_ERROR = "columns must be an integer from 1 to 1440.";
+
+// the minute 1790000005 falls in: unix minutes are multiples of 60, and 1790000000 is not one
+const MINUTE = 1789999980;
+
+function fixedClock(): number {
+  return 1790000000;
+}
+
+// a stored bucket, as far as the tests read it
+interface StoredBucket {
+  requests: number;
+  successes: number;
+  failures: number;
+  totalMs: number[];
+  firstEventMs: number[];
+}
+
+/**
+ * The tiers of a store's total, or of one of its models: private fields, read through a cast.
+ */
+function tiersOf(
+  metrics: ServerMetrics,
+  modelId?: string,
+): Map<number, StoredBucket>[] {
+  const store = metrics as unknown as {
+    total: { tiers: Map<number, StoredBucket>[] };
+    models: Map<string, { tiers: Map<number, StoredBucket>[] }>;
+  };
+  return modelId === undefined
+    ? store.total.tiers
+    : store.models.get(modelId)!.tiers;
+}
+
 /**
  * A usage with only the given fields reported.
  */
@@ -1312,6 +1365,8 @@ describe("MMSP server metrics", () => {
     const after = await metricsOf(app);
 
     expect(Object.keys(before)).toEqual(SNAPSHOT_KEYS);
+    // a store without a history file begins its history when it starts
+    expect(before.since).toBe(before.started_at);
     expect(before).toMatchObject({
       requests: 0,
       in_flight: 0,
@@ -1614,6 +1669,7 @@ describe("MMSP server metrics", () => {
     const metrics = app.locals.metrics as ServerMetrics;
 
     expect(metrics).toBeInstanceOf(ServerMetrics);
+    expect(metrics.path).toBeNull();
     expect(metrics.snapshot().models).toEqual([
       untouched("claude"),
       untouched("gpt-5.5"),
@@ -1625,6 +1681,25 @@ describe("MMSP server metrics", () => {
     expect(unknown.status).toBe(404);
     expect(metrics.snapshot().refused).toMatchObject({ unknown_model: 1 });
     expect((await metricsOf(app)).refused).toEqual(metrics.snapshot().refused);
+
+    // with a history file, the store keeps it, and writes it at close once it counted something
+    const file = path.join(tempDir(), "m.json");
+    const persisted = serverApp({ metricsPath: file });
+    const store = persisted.locals.metrics as ServerMetrics;
+    try {
+      expect(store.path).toBe(file);
+      const refused = await request(persisted)
+        .post("/v1/stream")
+        .send({ model: "nope", messages: [] });
+      expect(refused.status).toBe(404);
+      expect(fs.existsSync(file)).toBe(false);
+    } finally {
+      store.close();
+    }
+    // the refusal, counted in the total's ten-second bucket
+    expect(
+      readHistory(file).total["10"].map(([, bucket]) => bucket[4]),
+    ).toEqual([1]);
   });
 
   test("metrics sum output tokens and TPS over generation time", () => {
@@ -1661,7 +1736,6 @@ describe("MMSP server metrics", () => {
         tps: 52.5,
       });
     }
-    // both began in the bucket 1790000000
     expect(total).toMatchObject({
       tokens_out: 105,
       thoughts: 20,
@@ -1669,15 +1743,20 @@ describe("MMSP server metrics", () => {
       generation_ms: 2001,
       tps: 52.5,
     });
+    // both began in the bucket 1790000000, the last of the six
     expect(total.series).toMatchObject({
-      tokens_out: [105],
-      thoughts: [20],
-      response: [85],
-      generation_ms: [2001],
-      tps: [52.5],
+      tokens_out: [0, 0, 0, 0, 0, 105],
+      thoughts: [0, 0, 0, 0, 0, 20],
+      response: [0, 0, 0, 0, 0, 85],
+      generation_ms: [0, 0, 0, 0, 0, 2001],
+      tps: [null, null, null, null, null, 52.5],
     });
     moment = 15;
     expect((metrics.window(60) as Metrics).total.series.tps).toEqual([
+      null,
+      null,
+      null,
+      null,
       52.5,
       null,
     ]);
@@ -1699,7 +1778,7 @@ describe("MMSP server metrics", () => {
 
     const windowed = metrics.window(60) as Metrics;
 
-    // the server's first bucket bounds the window, and the current bucket is its last
+    // the current bucket ends the window, which covers the whole minute, before the history included
     expect(Object.keys(windowed)).toEqual([
       "seconds",
       "bucket_s",
@@ -1712,17 +1791,20 @@ describe("MMSP server metrics", () => {
     expect(windowed).toMatchObject({
       seconds: 60,
       bucket_s: 10,
-      start: 1790000000,
+      start: 1789999960,
       end: 1790000020,
     });
-    expect(windowed.total.series).toMatchObject({
-      requests: [1, 0],
-      successes: [1, 0],
-      tokens_out: [7, 0],
-      thoughts: [0, 0],
-      response: [7, 0],
-      p90: [12000, null],
-    });
+    for (const series of [windowed.total.series, windowed.models[0].series]) {
+      expect(series).toMatchObject({
+        requests: [0, 0, 0, 0, 1, 0],
+        successes: [0, 0, 0, 0, 1, 0],
+        tokens_out: [0, 0, 0, 0, 7, 0],
+        thoughts: [0, 0, 0, 0, 0, 0],
+        response: [0, 0, 0, 0, 7, 0],
+        p90: [null, null, null, null, 12000, null],
+      });
+    }
+    expect(windowed.total.series.refused).toEqual([0, 0, 0, 0, 0, 0]);
     expect(windowed.total.in_flight).toBe(0);
     expect(windowed.previous).toBeNull();
     expect(Object.keys(windowed.total)).toEqual([
@@ -1759,47 +1841,171 @@ describe("MMSP server metrics", () => {
     expect(fiveMinutes.total.series.requests).toHaveLength(30);
     expect(sum(fiveMinutes.total.series.requests)).toBe(5);
     expect(fiveMinutes.previous.requests).toBe(5);
-    // the hour before began before the server
+    // the hour before the end began before the history, so it has no hour to compare with
     expect(hour.previous).toBeNull();
-    expect(hour.start).toBe(1790000000);
+    expect(hour.start).toBe(hour.end - 3600);
+    expect(hour.total.series.requests).toHaveLength(360);
+    expect(hour.total.requests).toBe(30);
   });
 
-  test("metrics window drops buckets older than two hours", () => {
-    let wall = 1790000000;
+  test("metrics roll ten-second buckets into minutes after two hours", () => {
+    let wall = 1790000005;
     const metrics = new ServerMetrics(
       ["m"],
       () => wall,
       () => wall,
     );
-    // the total's buckets, a private field read through a cast
-    const { buckets } = (
-      metrics as unknown as { total: { buckets: Map<number, unknown> } }
-    ).total;
     metrics.finish(metrics.begin("m"), "success");
     const late = metrics.begin("m");
     wall += 7300;
     metrics.finish(metrics.begin("m"), "success");
 
-    expect(buckets.size).toBe(1);
-    expect((metrics.window(7200) as Metrics).total.requests).toBe(1);
-
-    // begun before the cutoff: the since-start counts take it, the buckets do not
-    metrics.finish(late, "success");
-    expect(buckets.size).toBe(1);
-    expect((metrics.snapshot() as Metrics).successes).toBe(3);
+    expect(tiersOf(metrics)[0].size).toBe(1);
+    expect([...tiersOf(metrics)[1].keys()]).toEqual([MINUTE]);
+    const minute = tiersOf(metrics)[1].get(MINUTE)!;
+    expect([minute.requests, minute.successes, minute.failures]).toEqual([
+      2, 1, 0,
+    ]);
+    expect([...tiersOf(metrics, "m")[1].keys()]).toEqual([MINUTE]);
+    // the ten-second columns of the last two hours begin after that minute
     expect((metrics.window(7200) as Metrics).total).toMatchObject({
       requests: 1,
       successes: 1,
+      failures: 0,
     });
+
+    // begun in a bucket that has since moved: counted into the minute that holds it now
+    metrics.finish(late, "failure", { error: "late" });
+    expect(minute.failures).toBe(1);
+    const old = metrics.between(MINUTE, MINUTE + 60) as Metrics;
+    expect(old.bucket_s).toBe(60);
+    expect([old.total.series.requests, old.total.series.failures]).toEqual([
+      [2],
+      [1],
+    ]);
+    expect(metrics.snapshot()).toMatchObject({
+      requests: 3,
+      successes: 2,
+      failures: 1,
+    });
+  });
+
+  test("metrics roll minutes into hours and thin the samples", () => {
+    let moment = 0;
+    let wall = MINUTE;
+    const metrics = new ServerMetrics(
+      ["m"],
+      () => moment,
+      () => wall,
+    );
+
+    // six ten-second buckets of one minute, with latencies 1..20, 21..40, ..., 101..120 ms
+    for (let step = 0; step < 6; step++) {
+      wall = MINUTE + 10 * step;
+      for (let ms = 20 * step + 1; ms <= 20 * step + 20; ms++) {
+        moment = 0;
+        const sample = metrics.begin("m");
+        moment = ms / 1000;
+        metrics.finish(sample, "success");
+      }
+    }
+    wall = MINUTE + 7300;
+    metrics.refused("unknown_model");
+    const minute = metrics.between(MINUTE, MINUTE + 60, 1) as Metrics;
+
+    expect(minute.bucket_s).toBe(60);
+    expect(minute.total.series.requests).toEqual([120]);
+    // the nearest rank over 64 evenly spaced of the 120; all of them would give 108
+    expect(minute.total.series.p90).toEqual([107]);
+    expect(tiersOf(metrics)[1].get(MINUTE)!.totalMs).toHaveLength(64);
+
+    wall = MINUTE + 172800 + 3600;
+    metrics.refused("unknown_model");
+    const hour = metrics.between(1789999200, 1790002800, 1) as Metrics;
+
+    expect(tiersOf(metrics)[1].has(MINUTE)).toBe(false);
+    expect(tiersOf(metrics)[2].get(1789999200)!.requests).toBe(120);
+    expect([
+      hour.bucket_s,
+      hour.total.series.requests,
+      hour.total.series.p90,
+    ]).toEqual([3600, [120], [107]]);
+  });
+
+  test("metrics pick the column span from the range and the columns asked", () => {
+    const metrics = new ServerMetrics(["m"], undefined, fixedClock);
+    // a history that began long ago, so that every range lies inside it
+    metrics.since = 1780000000;
+
+    const cases: [number, number | undefined, number, number][] = [
+      [900, 90, 10, 90],
+      [900, 30, 30, 30],
+      [3600, 90, 60, 60],
+      [21600, 90, 300, 72],
+      [86400, 90, 1200, 72],
+      [86400, undefined, 300, 288],
+      [604800, 90, 7200, 84],
+      [2592000, 90, 43200, 60],
+      // no span of at most 12 hours gives 30 columns of 30 days
+      [2592000, 30, 43200, 60],
+    ];
+    for (const [seconds, asked, bucketS, columns] of cases) {
+      const windowed = metrics.window(seconds, asked) as Metrics;
+
+      expect([
+        seconds,
+        asked,
+        windowed.bucket_s,
+        windowed.total.series.requests.length,
+      ]).toEqual([seconds, asked, bucketS, columns]);
+      // the current column is the last one
+      expect(windowed.end).toBe(
+        (Math.floor(1790000000 / bucketS) + 1) * bucketS,
+      );
+      expect(windowed.start).toBe(windowed.end - columns * bucketS);
+    }
+
+    const tenDaysAgo = 1790000000 - 864000;
+    const old = metrics.between(tenDaysAgo, tenDaysAgo + 3600, 90) as Metrics;
+    // ten days back only hours are stored, so an hour's range has hour columns
+    expect(old.bucket_s).toBe(3600);
+    expect([old.start % 3600, old.end % 3600]).toEqual([0, 0]);
+    expect(old.start).toBeLessThanOrEqual(tenDaysAgo);
+    expect(old.end).toBeGreaterThanOrEqual(tenDaysAgo + 3600);
+    expect(old.total.series.requests).toHaveLength(
+      (old.end - old.start) / 3600,
+    );
+  });
+
+  test("metrics between is the range aligned outward", () => {
+    let wall = 1790000005;
+    const metrics = new ServerMetrics(
+      ["m"],
+      () => wall,
+      () => wall,
+    );
+
+    metrics.finish(metrics.begin("m"), "success");
+    wall = 1790000200;
+    const windowed = metrics.between(1790000005, 1790000125, 360) as Metrics;
+    const future = metrics.between(1790000300, 1790000400) as Metrics;
+
+    expect([
+      windowed.seconds,
+      windowed.bucket_s,
+      windowed.start,
+      windowed.end,
+    ]).toEqual([120, 10, 1790000000, 1790000130]);
+    expect(windowed.total.series.requests).toEqual([1, ...Array(12).fill(0)]);
+    // the 130 seconds before it began before the history
+    expect(windowed.previous).toBeNull();
+    expect(future.total.series.requests).toEqual(Array(10).fill(0));
+    expect(future.previous.requests).toBe(0);
   });
 
   test("metrics window percentiles are over the first sixty-four samples of a bucket", () => {
     let time = 0;
-    const metrics = new ServerMetrics(
-      ["m"],
-      () => time,
-      () => 1790000000,
-    );
+    const metrics = new ServerMetrics(["m"], () => time, fixedClock);
     for (let ms = 1; ms <= 100; ms++) {
       time = 0;
       const sample = metrics.begin("m");
@@ -1807,7 +2013,7 @@ describe("MMSP server metrics", () => {
       metrics.finish(sample, "success");
     }
 
-    const { series } = (metrics.window(60) as Metrics).total;
+    const { series } = (metrics.window(10) as Metrics).total;
 
     expect(series.requests).toEqual([100]);
     // the nearest rank of 1..64, while the since-start p90 is over all of them
@@ -1815,33 +2021,57 @@ describe("MMSP server metrics", () => {
     expect((metrics.snapshot() as Metrics).latency_ms.total.p90).toBe(90);
   });
 
-  test("metrics window refuses a bad window", async () => {
+  test("metrics refuse a bad query", async () => {
     const app = serverApp();
     const unknown = await request(app)
       .post("/v1/stream")
       .send({ model: "nope", messages: [] });
     expect(unknown.status).toBe(404);
 
-    for (const value of ["abc", "5", "7201"]) {
-      const response = await request(app).get(`/v1/metrics?window=${value}`);
+    for (const [query, message] of [
+      ["window=abc", WINDOW_ERROR],
+      ["window=5", WINDOW_ERROR],
+      ["window=5184001", WINDOW_ERROR],
+      ["window=300&from=1&to=2", QUERY_ERROR],
+      ["from=1", RANGE_ERROR],
+      ["to=2", RANGE_ERROR],
+      ["from=2&to=1", RANGE_ERROR],
+      ["from=a&to=2", RANGE_ERROR],
+      ["from=1&to=5184002", RANGE_ERROR],
+      ["columns=0", COLUMNS_ERROR],
+      ["columns=1441", COLUMNS_ERROR],
+      ["columns=x", COLUMNS_ERROR],
+    ]) {
+      const response = await request(app).get(`/v1/metrics?${query}`);
 
-      expect([response.status, response.body]).toEqual([
+      expect([query, response.status, response.body]).toEqual([
+        query,
         400,
-        {
-          error: {
-            type: "InvalidRequestError",
-            message:
-              "window must be an integer number of seconds from 10 to 7200.",
-          },
-        },
+        { error: { type: "InvalidRequestError", message } },
       ]);
     }
-    const response = await request(app).get("/v1/metrics?window=300");
+    const response = await request(app).get(
+      "/v1/metrics?window=300&columns=90",
+    );
+    const to = Math.floor(Date.now() / 1000);
+    const ranged = await request(app).get(
+      `/v1/metrics?from=${to - 3600}&to=${to}`,
+    );
+    const columnsOnly = await request(app).get("/v1/metrics?columns=90");
 
     expect(response.status).toBe(200);
     expect(Object.keys(response.body)).toEqual([...SNAPSHOT_KEYS, "window"]);
-    expect(response.body.window.seconds).toBe(300);
-    // a bad window is not a refusal; the unknown model is, in the bucket it happened in
+    expect([
+      response.body.window.seconds,
+      response.body.window.bucket_s,
+    ]).toEqual([300, 10]);
+    expect(response.body.window.total.series.requests).toHaveLength(30);
+    expect(ranged.status).toBe(200);
+    expect(ranged.body.window.seconds).toBe(3600);
+    // columns alone names no range
+    expect(columnsOnly.status).toBe(200);
+    expect(columnsOnly.body).not.toHaveProperty("window");
+    // a bad query is not a refusal; the unknown model is, in the bucket it happened in
     expect(response.body.refused).toEqual({
       unauthorized: 0,
       invalid_request: 0,
@@ -1851,17 +2081,284 @@ describe("MMSP server metrics", () => {
     expect(sum(response.body.window.total.series.refused)).toBe(1);
   });
 
-  test("metrics keep the latest twenty errors", () => {
+  test("metrics keep the latest hundred errors", () => {
     const metrics = new ServerMetrics(["m"]);
-    for (let i = 0; i < 25; i++) {
+    for (let i = 0; i < 125; i++) {
       metrics.finish(metrics.begin("m"), "failure", { error: `error ${i}` });
     }
 
     const { errors } = metrics.snapshot() as Metrics;
 
     expect(errors.map((error: { message: string }) => error.message)).toEqual(
-      Array.from({ length: 20 }, (_, i) => `error ${24 - i}`),
+      Array.from({ length: 100 }, (_, i) => `error ${124 - i}`),
     );
+  });
+
+  test("metrics persist their history and a new server continues it", () => {
+    const file = path.join(tempDir(), "h.json");
+    let wall = 1790000000;
+    const open = () =>
+      new ServerMetrics(
+        ["m"],
+        () => wall,
+        () => wall,
+        { path: file, saveEveryS: 0 },
+      );
+    const metrics = open();
+
+    for (const outcome of ["success", "success", "failure"] as const) {
+      const sample = metrics.begin("m");
+      metrics.firstEvent(sample);
+      metrics.finish(sample, outcome, {
+        error: outcome === "failure" ? "upstream down" : null,
+      });
+    }
+    metrics.save();
+    const text = fs.readFileSync(file, "utf-8");
+    const history = JSON.parse(text);
+
+    // one line, compact, as the Python server writes it, an integral moment as an integer
+    expect(text).toBe(JSON.stringify(history) + "\n");
+    expect(text).toContain(
+      '"errors":[{"at":1790000000,"model":"m","message":"upstream down"}]',
+    );
+    expect(Object.keys(history)).toEqual([
+      "version",
+      "since",
+      "saved_at",
+      "errors",
+      "total",
+      "models",
+    ]);
+    expect([history.version, history.since, history.saved_at]).toEqual([
+      1, 1790000000, 1790000000,
+    ]);
+    expect(Object.keys(history.total)).toEqual(["10", "60", "3600"]);
+    // requests, successes, failures, disconnects, refused, tokens_out, thoughts, response,
+    // generation_ms, then the samples
+    expect(history.total["10"]).toEqual([
+      [1790000000, [3, 2, 1, 0, 0, 0, 0, 0, 2, [0, 0], [0, 0]]],
+    ]);
+    expect([history.total["60"], history.total["3600"]]).toEqual([[], []]);
+    expect(Object.keys(history.models)).toEqual(["m"]);
+    expect(history.models.m).toEqual(history.total);
+    expect(fs.existsSync(`${file}.tmp`)).toBe(false);
+
+    // nothing changed since the last write, so nothing is written
+    fs.rmSync(file);
+    metrics.save();
+    expect(fs.existsSync(file)).toBe(false);
+
+    fs.writeFileSync(file, text);
+    wall += 600;
+    const again = open();
+    const snapshot = again.snapshot() as Metrics;
+
+    expect([again.since, again.startedAt]).toEqual([1790000000, 1790000600]);
+    // the since-start counters are this run's, the history and its errors continue
+    expect([snapshot.started_at, snapshot.since, snapshot.requests]).toEqual([
+      1790000600, 1790000000, 0,
+    ]);
+    expect(snapshot.errors).toEqual([
+      { at: 1790000000, model: "m", message: "upstream down" },
+    ]);
+    expect((again.window(3600) as Metrics).total.requests).toBe(3);
+
+    again.finish(again.begin("m"), "success");
+    again.close();
+    again.close();
+    expect(readHistory(file).total["10"].map(([start]) => start)).toEqual([
+      1790000000, 1790000600,
+    ]);
+  });
+
+  test("metrics history that cannot be read starts fresh and says so", () => {
+    const dir = tempDir();
+    const file = path.join(dir, "h.json");
+    fs.writeFileSync(file, "not json");
+    const log = jest.spyOn(console, "log").mockImplementation(() => {});
+
+    try {
+      const metrics = new ServerMetrics(["m"], undefined, fixedClock, {
+        path: file,
+        saveEveryS: 0,
+      });
+
+      expect(log).toHaveBeenCalledTimes(1);
+      const [line] = log.mock.calls[0] as [string];
+      const prefix = `Metrics history at ${file} could not be read (not valid JSON: `;
+      expect(line.slice(0, prefix.length)).toBe(prefix);
+      expect(line.endsWith("); starting fresh.")).toBe(true);
+      expect(metrics.since).toBe(metrics.startedAt);
+      expect(ServerMetrics.fromHistory(file)).toBeNull();
+
+      const bucket = [1, 1, 0, 0, 0, 0, 0, 0, 1, [5], [3]];
+      const tiers = { "10": [], "60": [], "3600": [] };
+      for (const shape of [
+        { version: 2 },
+        [],
+        { version: true, since: 0, errors: [], total: tiers, models: {} },
+        {
+          version: 1,
+          since: 0,
+          errors: [],
+          total: { "10": [], "60": [] },
+          models: {},
+        },
+        { version: 1, since: 0, errors: [{ at: 1 }], total: tiers, models: {} },
+        {
+          version: 1,
+          since: 0,
+          errors: [],
+          total: { ...tiers, "10": [[0, bucket.slice(0, 10)]] },
+          models: {},
+        },
+        {
+          version: 1,
+          since: 0,
+          errors: [],
+          total: { ...tiers, "10": [[0, [-1, ...bucket.slice(1)]]] },
+          models: {},
+        },
+      ]) {
+        fs.writeFileSync(file, JSON.stringify(shape));
+        let message: string | null = null;
+        try {
+          readHistory(file);
+        } catch (error) {
+          message = (error as Error).message;
+        }
+
+        expect([shape, message]).toEqual([
+          shape,
+          "not a version 1 metrics history",
+        ]);
+      }
+      log.mockClear();
+      const fresh = new ServerMetrics(["m"], undefined, fixedClock, {
+        path: file,
+        saveEveryS: 0,
+      });
+      expect(log.mock.calls).toEqual([
+        [
+          `Metrics history at ${file} could not be read (not a version 1 metrics history); starting fresh.`,
+        ],
+      ]);
+
+      // the next write replaces the file
+      fresh.finish(fresh.begin("m"), "success");
+      fresh.save();
+      expect(
+        readHistory(file).total["10"].map(([, stored]) => stored[0]),
+      ).toEqual([1]);
+      expect(
+        ServerMetrics.fromHistory(path.join(dir, "missing.json")),
+      ).toBeNull();
+      const history = ServerMetrics.fromHistory(file, fixedClock)!;
+      expect(history).not.toBeNull();
+      expect([history.path, history.since]).toEqual([null, 1790000000]);
+      expect((history.window(3600) as Metrics).total.requests).toBe(1);
+      expect((history.snapshot() as Metrics).models).toEqual([]);
+      expect(log).toHaveBeenCalledTimes(1);
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  test("metrics thin the samples of a history on reading", () => {
+    const file = path.join(tempDir(), "h.json");
+    const samples = Array.from({ length: 120 }, (_, i) => i + 1);
+    fs.writeFileSync(
+      file,
+      JSON.stringify({
+        version: 1,
+        since: 1790000000,
+        saved_at: 1790000000,
+        errors: [],
+        total: {
+          "10": [
+            [
+              1790000000,
+              [120, 120, 0, 0, 0, 0, 0, 0, 120, samples, samples.slice(0, 5)],
+            ],
+          ],
+          "60": [],
+          "3600": [],
+        },
+        models: {},
+      }),
+    );
+
+    const metrics = new ServerMetrics(["m"], undefined, fixedClock, {
+      path: file,
+      saveEveryS: 0,
+    });
+
+    const bucket = tiersOf(metrics)[0].get(1790000000)!;
+    expect([bucket.totalMs.length, bucket.firstEventMs]).toEqual([
+      64,
+      [1, 2, 3, 4, 5],
+    ]);
+    expect((metrics.window(10) as Metrics).total.series.p90).toEqual([107]);
+  });
+
+  test("metrics keep a removed model's history in the file", () => {
+    const file = path.join(tempDir(), "h.json");
+    const options = { path: file, saveEveryS: 0 };
+    const first = new ServerMetrics(["m", "n"], undefined, fixedClock, options);
+    for (const modelId of ["m", "n", "n"]) {
+      first.finish(first.begin(modelId), "success");
+    }
+    first.close();
+
+    const without = new ServerMetrics(["m"], undefined, fixedClock, options);
+    const windowed = without.window(3600) as Metrics;
+
+    expect(windowed.models.map((model: { id: string }) => model.id)).toEqual([
+      "m",
+    ]);
+    expect(windowed.total.requests).toBe(3);
+    without.finish(without.begin("m"), "success");
+    without.close();
+    // the table's series first, then the ones it no longer serves
+    expect(Object.keys(readHistory(file).models)).toEqual(["m", "n"]);
+
+    const back = new ServerMetrics(["n", "m"], undefined, fixedClock, options);
+    expect(
+      (back.window(3600) as Metrics).models.map(
+        (model: { id: string; requests: number }) => [model.id, model.requests],
+      ),
+    ).toEqual([
+      ["n", 2],
+      ["m", 2],
+    ]);
+  });
+
+  test("metrics drop what is older than sixty days", () => {
+    let wall = 1790000000;
+    const metrics = new ServerMetrics(
+      ["m"],
+      () => wall,
+      () => wall,
+    );
+
+    metrics.finish(metrics.begin("m"), "success");
+    wall += RETENTION_S + 3600;
+    metrics.refused("unknown_model");
+
+    expect(tiersOf(metrics).map((tier) => [...tier.keys()])).toEqual([
+      [Math.floor(wall / 10) * 10],
+      [],
+      [],
+    ]);
+    expect(tiersOf(metrics, "m").map((tier) => [...tier.keys()])).toEqual([
+      [],
+      [],
+      [],
+    ]);
+    const windowed = metrics.window(RETENTION_S) as Metrics;
+    expect([windowed.total.requests, windowed.total.refused]).toEqual([0, 1]);
+    expect((metrics.snapshot() as Metrics).requests).toBe(1);
   });
 });
 
@@ -2078,19 +2575,31 @@ describe("MMSP server config", () => {
       ]);
 
       log.mockClear();
+      const file = path.join(tempDir(), "m.json");
       const keyed = startServer({
         models,
         apiKeys: ["k"],
         host: "127.0.0.1",
         port: 0,
+        metricsPath: file,
       });
       servers.push(keyed);
       await new Promise((resolve) => keyed.on("listening", resolve));
       const keyedPort = (keyed.address() as AddressInfo).port;
+      // a history file changes nothing printed
       expect(log.mock.calls).toEqual([
         [`Starting MMSP server at http://127.0.0.1:${keyedPort}/v1`],
         ["Serving models: claude, gpt-5.5"],
       ]);
+
+      // closing the server writes its history, here a request without the key
+      const refused = await fetch(`http://127.0.0.1:${keyedPort}/v1/models`);
+      await refused.arrayBuffer();
+      expect(refused.status).toBe(401);
+      expect(fs.existsSync(file)).toBe(false);
+      keyed.closeAllConnections();
+      await new Promise<void>((resolve) => keyed.close(() => resolve()));
+      expect(readHistory(file).total["10"]).toHaveLength(1);
     } finally {
       log.mockRestore();
     }

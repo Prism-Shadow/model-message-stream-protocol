@@ -727,11 +727,11 @@ The MMSP server serves the models of a table over HTTP as MMSP streams. Each row
 ```
 
 ```bash
-cd src_py && uv run python -m mmsp.integration.server --config mmsp-server.json
+cd src_py && uv run python -m mmsp.integration.server --config mmsp-server.json --metrics mmsp-server-metrics.json
 ```
 
 ```bash
-cd src_ts && npm run server -- --config mmsp-server.json
+cd src_ts && npm run server -- --config mmsp-server.json --metrics mmsp-server-metrics.json
 ```
 
 ```
@@ -751,7 +751,7 @@ curl -N http://127.0.0.1:25752/v1/stream -H "Authorization: Bearer $MMSP_SERVER_
 # data: [DONE]
 ```
 
-`GET /v1/metrics` reports requests, success rate, latency percentiles, tokens and tokens per second since start, and with `?window=N` the last N seconds in 10 s buckets; the playground's server page draws them while it runs the server.
+`GET /v1/metrics` reports requests, success rate, latency percentiles, tokens and tokens per second since start, and with `?window=N` or `?from=F&to=T` any range of the last 60 days in columns of 10 s to 12 h; with `--metrics FILE` the history survives restarts. The playground's server page draws it, from 15 minutes to 30 days or a custom range, running or stopped.
 
 The `mmsp` client calls it and yields the server's stream as it is; an error the server reports is raised as `UpstreamError` with the server's error object:
 

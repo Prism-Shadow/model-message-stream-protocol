@@ -88,7 +88,7 @@ Starting MMSP server at http://127.0.0.1:25752/v1
 Serving models: claude, gpt-5.5, qwen3.8
 ```
 
-`--config` defaults to `MMSP_SERVER_CONFIG`; `--host`, `--port` default to `127.0.0.1:25752`, so a client's base URL is `http://127.0.0.1:25752/v1`. `createServerApp({ models, apiKeys })` / `create_server_app(models, api_keys)` return the Express / Flask app without starting it; `startServer` returns the `http.Server`. `announceServer` / `announce_server` prints the lines above, with `Open server: api_keys is empty, every request is accepted` for an open server.
+`--config` defaults to `MMSP_SERVER_CONFIG`; `--host`, `--port` default to `127.0.0.1:25752`, so a client's base URL is `http://127.0.0.1:25752/v1`. `--metrics FILE` (`metricsPath` / `metrics_path` in code) keeps the [metrics history](#metrics) in that file, so the next start continues it; one server per file. Without it nothing is written. `createServerApp({ models, apiKeys })` / `create_server_app(models, api_keys)` return the Express / Flask app without starting it; `startServer` returns the `http.Server`. `announceServer` / `announce_server` prints the lines above, with `Open server: api_keys is empty, every request is accepted` for an open server.
 
 ## Routes
 
@@ -96,7 +96,7 @@ Serving models: claude, gpt-5.5, qwen3.8
 | --- | --- | --- |
 | `GET /v1/models` | | `{"object": "list", "data": [{"id": "claude", "object": "model", "created": …, "owned_by": "mmsp"}, …]}`, one entry per row |
 | `POST /v1/stream` | `{"model", "messages", "config"}` | Server-sent events: one `data: <UniEvent>` per event, then `data: [DONE]` |
-| `GET /v1/metrics` | `?window=N`, optional | What the server has served since it started; see [Metrics](#metrics) |
+| `GET /v1/metrics` | `?window=N` or `?from=F&to=T`, and `?columns=C`; optional | What the server has served since it started, and over a range; see [Metrics](#metrics) |
 
 ```text
 data: {"role":"assistant","event_type":"delta","content_items":[{"type":"text.delta","text":"Hel"}],...}
@@ -119,7 +119,7 @@ data: [DONE]
 
 ```json
 {
-  "started_at": 1790000000, "uptime_s": 125,
+  "started_at": 1790000000, "since": 1789400000, "uptime_s": 125,
   "requests": 10, "successes": 8, "failures": 1, "disconnects": 1, "in_flight": 0, "success_rate": 0.8889,
   "latency_ms": {"first_event": {"p50": 120, "p90": 400}, "total": {"p50": 900, "p90": 2300}},
   "tokens": {"prompt": 30, "cached": 0, "thoughts": 120, "response": 50},
@@ -133,6 +133,7 @@ data: [DONE]
 
 | Field | Counts |
 | --- | --- |
+| `since` | When the history begins: `started_at`, or earlier when the server continues a history file |
 | `requests` | Requests that reached a model |
 | `successes` | Streams that ended with their `stop` event |
 | `failures` | Streams that ended in an error; a model's `last_error` holds the latest message |
@@ -145,28 +146,30 @@ data: [DONE]
 | `generation_ms` | First event to end of each success, summed; at least 1 ms each |
 | `tps` | `tokens_out / generation_ms × 1000`, one decimal; `null` before a success |
 | `refused` | Requests refused before a model, by cause; in total only |
-| `errors` | The latest 20 failures, newest first; in total only |
+| `errors` | The latest 100 failures, newest first, kept with the history; in total only |
 
 A model entry holds the same counts, with its `last_request_at`, `last_outcome` and `last_error`. Times are unix seconds.
 
-`?window=N`, N from 10 to 7200, adds `window`: the last N seconds in 10 s buckets of the clock, rounded up to whole buckets and ending with the current one. Buckets are kept for two hours. A request counts in the bucket it began in; a bucket's percentiles are over its first 64 successes. Any other `window` is a 400 `InvalidRequestError`.
+`?window=N`, N from 10 to 5184000 (60 days), adds `window`: the last N seconds, ending with the current column. `?from=F&to=T`, unix seconds at most 60 days apart, adds the range from F to T instead. `?columns=C`, 1 to 1440, caps the columns (360 by default). Any other value, or `window` with `from` or `to`, is a 400 `InvalidRequestError`.
+
+The server keeps 10 s buckets of the clock for 2 hours, 1 min buckets for 2 days and 1 h buckets for 60 days. A bucket that ages out of its size is added into the next size's, keeping 64 evenly spaced latency samples; nothing older than 60 days is kept. A request counts in the bucket it began in; a 10 s bucket's percentiles are over its first 64 successes. A column's span, `bucket_s`, is the smallest of 10 s, 20 s, 30 s, 1, 2, 5, 10, 15, 20, 30 min, 1, 2, 3, 6 and 12 h that fits `columns` (else 12 h) and is no finer than the buckets stored at the range's start. `start` and `end` are aligned to it, and the arrays always cover the whole range, zeros and `null`s where nothing was counted. For `?window=86400&columns=72`:
 
 ```json
 "window": {
-  "seconds": 300, "bucket_s": 10, "start": 1790000000, "end": 1790000130,
-  "total": {"requests": 10, …, "refused": 0, "tokens_out": 170, "thoughts": 120, "response": 50, "generation_ms": 6800, "tps": 25.0,
+  "seconds": 86400, "bucket_s": 1200, "start": 1789914000, "end": 1790000400,
+  "total": {"requests": 2210, …, "refused": 14, "tokens_out": 804000, "thoughts": 160000, "response": 644000, "generation_ms": 19000000, "tps": 42.3,
             "latency_ms": {…},
-            "series": {"requests": [0, 2, …], "successes": […], "failures": […], "disconnects": […], "refused": […],
-                       "tokens_out": […], "thoughts": […], "response": […], "generation_ms": […], "tps": [null, 24.1, …],
-                       "p50": [null, 880, …], "p90": […], "first_event_p50": […], "first_event_p90": […]}},
-  "models": [{"id": "claude", "requests": 5, …, "series": {…}}],
-  "previous": null
+            "series": {"requests": [31, 28, …], "successes": […], "failures": […], "disconnects": […], "refused": […],
+                       "tokens_out": […], "thoughts": […], "response": […], "generation_ms": […], "tps": [41.8, 43.0, …],
+                       "p50": [1150, 1230, …], "p90": […], "first_event_p50": […], "first_event_p90": […]}},
+  "models": [{"id": "claude", "requests": 1180, …, "series": {…}}],
+  "previous": {"requests": 1970, …}
 }
 ```
 
-`total` and each model entry hold the window's sums and `series`, one value per bucket from `start` to `end`; `refused` is in total only. `start` is never before the server's first bucket. `previous` holds the sums of the window before, `null` unless the server ran through all of it.
+`seconds` is N, or T − F. `total` and each model entry hold the range's sums and `series`, one value per column from `start` to `end`; `refused` is in total only. `previous` holds the sums of the range before, `null` unless the history covers all of it.
 
-The playground's [server page](#from-the-playground) draws them while it runs the server.
+The playground's [server page](#from-the-playground) draws them, running or stopped.
 
 ## The mmsp client
 
@@ -207,19 +210,21 @@ In the [playground](/docs/tracing/#playground), the client type `mmsp` chats thr
 
 Open Server, in the top bar of the [playground](/docs/tracing/#playground), opens the server page at `/server/`. Its header shows the state and the base URL; three tabs follow: Overview, Models and Settings.
 
-Models holds a row per model. A model id fills in Served as only; Client type stays Auto and Base URL Default until set. A row collapses to one line (served id, upstream, state) and opens to edit. Settings holds the keys clients send (none for an open server), the host, the port and the file's path. Rows, keys and the listen pair read Live (running), Saved (in the file) or Unsaved (only in the browser).
+Models holds a row per model. A model id fills in Served as only; Client type stays Auto and Base URL Default until set. A row collapses to one line (served id, upstream, state) and opens to edit. Settings holds the keys clients send (none for an open server), the host and the port, and File: the saved file formatted, keys masked until revealed, with its path and a copy button. Rows, keys and the listen pair read Live (running), Saved (in the file) or Unsaved (only in the browser).
 
 Save (Ctrl/Cmd+S) writes the page to `MMSP_SERVER_CONFIG`, else `server.json` in `cache` (or `MMSP_CACHE_DIR`). The file is the [config](#configure) plus `host` and `port`, which the command line ignores, so `MMSP_SERVER_CONFIG` can name one file for both. Cells are written as typed: a key written as `$VAR` stays out of the file and is read from the playground's environment at start.
 
 Start runs the file, not the page, and is enabled once one is saved. Apply, shown while the file differs from what runs, replaces the running server with the file; it builds the new one first, so a table the server refuses leaves the old one running. Stop, or stopping the playground, stops the server.
 
-Overview shows a checklist while the server is stopped (add a model, save, start). While it runs, it shows, over a range of 5 min, 15 min or 1 h, refreshed every 3 seconds:
+Overview shows, over the last 15 min, 1 h, 6 h, 24 h, 7 d or 30 d, or a custom From/To range of at most 60 days, refreshed every 3 seconds while the server runs:
 
 - six tiles, Requests, Success, Latency p50, Latency p90, Tokens out and TPS, each with its change against the previous range;
 - a card per model with its state, requests, success, p50, p90, TPS, last outcome and a trend; a card opens its row on Models;
 - the Requests chart, by outcome (ok, failed, dropped);
 - the Latency chart, p50 and p90;
 - the Errors list.
+
+The server keeps its history in `<config>-metrics.json` beside the config (`server-metrics.json` beside `server.json`), so Apply and restarts continue it. While the server is stopped, Overview shows a checklist (add a model, save, start), with the history below it once there is one.
 
 ## Traces
 

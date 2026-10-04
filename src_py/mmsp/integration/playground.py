@@ -46,9 +46,10 @@ from .server import (
     SERVER_TEMPLATE,
     ServerConfig,
     ServerMetrics,
+    _parse_server_config,
     announce_server,
     create_server_app,
-    parse_window,
+    parse_metrics_query,
     read_server_config,
     resolve_server_config,
 )
@@ -184,6 +185,12 @@ def _server_config_path() -> Path:
     return Path(os.path.abspath(os.getenv("MMSP_CACHE_DIR") or "cache")) / "server.json"
 
 
+def _metrics_path(config_path: Path) -> Path:
+    """The metrics history beside a config: its path without a trailing `.json`, plus `-metrics.json`."""
+    path = str(config_path)
+    return Path((path[:-5] if path.endswith(".json") else path) + "-metrics.json")
+
+
 def _saved_config_view(config: dict[str, Any]) -> dict[str, Any]:
     """The four keys the page compares: rows and keys as written, host and port with the defaults filled."""
     return {
@@ -194,12 +201,12 @@ def _saved_config_view(config: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _write_saved_config(path: Path, config: dict[str, Any]) -> None:
-    """Write the config through a temporary file, so that a reader never sees half of it."""
+def _write_saved_config(path: Path, text: str) -> None:
+    """Write the config's text through a temporary file, so that a reader never sees half of it."""
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(path.name + ".tmp")
     # "\n" on every platform, so that both servers write the same bytes
-    temporary.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
+    temporary.write_text(text, encoding="utf-8", newline="\n")
     os.replace(temporary, path)
 
 
@@ -224,14 +231,20 @@ def _check_listen(host: Any, port: Any) -> int:
 
 
 def _config_body(path: Path) -> dict[str, Any]:
-    """Where the saved config is, whether it exists, and what it holds as written, or why it cannot be read."""
+    """Where the saved config is, whether it exists, what it holds and its text, or why it cannot be read."""
     try:
-        config = read_server_config(path)
+        # newline="" keeps the line endings as written, as the TypeScript server reads them
+        with open(path, encoding="utf-8", newline="") as file:
+            text = file.read()
     except FileNotFoundError:
-        return {"path": str(path), "exists": False, "config": None}
+        return {"path": str(path), "exists": False, "config": None, "text": None}
     except (ValueError, OSError) as exc:
-        return {"path": str(path), "exists": True, "config": None, "error": str(exc)}
-    return {"path": str(path), "exists": True, "config": _saved_config_view(config)}
+        return {"path": str(path), "exists": True, "config": None, "text": None, "error": str(exc)}
+    try:
+        config = _parse_server_config(text, path)
+    except ValueError as exc:
+        return {"path": str(path), "exists": True, "config": None, "text": text, "error": str(exc)}
+    return {"path": str(path), "exists": True, "config": _saved_config_view(config), "text": text}
 
 
 def _load_saved_config(path: Path) -> tuple[dict[str, Any], ServerConfig, str, int]:
@@ -275,10 +288,11 @@ def _mmsp_server_status() -> dict[str, Any]:
 
 
 def _shutdown(running: _RunningServer) -> None:
-    """Close a server the playground started, and say so; the caller holds the lock and has cleared the state."""
+    """Close a server the playground started and its metrics, and say so; the caller holds the lock, state cleared."""
     # the handler threads are daemons, so an open stream does not hold this up
     running.http_server.shutdown()
     running.http_server.server_close()
+    running.metrics.close()
     print(f"Stopped MMSP server at {server_base_url(running.host, running.port)}")
 
 
@@ -305,6 +319,8 @@ def _launch(
         listener.listen()
     except OSError as exc:
         listener.close()
+        # the app never serves, so its metrics' saver stops here
+        server_app.config["MMSP_SERVER_METRICS"].close()
         return jsonify({"error": f"Cannot listen on {host}:{port}: {exc.strerror or exc}"}), 400
     with listener:
         http_server = make_server(host, port, server_app, threaded=True, fd=listener.fileno())
@@ -328,7 +344,8 @@ def _create_server_page_app(config_path: Path) -> Flask:
     Create the server page's app: the page and the API it calls.
 
     The page is served at `/`, and the API at `/api/config` (GET, PUT), `/api/status`, `/api/metrics`,
-    `/api/start`, `/api/restart` and `/api/stop`.
+    `/api/start`, `/api/restart` and `/api/stop`. The server keeps its metrics history beside the config
+    (`_metrics_path`), so a restart continues it and the page reads it while no server runs.
 
     Args:
         config_path: The absolute path the page saves its table to, and every start reads
@@ -336,6 +353,7 @@ def _create_server_page_app(config_path: Path) -> Flask:
     Returns:
         Flask application instance, mounted at /server
     """
+    metrics_path = _metrics_path(config_path)
     app = Flask(__name__)
     app.json.ensure_ascii = False
     app.json.sort_keys = False
@@ -388,11 +406,12 @@ def _create_server_page_app(config_path: Path) -> Flask:
             return refuse(str(exc))
 
         config = {"models": rows, "api_keys": api_keys, "host": host, "port": port}
+        text = json.dumps(config, ensure_ascii=False, indent=2) + "\n"
         try:
-            _write_saved_config(config_path, config)
+            _write_saved_config(config_path, text)
         except OSError as exc:
             return refuse(f"Cannot write {config_path}: {exc.strerror or exc}", 500)
-        return jsonify({"path": str(config_path), "exists": True, "config": config})
+        return jsonify({"path": str(config_path), "exists": True, "config": config, "text": text})
 
     @app.route("/api/status")
     def status() -> Response:
@@ -402,23 +421,34 @@ def _create_server_page_app(config_path: Path) -> Flask:
     @app.route("/api/metrics")
     def metrics() -> Response | tuple[Response, int]:
         """
-        What the running server has served, read in-process, so the page needs no server key.
+        What the server has served, read in-process, so the page needs no server key.
 
-        `{"running": false}` when none runs, whatever the query; otherwise `"running": true` followed by
-        the server's snapshot, and with `?window=N` its window of the last N seconds, as `GET /v1/metrics`
-        reports them.
+        Running: `"running": true` followed by the server's snapshot, and with `?window=N` or `?from=F&to=T`
+        its window, as `GET /v1/metrics` reports them. Stopped: `{"running": false}`, followed by the
+        history's `since`, its errors and the window asked for when the history file can be read.
         """
-        running = _mmsp_server
-        if running is None:
-            return jsonify({"running": False})
-        value = request.args.get("window")
-        if value is None:
-            return jsonify({"running": True, **running.metrics.snapshot()})
+        args = request.args
         try:
-            seconds = parse_window(value)
+            query = parse_metrics_query(args.get("window"), args.get("from"), args.get("to"), args.get("columns"))
         except ValueError as exc:
             return refuse(str(exc))
-        return jsonify({"running": True, **running.metrics.snapshot(), "window": running.metrics.window(seconds)})
+        running = _mmsp_server
+        if running is not None:
+            store = running.metrics
+            body = {"running": True, **store.snapshot()}
+        else:
+            history = ServerMetrics.from_history(metrics_path)
+            if history is None:
+                return jsonify({"running": False})
+            store = history
+            body = {"running": False, "since": history.since, "errors": history.snapshot()["errors"]}
+        if query is not None:
+            body["window"] = (
+                store.window(query.seconds, query.columns)
+                if query.seconds is not None
+                else store.between(query.start, query.end, query.columns)
+            )
+        return jsonify(body)
 
     @app.route("/api/start", methods=["POST"])
     def start() -> Response | tuple[Response, int]:
@@ -432,7 +462,7 @@ def _create_server_page_app(config_path: Path) -> Flask:
             if _mmsp_server is not None:
                 return refuse("The server is running; stop it first.", 409)
             try:
-                server_app = create_server_app(config["models"], config["api_keys"])
+                server_app = create_server_app(config["models"], config["api_keys"], metrics_path=metrics_path)
             except ValueError as exc:
                 return refuse(str(exc))
             return _launch(server_app, host, port, view, config)
@@ -447,9 +477,13 @@ def _create_server_page_app(config_path: Path) -> Flask:
             return refuse(str(exc))
 
         with _mmsp_server_lock:
+            # written first, so that the new server continues the history up to this moment; what the old
+            # one counts until it stops is written at its close and overwritten at the new one's next save
+            if _mmsp_server is not None:
+                _mmsp_server.metrics.save()
             # built before the old server stops, so that a table the server refuses never stops a good one
             try:
-                server_app = create_server_app(config["models"], config["api_keys"])
+                server_app = create_server_app(config["models"], config["api_keys"], metrics_path=metrics_path)
             except ValueError as exc:
                 return refuse(str(exc))
             running, _mmsp_server = _mmsp_server, None
@@ -3662,7 +3696,11 @@ def start_playground_server(host: str = "127.0.0.1", port: int = 25751, debug: b
     print(f"Starting LLM Playground at http://{host}:{port}")
     print(f"Tracer at http://{host}:{port}/tracer/")
     print(f"MMSP server page at http://{host}:{port}/server/")
-    app.run(host=host, port=port, debug=debug)
+    try:
+        app.run(host=host, port=port, debug=debug)
+    finally:
+        # the server it started writes its metrics history as it stops
+        _stop_mmsp_server()
 
 
 if __name__ == "__main__":

@@ -35,15 +35,16 @@ import { UniMessage, UniConfig } from "../types";
 import { DEFAULT_HOST, DEFAULT_PORT, serverBaseUrl } from "../wire";
 import {
   COLUMNS,
+  MetricsQuery,
   SERVER_TEMPLATE,
   ServerConfig,
   ServerMetrics,
-  WINDOW_ERROR,
   announceServer,
   createServerApp,
+  parseMetricsQuery,
+  parseServerConfig,
   readServerConfig,
   resolveServerConfig,
-  parseWindow,
 } from "./server";
 import { Tracer } from "./tracer";
 
@@ -244,6 +245,17 @@ function serverConfigPath(): string {
 }
 
 /**
+ * The metrics history beside a config: its path without a trailing `.json`, plus `-metrics.json`,
+ * so that two configs never share a history.
+ */
+function metricsPathOf(configPath: string): string {
+  return (
+    (configPath.endsWith(".json") ? configPath.slice(0, -5) : configPath) +
+    "-metrics.json"
+  );
+}
+
+/**
  * The four keys the page compares: rows and keys as written, host and port with the defaults
  * filled.
  */
@@ -257,12 +269,12 @@ function savedConfigView(config: Record<string, unknown>): SavedConfig {
 }
 
 /**
- * Write the config file whole: to a sibling first, then moved over the old one.
+ * Write the config file's text whole: to a sibling first, then moved over the old one.
  */
-function writeSavedConfig(configPath: string, config: SavedConfig): void {
+function writeSavedConfig(configPath: string, text: string): void {
   fs.mkdirSync(path.dirname(configPath), { recursive: true });
   const temporary = `${configPath}.tmp`;
-  fs.writeFileSync(temporary, JSON.stringify(config, null, 2) + "\n");
+  fs.writeFileSync(temporary, text);
   fs.renameSync(temporary, configPath);
 }
 
@@ -287,7 +299,8 @@ function mmspServerStatus(): Record<string, unknown> {
 }
 
 /**
- * Stop the MMSP server the playground started, ending its open streams; nothing when none runs.
+ * Stop the MMSP server the playground started, ending its open streams, and save its metrics
+ * history; nothing when none runs.
  */
 async function stopMmspServer(): Promise<void> {
   const running = mmspServer;
@@ -298,6 +311,7 @@ async function stopMmspServer(): Promise<void> {
   // a destroyed stream aborts its upstream request through the server's close handler
   running.server.closeAllConnections();
   await new Promise<void>((resolve) => running.server.close(() => resolve()));
+  running.metrics.close();
   console.log(
     `Stopped MMSP server at ${serverBaseUrl(running.host, running.port)}`,
   );
@@ -306,34 +320,54 @@ async function stopMmspServer(): Promise<void> {
 /**
  * Create the server page's app: the page at `/`, and `/api/config`, `/api/status`, `/api/start`,
  * `/api/restart`, `/api/stop`, `/api/metrics`. Start and restart serve the saved config file,
- * never a request body. The parent app parses the JSON bodies.
+ * never a request body. The server keeps its metrics history beside the config, so a restart
+ * continues it and the page reads it while no server runs. The parent app parses the JSON bodies.
  *
  * @param configPath - The absolute path of the config file the page saves
  * @returns Express application instance, mounted at /server
  */
 function createServerPageApp(configPath: string): Express {
   const app = express();
+  const metricsPath = metricsPathOf(configPath);
 
   /**
-   * The config file as `GET /api/config` reports it: its path, whether it exists, and its
-   * contents, or why they cannot be read.
+   * The config file as `GET /api/config` reports it: its path, whether it exists, its contents
+   * and its text as written, or why they cannot be read.
    */
   const savedConfigBody = (): Record<string, unknown> => {
-    let config: Record<string, unknown>;
+    let text: string;
     try {
-      config = readServerConfig(configPath);
+      text = fs.readFileSync(configPath, "utf-8");
     } catch (error) {
       if ((error as { code?: unknown }).code === "ENOENT") {
-        return { path: configPath, exists: false, config: null };
+        return { path: configPath, exists: false, config: null, text: null };
       }
       return {
         path: configPath,
         exists: true,
         config: null,
+        text: null,
         error: errorMessage(error),
       };
     }
-    return { path: configPath, exists: true, config: savedConfigView(config) };
+    let config: Record<string, unknown>;
+    try {
+      config = parseServerConfig(text, configPath);
+    } catch (error) {
+      return {
+        path: configPath,
+        exists: true,
+        config: null,
+        text,
+        error: errorMessage(error),
+      };
+    }
+    return {
+      path: configPath,
+      exists: true,
+      config: savedConfigView(config),
+      text,
+    };
   };
 
   /**
@@ -377,15 +411,23 @@ function createServerPageApp(configPath: string): Express {
 
     mmspServerStarting = true;
     try {
+      // written first, so that the new server continues the history up to this moment; what the
+      // old one counts until it stops is written at its close and overwritten at the new one's
+      // next save
+      if (restart) {
+        mmspServer?.metrics.save();
+      }
       let serverApp: Express;
       try {
         serverApp = createServerApp({
           models: config.models,
           apiKeys: config.api_keys,
+          metricsPath,
         });
       } catch (error) {
         return refuse(400, errorMessage(error));
       }
+      const metrics = serverApp.locals.metrics as ServerMetrics;
       await stopMmspServer();
       const server = http.createServer(serverApp);
       try {
@@ -397,6 +439,8 @@ function createServerPageApp(configPath: string): Express {
           });
         });
       } catch (error) {
+        // the app never serves, so its metrics' saver stops here
+        metrics.close();
         return refuse(
           400,
           `Cannot listen on ${host}:${port}: ${errorMessage(error)}`,
@@ -410,7 +454,7 @@ function createServerPageApp(configPath: string): Express {
         modelIds: serverApp.locals.serverModelIds as string[],
         open: config.api_keys.length === 0,
         config: view,
-        metrics: serverApp.locals.metrics as ServerMetrics,
+        metrics,
       };
       announceServer(
         host,
@@ -496,12 +540,13 @@ function createServerPageApp(configPath: string): Express {
       host,
       port,
     };
+    const text = JSON.stringify(config, null, 2) + "\n";
     try {
-      writeSavedConfig(configPath, config);
+      writeSavedConfig(configPath, text);
     } catch (error) {
       return refuse(500, `Cannot write ${configPath}: ${errorMessage(error)}`);
     }
-    return res.json({ path: configPath, exists: true, config });
+    return res.json({ path: configPath, exists: true, config, text });
   });
 
   app.get("/api/status", (_req: Request, res: Response) => {
@@ -517,24 +562,39 @@ function createServerPageApp(configPath: string): Express {
     res.json({ running: false });
   });
 
-  // read in-process, so the page needs no server key; `?window=N` as GET /v1/metrics takes it
+  // read in-process, so the page needs no server key; the query as GET /v1/metrics takes it.
+  // Stopped, the history file answers: its since, its errors and the window asked for
   app.get("/api/metrics", (req: Request, res: Response) => {
-    if (mmspServer === null) {
-      return res.json({ running: false });
+    let query: MetricsQuery | null;
+    try {
+      query = parseMetricsQuery(req.query);
+    } catch (error) {
+      return res.status(400).json({ error: errorMessage(error) });
     }
-    const { metrics } = mmspServer;
-    if (req.query.window === undefined) {
-      return res.json({ running: true, ...metrics.snapshot() });
+    let store: ServerMetrics;
+    let body: Record<string, unknown>;
+    if (mmspServer !== null) {
+      store = mmspServer.metrics;
+      body = { running: true, ...store.snapshot() };
+    } else {
+      const history = ServerMetrics.fromHistory(metricsPath);
+      if (history === null) {
+        return res.json({ running: false });
+      }
+      store = history;
+      body = {
+        running: false,
+        since: history.since,
+        errors: history.snapshot().errors,
+      };
     }
-    const seconds = parseWindow(req.query.window);
-    if (seconds === null) {
-      return res.status(400).json({ error: WINDOW_ERROR });
+    if (query !== null) {
+      body.window =
+        query.seconds !== null
+          ? store.window(query.seconds, query.columns)
+          : store.between(query.start!, query.end!, query.columns);
     }
-    res.json({
-      running: true,
-      ...metrics.snapshot(),
-      window: metrics.window(seconds),
-    });
+    res.json(body);
   });
 
   return app;
@@ -3743,5 +3803,10 @@ export function startPlaygroundServer(
     console.log(`Starting LLM Playground at http://${host}:${port}`);
     console.log(`Tracer at http://${host}:${port}/tracer/`);
     console.log(`MMSP server page at http://${host}:${port}/server/`);
+  });
+  // the server it started writes its metrics history as it stops
+  process.once("SIGINT", async () => {
+    await stopMmspServer();
+    process.exit(130);
   });
 }

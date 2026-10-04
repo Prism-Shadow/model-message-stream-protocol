@@ -21,8 +21,9 @@ The server serves the rows of its models table. Each row is an upstream model, b
 named by its `server_model_id`; a row without a client type or a base URL gets the official client
 its model id names and that client's default endpoint. `POST /v1/stream` streams one stateless
 response of the model a request names, `GET /v1/models` lists the models in OpenAI's list shape, and
-`GET /v1/metrics` reports what the server has served since it started, and with `?window=N` the last
-N seconds in 10 s buckets, which the playground's server page draws while it runs the server.
+`GET /v1/metrics` reports what the server has served since it started, and with `?window=N` or
+`?from=F&to=T` any range of the last 60 days in columns of 10 s to 12 h, which the playground's server
+page draws; `metrics_path` keeps that history in a file across restarts.
 Requests to `/v1/` carry one of the `api_keys` as a bearer token, or none when the list is empty.
 The table comes from a JSON file (`load_server_config`) or from code,
 and a client's base URL is `http://host:port/v1`. The wire protocol is the one `mmsp.wire` describes,
@@ -43,6 +44,7 @@ from collections import deque
 from collections.abc import Callable, Collection
 from contextlib import suppress
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Literal, NotRequired, TypedDict
 
 from flask import Flask, Response, jsonify, request
@@ -117,12 +119,23 @@ _OPTIONAL_COLUMNS = ("base_url", "client_type")
 # the ids are names, not settings, so a `$` in them is taken as written
 _RESOLVED_COLUMNS = ("base_url", "api_key", "client_type")
 
-BUCKET_S = 10  # seconds per bucket, aligned to multiples of 10 of the wall clock
-SERIES_RETENTION_S = 7200  # buckets older than two hours are dropped (720 per series)
+# (bucket seconds, seconds kept): 10 s buckets for 2 hours, 1 min buckets for 2 days, 1 h buckets for 60 days
+TIERS = ((10, 7200), (60, 172800), (3600, 5184000))
+BUCKET_S = 10  # the finest bucket, aligned to multiples of 10 of the wall clock; a request begins in one
+RETENTION_S = 5184000  # 60 days; nothing older is kept
+# the spans a window's columns may have; day columns would be UTC days on a local axis, so 12 h is the widest
+COLUMN_SPANS = (10, 20, 30, 60, 120, 300, 600, 900, 1200, 1800, 3600, 7200, 10800, 21600, 43200)
+WINDOW_COLUMNS = 360  # the columns a window has at most unless ?columns= asks otherwise
+MAX_COLUMNS = 1440  # the most ?columns= may ask
 BUCKET_SAMPLES = 64  # latencies kept per bucket and metric; the percentiles of a bucket are over them
-ERRORS_KEPT = 20  # the latest failures the snapshot lists
+ERRORS_KEPT = 100  # the latest failures the snapshot lists and the history keeps
 LATENCY_WINDOW = 1000  # the latest successes per model the since-start latency percentiles are taken over
-WINDOW_ERROR = f"window must be an integer number of seconds from {BUCKET_S} to {SERIES_RETENTION_S}."
+SAVE_EVERY_S = 60  # how often a store with a history file writes it, when something changed
+HISTORY_VERSION = 1
+WINDOW_ERROR = f"window must be an integer number of seconds from {BUCKET_S} to {RETENTION_S}."
+RANGE_ERROR = f"from and to must be unix seconds, from before to and at most {RETENTION_S} seconds apart."
+QUERY_ERROR = "window cannot be combined with from and to."
+COLUMNS_ERROR = f"columns must be an integer from 1 to {MAX_COLUMNS}."
 
 
 @dataclass
@@ -138,7 +151,7 @@ class RequestSample:
 
 @dataclass
 class _Bucket:
-    """What the requests that began in one BUCKET_S stretch of the wall clock came to."""
+    """What the requests that began in one stretch of the wall clock came to."""
 
     requests: int = 0
     successes: int = 0
@@ -149,8 +162,22 @@ class _Bucket:
     thoughts: int = 0
     response: int = 0
     generation_ms: int = 0
-    total_ms: list[int] = field(default_factory=list)  # at most BUCKET_SAMPLES, the first ones
+    total_ms: list[int] = field(default_factory=list)  # at most BUCKET_SAMPLES: the first ones, or thinned
     first_event_ms: list[int] = field(default_factory=list)  # at most BUCKET_SAMPLES
+
+
+# the counters of a bucket, in the order the history file lists them, before the two lists of samples
+_COUNTERS = (
+    "requests",
+    "successes",
+    "failures",
+    "disconnects",
+    "refused",
+    "tokens_out",
+    "thoughts",
+    "response",
+    "generation_ms",
+)
 
 
 @dataclass
@@ -169,7 +196,8 @@ class _Series:
     last_request_at: float | None = None
     last_outcome: str | None = None
     last_error: dict[str, Any] | None = None
-    buckets: dict[int, _Bucket] = field(default_factory=dict)  # keyed by bucket start, unix seconds
+    # one dict per tier of TIERS, keyed by bucket start in unix seconds
+    tiers: tuple[dict[int, _Bucket], ...] = field(default_factory=lambda: tuple({} for _ in TIERS))
 
 
 def _percentile(samples: Collection[int], p: int) -> int | None:
@@ -187,6 +215,24 @@ def _tps(tokens_out: int, generation_ms: int) -> float | None:
     return int(tokens_out * 10000 / generation_ms + 0.5) / 10
 
 
+def _thin(samples: Collection[int]) -> list[int]:
+    """At most BUCKET_SAMPLES samples standing for all of them: sorted, then evenly spaced order statistics."""
+    values = sorted(samples)
+    n = len(values)
+    if n <= BUCKET_SAMPLES:
+        return values
+    return [values[i * n // BUCKET_SAMPLES] for i in range(BUCKET_SAMPLES)]
+
+
+def _fold(target: _Bucket, sources: list[_Bucket]) -> None:
+    """Add the sources into the target: counts summed, the latency samples thinned together."""
+    for source in sources:
+        for name in _COUNTERS:
+            setattr(target, name, getattr(target, name) + getattr(source, name))
+    target.total_ms = _thin(target.total_ms + [ms for source in sources for ms in source.total_ms])
+    target.first_event_ms = _thin(target.first_event_ms + [ms for source in sources for ms in source.first_event_ms])
+
+
 def parse_window(value: str) -> int:
     """
     The seconds a `?window=` query names.
@@ -195,21 +241,173 @@ def parse_window(value: str) -> int:
         value: The query's value, as sent
 
     Returns:
-        The seconds, an integer from BUCKET_S to SERIES_RETENTION_S
+        The seconds, an integer from BUCKET_S to RETENTION_S
 
     Raises:
         ValueError: With WINDOW_ERROR, when the value is anything else.
     """
     digits = value.lstrip("0") or "0"
     # ASCII digits only, and checked as text first, so that a long run of them never reaches int()
-    if re.fullmatch(r"[0-9]{1,4}", digits) and BUCKET_S <= int(digits) <= SERIES_RETENTION_S:
+    if re.fullmatch(r"[0-9]{1,7}", digits) and BUCKET_S <= int(digits) <= RETENTION_S:
         return int(digits)
     raise ValueError(WINDOW_ERROR)
 
 
+@dataclass(frozen=True)
+class MetricsQuery:
+    """What a metrics request asks for: the last `seconds`, or the range from `start` to `end`, in `columns`."""
+
+    seconds: int | None  # ?window=N
+    start: int | None  # ?from=F
+    end: int | None  # ?to=T
+    columns: int  # ?columns=C, WINDOW_COLUMNS by default
+
+
+def parse_metrics_query(
+    window: str | None, from_: str | None, to: str | None, columns: str | None
+) -> MetricsQuery | None:
+    """
+    What a metrics request asks for; None when it asks for the snapshot only.
+
+    Args:
+        window: The `?window=` value, None when absent
+        from_: The `?from=` value, None when absent
+        to: The `?to=` value, None when absent
+        columns: The `?columns=` value, None when absent; alone, it asks for nothing
+
+    Returns:
+        The query, or None when it names no range
+
+    Raises:
+        ValueError: With COLUMNS_ERROR, QUERY_ERROR, WINDOW_ERROR or RANGE_ERROR, checked in that order.
+    """
+    count = WINDOW_COLUMNS
+    if columns is not None:
+        digits = columns.lstrip("0") or "0"
+        if not re.fullmatch(r"[0-9]{1,4}", digits) or not 1 <= int(digits) <= MAX_COLUMNS:
+            raise ValueError(COLUMNS_ERROR)
+        count = int(digits)
+    if window is not None and (from_ is not None or to is not None):
+        raise ValueError(QUERY_ERROR)
+    if window is not None:
+        return MetricsQuery(seconds=parse_window(window), start=None, end=None, columns=count)
+    if from_ is None and to is None:
+        return None
+    bounds = [value.lstrip("0") for value in (from_, to) if value is not None]
+    if len(bounds) != 2 or not all(re.fullmatch(r"[0-9]{1,10}", digits) for digits in bounds):
+        raise ValueError(RANGE_ERROR)
+    start, end = int(bounds[0]), int(bounds[1])
+    if not start < end <= start + RETENTION_S:
+        raise ValueError(RANGE_ERROR)
+    return MetricsQuery(seconds=None, start=start, end=end, columns=count)
+
+
+def _is_count(value: Any) -> bool:
+    """Whether a value read from JSON is a non-negative integer; true and false are not."""
+    return type(value) is int and value >= 0
+
+
+def _is_bucket(value: Any) -> bool:
+    """Whether a value read from JSON is a bucket of the history file: nine counts and two lists of samples."""
+    return (
+        isinstance(value, list)
+        and len(value) == len(_COUNTERS) + 2
+        and all(_is_count(count) for count in value[: len(_COUNTERS)])
+        and all(
+            isinstance(samples, list) and all(type(ms) is int for ms in samples) for samples in value[len(_COUNTERS) :]
+        )
+    )
+
+
+def _is_series(value: Any) -> bool:
+    """Whether a value read from JSON is a series of the history file: `[start, bucket]` lists per tier size."""
+    return isinstance(value, dict) and all(
+        isinstance(value.get(str(size)), list)
+        and all(
+            isinstance(entry, list) and len(entry) == 2 and _is_count(entry[0]) and _is_bucket(entry[1])
+            for entry in value[str(size)]
+        )
+        for size, _ in TIERS
+    )
+
+
+def read_history(path: str | os.PathLike[str]) -> dict[str, Any]:
+    """
+    Read a metrics history file, as `ServerMetrics` writes it.
+
+    Args:
+        path: The file
+
+    Returns:
+        The parsed history: version, since, saved_at, errors, total and models
+
+    Raises:
+        FileNotFoundError: When there is no file.
+        ValueError: With `not valid JSON: <reason>`, or `not a version 1 metrics history` when the shape is off.
+    """
+    with open(path, "rb") as file:
+        raw = file.read()
+    try:
+        data = json.loads(raw.decode("utf-8"))
+    except ValueError as exc:
+        raise ValueError(f"not valid JSON: {exc}") from exc
+    if not (
+        isinstance(data, dict)
+        and type(data.get("version")) is int
+        and data["version"] == HISTORY_VERSION
+        and _is_count(data.get("since"))
+        and isinstance(data.get("errors"), list)
+        and all(
+            isinstance(entry, dict) and all(key in entry for key in ("at", "model", "message"))
+            for entry in data["errors"]
+        )
+        and _is_series(data.get("total"))
+        and isinstance(data.get("models"), dict)
+        and all(_is_series(series) for series in data["models"].values())
+    ):
+        raise ValueError(f"not a version {HISTORY_VERSION} metrics history")
+    return data
+
+
+def _whole_as_int(value: Any) -> Any:
+    """A whole float as an int, as JavaScript writes 1790000000.0, so that both servers write the same bytes."""
+    return int(value) if isinstance(value, float) and value.is_integer() else value
+
+
+def _dump_tiers(series: _Series) -> dict[str, list[list[Any]]]:
+    """A series as the history file holds it: per tier size, `[start, bucket]` sorted by start."""
+    return {
+        str(size): [
+            [
+                start,
+                [*(getattr(bucket, name) for name in _COUNTERS), list(bucket.total_ms), list(bucket.first_event_ms)],
+            ]
+            for start, bucket in sorted(tier.items())
+        ]
+        for (size, _), tier in zip(TIERS, series.tiers, strict=True)
+    }
+
+
+def _load_tiers(series: dict[str, list[list[Any]]]) -> tuple[dict[int, _Bucket], ...]:
+    """The tiers of a series of the history file, with lists of samples longer than BUCKET_SAMPLES thinned."""
+    return tuple(
+        {
+            start: _Bucket(
+                *values[: len(_COUNTERS)],
+                *(
+                    samples if len(samples) <= BUCKET_SAMPLES else _thin(samples)
+                    for samples in values[len(_COUNTERS) :]
+                ),
+            )
+            for start, values in series[str(size)]
+        }
+        for size, _ in TIERS
+    )
+
+
 class ServerMetrics:
     """
-    What a server has served since it started, per model and in total.
+    What a server has served since it started, per model and in total, and its history of the last 60 days.
 
     A request is counted when it reaches a model and ends one of three ways: a success streamed its
     stop event, a failure ended with an error event, and a disconnect is a caller that went away, which
@@ -219,56 +417,234 @@ class ServerMetrics:
     first event to its end; the tokens per second of any set of successes are their summed tokens
     over their summed generation time.
 
-    Alongside the since-start counters, every series keeps BUCKET_S buckets of the wall clock for
-    SERIES_RETENTION_S, for `window`: a request's outcome, latency and tokens are counted into the
-    bucket it began in, a refusal into the bucket of its moment. The latest ERRORS_KEPT failures
-    are listed too.
+    Alongside the since-start counters, every series keeps buckets of the wall clock in the three tiers
+    of TIERS, for `window` and `between`: a request's outcome, latency and tokens are counted into the
+    bucket it began in, a refusal into the bucket of its moment. A bucket that ages out of its tier is
+    added into the next tier's bucket, its latency samples thinned to BUCKET_SAMPLES, so every stretch
+    of time is stored in exactly one tier; nothing older than RETENTION_S is kept. The latest
+    ERRORS_KEPT failures are listed too.
+
+    With a `path`, the history (the buckets, the errors and `since`, the moment it begins) is read from
+    that file at creation and written to it every `save_every_s` seconds when something changed, and
+    at `close()`, so a new store on the same file continues it. The since-start counters are this
+    run's alone.
 
     Args:
         model_ids: The server's model ids, in table order
         now: The monotonic clock the latencies are measured with, in seconds
         clock: The wall clock the timestamps and buckets are read from, in unix seconds
+        path: The history file, None to keep the history in memory only
+        save_every_s: How often the history is written, in seconds; 0 writes it only on `save()` and `close()`
     """
 
     def __init__(
-        self, model_ids: list[str], now: Callable[[], float] = time.monotonic, clock: Callable[[], float] = time.time
+        self,
+        model_ids: list[str],
+        now: Callable[[], float] = time.monotonic,
+        clock: Callable[[], float] = time.time,
+        path: str | os.PathLike[str] | None = None,
+        save_every_s: float = SAVE_EVERY_S,
     ) -> None:
         self.now = now
         self.clock = clock
         self.started_at = int(clock())
+        self.since = self.started_at
+        self.path = None if path is None else os.fspath(path)
         self._lock = threading.Lock()
+        # held for a whole save, so that an older history never replaces a newer one
+        self._save_lock = threading.Lock()
         self._total = _Series()
         self._models = {model_id: _Series() for model_id in model_ids}
+        # the history of ids the table no longer has, kept in the file until it ages out
+        self._dormant: dict[str, _Series] = {}
         self._refused = {"unauthorized": 0, "invalid_request": 0, "unknown_model": 0}
         self._errors: deque[dict[str, Any]] = deque(maxlen=ERRORS_KEPT)
+        self._dirty = False
+        self._compacted_minute = -1
+        self._write_failed = False
+        self._save_every_s = save_every_s
+        self._timer: threading.Timer | None = None
+        self._closed = False
+        if self.path is None:
+            return
+        try:
+            data = read_history(self.path)
+        except FileNotFoundError:
+            data = None
+        except (ValueError, OSError) as exc:
+            data = None
+            print(f"Metrics history at {self.path} could not be read ({exc}); starting fresh.")
+        if data is not None:
+            with self._lock:
+                self._adopt(data)
+        if save_every_s > 0:
+            self._arm()
+
+    @classmethod
+    def from_history(
+        cls, path: str | os.PathLike[str], clock: Callable[[], float] = time.time
+    ) -> "ServerMetrics | None":
+        """
+        A store holding a history file for reading, with no models, no path and no saver.
+
+        Args:
+            path: The history file
+            clock: The wall clock the windows are read against, in unix seconds
+
+        Returns:
+            The store, whose `window`, `between`, `since` and snapshot errors read the file's history;
+            None when the file is missing or cannot be read.
+        """
+        try:
+            data = read_history(path)
+        except (ValueError, OSError):
+            return None
+        metrics = cls([], clock=clock)
+        with metrics._lock:
+            metrics._adopt(data)
+        return metrics
+
+    def _adopt(self, data: dict[str, Any]) -> None:
+        """Take a history `read_history` read: since, errors, the tiers of every series; the caller holds the lock."""
+        self.since = data["since"]
+        self._errors.extend(
+            {"at": entry["at"], "model": entry["model"], "message": entry["message"]}
+            for entry in data["errors"][:ERRORS_KEPT]
+        )
+        self._total.tiers = _load_tiers(data["total"])
+        for model_id, series in data["models"].items():
+            if model_id in self._models:
+                self._models[model_id].tiers = _load_tiers(series)
+            else:
+                self._dormant[model_id] = _Series(tiers=_load_tiers(series))
+        # what expired while no server ran goes now
+        self._compact(int(self.clock()))
+
+    def _history(self) -> dict[str, Any]:
+        """The history as the file holds it; the caller holds the lock."""
+        return {
+            "version": HISTORY_VERSION,
+            "since": self.since,
+            "saved_at": int(self.clock()),
+            "errors": [{**entry, "at": _whole_as_int(entry["at"])} for entry in self._errors],
+            "total": _dump_tiers(self._total),
+            "models": {
+                model_id: _dump_tiers(series) for model_id, series in (*self._models.items(), *self._dormant.items())
+            },
+        }
+
+    def _arm(self) -> None:
+        """Run the next save in `save_every_s` seconds, on a daemon thread that never holds the process up."""
+        self._timer = threading.Timer(self._save_every_s, self._tick)
+        self._timer.daemon = True
+        self._timer.start()
+
+    def _tick(self) -> None:
+        """Save, then arm the next save unless the store was closed meanwhile."""
+        self.save()
+        with self._lock:
+            if not self._closed:
+                self._arm()
+
+    def save(self) -> None:
+        """
+        Write the history to the file, when there is one and something changed since the last write.
+
+        The file is written through a temporary file beside it, so that a reader never sees half of it. A
+        write that fails is printed once and tried again at the next save.
+        """
+        if self.path is None:
+            return
+        with self._save_lock:
+            with self._lock:
+                self._compact(int(self.clock()))
+                if not self._dirty:
+                    return
+                data = self._history()
+                self._dirty = False
+            # serialized outside the lock, from the copies the lock was held for
+            text = json.dumps(data, ensure_ascii=False, separators=(",", ":")) + "\n"
+            path = Path(self.path)
+            temporary = path.with_name(path.name + ".tmp")
+            try:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                # "\n" on every platform, so that both servers write the same bytes
+                temporary.write_text(text, encoding="utf-8", newline="\n")
+                os.replace(temporary, path)
+            except OSError as exc:
+                with self._lock:
+                    self._dirty = True
+                if not self._write_failed:
+                    self._write_failed = True
+                    print(f"Cannot write metrics history to {self.path}: {exc.strerror or exc}")
+                return
+            self._write_failed = False
+
+    def close(self) -> None:
+        """Stop the saver and write what changed since the last save; closing twice is fine."""
+        with self._lock:
+            self._closed = True
+            timer, self._timer = self._timer, None
+        if timer is not None:
+            timer.cancel()
+        self.save()
 
     def _timestamp(self) -> float:
         """The wall clock in unix seconds, to the millisecond."""
         return round(self.clock(), 3)
 
-    def _now_start(self) -> int:
-        """The start of the bucket the wall clock is in."""
-        return int(self.clock()) // BUCKET_S * BUCKET_S
+    @staticmethod
+    def _floor(i: int, now_s: int) -> int:
+        """The oldest bucket start tier i holds; what is older belongs to the next tier, or to none after the last."""
+        size, keep = TIERS[i]
+        # aligned to the next tier's bucket, so that a whole minute (hour) moves at once
+        align = TIERS[i + 1][0] if i + 1 < len(TIERS) else size
+        return ((now_s // size + 1) * size - keep) // align * align
 
-    def _bucket(self, series: _Series, start: int) -> _Bucket:
-        """The bucket of a series that starts at `start`, created when missing, which drops the expired ones."""
-        bucket = series.buckets.get(start)
-        if bucket is None:
-            cutoff = self._now_start() - SERIES_RETENTION_S
-            for key in [key for key in series.buckets if key <= cutoff]:
-                del series.buckets[key]
-            bucket = series.buckets[start] = _Bucket()
-        return bucket
+    def _locate(self, series: _Series, start: int, now_s: int) -> _Bucket | None:
+        """The stored bucket a moment belongs to, created when missing; None once it is older than the retention."""
+        for i, (size, _) in enumerate(TIERS):
+            if start >= self._floor(i, now_s):
+                return series.tiers[i].setdefault(start // size * size, _Bucket())
+        return None
+
+    def _compact(self, now_s: int) -> None:
+        """Move what has aged out of a tier into the next and drop what is older than the retention; once a minute."""
+        if now_s // 60 == self._compacted_minute:
+            return
+        self._compacted_minute = now_s // 60
+        changed = False
+        for series in (self._total, *self._models.values(), *self._dormant.values()):
+            for i in range(len(TIERS) - 1):
+                floor = self._floor(i, now_s)
+                next_size = TIERS[i + 1][0]
+                moved: dict[int, list[_Bucket]] = {}
+                for key in sorted(series.tiers[i]):
+                    if key < floor:
+                        moved.setdefault(key // next_size * next_size, []).append(series.tiers[i].pop(key))
+                for target_key, sources in moved.items():
+                    _fold(series.tiers[i + 1].setdefault(target_key, _Bucket()), sources)
+                changed = changed or bool(moved)
+            floor = self._floor(len(TIERS) - 1, now_s)
+            expired = [key for key in series.tiers[-1] if key < floor]
+            for key in expired:
+                del series.tiers[-1][key]
+            changed = changed or bool(expired)
+        self._dirty = self._dirty or changed
 
     def begin(self, model_id: str) -> RequestSample:
         """Count a request to a model and start its clock."""
         with self._lock:
+            now_s = int(self.clock())
+            self._compact(now_s)
             at = self._timestamp()
-            start = self._now_start()
+            start = now_s // BUCKET_S * BUCKET_S
             for series in (self._models[model_id], self._total):
                 series.requests += 1
                 series.last_request_at = at
-                self._bucket(series, start).requests += 1
+                # the current bucket is always in the first tier
+                self._locate(series, start, now_s).requests += 1
+            self._dirty = True
             return RequestSample(model_id=model_id, started=self.now(), bucket=start)
 
     def first_event(self, sample: RequestSample) -> None:
@@ -289,11 +665,14 @@ class ServerMetrics:
             if sample.done:
                 return
             sample.done = True
+            now_s = int(self.clock())
+            self._compact(now_s)
+            self._dirty = True
             model = self._models[sample.model_id]
-            buckets = []
-            # a request begun before the retention cutoff still counts since start, in no bucket
-            if sample.bucket > self._now_start() - SERIES_RETENTION_S:
-                buckets = [self._bucket(series, sample.bucket) for series in (model, self._total)]
+            # the bucket it began in, in whichever tier holds it now; a request begun before the retention
+            # still counts since start, in no bucket
+            located = [self._locate(series, sample.bucket, now_s) for series in (model, self._total)]
+            buckets = [bucket for bucket in located if bucket is not None]
             if outcome == "success":
                 total_ms = int((self.now() - sample.started) * 1000 + 0.5)
                 first_event_ms = (
@@ -342,8 +721,11 @@ class ServerMetrics:
     def refused(self, kind: Literal["unauthorized", "invalid_request", "unknown_model"]) -> None:
         """Count a request the server refused before it reached a model."""
         with self._lock:
+            now_s = int(self.clock())
+            self._compact(now_s)
             self._refused[kind] += 1
-            self._bucket(self._total, self._now_start()).refused += 1
+            self._locate(self._total, now_s // BUCKET_S * BUCKET_S, now_s).refused += 1
+            self._dirty = True
 
     @staticmethod
     def _counts(series: _Series) -> dict[str, Any]:
@@ -374,11 +756,13 @@ class ServerMetrics:
         Everything counted so far, as `GET /v1/metrics` reports it.
 
         Returns:
-            The totals, the refusals, the latest failures (newest first), and one entry per model in table order.
+            When the server started and when its history begins, the totals, the refusals, the latest
+            failures (newest first), and one entry per model in table order.
         """
         with self._lock:
             return {
                 "started_at": self.started_at,
+                "since": self.since,
                 "uptime_s": int(self.clock()) - self.started_at,
                 **self._counts(self._total),
                 "refused": dict(self._refused),
@@ -397,17 +781,34 @@ class ServerMetrics:
             }
 
     @staticmethod
-    def _summary(series: _Series, start: int, end: int, refused: bool = False) -> dict[str, Any]:
-        """The sums of the buckets of a series from `start` to `end`, in the order `window` reports them."""
-        buckets = [bucket for key, bucket in series.buckets.items() if start <= key < end]
-        requests = sum(bucket.requests for bucket in buckets)
-        successes = sum(bucket.successes for bucket in buckets)
-        failures = sum(bucket.failures for bucket in buckets)
-        disconnects = sum(bucket.disconnects for bucket in buckets)
-        tokens_out = sum(bucket.tokens_out for bucket in buckets)
-        generation_ms = sum(bucket.generation_ms for bucket in buckets)
-        first_event_ms = [ms for bucket in buckets for ms in bucket.first_event_ms]
-        total_ms = [ms for bucket in buckets for ms in bucket.total_ms]
+    def _columns(series: _Series, start: int, end: int, span: int) -> list[_Bucket]:
+        """One bucket per column of `span` seconds from `start` to `end`, summing every stored bucket inside it."""
+        columns = [_Bucket() for _ in range((end - start) // span)]
+        for tier in series.tiers:
+            for key, bucket in tier.items():
+                if start <= key < end:
+                    column = columns[(key - start) // span]
+                    for name in _COUNTERS:
+                        setattr(column, name, getattr(column, name) + getattr(bucket, name))
+                    column.total_ms.extend(bucket.total_ms)
+                    column.first_event_ms.extend(bucket.first_event_ms)
+        # so that a column of many buckets weighs its latencies as a stored bucket of the same span would
+        for column in columns:
+            column.total_ms = _thin(column.total_ms)
+            column.first_event_ms = _thin(column.first_event_ms)
+        return columns
+
+    @staticmethod
+    def _summary(columns: list[_Bucket], refused: bool = False) -> dict[str, Any]:
+        """The sums of the columns, in the order `window` reports them."""
+        requests = sum(column.requests for column in columns)
+        successes = sum(column.successes for column in columns)
+        failures = sum(column.failures for column in columns)
+        disconnects = sum(column.disconnects for column in columns)
+        tokens_out = sum(column.tokens_out for column in columns)
+        generation_ms = sum(column.generation_ms for column in columns)
+        first_event_ms = [ms for column in columns for ms in column.first_event_ms]
+        total_ms = [ms for column in columns for ms in column.total_ms]
         return {
             "requests": requests,
             "successes": successes,
@@ -415,10 +816,10 @@ class ServerMetrics:
             "disconnects": disconnects,
             "in_flight": requests - successes - failures - disconnects,
             "success_rate": round(successes / (successes + failures), 4) if successes + failures else None,
-            **({"refused": sum(bucket.refused for bucket in buckets)} if refused else {}),
+            **({"refused": sum(column.refused for column in columns)} if refused else {}),
             "tokens_out": tokens_out,
-            "thoughts": sum(bucket.thoughts for bucket in buckets),
-            "response": sum(bucket.response for bucket in buckets),
+            "thoughts": sum(column.thoughts for column in columns),
+            "response": sum(column.response for column in columns),
             "generation_ms": generation_ms,
             "tps": _tps(tokens_out, generation_ms),
             "latency_ms": {
@@ -428,70 +829,102 @@ class ServerMetrics:
         }
 
     @staticmethod
-    def _columns(series: _Series, start: int, end: int, refused: bool = False) -> dict[str, list[Any]]:
-        """One value per bucket from `start` to `end` and measure, a missing bucket counting as empty."""
-        empty = _Bucket()
-        buckets = [series.buckets.get(start + i * BUCKET_S, empty) for i in range((end - start) // BUCKET_S)]
+    def _series_columns(columns: list[_Bucket], refused: bool = False) -> dict[str, list[Any]]:
+        """One value per column and measure."""
         return {
-            "requests": [bucket.requests for bucket in buckets],
-            "successes": [bucket.successes for bucket in buckets],
-            "failures": [bucket.failures for bucket in buckets],
-            "disconnects": [bucket.disconnects for bucket in buckets],
-            **({"refused": [bucket.refused for bucket in buckets]} if refused else {}),
-            "tokens_out": [bucket.tokens_out for bucket in buckets],
-            "thoughts": [bucket.thoughts for bucket in buckets],
-            "response": [bucket.response for bucket in buckets],
-            "generation_ms": [bucket.generation_ms for bucket in buckets],
-            "tps": [_tps(bucket.tokens_out, bucket.generation_ms) for bucket in buckets],
-            "p50": [_percentile(bucket.total_ms, 50) for bucket in buckets],
-            "p90": [_percentile(bucket.total_ms, 90) for bucket in buckets],
-            "first_event_p50": [_percentile(bucket.first_event_ms, 50) for bucket in buckets],
-            "first_event_p90": [_percentile(bucket.first_event_ms, 90) for bucket in buckets],
+            "requests": [column.requests for column in columns],
+            "successes": [column.successes for column in columns],
+            "failures": [column.failures for column in columns],
+            "disconnects": [column.disconnects for column in columns],
+            **({"refused": [column.refused for column in columns]} if refused else {}),
+            "tokens_out": [column.tokens_out for column in columns],
+            "thoughts": [column.thoughts for column in columns],
+            "response": [column.response for column in columns],
+            "generation_ms": [column.generation_ms for column in columns],
+            "tps": [_tps(column.tokens_out, column.generation_ms) for column in columns],
+            "p50": [_percentile(column.total_ms, 50) for column in columns],
+            "p90": [_percentile(column.total_ms, 90) for column in columns],
+            "first_event_p50": [_percentile(column.first_event_ms, 50) for column in columns],
+            "first_event_p90": [_percentile(column.first_event_ms, 90) for column in columns],
         }
 
-    def window(self, seconds: int) -> dict[str, Any]:
+    def _resolution(
+        self, now_s: int, seconds: int | None, from_s: int | None, to_s: int | None, columns: int
+    ) -> tuple[int, int, int]:
+        """(bucket_s, start, end): the smallest span the storing tier allows that fits `columns`, the range aligned."""
+        for i, (size, _) in enumerate(TIERS):
+            # left at the first span that fits, else at the largest
+            for span in (span for span in COLUMN_SPANS if span % size == 0):
+                if seconds is not None:
+                    # the current column is the last one, partial
+                    end = (now_s // span + 1) * span
+                    start = end - -(-seconds // span) * span
+                else:
+                    start = from_s // span * span
+                    end = -(-to_s // span) * span
+                if (end - start) // span <= columns:
+                    break
+            # a column may not be finer than the tier that stores the start of the range
+            if i == len(TIERS) - 1 or start >= self._floor(i, now_s):
+                return span, start, end
+
+    def window(self, seconds: int, columns: int = WINDOW_COLUMNS) -> dict[str, Any]:
         """
-        The last `seconds` in BUCKET_S buckets, in total and per model, with the window before it for comparison.
+        The last `seconds`, in columns of the span the range and `columns` call for, with the window before it.
 
         Args:
-            seconds: The length of the window, from BUCKET_S to SERIES_RETENTION_S
+            seconds: The length of the window, from BUCKET_S to RETENTION_S
+            columns: The most columns the window may have where a span of COLUMN_SPANS allows it
 
         Returns:
-            The window's bounds, the total's and each model's sums and per-bucket columns, and the sums
-            of the window before it, None unless that window lies wholly inside the server's life.
+            The window's bounds and span, the total's and each model's sums and per-column values, and the
+            sums of the window before it, None unless that window lies wholly inside the history.
         """
         with self._lock:
-            # the current bucket is the last one, partial
-            end = self._now_start() + BUCKET_S
-            # nothing before the server existed
-            first = self.started_at // BUCKET_S * BUCKET_S
-            # on a bucket boundary, so that the columns and the sums cover the same requests
-            span = -(-seconds // BUCKET_S) * BUCKET_S
-            start = max(end - span, first)
-            previous_start = end - 2 * span
-            return {
-                "seconds": seconds,
-                "bucket_s": BUCKET_S,
-                "start": start,
-                "end": end,
-                "total": {
-                    **self._summary(self._total, start, end, refused=True),
-                    "series": self._columns(self._total, start, end, refused=True),
-                },
-                "models": [
-                    {
-                        "id": model_id,
-                        **self._summary(series, start, end),
-                        "series": self._columns(series, start, end),
-                    }
-                    for model_id, series in self._models.items()
-                ],
-                "previous": (
-                    self._summary(self._total, previous_start, start, refused=True)
-                    if previous_start >= first
-                    else None
-                ),
-            }
+            now_s = int(self.clock())
+            span, start, end = self._resolution(now_s, seconds, None, None, columns)
+            return self._window(seconds, span, start, end)
+
+    def between(self, from_s: int, to_s: int, columns: int = WINDOW_COLUMNS) -> dict[str, Any]:
+        """
+        From `from_s` to `to_s`, aligned outward to the span; the future and the time before the history are zeros.
+
+        Args:
+            from_s: The start of the range, unix seconds
+            to_s: Its end, unix seconds, after `from_s` and at most RETENTION_S later
+            columns: The most columns the range may have where a span of COLUMN_SPANS allows it
+
+        Returns:
+            The window of that range, as `window` reports it, its `seconds` being `to_s - from_s`.
+        """
+        with self._lock:
+            now_s = int(self.clock())
+            span, start, end = self._resolution(now_s, None, from_s, to_s, columns)
+            return self._window(to_s - from_s, span, start, end)
+
+    def _window(self, seconds: int, span: int, start: int, end: int) -> dict[str, Any]:
+        """The window object of a resolved range; the caller holds the lock."""
+        # the first column the history covers, before which nothing could have been counted
+        first = self.since // span * span
+        length = end - start
+        total = self._columns(self._total, start, end, span)
+        models = [(model_id, self._columns(series, start, end, span)) for model_id, series in self._models.items()]
+        return {
+            "seconds": seconds,
+            "bucket_s": span,
+            "start": start,
+            "end": end,
+            "total": {**self._summary(total, refused=True), "series": self._series_columns(total, refused=True)},
+            "models": [
+                {"id": model_id, **self._summary(columns), "series": self._series_columns(columns)}
+                for model_id, columns in models
+            ],
+            "previous": (
+                self._summary(self._columns(self._total, start - length, start, span), refused=True)
+                if start - length >= first
+                else None
+            ),
+        }
 
 
 def _error_response(status: int, error_type: str, message: str) -> tuple[Response, int]:
@@ -553,6 +986,28 @@ def resolve_server_config(config: Any, source: str = "") -> ServerConfig:
     return {"models": models, "api_keys": [resolve(key, f"api_keys[{i}]") for i, key in enumerate(api_keys)]}
 
 
+def _parse_server_config(text: str, path: str | os.PathLike[str]) -> dict[str, Any]:
+    """
+    Parse the text of a config file as written: shape-checked, its `$VAR` cells unresolved, every key kept.
+
+    Args:
+        text: The file's text
+        path: The file it came from, which starts every message
+
+    Returns:
+        The parsed object
+
+    Raises:
+        ValueError: When the text is not JSON, or not an object with a models list and a list of api_keys.
+    """
+    try:
+        config = json.loads(text)
+    except ValueError as exc:
+        raise ValueError(f"{path}: not valid JSON: {exc}") from exc
+    _check_config_shape(config, f"{path}: ")
+    return config
+
+
 def read_server_config(path: str | os.PathLike[str]) -> dict[str, Any]:
     """
     Read a config file as written: parsed and shape-checked, its `$VAR` cells unresolved, every key kept.
@@ -571,13 +1026,7 @@ def read_server_config(path: str | os.PathLike[str]) -> dict[str, Any]:
         every message starts with the path.
     """
     with open(path, encoding="utf-8") as file:
-        text = file.read()
-    try:
-        config = json.loads(text)
-    except ValueError as exc:
-        raise ValueError(f"{path}: not valid JSON: {exc}") from exc
-    _check_config_shape(config, f"{path}: ")
-    return config
+        return _parse_server_config(file.read(), path)
 
 
 def load_server_config(path: str | os.PathLike[str]) -> ServerConfig:
@@ -598,7 +1047,9 @@ def load_server_config(path: str | os.PathLike[str]) -> ServerConfig:
     return resolve_server_config(read_server_config(path), str(path))
 
 
-def create_server_app(models: list[ModelRow], api_keys: list[str] | None = None) -> Flask:
+def create_server_app(
+    models: list[ModelRow], api_keys: list[str] | None = None, metrics_path: str | os.PathLike[str] | None = None
+) -> Flask:
     """
     Create the MMSP server's Flask application, with the upstream client of every row built.
 
@@ -608,6 +1059,8 @@ def create_server_app(models: list[ModelRow], api_keys: list[str] | None = None)
     Args:
         models: The models table, served in its order
         api_keys: The keys a request may carry as a bearer token; an empty or omitted list is an open server
+        metrics_path: The metrics history file the server continues and keeps (`ServerMetrics`), None for
+            none; whoever runs the app calls `app.config["MMSP_SERVER_METRICS"].close()` when it stops
 
     Returns:
         Flask application instance
@@ -656,7 +1109,7 @@ def create_server_app(models: list[ModelRow], api_keys: list[str] | None = None)
             )
         except Exception as exc:
             raise ValueError(f"models[{i}] '{row['server_model_id']}': {str(exc) or type(exc).__name__}") from exc
-    metrics = ServerMetrics(list(upstreams))
+    metrics = ServerMetrics(list(upstreams), path=metrics_path)
     created = metrics.started_at
 
     app = Flask(__name__)
@@ -800,16 +1253,24 @@ def create_server_app(models: list[ModelRow], api_keys: list[str] | None = None)
 
     @app.route(METRICS_PATH, methods=["GET"])
     def server_metrics() -> Response | tuple[Response, int]:
-        """What the server has served since it started, and with `?window=N` the last N seconds in 10 s buckets."""
-        value = request.args.get("window")
-        if value is None:
-            return jsonify(metrics.snapshot())
+        """
+        What the server has served since it started, and with `?window=N` the last N seconds, or
+        `?from=F&to=T` that range, in columns of a span the range and `?columns=` call for.
+        """
+        args = request.args
         try:
-            seconds = parse_window(value)
+            query = parse_metrics_query(args.get("window"), args.get("from"), args.get("to"), args.get("columns"))
         except ValueError as exc:
             # not a refusal: refusals count stream requests
             return _error_response(400, "InvalidRequestError", str(exc))
-        return jsonify({**metrics.snapshot(), "window": metrics.window(seconds)})
+        if query is None:
+            return jsonify(metrics.snapshot())
+        window = (
+            metrics.window(query.seconds, query.columns)
+            if query.seconds is not None
+            else metrics.between(query.start, query.end, query.columns)
+        )
+        return jsonify({**metrics.snapshot(), "window": window})
 
     return app
 
@@ -837,6 +1298,7 @@ def start_server(
     host: str = DEFAULT_HOST,
     port: int = DEFAULT_PORT,
     debug: bool = False,
+    metrics_path: str | os.PathLike[str] | None = None,
 ) -> None:
     """
     Start the MMSP server.
@@ -847,10 +1309,15 @@ def start_server(
         host: Host address to bind to
         port: Port number to listen on
         debug: Enable debug mode
+        metrics_path: The metrics history file, continued at start and written until the server stops;
+            None writes nothing. One server per file.
     """
-    app = create_server_app(models, api_keys)
+    app = create_server_app(models, api_keys, metrics_path=metrics_path)
     announce_server(host, port, app.config["MMSP_SERVER_MODEL_IDS"], not api_keys)
-    app.run(host=host, port=port, debug=debug)
+    try:
+        app.run(host=host, port=port, debug=debug)
+    finally:
+        app.config["MMSP_SERVER_METRICS"].close()
 
 
 # -- SERVER_TEMPLATE begin: the playground's server page, one HTML document, written whole by embed.mjs; edit server.html --
@@ -1661,6 +2128,51 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             padding: 0 12px;
         }
 
+        /* the range: six presets and a custom segment whose popover takes two local times */
+        .range {
+            position: relative;
+        }
+
+        #rangeCustom {
+            gap: 6px;
+            grid-auto-flow: column;
+        }
+
+        .popover {
+            position: absolute;
+            z-index: 30;
+            top: calc(100% + 6px);
+            right: 0;
+            width: min(280px, calc(100vw - 24px));
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr);
+            gap: 8px 10px;
+            align-items: center;
+            padding: 12px;
+            background: var(--surface);
+            border-radius: 10px;
+            box-shadow: var(--shadow-menu);
+            transform-origin: top right;
+            animation: menu-in 0.18s var(--ease);
+        }
+
+        .popover .field-note, .popover .field-error {
+            grid-column: 1 / -1;
+            margin: 0;
+        }
+
+        .popover .btn {
+            grid-column: 1 / -1;
+            justify-self: end;
+            height: 30px;
+            padding: 0 12px;
+        }
+
+        .popover input[type="datetime-local"] {
+            min-height: 32px;
+            padding: 5px 8px;
+        }
+
         /* tiles: a label, the number, its change, a line of context and a trend */
         .tile {
             display: grid;
@@ -2044,9 +2556,12 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
         }
 
         /* errors */
+        /* up to a hundred over a month: about ten rows show, the rest scroll inside the card */
         .errors {
+            max-height: 372px;
             margin: 0;
             padding: 6px 20px 10px;
+            overflow-y: auto;
             list-style: none;
         }
 
@@ -2083,6 +2598,11 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             display: block;
             padding: 14px 0;
             color: var(--subtle);
+        }
+
+        /* a range of a day or more puts the day in front of the time */
+        .errors[data-days="true"] li {
+            grid-template-columns: 118px minmax(80px, 160px) minmax(0, 1fr);
         }
 
         /* the checklist while stopped */
@@ -2361,15 +2881,79 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             align-items: center;
         }
 
-        .file-line {
-            display: flex;
-            gap: 10px;
-            margin-top: 20px;
+        /* the saved file, formatted: keys muted, strings in the accent, punctuation and masked keys subtle */
+        .file-card {
+            margin-top: 16px;
         }
 
-        .file-line .mono {
+        .file-path {
+            flex: 1;
             min-width: 0;
+            color: var(--muted);
+            font-size: 12px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .file-actions {
+            display: flex;
+            gap: 2px;
+            margin-right: -8px;
+        }
+
+        .icon-btn:disabled {
+            color: var(--subtle);
+            background: none;
+            opacity: 0.5;
+        }
+
+        .file-note {
+            margin: 0;
+            padding: 14px 20px;
+            color: var(--subtle);
+            font-size: 12.5px;
+        }
+
+        .file-note[data-error="true"] {
+            color: var(--red);
             overflow-wrap: anywhere;
+        }
+
+        .json {
+            margin: 0;
+            padding: 12px 20px 16px;
+            max-height: 520px;
+            overflow: auto;
+            font: 12px/1.65 var(--mono);
+            color: var(--text);
+            white-space: pre;
+        }
+
+        .json .k {
+            color: var(--muted);
+            font-weight: 500;
+        }
+
+        .json .s {
+            color: var(--accent);
+        }
+
+        .json .n {
+            color: var(--text);
+        }
+
+        .json .p, .json .m {
+            color: var(--subtle);
+        }
+
+        /* a file that is not JSON, shown as it is */
+        .json[data-raw="true"] {
+            color: var(--muted);
+        }
+
+        .json:focus-visible {
+            outline-offset: -2px;
         }
 
         /* a state is a dot and its word, everywhere: amber ring unsaved, neutral saved, green live */
@@ -2442,6 +3026,10 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
                 grid-template-columns: 62px minmax(0, 1fr);
             }
 
+            .errors[data-days="true"] li {
+                grid-template-columns: 118px minmax(0, 1fr);
+            }
+
             .errors .message {
                 grid-column: 1 / -1;
             }
@@ -2505,6 +3093,14 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             .model-card {
                 padding: 14px 16px 12px;
             }
+
+            .toolbar .segmented button {
+                padding: 0 8px;
+            }
+
+            .errors[data-days="true"] li {
+                grid-template-columns: 110px minmax(0, 1fr);
+            }
         }
 
         @media (max-width: 640px) {
@@ -2545,6 +3141,29 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
 
             .chart-card .chart {
                 padding: 12px 10px 8px 4px;
+            }
+
+            /* seven segments fill a phone; a custom range's words go under the control, right-aligned with it */
+            .range[data-custom="true"] {
+                padding-bottom: 22px;
+            }
+
+            #rangeCustomLabel {
+                position: absolute;
+                top: calc(100% + 9px);
+                right: -3px;
+                color: var(--muted);
+                font-size: 12px;
+                font-weight: 400;
+            }
+
+            .json {
+                padding: 12px 14px 14px;
+                font-size: 11.5px;
+            }
+
+            .file-note {
+                padding: 12px 14px;
             }
         }
 
@@ -2608,11 +3227,24 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             </div>
             <div class="dashboard hidden" id="dashboard" data-stale="false">
                 <div class="toolbar">
-                    <div class="segmented" id="rangeControl" role="radiogroup" aria-label="Range">
-                        <span class="seg-thumb" aria-hidden="true"></span>
-                        <button type="button" role="radio" aria-checked="false" data-range="300" onclick="setRange(300)">5 min</button>
-                        <button type="button" role="radio" aria-checked="true" data-range="900" onclick="setRange(900)">15 min</button>
-                        <button type="button" role="radio" aria-checked="false" data-range="3600" onclick="setRange(3600)">1 h</button>
+                    <div class="range" id="rangeWrap">
+                        <div class="segmented" id="rangeControl" role="radiogroup" aria-label="Range">
+                            <span class="seg-thumb" aria-hidden="true"></span>
+                            <button type="button" role="radio" aria-checked="true" data-range="900" onclick="setRange(900)">15 min</button>
+                            <button type="button" role="radio" aria-checked="false" data-range="3600" onclick="setRange(3600)">1 h</button>
+                            <button type="button" role="radio" aria-checked="false" data-range="21600" onclick="setRange(21600)">6 h</button>
+                            <button type="button" role="radio" aria-checked="false" data-range="86400" onclick="setRange(86400)">24 h</button>
+                            <button type="button" role="radio" aria-checked="false" data-range="604800" onclick="setRange(604800)">7 d</button>
+                            <button type="button" role="radio" aria-checked="false" data-range="2592000" onclick="setRange(2592000)">30 d</button>
+                            <button type="button" role="radio" aria-checked="false" data-range="custom" id="rangeCustom" aria-haspopup="dialog" aria-expanded="false" aria-controls="rangePopover" title="Custom range" onclick="toggleRangePopover()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg><span id="rangeCustomLabel" class="hidden"></span></button>
+                        </div>
+                        <div class="popover hidden" id="rangePopover" role="dialog" aria-label="Custom range" onkeydown="handleRangeKeydown(event)">
+                            <label class="field-label" for="rangeFrom">From</label><input id="rangeFrom" class="control code" type="datetime-local" step="60">
+                            <label class="field-label" for="rangeTo">To</label><input id="rangeTo" class="control code" type="datetime-local" step="60">
+                            <p class="field-note hidden" id="rangeSince"></p>
+                            <p class="field-error hidden" id="rangeError" role="alert"></p>
+                            <button type="button" class="btn" id="rangeApply" onclick="applyCustomRange()">Show</button>
+                        </div>
                     </div>
                 </div>
                 <div class="tiles" id="tiles">
@@ -2674,7 +3306,18 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
                     </div>
                 </div>
             </div>
-            <p class="file-line field-note"><span>File</span><span id="configPath" class="mono"></span></p>
+            <div class="card file-card" id="fileCard">
+                <div class="card-head">
+                    <span class="card-title">File</span>
+                    <span id="configPath" class="mono file-path"></span>
+                    <span class="file-actions">
+                        <button type="button" id="fileReveal" class="icon-btn small" data-visible="false" aria-label="Show keys" title="Show keys" onclick="toggleFileKeys()" disabled><svg class="eye-off" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.7 5.1A10.9 10.9 0 0 1 12 5c6.5 0 10 7 10 7a18.5 18.5 0 0 1-3.3 4.3"></path><path d="M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7a10.9 10.9 0 0 0 5.4-1.4"></path><path d="M9.9 9.9A3 3 0 0 0 14.1 14.1"></path><path d="M3 3l18 18"></path></svg><svg class="eye-on hidden" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
+                        <button type="button" id="fileCopy" class="icon-btn small" aria-label="Copy file" title="Copy" onclick="copyFile()" disabled><svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg><svg class="copied-icon hidden" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></button>
+                    </span>
+                </div>
+                <p id="fileNote" class="file-note hidden"></p>
+                <pre id="fileView" class="json" tabindex="0"><code></code></pre>
+            </div>
         </section>
     </main>
 
@@ -2707,11 +3350,20 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
         const COLUMNS = ['model_id', 'base_url', 'api_key', 'server_model_id', 'client_type'];
         const OPTIONAL_COLUMNS = ['base_url', 'client_type'];
         const METRICS_MS = 3000;
-        const RANGES = [300, 900, 3600];
+        const RANGES = [[900, '15 min'], [3600, '1 h'], [21600, '6 h'], [86400, '24 h'], [604800, '7 d'], [2592000, '30 d']];
+        // the history the server keeps: a custom range is at most this long
+        const MAX_RANGE_S = 5184000;
+        const DAY = 86400;
+        // the time axis steps, round local minutes up to a week
+        const TICK_STEPS = [60, 120, 300, 600, 900, 1800, 3600, 7200, 10800, 21600, 43200, 86400, 172800, 604800];
+        const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        // a key of the saved file shown masked, whatever its length
+        const MASK = '••••••••';
         const TABS = ['overview', 'models', 'settings'];
         const PANELS = { overview: 'panelOverview', models: 'panelModels', settings: 'panelSettings' };
-        // the plot inside a chart card: gutters for the y labels and the time axis, column width and gap
-        const CHART = { left: 44, right: 8, top: 8, bottom: 20, maxBar: 24, gap: 2, minSlot: 8 };
+        // the plot inside a chart card: gutters for the y labels and the time axis, column width and gap; the page
+        // asks the server for a column per wantSlot pixels; past 60 columns it merges below minSlot
+        const CHART = { left: 44, right: 8, top: 8, bottom: 20, maxBar: 24, gap: 2, minSlot: 8, wantSlot: 12 };
         // window columns that add up when buckets merge; percentiles merge to their peak, TPS is recomputed
         const SUMMED = ['requests', 'successes', 'failures', 'disconnects', 'refused', 'tokens_out', 'thoughts', 'response', 'generation_ms'];
         const STATE_LABELS = { live: 'Live', saved: 'Saved', unsaved: 'Unsaved' };
@@ -2729,9 +3381,13 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
         let status = { running: false };
         // stopped, starting, running, applying or stopping: what the buttons offer
         let phase = 'stopped';
-        let metrics = null; // the last /api/metrics body while the server runs
-        let series = null; // its window: the range in 10 s buckets
-        let range = 900;
+        let metrics = null; // the last /api/metrics body: the running server's, or the history's while stopped
+        let series = null; // its window: the range in columns of the span the server chose
+        let range = { seconds: 900 }; // a preset, or { from, to } in unix seconds
+        let lastColumns = 60; // the columns the last request asked for
+        let fileKeysVisible = false;
+        let fileText = ''; // what the File card shows, for Copy
+        let fileCopyTimer = null;
         let tab = 'overview';
         let tip = null; // the tooltip shown: which chart, which column, where
         let pollTimer = null;
@@ -3352,7 +4008,7 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
                 }
                 const body = await response.json();
                 saved = body;
-                $('configPath').textContent = body.path || '';
+                renderFile();
                 if (body.error) {
                     showError(body.error);
                 }
@@ -3371,7 +4027,7 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
                 const { response, answer } = await sendJson('PUT', '/config', collectConfig());
                 if (response.ok) {
                     saved = answer;
-                    $('configPath').textContent = answer.path || '';
+                    renderFile();
                     if (answer.config) {
                         $('hostInput').value = answer.config.host;
                         $('portInput').value = String(answer.config.port);
@@ -3437,16 +4093,15 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             $('statusUrlWrap').classList.toggle('hidden', !running);
             $('statusMeta').classList.toggle('hidden', !running);
             $('statusOpen').classList.toggle('hidden', !(running && status.open));
-            $('dashboard').classList.toggle('hidden', !running);
             $('checklist').classList.toggle('hidden', running);
             if (running) {
                 requestAnimationFrame(paintRange);
                 startPolling();
             } else {
+                // a stopped server's history is read once; the last drawing waits at half strength for it
                 stopPolling();
-                metrics = null;
-                series = null;
-                renderMetrics(null);
+                $('dashboard').dataset.stale = 'true';
+                fetchMetrics();
             }
             renderStates();
         }
@@ -3468,13 +4123,29 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             metricsSeq += 1;
         }
 
+        // the range as a query: the last N seconds, or from and to
+        function rangeQuery() {
+            return isCustom() ? '?from=' + range.from + '&to=' + range.to : '?window=' + range.seconds;
+        }
+
+        // a column per wantSlot pixels of the requests chart, 30 to 90; a hidden chart measures nothing
+        function wantedColumns() {
+            const plotW = chartGeometry($('requestsChart'), 1).plotW;
+            return plotW > 0 ? Math.max(30, Math.min(90, Math.round(plotW / CHART.wantSlot))) : lastColumns;
+        }
+
         async function fetchMetrics() {
             const seq = ++metricsSeq;
+            lastColumns = wantedColumns();
             let body = null;
+            let refusal = '';
             try {
-                const response = await fetch(METRICS + '?window=' + range, { cache: 'no-store' });
+                const response = await fetch(METRICS + rangeQuery() + '&columns=' + lastColumns, { cache: 'no-store' });
                 if (response.ok) {
                     body = await response.json();
+                } else if (response.status === 400) {
+                    const answer = await response.json().catch(() => ({}));
+                    refusal = answer.error || 'HTTP 400';
                 }
             } catch (error) {
                 // out of reach for a moment: the last numbers stay
@@ -3484,36 +4155,54 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
                 return;
             }
             $('dashboard').dataset.stale = 'false';
-            if (!body || !status.running) {
+            if (refusal) {
+                showError(refusal);
                 return;
             }
-            // the server went away under the page (stopped from another tab): read the status again
-            if (!body.running) {
+            if (!body) {
+                return;
+            }
+            // started or stopped under the page (from another tab): read the status again
+            if (!!status.running !== !!body.running) {
                 refreshStatus();
                 return;
             }
             metrics = body;
             series = body.window || null;
+            const dashboard = $('dashboard');
+            const appeared = dashboard.classList.contains('hidden') && !!series;
+            dashboard.classList.toggle('hidden', !series);
+            if (appeared) {
+                paintRange();
+            }
+            if (!series) {
+                resetOverview();
+            }
             renderMetrics(metrics);
             renderStates();
+            // the first answer came while the chart was hidden and could not measure: ask again at its width
+            if (series && tab === 'overview' && wantedColumns() !== lastColumns) {
+                fetchMetrics();
+            }
         }
 
-        // the header line (open, uptime, streaming), then the Overview
+        // the header line (open, uptime, streaming) while the server runs, then the Overview
         function renderMetrics(m) {
+            const live = !!(m && status.running);
+            $('statusUptime').textContent = live ? 'up ' + formatUptime(m.uptime_s) : '';
+            $('statusStreaming').textContent = live ? formatCount(m.in_flight) + ' streaming' : '';
+            $('statusStreaming').classList.toggle('hidden', !(live && m.in_flight > 0));
+            if (live) {
+                $('statusOpen').classList.toggle('hidden', !status.open);
+            }
             if (!m) {
-                $('statusUptime').textContent = '';
-                $('statusStreaming').classList.add('hidden');
                 resetOverview();
                 return;
             }
-            $('statusOpen').classList.toggle('hidden', !status.open);
-            $('statusUptime').textContent = 'up ' + formatUptime(m.uptime_s);
-            $('statusStreaming').textContent = formatCount(m.in_flight) + ' streaming';
-            $('statusStreaming').classList.toggle('hidden', !(m.in_flight > 0));
             renderOverview(series);
         }
 
-        // a stopped server leaves no numbers behind for the next start to show first
+        // nothing to show: no numbers stay behind for the next start to show first
         function resetOverview() {
             hideTip();
             document.querySelectorAll('#tiles .tile').forEach((tile) => {
@@ -3538,6 +4227,7 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
                 history.replaceState(null, '', '#' + tab);
             }
             closeComboboxes();
+            closeRangePopover(false);
             hideTip();
             // the checklist's + Model: the blank row if there is one, else a new one, open and focused
             if (withRow) {
@@ -3549,10 +4239,14 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
                     addRow();
                 }
             }
-            // charts measure their width, so they draw once their tab is visible
+            // charts measure their width, so they draw once their tab is visible, at the columns it calls for
             if (tab === 'overview') {
                 paintRange();
-                renderOverview(series);
+                if (series && wantedColumns() !== lastColumns) {
+                    fetchMetrics();
+                } else {
+                    renderOverview(series);
+                }
             }
         }
 
@@ -3572,33 +4266,152 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             document.querySelector('#tabs [data-tab="' + next + '"]').focus();
         }
 
-        // the range scopes every number on Overview; the last render waits at half strength for the answer
-        function setRange(seconds) {
-            if (!RANGES.includes(seconds)) {
-                return;
-            }
-            range = seconds;
+        function isCustom() {
+            return range.seconds === undefined;
+        }
+
+        function storeRange(value) {
             try {
-                localStorage.setItem(RANGE_KEY, String(seconds));
+                localStorage.setItem(RANGE_KEY, value);
             } catch (error) {
                 // the choice holds for this page only
             }
-            paintRange();
-            if (status.running) {
-                $('dashboard').dataset.stale = 'true';
-                fetchMetrics();
+        }
+
+        function setRange(seconds) {
+            if (!RANGES.some(([value]) => value === seconds)) {
+                return;
             }
+            range = { seconds };
+            storeRange(String(seconds));
+            closeRangePopover(false);
+            refetchRange();
+        }
+
+        function setCustomRange(from, to) {
+            range = { from, to };
+            storeRange(from + '-' + to);
+            refetchRange();
+        }
+
+        // the range scopes every number on Overview; the last drawing waits at half strength for the answer
+        function refetchRange() {
+            paintRange();
+            if (series) {
+                $('dashboard').dataset.stale = 'true';
+            }
+            fetchMetrics();
         }
 
         function paintRange() {
+            const custom = isCustom();
             document.querySelectorAll('#rangeControl [data-range]').forEach((button) => {
-                button.setAttribute('aria-checked', Number(button.dataset.range) === range ? 'true' : 'false');
+                const checked = custom ? button.dataset.range === 'custom' : button.dataset.range === String(range.seconds);
+                button.setAttribute('aria-checked', checked ? 'true' : 'false');
             });
+            const label = $('rangeCustomLabel');
+            label.textContent = custom ? formatRangeLabel(range.from, range.to) : '';
+            label.classList.toggle('hidden', !custom);
+            $('rangeWrap').dataset.custom = custom ? 'true' : 'false';
             updateSegmentThumb($('rangeControl'));
         }
 
+        function rangePopoverOpen() {
+            return !$('rangePopover').classList.contains('hidden');
+        }
+
+        function toggleRangePopover() {
+            if (rangePopoverOpen()) {
+                closeRangePopover(true);
+            } else {
+                openRangePopover();
+            }
+        }
+
+        // From and To start at the custom range, else at the range on screen, To never past now
+        function openRangePopover() {
+            closeComboboxes();
+            const now = Math.ceil(Date.now() / 60000) * 60;
+            let from = now - (range.seconds || 3600);
+            let to = now;
+            if (isCustom()) {
+                from = range.from;
+                to = range.to;
+            } else if (series) {
+                from = series.start;
+                to = Math.min(series.end, now);
+            }
+            $('rangeFrom').value = toInputValue(from);
+            $('rangeTo').value = toInputValue(to);
+            const since = metrics && metrics.since;
+            $('rangeSince').textContent = since ? 'Since ' + formatStamp(since, { day: true }) : '';
+            $('rangeSince').classList.toggle('hidden', !since);
+            $('rangeError').textContent = '';
+            $('rangeError').classList.add('hidden');
+            $('rangePopover').classList.remove('hidden');
+            $('rangeCustom').setAttribute('aria-expanded', 'true');
+            $('rangeFrom').focus();
+        }
+
+        function closeRangePopover(restoreFocus) {
+            const popover = $('rangePopover');
+            if (popover.classList.contains('hidden')) {
+                return;
+            }
+            const inside = popover.contains(document.activeElement);
+            popover.classList.add('hidden');
+            $('rangeCustom').setAttribute('aria-expanded', 'false');
+            if (restoreFocus && inside) {
+                $('rangeCustom').focus();
+            }
+        }
+
+        // Escape closes, Enter in a time shows the range
+        function handleRangeKeydown(event) {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                closeRangePopover(true);
+            } else if (event.key === 'Enter' && event.target instanceof HTMLInputElement) {
+                event.preventDefault();
+                applyCustomRange();
+            }
+        }
+
+        function applyCustomRange() {
+            const from = fromInputValue($('rangeFrom').value);
+            const to = fromInputValue($('rangeTo').value);
+            let message = '';
+            if (from === null || to === null || to <= from) {
+                message = 'To must be after From.';
+            } else if (to - from > MAX_RANGE_S) {
+                message = 'At most 60 days.';
+            }
+            $('rangeError').textContent = message;
+            $('rangeError').classList.toggle('hidden', !message);
+            if (message) {
+                return;
+            }
+            setCustomRange(from, to);
+            closeRangePopover(true);
+        }
+
+        // a moment as a datetime-local value, local time to the minute
+        function toInputValue(unix) {
+            const d = new Date(unix * 1000);
+            return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + 'T' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+        }
+
+        function fromInputValue(value) {
+            const match = /^(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2})/.exec(value || '');
+            if (!match) {
+                return null;
+            }
+            const d = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), Number(match[4]), Number(match[5]));
+            return Number.isNaN(d.getTime()) ? null : Math.floor(d.getTime() / 1000);
+        }
+
         function renderOverview(w) {
-            if (!w || tab !== 'overview' || !status.running) {
+            if (!w || tab !== 'overview') {
                 return;
             }
             renderTiles(w);
@@ -3608,29 +4421,9 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             renderErrors(w);
         }
 
-        // a window's columns padded on the left to the whole range: a server younger than the range has no
-        // buckets before its start, and those stay null so nothing is drawn there
-        function windowColumns(w, source) {
-            const n = Math.round(w.seconds / w.bucket_s);
-            const columns = {};
-            Object.keys(source || {}).forEach((key) => {
-                const values = Array.isArray(source[key]) ? source[key].slice(-n) : [];
-                columns[key] = Array(n - values.length).fill(null).concat(values);
-            });
-            if (!columns.requests) {
-                columns.requests = Array(n).fill(null);
-            }
-            return columns;
-        }
-
-        // the smallest k dividing n with n / k at most maxBars
+        // the smallest k with ceil(n / k) at most maxBars; the last merged column may hold fewer
         function mergeFactor(n, maxBars) {
-            for (let k = 1; k <= n; k += 1) {
-                if (n % k === 0 && n / k <= maxBars) {
-                    return k;
-                }
-            }
-            return n;
+            return Math.max(1, Math.ceil(n / Math.max(maxBars, 1)));
         }
 
         // k buckets into one: counts add up, percentiles keep their peak, TPS comes from the merged sums
@@ -3706,11 +4499,17 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             sparkline(tile.querySelector('.spark'), values, { mode });
         }
 
+        // a count per minute, hour or day of the part of the range the history covers, by the range's length
+        function perUnit(n, elapsed, seconds) {
+            const [unit, word] = seconds <= 21600 ? [60, '/min'] : seconds <= 259200 ? [3600, '/h'] : [DAY, '/d'];
+            const value = n / (elapsed / unit);
+            return (value >= 100 ? formatCount(Math.round(value)) : value.toFixed(1)) + word;
+        }
+
         function renderTiles(w) {
             const t = w.total;
             const p = w.previous;
-            const n = Math.round(w.seconds / w.bucket_s);
-            const spark = mergeBuckets(windowColumns(w, t.series), mergeFactor(n, 60));
+            const spark = mergeBuckets(t.series, mergeFactor((t.series.requests || []).length, 60));
             const vs = 'vs previous ' + rangeLabel(w.seconds);
             // a delta is neutral for volumes, good or bad for rates and latencies
             const judged = (kind, current, previous, upIsGood) => {
@@ -3719,11 +4518,12 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             };
             const latency = t.latency_ms || { first_event: {}, total: {} };
             const before = p && p.latency_ms ? p.latency_ms.total : {};
-            // the rate over the part of the range the server has lived
-            const minutes = Math.max((w.end - w.start) / 60, 1 / 6);
+            // the rate over the part of the range the history covers, up to now (the last column is partial)
+            const since = (metrics && metrics.since) || w.start;
+            const elapsed = Math.max(Math.min(w.end, Date.now() / 1000) - Math.max(w.start, since), w.bucket_s);
             const rates = spark.successes.map((ok, i) => (ok == null || ok + spark.failures[i] === 0 ? null : ok / (ok + spark.failures[i])));
             setTile('tileRequests', formatCount(t.requests), judged('pct', t.requests, p && p.requests, null),
-                (t.requests / minutes).toFixed(1) + '/min' + (t.refused > 0 ? ' · ' + formatCount(t.refused) + ' refused' : ''), spark.requests, 'count');
+                perUnit(t.requests, elapsed, w.seconds) + (t.refused > 0 ? ' · ' + formatCount(t.refused) + ' refused' : ''), spark.requests, 'count');
             setTile('tileSuccess', formatRate(t.success_rate), judged('pt', t.success_rate, p && p.success_rate, true),
                 formatCount(t.successes) + ' ok · ' + formatCount(t.failures) + ' failed · ' + formatCount(t.disconnects) + ' dropped', rates, 'level');
             setTile('tileLatencyP50', formatMs(latency.total.p50), judged('ms', latency.total.p50, before.p50, false),
@@ -3862,8 +4662,8 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
                 b.title = values[i];
             });
             if (entry && entry.series && w) {
-                const n = Math.round(w.seconds / w.bucket_s);
-                sparkline(spark, mergeBuckets(windowColumns(w, { requests: entry.series.requests }), mergeFactor(n, 30)).requests, { mode: 'count' });
+                const requests = entry.series.requests || [];
+                sparkline(spark, mergeBuckets({ requests }, mergeFactor(requests.length, 30)).requests, { mode: 'count' });
             } else {
                 spark.replaceChildren();
             }
@@ -3897,7 +4697,7 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             const height = container.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
             const plotW = width - CHART.left - CHART.right;
             const plotH = height - CHART.top - CHART.bottom;
-            return { width, height, plotW, plotH, base: CHART.top + plotH, slot: plotW / Math.max(columns, 1), left: CHART.left, top: CHART.top };
+            return { width, height, plotW, plotH, base: CHART.top + plotH, slot: plotW / Math.max(columns, 1), left: CHART.left, top: CHART.top, padRight: parseFloat(style.paddingRight) };
         }
 
         // 1, 2, 2.5, 5 or 10 times a power of ten, the first at least v (2.5 only from 25 up, so ticks stay whole)
@@ -3917,24 +4717,44 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             return 10 * scale;
         }
 
-        // round local minutes: the first step giving at most six labels that do not crowd the axis
+        // ticks at round local minutes, hours, days or Mondays: the first step giving at most `limit` labels, about
+        // one per 72px; past a week, every other Monday or fewer
         function timeTicks(from, to, plotW) {
-            const limit = Math.max(2, Math.min(6, Math.floor(plotW / 64)));
+            const limit = Math.max(2, Math.min(8, Math.floor(plotW / 72)));
             const offset = -new Date(from * 1000).getTimezoneOffset() * 60;
-            for (const step of [60, 120, 300, 600, 900, 1800, 3600]) {
+            const at = (step) => {
+                // unix 0 was a Thursday, so local Mondays lie 4 days past the multiples of a week
+                const phase = step === 604800 ? 345600 : 0;
                 const ticks = [];
-                for (let t = Math.ceil((from + offset) / step) * step - offset; t <= to; t += step) {
+                for (let t = Math.ceil((from + offset - phase) / step) * step + phase - offset; t <= to; t += step) {
                     ticks.push(t);
                 }
+                return ticks;
+            };
+            for (const step of TICK_STEPS) {
+                const ticks = at(step);
                 if (ticks.length <= limit) {
-                    return ticks;
+                    return { step, ticks };
                 }
             }
-            return [];
+            const step = TICK_STEPS[TICK_STEPS.length - 1];
+            const ticks = at(step);
+            const every = Math.ceil(ticks.length / limit);
+            return { step, ticks: ticks.filter((t, i) => i % every === 0) };
         }
 
-        // the frame every chart shares: three hairlines (0, half, top), their labels, the time labels
-        function chartFrame(g, max, label, from, seconds, whole) {
+        // HH:MM within a day, the day on day steps and at the midnights of a range of a day or more
+        function formatTick(t, step, rangeSeconds) {
+            const d = new Date(t * 1000);
+            if (step >= DAY || (rangeSeconds >= DAY && d.getHours() === 0 && d.getMinutes() === 0)) {
+                return formatDay(t);
+            }
+            return pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+        }
+
+        // the frame every chart shares: three hairlines (0, half, top), their labels, the time labels; a time label
+        // that would reach under the y labels or past the card's padding is set flush with its tick instead
+        function chartFrame(g, max, label, w, whole) {
             const levels = [0, max / 2, max].filter((v) => !whole || Number.isInteger(v));
             let grid = '';
             let axis = '';
@@ -3943,12 +4763,20 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
                 grid += '<line x1="' + g.left + '" x2="' + (g.left + g.plotW).toFixed(1) + '" y1="' + y + '" y2="' + y + '"></line>';
                 axis += '<text x="' + (g.left - 8) + '" y="' + y + '" dy="0.35em" text-anchor="end">' + label(v) + '</text>';
             });
-            timeTicks(from, from + seconds, g.plotW).forEach((t) => {
-                const x = g.left + ((t - from) / seconds) * g.plotW;
-                if (x - 18 < 0 || x + 18 > g.width) {
-                    return;
+            const rangeSeconds = w.end - w.start;
+            const { step, ticks } = timeTicks(w.start, w.end, g.plotW);
+            ticks.forEach((t) => {
+                const x = g.left + ((t - w.start) / rangeSeconds) * g.plotW;
+                const text = formatTick(t, step, rangeSeconds);
+                // 11px mono is 6.6px a character
+                const half = text.length * 3.3 + 2;
+                let anchor = 'middle';
+                if (x - half < g.left - 10) {
+                    anchor = 'start';
+                } else if (x + half > g.width + g.padRight - 2) {
+                    anchor = 'end';
                 }
-                axis += '<text x="' + x.toFixed(1) + '" y="' + (g.base + 15) + '" text-anchor="middle">' + formatTick(t) + '</text>';
+                axis += '<text class="tick" x="' + x.toFixed(1) + '" y="' + (g.base + 15) + '" text-anchor="' + anchor + '">' + text + '</text>';
             });
             return '<g class="grid">' + grid + '</g><g class="axis">' + axis + '</g>';
         }
@@ -3965,7 +4793,7 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
         }
 
         function hits(g, columns) {
-            return columns.map((column, i) => (column.absent ? '' : '<rect class="hit" x="' + (g.left + i * g.slot).toFixed(1) + '" y="' + g.top + '" width="' + g.slot.toFixed(1) + '" height="' + g.plotH.toFixed(1) + '"></rect>')).join('');
+            return columns.map((column, i) => '<rect class="hit" x="' + (g.left + i * g.slot).toFixed(1) + '" y="' + g.top + '" width="' + g.slot.toFixed(1) + '" height="' + g.plotH.toFixed(1) + '"></rect>').join('');
         }
 
         // a new drawing in place of the old; a keyboard user's focus stays on the chart
@@ -3985,23 +4813,24 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
                 + rows.map((cells) => '<tr>' + cells.map((cell) => '<td>' + cell + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>';
         }
 
-        // outcomes over time: ok, failed and dropped stacked from the baseline, columns merged to fit the width
+        // outcomes over time: ok, failed and dropped stacked from the baseline, one column per server column; past
+        // 60 columns narrower than minSlot (a long custom range on a phone) neighbours merge
         function renderRequestsChart(w) {
             const container = $('requestsChart');
-            const n = Math.round(w.seconds / w.bucket_s);
+            const t = w.total.series || {};
+            const n = (t.requests || []).length;
             const probe = chartGeometry(container, n);
-            if (!(probe.plotW > 0)) {
+            if (!(probe.plotW > 0) || !n) {
                 return;
             }
-            const k = mergeFactor(n, Math.min(60, Math.max(30, Math.floor(probe.plotW / CHART.minSlot))));
-            const t = w.total.series || {};
-            const merged = mergeBuckets(windowColumns(w, { requests: t.requests, successes: t.successes, failures: t.failures, disconnects: t.disconnects }), k);
+            const maxBars = Math.max(60, Math.floor(probe.plotW / CHART.minSlot));
+            const k = n > maxBars ? mergeFactor(n, maxBars) : 1;
+            const merged = mergeBuckets({ requests: t.requests, successes: t.successes, failures: t.failures, disconnects: t.disconnects }, k);
             const span = k * w.bucket_s;
-            const from = w.end - w.seconds;
+            const rangeSeconds = w.end - w.start;
             const columns = merged.requests.map((requests, i) => ({
-                start: from + i * span,
-                end: from + (i + 1) * span,
-                absent: requests == null,
+                start: w.start + i * span,
+                end: Math.min(w.start + (i + 1) * span, w.end),
                 requests: requests || 0,
                 successes: merged.successes[i] || 0,
                 failures: merged.failures[i] || 0,
@@ -4024,32 +4853,32 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
                 });
             });
             const total = w.total;
-            const label = 'Requests per ' + formatSpan(span) + ' over the last ' + rangeLabel(w.seconds) + ': ' + total.requests + ' requests, '
+            const label = 'Requests per ' + formatSpan(span) + ' ' + rangeText(w) + ': ' + total.requests + ' requests, '
                 + total.successes + ' ok, ' + total.failures + ' failed, ' + total.disconnects + ' dropped';
+            const stamp = { seconds: span < 60, day: rangeSeconds >= DAY };
             paintChart(container, '<svg role="img" tabindex="0" aria-label="' + label + '" viewBox="0 0 ' + g.width + ' ' + g.height + '">'
-                + chartFrame(g, max, formatCompact, from, w.seconds, true) + marks + '<g>' + hits(g, columns) + '</g></svg>'
-                + tableTwin('Requests', ['Time', 'ok', 'failed', 'dropped', 'streaming'], columns.filter((c) => !c.absent).map((c) => [formatClock(c.start), c.successes, c.failures, c.disconnects, streamingOf(c)])));
-            attachTooltip(container, columns, formatRequestsTip, g);
+                + chartFrame(g, max, formatCompact, w, true) + marks + '<g>' + hits(g, columns) + '</g></svg>'
+                + tableTwin('Requests', ['Time', 'ok', 'failed', 'dropped', 'streaming'], columns.filter((c) => c.requests).map((c) => [formatStamp(c.start, stamp), c.successes, c.failures, c.disconnects, streamingOf(c)])));
+            attachTooltip(container, columns, (c) => formatRequestsTip(c, span, rangeSeconds), g);
         }
 
         function streamingOf(c) {
             return Math.max(0, c.requests - c.successes - c.failures - c.disconnects);
         }
 
-        // p90, the headline, in the accent over p50 in the muted ink; one point per bucket, a gap where none
+        // p90, the headline, in the accent over p50 in the muted ink; one point per server column, a gap where none
         function renderLatencyChart(w) {
             const container = $('latencyChart');
-            const n = Math.round(w.seconds / w.bucket_s);
+            const t = w.total.series || {};
+            const n = (t.requests || []).length;
             const g = chartGeometry(container, n);
-            if (!(g.plotW > 0)) {
+            if (!(g.plotW > 0) || !n) {
                 return;
             }
-            const t = windowColumns(w, w.total.series || {});
-            const from = w.end - w.seconds;
+            const rangeSeconds = w.end - w.start;
             const columns = t.requests.map((requests, i) => ({
-                start: from + i * w.bucket_s,
-                end: from + (i + 1) * w.bucket_s,
-                absent: requests == null,
+                start: w.start + i * w.bucket_s,
+                end: w.start + (i + 1) * w.bucket_s,
                 p50: t.p50 ? t.p50[i] : null,
                 p90: t.p90 ? t.p90[i] : null,
                 successes: t.successes ? t.successes[i] || 0 : 0
@@ -4074,11 +4903,12 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
                 return (d ? '<path class="line ' + key + '" d="' + d + '"></path>' : '') + dots;
             };
             const summary = w.total.latency_ms ? w.total.latency_ms.total : {};
-            const label = 'Latency over the last ' + rangeLabel(w.seconds) + ': p50 ' + formatMs(summary.p50) + ', p90 ' + formatMs(summary.p90);
+            const label = 'Latency ' + rangeText(w) + ': p50 ' + formatMs(summary.p50) + ', p90 ' + formatMs(summary.p90);
+            const stamp = { seconds: w.bucket_s < 60, day: rangeSeconds >= DAY };
             paintChart(container, '<svg role="img" tabindex="0" aria-label="' + label + '" viewBox="0 0 ' + g.width + ' ' + g.height + '">'
-                + chartFrame(g, max, formatAxisMs, from, w.seconds, false) + line('p50') + line('p90') + '<g>' + hits(g, columns) + '</g></svg>'
-                + tableTwin('Latency', ['Time', 'p50', 'p90', 'ok'], columns.filter((c) => !c.absent).map((c) => [formatClock(c.start), formatMs(c.p50), formatMs(c.p90), c.successes])));
-            attachTooltip(container, columns, formatLatencyTip, g);
+                + chartFrame(g, max, formatAxisMs, w, false) + line('p50') + line('p90') + '<g>' + hits(g, columns) + '</g></svg>'
+                + tableTwin('Latency', ['Time', 'p50', 'p90', 'ok'], columns.filter((c) => c.p50 != null || c.successes).map((c) => [formatStamp(c.start, stamp), formatMs(c.p50), formatMs(c.p90), c.successes])));
+            attachTooltip(container, columns, (c) => formatLatencyTip(c, w.bucket_s, rangeSeconds), g);
         }
 
         // the chart's columns for its tooltip; the listeners are wired once per container and read them
@@ -4094,7 +4924,7 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
                     }
                     const x = event.clientX - svg.getBoundingClientRect().left;
                     const index = Math.floor((x - chart.g.left) / chart.g.slot);
-                    if (x < chart.g.left || index < 0 || index >= chart.columns.length || chart.columns[index].absent) {
+                    if (x < chart.g.left || index < 0 || index >= chart.columns.length) {
                         hideTip();
                         return;
                     }
@@ -4103,7 +4933,7 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
                 container.addEventListener('pointerleave', hideTip);
                 container.addEventListener('focusin', () => {
                     if (!container._swapping) {
-                        showTip(container, lastPresent(container._chart));
+                        showTip(container, lastIndex(container._chart));
                     }
                 });
                 container.addEventListener('focusout', () => {
@@ -4119,13 +4949,13 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
                     const current = tip && tip.chart === container.id ? tip.index : chart.columns.length;
                     let index = null;
                     if (event.key === 'ArrowLeft') {
-                        index = stepPresent(chart, current, -1);
+                        index = stepIndex(chart, current, -1);
                     } else if (event.key === 'ArrowRight') {
-                        index = stepPresent(chart, current, 1);
+                        index = stepIndex(chart, current, 1);
                     } else if (event.key === 'Home') {
-                        index = stepPresent(chart, -1, 1);
+                        index = stepIndex(chart, -1, 1);
                     } else if (event.key === 'End') {
-                        index = lastPresent(chart, 1);
+                        index = lastIndex(chart);
                     } else if (event.key === 'Escape') {
                         event.preventDefault();
                         hideTip();
@@ -4143,15 +4973,15 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             }
         }
 
-        function lastPresent(chart) {
-            return stepPresent(chart, chart.columns.length, -1);
+        function lastIndex(chart) {
+            return chart && chart.columns.length ? chart.columns.length - 1 : null;
         }
 
-        function stepPresent(chart, from, direction) {
-            for (let i = from + direction; i >= 0 && i < chart.columns.length; i += direction) {
-                if (!chart.columns[i].absent) {
-                    return i;
-                }
+        // the next column in a direction; at either end the tooltip stays where it is
+        function stepIndex(chart, from, direction) {
+            const next = from + direction;
+            if (next >= 0 && next < chart.columns.length) {
+                return next;
             }
             return from >= 0 && from < chart.columns.length ? from : null;
         }
@@ -4160,7 +4990,7 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
         function showTip(container, index, clientX, clientY) {
             const chart = container._chart;
             const svg = container.querySelector('svg');
-            if (!chart || !svg || index === null || index < 0 || !chart.columns[index] || chart.columns[index].absent) {
+            if (!chart || !svg || index === null || index < 0 || !chart.columns[index]) {
                 hideTip();
                 return;
             }
@@ -4229,26 +5059,28 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             document.querySelectorAll('.chart .cross').forEach((cross) => cross.remove());
         }
 
-        function formatRequestsTip(c) {
+        function formatRequestsTip(c, span, rangeSeconds) {
             const rows = [[formatCount(c.successes), 'ok', 'ok'], [formatCount(c.failures), 'failed', 'fail'], [formatCount(c.disconnects), 'dropped', 'drop']];
             if (streamingOf(c) > 0) {
                 rows.push([formatCount(streamingOf(c)), 'streaming', '']);
             }
-            return { when: formatClock(c.start) + '–' + formatClock(c.end), rows };
+            return { when: formatWhen(c.start, c.end, span, rangeSeconds), rows };
         }
 
-        function formatLatencyTip(c) {
-            return { when: formatClock(c.start) + '–' + formatClock(c.end), rows: [[formatMs(c.p90), 'p90', 'p90'], [formatMs(c.p50), 'p50', 'p50'], [formatCount(c.successes), 'ok', '']] };
+        function formatLatencyTip(c, span, rangeSeconds) {
+            return { when: formatWhen(c.start, c.end, span, rangeSeconds), rows: [[formatMs(c.p90), 'p90', 'p90'], [formatMs(c.p50), 'p50', 'p50'], [formatCount(c.successes), 'ok', '']] };
         }
 
-        // the range's failures, newest first, from the latest twenty the server keeps
+        // the range's failures, newest first, from the latest hundred the server keeps
         function renderErrors(w) {
             const list = $('errorList');
-            const errors = (metrics && Array.isArray(metrics.errors) ? metrics.errors : []).filter((error) => error.at >= w.start);
+            const days = w.end - w.start >= DAY;
+            list.dataset.days = days ? 'true' : 'false';
+            const errors = (metrics && Array.isArray(metrics.errors) ? metrics.errors : []).filter((error) => error.at >= w.start && error.at < w.end);
             if (!errors.length) {
                 const none = document.createElement('li');
                 none.className = 'none';
-                none.textContent = 'None in the last ' + rangeLabel(w.seconds);
+                none.textContent = isCustom() ? 'None in this range' : 'None in the last ' + rangeLabel(w.seconds);
                 list.replaceChildren(none);
                 return;
             }
@@ -4256,7 +5088,7 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
                 const item = document.createElement('li');
                 const time = document.createElement('span');
                 time.className = 'mono time';
-                time.textContent = formatClock(error.at);
+                time.textContent = formatStamp(error.at, { seconds: true, day: days });
                 const model = document.createElement('span');
                 model.className = 'mono model';
                 model.textContent = error.model || '';
@@ -4274,7 +5106,11 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             clearTimeout(resizeTimer);
             resizeTimer = setTimeout(() => {
                 paintRange();
-                renderOverview(series);
+                if (series && tab === 'overview' && wantedColumns() !== lastColumns) {
+                    fetchMetrics();
+                } else {
+                    renderOverview(series);
+                }
                 renderModelCards(series);
             }, 150);
         }
@@ -4448,6 +5284,10 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
                 }
                 return;
             }
+            if (key === 'escape' && !event.defaultPrevented && rangePopoverOpen()) {
+                closeRangePopover(true);
+                return;
+            }
             if (key === 'escape' && !event.defaultPrevented) {
                 const active = document.activeElement;
                 const editor = active && active.closest ? active.closest('.editor') : null;
@@ -4549,37 +5389,235 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             return n < 1e6 ? (n / 1e3).toFixed(1) + 'K' : (n / 1e6).toFixed(2) + 'M';
         }
 
-        // an axis label in milliseconds: 500 ms, 1 s, 1.5 s
+        // an axis label in milliseconds: 500 ms, 1 s, 1.25 s
         function formatAxisMs(ms) {
-            return ms < 1000 ? ms + ' ms' : Number((ms / 1000).toFixed(1)) + ' s';
+            return ms < 1000 ? ms + ' ms' : Number((ms / 1000).toFixed(2)) + ' s';
         }
 
         function pad2(n) {
             return String(n).padStart(2, '0');
         }
 
-        function formatClock(unix) {
+        // Oct 3: a local day without the year
+        function formatDay(unix) {
             const d = new Date(unix * 1000);
-            return pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
+            return MONTHS[d.getMonth()] + ' ' + d.getDate();
         }
 
-        function formatTick(unix) {
+        // [Oct 3 ]14:05[:09], local
+        function formatStamp(unix, options) {
+            const o = options || {};
             const d = new Date(unix * 1000);
-            return pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+            return (o.day ? formatDay(unix) + ' ' : '') + pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + (o.seconds ? ':' + pad2(d.getSeconds()) : '');
         }
 
+        function sameDay(a, b) {
+            return new Date(a * 1000).toDateString() === new Date(b * 1000).toDateString();
+        }
+
+        // a column's time: seconds for columns under a minute, the day once the range is a day or more, the
+        // second day only when the column ends on another
+        function formatWhen(start, end, span, rangeSeconds) {
+            const o = { seconds: span < 60, day: rangeSeconds >= DAY };
+            return formatStamp(start, o) + '–' + formatStamp(end, { seconds: o.seconds, day: o.day && !sameDay(start, end) });
+        }
+
+        // the custom segment's words: Oct 1 14:00–16:00, or Oct 1 14:00 – Oct 3 16:00
+        function formatRangeLabel(from, to) {
+            if (sameDay(from, to)) {
+                return formatStamp(from, { day: true }) + '–' + formatStamp(to);
+            }
+            return formatStamp(from, { day: true }) + ' – ' + formatStamp(to, { day: true });
+        }
+
+        // 20 s, 2.5 min, 1 h 30 min, 2 d 12 h
         function formatSpan(seconds) {
-            return seconds < 60 ? seconds + ' s' : seconds / 60 + ' min';
+            const s = Math.round(seconds);
+            if (s < 60) {
+                return s + ' s';
+            }
+            if (s < 3600) {
+                return Number((s / 60).toFixed(1)) + ' min';
+            }
+            if (s < DAY) {
+                const minutes = Math.floor((s % 3600) / 60);
+                return Math.floor(s / 3600) + ' h' + (minutes ? ' ' + minutes + ' min' : '');
+            }
+            const hours = Math.floor((s % DAY) / 3600);
+            return Math.floor(s / DAY) + ' d' + (hours ? ' ' + hours + ' h' : '');
         }
 
         function rangeLabel(seconds) {
-            return seconds >= 3600 ? seconds / 3600 + ' h' : seconds / 60 + ' min';
+            const preset = RANGES.find(([value]) => value === seconds);
+            return preset ? preset[1] : formatSpan(seconds);
         }
 
+        // what the charts cover, in words for their labels
+        function rangeText(w) {
+            return isCustom() ? 'from ' + formatStamp(w.start, { day: true }) + ' to ' + formatStamp(w.end, { day: true }) : 'over the last ' + rangeLabel(w.seconds);
+        }
+
+        // the saved file with its plain-text keys masked: a model's api_key and the server's api_keys that are not
+        // $VAR references; everything else as written, in its order
+        function maskKeys(config, reveal) {
+            const copy = JSON.parse(JSON.stringify(config));
+            if (reveal || !copy || typeof copy !== 'object' || Array.isArray(copy)) {
+                return copy;
+            }
+            const hide = (value) => (typeof value === 'string' && value !== '' && !value.startsWith('$') ? MASK : value);
+            if (Array.isArray(copy.models)) {
+                copy.models.forEach((row) => {
+                    if (row && typeof row === 'object' && !Array.isArray(row) && 'api_key' in row) {
+                        row.api_key = hide(row.api_key);
+                    }
+                });
+            }
+            if (Array.isArray(copy.api_keys)) {
+                copy.api_keys = copy.api_keys.map(hide);
+            }
+            return copy;
+        }
+
+        // the text of JSON.stringify(value, null, 2), its keys, strings, numbers and punctuation in spans; every
+        // string goes in as text, never as markup
+        function renderJson(code, value) {
+            const out = document.createDocumentFragment();
+            const span = (cls, text) => {
+                const el = document.createElement('span');
+                el.className = cls;
+                el.textContent = text;
+                out.append(el);
+            };
+            const walk = (v, indent) => {
+                const inner = indent + '  ';
+                if (Array.isArray(v) || (v && typeof v === 'object')) {
+                    const keys = Array.isArray(v) ? null : Object.keys(v);
+                    const items = keys || v;
+                    const [open, close] = keys ? ['{', '}'] : ['[', ']'];
+                    if (!items.length) {
+                        span('p', open + close);
+                        return;
+                    }
+                    span('p', open);
+                    items.forEach((item, i) => {
+                        out.append('\\n' + inner);
+                        if (keys) {
+                            span('k', JSON.stringify(item));
+                            span('p', ':');
+                            out.append(' ');
+                        }
+                        walk(keys ? v[item] : item, inner);
+                        if (i < items.length - 1) {
+                            span('p', ',');
+                        }
+                    });
+                    out.append('\\n' + indent);
+                    span('p', close);
+                } else if (typeof v === 'string') {
+                    span(v === MASK ? 'm' : 's', JSON.stringify(v));
+                } else {
+                    span('n', JSON.stringify(v));
+                }
+            };
+            walk(value, '');
+            code.replaceChildren(out);
+        }
+
+        // the File card on Settings: the saved file formatted, or why there is none, or the text that is not a config
+        function renderFile() {
+            if (!saved) {
+                return;
+            }
+            const path = $('configPath');
+            path.textContent = saved.path || '';
+            path.title = saved.path || '';
+            const note = $('fileNote');
+            const view = $('fileView');
+            const code = view.firstChild;
+            const reveal = $('fileReveal');
+            const copy = $('fileCopy');
+            delete note.dataset.error;
+            delete view.dataset.raw;
+            if (!saved.exists) {
+                note.textContent = 'Not saved yet';
+                note.classList.remove('hidden');
+                view.classList.add('hidden');
+                code.replaceChildren();
+                reveal.disabled = true;
+                copy.disabled = true;
+                fileText = '';
+                return;
+            }
+            view.classList.remove('hidden');
+            let value = null;
+            if (!saved.error) {
+                try {
+                    value = JSON.parse(typeof saved.text === 'string' ? saved.text : JSON.stringify(saved.config));
+                } catch (error) {
+                    value = null;
+                }
+            }
+            if (value === null || typeof value !== 'object') {
+                note.textContent = saved.error || '';
+                note.dataset.error = 'true';
+                note.classList.toggle('hidden', !saved.error);
+                view.dataset.raw = 'true';
+                fileText = typeof saved.text === 'string' ? saved.text : '';
+                code.textContent = fileText;
+                reveal.disabled = true;
+                copy.disabled = !fileText;
+                return;
+            }
+            note.classList.add('hidden');
+            // nothing written in plain text: there is nothing to reveal
+            const plain = JSON.stringify(maskKeys(value, false)) !== JSON.stringify(value);
+            fileKeysVisible = fileKeysVisible && plain;
+            const shown = maskKeys(value, fileKeysVisible);
+            fileText = JSON.stringify(shown, null, 2) + '\\n';
+            renderJson(code, shown);
+            reveal.disabled = !plain;
+            copy.disabled = false;
+            const label = fileKeysVisible ? 'Hide keys' : 'Show keys';
+            reveal.dataset.visible = fileKeysVisible ? 'true' : 'false';
+            reveal.setAttribute('aria-label', label);
+            reveal.setAttribute('title', label);
+            reveal.querySelector('.eye-on').classList.toggle('hidden', !fileKeysVisible);
+            reveal.querySelector('.eye-off').classList.toggle('hidden', fileKeysVisible);
+        }
+
+        function toggleFileKeys() {
+            fileKeysVisible = !fileKeysVisible;
+            renderFile();
+        }
+
+        // what the card shows goes to the clipboard: masked, revealed, or the raw text
+        async function copyFile() {
+            const button = $('fileCopy');
+            try {
+                await navigator.clipboard.writeText(fileText);
+            } catch (error) {
+                // no clipboard (an insecure origin, a refused permission): the text stays selectable
+                return;
+            }
+            button.setAttribute('title', 'Copied');
+            button.querySelector('.copy-icon').classList.add('hidden');
+            button.querySelector('.copied-icon').classList.remove('hidden');
+            clearTimeout(fileCopyTimer);
+            fileCopyTimer = setTimeout(() => {
+                button.setAttribute('title', 'Copy');
+                button.querySelector('.copy-icon').classList.remove('hidden');
+                button.querySelector('.copied-icon').classList.add('hidden');
+            }, 1500);
+        }
+
+        // a preset ("900"), or a custom range ("F-T", at most MAX_RANGE_S long); anything else is 15 min
         try {
-            const stored = Number(localStorage.getItem(RANGE_KEY));
-            if (RANGES.includes(stored)) {
-                range = stored;
+            const stored = localStorage.getItem(RANGE_KEY) || '';
+            const custom = /^(\\d{1,10})-(\\d{1,10})$/.exec(stored);
+            if (RANGES.some(([value]) => String(value) === stored)) {
+                range = { seconds: Number(stored) };
+            } else if (custom && Number(custom[1]) < Number(custom[2]) && Number(custom[2]) - Number(custom[1]) <= MAX_RANGE_S) {
+                range = { from: Number(custom[1]), to: Number(custom[2]) };
             }
         } catch (error) {
             // the default range it is
@@ -4599,6 +5637,17 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             paintRange();
         });
         document.addEventListener('keydown', handleShortcut);
+        // a press outside the range control closes its popover, and so does focus that leaves it
+        document.addEventListener('pointerdown', (event) => {
+            if (rangePopoverOpen() && event.target instanceof Node && !$('rangeWrap').contains(event.target)) {
+                closeRangePopover(false);
+            }
+        });
+        $('rangeWrap').addEventListener('focusout', (event) => {
+            if (event.relatedTarget instanceof Node && !$('rangeWrap').contains(event.relatedTarget)) {
+                closeRangePopover(false);
+            }
+        });
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) {
                 refreshAll();
@@ -4634,6 +5683,12 @@ if __name__ == "__main__":
     parser.add_argument("--host", type=str, default=DEFAULT_HOST, help="Host address to bind to")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="Port number to listen on")
     parser.add_argument("--debug", action="store_true", help="Enable debug mode")
+    parser.add_argument(
+        "--metrics",
+        type=str,
+        default=None,
+        help="The metrics history file, continued across restarts; one server per file (default: none is written)",
+    )
 
     args = parser.parse_args()
     config_path = args.config or os.getenv("MMSP_SERVER_CONFIG")
@@ -4641,4 +5696,11 @@ if __name__ == "__main__":
         parser.error("A config file is required: pass --config PATH or set MMSP_SERVER_CONFIG.")
 
     config = load_server_config(config_path)
-    start_server(config["models"], config["api_keys"], host=args.host, port=args.port, debug=args.debug)
+    start_server(
+        config["models"],
+        config["api_keys"],
+        host=args.host,
+        port=args.port,
+        debug=args.debug,
+        metrics_path=args.metrics,
+    )
