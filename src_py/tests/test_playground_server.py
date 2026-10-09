@@ -24,6 +24,7 @@ import pytest
 from flask.testing import FlaskClient
 from werkzeug.test import TestResponse
 
+from mmsp.abort_signal import AbortSignal
 from mmsp.integration import playground
 from mmsp.integration.playground import create_chat_app
 from mmsp.integration.server import SERVER_TEMPLATE, load_server_config
@@ -171,6 +172,19 @@ def test_server_page_is_served(client: FlaskClient):
         "latencyChart",
         "errorList",
         "chartTip",
+        "openBanner",
+        "openBannerUrl",
+        "openBannerAction",
+        "startDialog",
+        "startDialogTitle",
+        "startDialogUrl",
+        "startDialogModels",
+        "startDialogKeys",
+        "startDialogNote",
+        "startDialogWarning",
+        "startDialogCancel",
+        "startDialogConfirm",
+        "testAllButton",
     ):
         assert f'id="{element_id}"'.encode() in response.data, element_id
     for text in (
@@ -259,6 +273,24 @@ def test_server_page_is_served(client: FlaskClient):
         ">Auto<",
         'placeholder="Default"',
         'data-state="unsaved"',
+        "testRow(",
+        "testAll()",
+        "runTest(",
+        "postJson('/test'",
+        "openStartDialog(",
+        "confirmStartDialog()",
+        "closeStartDialog()",
+        "handleDialogKeydown(",
+        "handleDialogClose()",
+        "addKeyFromBanner()",
+        "<dialog",
+        "Start the server?",
+        "Apply the saved file?",
+        "Add a key",
+        "Model id and key first",
+        "TEST_LABELS",
+        "Passed",
+        "no usage reported",
     ):
         assert text.encode() in response.data, text
     # the state words are set by the script
@@ -286,6 +318,9 @@ def test_server_page_is_served(client: FlaskClient):
         "windowColumns(",
         # the file is a card of its own
         "file-line",
+        # the page asks with its own dialog, never the browser's
+        "confirm(",
+        "alert(",
     ):
         assert text.encode() not in response.data, text
 
@@ -756,3 +791,179 @@ def test_start_builds_an_auto_row(client: FlaskClient, monkeypatch: pytest.Monke
         {"model_id": "gpt-5.5", "api_key": "sk-test", "server_model_id": "gpt-5.5"}
     ]
     assert _model_ids(response.get_json()["base_url"]) == ["gpt-5.5"]
+
+
+def _test_body(client: FlaskClient, **row: Any) -> TestResponse:
+    return client.post("/server/api/test", json={"model": row})
+
+
+def _probe_client(
+    captured: dict[str, Any], events: list[dict[str, Any]] | None = None, error: Exception | None = None
+):
+    """A client class that records how it was built and asked, then streams `events` or raises `error`."""
+
+    class ProbeClient:
+        def __init__(self, model, api_key=None, base_url=None, client_type=None, default_headers=None):
+            captured["options"] = {
+                "model": model,
+                "api_key": api_key,
+                "base_url": base_url,
+                "client_type": client_type,
+            }
+            captured["default_headers"] = default_headers
+
+        async def streaming_response(self, messages, config, signal=None):
+            captured["messages"] = messages
+            captured["config"] = config
+            captured["signal"] = signal
+            for event in events or []:
+                yield event
+            if error is not None:
+                raise error
+
+    return ProbeClient
+
+
+def _event(event_type: str, items: list[dict[str, Any]], usage: dict[str, Any] | None = None) -> dict[str, Any]:
+    return {
+        "role": "assistant",
+        "event_type": event_type,
+        "content_items": items,
+        "usage_metadata": usage,
+        "finish_reason": "stop" if event_type == "stop" else None,
+    }
+
+
+_USAGE = {"cached_tokens": None, "prompt_tokens": 3, "thoughts_tokens": None, "response_tokens": 1}
+_ANSWER = [_event("delta", [{"type": "text.delta", "text": "1 2 3"}]), _event("stop", [], _USAGE)]
+
+
+def test_test_reports_a_reachable_upstream(client: FlaskClient, monkeypatch: pytest.MonkeyPatch):
+    captured: dict[str, Any] = {}
+    monkeypatch.setattr(playground, "AutoLLMClient", _probe_client(captured, _ANSWER))
+
+    response = _test_body(client, **_row())
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert list(body) == ["ok", "first_token_ms", "total_ms", "tokens_out", "tps"]
+    assert body["ok"] is True
+    assert isinstance(body["first_token_ms"], int) and isinstance(body["total_ms"], int)
+    assert body["tokens_out"] == 1
+    assert isinstance(body["tps"], float)
+    # built as create_server_app builds a row; the served id is not the upstream's business
+    assert captured["options"] == {
+        "model": "gpt-5.5",
+        "api_key": "sk-test",
+        "base_url": "http://127.0.0.1:1/v1",
+        "client_type": "openai-chat",
+    }
+    assert captured["default_headers"] is None
+    assert captured["messages"] == [
+        {"role": "user", "content_items": [{"type": "text.done", "text": playground.TEST_PROMPT}]}
+    ]
+    assert captured["config"] == {"max_tokens": 512}
+    assert isinstance(captured["signal"], AbortSignal)
+
+
+def test_test_reports_missing_usage(client: FlaskClient, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(playground, "AutoLLMClient", _probe_client({}, [_ANSWER[0], _event("stop", [], None)]))
+
+    body = _test_body(client, **_row()).get_json()
+
+    assert body["ok"] is True
+    assert isinstance(body["first_token_ms"], int)
+    assert body["tokens_out"] is None and body["tps"] is None
+
+
+def test_test_times_the_first_token_not_an_early_stop(client: FlaskClient, monkeypatch: pytest.MonkeyPatch):
+    # Anthropic reports usage in a stop event at message_start, before any token; a stream of no tokens has no rate
+    early_stop = [_event("stop", [], _USAGE), _event("stop", [], _USAGE)]
+    monkeypatch.setattr(playground, "AutoLLMClient", _probe_client({}, early_stop))
+
+    body = _test_body(client, **_row()).get_json()
+
+    assert body["ok"] is True
+    assert body["first_token_ms"] is None
+    assert body["tokens_out"] == 1 and body["tps"] is None
+
+
+def test_test_reports_an_upstream_failure(client: FlaskClient, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(
+        playground, "AutoLLMClient", _probe_client({}, error=RuntimeError("Error code: 401 - bad key"))
+    )
+    response = _test_body(client, **_row())
+    assert (response.status_code, response.get_json()) == (200, {"ok": False, "error": "Error code: 401 - bad key"})
+
+    # a client's own timeout is the client's message, named by its class when it carries none
+    monkeypatch.setattr(playground, "AutoLLMClient", _probe_client({}, error=TimeoutError()))
+    assert _test_body(client, **_row()).get_json() == {"ok": False, "error": "TimeoutError"}
+
+
+def test_test_resolves_environment_references(client: FlaskClient, monkeypatch: pytest.MonkeyPatch):
+    captured: dict[str, Any] = {}
+    monkeypatch.setattr(playground, "AutoLLMClient", _probe_client(captured, _ANSWER))
+    monkeypatch.setenv("PROBE_UPSTREAM_KEY", "sk-probe")
+
+    assert _test_body(client, **_row(api_key="$PROBE_UPSTREAM_KEY")).get_json()["ok"] is True
+    assert captured["options"]["api_key"] == "sk-probe"
+
+    captured.clear()
+    monkeypatch.delenv("NOPE_KEY", raising=False)
+    response = _test_body(client, **_row(api_key="$NOPE_KEY"))
+    assert response.status_code == 200
+    assert response.get_json() == {
+        "ok": False,
+        "error": "api_key references $NOPE_KEY, which is not set in the environment.",
+    }
+    assert captured == {}
+
+
+def test_test_names_a_client_that_cannot_build(client: FlaskClient):
+    body = _test_body(client, **_row(client_type="nope")).get_json()
+
+    assert body["ok"] is False
+    assert body["error"].startswith("Unknown client type 'nope'")
+
+
+def test_test_times_out(monkeypatch: pytest.MonkeyPatch):
+    captured: dict[str, Any] = {}
+
+    class SilentClient:
+        def __init__(self, model, api_key=None, base_url=None, client_type=None, default_headers=None):
+            pass
+
+        async def streaming_response(self, messages, config, signal=None):
+            captured["signal"] = signal
+            await signal.wait()
+            raise RuntimeError("aborted")
+            yield  # an async generator, as a client's stream is
+
+    monkeypatch.setattr(playground, "AutoLLMClient", SilentClient)
+
+    assert playground._test_upstream(_row(), timeout_s=0.05) == {"ok": False, "error": "No answer within 0.05 s."}
+    assert captured["signal"].aborted
+
+
+class _NeverBuilt:
+    def __init__(self, *args: Any, **kwargs: Any):
+        raise AssertionError("a refused body builds no client")
+
+
+@pytest.mark.parametrize(
+    ("body", "message"),
+    [
+        ([], "Request body must be a JSON object."),
+        ({"model": "x"}, "model must be an object."),
+        ({"model": {**_row(), "client_type": 5}}, "client_type must be a string."),
+        ({"model": {k: v for k, v in _row().items() if k != "api_key"}}, "api_key must be a non-empty string."),
+        ({"model": {**_row(), "model_id": ""}}, "model_id must be a non-empty string."),
+    ],
+)
+def test_test_refuses_a_malformed_body(client: FlaskClient, monkeypatch: pytest.MonkeyPatch, body: Any, message: str):
+    monkeypatch.setattr(playground, "AutoLLMClient", _NeverBuilt)
+
+    response = client.post("/server/api/test", json=body)
+
+    assert response.status_code == 400
+    assert response.get_json() == {"error": message}

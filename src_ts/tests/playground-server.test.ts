@@ -228,6 +228,19 @@ describe("Playground server page", () => {
       "fileReveal",
       "fileCopy",
       "themeToggle",
+      "openBanner",
+      "openBannerUrl",
+      "openBannerAction",
+      "startDialog",
+      "startDialogTitle",
+      "startDialogUrl",
+      "startDialogModels",
+      "startDialogKeys",
+      "startDialogNote",
+      "startDialogWarning",
+      "startDialogCancel",
+      "startDialogConfirm",
+      "testAllButton",
     ]) {
       expect(response.text).toContain(`id="${id}"`);
     }
@@ -319,6 +332,25 @@ describe("Playground server page", () => {
       // the server hands the page the chat page's client types and default endpoints
       '"openai-official"',
       "setTheme('dark')",
+      // Test on Models, the open-server banner and the Start dialog
+      "testRow(",
+      "testAll()",
+      "runTest(",
+      "postJson('/test'",
+      "openStartDialog(",
+      "confirmStartDialog()",
+      "closeStartDialog()",
+      "handleDialogKeydown(",
+      "handleDialogClose()",
+      "addKeyFromBanner()",
+      "<dialog",
+      "Start the server?",
+      "Apply the saved file?",
+      "Add a key",
+      "Model id and key first",
+      "TEST_LABELS",
+      "Passed",
+      "no usage reported",
     ]) {
       expect(response.text).toContain(fragment);
     }
@@ -346,6 +378,9 @@ describe("Playground server page", () => {
       "windowColumns(",
       // the file is a card of its own
       "file-line",
+      // the page asks with its own dialog, never the browser's
+      "confirm(",
+      "alert(",
     ]) {
       expect(response.text).not.toContain(fragment);
     }

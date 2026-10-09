@@ -1920,6 +1920,51 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             color: var(--subtle);
         }
 
+        /* a fact the page states in amber: the open-server banner, and the same warning in the Start dialog */
+        .notice {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 10px;
+            margin: 0 0 16px;
+            padding: 10px 14px;
+            border-radius: 10px;
+            background: var(--amber-soft);
+            color: var(--text);
+            font-size: 13px;
+            line-height: 1.45;
+        }
+
+        .notice svg {
+            flex: none;
+            color: var(--amber);
+        }
+
+        .notice b {
+            font-weight: 600;
+        }
+
+        .notice-text {
+            flex: 1 1 320px;
+            min-width: 0;
+        }
+
+        .notice .mono {
+            overflow-wrap: anywhere;
+        }
+
+        .notice-action {
+            color: var(--accent);
+            font-weight: 500;
+            white-space: nowrap;
+            border-radius: 4px;
+            transition: opacity 0.15s;
+        }
+
+        .notice-action:hover {
+            opacity: 0.8;
+        }
+
         .icon-btn.small {
             width: 24px;
             height: 24px;
@@ -1927,8 +1972,9 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             color: var(--subtle);
         }
 
-        /* the chat page's shimmer, on the status word while a start, an apply or a stop is on its way */
-        #statusText.loading {
+        /* the chat page's shimmer, on the status word while a start, an apply or a stop is on its way, and on a
+           test's word while it runs (.state, defined further down, would otherwise give that word its colour back) */
+        .loading, .state.loading {
             background: linear-gradient(90deg, var(--subtle) 0%, var(--subtle) 35%, var(--text) 50%, var(--subtle) 65%, var(--subtle) 100%);
             background-size: 250% 100%;
             -webkit-background-clip: text;
@@ -2068,7 +2114,14 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             font-weight: 600;
         }
 
-        .card-head .ghost-btn {
+        /* a button that ends a card head lines up with the card's content; a group of them shifts as one */
+        .card-head > .ghost-btn {
+            margin-right: -8px;
+        }
+
+        .card-actions {
+            display: flex;
+            gap: 2px;
             margin-right: -8px;
         }
 
@@ -2776,6 +2829,30 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             overflow-wrap: anywhere;
         }
 
+        /* the last Test of a row: its word, then what the upstream answered */
+        .row-test {
+            grid-column: 1 / -1;
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            margin: -4px 0 10px 8px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .row-test .test-text {
+            min-width: 0;
+            overflow-wrap: anywhere;
+        }
+
+        .row-test[data-state="error"] .test-text {
+            color: var(--red);
+        }
+
+        .test-field .btn {
+            align-self: flex-start;
+        }
+
         /* only opacity and a 4px rise: the layout itself never animates */
         .editor {
             grid-column: 1 / -1;
@@ -2986,6 +3063,93 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             background: var(--green);
         }
 
+        .state[data-state="ok"]::before {
+            box-shadow: none;
+            background: var(--green);
+        }
+
+        .state[data-state="error"]::before {
+            box-shadow: none;
+            background: var(--red);
+        }
+
+        .state[data-state="testing"]::before {
+            box-shadow: none;
+            background: var(--subtle);
+        }
+
+        /* the Start and Apply confirmation: what the saved file will serve, and where */
+        .modal {
+            width: min(440px, calc(100vw - 32px));
+            padding: 20px 22px 18px;
+            border: 0;
+            border-radius: 12px;
+            background: var(--surface);
+            color: var(--text);
+            box-shadow: var(--shadow-menu);
+        }
+
+        .modal::backdrop {
+            background: rgba(0, 0, 0, 0.35);
+        }
+
+        /* focusable, so that Enter pressed after a click on its text reaches handleDialogKeydown; the buttons
+           carry the ring */
+        .modal:focus-visible {
+            outline: none;
+        }
+
+        .modal[open] {
+            animation: menu-in 0.18s var(--ease);
+        }
+
+        .modal-title {
+            margin: 0 0 14px;
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+        }
+
+        .facts {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr);
+            gap: 8px 14px;
+            margin: 0;
+            font-size: 13px;
+        }
+
+        .facts dt {
+            color: var(--muted);
+            font-size: 12.5px;
+            font-weight: 500;
+        }
+
+        .facts dd {
+            margin: 0;
+            overflow-wrap: anywhere;
+        }
+
+        .modal .field-note {
+            margin: 12px 0 0;
+        }
+
+        .modal .notice {
+            flex-wrap: nowrap;
+            align-items: flex-start;
+            margin: 14px 0 0;
+        }
+
+        .modal .notice svg {
+            margin-top: 2px;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 18px;
+        }
+
         @media (max-width: 1100px) {
             .tiles {
                 grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -3188,6 +3352,11 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
         </div>
     </header>
     <main class="page">
+        <div id="openBanner" class="notice hidden" role="status">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"></path><path d="M12 9v4M12 17h.01"></path></svg>
+            <span class="notice-text"><b>Open server.</b> No keys: anyone who can reach <span id="openBannerUrl" class="mono"></span> can use its models.</span>
+            <button type="button" id="openBannerAction" class="notice-action" onclick="addKeyFromBanner()">Add a key</button>
+        </div>
         <section class="status" id="statusBar">
             <span class="status-dot" id="statusDot" data-state="stopped" aria-hidden="true"></span>
             <div class="status-text" role="status">
@@ -3199,7 +3368,7 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
                 <span class="status-meta hidden" id="statusMeta"><span id="statusOpen" class="hidden" title="No keys: open to every request">open</span><span id="statusUptime"></span><span id="statusStreaming" class="hidden"></span></span>
             </div>
             <div class="actions">
-                <button type="button" id="applyButton" class="btn hidden" onclick="restartServer()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path><path d="M16 16h5v5"></path></svg><span id="applyLabel">Apply</span></button>
+                <button type="button" id="applyButton" class="btn hidden" onclick="openStartDialog('apply')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path><path d="M16 16h5v5"></path></svg><span id="applyLabel">Apply</span></button>
                 <button type="button" id="saveButton" class="ghost-btn" onclick="saveServerConfig()" disabled><svg class="save-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><path d="M17 21v-8H7v8M7 3v5h8"></path></svg><svg class="saved-icon hidden" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg><span id="saveLabel">Save</span><kbd id="saveKey" class="kbd" aria-hidden="true">⌘S</kbd></button>
                 <button type="button" id="serverToggle" class="btn" data-state="stopped" onclick="toggleServer()" disabled title="Save first">
                     <svg id="serverToggleStart" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4l14 8-14 8Z"></path></svg>
@@ -3276,7 +3445,7 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
 
         <section id="panelModels" role="tabpanel" aria-labelledby="tabModels" hidden>
             <div class="card">
-                <div class="card-head"><span class="card-title">Models</span><button type="button" id="addRowButton" class="ghost-btn" onclick="addRow()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg><span>Model</span></button></div>
+                <div class="card-head"><span class="card-title">Models</span><span class="card-actions"><button type="button" id="testAllButton" class="ghost-btn" onclick="testAll()" disabled title="Model id and key first"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="m8.5 12.5 2.5 2.5 4.5-5"></path></svg><span>Test all</span></button><button type="button" id="addRowButton" class="ghost-btn" onclick="addRow()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg><span>Model</span></button></span></div>
                 <div class="table" id="modelTable">
                     <div class="table-head" id="tableHead" aria-hidden="true"><span>Served as</span><span>Model</span><span>State</span><span></span><span></span></div>
                     <div id="modelRows" role="list"></div>
@@ -3319,6 +3488,21 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
                 <pre id="fileView" class="json" tabindex="0"><code></code></pre>
             </div>
         </section>
+
+        <dialog id="startDialog" class="modal" tabindex="-1" aria-labelledby="startDialogTitle" onkeydown="handleDialogKeydown(event)" onclose="handleDialogClose()">
+            <h2 id="startDialogTitle" class="modal-title">Start the server?</h2>
+            <dl class="facts">
+                <dt>Listens at</dt><dd id="startDialogUrl" class="mono"></dd>
+                <dt>Models</dt><dd id="startDialogModels"></dd>
+                <dt>Keys</dt><dd id="startDialogKeys"></dd>
+            </dl>
+            <p id="startDialogNote" class="field-note hidden">The running server stops and this file is served.</p>
+            <p id="startDialogWarning" class="notice hidden"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"></path><path d="M12 9v4M12 17h.01"></path></svg><span class="notice-text">No keys: anyone who can reach the URL can use its models.</span></p>
+            <div class="modal-actions">
+                <button type="button" id="startDialogCancel" class="btn secondary" onclick="closeStartDialog()">Cancel</button>
+                <button type="button" id="startDialogConfirm" class="btn" onclick="confirmStartDialog()">Start</button>
+            </div>
+        </dialog>
     </main>
 
     <script>
@@ -3367,6 +3551,10 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
         // window columns that add up when buckets merge; percentiles merge to their peak, TPS is recomputed
         const SUMMED = ['requests', 'successes', 'failures', 'disconnects', 'refused', 'tokens_out', 'thoughts', 'response', 'generation_ms'];
         const STATE_LABELS = { live: 'Live', saved: 'Saved', unsaved: 'Unsaved' };
+        const TEST_LABELS = { testing: 'Testing…', ok: 'Passed', error: 'Failed' };
+        // tests run against the vendors themselves, so a long table is not sent all at once
+        const TEST_CONCURRENCY = 3;
+        const TEST_TITLE = 'Model id and key first';
         const OUTCOME_WORDS = { success: 'ok', failure: 'failed', disconnect: 'dropped' };
         const CHEVRON_ICON = '<svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>';
         const REMOVE_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg>';
@@ -3399,6 +3587,8 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
         let resizeTimer = null;
         let nextRowId = 1;
         let nextKeyId = 1;
+        let testingAll = false;
+        let dialogAction = 'start'; // what the Start dialog confirms: start or apply
 
         function $(id) {
             return document.getElementById(id);
@@ -3618,6 +3808,7 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
                     <span class="row-chevron" aria-hidden="true">${CHEVRON_ICON}</span>
                 </div>
                 <p class="row-note mono hidden"></p>
+                <p class="row-test hidden"><span class="state test-state" data-state="testing">Testing…</span><span class="test-text mono"></span></p>
                 <div class="editor hidden" id="editor-${rowId}">
                     <label class="field"><span>Model id</span><input class="control code" data-column="model_id" type="text" placeholder="claude-sonnet-5-5" aria-label="Model id" spellcheck="false" autocomplete="off" oninput="handleModelIdInput(this)"></label>
                     <label class="field"><span>Served as</span><input class="control code" data-column="server_model_id" type="text" placeholder="claude" aria-label="Served as" spellcheck="false" autocomplete="off" oninput="handleServerIdInput(this)"></label>
@@ -3631,6 +3822,7 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
                         </div>
                     </div>
                     <label class="field"><span>Base URL</span><input class="control code" data-column="base_url" type="url" placeholder="Default" aria-label="Base URL" spellcheck="false" autocomplete="off" oninput="handleCellInput(this)"></label>
+                    <div class="field test-field"><span>Upstream</span><button type="button" class="btn secondary test-btn" onclick="testRow('${rowId}')" disabled title="Model id and key first">Test</button></div>
                 </div>
                 <button type="button" class="icon-btn remove-btn" onclick="removeRow('${rowId}')" aria-label="Remove model" title="Remove">${REMOVE_ICON}</button>
             `;
@@ -3841,6 +4033,7 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             renderActions();
             renderChecklist();
             renderModelCards(series);
+            renderTestControls();
         }
 
         function upstreamText(cells) {
@@ -4093,6 +4286,10 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             $('statusUrlWrap').classList.toggle('hidden', !running);
             $('statusMeta').classList.toggle('hidden', !running);
             $('statusOpen').classList.toggle('hidden', !(running && status.open));
+            // no dismiss: the banner mirrors a live fact, and goes with it
+            const open = running && !!status.open;
+            $('openBanner').classList.toggle('hidden', !open);
+            $('openBannerUrl').textContent = open ? status.base_url : '';
             $('checklist').classList.toggle('hidden', running);
             if (running) {
                 requestAnimationFrame(paintRange);
@@ -5116,11 +5313,88 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
         }
 
         function toggleServer() {
-            return status.running ? stopServer() : startServer();
+            return status.running ? stopServer() : openStartDialog('start');
+        }
+
+        // mirrors server_base_url: an IPv6 host goes in brackets
+        function baseUrlOf(host, port) {
+            return 'http://' + (host.includes(':') ? '[' + host + ']' : host) + ':' + port + '/v1';
+        }
+
+        // Start and Apply say first what the saved file serves, where, and with which keys; Stop exposes nothing
+        function openStartDialog(action) {
+            const dialog = $('startDialog');
+            if (!saved || !saved.config || dialog.open) {
+                return;
+            }
+            dialogAction = action;
+            const c = saved.config;
+            const models = Array.isArray(c.models) ? c.models.length : 0;
+            const keys = Array.isArray(c.api_keys) ? c.api_keys.length : 0;
+            $('startDialogTitle').textContent = action === 'apply' ? 'Apply the saved file?' : 'Start the server?';
+            $('startDialogConfirm').textContent = action === 'apply' ? 'Apply' : 'Start';
+            $('startDialogUrl').textContent = c.port === 0 ? c.host + ', a port the system picks' : baseUrlOf(c.host, c.port);
+            $('startDialogModels').textContent = models === 1 ? '1 model' : models + ' models';
+            $('startDialogKeys').textContent = keys === 0 ? 'None' : keys === 1 ? '1 key' : keys + ' keys';
+            $('startDialogWarning').classList.toggle('hidden', keys !== 0);
+            $('startDialogNote').classList.toggle('hidden', action !== 'apply');
+            closeComboboxes();
+            closeRangePopover(false);
+            hideTip();
+            dialog.showModal();
+            $('startDialogConfirm').focus();
+        }
+
+        function closeStartDialog() {
+            const dialog = $('startDialog');
+            if (dialog.open) {
+                dialog.close();
+            }
+        }
+
+        function confirmStartDialog() {
+            const action = dialogAction;
+            closeStartDialog();
+            if (action === 'apply') {
+                restartServer();
+            } else {
+                startServer();
+            }
+        }
+
+        // Enter anywhere in the dialog confirms; a focused button acts on Enter by itself, so it is left alone and
+        // nothing starts twice. Escape is the dialog's own cancel.
+        function handleDialogKeydown(event) {
+            if (event.key === 'Enter' && !(event.target instanceof HTMLButtonElement) && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) {
+                event.preventDefault();
+                confirmStartDialog();
+            }
+        }
+
+        function handleDialogClose() {
+            const apply = $('applyButton');
+            if (dialogAction === 'apply' && !apply.classList.contains('hidden')) {
+                apply.focus();
+            } else {
+                $('serverToggle').focus();
+            }
+        }
+
+        function addKeyFromBanner() {
+            showTab('settings');
+            const blank = keyInputs().find((input) => !input.value.trim());
+            if (blank) {
+                blank.focus();
+            } else {
+                addKey();
+            }
         }
 
         // Start and Apply run the saved file, so the body is empty and unsaved edits stay unsaved
         async function startServer() {
+            if (phase === 'starting' || phase === 'applying') {
+                return;
+            }
             hideError();
             phase = 'starting';
             renderActions();
@@ -5148,6 +5422,9 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
 
         // a refused table leaves the old server running; a failed bind leaves none, so the status is read again
         async function restartServer() {
+            if (phase === 'starting' || phase === 'applying') {
+                return;
+            }
             hideError();
             phase = 'applying';
             renderActions();
@@ -5221,9 +5498,130 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             error.classList.remove('hidden');
         }
 
+        // every cell handler comes here, so an edited row also drops a test result that no longer describes it
         function clearRing(row) {
             row.classList.remove('invalid');
             row.querySelectorAll('.invalid').forEach((item) => item.classList.remove('invalid'));
+            clearTest(row);
+        }
+
+        function testableRow(row) {
+            const c = normalizeRow(rowCells(row));
+            return !!(c.model_id && c.api_key);
+        }
+
+        function renderTestControls() {
+            modelRows().forEach((row) => {
+                const button = row.querySelector('.test-btn');
+                const testable = testableRow(row);
+                const testing = row.dataset.testing === 'true';
+                button.disabled = !testable || testing;
+                if (testable) {
+                    button.removeAttribute('title');
+                } else {
+                    button.setAttribute('title', TEST_TITLE);
+                }
+                button.textContent = testing ? TEST_LABELS.testing : 'Test';
+            });
+            const all = $('testAllButton');
+            const any = modelRows().some(testableRow);
+            all.disabled = testingAll || !any;
+            if (any) {
+                all.removeAttribute('title');
+            } else {
+                all.setAttribute('title', TEST_TITLE);
+            }
+            all.querySelector('span').textContent = testingAll ? TEST_LABELS.testing : 'Test all';
+        }
+
+        function setTestResult(row, state, text) {
+            const line = row.querySelector('.row-test');
+            line.classList.remove('hidden');
+            line.dataset.state = state;
+            const word = line.querySelector('.test-state');
+            word.dataset.state = state;
+            word.textContent = TEST_LABELS[state];
+            word.classList.toggle('loading', state === 'testing');
+            const detail = line.querySelector('.test-text');
+            detail.textContent = text;
+            detail.title = text;
+        }
+
+        // a key row has no result to clear
+        function clearTest(row) {
+            const line = row.querySelector('.row-test');
+            if (line) {
+                line.classList.add('hidden');
+            }
+            delete row.dataset.testKey;
+        }
+
+        function formatTestResult(result) {
+            const first = result.first_token_ms == null ? 'no tokens' : 'first token ' + formatMs(result.first_token_ms);
+            const tokens = result.tokens_out == null
+                ? 'no usage reported'
+                : formatCount(result.tokens_out) + ' tokens out' + (result.tps == null ? '' : ' · ' + formatTps(result.tps) + ' TPS');
+            return first + ' · total ' + formatMs(result.total_ms) + ' · ' + tokens;
+        }
+
+        // the row as it is edited now, not as saved; a result is not kept, it describes a moment, not the table
+        async function runTest(row) {
+            const cells = normalizeRow(rowCells(row));
+            const key = rowKey(cells);
+            row.dataset.testing = 'true';
+            row.dataset.testKey = key;
+            setTestResult(row, 'testing', '');
+            renderTestControls();
+            let state = 'error';
+            let text = '';
+            try {
+                const { response, answer } = await postJson('/test', { model: cells });
+                if (response.ok && answer.ok) {
+                    state = 'ok';
+                    text = formatTestResult(answer);
+                } else {
+                    text = answer.error || ('HTTP ' + response.status);
+                }
+            } catch (error) {
+                text = error.message;
+            } finally {
+                delete row.dataset.testing;
+                renderTestControls();
+            }
+            // an edit while the test ran disowns its answer
+            if (row.isConnected && row.dataset.testKey === key) {
+                setTestResult(row, state, text);
+            }
+        }
+
+        function testRow(rowId) {
+            const row = document.querySelector('#modelRows [data-row-id="' + rowId + '"]');
+            if (row && testableRow(row) && row.dataset.testing !== 'true') {
+                runTest(row);
+            }
+        }
+
+        async function testAll() {
+            if (testingAll) {
+                return;
+            }
+            testingAll = true;
+            renderTestControls();
+            const queue = modelRows().filter((row) => testableRow(row) && row.dataset.testing !== 'true');
+            const worker = async () => {
+                while (queue.length) {
+                    const row = queue.shift();
+                    if (row.isConnected && testableRow(row) && row.dataset.testing !== 'true') {
+                        await runTest(row);
+                    }
+                }
+            };
+            try {
+                await Promise.all(Array.from({ length: TEST_CONCURRENCY }, worker));
+            } finally {
+                testingAll = false;
+                renderTestControls();
+            }
         }
 
         // the server names a row by its index, and mostly the cell too: that cell is ringed and its editor opened,
@@ -5277,6 +5675,13 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
         // Ctrl/Cmd+S saves from anywhere, inputs included; Escape closes the editor the focus is in
         function handleShortcut(event) {
             const key = (event.key || '').toLowerCase();
+            // inert while the Start dialog asks, the browser's own Save page included
+            if ($('startDialog').open) {
+                if ((event.metaKey || event.ctrlKey) && key === 's') {
+                    event.preventDefault();
+                }
+                return;
+            }
             if ((event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey && key === 's') {
                 event.preventDefault();
                 if (phase !== 'starting' && phase !== 'applying') {

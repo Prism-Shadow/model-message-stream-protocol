@@ -25,13 +25,14 @@ import * as fs from "fs";
 import http from "http";
 import { AddressInfo } from "net";
 import * as path from "path";
+import { performance } from "perf_hooks";
 import {
   AutoLLMClient,
   COMPATIBLE_CLIENT_TYPES,
   MODEL_FAMILIES,
   OFFICIAL_CLIENT_TYPES,
 } from "../autoClient";
-import { UniMessage, UniConfig } from "../types";
+import { UniMessage, UniConfig, UsageMetadata } from "../types";
 import { DEFAULT_HOST, DEFAULT_PORT, serverBaseUrl } from "../wire";
 import {
   COLUMNS,
@@ -45,6 +46,7 @@ import {
   parseServerConfig,
   readServerConfig,
   resolveServerConfig,
+  tps,
 } from "./server";
 import { Tracer } from "./tracer";
 
@@ -81,6 +83,13 @@ interface RunningServer {
 // two cannot both bind
 let mmspServer: RunningServer | null = null;
 let mmspServerStarting = false;
+
+// the server page's Test: one short prompt straight to a row's upstream, long enough to measure a
+// rate
+export const TEST_PROMPT =
+  "Write the numbers from 1 to 120, separated by spaces, and nothing else.";
+export const TEST_MAX_TOKENS = 512;
+export const TEST_TIMEOUT_MS = 60_000;
 
 interface PlaygroundConfig extends UniConfig {
   model?: string;
@@ -318,10 +327,121 @@ async function stopMmspServer(): Promise<void> {
 }
 
 /**
+ * An error as the page shows it: its message, else its class name, since the page shows no empty
+ * error.
+ */
+function describeError(error: unknown): string {
+  return error instanceof Error
+    ? error.message || error.constructor.name
+    : String(error);
+}
+
+/**
+ * A refusal of a one-row config as it reads about the row itself: without the `models[0]` it
+ * starts with.
+ */
+function rowMessage(message: string): string {
+  return message.replace(/^models\[0\](?:\.|: )/, "");
+}
+
+/**
+ * Send the test prompt straight to a row's upstream, its `$VAR` cells read from this process's
+ * environment, and time it.
+ *
+ * @param row - The row as the page edits it: its known columns, as typed
+ * @param timeoutMs - How long the whole answer may take
+ * @returns `{ ok: true, first_token_ms, total_ms, tokens_out, tps }`, or `{ ok: false, error }`
+ * for a row that cannot be resolved, a client that cannot be built, an upstream error or a timeout
+ */
+export async function testUpstream(
+  row: Record<string, string>,
+  timeoutMs = TEST_TIMEOUT_MS,
+): Promise<Record<string, unknown>> {
+  let resolved: Record<string, string>;
+  try {
+    resolved = resolveServerConfig({ models: [row], api_keys: [] })
+      .models[0] as unknown as Record<string, string>;
+  } catch (error) {
+    return { ok: false, error: rowMessage(errorMessage(error)) };
+  }
+  let client: AutoLLMClient;
+  try {
+    client = new AutoLLMClient({
+      model: resolved.model_id,
+      apiKey: resolved.api_key,
+      baseUrl: resolved.base_url || undefined,
+      clientType: resolved.client_type || undefined,
+    });
+  } catch (error) {
+    return { ok: false, error: describeError(error) };
+  }
+
+  const controller = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+  const started = performance.now();
+  let first: number | null = null;
+  let usage: UsageMetadata | null = null;
+  let ended: number;
+  try {
+    for await (const event of client.streamingResponse({
+      messages: [
+        {
+          role: "user",
+          content_items: [{ type: "text.done", text: TEST_PROMPT }],
+        },
+      ],
+      config: { max_tokens: TEST_MAX_TOKENS },
+      signal: controller.signal,
+    })) {
+      // a stop event may come before any token (Anthropic reports usage at message_start), so the
+      // first token is the first event that carries an item
+      if (first === null && event.content_items.length > 0) {
+        first = performance.now();
+      }
+      if (event.event_type === "stop") {
+        usage = event.usage_metadata;
+      }
+    }
+    ended = performance.now();
+  } catch (error) {
+    return {
+      ok: false,
+      error: timedOut
+        ? `No answer within ${timeoutMs / 1000} s.`
+        : describeError(error),
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+
+  const totalMs = Math.round(ended - started);
+  const firstTokenMs = first === null ? null : Math.round(first - started);
+  const tokensOut =
+    usage && (usage.thoughts_tokens !== null || usage.response_tokens !== null)
+      ? (usage.thoughts_tokens ?? 0) + (usage.response_tokens ?? 0)
+      : null;
+  return {
+    ok: true,
+    first_token_ms: firstTokenMs,
+    total_ms: totalMs,
+    tokens_out: tokensOut,
+    tps:
+      firstTokenMs === null || tokensOut === null
+        ? null
+        : tps(tokensOut, Math.max(totalMs - firstTokenMs, 1)),
+  };
+}
+
+/**
  * Create the server page's app: the page at `/`, and `/api/config`, `/api/status`, `/api/start`,
- * `/api/restart`, `/api/stop`, `/api/metrics`. Start and restart serve the saved config file,
- * never a request body. The server keeps its metrics history beside the config, so a restart
- * continues it and the page reads it while no server runs. The parent app parses the JSON bodies.
+ * `/api/restart`, `/api/stop`, `/api/metrics`, `/api/test`. Start and restart serve the saved
+ * config file, never a request body. The server keeps its metrics history beside the config, so a
+ * restart continues it and the page reads it while no server runs. The parent app parses the JSON
+ * bodies.
  *
  * @param configPath - The absolute path of the config file the page saves
  * @returns Express application instance, mounted at /server
@@ -560,6 +680,38 @@ function createServerPageApp(configPath: string): Express {
   app.post("/api/stop", async (_req: Request, res: Response) => {
     await stopMmspServer();
     res.json({ running: false });
+  });
+
+  // one short prompt straight to a row's upstream, as the page edits it: whether it answered and
+  // how fast
+  app.post("/api/test", async (req: Request, res: Response) => {
+    const refuse = (message: string) =>
+      res.status(400).json({ error: message });
+    const body: unknown = req.is("application/json") ? req.body : null;
+    if (!isObject(body)) {
+      return refuse("Request body must be a JSON object.");
+    }
+    const row = body.model;
+    if (!isObject(row)) {
+      return refuse("model must be an object.");
+    }
+    for (const column of COLUMNS) {
+      if (column in row && typeof row[column] !== "string") {
+        return refuse(`${column} must be a string.`);
+      }
+    }
+    for (const column of ["model_id", "api_key"]) {
+      if (!row[column]) {
+        return refuse(`${column} must be a non-empty string.`);
+      }
+    }
+    const cells = Object.fromEntries(
+      COLUMNS.filter((column) => column in row).map((column) => [
+        column,
+        row[column] as string,
+      ]),
+    );
+    return res.json(await testUpstream(cells));
   });
 
   // read in-process, so the page needs no server key; the query as GET /v1/metrics takes it.
@@ -1720,6 +1872,34 @@ export function createChatApp(): Express {
               font-size: 12px;
           }
 
+          .divider {
+              display: flex;
+              align-items: center;
+              gap: 12px;
+              margin: 4px 0 28px;
+              color: var(--subtle);
+              font-size: 12px;
+              animation: msg-in 0.35s var(--ease);
+          }
+
+          .divider::before, .divider::after {
+              content: "";
+              flex: 1;
+              height: 1px;
+              background: var(--ring);
+          }
+
+          .divider span {
+              max-width: 80%;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+          }
+
+          .divider .mono {
+              color: var(--muted);
+          }
+
           .reason {
               display: inline-flex;
               align-items: center;
@@ -2182,7 +2362,7 @@ export function createChatApp(): Express {
                           <button type="button" class="icon-btn" onclick="document.getElementById('imageInput').click()" aria-label="Attach images" title="Attach images">
                               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.4 11.1-8.8 8.8a5.5 5.5 0 0 1-7.8-7.8l8.8-8.8a3.7 3.7 0 0 1 5.2 5.2l-8.8 8.8a1.8 1.8 0 0 1-2.6-2.6l8.1-8.1"></path></svg>
                           </button>
-                          <span class="composer-hint">Enter to send, Shift+Enter for a new line</span>
+                          <span class="composer-hint" id="composerHint">Enter to send, Shift+Enter for a new line</span>
                           <button type="button" class="send-btn" id="sendButton" onclick="sendMessage()" aria-label="Send" title="Send" disabled>
                               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"></path></svg>
                           </button>
@@ -2198,6 +2378,8 @@ export function createChatApp(): Express {
       <script>
           let isStreaming = false;
           let sessionId = Math.random().toString(36).substring(7);
+          // the entry (model id, client type, base URL) the conversation on screen was started with; null before the first message
+          let conversationEntry = null;
           let selectedImages = [];
           let lastMessageTimestamp = null;
           let currentAbortController = null;
@@ -2822,6 +3004,8 @@ export function createChatApp(): Express {
               document.getElementById('headerClientType').textContent = clientType || 'client type required';
               document.getElementById('emptyStateModel').textContent = model;
               document.getElementById('messageInput').placeholder = \`Message \${model}\`;
+              const hint = document.getElementById('composerHint');
+              hint.textContent = switchPending() ? \`Enter starts a new conversation with \${model}\` : 'Enter to send, Shift+Enter for a new line';
           }
 
           function handleModelSelectChange() {
@@ -2869,6 +3053,7 @@ export function createChatApp(): Express {
                   option.dataset.baseUrl = document.getElementById('baseUrlInput').value.trim();
               }
               updateBaseUrlTag();
+              updateHeader();
           }
 
           function handleApiKeyInput() {
@@ -3345,7 +3530,14 @@ export function createChatApp(): Express {
 
               if ((!message && selectedImages.length === 0) || isStreaming) return;
 
+              // set first, so that a second Enter while the old conversation is cleared is ignored
               isStreaming = true;
+              if (switchPending()) {
+                  await startNewConversation();
+              }
+              if (conversationEntry === null) {
+                  conversationEntry = currentEntryKey();
+              }
               currentAbortController = new AbortController();
               setStreamingControls(true);
               input.value = '';
@@ -3557,9 +3749,11 @@ export function createChatApp(): Express {
           function resetThread() {
               sessionId = Math.random().toString(36).substring(7);
               lastMessageTimestamp = null;
+              conversationEntry = null;
               document.getElementById('thread').innerHTML = '';
               document.getElementById('thread').classList.add('hidden');
               document.getElementById('emptyState').classList.remove('hidden');
+              updateHeader();
           }
 
           function clearChat() {
@@ -3584,6 +3778,48 @@ export function createChatApp(): Express {
               }).catch(error => {
                   console.error('Error clearing chat:', error);
               });
+          }
+
+          function currentEntryKey() {
+              return entryKey(getSelectedModel(), getSelectedClientType(), document.getElementById('baseUrlInput').value.trim());
+          }
+
+          function threadHasMessages() {
+              return document.querySelector('#thread .msg') !== null;
+          }
+
+          // a message sent to another entry than the one the conversation on screen began with starts a new conversation
+          function switchPending() {
+              return conversationEntry !== null && threadHasMessages() && currentEntryKey() !== conversationEntry;
+          }
+
+          function addDivider(model) {
+              showThread();
+              document.getElementById('thread').insertAdjacentHTML('beforeend', \`<div class="divider" role="separator" aria-label="New conversation"><span>New conversation with <span class="mono">\${escapeHtml(model)}</span> · the messages above are not sent</span></div>\`);
+              scrollToBottom(true);
+          }
+
+          // the earlier messages stay on screen above the divider; the backend forgets them with the old session
+          async function startNewConversation() {
+              const previous = sessionId;
+              sessionId = Math.random().toString(36).substring(7);
+              try {
+                  await fetch('/api/clear', {
+                      method: 'POST',
+                      headers: {
+                          'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                          session_id: previous
+                      })
+                  });
+              } catch (error) {
+                  // the new session starts anyway; the old client lingers until the process ends
+                  console.error('Error clearing chat:', error);
+              }
+              addDivider(getSelectedModel() || 'a custom model');
+              conversationEntry = currentEntryKey();
+              updateHeader();
           }
 
           document.getElementById('messageInput').addEventListener('keydown', function(e) {
@@ -3684,11 +3920,18 @@ export function createChatApp(): Express {
 
     try {
       const clientOptions = getClientOptions(config || {});
+      const previous = sessionClients.get(sessionId);
       if (
-        !sessionClients.has(sessionId) ||
+        !previous ||
         clientOptionsChanged(sessionClientOptions.get(sessionId), clientOptions)
       ) {
-        sessionClients.set(sessionId, new AutoLLMClient(clientOptions));
+        const client = new AutoLLMClient(clientOptions);
+        // the session is the conversation: a key or headers edit rebuilds the client and keeps the
+        // history; only /api/clear ends it
+        if (previous) {
+          client.setHistory(previous.getHistory());
+        }
+        sessionClients.set(sessionId, client);
         sessionClientOptions.set(sessionId, clientOptions);
       }
 
