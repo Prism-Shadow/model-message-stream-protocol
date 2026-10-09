@@ -27,6 +27,16 @@ Python 将这些字段命名为 `tool_name`、`tool_call_id`、`raw_arguments_le
 
 思考级别从不抛错。每个客户端都会把你要求的级别映射到模型支持的最接近的一档。
 
+## 经由 MMSP 服务端
+
+服务端报告的任何错误，[`mmsp` 客户端](/zh/docs/server/)都以同一个错误抛出。
+
+| 错误 | 何时抛出 | 携带 |
+| --- | --- | --- |
+| `UpstreamError` | 服务端拒绝了请求（key 不对、不在它的表里的模型、请求体格式错误），或它的客户端抛出了错误 | `client`、`status`、`error_type`、`message`、`error` |
+
+`client` 是 `MmspClient`。`status` 是被拒请求的 HTTP 状态码；否则，若错误带有上游的状态码（比如 429），则是该状态码。`error_type` 是服务端那一侧的类名，比如 `AuthenticationError`、`NotFoundError`、`EmptyResponseError`、`UnsupportedParameterError` 或 `RuntimeError`。`error` 是服务端发来的错误对象，带着该错误自己的字段，比如 `parameter` 或 `usage_metadata`。TypeScript 中这两个字段名为 `errorType` 和 `error`。
+
 ## MMSP 不认识的输出
 
 网关会往流里插入自己的帧，比如心跳、计费提示。MMSP 会跳过它不认识的内容，因此这类帧不会中断一次长生成。

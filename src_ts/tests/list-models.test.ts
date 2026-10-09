@@ -146,7 +146,7 @@ describe("listModels", () => {
       model: "gemini-3.7-flash",
       apiKey: "test-key",
     });
-    expect(routedClientName(client)).toBe("GeminiOfficialClient");
+    expect(routedClientName(client)).toBe("GoogleOfficialClient");
     installFakeModels(client, {
       models: {
         list: async () =>
@@ -185,7 +185,7 @@ describe("listModels", () => {
     {
       apiKey: "test-key",
       clientType: undefined,
-      expectedClient: "GeminiOfficialClient",
+      expectedClient: "GoogleOfficialClient",
       expected: geminiFamily,
     },
     {

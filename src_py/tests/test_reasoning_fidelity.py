@@ -465,7 +465,7 @@ async def test_responses_message_items_keep_their_phase_and_replay_splits_only_o
 async def test_gemini_replays_a_bytes_signature_on_a_thinking_item_as_base64():
     """The generateContent client recorded every thought signature as bytes, a thinking item's included."""
     client = AutoLLMClient(model="gemini-3.8-flash", api_key="test-key")
-    assert client._client.__class__.__name__ == "GeminiOfficialClient"  # noqa: SLF001
+    assert client._client.__class__.__name__ == "GoogleOfficialClient"  # noqa: SLF001
     history = [
         _user_message(),
         {

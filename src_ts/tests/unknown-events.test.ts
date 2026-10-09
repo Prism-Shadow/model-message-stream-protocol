@@ -96,9 +96,9 @@ const MESSAGES_STREAM_CASES: StreamCase[] = [
 // Every client that parses the Gemini Interactions event shape.
 const GEMINI_STREAM_CASES: StreamCase[] = [
   {
-    expectedClient: "GeminiOfficialClient",
+    expectedClient: "GoogleOfficialClient",
     model: "gemini-3.8-flash",
-    clientType: "gemini-official",
+    clientType: "google-official",
   },
 ];
 

@@ -21,18 +21,75 @@
  */
 
 import express, { Express, NextFunction, Request, Response } from "express";
+import * as fs from "fs";
+import http from "http";
+import { AddressInfo } from "net";
+import * as path from "path";
+import { performance } from "perf_hooks";
 import {
   AutoLLMClient,
   COMPATIBLE_CLIENT_TYPES,
   MODEL_FAMILIES,
   OFFICIAL_CLIENT_TYPES,
 } from "../autoClient";
-import { UniMessage, UniConfig } from "../types";
+import { UniMessage, UniConfig, UsageMetadata } from "../types";
+import { DEFAULT_HOST, DEFAULT_PORT, serverBaseUrl } from "../wire";
+import {
+  COLUMNS,
+  MetricsQuery,
+  SERVER_TEMPLATE,
+  ServerConfig,
+  ServerMetrics,
+  announceServer,
+  createServerApp,
+  parseMetricsQuery,
+  parseServerConfig,
+  readServerConfig,
+  resolveServerConfig,
+  tps,
+} from "./server";
 import { Tracer } from "./tracer";
 
 const sessionClients: Map<string, AutoLLMClient> = new Map();
 const sessionClientOptions: Map<string, PlaygroundClientOptions> = new Map();
 const sessionAbortControllers: Map<string, AbortController> = new Map();
+
+/**
+ * The server page's config file as the page compares it: rows and keys as written, host and port
+ * with the defaults filled.
+ */
+interface SavedConfig {
+  models: unknown[];
+  api_keys: unknown[];
+  host: string;
+  port: number;
+}
+
+/**
+ * The MMSP server the playground started, until it is stopped.
+ */
+interface RunningServer {
+  server: http.Server;
+  host: string;
+  port: number;
+  modelIds: string[];
+  open: boolean;
+  /** The saved config it was started from */
+  config: SavedConfig;
+  metrics: ServerMetrics;
+}
+
+// one server per process, dying with it; a start or restart in flight counts as running, so that
+// two cannot both bind
+let mmspServer: RunningServer | null = null;
+let mmspServerStarting = false;
+
+// the server page's Test: one short prompt straight to a row's upstream, long enough to measure a
+// rate
+export const TEST_PROMPT =
+  "Write the numbers from 1 to 120, separated by spaces, and nothing else.";
+export const TEST_MAX_TOKENS = 512;
+export const TEST_TIMEOUT_MS = 60_000;
 
 interface PlaygroundConfig extends UniConfig {
   model?: string;
@@ -124,7 +181,7 @@ function serializeForJson(obj: any): any {
 const DEFAULT_BASE_URLS: Record<string, [string, string]> = {
   "openai-official": ["OPENAI_BASE_URL", "https://api.openai.com/v1"],
   "anthropic-official": ["ANTHROPIC_BASE_URL", "https://api.anthropic.com"],
-  "gemini-official": [
+  "google-official": [
     "GEMINI_BASE_URL",
     "https://generativelanguage.googleapis.com",
   ],
@@ -141,6 +198,7 @@ const DEFAULT_BASE_URLS: Record<string, [string, string]> = {
     "GEMINI_BASE_URL",
     "https://generativelanguage.googleapis.com",
   ],
+  mmsp: ["MMSP_BASE_URL", "http://127.0.0.1:25752/v1"],
 };
 
 /**
@@ -160,13 +218,547 @@ function playgroundDefaults(): string {
   });
 }
 
+function isObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+const HOST_MESSAGE = "host must be a non-empty string.";
+const PORT_MESSAGE = "port must be an integer between 0 and 65535.";
+
+function isHost(host: unknown): host is string {
+  return typeof host === "string" && host.trim() !== "";
+}
+
+function isPort(port: unknown): port is number {
+  return (
+    typeof port === "number" &&
+    Number.isInteger(port) &&
+    port >= 0 &&
+    port <= 65535
+  );
+}
+
+/**
+ * Where the server page saves its table: MMSP_SERVER_CONFIG, else server.json in the tracer's
+ * cache directory.
+ */
+function serverConfigPath(): string {
+  const named = process.env.MMSP_SERVER_CONFIG;
+  return named
+    ? path.resolve(named)
+    : path.resolve(process.env.MMSP_CACHE_DIR || "cache", "server.json");
+}
+
+/**
+ * The metrics history beside a config: its path without a trailing `.json`, plus `-metrics.json`,
+ * so that two configs never share a history.
+ */
+function metricsPathOf(configPath: string): string {
+  return (
+    (configPath.endsWith(".json") ? configPath.slice(0, -5) : configPath) +
+    "-metrics.json"
+  );
+}
+
+/**
+ * The four keys the page compares: rows and keys as written, host and port with the defaults
+ * filled.
+ */
+function savedConfigView(config: Record<string, unknown>): SavedConfig {
+  return {
+    models: config.models as unknown[],
+    api_keys: (config.api_keys ?? []) as unknown[],
+    host: ("host" in config ? config.host : DEFAULT_HOST) as string,
+    port: ("port" in config ? config.port : DEFAULT_PORT) as number,
+  };
+}
+
+/**
+ * Write the config file's text whole: to a sibling first, then moved over the old one.
+ */
+function writeSavedConfig(configPath: string, text: string): void {
+  fs.mkdirSync(path.dirname(configPath), { recursive: true });
+  const temporary = `${configPath}.tmp`;
+  fs.writeFileSync(temporary, text);
+  fs.renameSync(temporary, configPath);
+}
+
+/**
+ * The server page's status: `{ running: false }`, or where the server listens, what it serves, and
+ * the saved config it was started from.
+ */
+function mmspServerStatus(): Record<string, unknown> {
+  if (mmspServer === null) {
+    return { running: false };
+  }
+  const { host, port, modelIds, open, config } = mmspServer;
+  return {
+    running: true,
+    host,
+    port,
+    base_url: serverBaseUrl(host, port),
+    models: modelIds,
+    open,
+    config,
+  };
+}
+
+/**
+ * Stop the MMSP server the playground started, ending its open streams, and save its metrics
+ * history; nothing when none runs.
+ */
+async function stopMmspServer(): Promise<void> {
+  const running = mmspServer;
+  if (running === null) {
+    return;
+  }
+  mmspServer = null;
+  // a destroyed stream aborts its upstream request through the server's close handler
+  running.server.closeAllConnections();
+  await new Promise<void>((resolve) => running.server.close(() => resolve()));
+  running.metrics.close();
+  console.log(
+    `Stopped MMSP server at ${serverBaseUrl(running.host, running.port)}`,
+  );
+}
+
+/**
+ * An error as the page shows it: its message, else its class name, since the page shows no empty
+ * error.
+ */
+function describeError(error: unknown): string {
+  return error instanceof Error
+    ? error.message || error.constructor.name
+    : String(error);
+}
+
+/**
+ * A refusal of a one-row config as it reads about the row itself: without the `models[0]` it
+ * starts with.
+ */
+function rowMessage(message: string): string {
+  return message.replace(/^models\[0\](?:\.|: )/, "");
+}
+
+/**
+ * Send the test prompt straight to a row's upstream, its `$VAR` cells read from this process's
+ * environment, and time it.
+ *
+ * @param row - The row as the page edits it: its known columns, as typed
+ * @param timeoutMs - How long the whole answer may take
+ * @returns `{ ok: true, first_token_ms, total_ms, tokens_out, tps }`, or `{ ok: false, error }`
+ * for a row that cannot be resolved, a client that cannot be built, an upstream error or a timeout
+ */
+export async function testUpstream(
+  row: Record<string, string>,
+  timeoutMs = TEST_TIMEOUT_MS,
+): Promise<Record<string, unknown>> {
+  let resolved: Record<string, string>;
+  try {
+    resolved = resolveServerConfig({ models: [row], api_keys: [] })
+      .models[0] as unknown as Record<string, string>;
+  } catch (error) {
+    return { ok: false, error: rowMessage(errorMessage(error)) };
+  }
+  let client: AutoLLMClient;
+  try {
+    client = new AutoLLMClient({
+      model: resolved.model_id,
+      apiKey: resolved.api_key,
+      baseUrl: resolved.base_url || undefined,
+      clientType: resolved.client_type || undefined,
+    });
+  } catch (error) {
+    return { ok: false, error: describeError(error) };
+  }
+
+  const controller = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+  const started = performance.now();
+  let first: number | null = null;
+  let usage: UsageMetadata | null = null;
+  let ended: number;
+  try {
+    for await (const event of client.streamingResponse({
+      messages: [
+        {
+          role: "user",
+          content_items: [{ type: "text.done", text: TEST_PROMPT }],
+        },
+      ],
+      config: { max_tokens: TEST_MAX_TOKENS },
+      signal: controller.signal,
+    })) {
+      // a stop event may come before any token (Anthropic reports usage at message_start), so the
+      // first token is the first event that carries an item
+      if (first === null && event.content_items.length > 0) {
+        first = performance.now();
+      }
+      if (event.event_type === "stop") {
+        usage = event.usage_metadata;
+      }
+    }
+    ended = performance.now();
+  } catch (error) {
+    return {
+      ok: false,
+      error: timedOut
+        ? `No answer within ${timeoutMs / 1000} s.`
+        : describeError(error),
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+
+  const totalMs = Math.round(ended - started);
+  const firstTokenMs = first === null ? null : Math.round(first - started);
+  const tokensOut =
+    usage && (usage.thoughts_tokens !== null || usage.response_tokens !== null)
+      ? (usage.thoughts_tokens ?? 0) + (usage.response_tokens ?? 0)
+      : null;
+  return {
+    ok: true,
+    first_token_ms: firstTokenMs,
+    total_ms: totalMs,
+    tokens_out: tokensOut,
+    tps:
+      firstTokenMs === null || tokensOut === null
+        ? null
+        : tps(tokensOut, Math.max(totalMs - firstTokenMs, 1)),
+  };
+}
+
+/**
+ * Create the server page's app: the page at `/`, and `/api/config`, `/api/status`, `/api/start`,
+ * `/api/restart`, `/api/stop`, `/api/metrics`, `/api/test`. Start and restart serve the saved
+ * config file, never a request body. The server keeps its metrics history beside the config, so a
+ * restart continues it and the page reads it while no server runs. The parent app parses the JSON
+ * bodies.
+ *
+ * @param configPath - The absolute path of the config file the page saves
+ * @returns Express application instance, mounted at /server
+ */
+function createServerPageApp(configPath: string): Express {
+  const app = express();
+  const metricsPath = metricsPathOf(configPath);
+
+  /**
+   * The config file as `GET /api/config` reports it: its path, whether it exists, its contents
+   * and its text as written, or why they cannot be read.
+   */
+  const savedConfigBody = (): Record<string, unknown> => {
+    let text: string;
+    try {
+      text = fs.readFileSync(configPath, "utf-8");
+    } catch (error) {
+      if ((error as { code?: unknown }).code === "ENOENT") {
+        return { path: configPath, exists: false, config: null, text: null };
+      }
+      return {
+        path: configPath,
+        exists: true,
+        config: null,
+        text: null,
+        error: errorMessage(error),
+      };
+    }
+    let config: Record<string, unknown>;
+    try {
+      config = parseServerConfig(text, configPath);
+    } catch (error) {
+      return {
+        path: configPath,
+        exists: true,
+        config: null,
+        text,
+        error: errorMessage(error),
+      };
+    }
+    return {
+      path: configPath,
+      exists: true,
+      config: savedConfigView(config),
+      text,
+    };
+  };
+
+  /**
+   * Start the server from the saved config, or with `restart` put it in place of the running one.
+   * Nothing is stopped until the new table is checked and its app is built.
+   */
+  const launch = async (res: Response, restart: boolean) => {
+    const refuse = (status: number, message: string) =>
+      res.status(status).json({ error: message });
+    let saved: Record<string, unknown>;
+    try {
+      saved = readServerConfig(configPath);
+    } catch (error) {
+      return refuse(
+        400,
+        (error as { code?: unknown }).code === "ENOENT"
+          ? `No saved config at ${configPath}; save the table first.`
+          : errorMessage(error),
+      );
+    }
+    const view = savedConfigView(saved);
+    const { host, port } = view;
+    if (!isHost(host)) {
+      return refuse(400, HOST_MESSAGE);
+    }
+    if (!isPort(port)) {
+      return refuse(400, PORT_MESSAGE);
+    }
+    let config: ServerConfig;
+    try {
+      config = resolveServerConfig({
+        models: view.models,
+        api_keys: view.api_keys,
+      });
+    } catch (error) {
+      return refuse(400, errorMessage(error));
+    }
+    if (mmspServerStarting || (!restart && mmspServer !== null)) {
+      return refuse(409, "The server is running; stop it first.");
+    }
+
+    mmspServerStarting = true;
+    try {
+      // written first, so that the new server continues the history up to this moment; what the
+      // old one counts until it stops is written at its close and overwritten at the new one's
+      // next save
+      if (restart) {
+        mmspServer?.metrics.save();
+      }
+      let serverApp: Express;
+      try {
+        serverApp = createServerApp({
+          models: config.models,
+          apiKeys: config.api_keys,
+          metricsPath,
+        });
+      } catch (error) {
+        return refuse(400, errorMessage(error));
+      }
+      const metrics = serverApp.locals.metrics as ServerMetrics;
+      await stopMmspServer();
+      const server = http.createServer(serverApp);
+      try {
+        await new Promise<void>((resolve, reject) => {
+          server.once("error", reject);
+          server.listen(port, host, () => {
+            server.off("error", reject);
+            resolve();
+          });
+        });
+      } catch (error) {
+        // the app never serves, so its metrics' saver stops here
+        metrics.close();
+        return refuse(
+          400,
+          `Cannot listen on ${host}:${port}: ${errorMessage(error)}`,
+        );
+      }
+      mmspServer = {
+        server,
+        host,
+        // the bound port, so that port 0 reports the one the system chose
+        port: (server.address() as AddressInfo).port,
+        modelIds: serverApp.locals.serverModelIds as string[],
+        open: config.api_keys.length === 0,
+        config: view,
+        metrics,
+      };
+      announceServer(
+        host,
+        mmspServer.port,
+        mmspServer.modelIds,
+        mmspServer.open,
+      );
+      return res.json(mmspServerStatus());
+    } finally {
+      mmspServerStarting = false;
+    }
+  };
+
+  app.get("/", (_req: Request, res: Response) => {
+    res
+      .type("html")
+      .send(
+        SERVER_TEMPLATE.replace(
+          "__PLAYGROUND_DEFAULTS__",
+          playgroundDefaults(),
+        ),
+      );
+  });
+
+  app.get("/api/config", (_req: Request, res: Response) => {
+    res.json(savedConfigBody());
+  });
+
+  app.put("/api/config", (req: Request, res: Response) => {
+    const refuse = (status: number, message: string) =>
+      res.status(status).json({ error: message });
+    // express leaves an empty object behind for a body of another content type
+    const body: unknown = req.is("application/json") ? req.body : null;
+    if (!isObject(body)) {
+      return refuse(400, "Request body must be a JSON object.");
+    }
+    const { models } = body;
+    if (!Array.isArray(models)) {
+      return refuse(
+        400,
+        "the config must be a JSON object with a models list.",
+      );
+    }
+    const apiKeys = "api_keys" in body ? body.api_keys : [];
+    if (!Array.isArray(apiKeys)) {
+      return refuse(400, "api_keys must be a list.");
+    }
+    for (const [i, row] of models.entries()) {
+      if (!isObject(row)) {
+        return refuse(400, `models[${i}] must be an object.`);
+      }
+      for (const column of COLUMNS) {
+        if (column in row && typeof row[column] !== "string") {
+          return refuse(400, `models[${i}]: ${column} must be a string.`);
+        }
+      }
+    }
+    for (const [i, key] of apiKeys.entries()) {
+      if (typeof key !== "string") {
+        return refuse(400, `api_keys[${i}] must be a string.`);
+      }
+    }
+    const host = "host" in body ? body.host : DEFAULT_HOST;
+    if (!isHost(host)) {
+      return refuse(400, HOST_MESSAGE);
+    }
+    const port = "port" in body ? body.port : DEFAULT_PORT;
+    if (!isPort(port)) {
+      return refuse(400, PORT_MESSAGE);
+    }
+
+    // the file the CLI reads, plus where to listen: only the known columns, as the page typed them
+    const config: SavedConfig = {
+      models: (models as Record<string, unknown>[]).map((row) =>
+        Object.fromEntries(
+          COLUMNS.filter((column) => column in row).map((column) => [
+            column,
+            row[column],
+          ]),
+        ),
+      ),
+      api_keys: apiKeys,
+      host,
+      port,
+    };
+    const text = JSON.stringify(config, null, 2) + "\n";
+    try {
+      writeSavedConfig(configPath, text);
+    } catch (error) {
+      return refuse(500, `Cannot write ${configPath}: ${errorMessage(error)}`);
+    }
+    return res.json({ path: configPath, exists: true, config, text });
+  });
+
+  app.get("/api/status", (_req: Request, res: Response) => {
+    res.json(mmspServerStatus());
+  });
+
+  app.post("/api/start", (_req: Request, res: Response) => launch(res, false));
+
+  app.post("/api/restart", (_req: Request, res: Response) => launch(res, true));
+
+  app.post("/api/stop", async (_req: Request, res: Response) => {
+    await stopMmspServer();
+    res.json({ running: false });
+  });
+
+  // one short prompt straight to a row's upstream, as the page edits it: whether it answered and
+  // how fast
+  app.post("/api/test", async (req: Request, res: Response) => {
+    const refuse = (message: string) =>
+      res.status(400).json({ error: message });
+    const body: unknown = req.is("application/json") ? req.body : null;
+    if (!isObject(body)) {
+      return refuse("Request body must be a JSON object.");
+    }
+    const row = body.model;
+    if (!isObject(row)) {
+      return refuse("model must be an object.");
+    }
+    for (const column of COLUMNS) {
+      if (column in row && typeof row[column] !== "string") {
+        return refuse(`${column} must be a string.`);
+      }
+    }
+    for (const column of ["model_id", "api_key"]) {
+      if (!row[column]) {
+        return refuse(`${column} must be a non-empty string.`);
+      }
+    }
+    const cells = Object.fromEntries(
+      COLUMNS.filter((column) => column in row).map((column) => [
+        column,
+        row[column] as string,
+      ]),
+    );
+    return res.json(await testUpstream(cells));
+  });
+
+  // read in-process, so the page needs no server key; the query as GET /v1/metrics takes it.
+  // Stopped, the history file answers: its since, its errors and the window asked for
+  app.get("/api/metrics", (req: Request, res: Response) => {
+    let query: MetricsQuery | null;
+    try {
+      query = parseMetricsQuery(req.query);
+    } catch (error) {
+      return res.status(400).json({ error: errorMessage(error) });
+    }
+    let store: ServerMetrics;
+    let body: Record<string, unknown>;
+    if (mmspServer !== null) {
+      store = mmspServer.metrics;
+      body = { running: true, ...store.snapshot() };
+    } else {
+      const history = ServerMetrics.fromHistory(metricsPath);
+      if (history === null) {
+        return res.json({ running: false });
+      }
+      store = history;
+      body = {
+        running: false,
+        since: history.since,
+        errors: history.snapshot().errors,
+      };
+    }
+    if (query !== null) {
+      body.window =
+        query.seconds !== null
+          ? store.window(query.seconds, query.columns)
+          : store.between(query.start!, query.end!, query.columns);
+    }
+    res.json(body);
+  });
+
+  return app;
+}
+
 export function createChatApp(): Express {
   const app = express();
   app.use(express.json({ limit: "50mb" }));
   app.use(
     (
       err: { message?: string; status?: number; type?: string },
-      _req: Request,
+      req: Request,
       res: Response,
       next: NextFunction,
     ) => {
@@ -176,10 +768,20 @@ export function createChatApp(): Express {
             "Request body is too large. Please upload fewer or smaller images.",
         });
       }
+      // the server page's start and restart read no body, and its save refuses one that is not a
+      // JSON object, as the Python playground does
+      if (
+        err.type === "entity.parse.failed" &&
+        req.path.startsWith("/server/api/")
+      ) {
+        req.body = undefined;
+        return next();
+      }
       next(err);
     },
   );
   app.use("/tracer", new Tracer().createWebApp({ basePath: "/tracer" }));
+  app.use("/server", createServerPageApp(serverConfigPath()));
 
   const CHAT_TEMPLATE = `
   <!DOCTYPE html>
@@ -1270,6 +1872,34 @@ export function createChatApp(): Express {
               font-size: 12px;
           }
 
+          .divider {
+              display: flex;
+              align-items: center;
+              gap: 12px;
+              margin: 4px 0 28px;
+              color: var(--subtle);
+              font-size: 12px;
+              animation: msg-in 0.35s var(--ease);
+          }
+
+          .divider::before, .divider::after {
+              content: "";
+              flex: 1;
+              height: 1px;
+              background: var(--ring);
+          }
+
+          .divider span {
+              max-width: 80%;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+          }
+
+          .divider .mono {
+              color: var(--muted);
+          }
+
           .reason {
               display: inline-flex;
               align-items: center;
@@ -1580,7 +2210,7 @@ export function createChatApp(): Express {
                               <label class="field-label" for="apiKeyInput">API key</label>
                           </div>
                           <div class="input-wrap">
-                              <input type="password" id="apiKeyInput" autocomplete="off" spellcheck="false" placeholder="From the environment when empty" class="control">
+                              <input type="password" id="apiKeyInput" autocomplete="off" spellcheck="false" oninput="handleApiKeyInput()" placeholder="From the environment when empty" class="control">
                               <button type="button" id="apiKeyVisibilityToggle" aria-label="Show API key" title="Show API key" class="input-action" onclick="toggleApiKeyVisibility()">
                                   <svg id="apiKeyVisibilityShowIcon" class="hidden" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                                   <svg id="apiKeyVisibilityHideIcon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.7 5.1A10.9 10.9 0 0 1 12 5c6.5 0 10 7 10 7a18.5 18.5 0 0 1-3.3 4.3"></path><path d="M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7a10.9 10.9 0 0 0 5.4-1.4"></path><path d="M9.9 9.9A3 3 0 0 0 14.1 14.1"></path><path d="M3 3l18 18"></path></svg>
@@ -1704,6 +2334,10 @@ export function createChatApp(): Express {
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"></path></svg>
                           <span class="label-wide">Open Tracer</span>
                       </a>
+                      <a href="/server/" target="_blank" rel="noopener noreferrer" class="ghost-btn" title="Open Server">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="20" height="8" rx="2"></rect><rect x="2" y="14" width="20" height="8" rx="2"></rect><path d="M6 6h.01M6 18h.01"></path></svg>
+                          <span class="label-wide">Open Server</span>
+                      </a>
                       <button type="button" class="ghost-btn" onclick="clearChat()" title="New chat">
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
                           <span class="label-wide">New chat</span>
@@ -1728,7 +2362,7 @@ export function createChatApp(): Express {
                           <button type="button" class="icon-btn" onclick="document.getElementById('imageInput').click()" aria-label="Attach images" title="Attach images">
                               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.4 11.1-8.8 8.8a5.5 5.5 0 0 1-7.8-7.8l8.8-8.8a3.7 3.7 0 0 1 5.2 5.2l-8.8 8.8a1.8 1.8 0 0 1-2.6-2.6l8.1-8.1"></path></svg>
                           </button>
-                          <span class="composer-hint">Enter to send, Shift+Enter for a new line</span>
+                          <span class="composer-hint" id="composerHint">Enter to send, Shift+Enter for a new line</span>
                           <button type="button" class="send-btn" id="sendButton" onclick="sendMessage()" aria-label="Send" title="Send" disabled>
                               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"></path></svg>
                           </button>
@@ -1744,6 +2378,8 @@ export function createChatApp(): Express {
       <script>
           let isStreaming = false;
           let sessionId = Math.random().toString(36).substring(7);
+          // the entry (model id, client type, base URL) the conversation on screen was started with; null before the first message
+          let conversationEntry = null;
           let selectedImages = [];
           let lastMessageTimestamp = null;
           let currentAbortController = null;
@@ -2253,7 +2889,7 @@ export function createChatApp(): Express {
           const CLIENT_TYPE_DESCRIPTIONS = {
               'openai-official': 'OpenAI',
               'anthropic-official': 'Anthropic',
-              'gemini-official': 'Google Gemini',
+              'google-official': 'Google Gemini',
               'zai-official': 'Z.AI',
               'moonshot-official': 'Moonshot',
               'deepseek-official': 'DeepSeek',
@@ -2263,7 +2899,8 @@ export function createChatApp(): Express {
               'openai-chat-vllm-adapter': 'Chat Completions on vLLM',
               'openai-embedding': 'OpenAI Embeddings',
               'ant-messages': 'Anthropic Messages',
-              'google-genai': 'Google generateContent'
+              'google-genai': 'Google generateContent',
+              'mmsp': 'MMSP server'
           };
 
           function clientTypeOption(value, label, description) {
@@ -2316,14 +2953,27 @@ export function createChatApp(): Express {
               return family ? family[1] : '';
           }
 
+          function endpointHost(url) {
+              try { return new URL(url).host; } catch (error) { return url; }
+          }
+
+          // an entry is a model id, a client type and a base URL; entries alike in all three are one, whatever key each was listed with
+          function entryKey(modelId, clientType, baseUrl) {
+              const type = clientType || familyClientType(modelId);
+              return JSON.stringify([modelId, type, baseUrl || PLAYGROUND.baseUrls[type] || '']);
+          }
+
+          function optionEntryKey(option) {
+              return entryKey(option.dataset.value, option.dataset.clientType || '', option.dataset.baseUrl || '');
+          }
+
           function selectedModelOption() {
               const modelSelect = document.getElementById('modelSelect');
               if (modelSelect.value === '__custom__') {
                   return null;
               }
-              return document.querySelector(
-                  '#modelComboboxMenu [data-combobox-option][data-value="' + modelSelect.value + '"]'
-              );
+              // the selected element, not the first with that id: two entries may share a model id
+              return document.querySelector('#modelComboboxMenu [data-combobox-option][aria-selected="true"]');
           }
 
           function getSelectedClientType() {
@@ -2354,6 +3004,8 @@ export function createChatApp(): Express {
               document.getElementById('headerClientType').textContent = clientType || 'client type required';
               document.getElementById('emptyStateModel').textContent = model;
               document.getElementById('messageInput').placeholder = \`Message \${model}\`;
+              const hint = document.getElementById('composerHint');
+              hint.textContent = switchPending() ? \`Enter starts a new conversation with \${model}\` : 'Enter to send, Shift+Enter for a new line';
           }
 
           function handleModelSelectChange() {
@@ -2364,11 +3016,12 @@ export function createChatApp(): Express {
                   return;
               }
 
-              // a model keeps its client type and base URL: a built-in starts from the ones its id
+              // a model keeps its client type, base URL and API key: a built-in starts from the ones its id
               // names, a listed model from the ones its listing ran under
               const option = selectedModelOption();
               const clientType = (option && option.dataset.clientType) || familyClientType(option && option.dataset.value);
               setClientType(clientType);
+              document.getElementById('apiKeyInput').value = (option && option.dataset.apiKey) || '';
               const defaultUrl = PLAYGROUND.baseUrls[effectiveClientType()] || '';
               fillBaseUrl((option && option.dataset.baseUrl) || defaultUrl);
               filledBaseUrl = defaultUrl;
@@ -2400,6 +3053,19 @@ export function createChatApp(): Express {
                   option.dataset.baseUrl = document.getElementById('baseUrlInput').value.trim();
               }
               updateBaseUrlTag();
+              updateHeader();
+          }
+
+          function handleApiKeyInput() {
+              const option = selectedModelOption();
+              if (option) {
+                  const value = document.getElementById('apiKeyInput').value.trim();
+                  if (value) {
+                      option.dataset.apiKey = value;
+                  } else {
+                      delete option.dataset.apiKey;
+                  }
+              }
           }
 
           function getSelectedModel() {
@@ -2427,16 +3093,21 @@ export function createChatApp(): Express {
           function addListedModels(modelIds) {
               const menu = document.getElementById('modelComboboxMenu');
               const options = Array.from(menu.querySelectorAll('[data-combobox-option]'));
-              const known = new Set(options.map((option) => option.dataset.value));
+              const known = new Map(options.filter((option) => option.dataset.value !== '__custom__').map((option) => [optionEntryKey(option), option]));
               const customOption = options.find((option) => option.dataset.value === '__custom__') || null;
               // a listed model is served by the endpoint that listed it, so it takes the current
-              // client type and base URL
+              // client type, base URL and API key
               const clientType = effectiveClientType();
               const baseUrl = document.getElementById('baseUrlInput').value.trim();
+              const apiKey = document.getElementById('apiKeyInput').value.trim();
 
               let added = 0;
               modelIds.forEach((modelId) => {
-                  if (known.has(modelId)) {
+                  const key = entryKey(modelId, clientType, baseUrl);
+                  if (known.has(key)) {
+                      if (apiKey) {
+                          known.get(key).dataset.apiKey = apiKey;
+                      }
                       return;
                   }
 
@@ -2448,7 +3119,7 @@ export function createChatApp(): Express {
                   option.setAttribute('data-combobox-option', '');
                   option.dataset.value = modelId;
                   option.dataset.label = modelId;
-                  option.dataset.description = clientType ? \`listed through \${clientType}\` : 'listed';
+                  option.dataset.description = clientType ? clientType + (baseUrl ? ' · ' + endpointHost(baseUrl) : '') : 'listed';
                   option.dataset.listed = 'true';
                   if (clientType) {
                       option.dataset.clientType = clientType;
@@ -2456,13 +3127,16 @@ export function createChatApp(): Express {
                   if (baseUrl) {
                       option.dataset.baseUrl = baseUrl;
                   }
+                  if (apiKey) {
+                      option.dataset.apiKey = apiKey;
+                  }
                   option.onclick = () => selectComboboxOption('modelCombobox', option);
 
                   const label = document.createElement('span');
                   label.textContent = modelId;
                   option.appendChild(label);
                   menu.insertBefore(option, customOption);
-                  known.add(modelId);
+                  known.set(key, option);
                   added += 1;
               });
 
@@ -2676,6 +3350,7 @@ export function createChatApp(): Express {
                       handleBaseUrlInput();
                   }
                   updateBaseUrlTag();
+                  handleApiKeyInput();
                   validateTools();
                   getExtraHeaders();
                   updateHeader();
@@ -2855,7 +3530,14 @@ export function createChatApp(): Express {
 
               if ((!message && selectedImages.length === 0) || isStreaming) return;
 
+              // set first, so that a second Enter while the old conversation is cleared is ignored
               isStreaming = true;
+              if (switchPending()) {
+                  await startNewConversation();
+              }
+              if (conversationEntry === null) {
+                  conversationEntry = currentEntryKey();
+              }
               currentAbortController = new AbortController();
               setStreamingControls(true);
               input.value = '';
@@ -3067,9 +3749,11 @@ export function createChatApp(): Express {
           function resetThread() {
               sessionId = Math.random().toString(36).substring(7);
               lastMessageTimestamp = null;
+              conversationEntry = null;
               document.getElementById('thread').innerHTML = '';
               document.getElementById('thread').classList.add('hidden');
               document.getElementById('emptyState').classList.remove('hidden');
+              updateHeader();
           }
 
           function clearChat() {
@@ -3094,6 +3778,48 @@ export function createChatApp(): Express {
               }).catch(error => {
                   console.error('Error clearing chat:', error);
               });
+          }
+
+          function currentEntryKey() {
+              return entryKey(getSelectedModel(), getSelectedClientType(), document.getElementById('baseUrlInput').value.trim());
+          }
+
+          function threadHasMessages() {
+              return document.querySelector('#thread .msg') !== null;
+          }
+
+          // a message sent to another entry than the one the conversation on screen began with starts a new conversation
+          function switchPending() {
+              return conversationEntry !== null && threadHasMessages() && currentEntryKey() !== conversationEntry;
+          }
+
+          function addDivider(model) {
+              showThread();
+              document.getElementById('thread').insertAdjacentHTML('beforeend', \`<div class="divider" role="separator" aria-label="New conversation"><span>New conversation with <span class="mono">\${escapeHtml(model)}</span> · the messages above are not sent</span></div>\`);
+              scrollToBottom(true);
+          }
+
+          // the earlier messages stay on screen above the divider; the backend forgets them with the old session
+          async function startNewConversation() {
+              const previous = sessionId;
+              sessionId = Math.random().toString(36).substring(7);
+              try {
+                  await fetch('/api/clear', {
+                      method: 'POST',
+                      headers: {
+                          'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                          session_id: previous
+                      })
+                  });
+              } catch (error) {
+                  // the new session starts anyway; the old client lingers until the process ends
+                  console.error('Error clearing chat:', error);
+              }
+              addDivider(getSelectedModel() || 'a custom model');
+              conversationEntry = currentEntryKey();
+              updateHeader();
           }
 
           document.getElementById('messageInput').addEventListener('keydown', function(e) {
@@ -3194,11 +3920,18 @@ export function createChatApp(): Express {
 
     try {
       const clientOptions = getClientOptions(config || {});
+      const previous = sessionClients.get(sessionId);
       if (
-        !sessionClients.has(sessionId) ||
+        !previous ||
         clientOptionsChanged(sessionClientOptions.get(sessionId), clientOptions)
       ) {
-        sessionClients.set(sessionId, new AutoLLMClient(clientOptions));
+        const client = new AutoLLMClient(clientOptions);
+        // the session is the conversation: a key or headers edit rebuilds the client and keeps the
+        // history; only /api/clear ends it
+        if (previous) {
+          client.setHistory(previous.getHistory());
+        }
+        sessionClients.set(sessionId, client);
         sessionClientOptions.set(sessionId, clientOptions);
       }
 
@@ -3311,5 +4044,12 @@ export function startPlaygroundServer(
   const app = createChatApp();
   app.listen(port, host, () => {
     console.log(`Starting LLM Playground at http://${host}:${port}`);
+    console.log(`Tracer at http://${host}:${port}/tracer/`);
+    console.log(`MMSP server page at http://${host}:${port}/server/`);
+  });
+  // the server it started writes its metrics history as it stops
+  process.once("SIGINT", async () => {
+    await stopMmspServer();
+    process.exit(130);
   });
 }

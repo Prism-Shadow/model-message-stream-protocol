@@ -4,6 +4,8 @@
 
 在这里，我们记录模型的新增与移除时间、主要功能更新、缺陷修复，以及关键版本的发布时间。每个发布版本在此保留一行简述；逐条目的摘要位于 `changelog/<version>/README.md`，且每个条目都会链接到自己的详情文件。
 
+- [2026-10-10] [版本 0.5.2](changelog/0.5.2/README.zh.md)：新增 MMSP 服务端，把模型表中的模型以 MMSP 流通过 HTTP 提供出来，`mmsp` 客户端调用它，Playground 的 server 页面可编辑模型表、启动服务端、绘制指标图表，并把每一行直接向上游测试；支持 Claude Haiku 5.5，Sonnet 5.5 的缓存读取降到 0.10 美元；Gemini 官方客户端改名为 `google-official`（别名 `gemini-official`）；Playground 中向另一个模型发送消息时开始新对话。
+
 - [2026-10-01] [版本 0.5.1](changelog/0.5.1/README.zh.md)：`google-genai` 成为 Google generateContent 协议的兼容客户端，Vertex AI 需显式指定它，`gemini-official` 只讲 Gemini API 的 Interactions 端点并拒绝服务账号 key；OpenRouter 与 SiliconFlow 上的 Qwen3.6 35B A3B 换成 Qwen3.8 27B；站点、标志与图片改用纯蓝主题色，文档新增设计理念页面，发布 workflow 跳过已发布的版本。
 
 - [2026-09-30] [版本 0.5.0](changelog/0.5.0/README.zh.md)：AgentHub 更名为 MMSP（Model Message Stream Protocol），PyPI 包名为 `mmsp`，npm 包名为 `@prismshadow/mmsp`；流式协议 v2 用 `.done` 项收尾每个内容项，用一个 `stop` 事件收尾每条流；客户端按类型命名，每个厂商一个官方客户端，每种协议一个兼容客户端；Gemini 迁移到 Interactions API，Vertex AI 迁移到 generateContent；新增支持 Claude Opus 5.5、Sonnet 5.5 与 Fable 5.1、GPT-6.1 Sol、DeepSeek Flash 与 Gemini 3.8 TTS；Playground 与 Tracer 重新设计，站点 mmsp.penguin.ooo 上线。

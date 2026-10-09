@@ -39,7 +39,16 @@ class Model:
     support_tts: bool = False
     support_embedding: bool = False
     provider: Literal[
-        "official", "bedrock", "vertex", "siliconflow", "openrouter", "modelverse", "deepseek", "zai", "minimax"
+        "official",
+        "bedrock",
+        "vertex",
+        "siliconflow",
+        "openrouter",
+        "modelverse",
+        "deepseek",
+        "zai",
+        "minimax",
+        "mmsp",
     ] = "official"
     client_type: str | None = None
     base_url: str | None = None
@@ -84,6 +93,7 @@ if os.getenv("GEMINI_API_KEY"):
 
 if os.getenv("ANTHROPIC_API_KEY"):
     AVAILABLE_MODELS.append(Model(name="claude-sonnet-5-5"))
+    AVAILABLE_MODELS.append(Model(name="claude-haiku-5-5"))
 
 if os.getenv("OPENAI_API_KEY"):
     AVAILABLE_MODELS.append(Model(name="gpt-6.1-sol"))
@@ -257,6 +267,17 @@ if os.getenv("MODELVERSE_API_KEY") and RUN_SLOW_TEST:
     )
     AVAILABLE_MODELS.append(Model(name="gpt-5.5", provider="modelverse"))
 
+if os.getenv("MMSP_API_KEY") and os.getenv("MMSP_BASE_URL"):
+    # a running MMSP server started from a config file; MMSP_MODEL is a server_model_id of its table, MMSP_BASE_URL ends with /v1
+    AVAILABLE_MODELS.append(
+        Model(
+            name=os.getenv("MMSP_MODEL") or "gpt-6.1-sol",
+            provider="mmsp",
+            client_type="mmsp",
+            base_url=os.getenv("MMSP_BASE_URL"),
+        )
+    )
+
 
 _PROVIDER_API_KEY_ENVS = {
     "bedrock": "BEDROCK_API_KEY",
@@ -267,6 +288,7 @@ _PROVIDER_API_KEY_ENVS = {
     "deepseek": "DEEPSEEK_API_KEY",
     "zai": "ZAI_API_KEY",
     "minimax": "MINIMAX_API_KEY",
+    "mmsp": "MMSP_API_KEY",
 }
 
 _PROVIDER_BASE_URLS = {
@@ -492,8 +514,9 @@ ROUTING_CASES = [
     ("text-embedding-3-large", None, "OpenaiEmbeddingClient"),
     ("text-embedding-3-large", "openai-official", "OpenaiEmbeddingClient"),
     ("claude-sonnet-5", None, "AnthropicOfficialClient"),
-    ("gemini-3.8-flash", None, "GeminiOfficialClient"),
-    ("gemini-embedding-2", None, "GeminiOfficialClient"),
+    ("gemini-3.8-flash", None, "GoogleOfficialClient"),
+    ("gemini-embedding-2", None, "GoogleOfficialClient"),
+    ("gemini-3.8-flash", "gemini-official", "GoogleOfficialClient"),
     ("gemini-3.8-flash", "google-genai", "GoogleGenaiClient"),
     ("gemini-3.8-flash", "gemini-generate-content", "GoogleGenaiClient"),
     ("glm-5.3", None, "ZAIOfficialClient"),
@@ -509,6 +532,7 @@ ROUTING_CASES = [
     ("qwen3.6", "openai-chat-vllm-adapter", "OpenaiChatVllmAdapterClient"),
     ("qwen3-embedding", "openai-embedding", "OpenaiEmbeddingClient"),
     ("claude-opus-5", "ant-messages", "AntMessagesClient"),
+    ("gpt-5.5", "mmsp", "MmspClient"),
 ]
 
 
@@ -521,8 +545,8 @@ def test_client_type_or_model_family_names_the_client(model: str, client_type: s
     assert client._client.__class__.__name__ == client_name
 
 
-@pytest.mark.parametrize("client_type", [None, "gemini-official"])
-def test_gemini_official_refuses_a_vertex_service_account_key(client_type: str | None):
+@pytest.mark.parametrize("client_type", [None, "google-official"])
+def test_google_official_refuses_a_vertex_service_account_key(client_type: str | None):
     with pytest.raises(ValueError, match="google-genai"):
         AutoLLMClient(model="gemini-3.8-flash", api_key='{"project_id": "test-project"}', client_type=client_type)
 
@@ -571,7 +595,7 @@ async def test_list_supported_models():
     # rows is not recorded here, so the catalog rate is what every entry reports.
     for model in ("gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash"):
         gemini = next(entry for entry in entries if entry["model"] == model)
-        assert gemini["client"] == "gemini-official"
+        assert gemini["client"] == "google-official"
         assert gemini["pricing"]["prompt_tokens"] == 1.5
         assert gemini["pricing"]["response_tokens"] == 7.5
         assert gemini["pricing"]["cached_tokens"] == 0.15

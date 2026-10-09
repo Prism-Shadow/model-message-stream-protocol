@@ -60,7 +60,7 @@ type TextImageBlocks = NonNullable<Interactions.ThoughtStep["summary"]>;
  * sampling parameters (silently ignored today, HTTP 400 in future
  * generations), so this client rejects them instead of sending a no-op.
  */
-export class GeminiOfficialClient extends LLMClient {
+export class GoogleOfficialClient extends LLMClient {
   protected _model: string;
   private _client: GoogleGenAI;
 
@@ -89,7 +89,7 @@ export class GeminiOfficialClient extends LLMClient {
     // a service-account key carries a private key, which must not travel as an API key header
     if (key && key.startsWith("{")) {
       throw new Error(
-        "GeminiOfficialClient does not serve a Vertex AI service-account key; " +
+        "GoogleOfficialClient does not serve a Vertex AI service-account key; " +
           'pass clientType: "google-genai" for Vertex AI.',
       );
     }
@@ -184,7 +184,7 @@ export class GeminiOfficialClient extends LLMClient {
       // 3.7 and 3.8 again through the Interactions API 2026-09-16).
       return ["low", "medium", "high"];
     }
-    return GeminiOfficialClient.GEMINI_LEVEL_ORDER;
+    return GoogleOfficialClient.GEMINI_LEVEL_ORDER;
   }
 
   /**
@@ -222,7 +222,7 @@ export class GeminiOfficialClient extends LLMClient {
     // e.g. MEDIUM becomes HIGH on gemini-3-pro and NONE maps to LOW on
     // gemini-3.7-flash. `supported` is non-empty here, so the
     // initial-value-less reduce cannot throw.
-    const order = GeminiOfficialClient.GEMINI_LEVEL_ORDER;
+    const order = GoogleOfficialClient.GEMINI_LEVEL_ORDER;
     const index = order.indexOf(level);
     return supported.reduce((best, candidate) => {
       const bestDistance = Math.abs(order.indexOf(best) - index);

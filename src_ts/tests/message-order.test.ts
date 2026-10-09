@@ -101,7 +101,7 @@ const MESSAGE_ORDER_CASES: MessageOrderCase[] = [
     expected: MESSAGES_ORDER,
   },
   {
-    expectedClient: "GeminiOfficialClient",
+    expectedClient: "GoogleOfficialClient",
     model: "gemini-3.8-flash",
     protocol: "gemini",
     expected: GEMINI_ORDER,
@@ -269,10 +269,10 @@ describe.each(MESSAGE_ORDER_CASES)(
   },
 );
 
-describe("Message transform shape for GeminiOfficialClient", () => {
+describe("Message transform shape for GoogleOfficialClient", () => {
   test("sends an image-only tool result without an empty text block", async () => {
     const client = routedClient("gemini-3.8-flash");
-    expect(client.constructor.name).toBe("GeminiOfficialClient");
+    expect(client.constructor.name).toBe("GoogleOfficialClient");
     const messages = messagesFor();
     messages[2].content_items = [
       {

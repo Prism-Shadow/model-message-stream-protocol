@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { LLMClient } from "./baseClient";
-import { GeminiOfficialClient } from "./gemini_official";
+import { GoogleOfficialClient } from "./google_official";
 import { GoogleGenaiClient } from "./google_genai";
 import { AnthropicOfficialClient } from "./anthropic_official";
 import { OpenAIOfficialClient } from "./openai_official";
@@ -26,6 +26,7 @@ import { OpenaiEmbeddingClient } from "./openai_embedding";
 import { DeepSeekOfficialClient } from "./deepseek_official";
 import { MiniMaxOfficialClient } from "./minimax_official";
 import { OpenaiChatVllmAdapterClient } from "./openai_chat_vllm_adapter";
+import { MmspClient } from "./mmsp";
 import { UniConfig, UniEvent, UniMessage } from "./types";
 
 type LLMClientConstructor = new (options: {
@@ -40,7 +41,7 @@ type LLMClientConstructor = new (options: {
 export const OFFICIAL_CLIENT_TYPES = [
   "openai-official",
   "anthropic-official",
-  "gemini-official",
+  "google-official",
   "zai-official",
   "moonshot-official",
   "deepseek-official",
@@ -55,6 +56,7 @@ export const COMPATIBLE_CLIENT_TYPES = [
   "openai-embedding",
   "ant-messages",
   "google-genai",
+  "mmsp",
 ] as const;
 
 // Without a client type, the family a model id begins with names its official client.
@@ -62,7 +64,7 @@ export const MODEL_FAMILIES: [string, string][] = [
   ["gpt-", "openai-official"],
   ["text-embedding-", "openai-official"],
   ["claude-", "anthropic-official"],
-  ["gemini-", "gemini-official"],
+  ["gemini-", "google-official"],
   ["glm-", "zai-official"],
   ["kimi-", "moonshot-official"],
   ["deepseek-", "deepseek-official"],
@@ -110,8 +112,9 @@ function clientClass(
         : OpenAIOfficialClient;
     case "anthropic-official":
       return AnthropicOfficialClient;
+    case "google-official":
     case "gemini-official":
-      return GeminiOfficialClient;
+      return GoogleOfficialClient;
     case "zai-official":
       return ZAIOfficialClient;
     case "moonshot-official":
@@ -134,6 +137,8 @@ function clientClass(
     case "google-genai":
     case "gemini-generate-content":
       return GoogleGenaiClient;
+    case "mmsp":
+      return MmspClient;
     default:
       return null;
   }

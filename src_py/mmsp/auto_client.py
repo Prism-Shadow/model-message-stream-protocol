@@ -25,7 +25,7 @@ from .types import UniConfig, UniEvent, UniMessage
 OFFICIAL_CLIENT_TYPES = (
     "openai-official",
     "anthropic-official",
-    "gemini-official",
+    "google-official",
     "zai-official",
     "moonshot-official",
     "deepseek-official",
@@ -40,6 +40,7 @@ COMPATIBLE_CLIENT_TYPES = (
     "openai-embedding",
     "ant-messages",
     "google-genai",
+    "mmsp",
 )
 
 # Without a client type, the family a model id begins with names its official client.
@@ -47,7 +48,7 @@ MODEL_FAMILIES = (
     ("gpt-", "openai-official"),
     ("text-embedding-", "openai-official"),
     ("claude-", "anthropic-official"),
-    ("gemini-", "gemini-official"),
+    ("gemini-", "google-official"),
     ("glm-", "zai-official"),
     ("kimi-", "moonshot-official"),
     ("deepseek-", "deepseek-official"),
@@ -105,10 +106,10 @@ def _client_class(client_type: str, model: str) -> type[LLMClient] | None:
             from .anthropic_official import AnthropicOfficialClient
 
             return AnthropicOfficialClient
-        case "gemini-official":
-            from .gemini_official import GeminiOfficialClient
+        case "google-official" | "gemini-official":
+            from .google_official import GoogleOfficialClient
 
-            return GeminiOfficialClient
+            return GoogleOfficialClient
         case "zai-official":
             from .zai_official import ZAIOfficialClient
 
@@ -149,6 +150,10 @@ def _client_class(client_type: str, model: str) -> type[LLMClient] | None:
             from .google_genai import GoogleGenaiClient
 
             return GoogleGenaiClient
+        case "mmsp":
+            from .mmsp import MmspClient
+
+            return MmspClient
     return None
 
 

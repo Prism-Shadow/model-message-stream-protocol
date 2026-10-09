@@ -20,6 +20,7 @@ export {
   ToolCallArgumentParseError,
   UnsupportedOperationError,
   UnsupportedParameterError,
+  UpstreamError,
 } from "./errors";
 export {
   listSupportedModels,

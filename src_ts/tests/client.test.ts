@@ -48,7 +48,8 @@ interface Model {
     | "modelverse"
     | "deepseek"
     | "zai"
-    | "minimax";
+    | "minimax"
+    | "mmsp";
 }
 
 const AVAILABLE_MODELS: Model[] = [];
@@ -110,6 +111,15 @@ if (process.env.GEMINI_API_KEY) {
 if (process.env.ANTHROPIC_API_KEY) {
   AVAILABLE_MODELS.push({
     name: "claude-sonnet-5-5",
+    supportTextGeneration: true,
+    supportImageUnderstanding: true,
+    supportImageGeneration: false,
+    supportAudioGeneration: false,
+    supportEmbedding: false,
+    provider: "official",
+  });
+  AVAILABLE_MODELS.push({
+    name: "claude-haiku-5-5",
     supportTextGeneration: true,
     supportImageUnderstanding: true,
     supportImageGeneration: false,
@@ -443,6 +453,21 @@ if (process.env.MODELVERSE_API_KEY && RUN_SLOW_TEST) {
   });
 }
 
+if (process.env.MMSP_API_KEY && process.env.MMSP_BASE_URL) {
+  // a running MMSP server started from a config file; MMSP_MODEL is a server_model_id of its table, MMSP_BASE_URL ends with /v1
+  AVAILABLE_MODELS.push({
+    name: process.env.MMSP_MODEL || "gpt-6.1-sol",
+    supportTextGeneration: true,
+    supportImageUnderstanding: true,
+    supportImageGeneration: false,
+    supportAudioGeneration: false,
+    supportEmbedding: false,
+    provider: "mmsp",
+    clientType: "mmsp",
+    baseUrl: process.env.MMSP_BASE_URL,
+  });
+}
+
 const PROVIDER_API_KEY_ENVS: { [provider: string]: string } = {
   bedrock: "BEDROCK_API_KEY",
   vertex: "VERTEX_API_KEY",
@@ -452,6 +477,7 @@ const PROVIDER_API_KEY_ENVS: { [provider: string]: string } = {
   deepseek: "DEEPSEEK_API_KEY",
   zai: "ZAI_API_KEY",
   minimax: "MINIMAX_API_KEY",
+  mmsp: "MMSP_API_KEY",
 };
 
 const PROVIDER_BASE_URLS: { [provider: string]: string } = {
@@ -1378,8 +1404,9 @@ const ROUTING_CASES: [string, string | undefined, string][] = [
   ["text-embedding-3-large", undefined, "OpenaiEmbeddingClient"],
   ["text-embedding-3-large", "openai-official", "OpenaiEmbeddingClient"],
   ["claude-sonnet-5", undefined, "AnthropicOfficialClient"],
-  ["gemini-3.8-flash", undefined, "GeminiOfficialClient"],
-  ["gemini-embedding-2", undefined, "GeminiOfficialClient"],
+  ["gemini-3.8-flash", undefined, "GoogleOfficialClient"],
+  ["gemini-embedding-2", undefined, "GoogleOfficialClient"],
+  ["gemini-3.8-flash", "gemini-official", "GoogleOfficialClient"],
   ["gemini-3.8-flash", "google-genai", "GoogleGenaiClient"],
   ["gemini-3.8-flash", "gemini-generate-content", "GoogleGenaiClient"],
   ["glm-5.3", undefined, "ZAIOfficialClient"],
@@ -1395,6 +1422,7 @@ const ROUTING_CASES: [string, string | undefined, string][] = [
   ["qwen3.6", "openai-chat-vllm-adapter", "OpenaiChatVllmAdapterClient"],
   ["qwen3-embedding", "openai-embedding", "OpenaiEmbeddingClient"],
   ["claude-opus-5", "ant-messages", "AntMessagesClient"],
+  ["gpt-5.5", "mmsp", "MmspClient"],
 ];
 
 function routedClientName(client: AutoLLMClient): string {
@@ -1414,8 +1442,8 @@ test.each(ROUTING_CASES)(
   },
 );
 
-test.each([undefined, "gemini-official"])(
-  "gemini-official refuses a Vertex AI service-account key (%s)",
+test.each([undefined, "google-official"])(
+  "google-official refuses a Vertex AI service-account key (%s)",
   (clientType) => {
     expect(
       () =>
@@ -1496,7 +1524,7 @@ test("should list supported model entries", () => {
     "gemini-3.6-flash",
   ]) {
     const gemini = entries.find((entry) => entry.model === model);
-    expect(gemini?.client).toBe("gemini-official");
+    expect(gemini?.client).toBe("google-official");
     expect([
       gemini?.pricing?.prompt_tokens,
       gemini?.pricing?.response_tokens,

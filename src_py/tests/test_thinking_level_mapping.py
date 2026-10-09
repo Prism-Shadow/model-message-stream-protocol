@@ -48,8 +48,8 @@ GEMINI3_THINKING_LEVEL_CASES = [
 
 def _create_gemini3_auto_client(model: str) -> AutoLLMClient:
     # client_type pins routing so hypothetical model names reach the unified
-    # GeminiOfficialClient the same way an explicit override would in user code.
-    return AutoLLMClient(model=model, api_key="test-key", client_type="gemini-official")
+    # GoogleOfficialClient the same way an explicit override would in user code.
+    return AutoLLMClient(model=model, api_key="test-key", client_type="google-official")
 
 
 @pytest.mark.parametrize(("model", "level", "expected"), GEMINI3_THINKING_LEVEL_CASES)
@@ -87,9 +87,9 @@ GEMINI3_7_THINKING_LEVEL_CASES = [
 
 @pytest.mark.parametrize(("model", "level", "expected"), GEMINI3_7_THINKING_LEVEL_CASES)
 def test_gemini3_8_thinking_level_clamps_to_model_support(model: str, level: ThinkingLevel, expected: str):
-    # These are real model ids, so automatic routing reaches GeminiOfficialClient directly.
+    # These are real model ids, so automatic routing reaches GoogleOfficialClient directly.
     client = AutoLLMClient(model=model, api_key="test-key")
-    assert client._client.__class__.__name__ == "GeminiOfficialClient"
+    assert client._client.__class__.__name__ == "GoogleOfficialClient"
     assert client._client._convert_thinking_level(level) == expected  # noqa: SLF001
 
 
@@ -180,12 +180,15 @@ THINKING_EFFORT_CASES = [
     ("claude-sonnet-4-6", None, ThinkingLevel.XHIGH, "high"),
     ("claude-sonnet-4-6", None, ThinkingLevel.MAX, "max"),
     ("claude-sonnet-5", "ant-messages", ThinkingLevel.MAX, "max"),
-    # Opus 5.5 and Fable 5.1 cannot turn thinking off, so NONE is the lowest effort; Sonnet 5.5
-    # turns off up-front thinking with between_tools, which carries no effort.
+    # Opus 5.5 and Fable 5.1 cannot turn thinking off, so NONE is the lowest effort, and Haiku 5.5
+    # runs NONE the same way; Sonnet 5.5 turns off up-front thinking with between_tools, which
+    # carries no effort.
     ("claude-opus-5-5", None, ThinkingLevel.NONE, "low"),
     ("claude-opus-5-5", None, ThinkingLevel.MAX, "max"),
     ("claude-fable-5-1", None, ThinkingLevel.NONE, "low"),
     ("claude-fable-5-1", None, ThinkingLevel.XHIGH, "xhigh"),
+    ("claude-haiku-5-5", None, ThinkingLevel.NONE, "low"),
+    ("claude-haiku-5-5", None, ThinkingLevel.MAX, "max"),
     ("claude-sonnet-5-5", None, ThinkingLevel.NONE, None),
     ("claude-sonnet-5-5", None, ThinkingLevel.XHIGH, "xhigh"),
     ("deepseek-v4", None, ThinkingLevel.NONE, "none"),
@@ -242,6 +245,7 @@ THINKING_SUMMARY_CASES: list[tuple[str, str | None, dict[str, Any], Any]] = [
     ("claude-sonnet-5-5", None, {"thinking_summary": True, "thinking_level": ThinkingLevel.NONE}, None),
     ("claude-sonnet-5-5", None, {"thinking_summary": True}, "summarized"),
     ("claude-opus-5-5", None, {"thinking_summary": True, "thinking_level": ThinkingLevel.NONE}, "summarized"),
+    ("claude-haiku-5-5", None, {"thinking_summary": True, "thinking_level": ThinkingLevel.NONE}, "summarized"),
     ("deepseek-v4", None, {"thinking_summary": True}, "concise"),
     ("deepseek-v4", None, {"thinking_summary": True, "thinking_level": ThinkingLevel.NONE}, "concise"),
     ("gpt-5.6", None, {"thinking_summary": True}, "concise"),

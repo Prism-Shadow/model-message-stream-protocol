@@ -102,6 +102,10 @@ def test_chat_app_index_route():
         assert b'"openai-official"' in response.data
         assert b"handleClientTypeChange()" in response.data
         assert b"handleBaseUrlInput()" in response.data
+        # an entry is a model id, a client type, an API key and a base URL, and the selected one is the element
+        assert b"handleApiKeyInput()" in response.data
+        assert b"entryKey(" in response.data
+        assert b'[aria-selected="true"]' in response.data
         assert b">Connection</span>" in response.data
         assert b">Generation</span>" in response.data
         assert b"getExtraHeaders()" in response.data
@@ -142,8 +146,19 @@ def test_chat_app_index_route():
         assert b"Open Tracer" in response.data
         assert response.data.index(b'<h1 class="brand-name">') < response.data.index(b">GitHub<")
         assert response.data.index(b">GitHub<") < response.data.index(b">Open Tracer<")
+        assert b'href="/server/"' in response.data
+        assert b"Open Server" in response.data
+        assert response.data.index(b">Open Tracer<") < response.data.index(b">Open Server<")
         assert b"temperatureInput" not in response.data
         assert b"maxTokensInput" not in response.data
+        # a message sent to another entry starts a new conversation under a divider, and the hint says so first
+        assert b'id="composerHint"' in response.data
+        assert b"startNewConversation()" in response.data
+        assert b"switchPending()" in response.data
+        assert b"conversationEntry" in response.data
+        assert b'class="divider"' in response.data
+        assert b"the messages above are not sent" in response.data
+        assert b"Enter starts a new conversation with" in response.data
 
 
 def test_chat_app_api_chat_no_message():
@@ -167,6 +182,18 @@ def test_chat_app_mounts_tracer():
         assert response.status_code == 200
         assert b"Tracer" in response.data
         assert b'href="/tracer/"' in response.data
+
+
+def test_chat_app_mounts_server_page():
+    """Test that the playground app also serves the server page on the same port."""
+    app = create_chat_app()
+
+    with app.test_client() as client:
+        response = client.get("/server/")
+        assert response.status_code == 200
+        assert b"MMSP Server" in response.data
+        assert b'id="serverToggle"' in response.data
+        assert b'href="/server/"' in response.data
 
 
 def test_chat_app_lists_the_models_the_endpoint_serves(monkeypatch):
@@ -422,6 +449,73 @@ def test_chat_app_names_an_error_without_a_message_by_its_class(monkeypatch):
 
     assert [json.loads(event) for event in events[:-1]] == [EVENTS[0], {"error": "TimeoutError"}]
     assert events[-1] == "[DONE]"
+
+
+def test_chat_app_keeps_a_session_history_across_a_client_rebuild(monkeypatch):
+    """Test that a key edit rebuilds the session's client with its history, and that only a clear ends it."""
+    built = []
+
+    class FakeClient:
+        def __init__(self, model, api_key=None, base_url=None, client_type=None, default_headers=None):
+            self.api_key = api_key
+            self.history = []
+            built.append(self)
+
+        async def streaming_response_stateful(self, message, config, signal=None):
+            for event in EVENTS:
+                yield event
+            self.history.append(message)
+
+        def get_history(self):
+            return list(self.history)
+
+        def set_history(self, history):
+            self.history = list(history)
+
+        def clear_history(self):
+            self.history.clear()
+
+    playground._session_clients.clear()
+    playground._session_client_options.clear()
+    monkeypatch.setattr(playground, "AutoLLMClient", FakeClient)
+
+    def message(text):
+        return {"role": "user", "content_items": [{"type": "text.done", "text": text}]}
+
+    app = create_chat_app()
+    with app.test_client() as client:
+        for text, api_key in (("first", "k1"), ("second", "k2")):
+            response = client.post(
+                "/api/chat",
+                json={
+                    "session_id": "rebuild",
+                    "message": message(text),
+                    "config": {"model": "gpt-5.5", "api_key": api_key},
+                },
+            )
+            assert response.status_code == 200
+            assert _sse_events(response.data)[-1] == "[DONE]"
+
+        assert [c.api_key for c in built] == ["k1", "k2"]
+        assert built[1].history[0] == message("first")
+        assert len(built[1].history) == 2
+
+        assert client.post("/api/clear", json={"session_id": "rebuild"}).status_code == 200
+        response = client.post(
+            "/api/chat",
+            json={
+                "session_id": "rebuild",
+                "message": message("third"),
+                "config": {"model": "gpt-5.5", "api_key": "k2"},
+            },
+        )
+        assert response.status_code == 200
+        assert _sse_events(response.data)[-1] == "[DONE]"
+
+    assert len(built) == 3
+    assert built[2].history == [message("third")]
+    playground._session_clients.clear()
+    playground._session_client_options.clear()
 
 
 def test_chat_app_abort_route_interrupts_active_signal():

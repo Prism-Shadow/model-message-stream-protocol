@@ -193,7 +193,7 @@ async def test_replay_keeps_each_message_on_its_own_reasoning_field():
 # recorded on a call already makes the turn's thought.
 def _gemini_client() -> AutoLLMClient:
     client = AutoLLMClient(model="gemini-3.8-flash", api_key="test-key")
-    assert client._client.__class__.__name__ == "GeminiOfficialClient"  # noqa: SLF001
+    assert client._client.__class__.__name__ == "GoogleOfficialClient"  # noqa: SLF001
     return client
 
 

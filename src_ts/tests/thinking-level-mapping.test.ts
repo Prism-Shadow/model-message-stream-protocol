@@ -44,12 +44,12 @@ const GEMINI3_THINKING_LEVEL_CASES: Array<
 ];
 
 // clientType pins routing so hypothetical model names reach the unified
-// GeminiOfficialClient the same way an explicit override would in user code.
+// GoogleOfficialClient the same way an explicit override would in user code.
 function createGemini3AutoClient(model: string): AutoLLMClient {
   return new AutoLLMClient({
     model,
     apiKey: "test-key",
-    clientType: "gemini-official",
+    clientType: "google-official",
   });
 }
 
@@ -93,15 +93,15 @@ const GEMINI3_7_THINKING_LEVEL_CASES: Array<[string, ThinkingLevel, string]> = [
   ["gemini-3.5-flash-lite", ThinkingLevel.NONE, "minimal"],
 ];
 
-describe("gemini_official thinking level clamping", () => {
+describe("google_official thinking level clamping", () => {
   test.each(GEMINI3_7_THINKING_LEVEL_CASES)(
     "%s clamps %s to %s",
     (model, level, expected) => {
-      // These are real model ids, so automatic routing reaches GeminiOfficialClient directly.
+      // These are real model ids, so automatic routing reaches GoogleOfficialClient directly.
       const client = new AutoLLMClient({ model, apiKey: "test-key" });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect((client as any)._client.constructor.name).toBe(
-        "GeminiOfficialClient",
+        "GoogleOfficialClient",
       );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect((client as any)._client._convertThinkingLevel(level)).toBe(
@@ -218,12 +218,15 @@ const THINKING_EFFORT_CASES: Array<
   ["gpt-5.6", "openai-responses", ThinkingLevel.MAX, "max"],
   ["claude-sonnet-5", undefined, ThinkingLevel.XHIGH, "xhigh"],
   ["claude-sonnet-5", undefined, ThinkingLevel.MAX, "max"],
-  // Opus 5.5 and Fable 5.1 cannot turn thinking off, so NONE is the lowest effort; Sonnet 5.5
-  // turns off up-front thinking with between_tools, which carries no effort.
+  // Opus 5.5 and Fable 5.1 cannot turn thinking off, so NONE is the lowest effort, and Haiku 5.5
+  // runs NONE the same way; Sonnet 5.5 turns off up-front thinking with between_tools, which
+  // carries no effort.
   ["claude-opus-5-5", undefined, ThinkingLevel.NONE, "low"],
   ["claude-opus-5-5", undefined, ThinkingLevel.MAX, "max"],
   ["claude-fable-5-1", undefined, ThinkingLevel.NONE, "low"],
   ["claude-fable-5-1", undefined, ThinkingLevel.XHIGH, "xhigh"],
+  ["claude-haiku-5-5", undefined, ThinkingLevel.NONE, "low"],
+  ["claude-haiku-5-5", undefined, ThinkingLevel.MAX, "max"],
   ["claude-sonnet-5-5", undefined, ThinkingLevel.NONE, undefined],
   ["claude-sonnet-5-5", undefined, ThinkingLevel.XHIGH, "xhigh"],
   // 4.6 has no xhigh but does take max.
@@ -291,6 +294,12 @@ const THINKING_SUMMARY_CASES: Array<
   ["claude-sonnet-5-5", undefined, { thinking_summary: true }, "summarized"],
   [
     "claude-opus-5-5",
+    undefined,
+    { thinking_summary: true, thinking_level: ThinkingLevel.NONE },
+    "summarized",
+  ],
+  [
+    "claude-haiku-5-5",
     undefined,
     { thinking_summary: true, thinking_level: ThinkingLevel.NONE },
     "summarized",

@@ -38,7 +38,7 @@ Fields:
 - `tools` (`list[ToolSchema]`): Tools with `name`, `description`, and optional JSON Schema `parameters`.
 - `thinking_summary` (`bool`): Request a thinking summary when supported; whether a model returns one is model-dependent (gemini-3.8-flash and gemini-3.1-pro do).
 - `thinking_level` (`ThinkingLevel`): `none`, `low`, `medium`, `high`, `xhigh`, or `max`. MMSP maps each level to the closest effort the model supports, so any level is safe to pass.
-- `tool_choice` (`ToolChoice`): `auto`, `required`, `none`, or a list of tool names; support varies by model. Claude Opus 5.5, Sonnet 5.5 and Fable 5.1 cannot be forced to call a tool: `"required"` and a list of names raise `UnsupportedParameterError` on them.
+- `tool_choice` (`ToolChoice`): `auto`, `required`, `none`, or a list of tool names; support varies by model. Claude Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.1 cannot be forced to call a tool: `"required"` and a list of names raise `UnsupportedParameterError` on them.
 - `system_prompt` (`str`): System instruction text.
 - `prompt_caching` (`PromptCaching`): `enable`, `disable`, or `enhance`.
 - `image_config` (`ImageConfig`): `aspect_ratio` (`1:1`, `2:3`, `3:2`, `3:4`, `4:3`, `9:16`, `16:9`, `21:9`) and `image_size` (`1K`, `2K`).
@@ -180,3 +180,4 @@ Errors raised by MMSP inherit `MMSPError`, a `ValueError` subclass. A stream end
 - `ToolCallArgumentParseError` — streamed tool-call arguments were malformed or not a JSON object. It carries `client`, `tool_name`, `tool_call_id`, `raw_arguments_length`, and `raw_arguments_preview` so the caller can log the bad model output and retry or re-prompt.
 - `EmptyResponseError` — the response finished with thinking content only, which fails with a 400 error when sent back on the next turn. It is raised instead of the `stop` event, leaves the stateful history unchanged, and carries `client`, `finish_reason`, and `usage_metadata` so the tokens of the rejected response can still be accounted for.
 - `StreamProtocolError` — a client produced a stream that breaks the protocol above. It reports a bug in MMSP rather than in the model output, is raised whether or not `MMSP_DEBUG` is set, and carries `client`.
+- `UpstreamError` — raised by the `mmsp` client for anything its MMSP server reported: the server refused the request (a wrong key, a model not in its table, a malformed body) or the server's client raised an error. It carries `client`, `status` (the HTTP status of a refusal, else the upstream's own when the error names one), `error_type` (the server-side class name, such as `EmptyResponseError`), and `error`, the error object as the server sent it, with that error's fields.

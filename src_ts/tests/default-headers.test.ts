@@ -48,7 +48,7 @@ const HEADER_CASES: HeaderCase[] = [
     expected: ["m1", "m2"],
   },
   {
-    clientType: "gemini-official",
+    clientType: "google-official",
     model: "gemini-3.8-flash",
     baseUrlSuffix: "",
     // the Gemini client is deduced from the model id, so its listing keeps only ids that
@@ -61,6 +61,13 @@ const HEADER_CASES: HeaderCase[] = [
     model: "gemini-3.8-flash",
     baseUrlSuffix: "",
     expected: ["gemini-3.8-flash", "gemini-3.8-pro"],
+  },
+  {
+    // the mmsp client sends them with fetch and lists in OpenAI's shape, which the default branch answers
+    clientType: "mmsp",
+    model: "gpt-5.6",
+    baseUrlSuffix: "/v1",
+    expected: ["m1", "m2"],
   },
 ];
 
@@ -90,7 +97,11 @@ beforeAll(async () => {
             { name: "models/gemini-3.8-pro" },
           ],
         }
-      : { object: "list", data: [{ id: "m1" }, { id: "m2" }], has_more: false };
+      : {
+          object: "list",
+          data: [{ id: "m1" }, { id: "m2" }],
+          has_more: false,
+        };
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(payload));
   });

@@ -26,16 +26,36 @@ import base64
 import concurrent.futures
 import json
 import os
+import re
+import socket
 import threading
+import time
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from flask import Flask, Response, jsonify, render_template_string, request
 from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
+from werkzeug.serving import BaseWSGIServer, make_server
 
 from .. import AutoLLMClient
 from ..abort_signal import AbortSignal
 from ..auto_client import COMPATIBLE_CLIENT_TYPES, MODEL_FAMILIES, OFFICIAL_CLIENT_TYPES
+from ..wire import DEFAULT_HOST, DEFAULT_PORT, server_base_url
+from .server import (
+    _COLUMNS,
+    SERVER_TEMPLATE,
+    ServerConfig,
+    ServerMetrics,
+    _parse_server_config,
+    _tps,
+    announce_server,
+    create_server_app,
+    parse_metrics_query,
+    read_server_config,
+    resolve_server_config,
+)
 from .tracer import Tracer
 
 
@@ -45,6 +65,29 @@ _loop_lock = threading.Lock()
 _session_clients: dict[str, AutoLLMClient] = {}
 _session_client_options: dict[str, tuple[str, str | None, str | None, str | None, dict[str, str] | None]] = {}
 _session_abort_signals: dict[str, AbortSignal] = {}
+
+
+@dataclass
+class _RunningServer:
+    """The MMSP server the playground started, until it is stopped."""
+
+    http_server: BaseWSGIServer
+    host: str
+    port: int
+    model_ids: list[str]
+    open: bool
+    config: dict[str, Any]  # the saved config it was started from, as typed (`_saved_config_view`)
+    metrics: ServerMetrics
+
+
+# one server per process, dying with it; the lock keeps two starts from both binding
+_mmsp_server_lock = threading.Lock()
+_mmsp_server: _RunningServer | None = None
+
+# the server page's Test: one short prompt straight to a row's upstream, long enough to measure a rate
+TEST_PROMPT = "Write the numbers from 1 to 120, separated by spaces, and nothing else."
+TEST_MAX_TOKENS = 512
+TEST_TIMEOUT_S = 60
 
 
 def _get_event_loop() -> asyncio.AbstractEventLoop:
@@ -113,7 +156,7 @@ def _get_request_config(config: dict[str, Any]) -> dict[str, Any]:
 _DEFAULT_BASE_URLS = {
     "openai-official": ("OPENAI_BASE_URL", "https://api.openai.com/v1"),
     "anthropic-official": ("ANTHROPIC_BASE_URL", "https://api.anthropic.com"),
-    "gemini-official": ("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com"),
+    "google-official": ("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com"),
     "zai-official": ("ZAI_BASE_URL", "https://api.z.ai/api/paas/v4/"),
     "moonshot-official": ("MOONSHOT_BASE_URL", "https://api.moonshot.cn/v1"),
     "deepseek-official": ("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
@@ -124,6 +167,7 @@ _DEFAULT_BASE_URLS = {
     "openai-embedding": ("OPENAI_BASE_URL", "https://api.openai.com/v1"),
     "ant-messages": ("ANTHROPIC_BASE_URL", "https://api.anthropic.com"),
     "google-genai": ("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com"),
+    "mmsp": ("MMSP_BASE_URL", "http://127.0.0.1:25752/v1"),
 }
 
 
@@ -137,6 +181,437 @@ def _playground_defaults() -> str:
             "baseUrls": {name: os.getenv(env) or url for name, (env, url) in _DEFAULT_BASE_URLS.items()},
         }
     )
+
+
+def _server_config_path() -> Path:
+    """Where the server page saves its table: MMSP_SERVER_CONFIG, else server.json in the tracer's cache directory."""
+    named = os.getenv("MMSP_SERVER_CONFIG")
+    # abspath folds `..` away, as path.resolve does in the TypeScript server, so both show the same path
+    if named:
+        return Path(os.path.abspath(named))
+    # an empty MMSP_CACHE_DIR reads as unset, as it does in the TypeScript server
+    return Path(os.path.abspath(os.getenv("MMSP_CACHE_DIR") or "cache")) / "server.json"
+
+
+def _metrics_path(config_path: Path) -> Path:
+    """The metrics history beside a config: its path without a trailing `.json`, plus `-metrics.json`."""
+    path = str(config_path)
+    return Path((path[:-5] if path.endswith(".json") else path) + "-metrics.json")
+
+
+def _saved_config_view(config: dict[str, Any]) -> dict[str, Any]:
+    """The four keys the page compares: rows and keys as written, host and port with the defaults filled."""
+    return {
+        "models": config["models"],
+        "api_keys": config.get("api_keys", []),
+        "host": config.get("host", DEFAULT_HOST),
+        "port": config.get("port", DEFAULT_PORT),
+    }
+
+
+def _write_saved_config(path: Path, text: str) -> None:
+    """Write the config's text through a temporary file, so that a reader never sees half of it."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(path.name + ".tmp")
+    # "\n" on every platform, so that both servers write the same bytes
+    temporary.write_text(text, encoding="utf-8", newline="\n")
+    os.replace(temporary, path)
+
+
+def _check_listen(host: Any, port: Any) -> int:
+    """
+    Check a host and a port the page or the file names.
+
+    Returns:
+        The port as an int
+
+    Raises:
+        ValueError: When the host is not a non-empty string or the port not an integer between 0 and 65535.
+    """
+    if not isinstance(host, str) or not host.strip():
+        raise ValueError("host must be a non-empty string.")
+    # JavaScript cannot tell 25752.0 from 25752, so neither server does
+    if isinstance(port, float) and port.is_integer():
+        port = int(port)
+    if isinstance(port, bool) or not isinstance(port, int) or not 0 <= port <= 65535:
+        raise ValueError("port must be an integer between 0 and 65535.")
+    return port
+
+
+def _config_body(path: Path) -> dict[str, Any]:
+    """Where the saved config is, whether it exists, what it holds and its text, or why it cannot be read."""
+    try:
+        # newline="" keeps the line endings as written, as the TypeScript server reads them
+        with open(path, encoding="utf-8", newline="") as file:
+            text = file.read()
+    except FileNotFoundError:
+        return {"path": str(path), "exists": False, "config": None, "text": None}
+    except (ValueError, OSError) as exc:
+        return {"path": str(path), "exists": True, "config": None, "text": None, "error": str(exc)}
+    try:
+        config = _parse_server_config(text, path)
+    except ValueError as exc:
+        return {"path": str(path), "exists": True, "config": None, "text": text, "error": str(exc)}
+    return {"path": str(path), "exists": True, "config": _saved_config_view(config), "text": text}
+
+
+def _load_saved_config(path: Path) -> tuple[dict[str, Any], ServerConfig, str, int]:
+    """
+    Read what a start serves from the saved config.
+
+    Returns:
+        The config as typed (`_saved_config_view`), its rows and keys resolved, and the host and port
+
+    Raises:
+        ValueError: When there is no file, it is not a config, its host or port is malformed, or a cell
+        references a variable that is unset or empty.
+    """
+    try:
+        config = read_server_config(path)
+    except FileNotFoundError as exc:
+        raise ValueError(f"No saved config at {path}; save the table first.") from exc
+    except OSError as exc:
+        raise ValueError(str(exc)) from exc
+    view = _saved_config_view(config)
+    port = _check_listen(view["host"], view["port"])
+    # no source, so that the messages name models[i] as the page's table does
+    resolved = resolve_server_config({"models": view["models"], "api_keys": view["api_keys"]})
+    return view, resolved, view["host"], port
+
+
+def _mmsp_server_status() -> dict[str, Any]:
+    """The server page's status: `{"running": False}`, or where the server listens, what it serves and its config."""
+    running = _mmsp_server
+    if running is None:
+        return {"running": False}
+    return {
+        "running": True,
+        "host": running.host,
+        "port": running.port,
+        "base_url": server_base_url(running.host, running.port),
+        "models": running.model_ids,
+        "open": running.open,
+        "config": running.config,
+    }
+
+
+def _shutdown(running: _RunningServer) -> None:
+    """Close a server the playground started and its metrics, and say so; the caller holds the lock, state cleared."""
+    # the handler threads are daemons, so an open stream does not hold this up
+    running.http_server.shutdown()
+    running.http_server.server_close()
+    running.metrics.close()
+    print(f"Stopped MMSP server at {server_base_url(running.host, running.port)}")
+
+
+def _stop_mmsp_server() -> None:
+    """Stop the MMSP server the playground started; nothing when none runs."""
+    global _mmsp_server
+    with _mmsp_server_lock:
+        running, _mmsp_server = _mmsp_server, None
+        if running is not None:
+            _shutdown(running)
+
+
+def _launch(
+    server_app: Flask, host: str, port: int, view: dict[str, Any], config: ServerConfig
+) -> Response | tuple[Response, int]:
+    """Serve an app on host and port, record it as the running server and announce it; the caller holds the lock."""
+    global _mmsp_server
+    # werkzeug answers a failed bind by printing it and exiting the process, and takes a "unix://"
+    # host for a socket file to replace, so the socket is bound here, as werkzeug binds it, and handed over
+    listener = socket.socket(socket.AF_INET6 if ":" in host else socket.AF_INET)
+    try:
+        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        listener.bind((host, port))
+        listener.listen()
+    except OSError as exc:
+        listener.close()
+        # the app never serves, so its metrics' saver stops here
+        server_app.config["MMSP_SERVER_METRICS"].close()
+        return jsonify({"error": f"Cannot listen on {host}:{port}: {exc.strerror or exc}"}), 400
+    with listener:
+        http_server = make_server(host, port, server_app, threaded=True, fd=listener.fileno())
+    threading.Thread(target=http_server.serve_forever, daemon=True, name="mmsp-server").start()
+    _mmsp_server = _RunningServer(
+        http_server=http_server,
+        host=host,
+        # the bound port, so that port 0 reports the one the system chose
+        port=http_server.port,
+        model_ids=server_app.config["MMSP_SERVER_MODEL_IDS"],
+        open=not config["api_keys"],
+        config=view,
+        metrics=server_app.config["MMSP_SERVER_METRICS"],
+    )
+    announce_server(host, http_server.port, _mmsp_server.model_ids, _mmsp_server.open)
+    return jsonify(_mmsp_server_status())
+
+
+def _row_message(message: str) -> str:
+    """A refusal of a one-row config as it reads about the row itself: without the `models[0]` it starts with."""
+    return re.sub(r"^models\[0\](?:\.|: )", "", message)
+
+
+async def _probe_upstream(client: AutoLLMClient, timeout_s: float) -> dict[str, Any]:
+    """
+    Stream the test prompt through a client and time it.
+
+    Args:
+        client: The row's upstream client
+        timeout_s: How long the whole answer may take
+
+    Returns:
+        `{"ok": True, "first_token_ms", "total_ms", "tokens_out", "tps"}`, or `{"ok": False, "error"}`
+    """
+    signal = AbortSignal()
+    started = time.monotonic()
+    first: float | None = None
+    usage: dict[str, Any] | None = None
+
+    async def consume() -> float:
+        nonlocal first, usage
+        messages = [{"role": "user", "content_items": [{"type": "text.done", "text": TEST_PROMPT}]}]
+        async for event in client.streaming_response(messages, {"max_tokens": TEST_MAX_TOKENS}, signal):
+            # a stop event may come before any token (Anthropic reports usage at message_start), so the first
+            # token is the first event that carries an item
+            if first is None and event["content_items"]:
+                first = time.monotonic()
+            if event["event_type"] == "stop":
+                usage = event.get("usage_metadata")
+        return time.monotonic()
+
+    task = asyncio.ensure_future(consume())
+    # not wait_for: a client's own TimeoutError is the client's message, not the probe's
+    done, _ = await asyncio.wait({task}, timeout=timeout_s)
+    if not done:
+        signal.abort("timed out")
+        task.cancel()
+        try:
+            await task
+        except (asyncio.CancelledError, Exception):  # the cancellation, or what the aborted stream raised
+            pass
+        return {"ok": False, "error": f"No answer within {timeout_s:g} s."}
+    try:
+        ended = task.result()
+    except Exception as exc:
+        return {"ok": False, "error": str(exc) or type(exc).__name__}
+    total_ms = int((ended - started) * 1000 + 0.5)
+    first_token_ms = None if first is None else int((first - started) * 1000 + 0.5)
+    tokens_out = None
+    if usage and (usage.get("thoughts_tokens") is not None or usage.get("response_tokens") is not None):
+        tokens_out = (usage.get("thoughts_tokens") or 0) + (usage.get("response_tokens") or 0)
+    tps = None
+    if first_token_ms is not None and tokens_out is not None:
+        tps = _tps(tokens_out, max(total_ms - first_token_ms, 1))
+    return {"ok": True, "first_token_ms": first_token_ms, "total_ms": total_ms, "tokens_out": tokens_out, "tps": tps}
+
+
+def _test_upstream(row: dict[str, Any], timeout_s: float = TEST_TIMEOUT_S) -> dict[str, Any]:
+    """
+    Send the test prompt to a row's upstream, its `$VAR` cells read from this process's environment.
+
+    Args:
+        row: The row as the page edits it: its known columns, as typed
+        timeout_s: How long the whole answer may take
+
+    Returns:
+        The probe's result; a row that cannot be resolved or whose client cannot be built is `{"ok": False, "error"}`
+    """
+    try:
+        resolved = resolve_server_config({"models": [row], "api_keys": []})["models"][0]
+    except ValueError as exc:
+        return {"ok": False, "error": _row_message(str(exc))}
+    try:
+        client = AutoLLMClient(
+            model=resolved["model_id"],
+            api_key=resolved["api_key"],
+            base_url=resolved.get("base_url") or None,
+            client_type=resolved.get("client_type") or None,
+        )
+    except Exception as exc:  # an unknown client type, a model no client serves, a key the client refuses
+        return {"ok": False, "error": str(exc) or type(exc).__name__}
+    return asyncio.run_coroutine_threadsafe(_probe_upstream(client, timeout_s), _get_event_loop()).result()
+
+
+def _create_server_page_app(config_path: Path) -> Flask:
+    """
+    Create the server page's app: the page and the API it calls.
+
+    The page is served at `/`, and the API at `/api/config` (GET, PUT), `/api/status`, `/api/metrics`,
+    `/api/start`, `/api/restart`, `/api/stop` and `/api/test`. The server keeps its metrics history beside
+    the config (`_metrics_path`), so a restart continues it and the page reads it while no server runs.
+
+    Args:
+        config_path: The absolute path the page saves its table to, and every start reads
+
+    Returns:
+        Flask application instance, mounted at /server
+    """
+    metrics_path = _metrics_path(config_path)
+    app = Flask(__name__)
+    app.json.ensure_ascii = False
+    app.json.sort_keys = False
+
+    def refuse(message: str, status: int = 400) -> tuple[Response, int]:
+        """The answer to a request the page sent and the playground refuses."""
+        return jsonify({"error": message}), status
+
+    @app.route("/")
+    def index() -> Response:
+        """Serve the server page."""
+        # not through Jinja, unlike the chat page: the page is served as it is written
+        return Response(
+            SERVER_TEMPLATE.replace("__PLAYGROUND_DEFAULTS__", _playground_defaults()), mimetype="text/html"
+        )
+
+    @app.route("/api/config", methods=["GET"])
+    def get_config() -> Response:
+        """Report where the table is saved and what the file holds, as written."""
+        return jsonify(_config_body(config_path))
+
+    @app.route("/api/config", methods=["PUT"])
+    def put_config() -> Response | tuple[Response, int]:
+        """Save the page's table, keys, host and port to the config file, cells as typed."""
+        body = request.get_json(silent=True)
+        if not isinstance(body, dict):
+            return refuse("Request body must be a JSON object.")
+        models = body.get("models")
+        if not isinstance(models, list):
+            return refuse("the config must be a JSON object with a models list.")
+        api_keys = body.get("api_keys", [])
+        if not isinstance(api_keys, list):
+            return refuse("api_keys must be a list.")
+        rows = []
+        for i, row in enumerate(models):
+            if not isinstance(row, dict):
+                return refuse(f"models[{i}] must be an object.")
+            for column in _COLUMNS:
+                if column in row and not isinstance(row[column], str):
+                    return refuse(f"models[{i}]: {column} must be a string.")
+            # the five columns the CLI reads, in its order; anything else the page sends is not saved
+            rows.append({column: row[column] for column in _COLUMNS if column in row})
+        for i, key in enumerate(api_keys):
+            if not isinstance(key, str):
+                return refuse(f"api_keys[{i}] must be a string.")
+        host = body.get("host", DEFAULT_HOST)
+        try:
+            port = _check_listen(host, body.get("port", DEFAULT_PORT))
+        except ValueError as exc:
+            return refuse(str(exc))
+
+        config = {"models": rows, "api_keys": api_keys, "host": host, "port": port}
+        text = json.dumps(config, ensure_ascii=False, indent=2) + "\n"
+        try:
+            _write_saved_config(config_path, text)
+        except OSError as exc:
+            return refuse(f"Cannot write {config_path}: {exc.strerror or exc}", 500)
+        return jsonify({"path": str(config_path), "exists": True, "config": config, "text": text})
+
+    @app.route("/api/status")
+    def status() -> Response:
+        """Report whether the server runs, and where and what it serves."""
+        return jsonify(_mmsp_server_status())
+
+    @app.route("/api/metrics")
+    def metrics() -> Response | tuple[Response, int]:
+        """
+        What the server has served, read in-process, so the page needs no server key.
+
+        Running: `"running": true` followed by the server's snapshot, and with `?window=N` or `?from=F&to=T`
+        its window, as `GET /v1/metrics` reports them. Stopped: `{"running": false}`, followed by the
+        history's `since`, its errors and the window asked for when the history file can be read.
+        """
+        args = request.args
+        try:
+            query = parse_metrics_query(args.get("window"), args.get("from"), args.get("to"), args.get("columns"))
+        except ValueError as exc:
+            return refuse(str(exc))
+        running = _mmsp_server
+        if running is not None:
+            store = running.metrics
+            body = {"running": True, **store.snapshot()}
+        else:
+            history = ServerMetrics.from_history(metrics_path)
+            if history is None:
+                return jsonify({"running": False})
+            store = history
+            body = {"running": False, "since": history.since, "errors": history.snapshot()["errors"]}
+        if query is not None:
+            body["window"] = (
+                store.window(query.seconds, query.columns)
+                if query.seconds is not None
+                else store.between(query.start, query.end, query.columns)
+            )
+        return jsonify(body)
+
+    @app.route("/api/start", methods=["POST"])
+    def start() -> Response | tuple[Response, int]:
+        """Start the server from the saved config; unsaved edits on the page stay unsaved, so the body is not read."""
+        try:
+            view, config, host, port = _load_saved_config(config_path)
+        except ValueError as exc:
+            return refuse(str(exc))
+
+        with _mmsp_server_lock:
+            if _mmsp_server is not None:
+                return refuse("The server is running; stop it first.", 409)
+            try:
+                server_app = create_server_app(config["models"], config["api_keys"], metrics_path=metrics_path)
+            except ValueError as exc:
+                return refuse(str(exc))
+            return _launch(server_app, host, port, view, config)
+
+    @app.route("/api/restart", methods=["POST"])
+    def restart() -> Response | tuple[Response, int]:
+        """Replace the running server with one built from the saved config, or start one when none runs."""
+        global _mmsp_server
+        try:
+            view, config, host, port = _load_saved_config(config_path)
+        except ValueError as exc:
+            return refuse(str(exc))
+
+        with _mmsp_server_lock:
+            # written first, so that the new server continues the history up to this moment; what the old
+            # one counts until it stops is written at its close and overwritten at the new one's next save
+            if _mmsp_server is not None:
+                _mmsp_server.metrics.save()
+            # built before the old server stops, so that a table the server refuses never stops a good one
+            try:
+                server_app = create_server_app(config["models"], config["api_keys"], metrics_path=metrics_path)
+            except ValueError as exc:
+                return refuse(str(exc))
+            running, _mmsp_server = _mmsp_server, None
+            if running is not None:
+                _shutdown(running)
+            return _launch(server_app, host, port, view, config)
+
+    @app.route("/api/stop", methods=["POST"])
+    def stop() -> Response:
+        """Stop the server; stopping a stopped server is fine."""
+        _stop_mmsp_server()
+        return jsonify({"running": False})
+
+    @app.route("/api/test", methods=["POST"])
+    def test_row() -> Response | tuple[Response, int]:
+        """
+        Send one short prompt straight to a row's upstream, as the page edits it, and report whether it
+        answered and how fast.
+        """
+        body = request.get_json(silent=True)
+        if not isinstance(body, dict):
+            return refuse("Request body must be a JSON object.")
+        row = body.get("model")
+        if not isinstance(row, dict):
+            return refuse("model must be an object.")
+        for column in _COLUMNS:
+            if column in row and not isinstance(row[column], str):
+                return refuse(f"{column} must be a string.")
+        for column in ("model_id", "api_key"):
+            if not row.get(column):
+                return refuse(f"{column} must be a non-empty string.")
+        return jsonify(_test_upstream({column: row[column] for column in _COLUMNS if column in row}))
+
+    return app
 
 
 def create_chat_app() -> Flask:
@@ -1244,6 +1719,34 @@ def create_chat_app() -> Flask:
                 font-size: 12px;
             }
 
+            .divider {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                margin: 4px 0 28px;
+                color: var(--subtle);
+                font-size: 12px;
+                animation: msg-in 0.35s var(--ease);
+            }
+
+            .divider::before, .divider::after {
+                content: "";
+                flex: 1;
+                height: 1px;
+                background: var(--ring);
+            }
+
+            .divider span {
+                max-width: 80%;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .divider .mono {
+                color: var(--muted);
+            }
+
             .reason {
                 display: inline-flex;
                 align-items: center;
@@ -1554,7 +2057,7 @@ def create_chat_app() -> Flask:
                                 <label class="field-label" for="apiKeyInput">API key</label>
                             </div>
                             <div class="input-wrap">
-                                <input type="password" id="apiKeyInput" autocomplete="off" spellcheck="false" placeholder="From the environment when empty" class="control">
+                                <input type="password" id="apiKeyInput" autocomplete="off" spellcheck="false" oninput="handleApiKeyInput()" placeholder="From the environment when empty" class="control">
                                 <button type="button" id="apiKeyVisibilityToggle" aria-label="Show API key" title="Show API key" class="input-action" onclick="toggleApiKeyVisibility()">
                                     <svg id="apiKeyVisibilityShowIcon" class="hidden" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                                     <svg id="apiKeyVisibilityHideIcon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.7 5.1A10.9 10.9 0 0 1 12 5c6.5 0 10 7 10 7a18.5 18.5 0 0 1-3.3 4.3"></path><path d="M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7a10.9 10.9 0 0 0 5.4-1.4"></path><path d="M9.9 9.9A3 3 0 0 0 14.1 14.1"></path><path d="M3 3l18 18"></path></svg>
@@ -1678,6 +2181,10 @@ def create_chat_app() -> Flask:
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"></path></svg>
                             <span class="label-wide">Open Tracer</span>
                         </a>
+                        <a href="/server/" target="_blank" rel="noopener noreferrer" class="ghost-btn" title="Open Server">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="20" height="8" rx="2"></rect><rect x="2" y="14" width="20" height="8" rx="2"></rect><path d="M6 6h.01M6 18h.01"></path></svg>
+                            <span class="label-wide">Open Server</span>
+                        </a>
                         <button type="button" class="ghost-btn" onclick="clearChat()" title="New chat">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
                             <span class="label-wide">New chat</span>
@@ -1702,7 +2209,7 @@ def create_chat_app() -> Flask:
                             <button type="button" class="icon-btn" onclick="document.getElementById('imageInput').click()" aria-label="Attach images" title="Attach images">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.4 11.1-8.8 8.8a5.5 5.5 0 0 1-7.8-7.8l8.8-8.8a3.7 3.7 0 0 1 5.2 5.2l-8.8 8.8a1.8 1.8 0 0 1-2.6-2.6l8.1-8.1"></path></svg>
                             </button>
-                            <span class="composer-hint">Enter to send, Shift+Enter for a new line</span>
+                            <span class="composer-hint" id="composerHint">Enter to send, Shift+Enter for a new line</span>
                             <button type="button" class="send-btn" id="sendButton" onclick="sendMessage()" aria-label="Send" title="Send" disabled>
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"></path></svg>
                             </button>
@@ -1718,6 +2225,8 @@ def create_chat_app() -> Flask:
         <script>
             let isStreaming = false;
             let sessionId = Math.random().toString(36).substring(7);
+            // the entry (model id, client type, base URL) the conversation on screen was started with; null before the first message
+            let conversationEntry = null;
             let selectedImages = [];
             let lastMessageTimestamp = null;
             let currentAbortController = null;
@@ -2227,7 +2736,7 @@ def create_chat_app() -> Flask:
             const CLIENT_TYPE_DESCRIPTIONS = {
                 'openai-official': 'OpenAI',
                 'anthropic-official': 'Anthropic',
-                'gemini-official': 'Google Gemini',
+                'google-official': 'Google Gemini',
                 'zai-official': 'Z.AI',
                 'moonshot-official': 'Moonshot',
                 'deepseek-official': 'DeepSeek',
@@ -2237,7 +2746,8 @@ def create_chat_app() -> Flask:
                 'openai-chat-vllm-adapter': 'Chat Completions on vLLM',
                 'openai-embedding': 'OpenAI Embeddings',
                 'ant-messages': 'Anthropic Messages',
-                'google-genai': 'Google generateContent'
+                'google-genai': 'Google generateContent',
+                'mmsp': 'MMSP server'
             };
 
             function clientTypeOption(value, label, description) {
@@ -2290,14 +2800,27 @@ def create_chat_app() -> Flask:
                 return family ? family[1] : '';
             }
 
+            function endpointHost(url) {
+                try { return new URL(url).host; } catch (error) { return url; }
+            }
+
+            // an entry is a model id, a client type and a base URL; entries alike in all three are one, whatever key each was listed with
+            function entryKey(modelId, clientType, baseUrl) {
+                const type = clientType || familyClientType(modelId);
+                return JSON.stringify([modelId, type, baseUrl || PLAYGROUND.baseUrls[type] || '']);
+            }
+
+            function optionEntryKey(option) {
+                return entryKey(option.dataset.value, option.dataset.clientType || '', option.dataset.baseUrl || '');
+            }
+
             function selectedModelOption() {
                 const modelSelect = document.getElementById('modelSelect');
                 if (modelSelect.value === '__custom__') {
                     return null;
                 }
-                return document.querySelector(
-                    '#modelComboboxMenu [data-combobox-option][data-value="' + modelSelect.value + '"]'
-                );
+                // the selected element, not the first with that id: two entries may share a model id
+                return document.querySelector('#modelComboboxMenu [data-combobox-option][aria-selected="true"]');
             }
 
             function getSelectedClientType() {
@@ -2328,6 +2851,8 @@ def create_chat_app() -> Flask:
                 document.getElementById('headerClientType').textContent = clientType || 'client type required';
                 document.getElementById('emptyStateModel').textContent = model;
                 document.getElementById('messageInput').placeholder = `Message ${model}`;
+                const hint = document.getElementById('composerHint');
+                hint.textContent = switchPending() ? `Enter starts a new conversation with ${model}` : 'Enter to send, Shift+Enter for a new line';
             }
 
             function handleModelSelectChange() {
@@ -2338,11 +2863,12 @@ def create_chat_app() -> Flask:
                     return;
                 }
 
-                // a model keeps its client type and base URL: a built-in starts from the ones its id
+                // a model keeps its client type, base URL and API key: a built-in starts from the ones its id
                 // names, a listed model from the ones its listing ran under
                 const option = selectedModelOption();
                 const clientType = (option && option.dataset.clientType) || familyClientType(option && option.dataset.value);
                 setClientType(clientType);
+                document.getElementById('apiKeyInput').value = (option && option.dataset.apiKey) || '';
                 const defaultUrl = PLAYGROUND.baseUrls[effectiveClientType()] || '';
                 fillBaseUrl((option && option.dataset.baseUrl) || defaultUrl);
                 filledBaseUrl = defaultUrl;
@@ -2374,6 +2900,19 @@ def create_chat_app() -> Flask:
                     option.dataset.baseUrl = document.getElementById('baseUrlInput').value.trim();
                 }
                 updateBaseUrlTag();
+                updateHeader();
+            }
+
+            function handleApiKeyInput() {
+                const option = selectedModelOption();
+                if (option) {
+                    const value = document.getElementById('apiKeyInput').value.trim();
+                    if (value) {
+                        option.dataset.apiKey = value;
+                    } else {
+                        delete option.dataset.apiKey;
+                    }
+                }
             }
 
             function getSelectedModel() {
@@ -2401,16 +2940,21 @@ def create_chat_app() -> Flask:
             function addListedModels(modelIds) {
                 const menu = document.getElementById('modelComboboxMenu');
                 const options = Array.from(menu.querySelectorAll('[data-combobox-option]'));
-                const known = new Set(options.map((option) => option.dataset.value));
+                const known = new Map(options.filter((option) => option.dataset.value !== '__custom__').map((option) => [optionEntryKey(option), option]));
                 const customOption = options.find((option) => option.dataset.value === '__custom__') || null;
                 // a listed model is served by the endpoint that listed it, so it takes the current
-                // client type and base URL
+                // client type, base URL and API key
                 const clientType = effectiveClientType();
                 const baseUrl = document.getElementById('baseUrlInput').value.trim();
+                const apiKey = document.getElementById('apiKeyInput').value.trim();
 
                 let added = 0;
                 modelIds.forEach((modelId) => {
-                    if (known.has(modelId)) {
+                    const key = entryKey(modelId, clientType, baseUrl);
+                    if (known.has(key)) {
+                        if (apiKey) {
+                            known.get(key).dataset.apiKey = apiKey;
+                        }
                         return;
                     }
 
@@ -2422,7 +2966,7 @@ def create_chat_app() -> Flask:
                     option.setAttribute('data-combobox-option', '');
                     option.dataset.value = modelId;
                     option.dataset.label = modelId;
-                    option.dataset.description = clientType ? `listed through ${clientType}` : 'listed';
+                    option.dataset.description = clientType ? clientType + (baseUrl ? ' · ' + endpointHost(baseUrl) : '') : 'listed';
                     option.dataset.listed = 'true';
                     if (clientType) {
                         option.dataset.clientType = clientType;
@@ -2430,13 +2974,16 @@ def create_chat_app() -> Flask:
                     if (baseUrl) {
                         option.dataset.baseUrl = baseUrl;
                     }
+                    if (apiKey) {
+                        option.dataset.apiKey = apiKey;
+                    }
                     option.onclick = () => selectComboboxOption('modelCombobox', option);
 
                     const label = document.createElement('span');
                     label.textContent = modelId;
                     option.appendChild(label);
                     menu.insertBefore(option, customOption);
-                    known.add(modelId);
+                    known.set(key, option);
                     added += 1;
                 });
 
@@ -2650,6 +3197,7 @@ def create_chat_app() -> Flask:
                         handleBaseUrlInput();
                     }
                     updateBaseUrlTag();
+                    handleApiKeyInput();
                     validateTools();
                     getExtraHeaders();
                     updateHeader();
@@ -2829,7 +3377,14 @@ def create_chat_app() -> Flask:
 
                 if ((!message && selectedImages.length === 0) || isStreaming) return;
 
+                // set first, so that a second Enter while the old conversation is cleared is ignored
                 isStreaming = true;
+                if (switchPending()) {
+                    await startNewConversation();
+                }
+                if (conversationEntry === null) {
+                    conversationEntry = currentEntryKey();
+                }
                 currentAbortController = new AbortController();
                 setStreamingControls(true);
                 input.value = '';
@@ -3041,9 +3596,11 @@ def create_chat_app() -> Flask:
             function resetThread() {
                 sessionId = Math.random().toString(36).substring(7);
                 lastMessageTimestamp = null;
+                conversationEntry = null;
                 document.getElementById('thread').innerHTML = '';
                 document.getElementById('thread').classList.add('hidden');
                 document.getElementById('emptyState').classList.remove('hidden');
+                updateHeader();
             }
 
             function clearChat() {
@@ -3068,6 +3625,48 @@ def create_chat_app() -> Flask:
                 }).catch(error => {
                     console.error('Error clearing chat:', error);
                 });
+            }
+
+            function currentEntryKey() {
+                return entryKey(getSelectedModel(), getSelectedClientType(), document.getElementById('baseUrlInput').value.trim());
+            }
+
+            function threadHasMessages() {
+                return document.querySelector('#thread .msg') !== null;
+            }
+
+            // a message sent to another entry than the one the conversation on screen began with starts a new conversation
+            function switchPending() {
+                return conversationEntry !== null && threadHasMessages() && currentEntryKey() !== conversationEntry;
+            }
+
+            function addDivider(model) {
+                showThread();
+                document.getElementById('thread').insertAdjacentHTML('beforeend', `<div class="divider" role="separator" aria-label="New conversation"><span>New conversation with <span class="mono">${escapeHtml(model)}</span> · the messages above are not sent</span></div>`);
+                scrollToBottom(true);
+            }
+
+            // the earlier messages stay on screen above the divider; the backend forgets them with the old session
+            async function startNewConversation() {
+                const previous = sessionId;
+                sessionId = Math.random().toString(36).substring(7);
+                try {
+                    await fetch('/api/clear', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            session_id: previous
+                        })
+                    });
+                } catch (error) {
+                    // the new session starts anyway; the old client lingers until the process ends
+                    console.error('Error clearing chat:', error);
+                }
+                addDivider(getSelectedModel() || 'a custom model');
+                conversationEntry = currentEntryKey();
+                updateHeader();
             }
 
             document.getElementById('messageInput').addEventListener('keydown', function(e) {
@@ -3141,7 +3740,11 @@ def create_chat_app() -> Flask:
 
     @app.route("/api/chat", methods=["POST"])
     def chat() -> Response:
-        """Handle chat requests with streaming responses."""
+        """
+        Handle chat requests with streaming responses.
+
+        A session keeps its history across a change of client options; `/api/clear` ends it.
+        """
         data = request.json or {}
         message = data.get("message")
         config = data.get("config", {})
@@ -3162,15 +3765,21 @@ def create_chat_app() -> Flask:
             try:
                 # Get or create client for this session
                 client_options = _get_client_options(config)
-                if session_id not in _session_clients or _session_client_options.get(session_id) != client_options:
+                previous = _session_clients.get(session_id)
+                if previous is None or _session_client_options.get(session_id) != client_options:
                     model, api_key, base_url, client_type, default_headers = client_options
-                    _session_clients[session_id] = AutoLLMClient(
+                    client = AutoLLMClient(
                         model=model,
                         api_key=api_key,
                         base_url=base_url,
                         client_type=client_type,
                         default_headers=default_headers,
                     )
+                    # the session is the conversation: a key or headers edit rebuilds the client and keeps the
+                    # history; only /api/clear ends it
+                    if previous is not None:
+                        client.set_history(previous.get_history())
+                    _session_clients[session_id] = client
                     _session_client_options[session_id] = client_options
 
                 client = _session_clients[session_id]
@@ -3271,7 +3880,10 @@ def create_chat_app() -> Flask:
         return jsonify({"models": models})
 
     tracer_app = Tracer().create_web_app(base_path="/tracer")
-    app.wsgi_app = DispatcherMiddleware(app.wsgi_app, {"/tracer": tracer_app.wsgi_app})
+    app.wsgi_app = DispatcherMiddleware(
+        app.wsgi_app,
+        {"/tracer": tracer_app.wsgi_app, "/server": _create_server_page_app(_server_config_path()).wsgi_app},
+    )
 
     return app
 
@@ -3290,7 +3902,13 @@ def start_playground_server(host: str = "127.0.0.1", port: int = 25751, debug: b
     os.environ.setdefault("MMSP_DEBUG", "1")
     app = create_chat_app()
     print(f"Starting LLM Playground at http://{host}:{port}")
-    app.run(host=host, port=port, debug=debug)
+    print(f"Tracer at http://{host}:{port}/tracer/")
+    print(f"MMSP server page at http://{host}:{port}/server/")
+    try:
+        app.run(host=host, port=port, debug=debug)
+    finally:
+        # the server it started writes its metrics history as it stops
+        _stop_mmsp_server()
 
 
 if __name__ == "__main__":
