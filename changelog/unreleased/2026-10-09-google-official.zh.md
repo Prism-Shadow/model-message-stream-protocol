@@ -3,6 +3,7 @@
 - **Date:** 2026-10-09
 - **Type:** refactor
 - **Scope:** `auto_client`, `google_official`
+- **PR:** [#248](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/248)
 
 [English](2026-10-09-google-official.md)
 
