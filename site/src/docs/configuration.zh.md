@@ -40,7 +40,7 @@ description: UniConfig，请求的配置选项。所有字段均为可选。
 | `temperature` | 数字 | 采样温度。部分模型会固定此值，拒绝其他设置。 |
 | `system_prompt` | 字符串 | 系统指令。 |
 | `tools` | 列表 | 模型可调用的工具，包含 `name`、`description` 和 JSON Schema 格式的 `parameters`。 |
-| `tool_choice` | `"auto"`、`"required"`、`"none"` 或工具名列表 | 指定模型可以或必须调用哪些工具。具体支持情况因模型而异：Claude Opus 5.5、Sonnet 5.5 和 Fable 5.1 不能强制调用工具，在它们上面传 `"required"` 或工具名列表会抛错。 |
+| `tool_choice` | `"auto"`、`"required"`、`"none"` 或工具名列表 | 指定模型可以或必须调用哪些工具。具体支持情况因模型而异：Claude Opus 5.5、Sonnet 5.5、Haiku 5.5 和 Fable 5.1 不能强制调用工具，在它们上面传 `"required"` 或工具名列表会抛错。 |
 | `thinking_level` | `"none"`、`"low"`、`"medium"`、`"high"`、`"xhigh"`、`"max"` | 控制模型的思考深度。所有级别均可安全传入，MMSP 会自动映射到模型支持的最接近级别。 |
 | `thinking_summary` | 布尔 | 请求返回思考摘要。实际是否返回取决于模型能力。 |
 | `prompt_caching` | `"enable"`、`"disable"`、`"enhance"` | 提示词缓存策略。多数服务商自行管理缓存，通常只接受 `enable`。 |
@@ -52,7 +52,7 @@ description: UniConfig，请求的配置选项。所有字段均为可选。
 
 ## 模型拒绝的参数值
 
-如果模型不支持某个参数值，会在请求发出前抛出 `UnsupportedParameterError`，并指明客户端和具体参数。`thinking_level` 例外，它永远不会抛错。模型无法关闭思考时，`"none"` 取最少的思考：Claude Opus 5.5、Fable 5.1 和 GPT-6 上是最低的思考档位，Claude Sonnet 5.5 上是不在回答前思考。
+如果模型不支持某个参数值，会在请求发出前抛出 `UnsupportedParameterError`，并指明客户端和具体参数。`thinking_level` 例外，它永远不会抛错。模型无法关闭思考时，`"none"` 取最少的思考：Claude Opus 5.5、Fable 5.1 和 GPT-6 上是最低的思考档位，Claude Sonnet 5.5 上是不在回答前思考。Claude Haiku 5.5 上的 `"none"` 同样是最低的思考档位。
 
 ## 在 Python 和 TypeScript 中
 

@@ -11,7 +11,7 @@ description: MMSP 的客户端构成、各客户端支持的模型，以及如�
 | `client_type` | 模型 | 协议 | Key 与端点 |
 | --- | --- | --- | --- |
 | `openai-official` | `gpt-6.1-sol`、`gpt-6-astra`、`gpt-5.6-sol`、`gpt-5.5`；`text-embedding-3-large`、`text-embedding-3-small` | OpenAI Responses；`text-embedding-*` 走 Embeddings | `OPENAI_API_KEY` `OPENAI_BASE_URL` |
-| `anthropic-official` | `claude-opus-5-5`、`claude-sonnet-5-5`、`claude-fable-5-1`、`claude-opus-5`、`claude-sonnet-5` | Anthropic Messages | `ANTHROPIC_API_KEY` `ANTHROPIC_BASE_URL` |
+| `anthropic-official` | `claude-opus-5-5`、`claude-sonnet-5-5`、`claude-haiku-5-5`、`claude-fable-5-1`、`claude-opus-5`、`claude-sonnet-5` | Anthropic Messages | `ANTHROPIC_API_KEY` `ANTHROPIC_BASE_URL` |
 | `google-official` | `gemini-3.8-flash`、`gemini-3.7-flash`、`gemini-3.1-pro-preview`；`gemini-3.1-flash-image`、`gemini-3.8-flash-tts`；`gemini-embedding-2` | Gemini Interactions | `GEMINI_API_KEY` `GEMINI_BASE_URL` |
 | `zai-official` | `glm-5.3`、`glm-5.3-flash`、`glm-5.2` | Chat Completions | `ZAI_API_KEY` `ZAI_BASE_URL` |
 | `moonshot-official` | `kimi-k3`、`kimi-k2.6` | Chat Completions | `MOONSHOT_API_KEY` `MOONSHOT_BASE_URL` |

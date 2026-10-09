@@ -8,7 +8,7 @@ To use a specific model, please refer to its dedicated README:
 
 - **[Anthropic Messages protocol](./ant_messages/README.md)** - The Anthropic Messages-compatible protocol across Anthropic, OpenRouter, DeepSeek, Z.AI, and MiniMax (generic `ant_messages` client)
 - **[Claude 5.1](./claude5_1/README.md)** - Anthropic's Claude Fable 5.1: always-on thinking, no forced tool choice, history-bound thinking blocks
-- **[Claude 5.5](./claude5_5/README.md)** - Anthropic's Claude Opus 5.5 and Sonnet 5.5: always-on thinking on Opus, `between_tools` on Sonnet, no forced tool choice
+- **[Claude 5.5](./claude5_5/README.md)** - Anthropic's Claude Opus 5.5, Sonnet 5.5 and Haiku 5.5: always-on thinking on Opus, `between_tools` on Sonnet, adaptive thinking and long context pricing on Haiku
 - **[Claude 4.6](./claude4_6/README.md)** - Anthropic's Claude 4.6 API documentation and examples
 - **[Claude 4.7](./claude4_7/README.md)** - Anthropic's Claude 4.7 API documentation and examples
 - **[Claude 4.8](./claude4_8/README.md)** - Anthropic's Claude 4.8 API documentation and examples

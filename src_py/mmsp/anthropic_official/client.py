@@ -42,17 +42,19 @@ REDACTED_THINKING = "_REDACTED_THINKING"
 
 # Generations told apart by explicit version, matched anywhere in the id so Bedrock's
 # anthropic.claude-opus-5-5 counts too. Opus 5.5 and Fable 5.1 always think: "disabled" and
-# "between_tools" return 400. Sonnet 5.5 drops only up-front thinking, with "between_tools".
-_ALWAYS_THINKING = ("opus-5-5", "fable-5-1")
+# "between_tools" return 400. Haiku 5.5 takes "disabled" but runs NONE at the lowest effort
+# like them. Sonnet 5.5 drops only up-front thinking, with "between_tools".
+_LOW_EFFORT_FOR_NONE = ("opus-5-5", "fable-5-1", "haiku-5-5")
 _BETWEEN_TOOLS = ("sonnet-5-5",)
-# The 2026-09 generation returns 400 for tool_choice "any" and "tool".
-_NO_FORCED_TOOL_CHOICE = ("opus-5-5", "sonnet-5-5", "fable-5-1")
+# The 2026-09 generation returns 400 for tool_choice "any" and "tool". Haiku 5.5 takes them but
+# answers without thinking, so it is rejected with the rest of the 5.5 family.
+_NO_FORCED_TOOL_CHOICE = ("opus-5-5", "sonnet-5-5", "haiku-5-5", "fable-5-1")
 # These reject the speed parameter ("does not support the `speed` parameter").
-_NO_FAST_MODE = ("4-6", "sonnet-5-5", "fable-5-1")
+_NO_FAST_MODE = ("4-6", "sonnet-5-5", "haiku-5-5", "fable-5-1")
 
 
 class AnthropicOfficialClient(LLMClient):
-    """Claude LLM client: Claude 4.6 through Opus 5.5, Sonnet 5.5 and Fable 5.1."""
+    """Claude LLM client: Claude 4.6 through Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.1."""
 
     def __init__(
         self,
@@ -131,8 +133,8 @@ class AnthropicOfficialClient(LLMClient):
 
     def _convert_thinking_level_to_thinking_config(self, thinking_level: ThinkingLevel) -> dict[str, Any]:
         """Convert ThinkingLevel enum to Claude's adaptive thinking config."""
-        if self._generation(_ALWAYS_THINKING):
-            # nothing turns thinking off, so NONE takes the least of it
+        if self._generation(_LOW_EFFORT_FOR_NONE):
+            # NONE takes the least thinking these allow
             none: dict[str, Any] = {"thinking": {"type": "adaptive"}, "output_config": {"effort": "low"}}
         elif self._generation(_BETWEEN_TOOLS):
             none = {"thinking": {"type": "between_tools"}}

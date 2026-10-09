@@ -18,7 +18,7 @@ Use exact model IDs, and pass the model's client type as `client_type`. If a mod
 | Claude 4.7 | Bedrock | `global.anthropic.claude-opus-4-7` | `anthropic-official` | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` |
 | Claude 4.8 | Official / ModelVerse | `claude-opus-4-8` | `anthropic-official` | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` |
 | Claude 4.8 | Bedrock | `global.anthropic.claude-opus-4-8` | `anthropic-official` | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` |
-| Claude 5.5 / Fable 5.1 | Official | `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-fable-5-1` | `anthropic-official` | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` |
+| Claude 5.5 / Fable 5.1 | Official | `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5`, `claude-fable-5-1` | `anthropic-official` | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` |
 | Claude 5 | Official / ModelVerse | `claude-fable-5`, `claude-opus-5`, `claude-sonnet-5` | `anthropic-official` | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` |
 | Claude 5 | Bedrock | `global.anthropic.claude-fable-5` | `anthropic-official` | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` |
 | GPT 5.4 | Official / ModelVerse | `gpt-5.4`, `gpt-5.4-mini`, `gpt-5.4-nano` | `openai-official` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |

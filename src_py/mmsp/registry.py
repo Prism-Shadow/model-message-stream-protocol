@@ -215,7 +215,17 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "input_modalities": ["Text", "Image"],
         "output_modalities": ["Text"],
         "context_window": 1000000,
-        "pricing": _usd(2.0, 10.0, cached=0.2),
+        "pricing": _usd(2.0, 10.0, cached=0.1),
+    },
+    {
+        "model": "claude-haiku-5-5",
+        "base_url": _ANTHROPIC,
+        "client": "anthropic-official",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1000000,
+        # official list price for prompts up to 100K tokens; every rate is 5x above it
+        "pricing": _usd(0.1, 0.5, cached=0.01),
     },
     {
         "model": "claude-fable-5",
@@ -472,7 +482,16 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "input_modalities": ["Text", "Image"],
         "output_modalities": ["Text"],
         "context_window": 1000000,
-        "pricing": _usd(2.0, 10.0, cached=0.2),
+        "pricing": _usd(2.0, 10.0, cached=0.1),
+    },
+    {
+        "model": "anthropic/claude-haiku-5.5",
+        "base_url": _OPENROUTER,
+        "client": "openai-responses",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1000000,
+        "pricing": _usd(0.1, 0.5, cached=0.01),
     },
     {
         "model": "anthropic/claude-fable-5",
