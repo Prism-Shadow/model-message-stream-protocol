@@ -131,7 +131,7 @@ async def test_clients_return_the_ids_the_endpoint_serves(case: ListCase):
 @pytest.mark.asyncio
 async def test_gemini_client_strips_the_path_from_model_names():
     client = AutoLLMClient(model="gemini-3.7-flash", api_key="test-key")
-    assert type(client._client).__name__ == "GeminiOfficialClient"  # noqa: SLF001
+    assert type(client._client).__name__ == "GoogleOfficialClient"  # noqa: SLF001
     fake = _FakeGeminiModelsEndpoint(["models/gemini-3.7-flash", "publishers/google/models/gemini-3.7-pro"])
     client._client._client = SimpleNamespace(aio=SimpleNamespace(models=fake))  # noqa: SLF001
 
@@ -150,7 +150,7 @@ GEMINI_FAMILY = ["gemini-3.8-flash", "gemini-embedding-2", "gemini-2.5-flash"]
 @pytest.mark.parametrize(
     ("api_key", "client_type", "expected_client", "expected"),
     [
-        ("test-key", None, "GeminiOfficialClient", GEMINI_FAMILY),
+        ("test-key", None, "GoogleOfficialClient", GEMINI_FAMILY),
         (SERVICE_ACCOUNT_KEY, "google-genai", "GoogleGenaiClient", VERTEX_LISTING),
         ("test-key", "google-genai", "GoogleGenaiClient", VERTEX_LISTING),
     ],

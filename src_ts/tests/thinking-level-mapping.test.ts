@@ -44,12 +44,12 @@ const GEMINI3_THINKING_LEVEL_CASES: Array<
 ];
 
 // clientType pins routing so hypothetical model names reach the unified
-// GeminiOfficialClient the same way an explicit override would in user code.
+// GoogleOfficialClient the same way an explicit override would in user code.
 function createGemini3AutoClient(model: string): AutoLLMClient {
   return new AutoLLMClient({
     model,
     apiKey: "test-key",
-    clientType: "gemini-official",
+    clientType: "google-official",
   });
 }
 
@@ -93,15 +93,15 @@ const GEMINI3_7_THINKING_LEVEL_CASES: Array<[string, ThinkingLevel, string]> = [
   ["gemini-3.5-flash-lite", ThinkingLevel.NONE, "minimal"],
 ];
 
-describe("gemini_official thinking level clamping", () => {
+describe("google_official thinking level clamping", () => {
   test.each(GEMINI3_7_THINKING_LEVEL_CASES)(
     "%s clamps %s to %s",
     (model, level, expected) => {
-      // These are real model ids, so automatic routing reaches GeminiOfficialClient directly.
+      // These are real model ids, so automatic routing reaches GoogleOfficialClient directly.
       const client = new AutoLLMClient({ model, apiKey: "test-key" });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect((client as any)._client.constructor.name).toBe(
-        "GeminiOfficialClient",
+        "GoogleOfficialClient",
       );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect((client as any)._client._convertThinkingLevel(level)).toBe(

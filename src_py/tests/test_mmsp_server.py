@@ -364,7 +364,7 @@ STREAM_CASES = [
             }
         ],
     ),
-    # gemini_official's thought signature after an image thought: fidelity alone, under the image's id
+    # google_official's thought signature after an image thought: fidelity alone, under the image's id
     StreamCase(
         name="image_thought_with_signature",
         script=[

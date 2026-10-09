@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .client import GeminiOfficialClient
+from .client import GoogleOfficialClient
 
 
-__all__ = ["GeminiOfficialClient"]
+__all__ = ["GoogleOfficialClient"]

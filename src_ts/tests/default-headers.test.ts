@@ -48,7 +48,7 @@ const HEADER_CASES: HeaderCase[] = [
     expected: ["m1", "m2"],
   },
   {
-    clientType: "gemini-official",
+    clientType: "google-official",
     model: "gemini-3.8-flash",
     baseUrlSuffix: "",
     // the Gemini client is deduced from the model id, so its listing keeps only ids that

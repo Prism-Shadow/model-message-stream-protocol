@@ -233,7 +233,7 @@ function geminiClient(): AutoLLMClient {
   });
   expect(
     (client as unknown as { _client: object })._client.constructor.name,
-  ).toBe("GeminiOfficialClient");
+  ).toBe("GoogleOfficialClient");
   return client;
 }
 

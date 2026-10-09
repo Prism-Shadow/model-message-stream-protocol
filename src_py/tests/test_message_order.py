@@ -56,7 +56,7 @@ MESSAGE_ORDER_CASES = [
     MessageOrderCase("MiniMaxOfficialClient", "MiniMax-M3", "minimax-official", "responses", RESPONSES_ORDER),
     MessageOrderCase("AnthropicOfficialClient", "claude-sonnet-5", None, "messages", MESSAGES_ORDER),
     MessageOrderCase("AntMessagesClient", "claude-sonnet-5", "ant-messages", "messages", MESSAGES_ORDER),
-    MessageOrderCase("GeminiOfficialClient", "gemini-3.8-flash", None, "gemini", GEMINI_ORDER),
+    MessageOrderCase("GoogleOfficialClient", "gemini-3.8-flash", None, "gemini", GEMINI_ORDER),
     MessageOrderCase(
         "GoogleGenaiClient",
         "gemini-3.8-flash",
@@ -197,7 +197,7 @@ async def test_message_transform_keeps_content_item_order(case: MessageOrderCase
 @pytest.mark.asyncio
 async def test_gemini_sends_an_image_only_tool_result_without_an_empty_text_block():
     client = AutoLLMClient(model="gemini-3.8-flash", api_key="test-key")
-    assert client._client.__class__.__name__ == "GeminiOfficialClient"  # noqa: SLF001
+    assert client._client.__class__.__name__ == "GoogleOfficialClient"  # noqa: SLF001
     messages = _messages()
     messages[2]["content_items"] = [
         {

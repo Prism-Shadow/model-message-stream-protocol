@@ -148,7 +148,7 @@ def _get_request_config(config: dict[str, Any]) -> dict[str, Any]:
 _DEFAULT_BASE_URLS = {
     "openai-official": ("OPENAI_BASE_URL", "https://api.openai.com/v1"),
     "anthropic-official": ("ANTHROPIC_BASE_URL", "https://api.anthropic.com"),
-    "gemini-official": ("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com"),
+    "google-official": ("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com"),
     "zai-official": ("ZAI_BASE_URL", "https://api.z.ai/api/paas/v4/"),
     "moonshot-official": ("MOONSHOT_BASE_URL", "https://api.moonshot.cn/v1"),
     "deepseek-official": ("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
@@ -2592,7 +2592,7 @@ def create_chat_app() -> Flask:
             const CLIENT_TYPE_DESCRIPTIONS = {
                 'openai-official': 'OpenAI',
                 'anthropic-official': 'Anthropic',
-                'gemini-official': 'Google Gemini',
+                'google-official': 'Google Gemini',
                 'zai-official': 'Z.AI',
                 'moonshot-official': 'Moonshot',
                 'deepseek-official': 'DeepSeek',

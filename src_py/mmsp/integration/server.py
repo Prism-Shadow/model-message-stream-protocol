@@ -3327,7 +3327,7 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
         const CLIENT_TYPE_DESCRIPTIONS = {
             'openai-official': 'OpenAI',
             'anthropic-official': 'Anthropic',
-            'gemini-official': 'Google Gemini',
+            'google-official': 'Google Gemini',
             'zai-official': 'Z.AI',
             'moonshot-official': 'Moonshot',
             'deepseek-official': 'DeepSeek',

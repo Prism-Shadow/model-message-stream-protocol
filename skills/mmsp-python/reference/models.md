@@ -4,14 +4,14 @@ Use exact model IDs, and pass the model's client type as `client_type`. If a mod
 
 | Family | Provider | Model IDs | Client type | API Key | Base URL |
 | --- | --- | --- | --- | --- | --- |
-| Gemini 3 | Official / Vertex AI | `gemini-3.1-pro-preview`, `gemini-3.5-flash`, `gemini-3.1-flash-lite` | `gemini-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
-| Gemini 3.6 | Official / Vertex AI | `gemini-3.6-flash`, `gemini-3.5-flash-lite` | `gemini-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
-| Gemini 3.8 | Official / Vertex AI | `gemini-3.8-flash` | `gemini-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
-| Gemini 3.7 | Official / Vertex AI | `gemini-3.7-flash` | `gemini-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
-| Gemini 3 Image | Official / Vertex AI | `gemini-3.1-flash-image`, `gemini-3.1-flash-lite-image`, `gemini-3-pro-image` | `gemini-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
-| Gemini 3.8 TTS | Official | `gemini-3.8-flash-tts`, `gemini-3.8-flash-lite-tts` | `gemini-official` | `GEMINI_API_KEY` (not served on Vertex AI) | `GEMINI_BASE_URL` |
-| Gemini 3 TTS | Official / Vertex AI | `gemini-3.1-flash-tts-preview` | `gemini-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
-| Gemini Embedding | Official / Vertex AI | `gemini-embedding-2` | `gemini-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
+| Gemini 3 | Official / Vertex AI | `gemini-3.1-pro-preview`, `gemini-3.5-flash`, `gemini-3.1-flash-lite` | `google-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
+| Gemini 3.6 | Official / Vertex AI | `gemini-3.6-flash`, `gemini-3.5-flash-lite` | `google-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
+| Gemini 3.8 | Official / Vertex AI | `gemini-3.8-flash` | `google-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
+| Gemini 3.7 | Official / Vertex AI | `gemini-3.7-flash` | `google-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
+| Gemini 3 Image | Official / Vertex AI | `gemini-3.1-flash-image`, `gemini-3.1-flash-lite-image`, `gemini-3-pro-image` | `google-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
+| Gemini 3.8 TTS | Official | `gemini-3.8-flash-tts`, `gemini-3.8-flash-lite-tts` | `google-official` | `GEMINI_API_KEY` (not served on Vertex AI) | `GEMINI_BASE_URL` |
+| Gemini 3 TTS | Official / Vertex AI | `gemini-3.1-flash-tts-preview` | `google-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
+| Gemini Embedding | Official / Vertex AI | `gemini-embedding-2` | `google-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
 | Claude 4.6 | Official / ModelVerse | `claude-sonnet-4-6` | `anthropic-official` | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` |
 | Claude 4.6 | Bedrock | `global.anthropic.claude-sonnet-4-6` | `anthropic-official` | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` |
 | Claude 4.7 | Official / ModelVerse | `claude-opus-4-7` | `anthropic-official` | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` |
@@ -46,7 +46,7 @@ Use exact model IDs, and pass the model's client type as `client_type`. If a mod
 | GLM-5.3 | OpenRouter | `z-ai/glm-5.3` | `zai-official` | `ZAI_API_KEY` | `ZAI_BASE_URL` |
 | MiniMax-M3 | Official | `MiniMax-M3` | `minimax-official` | `MINIMAX_API_KEY` | `MINIMAX_BASE_URL` |
 
-`gemini-official` serves Gemini models through the Interactions API with a Gemini API key. On Vertex AI, pass `client_type: "google-genai"`, which speaks generateContent, with the service-account JSON key; Vertex AI serves no Gemini model through Interactions, and `gemini-official` refuses a service-account key. Embedding models use `embedContent` on either client. Thought signatures only replay on the endpoint that issued them, so a history recorded with an API key cannot move to a Vertex AI key with its signatures, or the reverse.
+`google-official` serves Gemini models through the Interactions API with a Gemini API key. On Vertex AI, pass `client_type: "google-genai"`, which speaks generateContent, with the service-account JSON key; Vertex AI serves no Gemini model through Interactions, and `google-official` refuses a service-account key. Embedding models use `embedContent` on either client. Thought signatures only replay on the endpoint that issued them, so a history recorded with an API key cannot move to a Vertex AI key with its signatures, or the reverse.
 
 Common gateway base URLs:
 
@@ -57,7 +57,7 @@ Common gateway base URLs:
 
 Every client type, and what it speaks:
 
-- Official clients speak their vendor's own API and read the vendor's key and base URL from the environment, whatever endpoint they are given: `openai-official` (Responses; `text-embedding-*` models through Embeddings), `anthropic-official` (Messages), `gemini-official` (Interactions), `zai-official` and `moonshot-official` (Chat Completions), `deepseek-official` and `minimax-official` (Responses).
+- Official clients speak their vendor's own API and read the vendor's key and base URL from the environment, whatever endpoint they are given: `openai-official` (Responses; `text-embedding-*` models through Embeddings), `anthropic-official` (Messages), `google-official` (Interactions), `zai-official` and `moonshot-official` (Chat Completions), `deepseek-official` and `minimax-official` (Responses).
 - Compatible clients speak one wire protocol for any endpoint that serves it, and read `OPENAI_API_KEY` / `OPENAI_BASE_URL` (`ANTHROPIC_*` for `ant-messages`, `GEMINI_*` for `google-genai`): `openai-responses`, `openai-chat` (bare `openai` is an alias), `openai-chat-vllm-adapter`, `openai-embedding`, `ant-messages`, `google-genai` (generateContent, as the Google GenAI SDK speaks it, for Vertex AI, the Gemini API, and gateways), `mmsp` (MMSP itself, for an MMSP server started with `python -m mmsp.integration.server --config <file>`; `MMSP_API_KEY` / `MMSP_BASE_URL`, by default `http://127.0.0.1:25752/v1`).
 
 For models accessed through OpenAI-compatible APIs (e.g., Qwen series models via SiliconFlow or OpenRouter), pass a compatible client type with the gateway's base URL and key. Prefer `openai-responses` on gateways that serve the OpenAI Responses protocol, which OpenRouter does for every model it hosts; SiliconFlow serves Chat Completions only, so use `openai-chat` there. Use `openai-embedding` for embedding endpoints and `ant-messages` for Anthropic Messages endpoints:

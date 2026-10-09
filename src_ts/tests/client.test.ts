@@ -1395,8 +1395,9 @@ const ROUTING_CASES: [string, string | undefined, string][] = [
   ["text-embedding-3-large", undefined, "OpenaiEmbeddingClient"],
   ["text-embedding-3-large", "openai-official", "OpenaiEmbeddingClient"],
   ["claude-sonnet-5", undefined, "AnthropicOfficialClient"],
-  ["gemini-3.8-flash", undefined, "GeminiOfficialClient"],
-  ["gemini-embedding-2", undefined, "GeminiOfficialClient"],
+  ["gemini-3.8-flash", undefined, "GoogleOfficialClient"],
+  ["gemini-embedding-2", undefined, "GoogleOfficialClient"],
+  ["gemini-3.8-flash", "gemini-official", "GoogleOfficialClient"],
   ["gemini-3.8-flash", "google-genai", "GoogleGenaiClient"],
   ["gemini-3.8-flash", "gemini-generate-content", "GoogleGenaiClient"],
   ["glm-5.3", undefined, "ZAIOfficialClient"],
@@ -1432,8 +1433,8 @@ test.each(ROUTING_CASES)(
   },
 );
 
-test.each([undefined, "gemini-official"])(
-  "gemini-official refuses a Vertex AI service-account key (%s)",
+test.each([undefined, "google-official"])(
+  "google-official refuses a Vertex AI service-account key (%s)",
   (clientType) => {
     expect(
       () =>
@@ -1514,7 +1515,7 @@ test("should list supported model entries", () => {
     "gemini-3.6-flash",
   ]) {
     const gemini = entries.find((entry) => entry.model === model);
-    expect(gemini?.client).toBe("gemini-official");
+    expect(gemini?.client).toBe("google-official");
     expect([
       gemini?.pricing?.prompt_tokens,
       gemini?.pricing?.response_tokens,

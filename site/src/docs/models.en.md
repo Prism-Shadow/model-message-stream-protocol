@@ -12,7 +12,7 @@ Use exact model ids. A model id that begins with a known family names its offici
 | --- | --- | --- | --- |
 | `openai-official` | `gpt-6.1-sol`, `gpt-6-astra`, `gpt-5.6-sol`, `gpt-5.5`; `text-embedding-3-large`, `text-embedding-3-small` | OpenAI Responses; Embeddings for `text-embedding-*` | `OPENAI_API_KEY` `OPENAI_BASE_URL` |
 | `anthropic-official` | `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-fable-5-1`, `claude-opus-5`, `claude-sonnet-5` | Anthropic Messages | `ANTHROPIC_API_KEY` `ANTHROPIC_BASE_URL` |
-| `gemini-official` | `gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-3.1-pro-preview`; `gemini-3.1-flash-image`, `gemini-3.8-flash-tts`; `gemini-embedding-2` | Gemini Interactions | `GEMINI_API_KEY` `GEMINI_BASE_URL` |
+| `google-official` | `gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-3.1-pro-preview`; `gemini-3.1-flash-image`, `gemini-3.8-flash-tts`; `gemini-embedding-2` | Gemini Interactions | `GEMINI_API_KEY` `GEMINI_BASE_URL` |
 | `zai-official` | `glm-5.3`, `glm-5.3-flash`, `glm-5.2` | Chat Completions | `ZAI_API_KEY` `ZAI_BASE_URL` |
 | `moonshot-official` | `kimi-k3`, `kimi-k2.6` | Chat Completions | `MOONSHOT_API_KEY` `MOONSHOT_BASE_URL` |
 | `deepseek-official` | `deepseek-flash`, `deepseek-v4-pro` | Responses | `DEEPSEEK_API_KEY` `DEEPSEEK_BASE_URL` |
@@ -28,7 +28,7 @@ Without a `client_type`, the family the model id begins with names the client:
 | --- | --- |
 | `gpt-`, `text-embedding-` | `openai-official` |
 | `claude-` | `anthropic-official` |
-| `gemini-` | `gemini-official` |
+| `gemini-` | `google-official` |
 | `glm-` | `zai-official` |
 | `kimi-` | `moonshot-official` |
 | `deepseek-` | `deepseek-official` |
@@ -103,7 +103,7 @@ Common base URLs:
 
 ## Gemini on Vertex AI
 
-Name `google-genai` and pass the service-account JSON key as the API key. Vertex AI's Interactions endpoint serves none of these models, so `gemini-official`, which speaks Interactions, refuses such a key.
+Name `google-genai` and pass the service-account JSON key as the API key. Vertex AI's Interactions endpoint serves none of these models, so `google-official`, which speaks Interactions, refuses such a key.
 
 <div class="code-group">
 
@@ -133,7 +133,7 @@ Every client speaks one protocol on the wire, whichever `client_type` reaches it
 
 | `client_type` | Wire protocol |
 | --- | --- |
-| `gemini-official`, `google-genai` | `google-genai` |
+| `google-official`, `google-genai` | `google-genai` |
 | `anthropic-official`, `ant-messages` | `ant-messages` |
 | `openai-official`, `deepseek-official`, `minimax-official`, `openai-responses` | `openai-responses` |
 | `zai-official`, `moonshot-official`, `openai-chat`, `openai-chat-vllm-adapter` | `openai-chat` |

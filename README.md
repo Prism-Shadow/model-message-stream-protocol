@@ -65,7 +65,7 @@ a **compatible client** speaks one wire protocol for any endpoint that serves it
 | -------------------------- | ---------------------------------------------------------------------- | ---------------------------------------- |
 | `openai-official`          | OpenAI Responses; `text-embedding-*` models through OpenAI Embeddings  | `OPENAI_API_KEY`, `OPENAI_BASE_URL`      |
 | `anthropic-official`       | Anthropic Messages                                                     | `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL` |
-| `gemini-official`          | Gemini Interactions                                                    | `GEMINI_API_KEY`, `GEMINI_BASE_URL`      |
+| `google-official`          | Gemini Interactions                                                    | `GEMINI_API_KEY`, `GEMINI_BASE_URL`      |
 | `zai-official`             | Z.AI Chat Completions                                                  | `ZAI_API_KEY`, `ZAI_BASE_URL`            |
 | `moonshot-official`        | Moonshot Chat Completions                                              | `MOONSHOT_API_KEY`, `MOONSHOT_BASE_URL`  |
 | `deepseek-official`        | DeepSeek Responses                                                     | `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`  |
@@ -80,13 +80,13 @@ a **compatible client** speaks one wire protocol for any endpoint that serves it
 
 `client_type` may be omitted for a model id that begins with a known family: `gpt-` and
 `text-embedding-` route to `openai-official`, `claude-` to `anthropic-official`, `gemini-` to
-`gemini-official`, `glm-` to `zai-official`, `kimi-` to `moonshot-official`, `deepseek-` to
+`google-official`, `glm-` to `zai-official`, `kimi-` to `moonshot-official`, `deepseek-` to
 `deepseek-official`, `minimax-` to `minimax-official`. Any other id raises and asks for a
 `client_type`. The `CLIENT_TYPE` environment variable names one for every client the code does
 not.
 
 Gemini on Google Vertex AI takes `client_type="google-genai"` and the service-account JSON key as
-the API key: Vertex AI's Interactions endpoint, which `gemini-official` speaks, serves none of these
+the API key: Vertex AI's Interactions endpoint, which `google-official` speaks, serves none of these
 models.
 
 Where a gateway serves more than one protocol, prefer `"openai-responses"`: OpenRouter serves it
@@ -765,7 +765,7 @@ Every client speaks one protocol on the wire, whichever `client_type` reaches it
 
 | `client_type`                                               | Wire protocol      |
 | ----------------------------------------------------------- | ------------------ |
-| `gemini-official`, `google-genai`                           | `google-genai`     |
+| `google-official`, `google-genai`                           | `google-genai`     |
 | `anthropic-official`, `ant-messages`                        | `ant-messages`     |
 | `openai-official`, `deepseek-official`, `minimax-official`  | `openai-responses` |
 | `openai-responses`                                          | `openai-responses` |
