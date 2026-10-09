@@ -3,6 +3,7 @@
 - **Date:** 2026-10-09
 - **Type:** feature
 - **Scope:** `anthropic_official`, `registry`
+- **PR:** [#249](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/249)
 
 [English](2026-10-09-claude-haiku-5-5.md)
 
