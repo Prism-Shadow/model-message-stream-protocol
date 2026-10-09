@@ -93,6 +93,7 @@ if os.getenv("GEMINI_API_KEY"):
 
 if os.getenv("ANTHROPIC_API_KEY"):
     AVAILABLE_MODELS.append(Model(name="claude-sonnet-5-5"))
+    AVAILABLE_MODELS.append(Model(name="claude-haiku-5-5"))
 
 if os.getenv("OPENAI_API_KEY"):
     AVAILABLE_MODELS.append(Model(name="gpt-6.1-sol"))

@@ -180,12 +180,15 @@ THINKING_EFFORT_CASES = [
     ("claude-sonnet-4-6", None, ThinkingLevel.XHIGH, "high"),
     ("claude-sonnet-4-6", None, ThinkingLevel.MAX, "max"),
     ("claude-sonnet-5", "ant-messages", ThinkingLevel.MAX, "max"),
-    # Opus 5.5 and Fable 5.1 cannot turn thinking off, so NONE is the lowest effort; Sonnet 5.5
-    # turns off up-front thinking with between_tools, which carries no effort.
+    # Opus 5.5 and Fable 5.1 cannot turn thinking off, so NONE is the lowest effort, and Haiku 5.5
+    # runs NONE the same way; Sonnet 5.5 turns off up-front thinking with between_tools, which
+    # carries no effort.
     ("claude-opus-5-5", None, ThinkingLevel.NONE, "low"),
     ("claude-opus-5-5", None, ThinkingLevel.MAX, "max"),
     ("claude-fable-5-1", None, ThinkingLevel.NONE, "low"),
     ("claude-fable-5-1", None, ThinkingLevel.XHIGH, "xhigh"),
+    ("claude-haiku-5-5", None, ThinkingLevel.NONE, "low"),
+    ("claude-haiku-5-5", None, ThinkingLevel.MAX, "max"),
     ("claude-sonnet-5-5", None, ThinkingLevel.NONE, None),
     ("claude-sonnet-5-5", None, ThinkingLevel.XHIGH, "xhigh"),
     ("deepseek-v4", None, ThinkingLevel.NONE, "none"),
@@ -242,6 +245,7 @@ THINKING_SUMMARY_CASES: list[tuple[str, str | None, dict[str, Any], Any]] = [
     ("claude-sonnet-5-5", None, {"thinking_summary": True, "thinking_level": ThinkingLevel.NONE}, None),
     ("claude-sonnet-5-5", None, {"thinking_summary": True}, "summarized"),
     ("claude-opus-5-5", None, {"thinking_summary": True, "thinking_level": ThinkingLevel.NONE}, "summarized"),
+    ("claude-haiku-5-5", None, {"thinking_summary": True, "thinking_level": ThinkingLevel.NONE}, "summarized"),
     ("deepseek-v4", None, {"thinking_summary": True}, "concise"),
     ("deepseek-v4", None, {"thinking_summary": True, "thinking_level": ThinkingLevel.NONE}, "concise"),
     ("gpt-5.6", None, {"thinking_summary": True}, "concise"),

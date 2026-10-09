@@ -118,6 +118,15 @@ if (process.env.ANTHROPIC_API_KEY) {
     supportEmbedding: false,
     provider: "official",
   });
+  AVAILABLE_MODELS.push({
+    name: "claude-haiku-5-5",
+    supportTextGeneration: true,
+    supportImageUnderstanding: true,
+    supportImageGeneration: false,
+    supportAudioGeneration: false,
+    supportEmbedding: false,
+    provider: "official",
+  });
 }
 
 if (process.env.OPENAI_API_KEY) {
