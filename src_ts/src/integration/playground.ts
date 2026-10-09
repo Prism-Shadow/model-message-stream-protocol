@@ -172,7 +172,7 @@ function serializeForJson(obj: any): any {
 const DEFAULT_BASE_URLS: Record<string, [string, string]> = {
   "openai-official": ["OPENAI_BASE_URL", "https://api.openai.com/v1"],
   "anthropic-official": ["ANTHROPIC_BASE_URL", "https://api.anthropic.com"],
-  "gemini-official": [
+  "google-official": [
     "GEMINI_BASE_URL",
     "https://generativelanguage.googleapis.com",
   ],
@@ -2707,7 +2707,7 @@ export function createChatApp(): Express {
           const CLIENT_TYPE_DESCRIPTIONS = {
               'openai-official': 'OpenAI',
               'anthropic-official': 'Anthropic',
-              'gemini-official': 'Google Gemini',
+              'google-official': 'Google Gemini',
               'zai-official': 'Z.AI',
               'moonshot-official': 'Moonshot',
               'deepseek-official': 'DeepSeek',

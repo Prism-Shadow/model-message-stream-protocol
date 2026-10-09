@@ -535,7 +535,7 @@ const STREAM_CASES: StreamCase[] = [
       },
     ],
   },
-  // gemini_official's thought signature after an image thought: fidelity alone, under the image's id
+  // google_official's thought signature after an image thought: fidelity alone, under the image's id
   {
     name: "image_thought_with_signature",
     script: [

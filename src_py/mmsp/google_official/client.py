@@ -40,7 +40,7 @@ from ..types import (
 from ..utils import is_debug_enabled, speaker_turns
 
 
-class GeminiOfficialClient(LLMClient):
+class GoogleOfficialClient(LLMClient):
     """Unified client for the Gemini family, named for the newest generation it serves (3.8).
 
     It speaks the Gemini API's Interactions endpoint statelessly (store=false, the whole history in every
@@ -72,7 +72,7 @@ class GeminiOfficialClient(LLMClient):
         # a service-account key carries a private key, which must not travel as an API key header
         if api_key and api_key.startswith("{"):
             raise ValueError(
-                "GeminiOfficialClient does not serve a Vertex AI service-account key; "
+                "GoogleOfficialClient does not serve a Vertex AI service-account key; "
                 "pass client_type='google-genai' for Vertex AI."
             )
         self._client = genai.Client(api_key=api_key, http_options=http_options or None)

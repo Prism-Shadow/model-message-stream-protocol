@@ -513,8 +513,9 @@ ROUTING_CASES = [
     ("text-embedding-3-large", None, "OpenaiEmbeddingClient"),
     ("text-embedding-3-large", "openai-official", "OpenaiEmbeddingClient"),
     ("claude-sonnet-5", None, "AnthropicOfficialClient"),
-    ("gemini-3.8-flash", None, "GeminiOfficialClient"),
-    ("gemini-embedding-2", None, "GeminiOfficialClient"),
+    ("gemini-3.8-flash", None, "GoogleOfficialClient"),
+    ("gemini-embedding-2", None, "GoogleOfficialClient"),
+    ("gemini-3.8-flash", "gemini-official", "GoogleOfficialClient"),
     ("gemini-3.8-flash", "google-genai", "GoogleGenaiClient"),
     ("gemini-3.8-flash", "gemini-generate-content", "GoogleGenaiClient"),
     ("glm-5.3", None, "ZAIOfficialClient"),
@@ -543,8 +544,8 @@ def test_client_type_or_model_family_names_the_client(model: str, client_type: s
     assert client._client.__class__.__name__ == client_name
 
 
-@pytest.mark.parametrize("client_type", [None, "gemini-official"])
-def test_gemini_official_refuses_a_vertex_service_account_key(client_type: str | None):
+@pytest.mark.parametrize("client_type", [None, "google-official"])
+def test_google_official_refuses_a_vertex_service_account_key(client_type: str | None):
     with pytest.raises(ValueError, match="google-genai"):
         AutoLLMClient(model="gemini-3.8-flash", api_key='{"project_id": "test-project"}', client_type=client_type)
 
@@ -593,7 +594,7 @@ async def test_list_supported_models():
     # rows is not recorded here, so the catalog rate is what every entry reports.
     for model in ("gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash"):
         gemini = next(entry for entry in entries if entry["model"] == model)
-        assert gemini["client"] == "gemini-official"
+        assert gemini["client"] == "google-official"
         assert gemini["pricing"]["prompt_tokens"] == 1.5
         assert gemini["pricing"]["response_tokens"] == 7.5
         assert gemini["pricing"]["cached_tokens"] == 0.15

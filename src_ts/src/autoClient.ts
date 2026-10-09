@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { LLMClient } from "./baseClient";
-import { GeminiOfficialClient } from "./gemini_official";
+import { GoogleOfficialClient } from "./google_official";
 import { GoogleGenaiClient } from "./google_genai";
 import { AnthropicOfficialClient } from "./anthropic_official";
 import { OpenAIOfficialClient } from "./openai_official";
@@ -41,7 +41,7 @@ type LLMClientConstructor = new (options: {
 export const OFFICIAL_CLIENT_TYPES = [
   "openai-official",
   "anthropic-official",
-  "gemini-official",
+  "google-official",
   "zai-official",
   "moonshot-official",
   "deepseek-official",
@@ -64,7 +64,7 @@ export const MODEL_FAMILIES: [string, string][] = [
   ["gpt-", "openai-official"],
   ["text-embedding-", "openai-official"],
   ["claude-", "anthropic-official"],
-  ["gemini-", "gemini-official"],
+  ["gemini-", "google-official"],
   ["glm-", "zai-official"],
   ["kimi-", "moonshot-official"],
   ["deepseek-", "deepseek-official"],
@@ -112,8 +112,9 @@ function clientClass(
         : OpenAIOfficialClient;
     case "anthropic-official":
       return AnthropicOfficialClient;
+    case "google-official":
     case "gemini-official":
-      return GeminiOfficialClient;
+      return GoogleOfficialClient;
     case "zai-official":
       return ZAIOfficialClient;
     case "moonshot-official":

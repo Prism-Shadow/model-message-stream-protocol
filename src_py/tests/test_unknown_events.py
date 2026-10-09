@@ -53,7 +53,7 @@ MESSAGES_STREAM_CASES = [
 
 # Every client that parses the Gemini Interactions event shape.
 GEMINI_STREAM_CASES = [
-    StreamCase(expected_client="GeminiOfficialClient", model="gemini-3.8-flash", client_type="gemini-official"),
+    StreamCase(expected_client="GoogleOfficialClient", model="gemini-3.8-flash", client_type="google-official"),
 ]
 
 # Every client that parses the Gemini generateContent chunk shape.
