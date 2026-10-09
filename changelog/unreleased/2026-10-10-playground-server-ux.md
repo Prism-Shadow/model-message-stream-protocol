@@ -3,7 +3,7 @@
 - **Date:** 2026-10-10
 - **Type:** feature
 - **Scope:** `integration`
-- **PR:** [#N](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/N)
+- **PR:** [#250](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/250)
 
 [中文版](2026-10-10-playground-server-ux.zh.md)
 
