@@ -212,9 +212,13 @@ Open Server, in the top bar of the [playground](/docs/tracing/#playground), open
 
 Models holds a row per model. A model id fills in Served as only; Client type stays Auto and Base URL Default until set. A row collapses to one line (served id, upstream, state) and opens to edit. Settings holds the keys clients send (none for an open server), the host and the port, and File: the saved file formatted, keys masked until revealed, with its path and a copy button. Rows, keys and the listen pair read Live (running), Saved (in the file) or Unsaved (only in the browser).
 
+Test on an open row, or Test all, sends one short prompt straight to the row's upstream (the row as typed, `$VAR` read from the playground's environment) and reports Passed with first token, total, tokens out and TPS, or Failed with the upstream's message.
+
 Save (Ctrl/Cmd+S) writes the page to `MMSP_SERVER_CONFIG`, else `server.json` in `cache` (or `MMSP_CACHE_DIR`). The file is the [config](#configure) plus `host` and `port`, which the command line ignores, so `MMSP_SERVER_CONFIG` can name one file for both. Cells are written as typed: a key written as `$VAR` stays out of the file and is read from the playground's environment at start.
 
 Start runs the file, not the page, and is enabled once one is saved. Apply, shown while the file differs from what runs, replaces the running server with the file; it builds the new one first, so a table the server refuses leaves the old one running. Stop, or stopping the playground, stops the server.
+
+Start and Apply first show the listen URL, the number of models and the keys the file holds; while a running server has no keys a banner at the top says anyone who can reach its URL can use the models, with a link to add one.
 
 Overview shows, over the last 15 min, 1 h, 6 h, 24 h, 7 d or 30 d, or a custom From/To range of at most 60 days, refreshed every 3 seconds while the server runs:
 

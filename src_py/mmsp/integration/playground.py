@@ -26,8 +26,10 @@ import base64
 import concurrent.futures
 import json
 import os
+import re
 import socket
 import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -47,6 +49,7 @@ from .server import (
     ServerConfig,
     ServerMetrics,
     _parse_server_config,
+    _tps,
     announce_server,
     create_server_app,
     parse_metrics_query,
@@ -80,6 +83,11 @@ class _RunningServer:
 # one server per process, dying with it; the lock keeps two starts from both binding
 _mmsp_server_lock = threading.Lock()
 _mmsp_server: _RunningServer | None = None
+
+# the server page's Test: one short prompt straight to a row's upstream, long enough to measure a rate
+TEST_PROMPT = "Write the numbers from 1 to 120, separated by spaces, and nothing else."
+TEST_MAX_TOKENS = 512
+TEST_TIMEOUT_S = 60
 
 
 def _get_event_loop() -> asyncio.AbstractEventLoop:
@@ -339,13 +347,99 @@ def _launch(
     return jsonify(_mmsp_server_status())
 
 
+def _row_message(message: str) -> str:
+    """A refusal of a one-row config as it reads about the row itself: without the `models[0]` it starts with."""
+    return re.sub(r"^models\[0\](?:\.|: )", "", message)
+
+
+async def _probe_upstream(client: AutoLLMClient, timeout_s: float) -> dict[str, Any]:
+    """
+    Stream the test prompt through a client and time it.
+
+    Args:
+        client: The row's upstream client
+        timeout_s: How long the whole answer may take
+
+    Returns:
+        `{"ok": True, "first_token_ms", "total_ms", "tokens_out", "tps"}`, or `{"ok": False, "error"}`
+    """
+    signal = AbortSignal()
+    started = time.monotonic()
+    first: float | None = None
+    usage: dict[str, Any] | None = None
+
+    async def consume() -> float:
+        nonlocal first, usage
+        messages = [{"role": "user", "content_items": [{"type": "text.done", "text": TEST_PROMPT}]}]
+        async for event in client.streaming_response(messages, {"max_tokens": TEST_MAX_TOKENS}, signal):
+            # a stop event may come before any token (Anthropic reports usage at message_start), so the first
+            # token is the first event that carries an item
+            if first is None and event["content_items"]:
+                first = time.monotonic()
+            if event["event_type"] == "stop":
+                usage = event.get("usage_metadata")
+        return time.monotonic()
+
+    task = asyncio.ensure_future(consume())
+    # not wait_for: a client's own TimeoutError is the client's message, not the probe's
+    done, _ = await asyncio.wait({task}, timeout=timeout_s)
+    if not done:
+        signal.abort("timed out")
+        task.cancel()
+        try:
+            await task
+        except (asyncio.CancelledError, Exception):  # the cancellation, or what the aborted stream raised
+            pass
+        return {"ok": False, "error": f"No answer within {timeout_s:g} s."}
+    try:
+        ended = task.result()
+    except Exception as exc:
+        return {"ok": False, "error": str(exc) or type(exc).__name__}
+    total_ms = int((ended - started) * 1000 + 0.5)
+    first_token_ms = None if first is None else int((first - started) * 1000 + 0.5)
+    tokens_out = None
+    if usage and (usage.get("thoughts_tokens") is not None or usage.get("response_tokens") is not None):
+        tokens_out = (usage.get("thoughts_tokens") or 0) + (usage.get("response_tokens") or 0)
+    tps = None
+    if first_token_ms is not None and tokens_out is not None:
+        tps = _tps(tokens_out, max(total_ms - first_token_ms, 1))
+    return {"ok": True, "first_token_ms": first_token_ms, "total_ms": total_ms, "tokens_out": tokens_out, "tps": tps}
+
+
+def _test_upstream(row: dict[str, Any], timeout_s: float = TEST_TIMEOUT_S) -> dict[str, Any]:
+    """
+    Send the test prompt to a row's upstream, its `$VAR` cells read from this process's environment.
+
+    Args:
+        row: The row as the page edits it: its known columns, as typed
+        timeout_s: How long the whole answer may take
+
+    Returns:
+        The probe's result; a row that cannot be resolved or whose client cannot be built is `{"ok": False, "error"}`
+    """
+    try:
+        resolved = resolve_server_config({"models": [row], "api_keys": []})["models"][0]
+    except ValueError as exc:
+        return {"ok": False, "error": _row_message(str(exc))}
+    try:
+        client = AutoLLMClient(
+            model=resolved["model_id"],
+            api_key=resolved["api_key"],
+            base_url=resolved.get("base_url") or None,
+            client_type=resolved.get("client_type") or None,
+        )
+    except Exception as exc:  # an unknown client type, a model no client serves, a key the client refuses
+        return {"ok": False, "error": str(exc) or type(exc).__name__}
+    return asyncio.run_coroutine_threadsafe(_probe_upstream(client, timeout_s), _get_event_loop()).result()
+
+
 def _create_server_page_app(config_path: Path) -> Flask:
     """
     Create the server page's app: the page and the API it calls.
 
     The page is served at `/`, and the API at `/api/config` (GET, PUT), `/api/status`, `/api/metrics`,
-    `/api/start`, `/api/restart` and `/api/stop`. The server keeps its metrics history beside the config
-    (`_metrics_path`), so a restart continues it and the page reads it while no server runs.
+    `/api/start`, `/api/restart`, `/api/stop` and `/api/test`. The server keeps its metrics history beside
+    the config (`_metrics_path`), so a restart continues it and the page reads it while no server runs.
 
     Args:
         config_path: The absolute path the page saves its table to, and every start reads
@@ -496,6 +590,26 @@ def _create_server_page_app(config_path: Path) -> Flask:
         """Stop the server; stopping a stopped server is fine."""
         _stop_mmsp_server()
         return jsonify({"running": False})
+
+    @app.route("/api/test", methods=["POST"])
+    def test_row() -> Response | tuple[Response, int]:
+        """
+        Send one short prompt straight to a row's upstream, as the page edits it, and report whether it
+        answered and how fast.
+        """
+        body = request.get_json(silent=True)
+        if not isinstance(body, dict):
+            return refuse("Request body must be a JSON object.")
+        row = body.get("model")
+        if not isinstance(row, dict):
+            return refuse("model must be an object.")
+        for column in _COLUMNS:
+            if column in row and not isinstance(row[column], str):
+                return refuse(f"{column} must be a string.")
+        for column in ("model_id", "api_key"):
+            if not row.get(column):
+                return refuse(f"{column} must be a non-empty string.")
+        return jsonify(_test_upstream({column: row[column] for column in _COLUMNS if column in row}))
 
     return app
 
@@ -1605,6 +1719,34 @@ def create_chat_app() -> Flask:
                 font-size: 12px;
             }
 
+            .divider {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                margin: 4px 0 28px;
+                color: var(--subtle);
+                font-size: 12px;
+                animation: msg-in 0.35s var(--ease);
+            }
+
+            .divider::before, .divider::after {
+                content: "";
+                flex: 1;
+                height: 1px;
+                background: var(--ring);
+            }
+
+            .divider span {
+                max-width: 80%;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .divider .mono {
+                color: var(--muted);
+            }
+
             .reason {
                 display: inline-flex;
                 align-items: center;
@@ -2067,7 +2209,7 @@ def create_chat_app() -> Flask:
                             <button type="button" class="icon-btn" onclick="document.getElementById('imageInput').click()" aria-label="Attach images" title="Attach images">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.4 11.1-8.8 8.8a5.5 5.5 0 0 1-7.8-7.8l8.8-8.8a3.7 3.7 0 0 1 5.2 5.2l-8.8 8.8a1.8 1.8 0 0 1-2.6-2.6l8.1-8.1"></path></svg>
                             </button>
-                            <span class="composer-hint">Enter to send, Shift+Enter for a new line</span>
+                            <span class="composer-hint" id="composerHint">Enter to send, Shift+Enter for a new line</span>
                             <button type="button" class="send-btn" id="sendButton" onclick="sendMessage()" aria-label="Send" title="Send" disabled>
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"></path></svg>
                             </button>
@@ -2083,6 +2225,8 @@ def create_chat_app() -> Flask:
         <script>
             let isStreaming = false;
             let sessionId = Math.random().toString(36).substring(7);
+            // the entry (model id, client type, base URL) the conversation on screen was started with; null before the first message
+            let conversationEntry = null;
             let selectedImages = [];
             let lastMessageTimestamp = null;
             let currentAbortController = null;
@@ -2707,6 +2851,8 @@ def create_chat_app() -> Flask:
                 document.getElementById('headerClientType').textContent = clientType || 'client type required';
                 document.getElementById('emptyStateModel').textContent = model;
                 document.getElementById('messageInput').placeholder = `Message ${model}`;
+                const hint = document.getElementById('composerHint');
+                hint.textContent = switchPending() ? `Enter starts a new conversation with ${model}` : 'Enter to send, Shift+Enter for a new line';
             }
 
             function handleModelSelectChange() {
@@ -2754,6 +2900,7 @@ def create_chat_app() -> Flask:
                     option.dataset.baseUrl = document.getElementById('baseUrlInput').value.trim();
                 }
                 updateBaseUrlTag();
+                updateHeader();
             }
 
             function handleApiKeyInput() {
@@ -3230,7 +3377,14 @@ def create_chat_app() -> Flask:
 
                 if ((!message && selectedImages.length === 0) || isStreaming) return;
 
+                // set first, so that a second Enter while the old conversation is cleared is ignored
                 isStreaming = true;
+                if (switchPending()) {
+                    await startNewConversation();
+                }
+                if (conversationEntry === null) {
+                    conversationEntry = currentEntryKey();
+                }
                 currentAbortController = new AbortController();
                 setStreamingControls(true);
                 input.value = '';
@@ -3442,9 +3596,11 @@ def create_chat_app() -> Flask:
             function resetThread() {
                 sessionId = Math.random().toString(36).substring(7);
                 lastMessageTimestamp = null;
+                conversationEntry = null;
                 document.getElementById('thread').innerHTML = '';
                 document.getElementById('thread').classList.add('hidden');
                 document.getElementById('emptyState').classList.remove('hidden');
+                updateHeader();
             }
 
             function clearChat() {
@@ -3469,6 +3625,48 @@ def create_chat_app() -> Flask:
                 }).catch(error => {
                     console.error('Error clearing chat:', error);
                 });
+            }
+
+            function currentEntryKey() {
+                return entryKey(getSelectedModel(), getSelectedClientType(), document.getElementById('baseUrlInput').value.trim());
+            }
+
+            function threadHasMessages() {
+                return document.querySelector('#thread .msg') !== null;
+            }
+
+            // a message sent to another entry than the one the conversation on screen began with starts a new conversation
+            function switchPending() {
+                return conversationEntry !== null && threadHasMessages() && currentEntryKey() !== conversationEntry;
+            }
+
+            function addDivider(model) {
+                showThread();
+                document.getElementById('thread').insertAdjacentHTML('beforeend', `<div class="divider" role="separator" aria-label="New conversation"><span>New conversation with <span class="mono">${escapeHtml(model)}</span> · the messages above are not sent</span></div>`);
+                scrollToBottom(true);
+            }
+
+            // the earlier messages stay on screen above the divider; the backend forgets them with the old session
+            async function startNewConversation() {
+                const previous = sessionId;
+                sessionId = Math.random().toString(36).substring(7);
+                try {
+                    await fetch('/api/clear', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            session_id: previous
+                        })
+                    });
+                } catch (error) {
+                    // the new session starts anyway; the old client lingers until the process ends
+                    console.error('Error clearing chat:', error);
+                }
+                addDivider(getSelectedModel() || 'a custom model');
+                conversationEntry = currentEntryKey();
+                updateHeader();
             }
 
             document.getElementById('messageInput').addEventListener('keydown', function(e) {
@@ -3542,7 +3740,11 @@ def create_chat_app() -> Flask:
 
     @app.route("/api/chat", methods=["POST"])
     def chat() -> Response:
-        """Handle chat requests with streaming responses."""
+        """
+        Handle chat requests with streaming responses.
+
+        A session keeps its history across a change of client options; `/api/clear` ends it.
+        """
         data = request.json or {}
         message = data.get("message")
         config = data.get("config", {})
@@ -3563,15 +3765,21 @@ def create_chat_app() -> Flask:
             try:
                 # Get or create client for this session
                 client_options = _get_client_options(config)
-                if session_id not in _session_clients or _session_client_options.get(session_id) != client_options:
+                previous = _session_clients.get(session_id)
+                if previous is None or _session_client_options.get(session_id) != client_options:
                     model, api_key, base_url, client_type, default_headers = client_options
-                    _session_clients[session_id] = AutoLLMClient(
+                    client = AutoLLMClient(
                         model=model,
                         api_key=api_key,
                         base_url=base_url,
                         client_type=client_type,
                         default_headers=default_headers,
                     )
+                    # the session is the conversation: a key or headers edit rebuilds the client and keeps the
+                    # history; only /api/clear ends it
+                    if previous is not None:
+                        client.set_history(previous.get_history())
+                    _session_clients[session_id] = client
                     _session_client_options[session_id] = client_options
 
                 client = _session_clients[session_id]

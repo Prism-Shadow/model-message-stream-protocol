@@ -212,9 +212,13 @@ curl -N http://127.0.0.1:25752/v1/stream -H "Authorization: Bearer $MMSP_SERVER_
 
 Models 里每个模型一行。填入模型 id 只会同步填入 Served as；不手动设置时，Client type 保持 Auto，Base URL 保持 Default。每个模型收起为一行（提供的 id、上游、状态），点开即可编辑。Settings 里是调用方发送的 key（不填则对所有请求开放）、host 和 port，以及 File：格式化显示已保存的文件，key 遮住、点开才显示，附文件路径和复制按钮。模型行、key 和监听地址都标有 Live（正在运行）、Saved（已写入文件）或 Unsaved（只在浏览器里）。
 
+展开的行上的 Test，或 Test all，把一条短提示直接发给该行的上游（按页面上的内容，`$VAR` 从 Playground 的环境变量读取），成功时显示 Passed 及首个 token、总耗时、输出 token 数和 TPS，失败时显示 Failed 及上游返回的错误。
+
 Save（Ctrl/Cmd+S）把页面内容写入 `MMSP_SERVER_CONFIG`，未设置时写入 `cache`（或 `MMSP_CACHE_DIR`）下的 `server.json`。文件就是上面的[配置](#配置)，外加 `host` 和 `port`，命令行会忽略这两项，所以两者可以用 `MMSP_SERVER_CONFIG` 指向同一个文件。值按输入原样写入：写成 `$VAR` 的 key 不会进入文件，启动时从 Playground 的环境变量读取。
 
 Start 运行的是文件，而不是页面上的内容，保存过文件后才可点。文件与正在运行的不一致时出现 Apply，它用文件替换正在运行的服务端：先构建新服务端再停掉旧的，因此新表被拒绝时，旧服务端照常运行。点 Stop 或停止 Playground，服务端随之停止。
+
+Start 和 Apply 会先列出监听 URL、模型数和文件里的 key；正在运行的服务端没有 key 时，页面顶部的横幅提示能访问其 URL 的任何人都能使用这些模型，并附添加 key 的入口。
 
 Overview 按最近 15 min、1 h、6 h、24 h、7 d 或 30 d，或自选的 From/To 时间范围（不超过 60 天）显示以下内容，服务端运行期间每 3 秒刷新一次：
 
