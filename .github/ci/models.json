@@ -219,9 +219,7 @@
   },
   "openai-chat-vllm-adapter": {
     "models": [],
-    "depends_on": [
-      "openai-chat"
-    ]
+    "depends_on": ["openai-chat"]
   },
   "openai-embedding": {
     "models": [
