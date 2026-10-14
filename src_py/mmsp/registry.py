@@ -307,6 +307,16 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "pricing": _usd(12.5, 50.0, cached=1.0),
     },
     {
+        # Official/OpenRouter base tier, 2026-10-14; prompt includes the cache-write premium.
+        "model": "gpt-6-luna",
+        "base_url": _OPENAI,
+        "client": "openai-official",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1050000,
+        "pricing": _usd(0.125, 0.5, cached=0.01),
+    },
+    {
         # official standard-tier list price; the bare gpt-5.6 alias also routes here
         "model": "gpt-5.6-sol",
         "base_url": _OPENAI,
@@ -640,6 +650,16 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "output_modalities": ["Text"],
         "context_window": 1050000,
         "pricing": _usd(12.5, 50.0, cached=1.0),
+    },
+    {
+        # Official/OpenRouter base tier, 2026-10-14; prompt includes the cache-write premium.
+        "model": "openai/gpt-6-luna",
+        "base_url": _OPENROUTER,
+        "client": "openai-responses",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1050000,
+        "pricing": _usd(0.125, 0.5, cached=0.01),
     },
     {
         "model": "openai/gpt-5.6-sol",

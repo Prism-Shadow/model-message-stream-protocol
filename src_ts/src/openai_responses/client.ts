@@ -73,8 +73,13 @@ export class OpenaiResponsesClient extends LLMClient {
    * Convert ThinkingLevel enum to the Responses API reasoning effort.
    */
   private _convertThinkingLevelToEffort(thinkingLevel: ThinkingLevel): string {
-    if (thinkingLevel === ThinkingLevel.NONE && this._model.includes("gpt-6")) {
-      // a gateway serving GPT-6 forwards the effort to OpenAI, which rejects "none" and
+    // GPT-6 Luna accepts none; keep the requested setting on official and gateway routes.
+    if (
+      thinkingLevel === ThinkingLevel.NONE &&
+      this._model.includes("gpt-6") &&
+      !this._model.includes("gpt-6-luna")
+    ) {
+      // a gateway serving GPT-6 Astra or GPT-6.1 Sol forwards the effort to OpenAI, which rejects "none" and
       // "minimal" with a 400 (verified live 2026-09-09 against api.openai.com), so NONE
       // degrades to the lowest effort the generation accepts.
       return "low";
