@@ -16,7 +16,8 @@ src_py/mmsp/<client_type>/        Python client, one folder per client type: <ve
 src_py/mmsp/auto_client.py        Creates the client a client_type names; a model id's family names its official client
 src_ts/src/<client_type>/         TypeScript client, mirrors the Python folder
 src_ts/src/autoClient.ts          TypeScript routing, mirrors auto_client.py
-src_py/tests/test_client.py       Parameterized e2e tests (env-gated AVAILABLE_MODELS)
+.github/ci/models.json           Shared model test catalog, grouped by implementation client
+src_py/tests/test_client.py       Parameterized e2e tests (env-gated AVAILABLE_MODELS from the catalog)
 src_ts/tests/client.test.ts       Same for TypeScript
 changelog/unreleased/             Where unshipped changes go; renamed to the version at release
 changelog/<version>/              Release summary (README.md) plus one detail file per entry
@@ -73,9 +74,9 @@ site/                             The Astro site at mmsp.penguin.ooo
 
 ## Stage 4 — Verify
 
-- Register the model in the env-gated `AVAILABLE_MODELS` lists of both test files with correct capability flags. Do not add model-specific test functions or files.
-- That `AVAILABLE_MODELS` entry is the **only** test change a new model is entitled to. `src_py/tests/test_client.py` and `src_ts/tests/client.test.ts` are shared contracts every client must already satisfy: never rewrite their bodies, assertions, prompts, or helpers to accommodate one model, and never branch inside them on a model name. A failing shared test means the client is wrong until proven otherwise. **Stop and ask** for explicit approval before any broader test edit, and get it per change — approval for one edit is not approval for the next.
-- `AVAILABLE_MODELS` keeps only the newest version of each model family per provider block (e.g. gemini-3.6-flash, not gemini-3.5-flash or 3.5-flash-lite as well). When a newer generation lands, replace the older entry — the old client folder stays supported and routed (see Stage 3) but is no longer e2e-tested.
+- Register the model in `.github/ci/models.json` under its implementation client with correct capability flags and API key environment variable. Both test files load this catalog into env-gated `AVAILABLE_MODELS`. Do not add model-specific test functions or files.
+- That `.github/ci/models.json` entry is the **only** test change a new model is entitled to. `src_py/tests/test_client.py` and `src_ts/tests/client.test.ts` are shared contracts every client must already satisfy: never rewrite their bodies, assertions, prompts, or helpers to accommodate one model, and never branch inside them on a model name. A failing shared test means the client is wrong until proven otherwise. **Stop and ask** for explicit approval before any broader test edit, and get it per change — approval for one edit is not approval for the next.
+- The shared model catalog keeps only the newest version of each model family per provider (e.g. gemini-3.6-flash, not gemini-3.5-flash or 3.5-flash-lite as well). When a newer generation lands, replace the older entry — the old client folder stays supported and routed (see Stage 3) but is no longer e2e-tested.
 - Static checks: `make lint` in `src_py/`; `npm run lint` and `npm run build` in `src_ts/`.
 - Run only the new model's e2e tests; the full suites are slow and spend real API quota:
   - `cd src_py && uv run pytest -vvv tests/test_client.py -k "<model-name>"`
@@ -122,7 +123,7 @@ How the pages are built and checked:
 
 - The playground page is one HTML document embedded as `CHAT_TEMPLATE` in both servers. Python serves it through Jinja, so it may hold no `{{`, `{%` or `{#`, and every backslash is doubled; TypeScript holds it in a template literal, so backticks and `${` are escaped too. Edit it once and regenerate both embeddings; keep the element ids and function names the page tests assert.
 - The tracer shares `_TRACER_HEAD`, `_TRACER_SCRIPT` and `_ICONS` (`TRACER_HEAD`, `TRACER_SCRIPT`, `ICONS`) and a `_page` shell between `tracer.py` (Jinja page bodies) and `tracer.ts` (the same markup built in code). A tracer test asserts a trace page never contains `0.6`, its sign of a leaked sixth embedding value, so no CSS number or SVG path there may contain it.
-- CI runs the model tests (`jest.yml`, `pytest.yml`) only for changes outside `site/`; a site-only change runs the site build alone.
+- `ci.yml` selects model tests in `jest.yml` and `pytest.yml` by affected client using `.github/ci/models.json`; shared changes, PRs to `main`, and publication run all configured cases. A site-only change runs the site build and the CI selection/result checks without model calls. See `.github/ci/README.md`.
 - Verify in headless Chrome against both servers (and `npm run build` plus `astro preview` for the site): light and dark, desktop and a 390 px phone, no console errors, no horizontal scroll. A passing scan is not a better page; look at the screenshots.
 - Scanner hits accepted on purpose: the shimmer on loading text, the round send and remove buttons, Lucide-derived icons, Inter, mono for data, and the owner's slogan as a sentence-long headline.
 

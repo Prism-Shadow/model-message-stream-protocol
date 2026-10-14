@@ -13,10 +13,12 @@
 # limitations under the License.
 
 import base64
+import importlib
 import json
 import mimetypes
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal
 
 import httpx
@@ -60,214 +62,37 @@ class Model:
         return f"{self.name}:{self.provider}"
 
 
-AVAILABLE_MODELS: list[Model] = []
-
-if os.getenv("GEMINI_API_KEY"):
-    AVAILABLE_MODELS.append(Model(name="gemini-4-argon"))
-    # the Gemini API serves generateContent too, so google-genai is covered beyond Vertex AI
-    AVAILABLE_MODELS.append(Model(name="gemini-4-argon", client_type="google-genai"))
-    AVAILABLE_MODELS.append(
-        Model(
-            name="gemini-3.1-flash-image",
-            support_text=False,
-            support_image_understanding=False,
-            support_image_generation=True,
-        )
-    )
-    AVAILABLE_MODELS.append(
-        Model(
-            name="gemini-3.8-flash-tts",
-            support_text=False,
-            support_image_understanding=False,
-            support_tts=True,
-        )
-    )
-    AVAILABLE_MODELS.append(
-        Model(
-            name="gemini-embedding-2",
-            support_text=False,
-            support_image_understanding=False,
-            support_embedding=True,
-        )
-    )
-
-if os.getenv("ANTHROPIC_API_KEY"):
-    AVAILABLE_MODELS.append(Model(name="claude-sonnet-5-5"))
-    AVAILABLE_MODELS.append(Model(name="claude-haiku-5-5"))
-
-if os.getenv("OPENAI_API_KEY"):
-    AVAILABLE_MODELS.append(Model(name="gpt-6.1-sol"))
-    AVAILABLE_MODELS.append(
-        Model(
-            name="text-embedding-3-large",
-            support_text=False,
-            support_image_understanding=False,
-            support_embedding=True,
-        )
-    )
-
-# per-protocol base URLs for the generic protocol clients (Z.AI entries use the
-# GLM Coding Plan base URLs)
-_PROTOCOL_MODES = ["openai-chat", "openai-responses", "ant-messages"]
-_PROTOCOL_BASE_URLS = {
-    "deepseek": {
-        "openai-chat": "https://api.deepseek.com",
-        "openai-responses": "https://api.deepseek.com",
-        "ant-messages": "https://api.deepseek.com/anthropic",
-    },
-    "zai": {
-        "openai-chat": "https://api.z.ai/api/coding/paas/v4",
-        "openai-responses": "https://api.z.ai/api/v1",
-        "ant-messages": "https://api.z.ai/api/anthropic",
-    },
-    "minimax": {
-        "openai-chat": "https://api.minimax.io/v1",
-        "openai-responses": "https://api.minimax.io/v1",
-        "ant-messages": "https://api.minimax.io/anthropic",
-    },
-    "openrouter": {
-        "openai-chat": "https://openrouter.ai/api/v1",
-        "openai-responses": "https://openrouter.ai/api/v1",
-        "ant-messages": "https://openrouter.ai/api",
-    },
-}
-
-if os.getenv("ZAI_API_KEY"):
-    AVAILABLE_MODELS.append(Model(name="glm-5.3-flash"))
-
-if os.getenv("MOONSHOT_API_KEY"):
-    AVAILABLE_MODELS.append(Model(name="kimi-k3"))
-
-if os.getenv("MINIMAX_API_KEY"):
-    AVAILABLE_MODELS.append(Model(name="MiniMax-M3"))
-
-if os.getenv("DEEPSEEK_API_KEY"):
-    AVAILABLE_MODELS.append(Model(name="deepseek-flash"))
-    for mode in _PROTOCOL_MODES:
-        AVAILABLE_MODELS.append(
-            Model(
-                name="deepseek-flash",
-                provider="deepseek",
-                client_type=mode,
-                base_url=_PROTOCOL_BASE_URLS["deepseek"][mode],
-                support_image_understanding=False,
-            )
-        )
-
-if os.getenv("BEDROCK_API_KEY"):
-    # a Bedrock id begins with no model family, so the client is named
-    AVAILABLE_MODELS.append(
-        Model(name="global.anthropic.claude-sonnet-4-6", provider="bedrock", client_type="anthropic-official")
-    )
-
-if os.getenv("VERTEX_API_KEY"):
-    # Vertex AI serves Gemini through generateContent only, the google-genai client's protocol
-    AVAILABLE_MODELS.append(Model(name="gemini-3.8-flash", provider="vertex", client_type="google-genai"))
-    AVAILABLE_MODELS.append(
-        Model(
-            name="gemini-3.1-flash-image",
-            provider="vertex",
-            client_type="google-genai",
-            support_text=False,
-            support_image_understanding=False,
-            support_image_generation=True,
-        )
-    )
-    AVAILABLE_MODELS.append(
-        Model(
-            name="gemini-3.1-flash-tts-preview",
-            provider="vertex",
-            client_type="google-genai",
-            support_text=False,
-            support_image_understanding=False,
-            support_tts=True,
-        )
-    )
-    AVAILABLE_MODELS.append(
-        Model(
-            name="gemini-embedding-2",
-            provider="vertex",
-            client_type="google-genai",
-            support_text=False,
-            support_image_understanding=False,
-            support_embedding=True,
-        )
-    )
+MODEL_CATALOG = json.loads(
+    (Path(__file__).resolve().parents[2] / ".github/ci/models.json").read_text(encoding="utf-8")
+)
+SELECTED_CLIENTS = json.loads(os.getenv("MMSP_TEST_CLIENTS", '["*"]'))
+if not isinstance(SELECTED_CLIENTS, list) or any(
+    not isinstance(client, str) or client not in ["*", *MODEL_CATALOG] for client in SELECTED_CLIENTS
+):
+    raise ValueError("MMSP_TEST_CLIENTS must be a JSON array of known client types or '*'.")
 
 RUN_SLOW_TEST = os.getenv("RUN_SLOW_TEST", "0") == "1"
+AVAILABLE_MODELS: list[Model] = []
+_missing_keys: set[str] = set()
+for _client, _group in MODEL_CATALOG.items():
+    if "*" not in SELECTED_CLIENTS and _client not in SELECTED_CLIENTS:
+        continue
+    for _case in _group["models"]:
+        if _case.get("slow", False) and not RUN_SLOW_TEST:
+            continue
+        if not os.getenv(_case["api_key_env"]):
+            _missing_keys.add(_case["api_key_env"])
+            continue
+        AVAILABLE_MODELS.append(Model(**{k: v for k, v in _case.items() if k not in ("api_key_env", "slow")}))
 
-if os.getenv("ZAI_API_KEY") and RUN_SLOW_TEST:
-    for mode in _PROTOCOL_MODES:
-        # Z.AI's Anthropic-compatible gateway defaults to thinking disabled when a request
-        # carries no thinking config, which glm-5.3 rejects because it cannot disable
-        # thinking; that protocol stays on glm-5.2
-        AVAILABLE_MODELS.append(
-            Model(
-                name="glm-5.2" if mode == "ant-messages" else "glm-5.3",
-                provider="zai",
-                client_type=mode,
-                base_url=_PROTOCOL_BASE_URLS["zai"][mode],
-                support_image_understanding=False,
-            )
-        )
+if os.getenv("MMSP_REQUIRE_KEYS") == "1" and _missing_keys:
+    raise ValueError(f"Missing API keys for selected model tests: {', '.join(sorted(_missing_keys))}")
 
-if os.getenv("MINIMAX_API_KEY") and RUN_SLOW_TEST:
-    for mode in _PROTOCOL_MODES:
-        AVAILABLE_MODELS.append(
-            Model(
-                name="MiniMax-M3",
-                provider="minimax",
-                client_type=mode,
-                base_url=_PROTOCOL_BASE_URLS["minimax"][mode],
-            )
-        )
-
-if os.getenv("OPENROUTER_API_KEY") and RUN_SLOW_TEST:
-    for mode in _PROTOCOL_MODES:
-        AVAILABLE_MODELS.append(
-            Model(
-                name="openai/gpt-5.6-luna",
-                provider="openrouter",
-                client_type=mode,
-                base_url=_PROTOCOL_BASE_URLS["openrouter"][mode],
-            )
-        )
-    AVAILABLE_MODELS.append(Model(name="z-ai/glm-5.3", provider="openrouter", support_image_understanding=False))
-    AVAILABLE_MODELS.append(Model(name="qwen/qwen3.8-27b", provider="openrouter", client_type="openai-responses"))
-    AVAILABLE_MODELS.append(
-        Model(
-            name="qwen/qwen3-embedding-4b",
-            support_text=False,
-            support_image_understanding=False,
-            support_embedding=True,
-            provider="openrouter",
-            client_type="openai-embedding",
-        )
-    )
-    AVAILABLE_MODELS.append(Model(name="moonshotai/kimi-k3", provider="openrouter"))
-
-if os.getenv("SILICONFLOW_API_KEY") and RUN_SLOW_TEST:
-    AVAILABLE_MODELS.append(Model(name="zai-org/GLM-5.2", provider="siliconflow", support_image_understanding=False))
-    AVAILABLE_MODELS.append(Model(name="Qwen/Qwen3.8-27B", provider="siliconflow", client_type="openai-chat"))
-    AVAILABLE_MODELS.append(Model(name="Pro/moonshotai/Kimi-K2.6", provider="siliconflow"))
-    AVAILABLE_MODELS.append(
-        Model(
-            name="Qwen/Qwen3-Embedding-8B",
-            support_text=False,
-            support_image_understanding=False,
-            support_embedding=True,
-            provider="siliconflow",
-            client_type="openai-embedding",
-        )
-    )
-
-if os.getenv("MODELVERSE_API_KEY") and RUN_SLOW_TEST:
-    AVAILABLE_MODELS.append(
-        Model(name="claude-sonnet-4-6", provider="modelverse", base_url="https://api.modelverse.cn/")
-    )
-    AVAILABLE_MODELS.append(Model(name="gpt-5.5", provider="modelverse"))
-
-if os.getenv("MMSP_API_KEY") and os.getenv("MMSP_BASE_URL"):
+if (
+    ("*" in SELECTED_CLIENTS or "mmsp" in SELECTED_CLIENTS)
+    and os.getenv("MMSP_API_KEY")
+    and os.getenv("MMSP_BASE_URL")
+):
     # a running MMSP server started from a config file; MMSP_MODEL is a server_model_id of its table, MMSP_BASE_URL ends with /v1
     AVAILABLE_MODELS.append(
         Model(
@@ -297,6 +122,21 @@ _PROVIDER_BASE_URLS = {
     "siliconflow": "https://api.siliconflow.cn/v1",
     "modelverse": "https://api.modelverse.cn/v1",
 }
+
+
+@pytest.mark.parametrize(
+    "client_type,case",
+    [(client_type, case) for client_type, group in MODEL_CATALOG.items() for case in group["models"]],
+)
+def test_model_catalog_routes_to_its_client_group(client_type: str, case: dict):
+    client = AutoLLMClient(
+        model=case["name"],
+        api_key="test-access,test-secret" if case.get("provider") == "bedrock" else "test-key",
+        base_url=case.get("base_url") or _PROVIDER_BASE_URLS.get(case.get("provider")),
+        client_type=case.get("client_type"),
+    )
+    module = importlib.import_module(f"mmsp.{client_type.replace('-', '_')}")
+    assert type(client._client) in vars(module).values()
 
 
 async def _create_client(model: Model) -> AutoLLMClient:
