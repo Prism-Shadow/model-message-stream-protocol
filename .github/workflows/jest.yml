@@ -55,6 +55,7 @@ jobs:
           MMSP_TEST_CLIENTS: ${{ inputs.clients }}
           MMSP_REQUIRE_KEYS: "1"
           RUN_SLOW_TEST: "0"
+          MMSP_CAPTURE_MINIMAX: ../api_captures/minimax_ci_255_actual/typescript
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -67,3 +68,11 @@ jobs:
           SILICONFLOW_API_KEY: ${{ secrets.SILICONFLOW_API_KEY }}
           BEDROCK_API_KEY: ${{ secrets.BEDROCK_API_KEY }}
           VERTEX_API_KEY: ${{ secrets.VERTEX_API_KEY }}
+
+      - name: Save MiniMax test streams
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: minimax-ci-255-typescript
+          path: api_captures/minimax_ci_255_actual/typescript
+          retention-days: 3

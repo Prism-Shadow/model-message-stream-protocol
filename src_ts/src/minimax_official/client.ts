@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { randomUUID } from "node:crypto";
+import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import OpenAI from "openai";
 import type {
   ResponseCreateParamsStreaming,
@@ -372,10 +375,19 @@ export class MiniMaxOfficialClient extends LLMClient {
       stream: true,
     } as ResponseCreateParamsStreaming;
 
+    let capture: string | undefined;
+    if (process.env.MMSP_CAPTURE_MINIMAX) {
+      mkdirSync(process.env.MMSP_CAPTURE_MINIMAX, { recursive: true });
+      capture = join(process.env.MMSP_CAPTURE_MINIMAX, randomUUID());
+      writeFileSync(`${capture}.request.json`, JSON.stringify(params));
+    }
     const stream = await this._client.responses.create(params, {
       signal: options.signal,
     });
     for await (const event of stream) {
+      if (capture) {
+        appendFileSync(`${capture}.stream.jsonl`, JSON.stringify(event) + "\n");
+      }
       yield this.transformModelOutputToUniEvent(event);
     }
   }
