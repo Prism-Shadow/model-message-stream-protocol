@@ -46,7 +46,7 @@ Audit LLM executions by adding **a single `trace_id` parameter**, no database re
 
 | Model Name     | Vendor                              | Example Model ID       | Input Modalities | Output Modalities              |
 | -------------- | ----------------------------------- | ---------------------- | ---------------- | ------------------------------ |
-| Gemini 4 Argon | Official                           | `gemini-4-argon`       | Text, Image      | Text                          |
+| Gemini 4 Argon | Official/Google Vertex AI          | `gemini-4-argon`       | Text, Image      | Text                          |
 | Gemini 3-3.8   | Official/Google Vertex AI           | `gemini-3.8-flash`     | Text, Image      | Text, Image, Speech, Embedding |
 | Claude 4.6-5.5 | Official/Amazon Bedrock/UModelVerse | `claude-opus-5-5`      | Text, Image      | Text                           |
 | GPT-5.4-6.1    | Official/OpenRouter/UModelVerse     | `gpt-6.1-sol`          | Text, Image      | Text, Embedding                |
