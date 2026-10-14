@@ -3,6 +3,7 @@
 - **Date:** 2026-10-14
 - **Type:** feature
 - **Scope:** `google_official`, `google_genai`, `registry`, `tests`, `llmsdk_docs`
+- **PR:** [#253](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/253)
 
 [English](2026-10-14-gemini-4-argon.md)
 
