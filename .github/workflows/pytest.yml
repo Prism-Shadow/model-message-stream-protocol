@@ -42,6 +42,21 @@ jobs:
           uv run ruff check --config pyproject.toml ../.github/ci
           uv run ruff format --check --config pyproject.toml ../.github/ci
 
+      - name: Capture MiniMax tool-call diagnostics for PR 255
+        if: github.event_name == 'pull_request' && github.event.pull_request.number == 255
+        working-directory: ./src_py
+        run: uv run python ../.github/ci/probe_minimax.py
+        env:
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
+
+      - name: Save MiniMax diagnostics
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.number == 255
+        uses: actions/upload-artifact@v4
+        with:
+          name: minimax-ci-255
+          path: api_captures/minimax_ci_255
+          retention-days: 3
+
       - name: Run tests
         working-directory: ./src_py
         run: |
