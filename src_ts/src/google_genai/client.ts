@@ -77,8 +77,8 @@ function splitFunctionResponseRuns(parts: Part[]): Part[][] {
  * Compatible client for Google's generateContent protocol, as the google-genai
  * SDK speaks it. It serves any endpoint that speaks generateContent: Vertex AI
  * with a service-account JSON key, whose Interactions endpoint serves none of
- * the Gemini models, the Gemini API, and gateways that proxy generateContent:
- * Gemini 3.8 back through the 3.x text, image, TTS, and embedding models. It
+ * the Gemini models, the Gemini API, and gateways that proxy generateContent,
+ * including Gemini 4 Argon and the 3.x text, image, TTS, and embedding models. It
  * applies the 3.6-generation parameter contract to the whole family:
  * temperature is rejected everywhere.
  *
@@ -220,10 +220,10 @@ export class GoogleGenaiClient extends LLMClient {
     }
     if (
       this._model.includes("gemini-3.7") ||
-      this._model.includes("gemini-3.8")
+      this._model.includes("gemini-3.8") ||
+      this._model.includes("gemini-4-argon")
     ) {
-      // Both generations reject "minimal" with a 400 (3.7 verified live 2026-08-13,
-      // 3.8 on Vertex AI 2026-09-17).
+      // These generations support low, medium, and high, but not minimal.
       return [
         GeminiThinkingLevel.LOW,
         GeminiThinkingLevel.MEDIUM,

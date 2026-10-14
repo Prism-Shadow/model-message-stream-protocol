@@ -63,9 +63,9 @@ class Model:
 AVAILABLE_MODELS: list[Model] = []
 
 if os.getenv("GEMINI_API_KEY"):
-    AVAILABLE_MODELS.append(Model(name="gemini-3.8-flash"))
+    AVAILABLE_MODELS.append(Model(name="gemini-4-argon"))
     # the Gemini API serves generateContent too, so google-genai is covered beyond Vertex AI
-    AVAILABLE_MODELS.append(Model(name="gemini-3.8-flash", client_type="google-genai"))
+    AVAILABLE_MODELS.append(Model(name="gemini-4-argon", client_type="google-genai"))
     AVAILABLE_MODELS.append(
         Model(
             name="gemini-3.1-flash-image",

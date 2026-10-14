@@ -4,6 +4,8 @@
 
 在这里，我们记录模型的新增与移除时间、主要功能更新、缺陷修复，以及关键版本的发布时间。每个发布版本在此保留一行简述；逐条目的摘要位于 `changelog/<version>/README.md`，且每个条目都会链接到自己的详情文件。
 
+- [2026-10-14] [版本 0.5.3](changelog/0.5.3/README.zh.md)：Python 与 TypeScript 支持 Gemini 4 Argon，补齐思考档位映射、模型注册信息与官方 API 文档。
+
 - [2026-10-10] [版本 0.5.2](changelog/0.5.2/README.zh.md)：新增 MMSP 服务端，把模型表中的模型以 MMSP 流通过 HTTP 提供出来，`mmsp` 客户端调用它，Playground 的 server 页面可编辑模型表、启动服务端、绘制指标图表，并把每一行直接向上游测试；支持 Claude Haiku 5.5，Sonnet 5.5 的缓存读取降到 0.10 美元；Gemini 官方客户端改名为 `google-official`（别名 `gemini-official`）；Playground 中向另一个模型发送消息时开始新对话。
 
 - [2026-10-01] [版本 0.5.1](changelog/0.5.1/README.zh.md)：`google-genai` 成为 Google generateContent 协议的兼容客户端，Vertex AI 需显式指定它，`gemini-official` 只讲 Gemini API 的 Interactions 端点并拒绝服务账号 key；OpenRouter 与 SiliconFlow 上的 Qwen3.6 35B A3B 换成 Qwen3.8 27B；站点、标志与图片改用纯蓝主题色，文档新增设计理念页面，发布 workflow 跳过已发布的版本。

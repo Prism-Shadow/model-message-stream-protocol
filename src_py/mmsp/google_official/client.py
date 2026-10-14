@@ -41,11 +41,11 @@ from ..utils import is_debug_enabled, speaker_turns
 
 
 class GoogleOfficialClient(LLMClient):
-    """Unified client for the Gemini family, named for the newest generation it serves (3.8).
+    """Official client for the Gemini family, including Gemini 4 Argon and Gemini 3.x.
 
     It speaks the Gemini API's Interactions endpoint statelessly (store=false, the whole history in every
-    request) for 3.8 back through the 3.x text, image, and TTS models. Vertex AI serves none of them
-    through Interactions, so its service-account keys belong to google_genai. It embeds through
+    request) for Gemini 4 Argon and the 3.x text, image, and TTS models. Vertex AI service-account
+    keys belong to google_genai. It embeds through
     embedContent, because the Interactions API does not serve the embedding models. The API deprecated
     the temperature/top_p/top_k sampling parameters starting with the 3.6 generation (silently ignored
     today, HTTP 400 in future generations), and this client applies that contract to the whole family:
@@ -59,7 +59,7 @@ class GoogleOfficialClient(LLMClient):
         base_url: str | None = None,
         default_headers: dict[str, str] | None = None,
     ):
-        """Initialize Gemini 3.8 client with model and API key."""
+        """Initialize the official Gemini client with a model and API key."""
         self._model = model
         api_key = api_key or os.getenv("GEMINI_API_KEY")
         base_url = base_url or os.getenv("GEMINI_BASE_URL")
@@ -124,9 +124,8 @@ class GoogleOfficialClient(LLMClient):
             # would have accepted costs a little accuracy, forwarding an
             # unsupported one is a 400).
             return ("low", "medium", "high")
-        if "gemini-3.7" in self._model or "gemini-3.8" in self._model:
-            # Both generations reject "minimal" with a 400 (3.7 verified live 2026-08-13,
-            # 3.7 and 3.8 again through the Interactions API 2026-09-16).
+        if "gemini-3.7" in self._model or "gemini-3.8" in self._model or "gemini-4-argon" in self._model:
+            # These generations support low, medium, and high, but not minimal.
             return ("low", "medium", "high")
         return self._GEMINI_LEVEL_ORDER
 

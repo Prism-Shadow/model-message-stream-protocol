@@ -4,6 +4,8 @@
 
 Here, we record the addition and removal times of models, major functional updates, bug fixes, and release times of key versions. Each release keeps one brief line here; the per-entry summaries live in `changelog/<version>/README.md`, and every entry links its detail file.
 
+- [2026-10-14] [Version 0.5.3](changelog/0.5.3/README.md): Gemini 4 Argon support in Python and TypeScript, with thinking-level mapping, registry metadata, and official API documentation.
+
 - [2026-10-10] [Version 0.5.2](changelog/0.5.2/README.md): an MMSP server serves the models of a table over HTTP as MMSP streams, the `mmsp` client calls it, and the playground's server page edits the table, starts the server, charts its metrics and tests each row against its upstream; Claude Haiku 5.5 is supported and Sonnet 5.5 cache reads drop to $0.10; the official Gemini client is named `google-official` (alias `gemini-official`); a chat sent to another model in the playground starts a new conversation.
 
 - [2026-10-01] [Version 0.5.1](changelog/0.5.1/README.md): `google-genai` is the compatible client for Google's generateContent and Vertex AI names it, while `gemini-official` speaks the Gemini API's Interactions endpoint only and refuses a service-account key; Qwen3.8 27B replaces Qwen3.6 35B A3B on OpenRouter and SiliconFlow; the site, the mark and the images take a pure blue brand color, the docs gain a Design philosophy page, and the publish workflow skips a version that is already published.
