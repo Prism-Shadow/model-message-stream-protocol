@@ -58,3 +58,14 @@ https://developers.openai.com/ on 2026-09-09.
 ## GPT-6.1 Sol (added 2026-09-30)
 
 `gpt-6.1-sol` speaks the same Responses contract. Probed live on 2026-09-30: a tool call streams as a `function_call` item, `reasoning.effort` `none` returns 400 `Unsupported value: 'none' is not supported with the 'gpt-6.1-sol' model`, `low` to `max` and `service_tier: "priority"` are accepted, and image input works.
+
+## GPT-6 Luna (added 2026-10-14)
+
+[`gpt-6-luna`](docs/gpt-6-luna.md) uses the same Responses wire format, with text and image input,
+a 1,050,000-token context and up to 128,000 output tokens. It accepts `none`, `low`, `medium`,
+`high`, `xhigh` and `max`; unlike Astra and GPT-6.1 Sol, `ThinkingLevel.NONE` stays `none`.
+A live streaming tool call, tool-result replay without provider item ids, and a `none` request
+completed on 2026-10-14. Standard prices per million tokens are $0.10 input, $0.01 cache read,
+$0.125 cache write and $0.50 output. Above 272K input, input/cache rates double and output is 1.5x.
+
+Source: https://developers.openai.com/api/docs/models/gpt-6-luna
