@@ -3,6 +3,7 @@
 - **Date:** 2026-10-14
 - **Type:** process
 - **Scope:** `.github`, `tests`
+- **PR:** [#255](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/255)
 
 [中文版](2026-10-14-affected-client-ci.zh.md)
 
