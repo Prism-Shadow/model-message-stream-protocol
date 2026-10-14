@@ -63,7 +63,7 @@ class GoogleGenaiClient(LLMClient):
 
     It serves any endpoint that speaks generateContent: Vertex AI with a service-account JSON key, whose
     Interactions endpoint serves none of the Gemini models, the Gemini API, and gateways that proxy
-    generateContent: Gemini 3.8 back through the 3.x text, image, TTS, and embedding models. The
+    generateContent, including Gemini 4 Argon and the 3.x text, image, TTS, and embedding models. The
     API deprecated the temperature/top_p/top_k sampling parameters starting with the 3.6 generation
     (silently ignored today, HTTP 400 in future generations), and this client applies that contract to
     the whole family: temperature is rejected everywhere.
@@ -154,9 +154,8 @@ class GoogleGenaiClient(LLMClient):
             # would have accepted costs a little accuracy, forwarding an
             # unsupported one is a 400).
             return (types.ThinkingLevel.LOW, types.ThinkingLevel.MEDIUM, types.ThinkingLevel.HIGH)
-        if "gemini-3.7" in self._model or "gemini-3.8" in self._model:
-            # Both generations reject "minimal" with a 400 (3.7 verified live 2026-08-13,
-            # 3.8 on Vertex AI 2026-09-17).
+        if "gemini-3.7" in self._model or "gemini-3.8" in self._model or "gemini-4-argon" in self._model:
+            # These generations support low, medium, and high, but not minimal.
             return (types.ThinkingLevel.LOW, types.ThinkingLevel.MEDIUM, types.ThinkingLevel.HIGH)
         return self._GEMINI_LEVEL_ORDER
 

@@ -98,6 +98,15 @@ function cny(prompt: number, output: number, cached?: number): ModelPricing {
 const SUPPORTED_MODELS: SupportedModel[] = [
   // official vendor endpoints
   {
+    model: "gemini-4-argon",
+    base_url: GOOGLE,
+    client: "google-official",
+    input_modalities: ["Text", "Image", "Video", "Audio"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(4.0, 20.0, 0.2),
+  },
+  {
     model: "gemini-3.8-flash",
     base_url: GOOGLE,
     client: "google-official",

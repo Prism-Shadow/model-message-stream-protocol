@@ -99,6 +99,15 @@ def _cny(prompt: float, output: float, cached: float | None = None) -> ModelPric
 _SUPPORTED_MODELS: list[SupportedModel] = [
     # official vendor endpoints
     {
+        "model": "gemini-4-argon",
+        "base_url": _GOOGLE,
+        "client": "google-official",
+        "input_modalities": ["Text", "Image", "Video", "Audio"],
+        "output_modalities": ["Text"],
+        "context_window": 1048576,
+        "pricing": _usd(4.0, 20.0, cached=0.2),
+    },
+    {
         "model": "gemini-3.8-flash",
         "base_url": _GOOGLE,
         "client": "google-official",
