@@ -47,11 +47,10 @@ type InteractionRequest = Omit<
 type TextImageBlocks = NonNullable<Interactions.ThoughtStep["summary"]>;
 
 /**
- * Unified client for the Gemini family, named for the newest generation it
- * serves (3.8). It speaks the Gemini API's Interactions endpoint statelessly
- * (store=false, the whole history in every request) for 3.8 back through the
- * 3.x text, image, and TTS models. Vertex AI serves none of them through
- * Interactions, so its service-account keys belong to google_genai. It
+ * Official client for the Gemini family. It speaks the Gemini API's Interactions
+ * endpoint statelessly (store=false, the whole history in every request) for
+ * Gemini 4 Argon and the 3.x text, image, and TTS models. Vertex AI service-account
+ * keys belong to google_genai. It
  * embeds through embedContent, because the Interactions API does not serve
  * the embedding models, and applies the 3.6-generation parameter contract to
  * the whole family: temperature is rejected everywhere.
@@ -65,7 +64,7 @@ export class GoogleOfficialClient extends LLMClient {
   private _client: GoogleGenAI;
 
   /**
-   * Initialize Gemini 3.8 client with model and API key.
+   * Initialize the official Gemini client with a model and API key.
    */
   constructor(options: {
     model: string;
@@ -178,10 +177,10 @@ export class GoogleOfficialClient extends LLMClient {
     }
     if (
       this._model.includes("gemini-3.7") ||
-      this._model.includes("gemini-3.8")
+      this._model.includes("gemini-3.8") ||
+      this._model.includes("gemini-4-argon")
     ) {
-      // Both generations reject "minimal" with a 400 (3.7 verified live 2026-08-13,
-      // 3.7 and 3.8 again through the Interactions API 2026-09-16).
+      // These generations support low, medium, and high, but not minimal.
       return ["low", "medium", "high"];
     }
     return GoogleOfficialClient.GEMINI_LEVEL_ORDER;

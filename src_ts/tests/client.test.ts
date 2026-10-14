@@ -56,7 +56,7 @@ const AVAILABLE_MODELS: Model[] = [];
 
 if (process.env.GEMINI_API_KEY) {
   AVAILABLE_MODELS.push({
-    name: "gemini-3.8-flash",
+    name: "gemini-4-argon",
     supportTextGeneration: true,
     supportImageUnderstanding: true,
     supportImageGeneration: false,
@@ -67,7 +67,7 @@ if (process.env.GEMINI_API_KEY) {
 
   // the Gemini API serves generateContent too, so google-genai is covered beyond Vertex AI
   AVAILABLE_MODELS.push({
-    name: "gemini-3.8-flash",
+    name: "gemini-4-argon",
     supportTextGeneration: true,
     supportImageUnderstanding: true,
     supportImageGeneration: false,
