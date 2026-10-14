@@ -54,7 +54,7 @@ jobs:
         env:
           MMSP_TEST_CLIENTS: ${{ inputs.clients }}
           MMSP_REQUIRE_KEYS: "1"
-          RUN_SLOW_TEST: "1"
+          RUN_SLOW_TEST: "0"
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

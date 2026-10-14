@@ -96,7 +96,9 @@ def main() -> None:
         with open(summary, "a", encoding="utf-8") as stream:
             stream.write(f"### Model test selection\n\n{plan['reason']}\n\n")
             stream.write(f"Clients: `{json.dumps(plan['clients'], ensure_ascii=False)}`\n\n")
-            stream.write("Python and TypeScript use the same selection. `*` includes all configured slow cases.\n")
+            stream.write(
+                "Python and TypeScript use the same selection. `*` covers all clients, excluding slow cases.\n"
+            )
 
 
 if __name__ == "__main__":

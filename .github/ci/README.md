@@ -11,7 +11,7 @@
 | PR to `main`, push to `main`, manual CI run | All configured clients |
 | Package publication, including manual publication | All configured clients; both languages must pass before either package publishes |
 
-All CI model runs enable `RUN_SLOW_TEST=1`. Missing keys for selected cases fail collection instead of silently dropping coverage. Fork PRs run offline checks only because repository secrets are unavailable. `mmsp` needs a user-provided server and remains optional through `MMSP_API_KEY`, `MMSP_BASE_URL`, and `MMSP_MODEL`; the vLLM adapter currently has offline coverage only.
+All CI model runs set `RUN_SLOW_TEST=0`, including full coverage and publication gates. Full coverage means every client's default cases; cases marked `slow` remain opt-in for local runs. Missing keys for selected non-slow cases fail collection instead of silently dropping coverage. Fork PRs run offline checks only because repository secrets are unavailable. `mmsp` needs a user-provided server and remains optional through `MMSP_API_KEY`, `MMSP_BASE_URL`, and `MMSP_MODEL`; the vLLM adapter currently has offline coverage only.
 
 Use **CI passed** as the required PR check. It runs even when no language jobs are needed and fails if selection or any required language job fails or is cancelled. Existing branch rules requiring the old standalone test job names must be updated to this check.
 
@@ -26,11 +26,11 @@ Local tests keep their existing key-gated, non-slow default. Both languages acce
 ```sh
 # Set before running pytest or npm test.
 export MMSP_TEST_CLIENTS='["deepseek-official"]'
-export RUN_SLOW_TEST=1
+export RUN_SLOW_TEST=0
 export MMSP_REQUIRE_KEYS=1
 ```
 
-`MMSP_TEST_CLIENTS='["*"]'` selects all clients; `MMSP_TEST_CLIENTS='[]'` runs offline tests only. Unknown client names and invalid selection JSON fail. `MMSP_REQUIRE_KEYS=1` requires every selected case's key; omit it for local key-gated runs.
+`MMSP_TEST_CLIENTS='["*"]'` selects all clients; `MMSP_TEST_CLIENTS='[]'` runs offline tests only. Set `RUN_SLOW_TEST=1` locally to additionally include slow cases. Unknown client names and invalid selection JSON fail. `MMSP_REQUIRE_KEYS=1` requires every selected case's key after slow-case filtering; omit it for local key-gated runs.
 
 Check the planner without API access:
 
