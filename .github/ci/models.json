@@ -1,0 +1,337 @@
+{
+  "ant-messages": {
+    "models": [
+      {
+        "api_key_env": "ZAI_API_KEY",
+        "name": "glm-5.2",
+        "support_image_understanding": false,
+        "provider": "zai",
+        "client_type": "ant-messages",
+        "base_url": "https://api.z.ai/api/anthropic",
+        "slow": true
+      },
+      {
+        "api_key_env": "MINIMAX_API_KEY",
+        "name": "MiniMax-M3",
+        "provider": "minimax",
+        "client_type": "ant-messages",
+        "base_url": "https://api.minimax.io/anthropic",
+        "slow": true
+      },
+      {
+        "api_key_env": "DEEPSEEK_API_KEY",
+        "name": "deepseek-flash",
+        "support_image_understanding": false,
+        "provider": "deepseek",
+        "client_type": "ant-messages",
+        "base_url": "https://api.deepseek.com/anthropic"
+      },
+      {
+        "api_key_env": "OPENROUTER_API_KEY",
+        "name": "openai/gpt-5.6-luna",
+        "provider": "openrouter",
+        "client_type": "ant-messages",
+        "base_url": "https://openrouter.ai/api",
+        "slow": true
+      }
+    ]
+  },
+  "anthropic-official": {
+    "models": [
+      {
+        "api_key_env": "ANTHROPIC_API_KEY",
+        "name": "claude-sonnet-5-5"
+      },
+      {
+        "api_key_env": "ANTHROPIC_API_KEY",
+        "name": "claude-haiku-5-5"
+      },
+      {
+        "api_key_env": "BEDROCK_API_KEY",
+        "name": "global.anthropic.claude-sonnet-4-6",
+        "provider": "bedrock",
+        "client_type": "anthropic-official"
+      },
+      {
+        "api_key_env": "MODELVERSE_API_KEY",
+        "name": "claude-sonnet-4-6",
+        "provider": "modelverse",
+        "base_url": "https://api.modelverse.cn/",
+        "slow": true
+      }
+    ]
+  },
+  "deepseek-official": {
+    "models": [
+      {
+        "api_key_env": "DEEPSEEK_API_KEY",
+        "name": "deepseek-flash"
+      }
+    ]
+  },
+  "google-genai": {
+    "models": [
+      {
+        "api_key_env": "GEMINI_API_KEY",
+        "name": "gemini-4-argon",
+        "client_type": "google-genai"
+      },
+      {
+        "api_key_env": "VERTEX_API_KEY",
+        "name": "gemini-3.8-flash",
+        "provider": "vertex",
+        "client_type": "google-genai"
+      },
+      {
+        "api_key_env": "VERTEX_API_KEY",
+        "name": "gemini-3.1-flash-image",
+        "support_text": false,
+        "support_image_understanding": false,
+        "support_image_generation": true,
+        "provider": "vertex",
+        "client_type": "google-genai"
+      },
+      {
+        "api_key_env": "VERTEX_API_KEY",
+        "name": "gemini-3.1-flash-tts-preview",
+        "support_text": false,
+        "support_image_understanding": false,
+        "support_tts": true,
+        "provider": "vertex",
+        "client_type": "google-genai"
+      },
+      {
+        "api_key_env": "VERTEX_API_KEY",
+        "name": "gemini-embedding-2",
+        "support_text": false,
+        "support_image_understanding": false,
+        "support_embedding": true,
+        "provider": "vertex",
+        "client_type": "google-genai"
+      }
+    ]
+  },
+  "google-official": {
+    "models": [
+      {
+        "api_key_env": "GEMINI_API_KEY",
+        "name": "gemini-4-argon"
+      },
+      {
+        "api_key_env": "GEMINI_API_KEY",
+        "name": "gemini-3.1-flash-image",
+        "support_text": false,
+        "support_image_understanding": false,
+        "support_image_generation": true
+      },
+      {
+        "api_key_env": "GEMINI_API_KEY",
+        "name": "gemini-3.8-flash-tts",
+        "support_text": false,
+        "support_image_understanding": false,
+        "support_tts": true
+      },
+      {
+        "api_key_env": "GEMINI_API_KEY",
+        "name": "gemini-embedding-2",
+        "support_text": false,
+        "support_image_understanding": false,
+        "support_embedding": true
+      }
+    ]
+  },
+  "minimax-official": {
+    "models": [
+      {
+        "api_key_env": "MINIMAX_API_KEY",
+        "name": "MiniMax-M3"
+      }
+    ]
+  },
+  "mmsp": {
+    "models": []
+  },
+  "moonshot-official": {
+    "models": [
+      {
+        "api_key_env": "MOONSHOT_API_KEY",
+        "name": "kimi-k3"
+      },
+      {
+        "api_key_env": "OPENROUTER_API_KEY",
+        "name": "moonshotai/kimi-k3",
+        "provider": "openrouter",
+        "client_type": "moonshot-official",
+        "slow": true
+      },
+      {
+        "api_key_env": "SILICONFLOW_API_KEY",
+        "name": "Pro/moonshotai/Kimi-K2.6",
+        "provider": "siliconflow",
+        "client_type": "moonshot-official",
+        "slow": true
+      }
+    ]
+  },
+  "openai-chat": {
+    "models": [
+      {
+        "api_key_env": "ZAI_API_KEY",
+        "name": "glm-5.3",
+        "support_image_understanding": false,
+        "provider": "zai",
+        "client_type": "openai-chat",
+        "base_url": "https://api.z.ai/api/coding/paas/v4",
+        "slow": true
+      },
+      {
+        "api_key_env": "MINIMAX_API_KEY",
+        "name": "MiniMax-M3",
+        "provider": "minimax",
+        "client_type": "openai-chat",
+        "base_url": "https://api.minimax.io/v1",
+        "slow": true
+      },
+      {
+        "api_key_env": "DEEPSEEK_API_KEY",
+        "name": "deepseek-flash",
+        "support_image_understanding": false,
+        "provider": "deepseek",
+        "client_type": "openai-chat",
+        "base_url": "https://api.deepseek.com"
+      },
+      {
+        "api_key_env": "OPENROUTER_API_KEY",
+        "name": "openai/gpt-5.6-luna",
+        "provider": "openrouter",
+        "client_type": "openai-chat",
+        "base_url": "https://openrouter.ai/api/v1",
+        "slow": true
+      },
+      {
+        "api_key_env": "SILICONFLOW_API_KEY",
+        "name": "Qwen/Qwen3.8-27B",
+        "provider": "siliconflow",
+        "client_type": "openai-chat",
+        "slow": true
+      }
+    ]
+  },
+  "openai-chat-vllm-adapter": {
+    "models": [],
+    "depends_on": ["openai-chat"]
+  },
+  "openai-embedding": {
+    "models": [
+      {
+        "api_key_env": "OPENAI_API_KEY",
+        "name": "text-embedding-3-large",
+        "support_text": false,
+        "support_image_understanding": false,
+        "support_embedding": true
+      },
+      {
+        "api_key_env": "OPENROUTER_API_KEY",
+        "name": "qwen/qwen3-embedding-4b",
+        "support_text": false,
+        "support_image_understanding": false,
+        "support_embedding": true,
+        "provider": "openrouter",
+        "client_type": "openai-embedding",
+        "slow": true
+      },
+      {
+        "api_key_env": "SILICONFLOW_API_KEY",
+        "name": "Qwen/Qwen3-Embedding-8B",
+        "support_text": false,
+        "support_image_understanding": false,
+        "support_embedding": true,
+        "provider": "siliconflow",
+        "client_type": "openai-embedding",
+        "slow": true
+      }
+    ]
+  },
+  "openai-official": {
+    "models": [
+      {
+        "api_key_env": "OPENAI_API_KEY",
+        "name": "gpt-6.1-sol"
+      },
+      {
+        "api_key_env": "MODELVERSE_API_KEY",
+        "name": "gpt-5.5",
+        "provider": "modelverse",
+        "slow": true
+      }
+    ]
+  },
+  "openai-responses": {
+    "models": [
+      {
+        "api_key_env": "ZAI_API_KEY",
+        "name": "glm-5.3",
+        "support_image_understanding": false,
+        "provider": "zai",
+        "client_type": "openai-responses",
+        "base_url": "https://api.z.ai/api/v1",
+        "slow": true
+      },
+      {
+        "api_key_env": "MINIMAX_API_KEY",
+        "name": "MiniMax-M3",
+        "provider": "minimax",
+        "client_type": "openai-responses",
+        "base_url": "https://api.minimax.io/v1",
+        "slow": true
+      },
+      {
+        "api_key_env": "DEEPSEEK_API_KEY",
+        "name": "deepseek-flash",
+        "support_image_understanding": false,
+        "provider": "deepseek",
+        "client_type": "openai-responses",
+        "base_url": "https://api.deepseek.com"
+      },
+      {
+        "api_key_env": "OPENROUTER_API_KEY",
+        "name": "openai/gpt-5.6-luna",
+        "provider": "openrouter",
+        "client_type": "openai-responses",
+        "base_url": "https://openrouter.ai/api/v1",
+        "slow": true
+      },
+      {
+        "api_key_env": "OPENROUTER_API_KEY",
+        "name": "qwen/qwen3.8-27b",
+        "provider": "openrouter",
+        "client_type": "openai-responses",
+        "slow": true
+      }
+    ]
+  },
+  "zai-official": {
+    "models": [
+      {
+        "api_key_env": "ZAI_API_KEY",
+        "name": "glm-5.3-flash"
+      },
+      {
+        "api_key_env": "OPENROUTER_API_KEY",
+        "name": "z-ai/glm-5.3",
+        "support_image_understanding": false,
+        "provider": "openrouter",
+        "client_type": "zai-official",
+        "slow": true
+      },
+      {
+        "api_key_env": "SILICONFLOW_API_KEY",
+        "name": "zai-org/GLM-5.2",
+        "support_image_understanding": false,
+        "provider": "siliconflow",
+        "client_type": "zai-official",
+        "slow": true
+      }
+    ]
+  }
+}

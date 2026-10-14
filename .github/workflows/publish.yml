@@ -11,7 +11,17 @@ permissions:
   contents: read
 
 jobs:
+  test-python:
+    uses: ./.github/workflows/pytest.yml
+    secrets: inherit
+
+  test-typescript:
+    needs: test-python
+    uses: ./.github/workflows/jest.yml
+    secrets: inherit
+
   publish-pypi:
+    needs: [test-python, test-typescript]
     name: Publish Python package to PyPI
     runs-on: ubuntu-latest
     environment:
@@ -40,6 +50,7 @@ jobs:
           skip-existing: true
 
   publish-npm:
+    needs: [test-python, test-typescript]
     name: Publish TypeScript package to npm
     runs-on: ubuntu-latest
     environment:
@@ -63,10 +74,6 @@ jobs:
       - name: Build package
         working-directory: ./src_ts
         run: npm run build
-
-      - name: Run tests
-        working-directory: ./src_ts
-        run: npm test
 
       - name: Publish to npm
         working-directory: ./src_ts

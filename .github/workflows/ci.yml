@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, dev]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      checks: ${{ steps.plan.outputs.checks }}
+      clients: ${{ steps.plan.outputs.clients }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
+        id: changes
+        if: github.event_name == 'pull_request'
+        with:
+          list-files: json
+          filters: |
+            changed:
+              - '**'
+      - name: Check selection rules
+        run: python3 -m unittest discover -s .github/ci -p 'test_*.py'
+      - name: Select model tests
+        id: plan
+        env:
+          CHANGED_FILES: ${{ steps.changes.outputs.changed_files || '[]' }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          FORCE_FULL: ${{ github.event_name != 'pull_request' || github.base_ref == 'main' }}
+        run: python3 .github/ci/plan.py
+      - name: Explain fork coverage
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        run: echo 'Fork PRs run offline checks only; live model tests require repository secrets.' >> "$GITHUB_STEP_SUMMARY"
+
+  python:
+    needs: plan
+    if: needs.plan.outputs.checks == 'true'
+    uses: ./.github/workflows/pytest.yml
+    with:
+      clients: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && needs.plan.outputs.clients || '[]' }}
+    secrets: inherit
+
+  typescript:
+    # Both languages use the same provider quotas, so keep their API calls sequential.
+    needs: [plan, python]
+    if: always() && needs.plan.result == 'success' && needs.plan.outputs.checks == 'true'
+    uses: ./.github/workflows/jest.yml
+    with:
+      clients: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && needs.plan.outputs.clients || '[]' }}
+    secrets: inherit
+
+  passed:
+    name: CI passed
+    runs-on: ubuntu-latest
+    needs: [plan, python, typescript]
+    if: always()
+    steps:
+      - name: Require every selected check to pass
+        env:
+          PLAN_RESULT: ${{ needs.plan.result }}
+          CHECKS: ${{ needs.plan.outputs.checks }}
+          PYTHON_RESULT: ${{ needs.python.result }}
+          TYPESCRIPT_RESULT: ${{ needs.typescript.result }}
+        run: |
+          test "$PLAN_RESULT" = success
+          if [ "$CHECKS" = true ]; then
+            test "$PYTHON_RESULT" = success
+            test "$TYPESCRIPT_RESULT" = success
+          else
+            test "$CHECKS" = false
+          fi
