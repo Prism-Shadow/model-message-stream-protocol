@@ -14,9 +14,7 @@
 
 import json
 import os
-from pathlib import Path
 from typing import Any, AsyncIterator
-from uuid import uuid4
 
 from openai import AsyncOpenAI
 from openai.types.responses import ResponseStreamEvent
@@ -311,24 +309,8 @@ class MiniMaxOfficialClient(LLMClient):
         minimax_config = self.transform_uni_config_to_model_config(config)
         input_list = self.transform_uni_message_to_model_input(messages)
 
-        capture = None
-        if os.getenv("MMSP_CAPTURE_MINIMAX"):
-            directory = Path(os.environ["MMSP_CAPTURE_MINIMAX"])
-            directory.mkdir(parents=True, exist_ok=True)
-            capture = directory / str(uuid4())
-            capture.with_suffix(".request.json").write_text(
-                json.dumps({**minimax_config, "input": input_list, "stream": True}, ensure_ascii=False)
-            )
         stream = await self._client.responses.create(**minimax_config, input=input_list, stream=True)
         async for model_event in stream:
-            if capture is not None:
-                raw_event = (
-                    model_event.model_dump(exclude_unset=True)
-                    if hasattr(model_event, "model_dump")
-                    else {"unserializable_str": str(model_event)}
-                )
-                with capture.with_suffix(".stream.jsonl").open("a") as handle:
-                    handle.write(json.dumps(raw_event, ensure_ascii=False) + "\n")
             yield self.transform_model_output_to_uni_event(model_event)
 
     async def list_models(self) -> list[str]:

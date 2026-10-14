@@ -569,7 +569,10 @@ if (AVAILABLE_MODELS.length > 0) {
       const message1: UniMessage = {
         role: "user",
         content_items: [
-          { type: "text.done", text: "What is the weather in San Francisco?" },
+          {
+            type: "text.done",
+            text: "Call get_weather for San Francisco to retrieve the current weather. Do not answer without using the tool.",
+          },
         ],
       };
       const events1: UniEvent[] = [];
@@ -673,7 +676,7 @@ if (AVAILABLE_MODELS.length > 0) {
           content_items: [
             {
               type: "text.done",
-              text: "What is the weather in San Francisco?",
+              text: "Call get_weather for San Francisco to retrieve the current weather. Do not answer without using the tool.",
             },
           ],
         };

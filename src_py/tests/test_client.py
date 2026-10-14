@@ -490,7 +490,12 @@ async def test_tool_use(model: Model):
 
     message1 = {
         "role": "user",
-        "content_items": [{"type": "text.done", "text": "What is the weather in San Francisco?"}],
+        "content_items": [
+            {
+                "type": "text.done",
+                "text": "Call get_weather for San Francisco to retrieve the current weather. Do not answer without using the tool.",
+            }
+        ],
     }
     events1 = []
     async for event in client.streaming_response_stateful(message=message1, config=config):
@@ -574,7 +579,12 @@ async def test_tool_result_mixed_with_text(model: Model):
 
     message1 = {
         "role": "user",
-        "content_items": [{"type": "text.done", "text": "What is the weather in San Francisco?"}],
+        "content_items": [
+            {
+                "type": "text.done",
+                "text": "Call get_weather for San Francisco to retrieve the current weather. Do not answer without using the tool.",
+            }
+        ],
     }
     events1 = []
     async for event in client.streaming_response_stateful(message=message1, config=config):
