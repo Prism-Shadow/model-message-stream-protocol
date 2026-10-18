@@ -15,6 +15,7 @@
 export { AutoLLMClient } from "./autoClient";
 export {
   MMSPError,
+  ApiKeyRequiredError,
   EmptyResponseError,
   StreamProtocolError,
   ToolCallArgumentParseError,

@@ -42,8 +42,8 @@ export class OpenaiEmbeddingClient extends LLMClient {
     this._model = options.model;
     const { apiKey: key, baseUrl: url } = resolveCredentials(
       this.constructor.name,
+      "openai-embedding",
       options,
-      { key: "OPENAI_API_KEY", baseUrl: "OPENAI_BASE_URL" },
     );
     this._client = new OpenAI({
       apiKey: key,

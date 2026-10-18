@@ -17,60 +17,13 @@ from typing import Any, AsyncIterator
 
 from .abort_signal import AbortSignal
 from .base_client import LLMClient
+from .credentials import (
+    COMPATIBLE_CLIENT_TYPES,
+    OFFICIAL_CLIENT_TYPES,
+    client_type_for_model,
+    routed_client_type,
+)
 from .types import UniConfig, UniEvent, UniMessage
-
-
-# An official client speaks its vendor's own API, knows the vendor's models, and reads the
-# vendor's key from the environment.
-OFFICIAL_CLIENT_TYPES = (
-    "openai-official",
-    "anthropic-official",
-    "google-official",
-    "zai-official",
-    "moonshot-official",
-    "deepseek-official",
-    "minimax-official",
-)
-
-# A compatible client speaks one wire protocol for whatever endpoint serves it.
-COMPATIBLE_CLIENT_TYPES = (
-    "openai-responses",
-    "openai-chat",
-    "openai-chat-vllm-adapter",
-    "openai-embedding",
-    "ant-messages",
-    "google-genai",
-    "mmsp",
-)
-
-# Without a client type, the family a model id begins with names its official client.
-MODEL_FAMILIES = (
-    ("gpt-", "openai-official"),
-    ("text-embedding-", "openai-official"),
-    ("claude-", "anthropic-official"),
-    ("gemini-", "google-official"),
-    ("glm-", "zai-official"),
-    ("kimi-", "moonshot-official"),
-    ("deepseek-", "deepseek-official"),
-    ("minimax-", "minimax-official"),
-)
-
-
-def client_type_for_model(model: str) -> str | None:
-    """
-    The official client a model id routes to on its own, or None when its family is unknown.
-
-    Args:
-        model: The model id, in any casing.
-
-    Returns:
-        str | None: One of OFFICIAL_CLIENT_TYPES, or None.
-    """
-    lowered = model.lower()
-    for prefix, client_type in MODEL_FAMILIES:
-        if lowered.startswith(prefix):
-            return client_type
-    return None
 
 
 def _client_types() -> str:
@@ -80,25 +33,19 @@ def _client_types() -> str:
     )
 
 
-def _client_class(client_type: str, model: str) -> type[LLMClient] | None:
+def _client_class(client_type: str) -> type[LLMClient]:
     """
-    The client class a client type names. Each is imported here, so that no client pays for
-    another vendor's SDK.
+    The client class of a client type routed_client_type returns. Each is imported here, so that no
+    client pays for another vendor's SDK.
 
     Args:
-        client_type: A lowercased client type.
-        model: The model id, which tells an official client's embedding models apart.
+        client_type: A canonical client type.
 
     Returns:
-        type[LLMClient] | None: The class, or None when no client is named so.
+        type[LLMClient]: The class.
     """
     match client_type:
         case "openai-official":
-            # OpenAI serves embedding models through its Embeddings API
-            if model.lower().startswith("text-embedding-"):
-                from .openai_embedding import OpenaiEmbeddingClient
-
-                return OpenaiEmbeddingClient
             from .openai_official import OpenAIOfficialClient
 
             return OpenAIOfficialClient
@@ -106,7 +53,7 @@ def _client_class(client_type: str, model: str) -> type[LLMClient] | None:
             from .anthropic_official import AnthropicOfficialClient
 
             return AnthropicOfficialClient
-        case "google-official" | "gemini-official":
+        case "google-official":
             from .google_official import GoogleOfficialClient
 
             return GoogleOfficialClient
@@ -130,7 +77,7 @@ def _client_class(client_type: str, model: str) -> type[LLMClient] | None:
             from .openai_responses import OpenaiResponsesClient
 
             return OpenaiResponsesClient
-        case "openai-chat" | "openai":
+        case "openai-chat":
             from .openai_chat import OpenaiChatClient
 
             return OpenaiChatClient
@@ -146,7 +93,7 @@ def _client_class(client_type: str, model: str) -> type[LLMClient] | None:
             from .ant_messages import AntMessagesClient
 
             return AntMessagesClient
-        case "google-genai" | "gemini-generate-content":
+        case "google-genai":
             from .google_genai import GoogleGenaiClient
 
             return GoogleGenaiClient
@@ -154,7 +101,7 @@ def _client_class(client_type: str, model: str) -> type[LLMClient] | None:
             from .mmsp import MmspClient
 
             return MmspClient
-    return None
+    raise ValueError(f"No client class for client type {client_type}.")
 
 
 class AutoLLMClient(LLMClient):
@@ -190,17 +137,19 @@ class AutoLLMClient(LLMClient):
             default_headers: Optional headers sent with every request, for endpoints that demand their own
         """
         named = client_type or os.getenv("CLIENT_TYPE")
-        self._client_type = named.lower() if named else client_type_for_model(model)
-        if self._client_type is None:
+        routed = routed_client_type(model, named)
+        if routed is None:
+            if named:
+                raise ValueError(f"Unknown client type {named!r}. Pass one of the {_client_types()}.")
             raise ValueError(
                 f"No client for model {model!r}: its family is not known. "
                 f"Pass client_type, one of the {_client_types()}."
             )
-        client_class = _client_class(self._client_type, model)
-        if client_class is None:
-            raise ValueError(f"Unknown client type {named!r}. Pass one of the {_client_types()}.")
+        # the official client the model id's family names, whose ids a deduced client lists
+        self._family = client_type_for_model(model)
         # a client named explicitly speaks for whatever its endpoint serves (see list_models)
         self._named = bool(named)
+        client_class = _client_class(routed)
         self._client = client_class(model=model, api_key=api_key, base_url=base_url, default_headers=default_headers)
 
     def transform_uni_config_to_model_config(self, config: UniConfig) -> Any:
@@ -276,4 +225,4 @@ class AutoLLMClient(LLMClient):
         model_ids = await self._client.list_models()
         if self._named:
             return model_ids
-        return [model_id for model_id in model_ids if client_type_for_model(model_id) == self._client_type]
+        return [model_id for model_id in model_ids if client_type_for_model(model_id) == self._family]

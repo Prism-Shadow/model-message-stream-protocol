@@ -27,6 +27,12 @@ import { DeepSeekOfficialClient } from "./deepseek_official";
 import { MiniMaxOfficialClient } from "./minimax_official";
 import { OpenaiChatVllmAdapterClient } from "./openai_chat_vllm_adapter";
 import { MmspClient } from "./mmsp";
+import {
+  COMPATIBLE_CLIENT_TYPES,
+  OFFICIAL_CLIENT_TYPES,
+  clientTypeForModel,
+  routedClientType,
+} from "./credentials";
 import { UniConfig, UniEvent, UniMessage } from "./types";
 
 type LLMClientConstructor = new (options: {
@@ -36,57 +42,6 @@ type LLMClientConstructor = new (options: {
   defaultHeaders?: Record<string, string>;
 }) => LLMClient;
 
-// An official client speaks its vendor's own API, knows the vendor's models, and reads the
-// vendor's key from the environment.
-export const OFFICIAL_CLIENT_TYPES = [
-  "openai-official",
-  "anthropic-official",
-  "google-official",
-  "zai-official",
-  "moonshot-official",
-  "deepseek-official",
-  "minimax-official",
-] as const;
-
-// A compatible client speaks one wire protocol for whatever endpoint serves it.
-export const COMPATIBLE_CLIENT_TYPES = [
-  "openai-responses",
-  "openai-chat",
-  "openai-chat-vllm-adapter",
-  "openai-embedding",
-  "ant-messages",
-  "google-genai",
-  "mmsp",
-] as const;
-
-// Without a client type, the family a model id begins with names its official client.
-export const MODEL_FAMILIES: [string, string][] = [
-  ["gpt-", "openai-official"],
-  ["text-embedding-", "openai-official"],
-  ["claude-", "anthropic-official"],
-  ["gemini-", "google-official"],
-  ["glm-", "zai-official"],
-  ["kimi-", "moonshot-official"],
-  ["deepseek-", "deepseek-official"],
-  ["minimax-", "minimax-official"],
-];
-
-/**
- * The official client a model id routes to on its own, or null when its family is unknown.
- *
- * @param model - The model id, in any casing
- * @returns One of OFFICIAL_CLIENT_TYPES, or null
- */
-export function clientTypeForModel(model: string): string | null {
-  const lowered = model.toLowerCase();
-  for (const [prefix, clientType] of MODEL_FAMILIES) {
-    if (lowered.startsWith(prefix)) {
-      return clientType;
-    }
-  }
-  return null;
-}
-
 function clientTypes(): string {
   return (
     `official clients: ${OFFICIAL_CLIENT_TYPES.join(", ")}; ` +
@@ -95,25 +50,17 @@ function clientTypes(): string {
 }
 
 /**
- * The client class a client type names, or null when no client is named so.
+ * The client class of a client type routedClientType returns.
  *
- * @param clientType - A lowercased client type
- * @param model - The model id, which tells an official client's embedding models apart
+ * @param clientType - A canonical client type
  */
-function clientClass(
-  clientType: string,
-  model: string,
-): LLMClientConstructor | null {
+function clientClass(clientType: string): LLMClientConstructor {
   switch (clientType) {
     case "openai-official":
-      // OpenAI serves embedding models through its Embeddings API
-      return model.toLowerCase().startsWith("text-embedding-")
-        ? OpenaiEmbeddingClient
-        : OpenAIOfficialClient;
+      return OpenAIOfficialClient;
     case "anthropic-official":
       return AnthropicOfficialClient;
     case "google-official":
-    case "gemini-official":
       return GoogleOfficialClient;
     case "zai-official":
       return ZAIOfficialClient;
@@ -126,7 +73,6 @@ function clientClass(
     case "openai-responses":
       return OpenaiResponsesClient;
     case "openai-chat":
-    case "openai":
       return OpenaiChatClient;
     case "openai-chat-vllm-adapter":
       return OpenaiChatVllmAdapterClient;
@@ -135,12 +81,11 @@ function clientClass(
     case "ant-messages":
       return AntMessagesClient;
     case "google-genai":
-    case "gemini-generate-content":
       return GoogleGenaiClient;
     case "mmsp":
       return MmspClient;
     default:
-      return null;
+      throw new Error(`No client class for client type ${clientType}.`);
   }
 }
 
@@ -158,7 +103,8 @@ function clientClass(
  */
 export class AutoLLMClient extends LLMClient {
   private _client: LLMClient;
-  private _clientType: string;
+  // the official client the model id's family names, whose ids a deduced client lists
+  private _family: string | null;
   // a client named explicitly speaks for whatever its endpoint serves (see listModels)
   private _named: boolean;
 
@@ -176,23 +122,18 @@ export class AutoLLMClient extends LLMClient {
   }) {
     super();
     const named = options.clientType || process.env.CLIENT_TYPE;
-    const clientType = named
-      ? named.toLowerCase()
-      : clientTypeForModel(options.model);
+    const clientType = routedClientType(options.model, named);
     if (clientType === null) {
       throw new Error(
-        `No client for model ${JSON.stringify(options.model)}: its family is not known. ` +
-          `Pass clientType, one of the ${clientTypes()}.`,
+        named
+          ? `Unknown client type ${JSON.stringify(named)}. Pass one of the ${clientTypes()}.`
+          : `No client for model ${JSON.stringify(options.model)}: its family is not known. ` +
+              `Pass clientType, one of the ${clientTypes()}.`,
       );
     }
-    const ClientClass = clientClass(clientType, options.model);
-    if (ClientClass === null) {
-      throw new Error(
-        `Unknown client type ${JSON.stringify(named)}. Pass one of the ${clientTypes()}.`,
-      );
-    }
-    this._clientType = clientType;
+    this._family = clientTypeForModel(options.model);
     this._named = Boolean(named);
+    const ClientClass = clientClass(clientType);
     this._client = new ClientClass({
       model: options.model,
       apiKey: options.apiKey,
@@ -307,7 +248,7 @@ export class AutoLLMClient extends LLMClient {
       return modelIds;
     }
     return modelIds.filter(
-      (modelId) => clientTypeForModel(modelId) === this._clientType,
+      (modelId) => clientTypeForModel(modelId) === this._family,
     );
   }
 }

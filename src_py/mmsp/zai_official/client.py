@@ -13,13 +13,13 @@
 # limitations under the License.
 
 import json
-import os
 from typing import Any, AsyncIterator
 
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionChunk, ChatCompletionMessageParam
 
 from ..base_client import LLMClient
+from ..credentials import CLIENT_CREDENTIALS
 from ..errors import UnsupportedParameterError
 from ..types import (
     EventContentItem,
@@ -33,7 +33,7 @@ from ..types import (
     UniMessage,
     UsageMetadata,
 )
-from ..utils import fix_openrouter_usage_metadata
+from ..utils import fix_openrouter_usage_metadata, resolve_credentials
 
 
 class ZAIOfficialClient(LLMClient):
@@ -52,12 +52,12 @@ class ZAIOfficialClient(LLMClient):
     ):
         """Initialize GLM client with model and API key."""
         self._model = model
+        api_key, base_url = resolve_credentials(self.__class__.__name__, "zai-official", api_key, base_url)
         # The wrapped OpenAI SDK falls back to OPENAI_API_KEY when handed None, which would send an
-        # OpenAI credential to the Z.AI host, so resolve the key here and fail loudly instead.
-        api_key = api_key or os.getenv("ZAI_API_KEY")
+        # OpenAI credential to the Z.AI host, so fail loudly instead.
         if not api_key:
             raise ValueError("ZAI_API_KEY is required for ZAIOfficialClient.")
-        base_url = base_url or os.getenv("ZAI_BASE_URL") or "https://api.z.ai/api/paas/v4/"
+        base_url = base_url or CLIENT_CREDENTIALS["zai-official"].default_base_url
         self._client = AsyncOpenAI(api_key=api_key, base_url=base_url, default_headers=default_headers)
         self._history: list[UniMessage] = []
 

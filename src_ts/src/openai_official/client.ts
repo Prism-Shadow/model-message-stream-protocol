@@ -59,8 +59,8 @@ export class OpenAIOfficialClient extends LLMClient {
     this._model = options.model;
     const { apiKey: key, baseUrl: url } = resolveCredentials(
       this.constructor.name,
+      "openai-official",
       options,
-      { key: "OPENAI_API_KEY", baseUrl: "OPENAI_BASE_URL" },
     );
     this._client = new OpenAI({
       apiKey: key,

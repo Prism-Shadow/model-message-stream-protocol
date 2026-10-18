@@ -19,6 +19,7 @@ import type {
   ResponseCreateParamsStreaming,
 } from "openai/resources/responses/responses";
 import { LLMClient } from "../baseClient";
+import { CLIENT_CREDENTIALS } from "../credentials";
 import { UnsupportedParameterError } from "../errors";
 import {
   EventContentItem,
@@ -32,7 +33,7 @@ import {
   UniMessage,
   UsageMetadata,
 } from "../types";
-import { isDebugEnabled } from "../utils";
+import { isDebugEnabled, resolveCredentials } from "../utils";
 
 /**
  * The DeepSeek ids that read no image: the current V4 Flash and V4 Pro, bare or with a
@@ -61,21 +62,21 @@ export class DeepSeekOfficialClient extends LLMClient {
   }) {
     super();
     this._model = options.model;
+    const { apiKey: key, baseUrl: url } = resolveCredentials(
+      this.constructor.name,
+      "deepseek-official",
+      options,
+    );
     // The wrapped OpenAI SDK falls back to OPENAI_API_KEY when handed undefined, which would send
-    // an OpenAI credential to the DeepSeek host, so resolve the key here and fail loudly instead.
-    const key = options.apiKey || process.env.DEEPSEEK_API_KEY;
+    // an OpenAI credential to the DeepSeek host, so fail loudly instead.
     if (!key) {
       throw new Error(
         "DEEPSEEK_API_KEY is required for DeepSeekOfficialClient.",
       );
     }
-    const url =
-      options.baseUrl ||
-      process.env.DEEPSEEK_BASE_URL ||
-      "https://api.deepseek.com";
     this._client = new OpenAI({
       apiKey: key,
-      baseURL: url,
+      baseURL: url || CLIENT_CREDENTIALS["deepseek-official"].defaultBaseUrl,
       defaultHeaders: options.defaultHeaders,
     });
   }

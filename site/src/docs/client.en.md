@@ -60,11 +60,18 @@ client = AutoLLMClient(
 | --- | --- | --- | --- |
 | Model | `model` | `model` | The exact model id. |
 | Client | `client_type` | `clientType` | An official client such as `openai-official`, or a compatible one such as `openai-chat`. May be omitted for a model id that begins with a known family, which names its official client; any other id raises. See [Models and endpoints](/docs/models/). |
-| Key | `api_key` | `apiKey` | Defaults to the provider's environment variable, but only when the endpoint comes from the environment too. |
-| Endpoint | `base_url` | `baseUrl` | Defaults to the provider's environment variable, then to its official endpoint. |
+| Key | `api_key` | `apiKey` | Defaults to the client's `<P>_API_KEY`, for the endpoint the environment names or the client's default endpoint only. |
+| Endpoint | `base_url` | `baseUrl` | Defaults to the client's `<P>_BASE_URL`, then to its default endpoint. |
 | Headers | `default_headers` | `defaultHeaders` | Sent with every request, for endpoints that demand their own. |
 
-A key goes only where it was given for. A client that reads `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` from the environment sends it to the endpoint the environment names, `OPENAI_BASE_URL` or `ANTHROPIC_BASE_URL`, or the provider's own. Given a `base_url` and no `api_key`, it raises at construction rather than send that key to another endpoint: pass the key next to the URL. An official client such as `deepseek-official` reads its own variable, `DEEPSEEK_API_KEY`, whatever endpoint it is given.
+A key goes only where it was given for. Every client follows one rule, `<P>` being its variable prefix (`DEEPSEEK` for `deepseek-official`, `OPENAI` for `openai-chat`; see [Models and endpoints](/docs/models/)):
+
+- A key passed in is used. The endpoint is the base URL passed in, else `<P>_BASE_URL`, else the client's default endpoint.
+- Without a key, the client reads `<P>_API_KEY` only when no base URL is passed, the endpoint then being `<P>_BASE_URL` or the default, or when the base URL passed is the client's own default endpoint, trailing slashes and the host's case aside. A `deepseek-official` client given no base URL, or `https://api.deepseek.com`, uses `DEEPSEEK_API_KEY`.
+- Without a key, any other base URL raises `ApiKeyRequiredError` at construction, and the environment's key is never sent there. Pass the key, or drop the base URL and set `<P>_API_KEY`, plus `<P>_BASE_URL` when the endpoint is not the default.
+- The `mmsp` client is the exception: a base URL without a key is an open MMSP server, called with no key.
+
+The same rule ships as data: `@prismshadow/mmsp/credentials` in TypeScript, which imports nothing and fits a browser bundle, and `mmsp.credentials` in Python. `environmentCredential(clientType, baseUrl)` (`environment_credential`) answers what a client handed no key will do, `routedClientType(model, clientType)` (`routed_client_type`) which client a model reaches, and `CLIENT_CREDENTIALS` lists each client type's variables and default endpoint. The clients resolve their credentials through the same table.
 
 ## Methods
 
