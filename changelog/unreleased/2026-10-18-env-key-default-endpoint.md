@@ -3,6 +3,7 @@
 - **Date:** 2026-10-18
 - **Type:** fix
 - **Scope:** `credentials`, `utils`, `errors`, `auto_client`, `tests`
+- **PR:** [#258](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/258)
 - **Breaking:** yes — an official client given a `base_url` other than its default endpoint and no `api_key` now raises `ApiKeyRequiredError` instead of sending its environment key there
 
 [中文版](2026-10-18-env-key-default-endpoint.zh.md)

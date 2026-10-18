@@ -3,6 +3,7 @@
 - **Date:** 2026-10-18
 - **Type:** fix
 - **Scope:** `credentials`, `utils`, `errors`, `auto_client`, `tests`
+- **PR:** [#258](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/258)
 - **Breaking:** yes — 官方客户端指定了默认端点以外的 `base_url` 却没有 `api_key` 时，改为抛出 `ApiKeyRequiredError`，不再把环境变量里的密钥发往该地址
 
 [English](2026-10-18-env-key-default-endpoint.md)

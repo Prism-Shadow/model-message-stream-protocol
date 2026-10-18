@@ -2,7 +2,7 @@
 
 [中文版](README.zh.md)
 
-- [2026-10-18] Every client reads its environment key only with no base URL or its own default endpoint and refuses any other base URL without a key; the rule ships as `@prismshadow/mmsp/credentials` and `mmsp.credentials`. ([details](2026-10-18-env-key-default-endpoint.md))
+- [2026-10-18] Every client reads its environment key only with no base URL or its own default endpoint and refuses any other base URL without a key; the rule ships as `@prismshadow/mmsp/credentials` and `mmsp.credentials`. ([details](2026-10-18-env-key-default-endpoint.md), [#258](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/258))
 - [2026-10-14] Added GPT-6 Luna and preserved reasoning off. ([details](2026-10-14-gpt-6-luna.md), [#257](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/257))
 - [2026-10-14] Select model CI by affected client and require full Python and TypeScript coverage before package publication. ([details](2026-10-14-affected-client-ci.md), [#255](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/255))
 - [2026-10-14] Document Google Vertex AI support for Gemini 4 Argon in the README. ([details](2026-10-14-gemini-4-argon-vertex-docs.md), [#256](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/256))
