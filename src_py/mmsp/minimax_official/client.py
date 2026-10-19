@@ -40,7 +40,7 @@ _DEFAULT_BASE_URL = "https://api.minimax.io/v1"
 
 
 class MiniMaxOfficialClient(LLMClient):
-    """MiniMax M3 client using MiniMax's Responses API."""
+    """MiniMax M-series (M3.1-Flash, M3) client using MiniMax's Responses API."""
 
     def __init__(
         self,
@@ -49,7 +49,7 @@ class MiniMaxOfficialClient(LLMClient):
         base_url: str | None = None,
         default_headers: dict[str, str] | None = None,
     ):
-        """Initialize a MiniMax M3 Responses client with a Subscription Key or API key."""
+        """Initialize a MiniMax M-series Responses client with a Subscription Key or API key."""
         self._model = model
         # The wrapped OpenAI SDK falls back to OPENAI_API_KEY when handed None, which would send an
         # OpenAI credential to the MiniMax host, so resolve the key here and fail loudly instead.
@@ -65,19 +65,39 @@ class MiniMaxOfficialClient(LLMClient):
 
     def _convert_thinking_level_to_effort(self, thinking_level: ThinkingLevel) -> str:
         """Map MMSP thinking levels to the MiniMax reasoning effort vocabulary."""
-        mapping = {
-            ThinkingLevel.NONE: "none",
-            ThinkingLevel.LOW: "low",
-            ThinkingLevel.MEDIUM: "medium",
-            ThinkingLevel.HIGH: "high",
-            ThinkingLevel.XHIGH: "high",
-            # MiniMax stops at "high"
-            ThinkingLevel.MAX: "high",
-        }
+        if "m3.1" in self._model.lower():
+            # M3.1-Flash always reasons and tunes its depth from low to max; "none" is a 400 (verified
+            # live 2026-10-19: "requires adaptive thinking; ... reasoning.effort=none is not allowed
+            # (2013)"), so NONE degrades to the lowest effort.
+            mapping = {
+                ThinkingLevel.NONE: "low",
+                ThinkingLevel.LOW: "low",
+                ThinkingLevel.MEDIUM: "medium",
+                ThinkingLevel.HIGH: "high",
+                ThinkingLevel.XHIGH: "xhigh",
+                ThinkingLevel.MAX: "max",
+            }
+        else:
+            mapping = {
+                ThinkingLevel.NONE: "none",
+                ThinkingLevel.LOW: "low",
+                ThinkingLevel.MEDIUM: "medium",
+                ThinkingLevel.HIGH: "high",
+                ThinkingLevel.XHIGH: "high",
+                # MiniMax-M3 stops at "high"
+                ThinkingLevel.MAX: "high",
+            }
         return mapping[thinking_level]
 
     def _convert_tool_choice(self, tool_choice: ToolChoice) -> str:
         """Validate MiniMax's supported automatic tool-selection modes."""
+        if tool_choice == "none" and "m3.1" in self._model.lower():
+            # M3.1-Flash echoes "none" back and calls the tools anyway (verified live 2026-10-19).
+            raise UnsupportedParameterError(
+                self.__class__.__name__,
+                "tool_choice",
+                f"{self._model} does not support tool_choice 'none'.",
+            )
         if tool_choice in ("auto", "none"):
             return tool_choice
         raise UnsupportedParameterError(
@@ -110,6 +130,14 @@ class MiniMaxOfficialClient(LLMClient):
         if config.get("tool_choice") is not None:
             minimax_config["tool_choice"] = self._convert_tool_choice(config["tool_choice"])
         if config.get("fast_mode"):
+            if "m3.1" in self._model.lower():
+                # M3.1-Flash ignores service_tier: a priority request runs at the standard tier and
+                # answers service_tier null (verified live 2026-10-19).
+                raise UnsupportedParameterError(
+                    self.__class__.__name__,
+                    "fast_mode",
+                    f"{self._model} does not support the priority service tier.",
+                )
             minimax_config["service_tier"] = "priority"
 
         if config.get("prompt_caching") == PromptCaching.DISABLE:

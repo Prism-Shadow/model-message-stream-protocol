@@ -52,7 +52,7 @@ Audit LLM executions by adding **a single `trace_id` parameter**, no database re
 | Kimi-K2.5/K2.6/K3 | Official/OpenRouter/SiliconFlow  | `kimi-k3`              | Text, Image      | Text                           |
 | DeepSeek V4    | Official/OpenRouter/SiliconFlow     | `deepseek-flash`       | Text, Image      | Text                           |
 | GLM-5.1-5.3    | Official/OpenRouter/SiliconFlow     | `glm-5.3`              | Text, Image      | Text                           |
-| MiniMax-M3     | Official                            | `MiniMax-M3`           | Text, Image      | Text                           |
+| MiniMax-M3/M3.1 | Official/OpenRouter                | `MiniMax-M3.1-Flash`   | Text, Image      | Text                           |
 | Qwen3.8        | OpenRouter/SiliconFlow/vLLM         | `qwen/qwen3.8-27b`     | Text, Image      | Text, Embedding                |
 
 ### Clients

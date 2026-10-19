@@ -35,9 +35,15 @@ import { isDebugEnabled } from "../utils";
 
 const DEFAULT_BASE_URL = "https://api.minimax.io/v1";
 
-type MiniMaxReasoningEffort = "none" | "low" | "medium" | "high";
+type MiniMaxReasoningEffort =
+  | "none"
+  | "low"
+  | "medium"
+  | "high"
+  | "xhigh"
+  | "max";
 
-/** MiniMax M3 client using MiniMax's Responses API. */
+/** MiniMax M-series (M3.1-Flash, M3) client using MiniMax's Responses API. */
 export class MiniMaxOfficialClient extends LLMClient {
   protected _model: string;
   private _client: OpenAI;
@@ -67,19 +73,42 @@ export class MiniMaxOfficialClient extends LLMClient {
   private _convertThinkingLevelToEffort(
     thinkingLevel: ThinkingLevel,
   ): MiniMaxReasoningEffort {
-    const mapping: Record<ThinkingLevel, MiniMaxReasoningEffort> = {
-      [ThinkingLevel.NONE]: "none",
-      [ThinkingLevel.LOW]: "low",
-      [ThinkingLevel.MEDIUM]: "medium",
-      [ThinkingLevel.HIGH]: "high",
-      [ThinkingLevel.XHIGH]: "high",
-      // MiniMax stops at "high"
-      [ThinkingLevel.MAX]: "high",
-    };
+    let mapping: Record<ThinkingLevel, MiniMaxReasoningEffort>;
+    if (this._model.toLowerCase().includes("m3.1")) {
+      // M3.1-Flash always reasons and tunes its depth from low to max; "none" is a 400 (verified
+      // live 2026-10-19: "requires adaptive thinking; ... reasoning.effort=none is not allowed
+      // (2013)"), so NONE degrades to the lowest effort.
+      mapping = {
+        [ThinkingLevel.NONE]: "low",
+        [ThinkingLevel.LOW]: "low",
+        [ThinkingLevel.MEDIUM]: "medium",
+        [ThinkingLevel.HIGH]: "high",
+        [ThinkingLevel.XHIGH]: "xhigh",
+        [ThinkingLevel.MAX]: "max",
+      };
+    } else {
+      mapping = {
+        [ThinkingLevel.NONE]: "none",
+        [ThinkingLevel.LOW]: "low",
+        [ThinkingLevel.MEDIUM]: "medium",
+        [ThinkingLevel.HIGH]: "high",
+        [ThinkingLevel.XHIGH]: "high",
+        // MiniMax-M3 stops at "high"
+        [ThinkingLevel.MAX]: "high",
+      };
+    }
     return mapping[thinkingLevel];
   }
 
   private _convertToolChoice(toolChoice: ToolChoice): "auto" | "none" {
+    if (toolChoice === "none" && this._model.toLowerCase().includes("m3.1")) {
+      // M3.1-Flash echoes "none" back and calls the tools anyway (verified live 2026-10-19).
+      throw new UnsupportedParameterError({
+        client: this.constructor.name,
+        parameter: "tool_choice",
+        message: `${this._model} does not support tool_choice 'none'.`,
+      });
+    }
     if (toolChoice === "auto" || toolChoice === "none") {
       return toolChoice;
     }
@@ -133,6 +162,15 @@ export class MiniMaxOfficialClient extends LLMClient {
       minimaxConfig.tool_choice = this._convertToolChoice(config.tool_choice);
     }
     if (config.fast_mode) {
+      if (this._model.toLowerCase().includes("m3.1")) {
+        // M3.1-Flash ignores service_tier: a priority request runs at the standard tier and
+        // answers service_tier null (verified live 2026-10-19).
+        throw new UnsupportedParameterError({
+          client: this.constructor.name,
+          parameter: "fast_mode",
+          message: `${this._model} does not support the priority service tier.`,
+        });
+      }
       minimaxConfig.service_tier = "priority";
     }
 

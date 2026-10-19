@@ -16,11 +16,13 @@ description: MMSP 的客户端构成、各客户端支持的模型，以及如�
 | `zai-official` | `glm-5.3`、`glm-5.3-flash`、`glm-5.2` | Chat Completions | `ZAI_API_KEY` `ZAI_BASE_URL` |
 | `moonshot-official` | `kimi-k3`、`kimi-k2.6` | Chat Completions | `MOONSHOT_API_KEY` `MOONSHOT_BASE_URL` |
 | `deepseek-official` | `deepseek-flash`、`deepseek-v4-pro` | Responses | `DEEPSEEK_API_KEY` `DEEPSEEK_BASE_URL` |
-| `minimax-official` | `MiniMax-M3` | Responses | `MINIMAX_API_KEY` `MINIMAX_BASE_URL` |
+| `minimax-official` | `MiniMax-M3.1-Flash`、`MiniMax-M3` | Responses | `MINIMAX_API_KEY` `MINIMAX_BASE_URL` |
 
 每行列出了客户端读取的环境变量：先是 key，然后是端点。端点默认为厂商官方地址。官方客户端始终读取这些变量，因此也能用于对接镜像了厂商 API 的网关。例如，OpenRouter 上的 `deepseek/deepseek-v4-pro` 可通过 `deepseek-official` 调用，SiliconFlow 上的 `Pro/moonshotai/Kimi-K2.6` 可通过 `moonshot-official` 调用，只需传入网关的 `base_url` 和 `api_key` 即可。
 
 Gemini 4 Argon（`gemini-4-argon`）支持 `low`、`medium`（默认）和 `high` 思考档位。MMSP 将 `none` 映射为 `low`，将 `xhigh`/`max` 映射为 `high`。其 1,048,576-token 上下文窗口由输入、思考和输出共享，同步流式输出最多 65,536 tokens。更长输出需要 Google 的存储式后台执行，不在 MMSP 的无状态流式接口范围内。缓存仅支持隐式缓存。
+
+MiniMax-M3.1-Flash（`MiniMax-M3.1-Flash`）始终思考，支持 `low` 到 `max` 档位（默认 `max`）。MMSP 将 `none` 映射为 `low`，`xhigh` 和 `max` 原样传递。它没有 priority 档位，也会忽略 `tool_choice: "none"`，因此 `fast_mode` 和 `tool_choice: "none"` 会抛出 `UnsupportedParameterError`。
 
 ## 按模型 id 路由
 
