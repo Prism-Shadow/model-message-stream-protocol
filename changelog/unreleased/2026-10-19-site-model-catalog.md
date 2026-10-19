@@ -3,6 +3,7 @@
 - **Date:** 2026-10-19
 - **Type:** feature
 - **Scope:** `site`, `.github`
+- **PR:** [#263](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/263)
 
 [中文版](2026-10-19-site-model-catalog.zh.md)
 
