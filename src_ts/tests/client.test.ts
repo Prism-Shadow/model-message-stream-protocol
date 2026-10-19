@@ -14,6 +14,7 @@
 
 import { AutoLLMClient } from "../src/autoClient";
 import { listSupportedModels } from "../src/registry";
+import { UnsupportedParameterError } from "../src/errors";
 import {
   EmbeddingDoneItem,
   EventContentItem,
@@ -1143,6 +1144,49 @@ test.each([undefined, "google-official"])(
           clientType,
         }),
     ).toThrow(/google-genai/);
+  },
+);
+
+describe.each(["google-official", "google-genai"])(
+  "gemini tts_config rejects a speaker list it cannot voice (%s)",
+  (clientType) => {
+    test.each<[string, UniConfig["tts_config"]]>([
+      [
+        "three speakers",
+        [
+          { voice: "Kore", speaker: "Joe" },
+          { voice: "Puck", speaker: "Jane" },
+          { voice: "Charon", speaker: "Jim" },
+        ],
+      ],
+      [
+        "two speakers, one unnamed",
+        [{ voice: "Kore", speaker: "Joe" }, { voice: "Puck" }],
+      ],
+    ])("%s", async (_, ttsConfig) => {
+      const client = new AutoLLMClient({
+        model: "gemini-3.8-flash-tts",
+        apiKey: "test-key",
+        clientType,
+      });
+
+      const rejection = client
+        .streamingResponse({
+          messages: [
+            {
+              role: "user",
+              content_items: [
+                { type: "text.done", text: "Joe: Hi.\nJane: Hello." },
+              ],
+            },
+          ],
+          config: { tts_config: ttsConfig },
+        })
+        .next();
+
+      await expect(rejection).rejects.toBeInstanceOf(UnsupportedParameterError);
+      await expect(rejection).rejects.toHaveProperty("parameter", "tts_config");
+    });
   },
 );
 
