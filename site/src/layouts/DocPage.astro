@@ -1,20 +1,22 @@
 ---
-import type { MarkdownInstance } from "astro";
 import Base from "./Base.astro";
+import { designHtml, docDescription, docSummary, type DocFile } from "../shared/docs";
 import { STRINGS, localePath, type Locale } from "../shared/i18n";
 import { ALL_DOCS, DOC_SECTIONS, REPO_URL, sectionOf, type DocLink } from "../shared/site";
-
-type Doc = MarkdownInstance<{ description: string }>;
 
 interface Props {
   locale: Locale;
   doc: DocLink;
-  page: Doc;
+  page: DocFile;
 }
 
 const { locale, doc, page } = Astro.props;
 const s = STRINGS[locale].docs;
 const { Content } = page;
+const description = docDescription(locale, doc, page);
+// a page of the design/ folder renders the repository's file, its links pointed at the site
+const html = doc.source ? await designHtml(locale, doc, page) : undefined;
+const edit = `${REPO_URL}/blob/main/${doc.source ? doc.source[locale] : `site/src/docs/${doc.slug}.${locale}.md`}`;
 const section = sectionOf(doc.slug)!;
 const index = ALL_DOCS.indexOf(doc);
 const previous = ALL_DOCS[index - 1];
@@ -36,7 +38,7 @@ const step =
 <Base
   locale={locale}
   title={doc.title[locale]}
-  description={page.frontmatter.description}
+  description={description ?? docSummary(page)}
   active={section.id}
   entry={doc.slug === ALL_DOCS[0].slug}
 >
@@ -110,11 +112,11 @@ const step =
               <span>{s.copy}</span>
             </button>
           </div>
-          <p class="mt-3 text-[15px] text-gray-600 dark:text-gray-400">{page.frontmatter.description}</p>
+          {description && <p class="mt-3 text-[15px] text-gray-600 dark:text-gray-400">{description}</p>}
         </header>
 
         <div class="md-body mt-6 text-[15px] text-gray-800 dark:text-gray-200">
-          <Content />
+          {html === undefined ? <Content /> : <Fragment set:html={html} />}
         </div>
 
         <div class="mt-10 grid gap-3 border-t border-gray-200 pt-6 sm:grid-cols-2 dark:border-gray-800">
@@ -144,7 +146,7 @@ const step =
 
         <p class="mt-6 flex flex-wrap gap-x-4 text-xs text-gray-400 dark:text-gray-500">
           <a
-            href={`${REPO_URL}/blob/main/site/src/docs/${doc.slug}.${locale}.md`}
+            href={edit}
             class="hover:text-gray-700 dark:hover:text-gray-300"
             target="_blank"
             rel="noreferrer"

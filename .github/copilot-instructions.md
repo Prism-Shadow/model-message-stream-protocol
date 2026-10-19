@@ -23,6 +23,8 @@ MMSP, the Model Message Stream Protocol: one message format and one streaming gr
 
 - `site/` - The site at mmsp.penguin.ooo (Astro): the overview page, the documentation, and the sources of the artwork in `.github/images/`
 
+- `design/` - The design: `PRINCIPLES.md` (the invariants, PRN-001 and up) and `rfcs/` (one decision per file); `design/README.md` says when a change needs an RFC
+
 - `llmsdk_docs/` - **Reference documentation for AI model SDKs**
   - See this directory for detailed development guidelines and code conventions
 
@@ -48,20 +50,25 @@ MMSP, the Model Message Stream Protocol: one message format and one streaming gr
 - Follow TypeScript strict mode conventions
 - Run `make lint` and `make test` from `src_ts/` before committing
 
+## Design principles and RFCs
+
+- `design/PRINCIPLES.md` holds the invariants every change keeps. When the code and a principle disagree, the principle wins: fix the code, or change the principle first through an RFC.
+- A change to a principle, to the message or stream shapes, to the public API, to what routing or the credential rule means, or anything breaking, starts as an RFC: copy `design/0000-template.md` to `design/rfcs/MRFC-NNNN-<slug>.md` and open a PR to `dev`. `design/README.md` has the process.
+
 ## Implementation Rules
 
 When adding support for new AI models, follow these rules:
 
-1. A client is named by its `client_type`, and `auto_client.py` / `autoClient.ts` create the client that type names from one table. An **official client** per vendor (`openai-official`, `anthropic-official`, `google-official`, `zai-official`, `moonshot-official`, `deepseek-official`, `minimax-official`) lives in a folder named after it (`openai_official/`) and serves every generation of that vendor's models; a **compatible client** per wire protocol (`openai-chat`, `openai-responses`, `ant-messages`, ...) serves any endpoint that speaks it.
-2. A new generation of a vendor's models goes into the vendor's official client. Inside it, tell generations apart by explicit version (e.g. `"4-6" in self._model`), never by a bare substring like `if "claude" in model.lower()`, and keep the older generations working.
-3. Without a `client_type`, the family a model id begins with (`gpt-`, `claude-`, `gemini-`, `glm-`, `kimi-`, `deepseek-`, `minimax-`) names its official client; an id of no known family raises and asks for a `client_type`. A new vendor adds its family to that table. **DO NOT** add any other routing rule on model ids.
+1. A client is named by its `client_type`, and `auto_client.py` / `autoClient.ts` create the client that type names from one table. An **official client** per vendor (`openai-official`, `anthropic-official`, `google-official`, `zai-official`, `moonshot-official`, `deepseek-official`, `minimax-official`) lives in a folder named after it (`openai_official/`) and serves every generation of that vendor's models; a **compatible client** per wire protocol (`openai-chat`, `openai-responses`, `ant-messages`, ...) serves any endpoint that speaks it. (PRN-003)
+2. A new generation of a vendor's models goes into the vendor's official client. Inside it, tell generations apart by explicit version (e.g. `"4-6" in self._model`), never by a bare substring like `if "claude" in model.lower()`, and keep the older generations working. (PRN-003)
+3. Without a `client_type`, the family a model id begins with (`gpt-`, `claude-`, `gemini-`, `glm-`, `kimi-`, `deepseek-`, `minimax-`) names its official client; an id of no known family raises and asks for a `client_type`. A new vendor adds its family to that table. **DO NOT** add any other routing rule on model ids. (PRN-003)
 4. **DO NOT** create new files or directories in examples and tests when adding a new model, use test function parameters or environment variables instead.
 5. **Always** consult the [llmsdk_docs/README.md](../llmsdk_docs/README.md) for AI model SDK usage details.
 
 When adding new functionality, follow these rules:
 
 1. **DO NOT** create new example files unless the user explicitly requests them.
-2. When making changes, by default synchronize updates to both Python and TypeScript implementations unless the user explicitly specifies otherwise.
+2. When making changes, by default synchronize updates to both Python and TypeScript implementations unless the user explicitly specifies otherwise. (PRN-008)
 3. When using JSON serialization, ensure that CJK strings are serialized correctly by using `ensure_ascii=False`.
 4. **DO NOT** use the `requests` library in code. Always use `httpx` with async methods (`httpx.AsyncClient()`) to avoid blocking the global event loop.
 5. **DO NOT** modify files under `llmsdk_docs/` unless the user explicitly requests changes to reference SDK documentation.
