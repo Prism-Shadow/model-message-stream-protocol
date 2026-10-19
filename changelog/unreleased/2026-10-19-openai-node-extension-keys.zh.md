@@ -3,6 +3,7 @@
 - **Date:** 2026-10-19
 - **Type:** fix
 - **Scope:** `zai_official`, `moonshot_official`, `tests`
+- **PR:** [#267](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/267)
 
 [English](2026-10-19-openai-node-extension-keys.md)
 
