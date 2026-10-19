@@ -2,7 +2,7 @@
 
 - Feature Name: `rfc_process`
 - Start Date: 2026-10-19
-- RFC PR: [#N](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/N)
+- RFC PR: [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265)
 - Principles: PRN-001 to PRN-008
 
 [English](MRFC-0001-rfc-process.md)

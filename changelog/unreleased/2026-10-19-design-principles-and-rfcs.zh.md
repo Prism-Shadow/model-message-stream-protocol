@@ -3,7 +3,7 @@
 - **Date:** 2026-10-19
 - **Type:** process
 - **Scope:** `design`, `skills`, `docs`, `site`
-- **PR:** [#N](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/N)
+- **PR:** [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265)
 
 [English](2026-10-19-design-principles-and-rfcs.md)
 
