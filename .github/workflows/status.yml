@@ -1,0 +1,85 @@
+name: Status
+
+on:
+  schedule:
+    - cron: "30 4 * * *"
+  workflow_dispatch:
+    inputs:
+      targets:
+        description: Comma-separated model ids or client|base_url|model keys to probe; empty probes every target
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: status
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check out the status data
+        id: data
+        run: |
+          if git ls-remote --exit-code --heads origin status-data; then
+            git fetch --depth=1 origin status-data
+            git worktree add --detach data FETCH_HEAD
+          else
+            # exit code 2 means the branch does not exist; anything else is a failure to look
+            status=$?
+            test "$status" -eq 2
+            git worktree add --detach data
+            git -C data checkout --orphan status-data
+            git -C data rm -rfq .
+          fi
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.11"
+          github-token: ${{ github.token }}
+
+      - name: Install MMSP
+        run: |
+          uv venv
+          uv pip install ./src_py
+
+      - name: Probe
+        env:
+          ONLY: ${{ inputs.targets }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
+          MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          MODELVERSE_API_KEY: ${{ secrets.MODELVERSE_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          SILICONFLOW_API_KEY: ${{ secrets.SILICONFLOW_API_KEY }}
+          BEDROCK_API_KEY: ${{ secrets.BEDROCK_API_KEY }}
+          VERTEX_API_KEY: ${{ secrets.VERTEX_API_KEY }}
+          TOKENDANCE_API_KEY: ${{ secrets.TOKENDANCE_API_KEY }}
+        run: .venv/bin/python -I .github/status/probe.py --out data --run-id "$GITHUB_RUN_ID" --only "$ONLY"
+
+      # whatever the probe managed to write is published, so a failing step still leaves a record
+      - name: Publish the status data
+        if: always() && steps.data.outcome == 'success'
+        working-directory: data
+        run: |
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No status data to publish."
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" \
+            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -qm "status: $(date -u +%F) run $GITHUB_RUN_ID"
+          git push origin HEAD:refs/heads/status-data
