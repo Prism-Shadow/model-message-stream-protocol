@@ -41,7 +41,7 @@ The key of every target is `<client>|<base_url>|<model>`.
    "checked_at": "2026-10-19T04:35:02Z"}}}
 // history.json: one entry per UTC day per target, the day's last run, 90 days
 {"days": 90, "targets": {"<key>": {"2026-10-19": {"status": "up", "ttft_ms": 412, "tps": 87.3, "cost_usd": 0.00031}}}}
-// monthly.json: every run of the month counted, manual ones included; null for a target without a price
+// monthly.json: every run of the month counted, manual ones included; a target without a price is left out
 {"months": {"2026-10": {"runs": 19, "total_usd": 0.0093, "targets": {"<key>": 0.0046}}}}
 // runs/2026-10-19.json: every run of the day, each the latest.json shape plus its samples
 {"date": "2026-10-19", "runs": [{"generated_at": "...", "run_id": "...", "samples": 3, "targets": {"<key>": {

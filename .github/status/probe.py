@@ -319,22 +319,19 @@ def write_history(out: Path, run: dict[str, Any], today: datetime) -> None:
 
 
 def write_monthly(out: Path, month: str) -> dict[str, Any]:
-    """Recount this month's probe cost from its run files; earlier months stay as they were written."""
+    """Recount this month's probe cost from its run files; earlier months stay as they were written.
+
+    A target the registry has no price for is left out, as its cost is unknown rather than zero.
+    """
     runs = 0
-    targets: dict[str, float | None] = {}
+    targets: dict[str, float] = {}
     for path in sorted((out / "runs").glob(f"{month}-*.json")):
         for run in read_json(path, {"runs": []})["runs"]:
             runs += 1
             for key, entry in run["targets"].items():
-                spent = targets.get(key)
                 if entry["cost_usd"] is not None:
-                    spent = round((spent or 0.0) + entry["cost_usd"], 8)
-                targets[key] = spent
-    summary = {
-        "runs": runs,
-        "total_usd": round(sum(value for value in targets.values() if value is not None), 8),
-        "targets": targets,
-    }
+                    targets[key] = round(targets.get(key, 0.0) + entry["cost_usd"], 8)
+    summary = {"runs": runs, "total_usd": round(sum(targets.values()), 8), "targets": targets}
     monthly = read_json(out / "monthly.json", {"months": {}})
     monthly["months"][month] = summary
     write_json(out / "monthly.json", {"months": dict(sorted(monthly["months"].items()))})
