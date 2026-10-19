@@ -13,7 +13,13 @@
 // limitations under the License.
 
 import { afterEach, beforeEach, describe, expect, test } from "@jest/globals";
-import { AutoLLMClient } from "../src";
+import { ApiKeyRequiredError, AutoLLMClient } from "../src";
+import {
+  CLIENT_CREDENTIALS,
+  COMPATIBLE_CLIENT_TYPES,
+  OFFICIAL_CLIENT_TYPES,
+  environmentCredential,
+} from "../src/credentials";
 
 // Each case builds a client under a controlled environment and reads the credential its vendor
 // SDK instance ends up holding; nothing here reaches the network. The OpenAI and Anthropic SDKs
@@ -39,6 +45,7 @@ const CREDENTIAL_ENV = [
   "GEMINI_API_KEY",
   "GEMINI_BASE_URL",
   "GOOGLE_API_KEY",
+  "GOOGLE_GEMINI_BASE_URL",
   "MMSP_API_KEY",
   "MMSP_BASE_URL",
 ];
@@ -90,6 +97,18 @@ async function anthropicAuthHeadersOf(
   };
   const headers = await sdk.authHeaders({});
   return Object.fromEntries(headers ? [...headers.values.entries()] : []);
+}
+
+function mmspCredentialOf(client: AutoLLMClient): {
+  authorization: string | undefined;
+  baseUrl: string;
+} {
+  const mmsp = (
+    client as unknown as {
+      _client: { _baseUrl: string; _headers: Record<string, string> };
+    }
+  )._client;
+  return { authorization: mmsp._headers.Authorization, baseUrl: mmsp._baseUrl };
 }
 
 interface VendorCase {
@@ -158,84 +177,208 @@ describe.each(VENDOR_CASES)("$expectedClient credentials", (testCase) => {
   });
 });
 
-interface OpenaiCase {
-  expectedClient: string;
-  model: string;
-  clientType?: string;
+// What a built client holds: the key its SDK sends and the endpoint it calls.
+interface Held {
+  apiKey: string | undefined;
+  baseUrl: string;
 }
 
-// The OpenAI protocol clients, which OPENAI_API_KEY and OPENAI_BASE_URL belong to.
-const OPENAI_CASES: OpenaiCase[] = [
-  { expectedClient: "OpenAIOfficialClient", model: "gpt-6-astra" },
-  {
-    expectedClient: "OpenaiChatClient",
-    model: "gpt-5.6",
-    clientType: "openai-chat",
-  },
-  {
-    expectedClient: "OpenaiResponsesClient",
-    model: "gpt-5.6",
-    clientType: "openai-responses",
-  },
-  {
-    expectedClient: "OpenaiEmbeddingClient",
-    model: "text-embedding-3-large",
-    clientType: "openai-embedding",
-  },
-  {
-    expectedClient: "OpenaiChatVllmAdapterClient",
+async function openaiHeld(client: AutoLLMClient): Promise<Held> {
+  const { apiKey, baseURL } = openaiCredentialOf(client);
+  return { apiKey, baseUrl: baseURL };
+}
+
+async function anthropicHeld(client: AutoLLMClient): Promise<Held> {
+  const headers = await anthropicAuthHeadersOf(client);
+  return {
+    apiKey: headers["x-api-key"],
+    baseUrl: (sdkOf(client) as { baseURL: string }).baseURL,
+  };
+}
+
+async function googleHeld(client: AutoLLMClient): Promise<Held> {
+  const sdk = sdkOf(client) as {
+    apiKey?: string;
+    apiClient: { getBaseUrl(): string };
+  };
+  return { apiKey: sdk.apiKey, baseUrl: sdk.apiClient.getBaseUrl() };
+}
+
+async function mmspHeld(client: AutoLLMClient): Promise<Held> {
+  const { authorization, baseUrl } = mmspCredentialOf(client);
+  return { apiKey: authorization?.replace(/^Bearer /, ""), baseUrl };
+}
+
+// One case per client type: a model it serves and how to read back what its SDK holds.
+const CLIENT_CASES: Record<
+  string,
+  { model: string; held: (client: AutoLLMClient) => Promise<Held> }
+> = {
+  "openai-official": { model: "gpt-6-astra", held: openaiHeld },
+  "anthropic-official": { model: "claude-sonnet-5", held: anthropicHeld },
+  "google-official": { model: "gemini-3.8-flash", held: googleHeld },
+  "zai-official": { model: "glm-5.3", held: openaiHeld },
+  "moonshot-official": { model: "kimi-k3", held: openaiHeld },
+  "deepseek-official": { model: "deepseek-v4-flash", held: openaiHeld },
+  "minimax-official": { model: "MiniMax-M3", held: openaiHeld },
+  "openai-responses": { model: "gpt-5.6", held: openaiHeld },
+  "openai-chat": { model: "gpt-5.6", held: openaiHeld },
+  "openai-chat-vllm-adapter": {
     model: "Qwen/Qwen3.6-35B-A3B",
-    clientType: "openai-chat-vllm-adapter",
+    held: openaiHeld,
   },
-];
+  "openai-embedding": { model: "text-embedding-3-large", held: openaiHeld },
+  "ant-messages": { model: "claude-sonnet-5", held: anthropicHeld },
+  "google-genai": { model: "gemini-3.8-flash", held: googleHeld },
+  mmsp: { model: "gpt-5.5", held: mmspHeld },
+};
 
-describe.each(OPENAI_CASES)("$expectedClient credentials", (testCase) => {
-  test("reads OPENAI_API_KEY and OPENAI_BASE_URL", () => {
-    process.env.OPENAI_API_KEY = "sk-openai-PROBE";
-    process.env.OPENAI_BASE_URL = "https://gateway.example/v1/";
+const OTHER_BASE_URL = "https://gateway.example/v1";
+const ENV_BASE_URL = "https://env.example/v1";
 
-    const client = new AutoLLMClient({
-      model: testCase.model,
-      clientType: testCase.clientType,
+// An endpoint as the rule compares it: the host's case and trailing slashes ignored.
+function endpoint(url: string): string {
+  return url.toLowerCase().replace(/\/+$/, "");
+}
+
+// The same endpoint spelled otherwise: the host in capitals, with a trailing slash.
+function respelled(url: string): string {
+  return url
+    .replace(/^([a-z]+:\/\/)([^/]+)/, (_, scheme, host) =>
+      `${scheme}${host.toUpperCase()}`,
+    )
+    .replace(/\/?$/, "/");
+}
+
+test("every client type has a row of CLIENT_CREDENTIALS and a case here", () => {
+  const clientTypes = [...OFFICIAL_CLIENT_TYPES, ...COMPATIBLE_CLIENT_TYPES];
+
+  expect(Object.keys(CLIENT_CREDENTIALS).sort()).toEqual(clientTypes.sort());
+  expect(Object.keys(CLIENT_CASES).sort()).toEqual(clientTypes.sort());
+});
+
+// Each scenario reads what environmentCredential says the client does, then builds the client and
+// checks that it does exactly that.
+describe.each(Object.keys(CLIENT_CREDENTIALS))(
+  "%s: environmentCredential and the client agree",
+  (clientType) => {
+    const { apiKeyEnv, baseUrlEnv, defaultBaseUrl } =
+      CLIENT_CREDENTIALS[clientType];
+    const { model, held } = CLIENT_CASES[clientType];
+    const build = (options: { apiKey?: string; baseUrl?: string } = {}) =>
+      new AutoLLMClient({ model, clientType, ...options });
+
+    beforeEach(() => {
+      process.env[apiKeyEnv] = "sk-env-PROBE";
     });
 
-    expect(routedClientName(client)).toBe(testCase.expectedClient);
-    expect(openaiCredentialOf(client)).toEqual({
-      apiKey: "sk-openai-PROBE",
-      baseURL: "https://gateway.example/v1/",
+    test("a key passed in goes to the base URL passed in", async () => {
+      process.env[baseUrlEnv] = ENV_BASE_URL;
+
+      const client = build({
+        apiKey: "sk-explicit-PROBE",
+        baseUrl: OTHER_BASE_URL,
+      });
+
+      const { apiKey, baseUrl } = await held(client);
+      expect([apiKey, endpoint(baseUrl)]).toEqual([
+        "sk-explicit-PROBE",
+        endpoint(OTHER_BASE_URL),
+      ]);
     });
+
+    test("a key passed in without a base URL goes to the endpoint of its base URL variable", async () => {
+      process.env[baseUrlEnv] = ENV_BASE_URL;
+
+      const { apiKey, baseUrl } = await held(
+        build({ apiKey: "sk-explicit-PROBE" }),
+      );
+
+      expect([apiKey, endpoint(baseUrl)]).toEqual([
+        "sk-explicit-PROBE",
+        endpoint(ENV_BASE_URL),
+      ]);
+    });
+
+    test("no key and no base URL: both come from the environment", async () => {
+      process.env[baseUrlEnv] = ENV_BASE_URL;
+
+      expect(environmentCredential(clientType)).toEqual({
+        kind: "env",
+        apiKeyEnv,
+        baseUrlEnv,
+      });
+      const { apiKey, baseUrl } = await held(build());
+      expect([apiKey, endpoint(baseUrl)]).toEqual([
+        "sk-env-PROBE",
+        endpoint(ENV_BASE_URL),
+      ]);
+    });
+
+    test("no key, no base URL and no base URL variable: the environment's key goes to the default endpoint", async () => {
+      const { apiKey, baseUrl } = await held(build());
+
+      expect([apiKey, endpoint(baseUrl)]).toEqual([
+        "sk-env-PROBE",
+        endpoint(defaultBaseUrl),
+      ]);
+    });
+  },
+);
+
+describe.each(
+  Object.keys(CLIENT_CREDENTIALS).filter(
+    (clientType) => !CLIENT_CREDENTIALS[clientType].openServer,
+  ),
+)("%s: a base URL passed without a key", (clientType) => {
+  const { apiKeyEnv, baseUrlEnv, defaultBaseUrl } =
+    CLIENT_CREDENTIALS[clientType];
+  const { model, held } = CLIENT_CASES[clientType];
+
+  beforeEach(() => {
+    process.env[apiKeyEnv] = "sk-env-PROBE";
+    process.env[baseUrlEnv] = ENV_BASE_URL;
   });
 
-  test("with a baseUrl passed in, refuses to build on OPENAI_API_KEY", () => {
-    process.env.OPENAI_API_KEY = "sk-openai-PROBE";
+  test("the default endpoint, spelled otherwise, takes the environment's key and ignores the base URL variable", async () => {
+    const passed = respelled(defaultBaseUrl);
 
-    expect(
-      () =>
-        new AutoLLMClient({
-          model: testCase.model,
-          clientType: testCase.clientType,
-          baseUrl: "https://gateway.example/v1/",
-        }),
-    ).toThrow(
-      `apiKey is required for ${testCase.expectedClient} with a baseUrl: OPENAI_API_KEY is not sent to another endpoint.`,
+    expect(environmentCredential(clientType, passed)).toEqual({
+      kind: "env",
+      apiKeyEnv,
+      baseUrlEnv: null,
+    });
+    const { apiKey, baseUrl } = await held(
+      new AutoLLMClient({ model, clientType, baseUrl: passed }),
     );
+    expect([apiKey, endpoint(baseUrl)]).toEqual([
+      "sk-env-PROBE",
+      endpoint(defaultBaseUrl),
+    ]);
   });
 
-  test("with a baseUrl and a key passed in, uses both over the environment", () => {
-    process.env.OPENAI_API_KEY = "sk-openai-PROBE";
-    process.env.OPENAI_BASE_URL = "https://env.example/v1/";
-
-    const client = new AutoLLMClient({
-      model: testCase.model,
-      clientType: testCase.clientType,
-      apiKey: "sk-explicit-PROBE",
-      baseUrl: "https://gateway.example/v1/",
+  test("another endpoint is refused before any request, naming both fixes", () => {
+    expect(environmentCredential(clientType, OTHER_BASE_URL)).toEqual({
+      kind: "required",
+      apiKeyEnv,
+      baseUrlEnv,
     });
-
-    expect(openaiCredentialOf(client)).toEqual({
-      apiKey: "sk-explicit-PROBE",
-      baseURL: "https://gateway.example/v1/",
+    let refusal: unknown;
+    try {
+      new AutoLLMClient({ model, clientType, baseUrl: OTHER_BASE_URL });
+    } catch (error) {
+      refusal = error;
+    }
+    expect(refusal).toBeInstanceOf(ApiKeyRequiredError);
+    expect(refusal).toMatchObject({
+      clientType,
+      apiKeyEnv,
+      baseUrlEnv,
+      baseUrl: OTHER_BASE_URL,
     });
+    expect((refusal as Error).message).toContain(
+      `Pass apiKey, or drop baseUrl and set ${apiKeyEnv}, plus ${baseUrlEnv} for an endpoint other than ${defaultBaseUrl}.`,
+    );
   });
 });
 
@@ -312,21 +455,6 @@ describe.each(ANTHROPIC_CASES)("$expectedClient credentials", (testCase) => {
 
     expect(await anthropicAuthHeadersOf(client)).toEqual({});
   });
-
-  test("with a baseUrl passed in, refuses to build on ANTHROPIC_API_KEY", () => {
-    process.env.ANTHROPIC_API_KEY = "sk-ant-PROBE";
-
-    expect(
-      () =>
-        new AutoLLMClient({
-          model: testCase.model,
-          clientType: testCase.clientType,
-          baseUrl: "https://proxy.example/anthropic",
-        }),
-    ).toThrow(
-      `apiKey is required for ${testCase.expectedClient} with a baseUrl: ANTHROPIC_API_KEY is not sent to another endpoint.`,
-    );
-  });
 });
 
 describe("AnthropicOfficialClient on Bedrock", () => {
@@ -345,95 +473,8 @@ describe("AnthropicOfficialClient on Bedrock", () => {
   });
 });
 
-function googleCredentialOf(client: AutoLLMClient): {
-  apiKey: string | undefined;
-  baseUrl: string;
-} {
-  const sdk = sdkOf(client) as {
-    apiKey?: string;
-    apiClient: { getBaseUrl(): string };
-  };
-  return { apiKey: sdk.apiKey, baseUrl: sdk.apiClient.getBaseUrl() };
-}
-
-// The google-genai client, which GEMINI_API_KEY and GEMINI_BASE_URL belong to.
-describe("GoogleGenaiClient credentials", () => {
-  test("reads GEMINI_API_KEY and GEMINI_BASE_URL", () => {
-    process.env.GEMINI_API_KEY = "gm-env-PROBE";
-    process.env.GEMINI_BASE_URL = "https://gateway.example/";
-
-    const client = new AutoLLMClient({
-      model: "gemini-3.8-flash",
-      clientType: "google-genai",
-    });
-
-    expect(routedClientName(client)).toBe("GoogleGenaiClient");
-    expect(googleCredentialOf(client)).toEqual({
-      apiKey: "gm-env-PROBE",
-      baseUrl: "https://gateway.example/",
-    });
-  });
-
-  test("with a baseUrl passed in, refuses to build on GEMINI_API_KEY", () => {
-    process.env.GEMINI_API_KEY = "gm-env-PROBE";
-
-    expect(
-      () =>
-        new AutoLLMClient({
-          model: "gemini-3.8-flash",
-          clientType: "google-genai",
-          baseUrl: "https://gateway.example/",
-        }),
-    ).toThrow(
-      "apiKey is required for GoogleGenaiClient with a baseUrl: GEMINI_API_KEY is not sent to another endpoint.",
-    );
-  });
-
-  test("with a baseUrl and a key passed in, uses both over the environment", () => {
-    process.env.GEMINI_API_KEY = "gm-env-PROBE";
-    process.env.GEMINI_BASE_URL = "https://env.example/";
-
-    const client = new AutoLLMClient({
-      model: "gemini-3.8-flash",
-      clientType: "google-genai",
-      apiKey: "gm-explicit-PROBE",
-      baseUrl: "https://gateway.example/",
-    });
-
-    expect(googleCredentialOf(client)).toEqual({
-      apiKey: "gm-explicit-PROBE",
-      baseUrl: "https://gateway.example/",
-    });
-  });
-});
-
-function mmspCredentialOf(client: AutoLLMClient): {
-  authorization: string | undefined;
-  baseUrl: string;
-} {
-  const mmsp = (
-    client as unknown as {
-      _client: { _baseUrl: string; _headers: Record<string, string> };
-    }
-  )._client;
-  return { authorization: mmsp._headers.Authorization, baseUrl: mmsp._baseUrl };
-}
-
 // The mmsp client, which MMSP_API_KEY and MMSP_BASE_URL belong to.
 describe("MmspClient credentials", () => {
-  test("reads MMSP_API_KEY and MMSP_BASE_URL", () => {
-    process.env.MMSP_API_KEY = "mm-env-PROBE";
-    process.env.MMSP_BASE_URL = "https://gateway.example/mmsp/";
-
-    const client = new AutoLLMClient({ model: "gpt-5.5", clientType: "mmsp" });
-
-    expect(routedClientName(client)).toBe("MmspClient");
-    expect(mmspCredentialOf(client)).toEqual({
-      authorization: "Bearer mm-env-PROBE",
-      baseUrl: "https://gateway.example/mmsp",
-    });
-  });
-
   test("with a baseUrl and no key passed in, sends no key", () => {
     process.env.MMSP_API_KEY = "mm-env-PROBE";
 
@@ -444,27 +485,28 @@ describe("MmspClient credentials", () => {
       baseUrl: "https://gateway.example/mmsp/",
     });
 
+    expect(environmentCredential("mmsp", "https://gateway.example/mmsp/")).toEqual(
+      { kind: "keyless" },
+    );
     expect(mmspCredentialOf(client)).toEqual({
       authorization: undefined,
       baseUrl: "https://gateway.example/mmsp",
     });
   });
 
-  test("with a baseUrl and a key passed in, uses both over the environment", () => {
+  test("with the default endpoint and no key passed in, sends no key either", () => {
     process.env.MMSP_API_KEY = "mm-env-PROBE";
-    process.env.MMSP_BASE_URL = "https://env.example/mmsp/";
 
     const client = new AutoLLMClient({
       model: "gpt-5.5",
       clientType: "mmsp",
-      apiKey: "mm-explicit-PROBE",
-      baseUrl: "https://gateway.example/mmsp/",
+      baseUrl: "http://127.0.0.1:25752/v1",
     });
 
-    expect(mmspCredentialOf(client)).toEqual({
-      authorization: "Bearer mm-explicit-PROBE",
-      baseUrl: "https://gateway.example/mmsp",
-    });
+    expect(environmentCredential("mmsp", "http://127.0.0.1:25752/v1")).toEqual(
+      { kind: "keyless" },
+    );
+    expect(mmspCredentialOf(client).authorization).toBeUndefined();
   });
 
   test("without a key or a baseUrl, sends no key to the local server", () => {

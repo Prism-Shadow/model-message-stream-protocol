@@ -15,7 +15,6 @@
 import base64
 import json
 import mimetypes
-import os
 import re
 from typing import Any, AsyncIterator
 
@@ -37,7 +36,7 @@ from ..types import (
     UniMessage,
     UsageMetadata,
 )
-from ..utils import is_debug_enabled, speaker_turns
+from ..utils import is_debug_enabled, resolve_credentials, speaker_turns
 
 
 class GoogleOfficialClient(LLMClient):
@@ -61,8 +60,7 @@ class GoogleOfficialClient(LLMClient):
     ):
         """Initialize the official Gemini client with a model and API key."""
         self._model = model
-        api_key = api_key or os.getenv("GEMINI_API_KEY")
-        base_url = base_url or os.getenv("GEMINI_BASE_URL")
+        api_key, base_url = resolve_credentials(self.__class__.__name__, "google-official", api_key, base_url)
         # the Gemini SDK carries connection headers inside http_options rather than its own argument
         http_options: dict[str, Any] = {}
         if base_url:

@@ -42,6 +42,8 @@ import {
  * OpenAI Chat Completions-compatible client implementation.
  */
 export class OpenaiChatClient extends LLMClient {
+  // the client type whose credentials this class reads; the vLLM adapter subclass names its own
+  protected static readonly clientType: string = "openai-chat";
   protected _model: string;
   private _client: OpenAI;
 
@@ -58,8 +60,8 @@ export class OpenaiChatClient extends LLMClient {
     this._model = options.model;
     const { apiKey: key, baseUrl: url } = resolveCredentials(
       this.constructor.name,
+      new.target.clientType,
       options,
-      { key: "OPENAI_API_KEY", baseUrl: "OPENAI_BASE_URL" },
     );
     this._client = new OpenAI({
       apiKey: key,

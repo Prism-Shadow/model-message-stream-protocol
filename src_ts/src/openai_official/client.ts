@@ -59,8 +59,8 @@ export class OpenAIOfficialClient extends LLMClient {
     this._model = options.model;
     const { apiKey: key, baseUrl: url } = resolveCredentials(
       this.constructor.name,
+      "openai-official",
       options,
-      { key: "OPENAI_API_KEY", baseUrl: "OPENAI_BASE_URL" },
     );
     this._client = new OpenAI({
       apiKey: key,
@@ -73,8 +73,13 @@ export class OpenAIOfficialClient extends LLMClient {
    * Convert ThinkingLevel enum to OpenAI's reasoning effort.
    */
   private _convertThinkingLevelToEffort(thinkingLevel: ThinkingLevel): string {
-    if (thinkingLevel === ThinkingLevel.NONE && this._model.includes("gpt-6")) {
-      // GPT-6 rejects both "none" and "minimal" with a 400 (verified live 2026-09-09:
+    // GPT-6 Luna accepts none; keep the requested setting on official and gateway routes.
+    if (
+      thinkingLevel === ThinkingLevel.NONE &&
+      this._model.includes("gpt-6") &&
+      !this._model.includes("gpt-6-luna")
+    ) {
+      // GPT-6 Astra and GPT-6.1 Sol reject both "none" and "minimal" with a 400 (verified live 2026-09-09:
       // "Unsupported value: 'none' is not supported with the 'gpt-6-astra' model.
       // Supported values are: 'low', 'medium', 'high', 'xhigh', and 'max'."), so NONE
       // degrades to the lowest effort the generation accepts.

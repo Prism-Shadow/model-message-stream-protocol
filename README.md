@@ -5,8 +5,7 @@
 [![GitHub Repo stars](https://img.shields.io/github/stars/Prism-Shadow/model-message-stream-protocol?style=social)](https://github.com/Prism-Shadow/model-message-stream-protocol/stargazers)
 [![GitHub last commit](https://img.shields.io/github/last-commit/Prism-Shadow/model-message-stream-protocol)](https://github.com/Prism-Shadow/model-message-stream-protocol/commits/main)
 [![GitHub contributors](https://img.shields.io/github/contributors/Prism-Shadow/model-message-stream-protocol?color=orange)](https://github.com/Prism-Shadow/model-message-stream-protocol/graphs/contributors)
-[![Python tests](https://github.com/Prism-Shadow/model-message-stream-protocol/actions/workflows/pytest.yml/badge.svg)](https://github.com/Prism-Shadow/model-message-stream-protocol/actions/workflows/pytest.yml)
-[![Javascript tests](https://github.com/Prism-Shadow/model-message-stream-protocol/actions/workflows/jest.yml/badge.svg)](https://github.com/Prism-Shadow/model-message-stream-protocol/actions/workflows/jest.yml)
+[![CI](https://github.com/Prism-Shadow/model-message-stream-protocol/actions/workflows/ci.yml/badge.svg)](https://github.com/Prism-Shadow/model-message-stream-protocol/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/mmsp)](https://pypi.org/project/mmsp/)
 [![NPM](https://img.shields.io/npm/v/@prismshadow/mmsp)](https://www.npmjs.com/package/@prismshadow/mmsp)
 
@@ -46,7 +45,7 @@ Audit LLM executions by adding **a single `trace_id` parameter**, no database re
 
 | Model Name     | Vendor                              | Example Model ID       | Input Modalities | Output Modalities              |
 | -------------- | ----------------------------------- | ---------------------- | ---------------- | ------------------------------ |
-| Gemini 4 Argon | Official                           | `gemini-4-argon`       | Text, Image      | Text                          |
+| Gemini 4 Argon | Official/Google Vertex AI          | `gemini-4-argon`       | Text, Image      | Text                          |
 | Gemini 3-3.8   | Official/Google Vertex AI           | `gemini-3.8-flash`     | Text, Image      | Text, Image, Speech, Embedding |
 | Claude 4.6-5.5 | Official/Amazon Bedrock/UModelVerse | `claude-opus-5-5`      | Text, Image      | Text                           |
 | GPT-5.4-6.1    | Official/OpenRouter/UModelVerse     | `gpt-6.1-sol`          | Text, Image      | Text, Embedding                |
@@ -155,7 +154,7 @@ MMSP provides Codex/Claude Code skill files for assistants that need to help use
 
 `AutoLLMClient` is the main class for interacting with the MMSP SDK. It is constructed with `model` and `client_type` (see [Clients](#clients); a model id of a known family names its official client on its own), plus optional `api_key`, `base_url`, and `default_headers` — headers sent with every request, for endpoints that demand their own. It provides the following methods:
 
-A key goes only where it was given for: a client reads `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` from the environment only together with `OPENAI_BASE_URL` / `ANTHROPIC_BASE_URL` (or the provider's own endpoint), so a `base_url` passed in needs an `api_key` passed in with it, or the client raises at construction. A vendor client (`deepseek-v4`, `glm-5.x`, `kimi-k*`, `minimax-m3`, Gemini) reads its own variable, whatever endpoint it is given.
+A key goes only where it was given for. A key passed in is used, with the `base_url` passed in, else the client's `<P>_BASE_URL` (see [Clients](#clients)), else its default endpoint. Without a key, a client reads its `<P>_API_KEY` only when it is given no `base_url` or its own default endpoint: `deepseek-official` with no `base_url` or `https://api.deepseek.com` uses `DEEPSEEK_API_KEY`. Any other `base_url` without a key raises `ApiKeyRequiredError` at construction: pass the key with it, or drop it and set `<P>_API_KEY`, plus `<P>_BASE_URL` for an endpoint other than the default. The `mmsp` client is the exception: it calls a `base_url` given without a key keyless, as an open MMSP server. `@prismshadow/mmsp/credentials` and `mmsp.credentials` export the rule as data for hosts.
 
 - `(async) streaming_response(messages, config)`: Streams the response of LLMs in a stateless manner.
 - `(async) streaming_response_stateful(message, config)`: Streams the response of LLMs in a stateful manner.

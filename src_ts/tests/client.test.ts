@@ -24,6 +24,8 @@ import {
 } from "../src/types";
 import { beforeAll, expect, describe, test } from "@jest/globals";
 import { Gaxios } from "gaxios";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { assertStreamGrammar } from "./streamGrammar";
 
 const IMAGE =
@@ -52,408 +54,75 @@ interface Model {
     | "mmsp";
 }
 
-const AVAILABLE_MODELS: Model[] = [];
-
-if (process.env.GEMINI_API_KEY) {
-  AVAILABLE_MODELS.push({
-    name: "gemini-4-argon",
-    supportTextGeneration: true,
-    supportImageUnderstanding: true,
-    supportImageGeneration: false,
-    supportAudioGeneration: false,
-    supportEmbedding: false,
-    provider: "official",
-  });
-
-  // the Gemini API serves generateContent too, so google-genai is covered beyond Vertex AI
-  AVAILABLE_MODELS.push({
-    name: "gemini-4-argon",
-    supportTextGeneration: true,
-    supportImageUnderstanding: true,
-    supportImageGeneration: false,
-    supportAudioGeneration: false,
-    supportEmbedding: false,
-    clientType: "google-genai",
-    provider: "official",
-  });
-
-  AVAILABLE_MODELS.push({
-    name: "gemini-3.1-flash-image",
-    supportTextGeneration: false,
-    supportImageUnderstanding: false,
-    supportImageGeneration: true,
-    supportAudioGeneration: false,
-    supportEmbedding: false,
-    provider: "official",
-  });
-
-  AVAILABLE_MODELS.push({
-    name: "gemini-3.8-flash-tts",
-    supportTextGeneration: false,
-    supportImageUnderstanding: false,
-    supportImageGeneration: false,
-    supportAudioGeneration: true,
-    supportEmbedding: false,
-    provider: "official",
-  });
-
-  AVAILABLE_MODELS.push({
-    name: "gemini-embedding-2",
-    supportTextGeneration: false,
-    supportImageUnderstanding: false,
-    supportImageGeneration: false,
-    supportAudioGeneration: false,
-    supportEmbedding: true,
-    provider: "official",
-  });
+interface ModelCase {
+  name: string;
+  api_key_env: string;
+  slow?: boolean;
+  provider?: Model["provider"];
+  client_type?: string;
+  base_url?: string;
+  support_text?: boolean;
+  support_image_understanding?: boolean;
+  support_image_generation?: boolean;
+  support_tts?: boolean;
+  support_embedding?: boolean;
 }
 
-if (process.env.ANTHROPIC_API_KEY) {
-  AVAILABLE_MODELS.push({
-    name: "claude-sonnet-5-5",
-    supportTextGeneration: true,
-    supportImageUnderstanding: true,
-    supportImageGeneration: false,
-    supportAudioGeneration: false,
-    supportEmbedding: false,
-    provider: "official",
-  });
-  AVAILABLE_MODELS.push({
-    name: "claude-haiku-5-5",
-    supportTextGeneration: true,
-    supportImageUnderstanding: true,
-    supportImageGeneration: false,
-    supportAudioGeneration: false,
-    supportEmbedding: false,
-    provider: "official",
-  });
-}
-
-if (process.env.OPENAI_API_KEY) {
-  AVAILABLE_MODELS.push({
-    name: "gpt-6.1-sol",
-    supportTextGeneration: true,
-    supportImageUnderstanding: true,
-    supportImageGeneration: false,
-    supportAudioGeneration: false,
-    supportEmbedding: false,
-    provider: "official",
-  });
-
-  AVAILABLE_MODELS.push({
-    name: "text-embedding-3-large",
-    supportTextGeneration: false,
-    supportImageUnderstanding: false,
-    supportImageGeneration: false,
-    supportAudioGeneration: false,
-    supportEmbedding: true,
-    provider: "official",
-  });
-}
-
-// per-protocol base URLs for the generic protocol clients (Z.AI entries use the
-// GLM Coding Plan base URLs)
-const PROTOCOL_MODES = ["openai-chat", "openai-responses", "ant-messages"];
-const PROTOCOL_BASE_URLS: { [provider: string]: { [mode: string]: string } } = {
-  deepseek: {
-    "openai-chat": "https://api.deepseek.com",
-    "openai-responses": "https://api.deepseek.com",
-    "ant-messages": "https://api.deepseek.com/anthropic",
-  },
-  zai: {
-    "openai-chat": "https://api.z.ai/api/coding/paas/v4",
-    "openai-responses": "https://api.z.ai/api/v1",
-    "ant-messages": "https://api.z.ai/api/anthropic",
-  },
-  minimax: {
-    "openai-chat": "https://api.minimax.io/v1",
-    "openai-responses": "https://api.minimax.io/v1",
-    "ant-messages": "https://api.minimax.io/anthropic",
-  },
-  openrouter: {
-    "openai-chat": "https://openrouter.ai/api/v1",
-    "openai-responses": "https://openrouter.ai/api/v1",
-    "ant-messages": "https://openrouter.ai/api",
-  },
-};
-
-if (process.env.ZAI_API_KEY) {
-  AVAILABLE_MODELS.push({
-    name: "glm-5.3-flash",
-    supportTextGeneration: true,
-    supportImageUnderstanding: true,
-    supportImageGeneration: false,
-    supportAudioGeneration: false,
-    supportEmbedding: false,
-    provider: "official",
-  });
-}
-
-if (process.env.MOONSHOT_API_KEY) {
-  AVAILABLE_MODELS.push({
-    name: "kimi-k3",
-    supportTextGeneration: true,
-    supportImageUnderstanding: true,
-    supportImageGeneration: false,
-    supportAudioGeneration: false,
-    supportEmbedding: false,
-    provider: "official",
-  });
-}
-
-if (process.env.MINIMAX_API_KEY) {
-  AVAILABLE_MODELS.push({
-    name: "MiniMax-M3",
-    supportTextGeneration: true,
-    supportImageUnderstanding: true,
-    supportImageGeneration: false,
-    supportAudioGeneration: false,
-    supportEmbedding: false,
-    provider: "official",
-  });
-}
-
-if (process.env.DEEPSEEK_API_KEY) {
-  AVAILABLE_MODELS.push({
-    name: "deepseek-flash",
-    supportTextGeneration: true,
-    supportImageUnderstanding: true,
-    supportImageGeneration: false,
-    supportAudioGeneration: false,
-    supportEmbedding: false,
-    provider: "official",
-  });
-  for (const mode of PROTOCOL_MODES) {
-    AVAILABLE_MODELS.push({
-      name: "deepseek-flash",
-      supportTextGeneration: true,
-      supportImageUnderstanding: false,
-      supportImageGeneration: false,
-      supportAudioGeneration: false,
-      supportEmbedding: false,
-      provider: "deepseek",
-      clientType: mode,
-      baseUrl: PROTOCOL_BASE_URLS.deepseek[mode],
-    });
-  }
-}
-
-if (process.env.BEDROCK_API_KEY) {
-  AVAILABLE_MODELS.push({
-    name: "global.anthropic.claude-sonnet-4-6",
-    supportTextGeneration: true,
-    supportImageUnderstanding: true,
-    supportImageGeneration: false,
-    supportAudioGeneration: false,
-    supportEmbedding: false,
-    // a Bedrock id begins with no model family, so the client is named
-    clientType: "anthropic-official",
-    provider: "bedrock",
-  });
-}
-
-if (process.env.VERTEX_API_KEY) {
-  // Vertex AI serves Gemini through generateContent only, the google-genai client's protocol
-  AVAILABLE_MODELS.push({
-    name: "gemini-3.8-flash",
-    supportTextGeneration: true,
-    supportImageUnderstanding: true,
-    supportImageGeneration: false,
-    supportAudioGeneration: false,
-    supportEmbedding: false,
-    clientType: "google-genai",
-    provider: "vertex",
-  });
-
-  AVAILABLE_MODELS.push({
-    name: "gemini-3.1-flash-image",
-    supportTextGeneration: false,
-    supportImageUnderstanding: false,
-    supportImageGeneration: true,
-    supportAudioGeneration: false,
-    supportEmbedding: false,
-    clientType: "google-genai",
-    provider: "vertex",
-  });
-
-  AVAILABLE_MODELS.push({
-    name: "gemini-3.1-flash-tts-preview",
-    supportTextGeneration: false,
-    supportImageUnderstanding: false,
-    supportImageGeneration: false,
-    supportAudioGeneration: true,
-    supportEmbedding: false,
-    clientType: "google-genai",
-    provider: "vertex",
-  });
-
-  AVAILABLE_MODELS.push({
-    name: "gemini-embedding-2",
-    supportTextGeneration: false,
-    supportImageUnderstanding: false,
-    supportImageGeneration: false,
-    supportAudioGeneration: false,
-    supportEmbedding: true,
-    clientType: "google-genai",
-    provider: "vertex",
-  });
+const MODEL_CATALOG: Record<string, { models: ModelCase[] }> = JSON.parse(
+  readFileSync(resolve(__dirname, "../../.github/ci/models.json"), "utf8"),
+);
+const SELECTED_CLIENTS: string[] = JSON.parse(
+  process.env.MMSP_TEST_CLIENTS ?? '["*"]',
+);
+if (
+  !Array.isArray(SELECTED_CLIENTS) ||
+  SELECTED_CLIENTS.some(
+    (client) =>
+      typeof client !== "string" ||
+      !["*", ...Object.keys(MODEL_CATALOG)].includes(client),
+  )
+) {
+  throw new Error(
+    "MMSP_TEST_CLIENTS must be a JSON array of known client types or '*'.",
+  );
 }
 
 const RUN_SLOW_TEST = process.env.RUN_SLOW_TEST === "1";
-
-if (process.env.ZAI_API_KEY && RUN_SLOW_TEST) {
-  for (const mode of PROTOCOL_MODES) {
-    // Z.AI's Anthropic-compatible gateway defaults to thinking disabled when a request
-    // carries no thinking config, which glm-5.3 rejects because it cannot disable
-    // thinking; that protocol stays on glm-5.2
+const AVAILABLE_MODELS: Model[] = [];
+const missingKeys = new Set<string>();
+for (const [client, group] of Object.entries(MODEL_CATALOG)) {
+  if (!SELECTED_CLIENTS.includes("*") && !SELECTED_CLIENTS.includes(client))
+    continue;
+  for (const entry of group.models) {
+    if (entry.slow && !RUN_SLOW_TEST) continue;
+    if (!process.env[entry.api_key_env]) {
+      missingKeys.add(entry.api_key_env);
+      continue;
+    }
     AVAILABLE_MODELS.push({
-      name: mode === "ant-messages" ? "glm-5.2" : "glm-5.3",
-      supportTextGeneration: true,
-      supportImageUnderstanding: false,
-      supportImageGeneration: false,
-      supportAudioGeneration: false,
-      supportEmbedding: false,
-      provider: "zai",
-      clientType: mode,
-      baseUrl: PROTOCOL_BASE_URLS.zai[mode],
+      name: entry.name,
+      provider: entry.provider ?? "official",
+      clientType: entry.client_type,
+      baseUrl: entry.base_url,
+      supportTextGeneration: entry.support_text ?? true,
+      supportImageUnderstanding: entry.support_image_understanding ?? true,
+      supportImageGeneration: entry.support_image_generation ?? false,
+      supportAudioGeneration: entry.support_tts ?? false,
+      supportEmbedding: entry.support_embedding ?? false,
     });
   }
 }
-
-if (process.env.MINIMAX_API_KEY && RUN_SLOW_TEST) {
-  for (const mode of PROTOCOL_MODES) {
-    AVAILABLE_MODELS.push({
-      name: "MiniMax-M3",
-      supportTextGeneration: true,
-      supportImageUnderstanding: true,
-      supportImageGeneration: false,
-      supportAudioGeneration: false,
-      supportEmbedding: false,
-      provider: "minimax",
-      clientType: mode,
-      baseUrl: PROTOCOL_BASE_URLS.minimax[mode],
-    });
-  }
+if (process.env.MMSP_REQUIRE_KEYS === "1" && missingKeys.size > 0) {
+  throw new Error(
+    `Missing API keys for selected model tests: ${[...missingKeys].sort().join(", ")}`,
+  );
 }
 
-if (process.env.OPENROUTER_API_KEY && RUN_SLOW_TEST) {
-  for (const mode of PROTOCOL_MODES) {
-    AVAILABLE_MODELS.push({
-      name: "openai/gpt-5.6-luna",
-      supportTextGeneration: true,
-      supportImageUnderstanding: true,
-      supportImageGeneration: false,
-      supportAudioGeneration: false,
-      supportEmbedding: false,
-      provider: "openrouter",
-      clientType: mode,
-      baseUrl: PROTOCOL_BASE_URLS.openrouter[mode],
-    });
-  }
-  AVAILABLE_MODELS.push({
-    name: "z-ai/glm-5.3",
-    supportTextGeneration: true,
-    supportImageUnderstanding: false,
-    supportImageGeneration: false,
-    supportAudioGeneration: false,
-    supportEmbedding: false,
-    provider: "openrouter",
-  });
-  AVAILABLE_MODELS.push({
-    name: "qwen/qwen3.8-27b",
-    supportTextGeneration: true,
-    supportImageUnderstanding: true,
-    supportImageGeneration: false,
-    supportAudioGeneration: false,
-    supportEmbedding: false,
-    clientType: "openai-responses",
-    provider: "openrouter",
-  });
-  AVAILABLE_MODELS.push({
-    name: "qwen/qwen3-embedding-4b",
-    supportTextGeneration: false,
-    supportImageUnderstanding: false,
-    supportImageGeneration: false,
-    supportAudioGeneration: false,
-    supportEmbedding: true,
-    clientType: "openai-embedding",
-    provider: "openrouter",
-  });
-  AVAILABLE_MODELS.push({
-    name: "moonshotai/kimi-k3",
-    supportTextGeneration: true,
-    supportImageUnderstanding: true,
-    supportImageGeneration: false,
-    supportAudioGeneration: false,
-    supportEmbedding: false,
-    provider: "openrouter",
-  });
-}
-
-if (process.env.SILICONFLOW_API_KEY && RUN_SLOW_TEST) {
-  AVAILABLE_MODELS.push({
-    name: "zai-org/GLM-5.2",
-    supportTextGeneration: true,
-    supportImageUnderstanding: false,
-    supportImageGeneration: false,
-    supportAudioGeneration: false,
-    supportEmbedding: false,
-    provider: "siliconflow",
-  });
-  AVAILABLE_MODELS.push({
-    name: "Qwen/Qwen3.8-27B",
-    supportTextGeneration: true,
-    supportImageUnderstanding: true,
-    supportImageGeneration: false,
-    supportAudioGeneration: false,
-    supportEmbedding: false,
-    clientType: "openai-chat",
-    provider: "siliconflow",
-  });
-  AVAILABLE_MODELS.push({
-    name: "Pro/moonshotai/Kimi-K2.6",
-    supportTextGeneration: true,
-    supportImageUnderstanding: true,
-    supportImageGeneration: false,
-    supportAudioGeneration: false,
-    supportEmbedding: false,
-    provider: "siliconflow",
-  });
-  AVAILABLE_MODELS.push({
-    name: "Qwen/Qwen3-Embedding-8B",
-    supportTextGeneration: false,
-    supportImageUnderstanding: false,
-    supportImageGeneration: false,
-    supportAudioGeneration: false,
-    supportEmbedding: true,
-    clientType: "openai-embedding",
-    provider: "siliconflow",
-  });
-}
-
-if (process.env.MODELVERSE_API_KEY && RUN_SLOW_TEST) {
-  AVAILABLE_MODELS.push({
-    name: "claude-sonnet-4-6",
-    supportTextGeneration: true,
-    supportImageUnderstanding: true,
-    supportImageGeneration: false,
-    supportAudioGeneration: false,
-    supportEmbedding: false,
-    provider: "modelverse",
-    baseUrl: "https://api.modelverse.cn/",
-  });
-  AVAILABLE_MODELS.push({
-    name: "gpt-5.5",
-    supportTextGeneration: true,
-    supportImageUnderstanding: true,
-    supportImageGeneration: false,
-    supportAudioGeneration: false,
-    supportEmbedding: false,
-    provider: "modelverse",
-  });
-}
-
-if (process.env.MMSP_API_KEY && process.env.MMSP_BASE_URL) {
+if (
+  (SELECTED_CLIENTS.includes("*") || SELECTED_CLIENTS.includes("mmsp")) &&
+  process.env.MMSP_API_KEY &&
+  process.env.MMSP_BASE_URL
+) {
   // a running MMSP server started from a config file; MMSP_MODEL is a server_model_id of its table, MMSP_BASE_URL ends with /v1
   AVAILABLE_MODELS.push({
     name: process.env.MMSP_MODEL || "gpt-6.1-sol",
@@ -486,6 +155,24 @@ const PROVIDER_BASE_URLS: { [provider: string]: string } = {
   siliconflow: "https://api.siliconflow.cn/v1",
   modelverse: "https://api.modelverse.cn/v1",
 };
+
+test.each(
+  Object.entries(MODEL_CATALOG).flatMap(([client, group]) =>
+    group.models.map((entry): [string, ModelCase] => [client, entry]),
+  ),
+)("model catalog routes to its client group (%s, %j)", (clientType, entry) => {
+  const client = new AutoLLMClient({
+    model: entry.name,
+    apiKey:
+      entry.provider === "bedrock" ? "test-access,test-secret" : "test-key",
+    baseUrl: entry.base_url || PROVIDER_BASE_URLS[entry.provider ?? "official"],
+    clientType: entry.client_type,
+  });
+  const module = require(`../src/${clientType.replace(/-/g, "_")}`);
+  expect(Object.values(module)).toContain(
+    (client as unknown as { _client: object })._client.constructor,
+  );
+});
 
 function createClient(model: Model): AutoLLMClient {
   const keyEnv = PROVIDER_API_KEY_ENVS[model.provider];
@@ -882,7 +569,10 @@ if (AVAILABLE_MODELS.length > 0) {
       const message1: UniMessage = {
         role: "user",
         content_items: [
-          { type: "text.done", text: "What is the weather in San Francisco?" },
+          {
+            type: "text.done",
+            text: "Call get_weather for San Francisco to retrieve the current weather. Do not answer without using the tool.",
+          },
         ],
       };
       const events1: UniEvent[] = [];
@@ -986,7 +676,7 @@ if (AVAILABLE_MODELS.length > 0) {
           content_items: [
             {
               type: "text.done",
-              text: "What is the weather in San Francisco?",
+              text: "Call get_weather for San Francisco to retrieve the current weather. Do not answer without using the tool.",
             },
           ],
         };

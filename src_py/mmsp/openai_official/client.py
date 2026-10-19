@@ -47,16 +47,15 @@ class OpenAIOfficialClient(LLMClient):
     ):
         """Initialize GPT-6 client with model and API key."""
         self._model = model
-        api_key, base_url = resolve_credentials(
-            self.__class__.__name__, api_key, base_url, "OPENAI_API_KEY", "OPENAI_BASE_URL"
-        )
+        api_key, base_url = resolve_credentials(self.__class__.__name__, "openai-official", api_key, base_url)
         self._client = AsyncOpenAI(api_key=api_key, base_url=base_url, default_headers=default_headers)
         self._history: list[UniMessage] = []
 
     def _convert_thinking_level_to_effort(self, thinking_level: ThinkingLevel) -> str:
         """Convert ThinkingLevel enum to OpenAI's reasoning effort."""
-        if thinking_level == ThinkingLevel.NONE and "gpt-6" in self._model:
-            # GPT-6 rejects both "none" and "minimal" with a 400 (verified live 2026-09-09:
+        # GPT-6 Luna accepts none on official and gateway routes.
+        if thinking_level == ThinkingLevel.NONE and "gpt-6" in self._model and "gpt-6-luna" not in self._model:
+            # GPT-6 Astra and GPT-6.1 Sol reject both "none" and "minimal" with a 400 (verified live 2026-09-09:
             # "Unsupported value: 'none' is not supported with the 'gpt-6-astra' model.
             # Supported values are: 'low', 'medium', 'high', 'xhigh', and 'max'."), so NONE
             # degrades to the lowest effort the generation accepts.

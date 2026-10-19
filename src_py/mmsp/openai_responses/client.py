@@ -47,16 +47,15 @@ class OpenaiResponsesClient(LLMClient):
     ):
         """Initialize OpenAI Responses-compatible client with model, API key, and base URL."""
         self._model = model
-        api_key, base_url = resolve_credentials(
-            self.__class__.__name__, api_key, base_url, "OPENAI_API_KEY", "OPENAI_BASE_URL"
-        )
+        api_key, base_url = resolve_credentials(self.__class__.__name__, "openai-responses", api_key, base_url)
         self._client = AsyncOpenAI(api_key=api_key, base_url=base_url, default_headers=default_headers)
         self._history: list[UniMessage] = []
 
     def _convert_thinking_level_to_effort(self, thinking_level: ThinkingLevel) -> str:
         """Convert ThinkingLevel enum to the Responses API reasoning effort."""
-        if thinking_level == ThinkingLevel.NONE and "gpt-6" in self._model:
-            # a gateway serving GPT-6 forwards the effort to OpenAI, which rejects "none" and
+        # GPT-6 Luna accepts none on official and gateway routes.
+        if thinking_level == ThinkingLevel.NONE and "gpt-6" in self._model and "gpt-6-luna" not in self._model:
+            # a gateway serving GPT-6 Astra or GPT-6.1 Sol forwards the effort to OpenAI, which rejects "none" and
             # "minimal" with a 400 (verified live 2026-09-09 against api.openai.com), so NONE
             # degrades to the lowest effort the generation accepts.
             return "low"

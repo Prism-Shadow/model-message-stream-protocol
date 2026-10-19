@@ -1,6 +1,6 @@
 {
   "name": "@prismshadow/mmsp",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "description": "MMSP, the Model Message Stream Protocol: one message format and one streaming grammar for every model provider, in Python and TypeScript.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -9,6 +9,7 @@
   ],
   "exports": {
     ".": "./dist/index.js",
+    "./credentials": "./dist/credentials.js",
     "./integration/tracer": "./dist/integration/tracer.js",
     "./integration/playground": "./dist/integration/playground.js",
     "./integration/server": "./dist/integration/server.js"

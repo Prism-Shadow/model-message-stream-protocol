@@ -1,23 +1,15 @@
 name: Python Tests
 
 on:
-  push:
-    branches:
-      - "main"
-    paths:
-      - "**/*.py"
-      - "**/pyproject.toml"
-      - '.github/workflows/pytest.yml'
-      - "!site/**"
-  pull_request:
-    branches:
-      - "main"
-      - "dev"
-    paths:
-      - "**/*.py"
-      - "**/pyproject.toml"
-      - '.github/workflows/pytest.yml'
-      - "!site/**"
+  workflow_call:
+    inputs:
+      clients:
+        description: JSON array of client types; ["*"] runs all configured model cases.
+        type: string
+        default: '["*"]'
+
+permissions:
+  contents: read
 
 jobs:
   test:
@@ -26,10 +18,6 @@ jobs:
       matrix:
         python-version:
           - "3.11"
-
-    concurrency:
-      group: ci-task-lock
-      cancel-in-progress: false
 
     steps:
       - name: Checkout
@@ -51,6 +39,8 @@ jobs:
         working-directory: ./src_py
         run: |
           make lint
+          uv run ruff check --config pyproject.toml ../.github/ci
+          uv run ruff format --check --config pyproject.toml ../.github/ci
 
       - name: Run tests
         working-directory: ./src_py
@@ -59,6 +49,9 @@ jobs:
             --reruns 5 --reruns-delay 30 --only-rerun RateLimitError --only-rerun 429 \
             tests
         env:
+          MMSP_TEST_CLIENTS: ${{ inputs.clients }}
+          MMSP_REQUIRE_KEYS: "1"
+          RUN_SLOW_TEST: "0"
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
