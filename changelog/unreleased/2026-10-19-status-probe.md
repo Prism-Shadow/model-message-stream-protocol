@@ -3,6 +3,7 @@
 - **Date:** 2026-10-19
 - **Type:** process
 - **Scope:** `.github`
+- **PR:** [#259](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/259)
 
 [中文版](2026-10-19-status-probe.zh.md)
 
