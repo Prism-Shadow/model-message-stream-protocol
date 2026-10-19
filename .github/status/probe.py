@@ -331,7 +331,7 @@ def write_monthly(out: Path, month: str) -> dict[str, Any]:
             for key, entry in run["targets"].items():
                 if entry["cost_usd"] is not None:
                     targets[key] = round(targets.get(key, 0.0) + entry["cost_usd"], 8)
-    summary = {"runs": runs, "total_usd": round(sum(targets.values()), 8), "targets": targets}
+    summary = {"runs": runs, "total_usd": round(sum(targets.values(), 0.0), 8), "targets": targets}
     monthly = read_json(out / "monthly.json", {"months": {}})
     monthly["months"][month] = summary
     write_json(out / "monthly.json", {"months": dict(sorted(monthly["months"].items()))})
