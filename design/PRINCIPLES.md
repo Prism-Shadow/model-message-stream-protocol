@@ -52,17 +52,18 @@ Enforced by: the `_convert_thinking_level*` methods of the clients; `src_py/test
 
 ## PRN-006 A rejected value raises a typed error
 
-A client that rejects a `temperature`, `tool_choice`, `prompt_caching` or `fast_mode` value its model cannot take raises `UnsupportedParameterError`, naming the client and the parameter, before the request goes out. An operation a client cannot perform at all raises `UnsupportedOperationError`. `thinking_level` is never rejected (PRN-005).
+A client that rejects a `temperature`, `tool_choice`, `prompt_caching`, `fast_mode` or `tts_config` value its model cannot take raises `UnsupportedParameterError`, naming the client and the parameter, before the request goes out. An operation a client cannot perform at all raises `UnsupportedOperationError`. `thinking_level` is never rejected (PRN-005).
 
 - The `mmsp` client relays its server's rejection as `UpstreamError`, whose `error_type` is `UnsupportedParameterError`.
 
-Enforced by: `src_py/mmsp/errors.py`, `src_ts/src/errors.ts`; `transform_uni_config_to_model_config` / `transformUniConfigToModelConfig` of the clients; `test_list_models.py` / `list-models.test.ts`; `test_mmsp_server.py` / `mmsp-server.test.ts`.
+Enforced by: `src_py/mmsp/errors.py`, `src_ts/src/errors.ts`; `transform_uni_config_to_model_config` / `transformUniConfigToModelConfig` of the clients; `test_list_models.py` / `list-models.test.ts`; `test_mmsp_server.py` / `mmsp-server.test.ts`; `test_client.py::test_gemini_tts_config_rejects_a_speaker_list_it_cannot_voice` and its Jest mirror.
 
 ## PRN-007 Replay is minimal; fidelity is the exception channel
 
 A client rebuilds a replayed assistant turn from its items' universal fields and their `fidelity`, plus the stand-ins a provider requires for what the turn lacks (a dummy thought signature, an empty reasoning field). `fidelity` holds only wire data that no universal field carries and a replay sends back, such as a thinking signature, encrypted reasoning, a phase, or the reasoning field name a strict upstream demands; never an id the provider regenerates or ignores, and never a copy of a universal field. Consumers treat it as opaque and pass it back unchanged.
 
 - In a stream, at most one delta of an item carries its fidelity, and the item's `.done` repeats it.
+- Claude takes a thinking block back only with the signature it issued, so a Claude replay omits a thinking item that carries none.
 - `tool_call_id` holds the provider's call id where the wire carries one, and a replay sends it back; where the wire carries both an item id and a call id, it holds the call id, which correlates a result to its call.
 
 Enforced by: `Fidelity` in `types.py` / `types.ts`; `StreamItems`, which keeps one fidelity per item and strips `item_id`; the message transforms of the clients; `src_py/tests/test_reasoning_fidelity.py`, `test_reasoning_replay_without_thinking.py`, `test_tool_call_arguments.py` and their Jest mirrors.
@@ -71,6 +72,7 @@ Enforced by: `Fidelity` in `types.py` / `types.ts`; `StreamItems`, which keeps o
 
 `mmsp` and `@prismshadow/mmsp` have the same clients, mappings, error classes and stream, under the same names up to each language's casing and idiom; a behavior one package lacks or does differently is a bug. A change lands in both in one PR, with mirrored tests.
 
+- Both packages put the same request body on the wire. A key outside an SDK's typed parameters travels through that SDK's own channel: `extra_body` in the OpenAI Python SDK, a top-level body key in openai-node.
 - The shared e2e tests, `src_py/tests/test_client.py` and `src_ts/tests/client.test.ts`, are one contract every client satisfies. A model enters them as its entry in `.github/ci/models.json`, with its capability flags and key variable. No shared test branches on a model name, and no model gets a test file of its own.
 - A failing shared test means the client is wrong until proven otherwise. Any broader test edit needs the owner's explicit approval, per change.
 - A generation that leaves the catalog stays supported and routed (PRN-003).

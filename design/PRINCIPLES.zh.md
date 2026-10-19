@@ -52,17 +52,18 @@
 
 ## PRN-006 被拒绝的值抛出有类型的错误
 
-客户端因模型无法接受而拒绝 `temperature`、`tool_choice`、`prompt_caching` 或 `fast_mode` 的某个值时，在请求发出之前抛出 `UnsupportedParameterError`，并指明客户端与参数。客户端根本无法执行的操作抛出 `UnsupportedOperationError`。`thinking_level` 从不被拒绝（PRN-005）。
+客户端因模型无法接受而拒绝 `temperature`、`tool_choice`、`prompt_caching`、`fast_mode` 或 `tts_config` 的某个值时，在请求发出之前抛出 `UnsupportedParameterError`，并指明客户端与参数。客户端根本无法执行的操作抛出 `UnsupportedOperationError`。`thinking_level` 从不被拒绝（PRN-005）。
 
 - `mmsp` 客户端把其服务端的拒绝作为 `UpstreamError` 抛出，其 `error_type` 为 `UnsupportedParameterError`。
 
-实现位置：`src_py/mmsp/errors.py`、`src_ts/src/errors.ts`；各客户端的 `transform_uni_config_to_model_config` / `transformUniConfigToModelConfig`；`test_list_models.py` / `list-models.test.ts`；`test_mmsp_server.py` / `mmsp-server.test.ts`。
+实现位置：`src_py/mmsp/errors.py`、`src_ts/src/errors.ts`；各客户端的 `transform_uni_config_to_model_config` / `transformUniConfigToModelConfig`；`test_list_models.py` / `list-models.test.ts`；`test_mmsp_server.py` / `mmsp-server.test.ts`；`test_client.py::test_gemini_tts_config_rejects_a_speaker_list_it_cannot_voice` 及其对应的 Jest 测试。
 
 ## PRN-007 回传最小化，fidelity 是例外通道
 
 客户端回传助手回合时，依据其内容项的通用字段和 `fidelity` 重建请求，只额外补上服务商对回合所缺部分要求的替代内容（一个占位的思考签名、一个空的推理字段）。`fidelity` 只存放没有通用字段承载、回传时又要发回的线上数据，例如思考签名、加密的推理内容、phase，或严格的上游要求的推理字段名；它绝不存放服务商会重新生成或忽略的 id，也绝不复制通用字段的内容。使用方把它当作不透明数据，原样传回。
 
 - 在流中，一个内容项最多只有一个 delta 携带它的 fidelity，该内容项的 `.done` 会再带一次。
+- Claude 只接受带有它自己签发的签名的思考块，因此回传给 Claude 时，不带签名的思考内容项会被略去。
 - 线上格式带有调用 id 时，`tool_call_id` 保存服务商的调用 id，回传时发回；线上格式同时带有内容项 id 和调用 id 时，它保存的是调用 id，结果依靠调用 id 对应到它的调用。
 
 实现位置：`types.py` / `types.ts` 中的 `Fidelity`；`StreamItems`，它让每个内容项只有一份 fidelity，并去掉 `item_id`；各客户端的消息转换；`src_py/tests/test_reasoning_fidelity.py`、`test_reasoning_replay_without_thinking.py`、`test_tool_call_arguments.py` 及其对应的 Jest 测试。
@@ -71,6 +72,7 @@
 
 `mmsp` 与 `@prismshadow/mmsp` 拥有相同的客户端、映射、错误类和流，名称一致，只随各语言的大小写与惯用写法而不同；一个包缺少、或与另一个包做法不同的行为，都是缺陷。一项改动在同一个 PR 中同时落到两个包，并附上相互对应的测试。
 
+- 两个包发出的请求体相同。SDK 类型参数之外的键走各自 SDK 的通道：OpenAI Python SDK 用 `extra_body`，openai-node 直接放在请求体顶层。
 - 共享的 e2e 测试 `src_py/tests/test_client.py` 与 `src_ts/tests/client.test.ts` 是每个客户端都要满足的同一份契约。模型以它在 `.github/ci/models.json` 中的条目进入这些测试，条目写明能力标记与密钥变量。没有共享测试按模型名分支，也没有模型拥有专属的测试文件。
 - 共享测试失败时，除非证明并非如此，都视为客户端有错。任何更大范围的测试改动，都需要项目负责人逐项明确批准。
 - 离开测试模型清单的一代模型仍然受支持，并照常路由（PRN-003）。
