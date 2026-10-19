@@ -3,6 +3,7 @@
 - **Date:** 2026-10-19
 - **Type:** fix
 - **Scope:** `google_genai`, `google_official`, `tests`
+- **PR:** [#269](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/269)
 
 [English](2026-10-19-tts-config-unsupported-parameter.md)
 
