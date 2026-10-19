@@ -188,8 +188,37 @@ describe("glm thinking level mapping", () => {
       const config = (client as any)._client.transformUniConfigToModelConfig({
         thinking_level: level,
       });
-      expect(config.extra_body.thinking.type).toBe(thinkingType);
+      expect(config.thinking.type).toBe(thinkingType);
+      expect(config.extra_body).toBeUndefined();
+      expect(config.tool_stream).toBe(true);
       expect(config.reasoning_effort).toBe(effort);
+    },
+  );
+});
+
+// GLM before 5.3 and the Kimi K2 generation turn thinking on and off with a thinking switch.
+// openai-node posts the body as given, so the switch sits at the top level of the config; the
+// Python client carries it in extra_body, which its SDK merges into the same top-level key.
+const THINKING_SWITCH_CASES: Array<[string, string, ThinkingLevel, string]> = [
+  ["kimi-k2.6", "moonshot-official", ThinkingLevel.NONE, "disabled"],
+  ["kimi-k2.6", "moonshot-official", ThinkingLevel.MEDIUM, "enabled"],
+  ["glm-5.2", "zai-official", ThinkingLevel.NONE, "disabled"],
+];
+
+describe("thinking switch reaches the wire", () => {
+  test.each(THINKING_SWITCH_CASES)(
+    "%s (%s) maps %s to thinking=%s",
+    (model, clientType, level, thinkingType) => {
+      const client = new AutoLLMClient({
+        model,
+        apiKey: "test-key",
+        clientType,
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const config = (client as any)._client.transformUniConfigToModelConfig({
+        thinking_level: level,
+      });
+      expect(config.thinking.type).toBe(thinkingType);
     },
   );
 });

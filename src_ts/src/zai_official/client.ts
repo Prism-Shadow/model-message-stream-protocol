@@ -152,11 +152,13 @@ export class ZAIOfficialClient extends LLMClient {
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   transformUniConfigToModelConfig(config: UniConfig): any {
+    // openai-node posts the body as given and has no extra_body, so GLM's own keys
+    // (tool_stream, thinking) go at the top level, where the Python SDK merges its extra_body.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const glmConfig: any = {
       model: this._model,
       stream: true,
-      extra_body: { tool_stream: true },
+      tool_stream: true,
     };
 
     if (config.max_tokens !== undefined) {
@@ -168,13 +170,9 @@ export class ZAIOfficialClient extends LLMClient {
     }
 
     if (config.thinking_level !== undefined) {
-      const thinkingConfig = this._convertThinkingLevelToConfig(
+      glmConfig.thinking = this._convertThinkingLevelToConfig(
         config.thinking_level,
       );
-      glmConfig.extra_body = {
-        ...(glmConfig.extra_body || {}),
-        thinking: thinkingConfig,
-      };
       const reasoningEffort = this._convertThinkingLevelToReasoningEffort(
         config.thinking_level,
       );
