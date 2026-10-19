@@ -3,6 +3,7 @@
 - **Date:** 2026-10-19
 - **Type:** feature
 - **Scope:** `registry`, `tests`, `ci`, `docs`
+- **PR:** [#261](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/261)
 
 [English](2026-10-19-registry-vertex-bedrock-tokendance.md)
 
