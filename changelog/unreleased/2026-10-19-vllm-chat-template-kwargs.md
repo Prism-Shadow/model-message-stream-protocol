@@ -3,6 +3,7 @@
 - **Date:** 2026-10-19
 - **Type:** fix
 - **Scope:** `openai_chat_vllm_adapter`, `tests`
+- **PR:** [#266](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/266)
 
 [中文版](2026-10-19-vllm-chat-template-kwargs.zh.md)
 
