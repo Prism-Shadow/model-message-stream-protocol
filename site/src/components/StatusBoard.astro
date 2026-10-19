@@ -1,0 +1,308 @@
+---
+// The status page's body, modeled on status.openai.com: one line for every channel the daily probe
+// watches, the worst status naming it, with the month's probe cost beside it; then one block per
+// channel, its TTFT and TPS beside the name and its last 90 days as bars. Everything comes from
+// the status-data branch in the browser, and the provider and vendor of each channel from its
+// base URL and model id, as the catalog names them. Marks point into the page's MarkSprite.
+import { STRINGS, type Locale } from "../shared/i18n";
+import { MARKS } from "../shared/marks";
+
+interface Props {
+  locale: Locale;
+  class?: string;
+}
+const { locale, class: className } = Astro.props;
+const s = STRINGS[locale];
+const words = { ...s.status, state: s.models.status, locale: s.htmlLang };
+// the colour of each mark drawn in currentColor, for the marks the script draws
+const tones = Object.fromEntries(Object.entries(MARKS).map(([id, mark]) => [id, mark.tone ?? ""]));
+---
+
+<section class:list={["status-page", className]} data-status-board data-words={JSON.stringify(words)} data-tones={JSON.stringify(tones)}>
+  <h1 class="sr-only">{s.status.title}</h1>
+  <div class="flex flex-wrap items-start justify-between gap-x-8 gap-y-4 border-b border-gray-200 pb-6 dark:border-gray-800">
+    <div class="min-h-[3.5rem]">
+      <p class="status-overall" data-status-overall hidden>
+        <span class="status-dot"></span>
+        <span data-status-overall-text></span>
+      </p>
+      <p class="mt-1.5 text-[13px] text-gray-500 dark:text-gray-400" data-status-checked hidden>
+        <a class="underline decoration-gray-300 underline-offset-4 hover:text-gray-900 dark:decoration-gray-600 dark:hover:text-gray-100"></a>
+      </p>
+    </div>
+    <div class="sm:text-right" data-status-cost hidden>
+      <p class="mono text-2xl font-semibold tabular-nums" data-status-cost-month></p>
+      <p class="mt-1 text-xs text-gray-500 dark:text-gray-400" data-status-cost-label></p>
+      <p class="mono mt-1 text-xs text-gray-400 tabular-nums dark:text-gray-500" data-status-cost-earlier></p>
+    </div>
+  </div>
+  <div data-status-blocks></div>
+</section>
+
+<script>
+  import {
+    STATUS_RANK,
+    STATUS_RUN_URL,
+    ago,
+    formatMs,
+    formatTps,
+    formatUsd,
+    lastDays,
+    loadHistory,
+    loadLatest,
+    loadMonthly,
+    statusAnchor,
+    statusLabel,
+    type Day,
+    type Status,
+    type StatusWords,
+    type TargetLatest,
+  } from "../shared/status";
+  import { providerOf, vendorOf } from "../shared/providers";
+
+  interface Side {
+    name: string;
+    mark?: string;
+  }
+  type Words = {
+    state: StatusWords;
+    locale: string;
+    overall: Record<Status | "allDown" | "none", string>;
+    checked: string;
+    month: string;
+    runs: string;
+    ttft: string;
+    tps: string;
+    tpsUnit: string;
+    cost: string;
+    daysAgo: string;
+    today: string;
+    uptime: string;
+  };
+
+  const board = document.querySelector<HTMLElement>("[data-status-board]");
+  if (board) {
+    const words = JSON.parse(board.dataset.words!) as Words;
+    const tones = JSON.parse(board.dataset.tones!) as Record<string, string>;
+    const blocks = board.querySelector<HTMLElement>("[data-status-blocks]")!;
+    const SVG = "http://www.w3.org/2000/svg";
+
+    const element = <K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text?: string) => {
+      const node = document.createElement(tag);
+      node.className = className;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    };
+    const mark = (side: Side | null | undefined) => {
+      const slot = element("span", "flex h-4 w-4 shrink-0 items-center justify-center");
+      if (side?.mark) {
+        const svg = document.createElementNS(SVG, "svg");
+        svg.setAttribute("class", `h-4 w-4 ${tones[side.mark] ?? ""}`);
+        svg.setAttribute("fill", "currentColor");
+        svg.setAttribute("role", "img");
+        svg.setAttribute("aria-label", side.name);
+        const use = document.createElementNS(SVG, "use");
+        use.setAttribute("href", `#mark-${side.mark}`);
+        svg.append(use);
+        slot.append(svg);
+      }
+      return slot;
+    };
+    const metric = (label: string, value: string, title?: string) => {
+      const node = element("span", "status-metric");
+      if (title) node.title = title;
+      node.append(element("span", "status-metric-label", label), element("span", "mono", value));
+      return node;
+    };
+    const monthName = (month: string) =>
+      new Intl.DateTimeFormat(words.locale, { year: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${month}-01T00:00:00Z`));
+
+    // one bar per day, coloured by the day's status, and the share of probed days that were up
+    const history = (days: Record<string, Day> | undefined) => {
+      const wrap = element("div", "mt-3");
+      const row = element("div", "flex items-center gap-3");
+      const bars = element("div", "status-bars");
+      let probed = 0;
+      let up = 0;
+      for (const date of lastDays()) {
+        const day = days?.[date];
+        const bar = element("span", "status-bar");
+        bar.dataset.status = day?.status ?? "none";
+        const parts = [date, day ? words.state[day.status] : words.state.none];
+        if (day && day.status !== "nokey") {
+          probed += 1;
+          if (day.status === "up") up += 1;
+          if (day.ttft_ms !== null) parts.push(`TTFT ${formatMs(day.ttft_ms)}`);
+          if (day.tps !== null) parts.push(`TPS ${formatTps(day.tps)}`);
+        }
+        bar.title = parts.join(" · ");
+        bars.append(bar);
+      }
+      const share = element("span", "mono w-14 shrink-0 text-right text-[13px] tabular-nums text-gray-600 dark:text-gray-300", probed ? `${Number(((up / probed) * 100).toFixed(1))}%` : "—");
+      share.title = words.uptime;
+      row.append(bars, share);
+      const legend = element("div", "status-legend");
+      legend.append(element("span", "", words.daysAgo), element("span", "", words.today));
+      wrap.append(row, legend);
+      return wrap;
+    };
+
+    const block = (key: string, target: TargetLatest, days: Record<string, Day> | undefined, cost: string) => {
+      const vendor = vendorOf(target.model);
+      const provider = providerOf(target.base_url);
+      const section = element("section", "status-block");
+      section.id = statusAnchor(key);
+      const head = element("div", "flex flex-wrap items-center justify-between gap-x-6 gap-y-2");
+      // the dot and the names line up from block to block; a state other than up is said in words
+      // after them
+      const name = element("div", "flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1");
+      if (target.checked_at) name.title = ago(target.checked_at, words.locale);
+      const label = statusLabel(target.status, words.state);
+      label.querySelector(".status-word")!.classList.add("sr-only");
+      const model = element("span", "flex min-w-0 items-center gap-2");
+      model.append(label, mark(vendor), element("span", "mono text-[14px] font-medium break-all", target.model));
+      // on a phone the provider takes the next line, under the model id
+      const served = element("span", "flex items-center gap-2 max-sm:basis-full max-sm:pl-10");
+      served.append(element("span", "text-gray-300 max-sm:hidden dark:text-gray-600", "·"), mark(provider), element("span", "text-[14px] text-gray-600 dark:text-gray-400", provider.name));
+      if (target.status !== "up") served.append(element("span", "status-state", words.state[target.status]));
+      name.append(model, served);
+      const metrics = element("div", "flex items-center gap-x-5 text-[13px] tabular-nums");
+      metrics.append(
+        metric(words.ttft, formatMs(target.ttft_ms)),
+        metric(words.tps, formatTps(target.tps), words.tpsUnit),
+        metric(words.cost, cost, words.month),
+      );
+      head.append(name, metrics);
+      section.append(head, history(days));
+      if (target.error && target.status !== "up") section.append(element("p", "status-error mono", target.error));
+      return section;
+    };
+
+    Promise.all([loadLatest(), loadHistory(), loadMonthly()]).then(([latest, historyData, monthly]) => {
+      const overall = board.querySelector<HTMLElement>("[data-status-overall]")!;
+      const overallText = board.querySelector<HTMLElement>("[data-status-overall-text]")!;
+      const targets = Object.entries(latest?.targets ?? {});
+      // the worst status of the probed channels names the page; a channel without a key is a
+      // matter of configuration, not an outage
+      const probed = targets.filter(([, target]) => target.status !== "nokey");
+      let state: Status | "allDown" | "none" = "none";
+      if (targets.length && !probed.length) state = "nokey";
+      else if (probed.length) {
+        const worst = probed.reduce<Status>((acc, [, target]) => (STATUS_RANK[target.status] > STATUS_RANK[acc] ? target.status : acc), "up");
+        state = worst === "down" && probed.every(([, target]) => target.status === "down") ? "allDown" : worst;
+      }
+      overall.dataset.status = state === "allDown" ? "down" : state;
+      overallText.textContent = words.overall[state];
+      overall.hidden = false;
+      if (!latest) return;
+
+      const stamps = targets.map(([, target]) => target.checked_at).filter((stamp): stamp is string => Boolean(stamp)).sort();
+      const checked = board.querySelector<HTMLElement>("[data-status-checked]")!;
+      const run = checked.querySelector("a")!;
+      run.textContent = words.checked.replace("{ago}", ago(stamps.at(-1) ?? latest.generated_at, words.locale));
+      run.href = STATUS_RUN_URL + latest.run_id;
+      checked.hidden = false;
+
+      const thisMonth = new Date().toISOString().slice(0, 7);
+      const month = monthly?.months[thisMonth];
+      if (monthly) {
+        board.querySelector("[data-status-cost-month]")!.textContent = formatUsd(month?.total_usd ?? 0);
+        board.querySelector("[data-status-cost-label]")!.textContent = [words.month, month ? words.runs.replace("{n}", String(month.runs)) : ""].filter(Boolean).join(" · ");
+        const earlier = Object.keys(monthly.months)
+          .filter((name) => name < thisMonth)
+          .sort()
+          .reverse();
+        const earlierLine = board.querySelector<HTMLElement>("[data-status-cost-earlier]")!;
+        earlierLine.textContent = earlier.slice(0, 3).map((name) => `${monthName(name)} ${formatUsd(monthly.months[name].total_usd)}`).join(" · ");
+        earlierLine.title = earlier.map((name) => `${monthName(name)} ${formatUsd(monthly.months[name].total_usd)} · ${words.runs.replace("{n}", String(monthly.months[name].runs))}`).join("\n");
+        board.querySelector<HTMLElement>("[data-status-cost]")!.hidden = false;
+      }
+
+      blocks.replaceChildren(
+        ...targets.map(([key, target]) => block(key, target, historyData?.targets[key], target.status === "nokey" ? "—" : formatUsd(month?.targets[key]))),
+      );
+      // a link from the catalog names a block that only exists now
+      const wanted = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+      if (wanted) wanted.scrollIntoView();
+    });
+  }
+</script>
+
+<style is:global>
+  .status-overall {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+  .status-overall .status-dot {
+    width: 0.75rem;
+    height: 0.75rem;
+  }
+  .status-block {
+    border-bottom: 1px solid var(--color-gray-200);
+    padding: 1.25rem 0;
+    scroll-margin-top: 5rem;
+  }
+  .dark .status-block {
+    border-bottom-color: var(--color-gray-800);
+  }
+  .status-metric {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.375rem;
+  }
+  .status-metric-label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--color-gray-500);
+  }
+  .dark .status-metric-label {
+    color: var(--color-gray-400);
+  }
+  /* 90 days, one bar each; on a phone the gaps narrow so the bars stay readable */
+  .status-bars {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 2rem;
+    gap: 2px;
+  }
+  @media (max-width: 639.98px) {
+    .status-bars {
+      gap: 1px;
+    }
+  }
+  .status-bar {
+    flex: 1 1 0;
+    min-width: 0;
+    border-radius: 1px;
+    background: var(--status);
+  }
+  .status-legend {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.375rem;
+    /* the share of up days ends the bars' line; the legend spans the bars only */
+    margin-right: 4.25rem;
+    font-size: 11px;
+    color: var(--color-gray-400);
+  }
+  .dark .status-legend {
+    color: var(--color-gray-500);
+  }
+  .status-state {
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .status-error {
+    margin-top: 0.5rem;
+    font-size: 12px;
+    color: var(--color-gray-500);
+    overflow-wrap: anywhere;
+  }
+</style>

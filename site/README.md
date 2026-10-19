@@ -1,6 +1,6 @@
 # The MMSP site
 
-The site at [mmsp.penguin.ooo](https://mmsp.penguin.ooo): the overview page, the documentation and the changelog, in English at `/` and in Chinese at `/zh/`. It is an [Astro](https://astro.build) project styled with Tailwind CSS, built and deployed to GitHub Pages by `.github/workflows/pages.yml` on every push to `main` that touches it.
+The site at [mmsp.penguin.ooo](https://mmsp.penguin.ooo): the overview page, the documentation, the model catalog, the status page and the changelog, in English at `/` and in Chinese at `/zh/`. It is an [Astro](https://astro.build) project styled with Tailwind CSS, built and deployed to GitHub Pages by `.github/workflows/pages.yml` on every push to `main` that touches it.
 
 ## Develop
 
@@ -27,6 +27,10 @@ Node 22.12 or newer.
 | `src/layouts/Base.astro` | The chrome, the metadata of every page, and the script that applies the language and the theme before the first paint |
 | `src/layouts/DocPage.astro` | A documentation page: sidebar, table of contents that follows the reader, Copy Markdown, previous and next |
 | `src/shared/stream-demo.ts` | The input and the streams the overview page replays, and how the stop event is drawn |
+| `src/shared/catalog.ts`, `src/components/ModelCatalog.astro`, `src/pages/models.json.ts` | The model catalog at `/models/` and `/models.json`: every entry of `src_ts/src/registry.ts` with its provider, key variable, price and integration kit |
+| `src/shared/providers.ts` | The providers by base URL (name, mark, key variable) and the vendors by model id; an endpoint not listed is named by its host |
+| `src/shared/status.ts`, `src/components/StatusBoard.astro` | The status page at `/status/`, drawn in the browser from the status probe's files |
+| `src/shared/marks.ts`, `src/components/VendorMark.astro`, `src/components/MarkSprite.astro` | The vendor and provider marks of the home page's logo row, the catalog and the status page |
 | `src/styles/global.css` | The theme: the visual language of penguin.ooo/docs with the violet of the MMSP artwork |
 | `public/CNAME` | The custom domain |
 | `artwork/` | The sources of the images in `.github/images/` |
@@ -40,6 +44,12 @@ TOKENDANCE_KEY_FILE=~/.tokendance-key node site/scripts/polish-zh.mjs site/src/d
 ```
 
 Read the diff afterwards: the script keeps code and structure, not meaning.
+
+## Models and status
+
+`/models/` is built from the SDK's registry, `src_ts/src/registry.ts`, so a row added there is on the page at the next deploy; `.github/workflows/pages.yml` builds the site when that file changes. A provider the page does not know yet is named by its host and its key variable is guessed from it: add it to `PROVIDERS` in `src/shared/providers.ts`, with its mark in `src/shared/marks.ts`. Each row's kit is the `AutoLLMClient` call for its `(model, base_url, client)` and its row in an MMSP server's models table; an official model at its vendor's own endpoint gets the short form, `AutoLLMClient(model=...)`, decided by the model families of `src_ts/src/autoClient.ts`.
+
+`/status/` and the catalog's status column read the status probe's files (`.github/status/README.md`) from the `status-data` branch in the browser; before its first run, every row says it is not probed. To see the pages with data, serve hand-written `latest.json`, `history.json` and `monthly.json` with `access-control-allow-origin: *` and open a page served from `localhost` or `127.0.0.1` with `?status=<that origin>`; a published page ignores the parameter.
 
 ## Language and theme
 

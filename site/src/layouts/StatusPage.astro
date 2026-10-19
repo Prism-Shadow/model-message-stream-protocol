@@ -1,0 +1,19 @@
+---
+import Base from "./Base.astro";
+import MarkSprite from "../components/MarkSprite.astro";
+import StatusBoard from "../components/StatusBoard.astro";
+import { STRINGS, type Locale } from "../shared/i18n";
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const s = STRINGS[locale].status;
+---
+
+<Base locale={locale} title={s.title} description={s.description} active="status">
+  <MarkSprite />
+  <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+    <StatusBoard locale={locale} class="max-w-5xl" />
+  </div>
+</Base>
