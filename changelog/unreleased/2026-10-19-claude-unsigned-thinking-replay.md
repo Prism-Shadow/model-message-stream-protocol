@@ -3,6 +3,7 @@
 - **Date:** 2026-10-19
 - **Type:** fix
 - **Scope:** `anthropic_official`, `tests`
+- **PR:** [#268](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/268)
 
 [中文版](2026-10-19-claude-unsigned-thinking-replay.zh.md)
 
