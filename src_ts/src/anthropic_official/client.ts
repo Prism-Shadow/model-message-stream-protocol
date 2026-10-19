@@ -78,8 +78,8 @@ export class AnthropicOfficialClient extends LLMClient {
     this._model = options.model;
     const { apiKey: key, baseUrl: url } = resolveCredentials(
       this.constructor.name,
+      "anthropic-official",
       options,
-      { key: "ANTHROPIC_API_KEY", baseUrl: "ANTHROPIC_BASE_URL" },
     );
 
     if (url && url.startsWith("bedrock://")) {

@@ -15,6 +15,7 @@
 import json
 from typing import Any
 
+from .credentials import CLIENT_CREDENTIALS
 from .types import UsageMetadata
 
 
@@ -43,6 +44,28 @@ class UnsupportedParameterError(MMSPError):
         self.client = client
         self.parameter = parameter
         super().__init__(message)
+
+
+class ApiKeyRequiredError(MMSPError):
+    """Raised at construction when a client is given a base URL without a key and the environment's key may not go there.
+
+    Only the client's default endpoint and the endpoint `base_url_env` names take `api_key_env` (see
+    environment_credential in `credentials`).
+    """
+
+    def __init__(self, client: str, client_type: str, base_url: str) -> None:
+        credentials = CLIENT_CREDENTIALS[client_type]
+        self.client = client
+        self.client_type = client_type
+        self.api_key_env = credentials.api_key_env
+        self.base_url_env = credentials.base_url_env
+        self.base_url = base_url
+        super().__init__(
+            f"api_key is required for {client} with base_url {base_url}: "
+            f"{self.api_key_env} is sent only to {credentials.default_base_url} or to the endpoint "
+            f"{self.base_url_env} names. Pass api_key, or drop base_url and set {self.api_key_env}, plus "
+            f"{self.base_url_env} for an endpoint other than {credentials.default_base_url}."
+        )
 
 
 class UnsupportedOperationError(MMSPError):

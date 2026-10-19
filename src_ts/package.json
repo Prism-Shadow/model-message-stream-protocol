@@ -9,6 +9,7 @@
   ],
   "exports": {
     ".": "./dist/index.js",
+    "./credentials": "./dist/credentials.js",
     "./integration/tracer": "./dist/integration/tracer.js",
     "./integration/playground": "./dist/integration/playground.js",
     "./integration/server": "./dist/integration/server.js"

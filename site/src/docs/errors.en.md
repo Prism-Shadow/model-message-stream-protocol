@@ -24,6 +24,9 @@ Python names the fields `tool_name`, `tool_call_id`, `raw_arguments_length`, `ra
 | --- | --- | --- |
 | `UnsupportedParameterError` | A `UniConfig` value the model rejects, such as `temperature` on a model that fixes it. | `client`, `parameter` |
 | `UnsupportedOperationError` | A call the endpoint cannot serve, such as listing models on Amazon Bedrock. | `client`, `operation` |
+| `ApiKeyRequiredError` | A client was built with a `base_url` and no `api_key`, and the URL is not the client's default endpoint, so the environment's key may not go there ([the rule](/docs/client/)). Raised by the constructor. | `client`, `client_type`, `api_key_env`, `base_url_env`, `base_url` |
+
+`ApiKeyRequiredError`'s message names both fixes: pass the key, or drop the base URL and set the variables. TypeScript names its fields `clientType`, `apiKeyEnv`, `baseUrlEnv` and `baseUrl`.
 
 Thinking levels never raise. Every client maps the level you ask for to the closest one the model supports.
 

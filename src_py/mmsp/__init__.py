@@ -14,6 +14,7 @@
 
 from .auto_client import AutoLLMClient
 from .errors import (
+    ApiKeyRequiredError,
     EmptyResponseError,
     MMSPError,
     StreamProtocolError,
@@ -28,6 +29,7 @@ from .types import PromptCaching, ThinkingLevel
 
 
 __all__ = [
+    "ApiKeyRequiredError",
     "AutoLLMClient",
     "Currency",
     "EmptyResponseError",

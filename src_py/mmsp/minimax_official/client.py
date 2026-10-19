@@ -13,13 +13,13 @@
 # limitations under the License.
 
 import json
-import os
 from typing import Any, AsyncIterator
 
 from openai import AsyncOpenAI
 from openai.types.responses import ResponseStreamEvent
 
 from ..base_client import LLMClient
+from ..credentials import CLIENT_CREDENTIALS
 from ..errors import UnsupportedParameterError
 from ..types import (
     EventContentItem,
@@ -33,10 +33,7 @@ from ..types import (
     UniMessage,
     UsageMetadata,
 )
-from ..utils import is_debug_enabled
-
-
-_DEFAULT_BASE_URL = "https://api.minimax.io/v1"
+from ..utils import is_debug_enabled, resolve_credentials
 
 
 class MiniMaxOfficialClient(LLMClient):
@@ -51,14 +48,14 @@ class MiniMaxOfficialClient(LLMClient):
     ):
         """Initialize a MiniMax M3 Responses client with a Subscription Key or API key."""
         self._model = model
+        api_key, base_url = resolve_credentials(self.__class__.__name__, "minimax-official", api_key, base_url)
         # The wrapped OpenAI SDK falls back to OPENAI_API_KEY when handed None, which would send an
-        # OpenAI credential to the MiniMax host, so resolve the key here and fail loudly instead.
-        resolved_api_key = api_key or os.getenv("MINIMAX_API_KEY")
-        if not resolved_api_key:
+        # OpenAI credential to the MiniMax host, so fail loudly instead.
+        if not api_key:
             raise ValueError("MINIMAX_API_KEY is required for MiniMaxOfficialClient.")
         self._client = AsyncOpenAI(
-            api_key=resolved_api_key,
-            base_url=base_url or os.getenv("MINIMAX_BASE_URL") or _DEFAULT_BASE_URL,
+            api_key=api_key,
+            base_url=base_url or CLIENT_CREDENTIALS["minimax-official"].default_base_url,
             default_headers=default_headers,
         )
         self._history: list[UniMessage] = []
