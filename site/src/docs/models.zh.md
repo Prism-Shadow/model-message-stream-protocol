@@ -94,18 +94,23 @@ client = AutoLLMClient(
 
 </div>
 
-常见网关的 base URL：
+常见网关的 base URL，以及示例读取 key 所用的环境变量：
 
-| 网关 | Base URL |
-| --- | --- |
-| OpenRouter | `https://openrouter.ai/api/v1` |
-| SiliconFlow | `https://api.siliconflow.cn/v1` |
-| ModelVerse | `https://api.modelverse.cn/v1`，Claude 模型使用 `https://api.modelverse.cn/` |
-| vLLM | `http://127.0.0.1:8000/v1/` |
+| 网关 | Base URL | Key |
+| --- | --- | --- |
+| OpenRouter | `https://openrouter.ai/api/v1` | `OPENROUTER_API_KEY` |
+| SiliconFlow | `https://api.siliconflow.cn/v1` | `SILICONFLOW_API_KEY` |
+| TokenDance（词元跳动） | `https://tokendance.space/gateway/v1`，Anthropic Messages 使用 `https://tokendance.space/gateway` | `TOKENDANCE_API_KEY` |
+| Google Vertex AI | `https://aiplatform.googleapis.com` | `VERTEX_API_KEY`：服务账号 JSON |
+| Amazon Bedrock | `bedrock://<region>`，例如 `bedrock://us-east-1` | `BEDROCK_API_KEY`：`ACCESS_KEY,SECRET_KEY` |
+| ModelVerse | `https://api.modelverse.cn/v1`，Claude 模型使用 `https://api.modelverse.cn/` | `MODELVERSE_API_KEY` |
+| vLLM | `http://127.0.0.1:8000/v1/` | |
+
+TokenDance 用一个 key 提供多种协议。它的模型列表写明了每个模型支持的协议；选择支持其中一种协议的客户端，TokenDance 支持厂商自有 API 时选用厂商的官方客户端：`deepseek-v4.1-flash` 用 `deepseek-official`，`kimi-k3` 用 `moonshot-official`，`glm-5.3` 用 `zai-official`。
 
 ## Vertex AI 上的 Gemini
 
-指定 `google-genai`，并将服务账号的 JSON key 作为 API key 传入。Vertex AI 的 Interactions 端点不提供这些模型，所以使用 Interactions 的 `google-official` 会拒绝此类 key。
+指定 `google-genai`，并将服务账号的 JSON key 作为 API key 传入。Vertex AI 的 Interactions 端点不提供这些模型，所以使用 Interactions 的 `google-official` 会拒绝此类 key。无论是否传入 `base_url`，客户端都调用全球端点 `https://aiplatform.googleapis.com`。
 
 <div class="code-group">
 
@@ -128,6 +133,32 @@ client = AutoLLMClient(
 </div>
 
 思考签名仅在签发它的端点上有效。详见 [Fidelity](/zh/docs/fidelity/)。
+
+## Amazon Bedrock 上的 Claude
+
+指定 `anthropic-official`，将 `bedrock://<region>` 作为 base URL，并将 AWS 的 access key 与 secret key 用逗号连接后作为 API key 传入。模型 id 是 Bedrock 的推理配置文件，例如 `global.anthropic.claude-opus-5-5`；`global.` 配置文件按 Anthropic 的标价计费，地域配置文件（`us.`、`eu.`、`jp.`、`au.`）贵 10%。
+
+<div class="code-group">
+
+```typescript
+const client = new AutoLLMClient({
+  model: "global.anthropic.claude-opus-5-5",
+  clientType: "anthropic-official",
+  baseUrl: "bedrock://us-east-1",
+  apiKey: process.env.BEDROCK_API_KEY, // "ACCESS_KEY,SECRET_KEY"
+});
+```
+
+```python
+client = AutoLLMClient(
+    model="global.anthropic.claude-opus-5-5",
+    client_type="anthropic-official",
+    base_url="bedrock://us-east-1",
+    api_key=os.environ["BEDROCK_API_KEY"],  # "ACCESS_KEY,SECRET_KEY"
+)
+```
+
+</div>
 
 ## 接口协议
 
