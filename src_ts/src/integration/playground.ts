@@ -26,12 +26,13 @@ import http from "http";
 import { AddressInfo } from "net";
 import * as path from "path";
 import { performance } from "perf_hooks";
+import { AutoLLMClient } from "../autoClient";
 import {
-  AutoLLMClient,
+  CLIENT_CREDENTIALS,
   COMPATIBLE_CLIENT_TYPES,
   MODEL_FAMILIES,
   OFFICIAL_CLIENT_TYPES,
-} from "../autoClient";
+} from "../credentials";
 import { UniMessage, UniConfig, UsageMetadata } from "../types";
 import { DEFAULT_HOST, DEFAULT_PORT, serverBaseUrl } from "../wire";
 import {
@@ -176,31 +177,6 @@ function serializeForJson(obj: any): any {
  *
  * @returns Express application instance
  */
-// The endpoint each client type reaches when it is given no base URL: the environment's, else the
-// vendor's own. The playground fills the Base URL field with it and leaves it out of requests.
-const DEFAULT_BASE_URLS: Record<string, [string, string]> = {
-  "openai-official": ["OPENAI_BASE_URL", "https://api.openai.com/v1"],
-  "anthropic-official": ["ANTHROPIC_BASE_URL", "https://api.anthropic.com"],
-  "google-official": [
-    "GEMINI_BASE_URL",
-    "https://generativelanguage.googleapis.com",
-  ],
-  "zai-official": ["ZAI_BASE_URL", "https://api.z.ai/api/paas/v4/"],
-  "moonshot-official": ["MOONSHOT_BASE_URL", "https://api.moonshot.cn/v1"],
-  "deepseek-official": ["DEEPSEEK_BASE_URL", "https://api.deepseek.com"],
-  "minimax-official": ["MINIMAX_BASE_URL", "https://api.minimax.io/v1"],
-  "openai-responses": ["OPENAI_BASE_URL", "https://api.openai.com/v1"],
-  "openai-chat": ["OPENAI_BASE_URL", "https://api.openai.com/v1"],
-  "openai-chat-vllm-adapter": ["OPENAI_BASE_URL", "https://api.openai.com/v1"],
-  "openai-embedding": ["OPENAI_BASE_URL", "https://api.openai.com/v1"],
-  "ant-messages": ["ANTHROPIC_BASE_URL", "https://api.anthropic.com"],
-  "google-genai": [
-    "GEMINI_BASE_URL",
-    "https://generativelanguage.googleapis.com",
-  ],
-  mmsp: ["MMSP_BASE_URL", "http://127.0.0.1:25752/v1"],
-};
-
 /**
  * The client types, their model families and default endpoints, as the page script reads them.
  */
@@ -209,11 +185,15 @@ function playgroundDefaults(): string {
     official: OFFICIAL_CLIENT_TYPES,
     compatible: COMPATIBLE_CLIENT_TYPES,
     families: MODEL_FAMILIES,
+    // the endpoint each client type reaches when it is given no base URL: the environment's, else
+    // the client's default. The page fills the Base URL field with it and leaves it out of requests.
     baseUrls: Object.fromEntries(
-      Object.entries(DEFAULT_BASE_URLS).map(([name, [env, url]]) => [
-        name,
-        process.env[env] || url,
-      ]),
+      Object.entries(CLIENT_CREDENTIALS).map(
+        ([name, { baseUrlEnv, defaultBaseUrl }]) => [
+          name,
+          process.env[baseUrlEnv] || defaultBaseUrl,
+        ],
+      ),
     ),
   });
 }

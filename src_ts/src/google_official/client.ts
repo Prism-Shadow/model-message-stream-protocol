@@ -34,7 +34,7 @@ import {
   UniMessage,
   UsageMetadata,
 } from "../types";
-import { isDebugEnabled, speakerTurns } from "../utils";
+import { isDebugEnabled, resolveCredentials, speakerTurns } from "../utils";
 
 type GeminiThinkingLevel = "minimal" | "low" | "medium" | "high";
 
@@ -74,8 +74,11 @@ export class GoogleOfficialClient extends LLMClient {
   }) {
     super();
     this._model = options.model;
-    const key = options.apiKey || process.env.GEMINI_API_KEY || undefined;
-    const url = options.baseUrl || process.env.GEMINI_BASE_URL || undefined;
+    const { apiKey: key, baseUrl: url } = resolveCredentials(
+      this.constructor.name,
+      "google-official",
+      options,
+    );
     // the Gemini SDK carries connection headers inside httpOptions rather than its own argument
     const httpOptions: { baseUrl?: string; headers?: Record<string, string> } =
       {};

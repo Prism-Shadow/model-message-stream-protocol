@@ -13,12 +13,20 @@
 # limitations under the License.
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
 import pytest
 
-from mmsp import AutoLLMClient
+from mmsp import ApiKeyRequiredError, AutoLLMClient
+from mmsp.credentials import (
+    CLIENT_CREDENTIALS,
+    COMPATIBLE_CLIENT_TYPES,
+    OFFICIAL_CLIENT_TYPES,
+    EnvironmentCredential,
+    environment_credential,
+)
 
 
 # Each case builds a client under a controlled environment and reads the credential its vendor
@@ -44,6 +52,7 @@ _CREDENTIAL_ENV = [
     "GEMINI_API_KEY",
     "GEMINI_BASE_URL",
     "GOOGLE_API_KEY",
+    "GOOGLE_GEMINI_BASE_URL",
     "MMSP_API_KEY",
     "MMSP_BASE_URL",
     # the Python Bedrock client refuses AWS keys while this is set
@@ -126,71 +135,166 @@ def test_vendor_client_uses_an_explicit_key_over_both_variables(case: VendorCase
     assert _sdk(client).api_key == "sk-explicit-PROBE"
 
 
+def _google_credential(client: AutoLLMClient) -> tuple[str | None, str | None]:
+    api_client = _sdk(client)._api_client  # noqa: SLF001
+    return api_client.api_key, api_client._http_options.base_url  # noqa: SLF001
+
+
+def _openai_held(client: AutoLLMClient) -> tuple[str | None, str]:
+    return _sdk(client).api_key, str(_sdk(client).base_url)
+
+
+def _anthropic_held(client: AutoLLMClient) -> tuple[str | None, str]:
+    return _anthropic_auth_headers(client).get("x-api-key"), str(_sdk(client).base_url)
+
+
+def _google_held(client: AutoLLMClient) -> tuple[str | None, str]:
+    api_key, base_url = _google_credential(client)
+    return api_key, str(base_url)
+
+
+def _mmsp_held(client: AutoLLMClient) -> tuple[str | None, str]:
+    authorization = _sdk(client).headers.get("authorization")
+    return authorization.removeprefix("Bearer ") if authorization else None, str(_sdk(client).base_url)
+
+
 @dataclass
-class OpenaiCase:
-    expected_client: str
+class ClientCase:
     model: str
-    client_type: str | None = None
+    # what the built client holds: the key its SDK sends and the endpoint it calls
+    held: Callable[[AutoLLMClient], tuple[str | None, str]]
 
 
-# The OpenAI protocol clients, which OPENAI_API_KEY and OPENAI_BASE_URL belong to.
-OPENAI_CASES = [
-    OpenaiCase(expected_client="OpenAIOfficialClient", model="gpt-6-astra"),
-    OpenaiCase(expected_client="OpenaiChatClient", model="gpt-5.6", client_type="openai-chat"),
-    OpenaiCase(expected_client="OpenaiResponsesClient", model="gpt-5.6", client_type="openai-responses"),
-    OpenaiCase(
-        expected_client="OpenaiEmbeddingClient", model="text-embedding-3-large", client_type="openai-embedding"
-    ),
-    OpenaiCase(
-        expected_client="OpenaiChatVllmAdapterClient",
-        model="Qwen/Qwen3.6-35B-A3B",
-        client_type="openai-chat-vllm-adapter",
-    ),
-]
+# One case per client type: a model it serves and how to read back what its SDK holds.
+CLIENT_CASES = {
+    "openai-official": ClientCase("gpt-6-astra", _openai_held),
+    "anthropic-official": ClientCase("claude-sonnet-5", _anthropic_held),
+    "google-official": ClientCase("gemini-3.8-flash", _google_held),
+    "zai-official": ClientCase("glm-5.3", _openai_held),
+    "moonshot-official": ClientCase("kimi-k3", _openai_held),
+    "deepseek-official": ClientCase("deepseek-v4-flash", _openai_held),
+    "minimax-official": ClientCase("MiniMax-M3", _openai_held),
+    "openai-responses": ClientCase("gpt-5.6", _openai_held),
+    "openai-chat": ClientCase("gpt-5.6", _openai_held),
+    "openai-chat-vllm-adapter": ClientCase("Qwen/Qwen3.6-35B-A3B", _openai_held),
+    "openai-embedding": ClientCase("text-embedding-3-large", _openai_held),
+    "ant-messages": ClientCase("claude-sonnet-5", _anthropic_held),
+    "google-genai": ClientCase("gemini-3.8-flash", _google_held),
+    "mmsp": ClientCase("gpt-5.5", _mmsp_held),
+}
+CLIENT_TYPES = list(CLIENT_CREDENTIALS)
+REFUSING_CLIENT_TYPES = [name for name, credentials in CLIENT_CREDENTIALS.items() if not credentials.open_server]
+
+_OTHER_BASE_URL = "https://gateway.example/v1"
+_ENV_BASE_URL = "https://env.example/v1"
 
 
-@pytest.mark.parametrize("case", OPENAI_CASES, ids=[case.expected_client for case in OPENAI_CASES])
-def test_openai_protocol_client_reads_openai_api_key_and_base_url(case: OpenaiCase, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("OPENAI_API_KEY", "sk-openai-PROBE")
-    monkeypatch.setenv("OPENAI_BASE_URL", "https://gateway.example/v1/")
-
-    client = AutoLLMClient(model=case.model, client_type=case.client_type)
-
-    assert _routed_client_name(client) == case.expected_client
-    assert _sdk(client).api_key == "sk-openai-PROBE"
-    assert str(_sdk(client).base_url) == "https://gateway.example/v1/"
+def _endpoint(url: str) -> str:
+    """An endpoint as the rule compares it: the host's case and trailing slashes ignored."""
+    return url.lower().rstrip("/")
 
 
-@pytest.mark.parametrize("case", OPENAI_CASES, ids=[case.expected_client for case in OPENAI_CASES])
-def test_openai_protocol_client_with_a_base_url_refuses_to_build_on_openai_api_key(
-    case: OpenaiCase, monkeypatch: pytest.MonkeyPatch
+def _respelled(url: str) -> str:
+    """The same endpoint spelled otherwise: the host in capitals, with a trailing slash."""
+    respelled = re.sub(r"^([a-z]+://)([^/]+)", lambda match: match.group(1) + match.group(2).upper(), url)
+    return respelled if respelled.endswith("/") else f"{respelled}/"
+
+
+def _held(client_type: str, **options: str) -> tuple[str | None, str]:
+    case = CLIENT_CASES[client_type]
+    api_key, base_url = case.held(AutoLLMClient(model=case.model, client_type=client_type, **options))
+    return api_key, _endpoint(base_url)
+
+
+def test_every_client_type_has_a_row_of_client_credentials_and_a_case_here():
+    client_types = sorted([*OFFICIAL_CLIENT_TYPES, *COMPATIBLE_CLIENT_TYPES])
+
+    assert sorted(CLIENT_CREDENTIALS) == client_types
+    assert sorted(CLIENT_CASES) == client_types
+
+
+# Each scenario reads what environment_credential says the client does, then builds the client and
+# checks that it does exactly that.
+@pytest.mark.parametrize("client_type", CLIENT_TYPES)
+def test_a_key_passed_in_goes_to_the_base_url_passed_in(client_type: str, monkeypatch: pytest.MonkeyPatch):
+    credentials = CLIENT_CREDENTIALS[client_type]
+    monkeypatch.setenv(credentials.api_key_env, "sk-env-PROBE")
+    monkeypatch.setenv(credentials.base_url_env, _ENV_BASE_URL)
+
+    held = _held(client_type, api_key="sk-explicit-PROBE", base_url=_OTHER_BASE_URL)
+
+    assert held == ("sk-explicit-PROBE", _endpoint(_OTHER_BASE_URL))
+
+
+@pytest.mark.parametrize("client_type", CLIENT_TYPES)
+def test_a_key_passed_in_without_a_base_url_goes_to_the_endpoint_of_its_base_url_variable(
+    client_type: str, monkeypatch: pytest.MonkeyPatch
 ):
-    monkeypatch.setenv("OPENAI_API_KEY", "sk-openai-PROBE")
-    message = (
-        f"api_key is required for {case.expected_client} with a base_url: "
-        "OPENAI_API_KEY is not sent to another endpoint."
+    credentials = CLIENT_CREDENTIALS[client_type]
+    monkeypatch.setenv(credentials.api_key_env, "sk-env-PROBE")
+    monkeypatch.setenv(credentials.base_url_env, _ENV_BASE_URL)
+
+    assert _held(client_type, api_key="sk-explicit-PROBE") == ("sk-explicit-PROBE", _endpoint(_ENV_BASE_URL))
+
+
+@pytest.mark.parametrize("client_type", CLIENT_TYPES)
+def test_no_key_and_no_base_url_take_both_from_the_environment(client_type: str, monkeypatch: pytest.MonkeyPatch):
+    credentials = CLIENT_CREDENTIALS[client_type]
+    monkeypatch.setenv(credentials.api_key_env, "sk-env-PROBE")
+    monkeypatch.setenv(credentials.base_url_env, _ENV_BASE_URL)
+
+    assert environment_credential(client_type) == EnvironmentCredential(
+        "env", credentials.api_key_env, credentials.base_url_env
+    )
+    assert _held(client_type) == ("sk-env-PROBE", _endpoint(_ENV_BASE_URL))
+
+
+@pytest.mark.parametrize("client_type", CLIENT_TYPES)
+def test_no_key_no_base_url_and_no_base_url_variable_send_the_environments_key_to_the_default_endpoint(
+    client_type: str, monkeypatch: pytest.MonkeyPatch
+):
+    credentials = CLIENT_CREDENTIALS[client_type]
+    monkeypatch.setenv(credentials.api_key_env, "sk-env-PROBE")
+
+    assert _held(client_type) == ("sk-env-PROBE", _endpoint(credentials.default_base_url))
+
+
+@pytest.mark.parametrize("client_type", REFUSING_CLIENT_TYPES)
+def test_the_default_endpoint_spelled_otherwise_takes_the_environments_key_and_ignores_the_base_url_variable(
+    client_type: str, monkeypatch: pytest.MonkeyPatch
+):
+    credentials = CLIENT_CREDENTIALS[client_type]
+    monkeypatch.setenv(credentials.api_key_env, "sk-env-PROBE")
+    monkeypatch.setenv(credentials.base_url_env, _ENV_BASE_URL)
+    passed = _respelled(credentials.default_base_url)
+
+    assert environment_credential(client_type, passed) == EnvironmentCredential("env", credentials.api_key_env, None)
+    assert _held(client_type, base_url=passed) == ("sk-env-PROBE", _endpoint(credentials.default_base_url))
+
+
+@pytest.mark.parametrize("client_type", REFUSING_CLIENT_TYPES)
+def test_another_endpoint_passed_without_a_key_is_refused_before_any_request_naming_both_fixes(
+    client_type: str, monkeypatch: pytest.MonkeyPatch
+):
+    credentials = CLIENT_CREDENTIALS[client_type]
+    monkeypatch.setenv(credentials.api_key_env, "sk-env-PROBE")
+    monkeypatch.setenv(credentials.base_url_env, _ENV_BASE_URL)
+    fixes = (
+        f"Pass api_key, or drop base_url and set {credentials.api_key_env}, plus {credentials.base_url_env} "
+        f"for an endpoint other than {credentials.default_base_url}."
     )
 
-    with pytest.raises(ValueError, match=re.escape(message)):
-        AutoLLMClient(model=case.model, client_type=case.client_type, base_url="https://gateway.example/v1/")
-
-
-@pytest.mark.parametrize("case", OPENAI_CASES, ids=[case.expected_client for case in OPENAI_CASES])
-def test_openai_protocol_client_with_a_base_url_and_a_key_uses_both_over_the_environment(
-    case: OpenaiCase, monkeypatch: pytest.MonkeyPatch
-):
-    monkeypatch.setenv("OPENAI_API_KEY", "sk-openai-PROBE")
-    monkeypatch.setenv("OPENAI_BASE_URL", "https://env.example/v1/")
-
-    client = AutoLLMClient(
-        model=case.model,
-        client_type=case.client_type,
-        api_key="sk-explicit-PROBE",
-        base_url="https://gateway.example/v1/",
+    assert environment_credential(client_type, _OTHER_BASE_URL) == EnvironmentCredential(
+        "required", credentials.api_key_env, credentials.base_url_env
     )
-
-    assert _sdk(client).api_key == "sk-explicit-PROBE"
-    assert str(_sdk(client).base_url) == "https://gateway.example/v1/"
+    with pytest.raises(ApiKeyRequiredError, match=re.escape(fixes)) as refusal:
+        AutoLLMClient(model=CLIENT_CASES[client_type].model, client_type=client_type, base_url=_OTHER_BASE_URL)
+    assert (
+        refusal.value.client_type,
+        refusal.value.api_key_env,
+        refusal.value.base_url_env,
+        refusal.value.base_url,
+    ) == (client_type, credentials.api_key_env, credentials.base_url_env, _OTHER_BASE_URL)
 
 
 @dataclass
@@ -257,20 +361,6 @@ def test_anthropic_client_without_a_key_does_not_send_anthropic_auth_token(
     assert _anthropic_auth_headers(client) == {}
 
 
-@pytest.mark.parametrize("case", ANTHROPIC_CASES, ids=ANTHROPIC_IDS)
-def test_anthropic_client_with_a_base_url_refuses_to_build_on_anthropic_api_key(
-    case: AnthropicCase, monkeypatch: pytest.MonkeyPatch
-):
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-PROBE")
-    message = (
-        f"api_key is required for {case.expected_client} with a base_url: "
-        "ANTHROPIC_API_KEY is not sent to another endpoint."
-    )
-
-    with pytest.raises(ValueError, match=re.escape(message)):
-        AutoLLMClient(model=case.model, client_type=case.client_type, base_url="https://proxy.example/anthropic")
-
-
 def test_claude5_client_on_bedrock_sends_no_anthropic_credential_to_aws(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-PROBE")
     monkeypatch.setenv("ANTHROPIC_AUTH_TOKEN", "tok-env-PROBE")
@@ -283,84 +373,25 @@ def test_claude5_client_on_bedrock_sends_no_anthropic_credential_to_aws(monkeypa
     assert _anthropic_auth_headers(client) == {}
 
 
-def _google_credential(client: AutoLLMClient) -> tuple[str | None, str | None]:
-    api_client = _sdk(client)._api_client  # noqa: SLF001
-    return api_client.api_key, api_client._http_options.base_url  # noqa: SLF001
-
-
-# The google-genai client, which GEMINI_API_KEY and GEMINI_BASE_URL belong to.
-def test_google_genai_client_reads_gemini_api_key_and_base_url(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("GEMINI_API_KEY", "gm-env-PROBE")
-    monkeypatch.setenv("GEMINI_BASE_URL", "https://gateway.example/")
-
-    client = AutoLLMClient(model="gemini-3.8-flash", client_type="google-genai")
-
-    assert _routed_client_name(client) == "GoogleGenaiClient"
-    assert _google_credential(client) == ("gm-env-PROBE", "https://gateway.example/")
-
-
-def test_google_genai_client_with_a_base_url_refuses_to_build_on_gemini_api_key(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("GEMINI_API_KEY", "gm-env-PROBE")
-    message = (
-        "api_key is required for GoogleGenaiClient with a base_url: GEMINI_API_KEY is not sent to another endpoint."
-    )
-
-    with pytest.raises(ValueError, match=re.escape(message)):
-        AutoLLMClient(model="gemini-3.8-flash", client_type="google-genai", base_url="https://gateway.example/")
-
-
-def test_google_genai_client_with_a_base_url_and_a_key_uses_both_over_the_environment(
-    monkeypatch: pytest.MonkeyPatch,
-):
-    monkeypatch.setenv("GEMINI_API_KEY", "gm-env-PROBE")
-    monkeypatch.setenv("GEMINI_BASE_URL", "https://env.example/")
-
-    client = AutoLLMClient(
-        model="gemini-3.8-flash",
-        client_type="google-genai",
-        api_key="gm-explicit-PROBE",
-        base_url="https://gateway.example/",
-    )
-
-    assert _google_credential(client) == ("gm-explicit-PROBE", "https://gateway.example/")
-
-
 # The mmsp client, which MMSP_API_KEY and MMSP_BASE_URL belong to; it holds an httpx client of its own.
-def test_mmsp_client_reads_mmsp_api_key_and_base_url(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("MMSP_API_KEY", "mm-env-PROBE")
-    monkeypatch.setenv("MMSP_BASE_URL", "https://gateway.example/mmsp")
-
-    client = AutoLLMClient(model="gpt-5.5", client_type="mmsp")
-
-    assert _routed_client_name(client) == "MmspClient"
-    assert _sdk(client).headers.get("authorization") == "Bearer mm-env-PROBE"
-    # the trailing slash keeps a server behind a path prefix: requests join under it
-    assert str(_sdk(client).base_url) == "https://gateway.example/mmsp/"
-
-
 def test_mmsp_client_with_a_base_url_and_no_key_sends_no_key(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("MMSP_API_KEY", "mm-env-PROBE")
 
     # an open server needs no key, and MMSP_API_KEY is not sent to another endpoint
     client = AutoLLMClient(model="gpt-5.5", client_type="mmsp", base_url="https://gateway.example/mmsp")
 
+    assert environment_credential("mmsp", "https://gateway.example/mmsp") == EnvironmentCredential("keyless")
     assert "authorization" not in _sdk(client).headers
     assert str(_sdk(client).base_url) == "https://gateway.example/mmsp/"
 
 
-def test_mmsp_client_with_a_base_url_and_a_key_uses_both_over_the_environment(monkeypatch: pytest.MonkeyPatch):
+def test_mmsp_client_with_the_default_endpoint_and_no_key_sends_no_key_either(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("MMSP_API_KEY", "mm-env-PROBE")
-    monkeypatch.setenv("MMSP_BASE_URL", "https://env.example/mmsp")
 
-    client = AutoLLMClient(
-        model="gpt-5.5",
-        client_type="mmsp",
-        api_key="mm-explicit-PROBE",
-        base_url="https://gateway.example/mmsp",
-    )
+    client = AutoLLMClient(model="gpt-5.5", client_type="mmsp", base_url="http://127.0.0.1:25752/v1")
 
-    assert _sdk(client).headers.get("authorization") == "Bearer mm-explicit-PROBE"
-    assert str(_sdk(client).base_url) == "https://gateway.example/mmsp/"
+    assert environment_credential("mmsp", "http://127.0.0.1:25752/v1") == EnvironmentCredential("keyless")
+    assert "authorization" not in _sdk(client).headers
 
 
 def test_mmsp_client_without_a_key_or_a_base_url_sends_no_key_to_the_local_server():

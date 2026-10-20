@@ -65,9 +65,7 @@ class AnthropicOfficialClient(LLMClient):
     ):
         """Initialize Claude 5 client with model and API key."""
         self._model = model
-        api_key, base_url = resolve_credentials(
-            self.__class__.__name__, api_key, base_url, "ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL"
-        )
+        api_key, base_url = resolve_credentials(self.__class__.__name__, "anthropic-official", api_key, base_url)
         if base_url and base_url.startswith("bedrock://"):  # example: bedrock://us-east-1
             region = base_url.replace("bedrock://", "")
             access_key, secret_key = api_key.split(",")
