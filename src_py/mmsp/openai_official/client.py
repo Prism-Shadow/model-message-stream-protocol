@@ -47,9 +47,7 @@ class OpenAIOfficialClient(LLMClient):
     ):
         """Initialize GPT-6 client with model and API key."""
         self._model = model
-        api_key, base_url = resolve_credentials(
-            self.__class__.__name__, api_key, base_url, "OPENAI_API_KEY", "OPENAI_BASE_URL"
-        )
+        api_key, base_url = resolve_credentials(self.__class__.__name__, "openai-official", api_key, base_url)
         self._client = AsyncOpenAI(api_key=api_key, base_url=base_url, default_headers=default_headers)
         self._history: list[UniMessage] = []
 

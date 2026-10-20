@@ -4,6 +4,8 @@
 
 Here, we record the addition and removal times of models, major functional updates, bug fixes, and release times of key versions. Each release keeps one brief line here; the per-entry summaries live in `changelog/<version>/README.md`, and every entry links its detail file.
 
+- [2026-10-19] [Version 0.5.4](changelog/0.5.4/README.md): every client reads its environment key only with no base URL or its own default endpoint and refuses any other base URL passed without a key with `ApiKeyRequiredError`, and the rule ships as `@prismshadow/mmsp/credentials` and `mmsp.credentials`; GPT-6 Luna is supported with reasoning off preserved; model CI runs by affected client and publication waits for the full suites; the README lists Vertex AI support for Gemini 4 Argon.
+
 - [2026-10-14] [Version 0.5.3](changelog/0.5.3/README.md): Gemini 4 Argon support in Python and TypeScript, with thinking-level mapping, registry metadata, and official API documentation.
 
 - [2026-10-10] [Version 0.5.2](changelog/0.5.2/README.md): an MMSP server serves the models of a table over HTTP as MMSP streams, the `mmsp` client calls it, and the playground's server page edits the table, starts the server, charts its metrics and tests each row against its upstream; Claude Haiku 5.5 is supported and Sonnet 5.5 cache reads drop to $0.10; the official Gemini client is named `google-official` (alias `gemini-official`); a chat sent to another model in the playground starts a new conversation.
