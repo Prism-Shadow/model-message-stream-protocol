@@ -11,7 +11,7 @@ on:
       - "CHANGELOG.zh.md"
       # the model catalog is built from the SDK's registry and its family table
       - "src_ts/src/registry.ts"
-      - "src_ts/src/autoClient.ts"
+      - "src_ts/src/credentials.ts"
       - ".github/workflows/pages.yml"
   pull_request:
     branches:
@@ -24,7 +24,7 @@ on:
       - "CHANGELOG.zh.md"
       # the model catalog is built from the SDK's registry and its family table
       - "src_ts/src/registry.ts"
-      - "src_ts/src/autoClient.ts"
+      - "src_ts/src/credentials.ts"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 

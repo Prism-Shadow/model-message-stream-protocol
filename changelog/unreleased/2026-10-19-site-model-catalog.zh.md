@@ -15,7 +15,7 @@
 - 目录的状态列把每个已探测的行链接到 `/status/` 上对应的区块；未探测的行显示「未探测」。
 - `/models.json` 为 Agent 提供整个目录：每一项的端点、客户端、密钥变量、标价、接入代码和状态键。
 - 顶栏在文档入口之后新增「模型」和「状态」，宽度达到 1024 px 时才在同一行内显示全部入口。首页的「等 1000+ 个模型」链接到模型目录。`sitemap.xml` 和 `llms.txt` 收录了这两个页面。
-- `src_ts/src/registry.ts` 或 `src_ts/src/autoClient.ts` 变化时，`pages.yml` 会重新构建网站。
+- `src_ts/src/registry.ts` 或 `src_ts/src/credentials.ts` 变化时，`pages.yml` 会重新构建网站。
 
 ## 服务商
 

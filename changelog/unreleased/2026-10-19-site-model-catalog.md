@@ -15,7 +15,7 @@
 - The catalog's status column linked each probed row to its block on `/status/`; an unprobed row said `Not probed`.
 - `/models.json` served the catalog for agents: each entry's endpoint, client, key variable, list price, kit and status key.
 - The top bar gained `Models` and `Status` after the documentation entries and showed its entries inline from 1024 px. The home page's "and 1000+ models" opened the catalog. `sitemap.xml` and `llms.txt` listed both pages.
-- `pages.yml` rebuilt the site when `src_ts/src/registry.ts` or `src_ts/src/autoClient.ts` changed.
+- `pages.yml` rebuilt the site when `src_ts/src/registry.ts` or `src_ts/src/credentials.ts` changed.
 
 ## Providers
 

@@ -3,7 +3,7 @@
 // key and its integration kit. The kit is the constructor call the registry test makes for the
 // entry, so the page cannot offer code the SDK does not run.
 import { listSupportedModels, type SupportedModel } from "../../../src_ts/src/registry.ts";
-import autoClientSource from "../../../src_ts/src/autoClient.ts?raw";
+import credentialsSource from "../../../src_ts/src/credentials.ts?raw";
 import { providerOf, vendorOf, type Provider, type Vendor } from "./providers";
 import type { Locale } from "./i18n";
 
@@ -16,11 +16,11 @@ export function statusKey(entry: Pick<SupportedModel, "model" | "base_url" | "cl
   return `${entry.client}|${entry.base_url}|${entry.model}`;
 }
 
-// MODEL_FAMILIES of autoClient.ts, read as text: importing the module would pull every provider
+// MODEL_FAMILIES of credentials.ts, read as text: importing the SDK would pull every provider
 // SDK into the site build. A family routes a model id to its official client without a client type.
-const familySource = autoClientSource.slice(autoClientSource.indexOf("export const MODEL_FAMILIES")).split("];")[0];
+const familySource = credentialsSource.slice(credentialsSource.indexOf("export const MODEL_FAMILIES")).split("];")[0];
 const FAMILIES = [...familySource.matchAll(/\["([^"]+)",\s*"([^"]+)"\]/g)].map((match) => [match[1], match[2]] as const);
-if (FAMILIES.length === 0) throw new Error("site/src/shared/catalog.ts found no MODEL_FAMILIES in src_ts/src/autoClient.ts");
+if (FAMILIES.length === 0) throw new Error("site/src/shared/catalog.ts found no MODEL_FAMILIES in src_ts/src/credentials.ts");
 
 function familyClient(model: string): string | null {
   const lowered = model.toLowerCase();
