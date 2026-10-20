@@ -50,9 +50,7 @@ class AntMessagesClient(LLMClient):
     ):
         """Initialize Anthropic Messages-compatible client with model, API key, and base URL."""
         self._model = model
-        api_key, base_url = resolve_credentials(
-            self.__class__.__name__, api_key, base_url, "ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL"
-        )
+        api_key, base_url = resolve_credentials(self.__class__.__name__, "ant-messages", api_key, base_url)
         # send the credential through both header conventions: Anthropic and DeepSeek read
         # x-api-key while gateways such as OpenRouter and Z.AI read Authorization: Bearer
         self._client = AsyncAnthropic(

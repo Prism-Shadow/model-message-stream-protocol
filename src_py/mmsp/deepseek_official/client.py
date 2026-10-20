@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import json
-import os
 import re
 from typing import Any, AsyncIterator
 
@@ -21,6 +20,7 @@ from openai import AsyncOpenAI
 from openai.types.responses import ResponseInputParam, ResponseStreamEvent
 
 from ..base_client import LLMClient
+from ..credentials import CLIENT_CREDENTIALS
 from ..errors import UnsupportedParameterError
 from ..types import (
     EventContentItem,
@@ -34,7 +34,7 @@ from ..types import (
     UniMessage,
     UsageMetadata,
 )
-from ..utils import is_debug_enabled
+from ..utils import is_debug_enabled, resolve_credentials
 
 
 # The DeepSeek ids that read no image: the current V4 Flash and V4 Pro, bare or with a dated
@@ -56,12 +56,12 @@ class DeepSeekOfficialClient(LLMClient):
     ):
         """Initialize DeepSeek client with model, API key, and base URL."""
         self._model = model
+        api_key, base_url = resolve_credentials(self.__class__.__name__, "deepseek-official", api_key, base_url)
         # The wrapped OpenAI SDK falls back to OPENAI_API_KEY when handed None, which would send an
-        # OpenAI credential to the DeepSeek host, so resolve the key here and fail loudly instead.
-        api_key = api_key or os.getenv("DEEPSEEK_API_KEY")
+        # OpenAI credential to the DeepSeek host, so fail loudly instead.
         if not api_key:
             raise ValueError("DEEPSEEK_API_KEY is required for DeepSeekOfficialClient.")
-        base_url = base_url or os.getenv("DEEPSEEK_BASE_URL") or "https://api.deepseek.com"
+        base_url = base_url or CLIENT_CREDENTIALS["deepseek-official"].default_base_url
         self._client = AsyncOpenAI(api_key=api_key, base_url=base_url, default_headers=default_headers)
         self._history: list[UniMessage] = []
 

@@ -60,8 +60,8 @@ export class AntMessagesClient extends LLMClient {
     this._model = options.model;
     const { apiKey: key, baseUrl: url } = resolveCredentials(
       this.constructor.name,
+      "ant-messages",
       options,
-      { key: "ANTHROPIC_API_KEY", baseUrl: "ANTHROPIC_BASE_URL" },
     );
     // send the credential through both header conventions: Anthropic and DeepSeek read
     // x-api-key while gateways such as OpenRouter and Z.AI read Authorization: Bearer. With no

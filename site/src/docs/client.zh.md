@@ -60,11 +60,18 @@ client = AutoLLMClient(
 | --- | --- | --- | --- |
 | 模型 | `model` | `model` | 精确的模型 id。 |
 | 客户端 | `client_type` | `clientType` | 官方客户端如 `openai-official`，或兼容客户端如 `openai-chat`。如果模型 id 以已知系列开头，可省略此参数，SDK 会自动选择官方客户端；其他 id 必须提供，否则报错。详见[模型与端点](/zh/docs/models/)。 |
-| Key | `api_key` | `apiKey` | 默认使用服务商的环境变量，但仅在端点也来自环境变量时生效。 |
-| 端点 | `base_url` | `baseUrl` | 默认使用服务商的环境变量，否则使用其官方端点。 |
+| Key | `api_key` | `apiKey` | 默认使用客户端的 `<P>_API_KEY`，但只用于环境变量指定的端点或客户端的默认端点。 |
+| 端点 | `base_url` | `baseUrl` | 默认使用客户端的 `<P>_BASE_URL`，否则使用其默认端点。 |
 | 请求头 | `default_headers` | `defaultHeaders` | 随每个请求发送，用于需要自定义请求头的端点。 |
 
-API key 只会发送到它被指定的地方。从环境变量读取 `OPENAI_API_KEY` 或 `ANTHROPIC_API_KEY` 的客户端，只会将 key 发送到环境变量指定的端点（`OPENAI_BASE_URL` 或 `ANTHROPIC_BASE_URL`）或服务商的官方端点。如果指定了 `base_url` 但未提供 `api_key`，客户端会在构造时直接报错，而不是将 key 发送到其他端点。请将 key 与 URL 一同传入。其他官方客户端（如 `deepseek-official`）读取自己的环境变量 `DEEPSEEK_API_KEY`，无论给它哪个端点。
+API key 只会发送到它被指定的地方。所有客户端遵循同一条规则，其中 `<P>` 是客户端的环境变量前缀（`deepseek-official` 为 `DEEPSEEK`，`openai-chat` 为 `OPENAI`，详见[模型与端点](/zh/docs/models/)）：
+
+- 传入了 key 就使用它。端点依次取传入的 base URL、`<P>_BASE_URL`、客户端的默认端点。
+- 未传入 key 时，客户端只在两种情况下读取 `<P>_API_KEY`：未传入 base URL，此时端点为 `<P>_BASE_URL` 或默认端点；或传入的 base URL 正是客户端自己的默认端点（忽略末尾斜杠与主机名大小写）。例如 `deepseek-official` 客户端未传 base URL 或传入 `https://api.deepseek.com` 时，使用 `DEEPSEEK_API_KEY`。
+- 未传入 key 而传入其他 base URL 时，客户端在构造时抛出 `ApiKeyRequiredError`，环境变量中的 key 绝不会发往该端点。请传入 key，或去掉 base URL 并设置 `<P>_API_KEY`；端点不是默认端点时再设置 `<P>_BASE_URL`。
+- `mmsp` 客户端是唯一的例外：传入 base URL 而不传 key，表示一个开放的 MMSP 服务端，请求不带 key。
+
+这条规则也以数据形式导出：TypeScript 为 `@prismshadow/mmsp/credentials`，它不导入任何模块，可放入浏览器包；Python 为 `mmsp.credentials`。`environmentCredential(clientType, baseUrl)`（`environment_credential`）回答未传 key 的客户端会怎么做，`routedClientType(model, clientType)`（`routed_client_type`）回答模型会用哪个客户端，`CLIENT_CREDENTIALS` 列出每个客户端类型的环境变量与默认端点。客户端解析凭据时用的也是同一张表。
 
 ## 方法
 

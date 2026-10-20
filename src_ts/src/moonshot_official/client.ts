@@ -20,6 +20,7 @@ import type {
   ChatCompletionCreateParamsStreaming,
 } from "openai/resources/chat/completions";
 import { LLMClient } from "../baseClient";
+import { CLIENT_CREDENTIALS } from "../credentials";
 import { UnsupportedParameterError } from "../errors";
 import {
   EventContentItem,
@@ -33,7 +34,7 @@ import {
   UniMessage,
   UsageMetadata,
 } from "../types";
-import { fixOpenrouterUsageMetadata } from "../utils";
+import { fixOpenrouterUsageMetadata, resolveCredentials } from "../utils";
 
 /**
  * Kimi K3-specific LLM client implementation using OpenAI-compatible API (also serves K2.5 and K2.6).
@@ -53,21 +54,21 @@ export class MoonshotOfficialClient extends LLMClient {
   }) {
     super();
     this._model = options.model;
+    const { apiKey: key, baseUrl: url } = resolveCredentials(
+      this.constructor.name,
+      "moonshot-official",
+      options,
+    );
     // The wrapped OpenAI SDK falls back to OPENAI_API_KEY when handed undefined, which would send
-    // an OpenAI credential to the Moonshot host, so resolve the key here and fail loudly instead.
-    const key = options.apiKey || process.env.MOONSHOT_API_KEY;
+    // an OpenAI credential to the Moonshot host, so fail loudly instead.
     if (!key) {
       throw new Error(
         "MOONSHOT_API_KEY is required for MoonshotOfficialClient.",
       );
     }
-    const url =
-      options.baseUrl ||
-      process.env.MOONSHOT_BASE_URL ||
-      "https://api.moonshot.cn/v1";
     this._client = new OpenAI({
       apiKey: key,
-      baseURL: url,
+      baseURL: url || CLIENT_CREDENTIALS["moonshot-official"].defaultBaseUrl,
       defaultHeaders: options.defaultHeaders,
     });
   }

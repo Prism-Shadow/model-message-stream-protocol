@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { CLIENT_CREDENTIALS, environmentCredential } from "./credentials";
+import { ApiKeyRequiredError } from "./errors";
 import { UsageMetadata } from "./types";
 
 /**
@@ -41,6 +43,47 @@ export function fixOpenrouterUsageMetadata(
 }
 
 /**
+ * The key and the endpoint a client is built with; every client resolves them here. A key passed
+ * in is used, with the base URL passed in, else `<P>_BASE_URL`. Without one, environmentCredential
+ * decides: the environment's key is read for the endpoint the environment names or for the
+ * client's default endpoint, any other base URL is refused, and the `mmsp` client calls an open
+ * server keyless.
+ *
+ * @param client - The client's class name, for the error
+ * @param clientType - The client type whose row of CLIENT_CREDENTIALS the client reads
+ * @param options - The key and the base URL passed to the client
+ * @returns The key and the base URL to build the SDK client with; either may be undefined, and an
+ *   undefined base URL is the client's default endpoint
+ * @throws ApiKeyRequiredError for a base URL passed without a key that the environment's key may
+ *   not go to
+ */
+export function resolveCredentials(
+  client: string,
+  clientType: string,
+  options: { apiKey?: string; baseUrl?: string | null },
+): { apiKey: string | undefined; baseUrl: string | undefined } {
+  const baseUrl =
+    options.baseUrl ||
+    process.env[CLIENT_CREDENTIALS[clientType].baseUrlEnv] ||
+    undefined;
+  if (options.apiKey) {
+    return { apiKey: options.apiKey, baseUrl };
+  }
+  const credential = environmentCredential(clientType, options.baseUrl);
+  if (credential?.kind === "env") {
+    return { apiKey: process.env[credential.apiKeyEnv] || undefined, baseUrl };
+  }
+  if (credential?.kind === "keyless") {
+    return { apiKey: undefined, baseUrl };
+  }
+  throw new ApiKeyRequiredError({
+    client,
+    clientType,
+    baseUrl: options.baseUrl as string,
+  });
+}
+
+/**
  * Whether MMSP_DEBUG asks the clients to fail loudly on output they do not recognize.
  *
  * Streaming clients skip an unrecognized event so that a gateway's own frames cannot
@@ -49,39 +92,6 @@ export function fixOpenrouterUsageMetadata(
  *
  * @returns Whether debug mode is on.
  */
-/**
- * The key and the endpoint of a client that reads the environment's OPENAI_API_KEY,
- * ANTHROPIC_API_KEY or GEMINI_API_KEY. A key passed in is used as it is. Without one, the environment's key goes
- * out only to the endpoint the environment names: a base URL passed in is another endpoint,
- * which that key was not given for, so it needs a key of its own.
- *
- * @param client - The client's class name, for the error
- * @param options - The key and the base URL passed to the client
- * @param env - The environment variables that hold the key and the base URL
- * @returns The key and the base URL to build the SDK client with, either of which may be undefined
- */
-export function resolveCredentials(
-  client: string,
-  options: { apiKey?: string; baseUrl?: string | null },
-  env: { key: string; baseUrl: string },
-): { apiKey: string | undefined; baseUrl: string | undefined } {
-  if (options.apiKey) {
-    return {
-      apiKey: options.apiKey,
-      baseUrl: options.baseUrl || process.env[env.baseUrl] || undefined,
-    };
-  }
-  if (options.baseUrl) {
-    throw new Error(
-      `apiKey is required for ${client} with a baseUrl: ${env.key} is not sent to another endpoint.`,
-    );
-  }
-  return {
-    apiKey: process.env[env.key] || undefined,
-    baseUrl: process.env[env.baseUrl] || undefined,
-  };
-}
-
 export function isDebugEnabled(): boolean {
   const flag = (process.env.MMSP_DEBUG || "").trim().toLowerCase();
   return !["", "0", "false", "no", "off"].includes(flag);

@@ -24,6 +24,9 @@ Python 将这些字段命名为 `tool_name`、`tool_call_id`、`raw_arguments_le
 | --- | --- | --- |
 | `UnsupportedParameterError` | 模型拒绝某个 `UniConfig` 值，比如给固定温度的模型传 `temperature`。 | `client`、`parameter` |
 | `UnsupportedOperationError` | 端点无法提供的调用，比如在 Amazon Bedrock 上列出模型。 | `client`、`operation` |
+| `ApiKeyRequiredError` | 构造客户端时传入了 `base_url` 而没有 `api_key`，且该 URL 不是客户端的默认端点，环境变量中的 key 不能发往那里（[规则](/zh/docs/client/)）。由构造函数抛出。 | `client`、`client_type`、`api_key_env`、`base_url_env`、`base_url` |
+
+`ApiKeyRequiredError` 的消息同时给出两种解决办法：传入 key，或去掉 base URL 并设置环境变量。TypeScript 将其字段命名为 `clientType`、`apiKeyEnv`、`baseUrlEnv` 和 `baseUrl`。
 
 思考级别从不抛错。每个客户端都会把你要求的级别映射到模型支持的最接近的一档。
 

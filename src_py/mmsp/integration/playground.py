@@ -41,7 +41,7 @@ from werkzeug.serving import BaseWSGIServer, make_server
 
 from .. import AutoLLMClient
 from ..abort_signal import AbortSignal
-from ..auto_client import COMPATIBLE_CLIENT_TYPES, MODEL_FAMILIES, OFFICIAL_CLIENT_TYPES
+from ..credentials import CLIENT_CREDENTIALS, COMPATIBLE_CLIENT_TYPES, MODEL_FAMILIES, OFFICIAL_CLIENT_TYPES
 from ..wire import DEFAULT_HOST, DEFAULT_PORT, server_base_url
 from .server import (
     _COLUMNS,
@@ -151,26 +151,6 @@ def _get_request_config(config: dict[str, Any]) -> dict[str, Any]:
     return request_config
 
 
-# The endpoint each client type reaches when it is given no base URL: the environment's, else the
-# vendor's own. The playground fills the Base URL field with it and leaves it out of requests.
-_DEFAULT_BASE_URLS = {
-    "openai-official": ("OPENAI_BASE_URL", "https://api.openai.com/v1"),
-    "anthropic-official": ("ANTHROPIC_BASE_URL", "https://api.anthropic.com"),
-    "google-official": ("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com"),
-    "zai-official": ("ZAI_BASE_URL", "https://api.z.ai/api/paas/v4/"),
-    "moonshot-official": ("MOONSHOT_BASE_URL", "https://api.moonshot.cn/v1"),
-    "deepseek-official": ("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
-    "minimax-official": ("MINIMAX_BASE_URL", "https://api.minimax.io/v1"),
-    "openai-responses": ("OPENAI_BASE_URL", "https://api.openai.com/v1"),
-    "openai-chat": ("OPENAI_BASE_URL", "https://api.openai.com/v1"),
-    "openai-chat-vllm-adapter": ("OPENAI_BASE_URL", "https://api.openai.com/v1"),
-    "openai-embedding": ("OPENAI_BASE_URL", "https://api.openai.com/v1"),
-    "ant-messages": ("ANTHROPIC_BASE_URL", "https://api.anthropic.com"),
-    "google-genai": ("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com"),
-    "mmsp": ("MMSP_BASE_URL", "http://127.0.0.1:25752/v1"),
-}
-
-
 def _playground_defaults() -> str:
     """The client types, their model families and default endpoints, as the page script reads them."""
     return json.dumps(
@@ -178,7 +158,12 @@ def _playground_defaults() -> str:
             "official": list(OFFICIAL_CLIENT_TYPES),
             "compatible": list(COMPATIBLE_CLIENT_TYPES),
             "families": [list(family) for family in MODEL_FAMILIES],
-            "baseUrls": {name: os.getenv(env) or url for name, (env, url) in _DEFAULT_BASE_URLS.items()},
+            # the endpoint each client type reaches when it is given no base URL: the environment's, else
+            # the client's default. The page fills the Base URL field with it and leaves it out of requests.
+            "baseUrls": {
+                name: os.getenv(credentials.base_url_env) or credentials.default_base_url
+                for name, credentials in CLIENT_CREDENTIALS.items()
+            },
         }
     )
 
