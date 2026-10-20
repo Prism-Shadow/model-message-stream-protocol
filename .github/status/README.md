@@ -52,6 +52,8 @@ A run that probes some targets only keeps the other targets' `latest.json` entri
 
 ## Running it
 
+From the site, **Run a check now** on `/status/` opens this workflow's Run workflow page; only people with write access to the repository can start a run, and the run uses the repository secrets. The page then reads the `status-data` head from the GitHub API once a minute, for up to 30 minutes, and redraws itself from the new commit's files once a new `run_id` lands. A run on a day that already has one appends to that day's `runs/` file, replaces that day's `history.json` entry of each target it probes, and is counted in `monthly.json`. The `status` concurrency group makes it wait for a run in progress, such as the scheduled one, so two runs never push at once; the group holds one waiting run, and a newer one replaces it. A run that fails before the probe writes anything, such as one whose `targets` names no target, pushes no commit, and the page stops waiting after 30 minutes.
+
 ```sh
 # from main; targets is optional, a comma-separated list of model ids or keys
 gh workflow run status.yml --ref main -f targets=deepseek-flash
