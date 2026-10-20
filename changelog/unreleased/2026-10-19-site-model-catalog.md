@@ -10,10 +10,10 @@
 ## What changed
 
 - `/models/` and `/zh/models/` listed every entry of the SDK registry (`src_ts/src/registry.ts`, read at build time): the vendor and provider marks, the modalities, the context window, and the input, output and cached list prices per million tokens in USD or CNY, with search and sortable columns.
-- Every catalog row expanded to its integration kit: the TypeScript and Python `AutoLLMClient` calls and the row of an MMSP server's models table, with the key variable it reads. An official model at its vendor's own endpoint got the short form, `AutoLLMClient(model=...)`.
+- Every catalog row opened its integration kit in a dialog: complete TypeScript and Python programs, modeled on the README's quickstart, that printed the model's answer by its output modalities (text as it streamed; an embedding's size; an image or speech written to a file), the `mmsp-server.json` that served the model with a `curl` that called it, and the lines that installed, set the key and ran each. An official model at its vendor's own endpoint got the short form, `AutoLLMClient(model=...)`.
 - `/status/` and `/zh/status/` showed the daily status probe's data from the `status-data` branch: one line with the worst status of the probed channels and the month's probe cost, then one block per channel with TTFT, TPS, the month's cost, 90 days of bars and the share of days up. A channel without a configured key showed as grey `No key`, not as an outage.
 - The catalog's status column linked each probed row to its block on `/status/`; an unprobed row said `Not probed`.
-- `/models.json` served the catalog for agents: each entry's endpoint, client, key variable, list price, kit and status key.
+- `/models.json` served the catalog for agents: each entry's endpoint, client, key variable, list price, kit (the complete programs and the server row) and status key.
 - The top bar gained `Models` and `Status` after the documentation entries and showed its entries inline from 1024 px. The home page's "and 1000+ models" opened the catalog. `sitemap.xml` and `llms.txt` listed both pages.
 - `pages.yml` rebuilt the site when `src_ts/src/registry.ts` or `src_ts/src/credentials.ts` changed.
 

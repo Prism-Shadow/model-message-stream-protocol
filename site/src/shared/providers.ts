@@ -10,8 +10,9 @@ export interface Provider {
   name: string;
   mark?: string;
   keyEnv: string;
-  // what the key variable holds, where it is not a plain token
+  // what the key variable holds, where it is not a plain token, and what to export in its place
   keyHint?: Text;
+  keyValue?: string;
   // the vendor's own endpoint, which its official client calls by default
   official?: { client: string; baseUrl: string };
 }
@@ -96,6 +97,7 @@ export const PROVIDERS: (Provider & { prefixes: string[] })[] = [
     prefixes: ["https://aiplatform.googleapis.com"],
     keyEnv: "VERTEX_API_KEY",
     keyHint: { en: "service-account JSON", zh: "服务账号 JSON" },
+    keyValue: '"$(cat service-account.json)"',
   },
   {
     id: "bedrock",
@@ -104,6 +106,7 @@ export const PROVIDERS: (Provider & { prefixes: string[] })[] = [
     prefixes: ["bedrock://"],
     keyEnv: "BEDROCK_API_KEY",
     keyHint: { en: "ACCESS,SECRET", zh: "ACCESS,SECRET" },
+    keyValue: "ACCESS,SECRET",
   },
 ];
 

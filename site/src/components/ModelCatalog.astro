@@ -1,12 +1,12 @@
 ---
 // The model catalog: one row per registry entry, built with the page, so it reads without
 // JavaScript. The script searches and sorts the rows, switches the prices between USD and CNY,
-// opens an entry's integration kit under it, and fills the status column from the daily probe,
+// opens an entry's integration kit in a dialog, and fills the status column from the daily probe,
 // each probed entry linking to its channel on the status page. Marks point into the page's
 // MarkSprite.
 import VendorMark from "./VendorMark.astro";
 import { STRINGS, localePath, type Locale } from "../shared/i18n";
-import { catalogRows, formatContext, formatPrice } from "../shared/catalog";
+import { catalogRows, formatContext, formatPrice, literal } from "../shared/catalog";
 import type { Modality } from "../../../src_ts/src/registry.ts";
 
 interface Props {
@@ -32,13 +32,37 @@ const MODALITY_ICONS: Record<Modality, string> = {
 };
 
 const price = (value: number | undefined) => (value === undefined ? undefined : formatPrice(value));
-const kits = rows.map((row) => ({
-  typescript: row.kit.typescript,
-  python: row.kit.python,
-  server: JSON.stringify(row.kit.server, null, 2),
-  env: row.kit.keyEnv,
-  hint: row.kit.keyHint?.[locale],
-}));
+// each tab's file and the lines that install, key and run it; the Server tab's file is a whole
+// mmsp-server.json, started in the background so one paste also streams one answer through it
+const kits = rows.map(({ model, base_url, output_modalities, kit }) => {
+  const hint = kit.keyHint?.[locale];
+  const keyLine = `export ${kit.keyEnv}=${kit.keyValue}` + (hint && hint !== kit.keyValue ? `  # ${hint}` : "");
+  // a single-quoted shell word cannot hold a single quote, so the prompt's quotes become escaped
+  // double quotes
+  const body = literal(kit.request, "json").replaceAll("'", '\\"');
+  // an embedding, an image or speech streams as lines of numbers or base64; their heads show it
+  const heads = output_modalities.includes("Text") ? "" : " | cut -c 1-160";
+  return {
+    model,
+    baseUrl: base_url,
+    typescript: kit.typescript,
+    python: kit.python,
+    server: JSON.stringify({ models: [kit.server], api_keys: ["$MMSP_SERVER_API_KEY"] }, null, 2),
+    run: {
+      typescript: ["npm install @prismshadow/mmsp", keyLine, "npx tsx main.ts"].join("\n"),
+      python: ["pip install mmsp", keyLine, "python main.py"].join("\n"),
+      server: [
+        "pip install mmsp",
+        keyLine,
+        "export MMSP_SERVER_API_KEY=secret",
+        "python -m mmsp.integration.server --config mmsp-server.json &",
+        "curl -sSN --retry 5 --retry-connrefused http://127.0.0.1:25752/v1/stream \\",
+        '  -H "Authorization: Bearer $MMSP_SERVER_API_KEY" -H "Content-Type: application/json" \\',
+        `  -d '${body}'${heads}`,
+      ].join("\n"),
+    },
+  };
+});
 const columns = s.columns;
 const head = "px-3 py-2.5 text-[11px] font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400";
 const sortButton =
@@ -51,7 +75,7 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
   class:list={["catalog", className]}
   data-catalog
   data-currency={currency}
-  data-words={JSON.stringify({ ...s.status, ...s.kit, models: s.models, probed: s.probed })}
+  data-words={JSON.stringify({ ...s.status, ...s.kit, models: s.models, probed: s.probed, perMillion: s.perMillion })}
   data-status-page={localePath(locale, "/status/")}
   data-locale={STRINGS[locale].htmlLang}
 >
@@ -171,11 +195,12 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
               data-cached={usd?.cached_tokens}
             >
               <td data-cell="model">
-                <button type="button" class="catalog-expand" aria-expanded="false" aria-controls="catalog-kit" aria-label={s.kit.show.replace("{model}", row.model)}>
-                  <svg viewBox="0 0 24 24" class="catalog-chevron h-3.5 w-3.5 shrink-0 text-gray-400" {...stroke} aria-hidden="true">
-                    <path d="m9 18 6-6-6-6"></path>
+                <button type="button" class="catalog-expand" aria-haspopup="dialog" aria-label={s.kit.show.replace("{model}", row.model)}>
+                  <svg viewBox="0 0 24 24" class="catalog-code h-3.5 w-3.5 shrink-0 text-gray-400" {...stroke} aria-hidden="true">
+                    <path d="m16 18 6-6-6-6"></path>
+                    <path d="m8 6-6 6 6 6"></path>
                   </svg>
-                  <span class="flex h-4 w-4 shrink-0 items-center justify-center" title={row.vendor?.name}>
+                  <span class="flex h-4 w-4 shrink-0 items-center justify-center" title={row.vendor?.name} data-row-mark>
                     {row.vendor?.mark && <VendorMark id={row.vendor.mark} title={row.vendor.name} />}
                   </span>
                   <span class="mono truncate text-[13px]" title={row.model}>{row.model}</span>
@@ -227,42 +252,52 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
           );
         })
       }
-      <tr id="catalog-kit" data-kit-row hidden>
-        <td colspan="8" class="p-0">
-          <div class="kit-reveal">
-            <div class="min-h-0 overflow-hidden">
-              <div class="kit-body">
-                <div class="code-group" data-ready>
-                  <div class="tab-strip items-center" role="tablist">
-                    <button type="button" role="tab" data-kit-tab="TypeScript">TypeScript</button>
-                    <button type="button" role="tab" data-kit-tab="Python">Python</button>
-                    <button type="button" role="tab" data-kit-tab="Server">{s.kit.server}</button>
-                    <button type="button" class="kit-copy ml-auto" data-kit-copy>
-                      <svg viewBox="0 0 24 24" class={icon} {...stroke} aria-hidden="true">
-                        <rect x="8" y="8" width="14" height="14" rx="2"></rect>
-                        <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
-                      </svg>
-                      <span>{s.kit.copy}</span>
-                    </button>
-                  </div>
-                  <pre class="astro-code kit-code"><code data-kit-code></code></pre>
-                </div>
-                <p class="mt-2.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
-                  <svg viewBox="0 0 24 24" class={icon} {...stroke} role="img" aria-label={s.kit.key}>
-                    <path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"></path>
-                    <circle cx="16.5" cy="7.5" r=".5" fill="currentColor"></circle>
-                  </svg>
-                  <code class="mono text-gray-900 dark:text-gray-100" data-kit-env></code>
-                  <span class="mono" data-kit-hint></span>
-                </p>
-              </div>
-            </div>
-          </div>
-        </td>
-      </tr>
     </tbody>
   </table>
   <p class="py-10 text-center text-sm text-gray-500 dark:text-gray-400" data-catalog-empty hidden>{s.noMatch}</p>
+  <dialog class="kit-dialog" data-kit-dialog aria-labelledby="catalog-kit-title">
+    <div class="kit-panel" tabindex="-1" data-kit-panel>
+      <div class="flex items-start justify-between gap-4">
+        <div class="min-w-0">
+          <h2 id="catalog-kit-title" class="flex items-center gap-2 text-[15px] font-semibold">
+            <span class="flex h-4 w-4 shrink-0 items-center justify-center" data-kit-mark></span>
+            <span class="mono break-all" data-kit-model></span>
+          </h2>
+          <p class="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[13px]">
+            <span class="flex min-w-0 items-center gap-2 text-gray-600 dark:text-gray-400" data-kit-provider></span>
+            <span class="mono truncate text-xs text-gray-400 dark:text-gray-500" data-kit-url></span>
+          </p>
+        </div>
+        <button type="button" class="kit-close" aria-label={s.kit.close} data-kit-close>
+          <svg viewBox="0 0 24 24" class="h-4 w-4" {...stroke} aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+        </button>
+      </div>
+      <p class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-gray-600 dark:text-gray-400">
+        <span class="flex items-center gap-1" data-kit-modalities></span>
+        <span><span class="text-gray-400 dark:text-gray-500">{columns.context}</span> <span class="mono tabular-nums" data-kit-context></span></span>
+        <span class="mono tabular-nums" data-kit-prices></span>
+        <span data-kit-status></span>
+      </p>
+      <div class="code-group" data-ready>
+        <div class="tab-strip items-center" role="tablist">
+          <button type="button" role="tab" data-kit-tab="TypeScript">TypeScript</button>
+          <button type="button" role="tab" data-kit-tab="Python">Python</button>
+          <button type="button" role="tab" data-kit-tab="Server">{s.kit.server}</button>
+          <span class="mono ml-auto text-xs text-gray-400 max-sm:hidden dark:text-gray-500" data-kit-file></span>
+          <button type="button" class="kit-copy max-sm:ml-auto" data-kit-copy>
+            <svg viewBox="0 0 24 24" class={icon} {...stroke} aria-hidden="true">
+              <rect x="8" y="8" width="14" height="14" rx="2"></rect>
+              <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
+            </svg>
+            <span>{s.kit.copy}</span>
+          </button>
+        </div>
+        <pre class="astro-code kit-code"><code data-kit-code></code></pre>
+      </div>
+      <p class="mt-3 text-[11px] font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400">{s.kit.run}</p>
+      <pre class="astro-code kit-code mt-1"><code data-kit-run></code></pre>
+    </div>
+  </dialog>
   <script type="application/json" data-catalog-kits set:html={JSON.stringify(kits).replaceAll("<", "\\u003c")} />
 </section>
 
@@ -296,15 +331,6 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
       background: var(--color-gray-900);
     }
   }
-  .catalog-table tr[data-kit-row] > td {
-    padding: 0;
-  }
-  .catalog-table tr[data-kit-row] {
-    border-bottom: 1px solid var(--color-gray-100);
-  }
-  .dark .catalog-table tr[data-kit-row] {
-    border-bottom-color: var(--color-gray-900);
-  }
   .catalog-expand {
     display: flex;
     width: 100%;
@@ -313,11 +339,11 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
     gap: 0.5rem;
     text-align: left;
   }
-  .catalog-chevron {
-    transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1);
+  .catalog-expand:hover .catalog-code {
+    color: var(--color-gray-900);
   }
-  [aria-expanded="true"] > .catalog-chevron {
-    transform: rotate(90deg);
+  .dark .catalog-expand:hover .catalog-code {
+    color: var(--color-gray-100);
   }
   .catalog-status {
     display: inline-flex;
@@ -379,7 +405,7 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
     .catalog-table td[data-cell="model"] {
       padding-left: 0.25rem;
     }
-    /* the header names the column where its ids begin, past the chevron and the mark */
+    /* the header names the column where its ids begin, past the code icon and the mark */
     .catalog-table th[data-sort-key="model"] {
       padding-left: 3.125rem;
     }
@@ -396,7 +422,7 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
     }
     .catalog-table tr[data-row] {
       display: grid;
-      /* the first column is the chevron and the mark, so the lines under the model id start where
+      /* the first column is the code icon and the mark, so the lines under the model id start where
          it does */
       grid-template-columns: 2.875rem auto auto minmax(0, 1fr) auto;
       grid-template-areas:
@@ -455,36 +481,105 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
       font-size: 11px;
       color: var(--color-gray-400);
     }
-    .catalog-table tr[data-kit-row] {
-      display: block;
-    }
-    .catalog-table tr[data-kit-row][hidden] {
-      display: none;
-    }
-    .catalog-table tr[data-kit-row] > td {
-      display: block;
-    }
   }
 
-  /* ---------- the integration kit under the open row: it unfolds, the rest of the table holds */
-  .kit-reveal {
-    display: grid;
-    grid-template-rows: 0fr;
-    transition: grid-template-rows 220ms cubic-bezier(0.23, 1, 0.32, 1);
+  /* ---------- the integration kit: a dialog over the page, which holds still under it; the panel
+     scrolls on a short screen and the code scrolls sideways */
+  .kit-dialog {
+    width: calc(100% - 2rem);
+    max-width: 50rem;
+    max-height: calc(100dvh - 2rem);
+    /* held at the top, so a tab of another length changes the dialog's height, not where its tabs
+       are */
+    margin: 1rem auto auto;
+    overflow: hidden;
+    padding: 0;
+    border: 1px solid var(--color-gray-200);
+    border-radius: 0.75rem;
+    background: var(--color-white);
+    color: inherit;
+    box-shadow: 0 24px 64px -16px rgb(0 0 0 / 0.25);
   }
-  [data-kit-row][data-shown] .kit-reveal {
-    grid-template-rows: 1fr;
-  }
-  .kit-body {
-    padding: 0.25rem 0.75rem 1.25rem 3.125rem;
-  }
-  @media (max-width: 1023.98px) {
-    .kit-body {
-      padding: 0 0 1rem;
+  @media (min-width: 640px) {
+    .kit-dialog {
+      max-height: calc(100dvh - 4rem);
+      margin-top: 2rem;
     }
   }
+  .kit-dialog[open] {
+    display: flex;
+    flex-direction: column;
+    animation: kit-in 150ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  .dark .kit-dialog {
+    border-color: var(--color-gray-800);
+    background: var(--color-gray-950);
+  }
+  .kit-dialog::backdrop {
+    background: rgb(0 0 0 / 0.4);
+  }
+  .dark .kit-dialog::backdrop {
+    background: rgb(0 0 0 / 0.65);
+  }
+  .kit-dialog[open]::backdrop {
+    animation: kit-fade 150ms ease-out;
+  }
+  @keyframes kit-in {
+    from {
+      opacity: 0;
+      transform: translateY(0.375rem);
+    }
+  }
+  @keyframes kit-fade {
+    from {
+      opacity: 0;
+    }
+  }
+  .kit-panel {
+    min-height: 0;
+    overflow: auto;
+    padding: 1rem 1.25rem 1.25rem;
+    outline: none;
+  }
+  /* on a phone the file name gives way, and the tabs narrow, so Copy stays on their line */
+  @media (max-width: 639.98px) {
+    .kit-panel {
+      padding: 0.875rem 1rem 1rem;
+    }
+    .kit-panel .code-group .tab-strip button {
+      padding-inline: 0.5rem;
+    }
+  }
+  /* the page keeps its scrollbar's room, so it does not shift sideways */
+  html.kit-open {
+    overflow: hidden;
+    scrollbar-gutter: stable;
+  }
+  .kit-close {
+    display: inline-flex;
+    width: 2rem;
+    height: 2rem;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    color: var(--color-gray-500);
+  }
+  .kit-close:hover {
+    background: var(--color-gray-100);
+    color: var(--color-gray-900);
+  }
+  .dark .kit-close:hover {
+    background: var(--color-gray-800);
+    color: var(--color-gray-100);
+  }
+  .kit-panel .code-group {
+    margin: 1rem 0 0;
+  }
+  .kit-panel .modality-empty {
+    display: none;
+  }
   .kit-code {
-    margin: 0;
     white-space: pre;
   }
   .code-group .tab-strip .kit-copy {
@@ -550,14 +645,16 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
 <script>
   import { STATUS_RANK, ago, formatMs, formatTps, loadLatest, statusAnchor, statusLabel, statusQuery, type StatusWords } from "../shared/status";
 
+  type Tab = "typescript" | "python" | "server";
   interface KitText {
+    model: string;
+    baseUrl: string;
     typescript: string;
     python: string;
     server: string;
-    env: string;
-    hint?: string;
+    run: Record<Tab, string>;
   }
-  type Words = StatusWords & { copy: string; copied: string; copyFailed: string; models: string; probed: string; tps: string };
+  type Words = StatusWords & { copy: string; copied: string; copyFailed: string; models: string; probed: string; perMillion: string; tps: string };
 
   const stored = (key: string) => {
     try {
@@ -579,49 +676,71 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
     const kits = JSON.parse(root.querySelector("[data-catalog-kits]")!.textContent!) as KitText[];
     const body = root.querySelector<HTMLElement>("[data-catalog-body]")!;
     const rows = [...body.querySelectorAll<HTMLTableRowElement>("tr[data-row]")];
-    const kitRow = root.querySelector<HTMLTableRowElement>("[data-kit-row]")!;
+    const dialog = root.querySelector<HTMLDialogElement>("[data-kit-dialog]")!;
 
-    // ---------- the kit: one panel, moved under the row it belongs to; the language follows the
+    // ---------- the kit: one dialog, filled from the row that opens it; the language follows the
     // site's code groups (mmsp-site.code), so a reader of Python docs opens Python here
     const LANGUAGES = ["TypeScript", "Python", "Server"];
-    const tabs = [...kitRow.querySelectorAll<HTMLButtonElement>("[data-kit-tab]")];
-    const code = kitRow.querySelector<HTMLElement>("[data-kit-code]")!;
-    const copy = kitRow.querySelector<HTMLButtonElement>("[data-kit-copy]")!;
+    const FILES: Record<Tab, string> = { typescript: "main.ts", python: "main.py", server: "mmsp-server.json" };
+    const tabOf = (language: string): Tab => (language === "Python" ? "python" : language === "Server" ? "server" : "typescript");
+    const panel = dialog.querySelector<HTMLElement>("[data-kit-panel]")!;
+    const tabs = [...dialog.querySelectorAll<HTMLButtonElement>("[data-kit-tab]")];
+    const code = dialog.querySelector<HTMLElement>("[data-kit-code]")!;
+    const run = dialog.querySelector<HTMLElement>("[data-kit-run]")!;
+    const file = dialog.querySelector<HTMLElement>("[data-kit-file]")!;
+    const copy = dialog.querySelector<HTMLButtonElement>("[data-kit-copy]")!;
     const copyLabel = copy.querySelector("span")!;
+    const slot = (name: string) => dialog.querySelector<HTMLElement>(`[data-kit-${name}]`)!;
+    const clones = (parent: Element | null | undefined) => [...(parent?.children ?? [])].map((child) => child.cloneNode(true));
     let language = LANGUAGES.includes(stored("mmsp-site.code") ?? "") ? stored("mmsp-site.code")! : LANGUAGES[0];
     let open: HTMLTableRowElement | null = null;
 
     const renderKit = () => {
       if (!open) return;
       const kit = kits[Number(open.dataset.index)];
-      code.textContent = language === "Python" ? kit.python : language === "Server" ? kit.server : kit.typescript;
-      for (const tab of tabs) tab.setAttribute("aria-selected", String(tab.dataset.kitTab === language));
-      kitRow.querySelector("[data-kit-env]")!.textContent = kit.env;
-      kitRow.querySelector("[data-kit-hint]")!.textContent = kit.hint ?? "";
+      const tab = tabOf(language);
+      code.textContent = kit[tab];
+      run.textContent = kit.run[tab];
+      file.textContent = FILES[tab];
+      for (const button of tabs) button.setAttribute("aria-selected", String(button.dataset.kitTab === language));
     };
-    const close = () => {
-      if (!open) return;
-      open.removeAttribute("data-open");
-      open.querySelector(".catalog-expand")!.setAttribute("aria-expanded", "false");
-      kitRow.hidden = true;
-      kitRow.removeAttribute("data-shown");
-      open = null;
-    };
-    const toggle = (row: HTMLTableRowElement) => {
-      const wasOpen = open === row;
-      close();
-      if (wasOpen) return;
+    const show = (row: HTMLTableRowElement) => {
+      const kit = kits[Number(row.dataset.index)];
       open = row;
       row.dataset.open = "";
-      row.querySelector(".catalog-expand")!.setAttribute("aria-expanded", "true");
-      row.after(kitRow);
+      slot("model").textContent = kit.model;
+      slot("url").textContent = kit.baseUrl;
+      slot("url").title = kit.baseUrl;
+      slot("mark").replaceChildren(...clones(row.querySelector("[data-row-mark]")));
+      slot("provider").replaceChildren(...clones(row.querySelector('[data-cell="provider"] > span')));
+      slot("modalities").replaceChildren(...clones(row.querySelector('[data-cell="modalities"] > span')));
+      slot("context").textContent = row.querySelector('[data-cell="context"]')!.textContent!.trim();
+      const prices = [...row.querySelectorAll<HTMLElement>("[data-price]")].filter((cell) => cell.textContent !== "—");
+      slot("prices").textContent = prices.length
+        ? `${prices.map((cell) => `${cell.dataset.label} ${cell.textContent}`).join(" · ")} ${segmented.dataset.value} ${words.perMillion}`
+        : "";
+      slot("status").replaceChildren(...clones(row.querySelector("[data-status-cell]")).slice(0, 1));
       renderKit();
-      kitRow.hidden = false;
-      // the panel is laid out folded first, so it unfolds rather than appears
-      void kitRow.offsetHeight;
-      kitRow.dataset.shown = "";
+      document.documentElement.classList.add("kit-open");
+      dialog.showModal();
+      panel.focus({ preventScroll: true });
     };
-    for (const row of rows) row.querySelector(".catalog-expand")!.addEventListener("click", () => toggle(row));
+    dialog.addEventListener("close", () => {
+      document.documentElement.classList.remove("kit-open");
+      if (!open) return;
+      open.removeAttribute("data-open");
+      open.querySelector<HTMLElement>(".catalog-expand")!.focus();
+      open = null;
+    });
+    slot("close").addEventListener("click", () => dialog.close());
+    // a click on the backdrop lands on the dialog itself; one that began inside, as a selection of
+    // the code dragged out, does not close it
+    let pressedOutside = false;
+    dialog.addEventListener("pointerdown", (event) => (pressedOutside = event.target === dialog));
+    dialog.addEventListener("click", (event) => {
+      if (pressedOutside && event.target === dialog) dialog.close();
+    });
+    for (const row of rows) row.querySelector(".catalog-expand")!.addEventListener("click", () => show(row));
     for (const tab of tabs) {
       tab.addEventListener("click", () => {
         language = tab.dataset.kitTab!;
@@ -652,7 +771,6 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
         row.hidden = !terms.every((term) => row.dataset.search!.includes(term));
         if (!row.hidden) shown += 1;
       }
-      if (open?.hidden) close();
       count.textContent = words.models.replace("{n}", terms.length ? `${shown} / ${rows.length}` : String(rows.length));
       empty.hidden = shown > 0;
     };
@@ -682,8 +800,6 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
         });
       }
       body.append(...ordered);
-      if (open) open.after(kitRow);
-      else body.append(kitRow);
       for (const header of headers) {
         const sorted = header.dataset.sortKey === sortKey && direction !== 0;
         header.setAttribute("aria-sort", sorted ? (direction > 0 ? "ascending" : "descending") : "none");
