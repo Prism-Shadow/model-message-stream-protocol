@@ -1,10 +1,21 @@
+
+
 // The daily status probe's data, as the pages read it in the browser: the files the status
 // workflow commits to the status-data branch (.github/status/README.md describes them). Every
 // entry is keyed by its registry triple, `${client}|${base_url}|${model}`. Without the files, the
-// pages stay as they were built: every entry not probed.
+// pages stay as they were built: every entry not probed. A check run by hand is followed through
+// the GitHub API, anonymously: the workflow's runs, the branch's head commit, then that commit's
+// files.
 
-export const STATUS_DATA_URL = "https://raw.githubusercontent.com/Prism-Shadow/model-message-stream-protocol/status-data/";
-export const STATUS_RUN_URL = "https://github.com/Prism-Shadow/model-message-stream-protocol/actions/runs/";
+const REPO = "Prism-Shadow/model-message-stream-protocol";
+export const STATUS_DATA_URL = `https://raw.githubusercontent.com/${REPO}/status-data/`;
+export const STATUS_RUN_URL = `https://github.com/${REPO}/actions/runs/`;
+export const STATUS_WORKFLOW_URL = `https://github.com/${REPO}/actions/workflows/status.yml`;
+export const STATUS_BRANCH_API = `https://api.github.com/repos/${REPO}/branches/status-data`;
+export const STATUS_RUNS_API = `https://api.github.com/repos/${REPO}/actions/workflows/status.yml/runs?per_page=5`;
+// the files as of one commit: raw.githubusercontent.com may cache a branch's files for minutes, a
+// commit's never change
+export const statusCommitBase = (sha: string) => `https://raw.githubusercontent.com/${REPO}/${sha}/`;
 export const HISTORY_DAYS = 90;
 
 export type Status = "up" | "degraded" | "down" | "nokey";
@@ -84,21 +95,53 @@ export function statusQuery(): string {
 }
 
 const loaded = new Map<string, Promise<unknown>>();
-function load<T>(name: string): Promise<T | null> {
-  if (!loaded.has(name)) {
-    loaded.set(
-      name,
-      fetch(statusBase() + name, { cache: "no-store" })
-        .then((response) => (response.ok ? response.json() : null))
-        .catch(() => null),
-    );
+function load<T>(name: string, base = statusBase()): Promise<T | null> {
+  const url = base + name;
+  if (!loaded.has(url)) {
+    const file = fetch(url, { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .catch(() => null);
+    loaded.set(url, file);
+    // a file that did not arrive is asked for again next time
+    void file.then((data) => data === null && loaded.delete(url));
   }
-  return loaded.get(name) as Promise<T | null>;
+  return loaded.get(url) as Promise<T | null>;
 }
 
-export const loadLatest = () => load<Latest>("latest.json");
-export const loadHistory = () => load<History>("history.json");
-export const loadMonthly = () => load<Monthly>("monthly.json");
+export const loadLatest = (base?: string) => load<Latest>("latest.json", base);
+export const loadHistory = (base?: string) => load<History>("history.json", base);
+export const loadMonthly = (base?: string) => load<Monthly>("monthly.json", base);
+
+async function github<T>(url: string): Promise<{ status: number; body?: T } | undefined> {
+  try {
+    const response = await fetch(url, { cache: "no-cache", headers: { accept: "application/vnd.github+json" } });
+    return { status: response.status, body: response.ok ? ((await response.json()) as T) : undefined };
+  } catch {
+    return undefined;
+  }
+}
+
+// the head commit of the status-data branch: null while the branch does not exist, undefined when
+// the API does not answer (offline, or past its anonymous 60 requests an hour)
+export async function statusHead(): Promise<string | null | undefined> {
+  const answer = await github<{ commit: { sha: string } }>(STATUS_BRANCH_API);
+  if (answer?.status === 404) return null;
+  return answer?.body?.commit.sha;
+}
+
+export interface WorkflowRun {
+  id: number;
+  // queued, in_progress or completed, or a state on the way to them, such as waiting or pending
+  status: string;
+  conclusion: string | null;
+  created_at: string;
+  html_url: string;
+}
+
+// the status workflow's latest runs, newest first; undefined when the API does not answer
+export async function statusRuns(): Promise<WorkflowRun[] | undefined> {
+  return (await github<{ workflow_runs: WorkflowRun[] }>(STATUS_RUNS_API))?.body?.workflow_runs;
+}
 
 // the id of a target's block on the status page, which the catalog links to
 export function statusAnchor(key: string): string {

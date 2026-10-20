@@ -3,9 +3,12 @@
 // watches, the worst status naming it, with the month's probe cost beside it; then one block per
 // channel, its TTFT and TPS beside the name and its last 90 days as bars. Everything comes from
 // the status-data branch in the browser, and the provider and vendor of each channel from its
-// base URL and model id, as the catalog names them. Marks point into the page's MarkSprite.
+// base URL and model id, as the catalog names them. Run a check now opens the status workflow on
+// GitHub, for a repository member to run; the page then follows that run and redraws itself from
+// the commit it publishes. Marks point into the page's MarkSprite.
 import { STRINGS, type Locale } from "../shared/i18n";
 import { MARKS } from "../shared/marks";
+import { STATUS_WORKFLOW_URL } from "../shared/status";
 
 interface Props {
   locale: Locale;
@@ -29,6 +32,21 @@ const tones = Object.fromEntries(Object.entries(MARKS).map(([id, mark]) => [id, 
       <p class="mt-1.5 text-[13px] text-gray-500 dark:text-gray-400" data-status-checked hidden>
         <a class="underline decoration-gray-300 underline-offset-4 hover:text-gray-900 dark:decoration-gray-600 dark:hover:text-gray-100"></a>
       </p>
+      <p class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <a
+          href={STATUS_WORKFLOW_URL}
+          target="_blank"
+          rel="noreferrer"
+          data-status-trigger
+          class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-950 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-900 dark:hover:text-white"
+        >
+          <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polygon points="6 3 20 12 6 21 6 3"></polygon>
+          </svg>
+          <span>{s.status.trigger}</span>
+        </a>
+        <span class="text-xs text-gray-500 dark:text-gray-400" aria-live="polite" data-status-trigger-note>{s.status.triggerNote}</span>
+      </p>
     </div>
     <div class="sm:text-right" data-status-cost hidden>
       <p class="mono text-2xl font-semibold tabular-nums" data-status-cost-month></p>
@@ -51,9 +69,15 @@ const tones = Object.fromEntries(Object.entries(MARKS).map(([id, mark]) => [id, 
     loadHistory,
     loadLatest,
     loadMonthly,
+    statusCommitBase,
+    statusHead,
+    statusRuns,
     statusAnchor,
     statusLabel,
     type Day,
+    type History,
+    type Latest,
+    type Monthly,
     type Status,
     type StatusWords,
     type TargetLatest,
@@ -78,6 +102,13 @@ const tones = Object.fromEntries(Object.entries(MARKS).map(([id, mark]) => [id, 
     daysAgo: string;
     today: string;
     uptime: string;
+    trigger: string;
+    triggerNote: string;
+    waiting: string;
+    running: string;
+    updated: string;
+    failed: string;
+    waitedOut: string;
   };
 
   const board = document.querySelector<HTMLElement>("[data-status-board]");
@@ -178,7 +209,11 @@ const tones = Object.fromEntries(Object.entries(MARKS).map(([id, mark]) => [id, 
       return section;
     };
 
-    Promise.all([loadLatest(), loadHistory(), loadMonthly()]).then(([latest, historyData, monthly]) => {
+    // the board as one set of files draws it: at load, and again when a check run by hand lands
+    let shown: Latest | null = null;
+    let scrolled = false;
+    const render = (latest: Latest | null, historyData: History | null, monthly: Monthly | null) => {
+      shown = latest;
       const overall = board.querySelector<HTMLElement>("[data-status-overall]")!;
       const overallText = board.querySelector<HTMLElement>("[data-status-overall-text]")!;
       const targets = Object.entries(latest?.targets ?? {});
@@ -222,8 +257,85 @@ const tones = Object.fromEntries(Object.entries(MARKS).map(([id, mark]) => [id, 
         ...targets.map(([key, target]) => block(key, target, historyData?.targets[key], target.status === "nokey" ? "—" : formatUsd(month?.targets[key]))),
       );
       // a link from the catalog names a block that only exists now
+      if (scrolled) return;
+      scrolled = true;
       const wanted = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
       if (wanted) wanted.scrollIntoView();
+    };
+    Promise.all([loadLatest(), loadHistory(), loadMonthly()]).then(([latest, historyData, monthly]) => render(latest, historyData, monthly));
+
+    // ---------- a check run by hand: the button opens the workflow on GitHub; from the click on,
+    // the page follows the workflow's newest run once a minute, for up to 30 minutes, and draws the
+    // commit it publishes. A tick the runs API does not answer watches the branch head instead.
+    const trigger = board.querySelector<HTMLAnchorElement>("[data-status-trigger]")!;
+    const note = board.querySelector<HTMLElement>("[data-status-trigger-note]")!;
+    const POLL_MS = 60_000;
+    const WAIT_MS = 30 * 60_000;
+    // a run is stamped by GitHub's clock, which may be behind this one
+    const SKEW_MS = 2 * 60_000;
+    let timer: number | undefined;
+    let startedAt = 0;
+    let lastCheck = 0;
+    let said = "";
+    const say = (text: string, href?: string) => {
+      if (said === `${text} ${href}`) return;
+      said = `${text} ${href}`;
+      if (!href) {
+        note.textContent = text;
+        return;
+      }
+      const link = element("a", "underline decoration-gray-300 underline-offset-4 hover:text-gray-900 dark:decoration-gray-600 dark:hover:text-gray-100", text);
+      link.href = href;
+      link.target = "_blank";
+      link.rel = "noreferrer";
+      note.replaceChildren(link);
+    };
+    const stop = (text: string, href?: string) => {
+      window.clearInterval(timer);
+      timer = undefined;
+      say(text, href);
+    };
+    // a commit's files, drawn when they hold a result the page does not show
+    const refresh = async (sha: string) => {
+      const base = statusCommitBase(sha);
+      const [latest, historyData, monthly] = await Promise.all([loadLatest(base), loadHistory(base), loadMonthly(base)]);
+      if (!latest || (latest.run_id === shown?.run_id && latest.generated_at === shown?.generated_at)) return false;
+      render(latest, historyData, monthly);
+      return true;
+    };
+    const check = async (first = false) => {
+      lastCheck = Date.now();
+      if (first) {
+        // a page opened before the latest run catches up at once
+        const head = await statusHead();
+        if (head) await refresh(head);
+        return;
+      }
+      const runs = await statusRuns();
+      if (!runs) {
+        const head = await statusHead();
+        if (head && (await refresh(head))) return stop(words.updated);
+      } else {
+        const run = runs.find((candidate) => Date.parse(candidate.created_at) >= startedAt - SKEW_MS);
+        if (run?.status === "completed") {
+          if (run.conclusion !== "success") return stop(words.failed, run.html_url);
+          const head = await statusHead();
+          if (head) await refresh(head);
+          if (shown?.run_id === String(run.id)) return stop(words.updated);
+        } else if (run) say(words.running, run.html_url);
+      }
+      if (Date.now() - startedAt > WAIT_MS) stop(words.waitedOut);
+    };
+    // the link opens GitHub in a new tab; clicking again starts the wait over
+    trigger.addEventListener("click", () => {
+      startedAt = Date.now();
+      say(words.waiting);
+      window.clearInterval(timer);
+      timer = window.setInterval(() => void check(), POLL_MS);
+      void check(true);
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (timer && !document.hidden && Date.now() - lastCheck > 30_000) void check();
     });
   }
 </script>
