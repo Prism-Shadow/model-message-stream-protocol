@@ -94,6 +94,7 @@ const tones = Object.fromEntries(Object.entries(MARKS).map(([id, mark]) => [id, 
     overall: Record<Status | "allDown" | "none", string>;
     checked: string;
     month: string;
+    run: string;
     runs: string;
     ttft: string;
     tps: string;
@@ -147,6 +148,7 @@ const tones = Object.fromEntries(Object.entries(MARKS).map(([id, mark]) => [id, 
     };
     const monthName = (month: string) =>
       new Intl.DateTimeFormat(words.locale, { year: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${month}-01T00:00:00Z`));
+    const runCount = (n: number) => (n === 1 ? words.run : words.runs).replace("{n}", String(n));
 
     // one bar per day, coloured by the day's status, and the share of probed days that were up
     const history = (days: Record<string, Day> | undefined) => {
@@ -242,14 +244,14 @@ const tones = Object.fromEntries(Object.entries(MARKS).map(([id, mark]) => [id, 
       const month = monthly?.months[thisMonth];
       if (monthly) {
         board.querySelector("[data-status-cost-month]")!.textContent = formatUsd(month?.total_usd ?? 0);
-        board.querySelector("[data-status-cost-label]")!.textContent = [words.month, month ? words.runs.replace("{n}", String(month.runs)) : ""].filter(Boolean).join(" · ");
+        board.querySelector("[data-status-cost-label]")!.textContent = [words.month, month ? runCount(month.runs) : ""].filter(Boolean).join(" · ");
         const earlier = Object.keys(monthly.months)
           .filter((name) => name < thisMonth)
           .sort()
           .reverse();
         const earlierLine = board.querySelector<HTMLElement>("[data-status-cost-earlier]")!;
         earlierLine.textContent = earlier.slice(0, 3).map((name) => `${monthName(name)} ${formatUsd(monthly.months[name].total_usd)}`).join(" · ");
-        earlierLine.title = earlier.map((name) => `${monthName(name)} ${formatUsd(monthly.months[name].total_usd)} · ${words.runs.replace("{n}", String(monthly.months[name].runs))}`).join("\n");
+        earlierLine.title = earlier.map((name) => `${monthName(name)} ${formatUsd(monthly.months[name].total_usd)} · ${runCount(monthly.months[name].runs)}`).join("\n");
         board.querySelector<HTMLElement>("[data-status-cost]")!.hidden = false;
       }
 
