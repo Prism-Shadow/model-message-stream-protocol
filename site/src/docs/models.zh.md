@@ -60,7 +60,7 @@ models = list_supported_models(currency="CNY")  # 默认 "USD"
 
 ## 兼容客户端
 
-七个兼容客户端可调用任何提供对应协议的端点。使用时需用 `client_type` 指定协议，并同时提供端点和 key：可以传入 `base_url` 和 `api_key` 参数，或在环境变量中设置 `OPENAI_BASE_URL` 和 `OPENAI_API_KEY`（`ant-messages` 对应 `ANTHROPIC_` 变量对，`google-genai` 对应 `GEMINI_` 变量对，`mmsp` 对应 `MMSP_` 变量对）。如果只传 `base_url` 而不提供 `api_key` 会报错：环境变量中的 key 不会自动用于代码指定的端点。
+七个兼容客户端可调用任何提供对应协议的端点。使用时需用 `client_type` 指定协议，并同时提供端点和 key：可以传入 `base_url` 和 `api_key` 参数，或在环境变量中设置 `OPENAI_BASE_URL` 和 `OPENAI_API_KEY`（`ant-messages` 对应 `ANTHROPIC_` 变量对，`google-genai` 对应 `GEMINI_` 变量对，`mmsp` 对应 `MMSP_` 变量对）。如果传入的 `base_url` 不是客户端的默认端点，又不提供 `api_key`，会报错：环境变量中的 key 不会自动用于代码指定的端点（[规则](/zh/docs/client/)）。
 
 | `client_type` | 协议 | 提供方 |
 | --- | --- | --- |

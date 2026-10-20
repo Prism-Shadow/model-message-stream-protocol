@@ -18,6 +18,7 @@ import type {
   ResponseStreamEvent,
 } from "openai/resources/responses/responses";
 import { LLMClient } from "../baseClient";
+import { CLIENT_CREDENTIALS } from "../credentials";
 import { UnsupportedParameterError } from "../errors";
 import {
   EventContentItem,
@@ -31,9 +32,7 @@ import {
   UniMessage,
   UsageMetadata,
 } from "../types";
-import { isDebugEnabled } from "../utils";
-
-const DEFAULT_BASE_URL = "https://api.minimax.io/v1";
+import { isDebugEnabled, resolveCredentials } from "../utils";
 
 type MiniMaxReasoningEffort =
   | "none"
@@ -56,16 +55,19 @@ export class MiniMaxOfficialClient extends LLMClient {
   }) {
     super();
     this._model = options.model;
+    const { apiKey, baseUrl } = resolveCredentials(
+      this.constructor.name,
+      "minimax-official",
+      options,
+    );
     // The wrapped OpenAI SDK falls back to OPENAI_API_KEY when handed undefined, which would send
-    // an OpenAI credential to the MiniMax host, so resolve the key here and fail loudly instead.
-    const apiKey = options.apiKey || process.env.MINIMAX_API_KEY;
+    // an OpenAI credential to the MiniMax host, so fail loudly instead.
     if (!apiKey) {
       throw new Error("MINIMAX_API_KEY is required for MiniMaxOfficialClient.");
     }
     this._client = new OpenAI({
       apiKey,
-      baseURL:
-        options.baseUrl || process.env.MINIMAX_BASE_URL || DEFAULT_BASE_URL,
+      baseURL: baseUrl || CLIENT_CREDENTIALS["minimax-official"].defaultBaseUrl,
       defaultHeaders: options.defaultHeaders,
     });
   }

@@ -97,6 +97,8 @@ _MODEL_THINKING_PROFILES: tuple[tuple[str, dict[ThinkingLevel, dict[str, Any]]],
 class OpenaiChatVllmAdapterClient(OpenaiChatClient):
     """Models served through vLLM's OpenAI-compatible Chat Completions API."""
 
+    _CLIENT_TYPE = "openai-chat-vllm-adapter"
+
     def _thinking_chat_template_kwargs(self, thinking_level: ThinkingLevel) -> dict[str, Any]:
         """Return the chat_template_kwargs this model's template reads for the level.
 

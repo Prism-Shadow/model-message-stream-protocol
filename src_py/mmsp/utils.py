@@ -18,6 +18,8 @@ import os
 import re
 from typing import Literal
 
+from .credentials import CLIENT_CREDENTIALS, environment_credential
+from .errors import ApiKeyRequiredError
 from .types import UsageMetadata
 
 
@@ -42,33 +44,38 @@ def fix_openrouter_usage_metadata(usage_metadata: UsageMetadata, base_url: str) 
 
 
 def resolve_credentials(
-    client: str, api_key: str | None, base_url: str | None, key_env: str, base_url_env: str
+    client: str, client_type: str, api_key: str | None, base_url: str | None
 ) -> tuple[str | None, str | None]:
-    """The key and the endpoint of a client that reads the environment's OPENAI_, ANTHROPIC_ or GEMINI_API_KEY.
+    """The key and the endpoint a client is built with; every client resolves them here.
 
-    A key passed in is used as it is. Without one, the environment's key goes out only to the endpoint the
-    environment names: a base URL passed in is another endpoint, which that key was not given for, so it
-    needs a key of its own.
+    A key passed in is used, with the base URL passed in, else `<P>_BASE_URL`. Without one,
+    environment_credential decides: the environment's key is read for the endpoint the environment
+    names or for the client's default endpoint, any other base URL is refused, and the `mmsp` client
+    calls an open server keyless.
 
     Args:
         client: The client's class name, for the error
+        client_type: The client type whose row of CLIENT_CREDENTIALS the client reads
         api_key: The key passed to the client, if any
         base_url: The base URL passed to the client, if any
-        key_env: The environment variable that holds the key
-        base_url_env: The environment variable that holds the base URL
 
     Returns:
-        The key and the base URL to build the SDK client with, either of which may be None
+        The key and the base URL to build the SDK client with; either may be None, and a None base URL is
+        the client's default endpoint
+
+    Raises:
+        ApiKeyRequiredError: For a base URL passed without a key that the environment's key may not go to
     """
+    resolved_base_url = base_url or os.getenv(CLIENT_CREDENTIALS[client_type].base_url_env) or None
     if api_key:
-        return api_key, base_url or os.getenv(base_url_env)
+        return api_key, resolved_base_url
 
-    if base_url:
-        raise ValueError(
-            f"api_key is required for {client} with a base_url: {key_env} is not sent to another endpoint."
-        )
-
-    return os.getenv(key_env), os.getenv(base_url_env)
+    credential = environment_credential(client_type, base_url)
+    if credential is not None and credential.kind == "env":
+        return os.getenv(credential.api_key_env) or None, resolved_base_url
+    if credential is not None and credential.kind == "keyless":
+        return None, resolved_base_url
+    raise ApiKeyRequiredError(client, client_type, base_url)
 
 
 def is_debug_enabled() -> bool:

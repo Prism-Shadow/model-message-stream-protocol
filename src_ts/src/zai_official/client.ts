@@ -19,6 +19,7 @@ import type {
   ChatCompletionCreateParamsStreaming,
 } from "openai/resources/chat/completions";
 import { LLMClient } from "../baseClient";
+import { CLIENT_CREDENTIALS } from "../credentials";
 import { UnsupportedParameterError } from "../errors";
 import {
   EventContentItem,
@@ -32,7 +33,7 @@ import {
   UniMessage,
   UsageMetadata,
 } from "../types";
-import { fixOpenrouterUsageMetadata } from "../utils";
+import { fixOpenrouterUsageMetadata, resolveCredentials } from "../utils";
 
 /**
  * Unified client for the GLM series, named for the newest generation it serves (5.3).
@@ -55,19 +56,19 @@ export class ZAIOfficialClient extends LLMClient {
   }) {
     super();
     this._model = options.model;
+    const { apiKey: key, baseUrl: url } = resolveCredentials(
+      this.constructor.name,
+      "zai-official",
+      options,
+    );
     // The wrapped OpenAI SDK falls back to OPENAI_API_KEY when handed undefined, which would send
-    // an OpenAI credential to the Z.AI host, so resolve the key here and fail loudly instead.
-    const key = options.apiKey || process.env.ZAI_API_KEY;
+    // an OpenAI credential to the Z.AI host, so fail loudly instead.
     if (!key) {
       throw new Error("ZAI_API_KEY is required for ZAIOfficialClient.");
     }
-    const url =
-      options.baseUrl ||
-      process.env.ZAI_BASE_URL ||
-      "https://api.z.ai/api/paas/v4/";
     this._client = new OpenAI({
       apiKey: key,
-      baseURL: url,
+      baseURL: url || CLIENT_CREDENTIALS["zai-official"].defaultBaseUrl,
       defaultHeaders: options.defaultHeaders,
     });
   }

@@ -78,9 +78,7 @@ class GoogleGenaiClient(LLMClient):
     ):
         """Initialize the generateContent client with a model and an API key or service-account JSON key."""
         self._model = model
-        api_key, base_url = resolve_credentials(
-            self.__class__.__name__, api_key, base_url, "GEMINI_API_KEY", "GEMINI_BASE_URL"
-        )
+        api_key, base_url = resolve_credentials(self.__class__.__name__, "google-genai", api_key, base_url)
         # the Gemini SDK carries connection headers inside http_options rather than its own argument
         http_options: dict[str, Any] = {}
         if base_url:

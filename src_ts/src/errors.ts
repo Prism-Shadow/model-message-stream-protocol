@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { CLIENT_CREDENTIALS } from "./credentials";
 import { UsageMetadata } from "./types";
 
 function previewToolCallArguments(raw: string): string {
@@ -50,12 +51,35 @@ export class UnsupportedParameterError extends MMSPError {
 }
 
 /**
- * Raised when a completed response carries no non-thinking content and no tool calls.
- *
- * Models occasionally finish a turn with thinking output only (reasoning models in
- * particular); replaying such an assistant message on the next turn fails with a 400
- * error, so the response is rejected as soon as the stream completes.
+ * Raised at construction when a client is given a base URL without a key and the environment's
+ * key may not go there: only the client's default endpoint and the endpoint `baseUrlEnv` names
+ * take `apiKeyEnv` (see environmentCredential in `credentials`).
  */
+export class ApiKeyRequiredError extends MMSPError {
+  readonly client: string;
+  readonly clientType: string;
+  readonly apiKeyEnv: string;
+  readonly baseUrlEnv: string;
+  readonly baseUrl: string;
+
+  constructor(args: { client: string; clientType: string; baseUrl: string }) {
+    const { apiKeyEnv, baseUrlEnv, defaultBaseUrl } =
+      CLIENT_CREDENTIALS[args.clientType];
+    super(
+      `apiKey is required for ${args.client} with baseUrl ${args.baseUrl}: ` +
+        `${apiKeyEnv} is sent only to ${defaultBaseUrl} or to the endpoint ${baseUrlEnv} names. ` +
+        `Pass apiKey, or drop baseUrl and set ${apiKeyEnv}, plus ${baseUrlEnv} for an endpoint ` +
+        `other than ${defaultBaseUrl}.`,
+    );
+    this.name = "ApiKeyRequiredError";
+    this.client = args.client;
+    this.clientType = args.clientType;
+    this.apiKeyEnv = apiKeyEnv;
+    this.baseUrlEnv = baseUrlEnv;
+    this.baseUrl = args.baseUrl;
+  }
+}
+
 /**
  * Raised when a client cannot perform an operation at all, whatever it is passed.
  *
@@ -75,6 +99,13 @@ export class UnsupportedOperationError extends MMSPError {
   }
 }
 
+/**
+ * Raised when a completed response carries no non-thinking content and no tool calls.
+ *
+ * Models occasionally finish a turn with thinking output only (reasoning models in
+ * particular); replaying such an assistant message on the next turn fails with a 400
+ * error, so the response is rejected as soon as the stream completes.
+ */
 export class EmptyResponseError extends MMSPError {
   readonly client: string;
   readonly finishReason: string | null;

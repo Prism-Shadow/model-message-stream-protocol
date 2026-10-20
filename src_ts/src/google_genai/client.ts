@@ -104,8 +104,8 @@ export class GoogleGenaiClient extends LLMClient {
     this._model = options.model;
     const { apiKey: key, baseUrl: url } = resolveCredentials(
       this.constructor.name,
+      "google-genai",
       options,
-      { key: "GEMINI_API_KEY", baseUrl: "GEMINI_BASE_URL" },
     );
     // the Gemini SDK carries connection headers inside httpOptions rather than its own argument
     const httpOptions: { baseUrl?: string; headers?: Record<string, string> } =
