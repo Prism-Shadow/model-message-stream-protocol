@@ -15,9 +15,9 @@
 import re
 from typing import Any, AsyncIterator
 
+from anthropic import AsyncAnthropic
 from anthropic.types.beta import BetaMessageParam, BetaRawMessageStreamEvent
 
-from ..anthropic_sdk import ExplicitAsyncAnthropic
 from ..base_client import LLMClient
 from ..errors import UnsupportedParameterError
 from ..types import (
@@ -38,6 +38,15 @@ from ..utils import fix_openrouter_usage_metadata, is_debug_enabled, resolve_cre
 REDACTED_THINKING = "_REDACTED_THINKING"
 
 
+class _AsyncAnthropic(AsyncAnthropic):
+    # Send the key through both header conventions: Anthropic and DeepSeek read x-api-key while
+    # gateways such as OpenRouter and Z.AI read Authorization: Bearer. The SDK's own choice moved
+    # from x-api-key to Bearer in 2.0, and it also sends an ANTHROPIC_AUTH_TOKEN it finds.
+    @property
+    def auth_headers(self) -> dict[str, str]:
+        return {"X-Api-Key": self.api_key, "Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
+
+
 class AntMessagesClient(LLMClient):
     """Anthropic Messages-compatible client implementation."""
 
@@ -51,11 +60,7 @@ class AntMessagesClient(LLMClient):
         """Initialize Anthropic Messages-compatible client with model, API key, and base URL."""
         self._model = model
         api_key, base_url = resolve_credentials(self.__class__.__name__, "ant-messages", api_key, base_url)
-        # send the credential through both header conventions: Anthropic and DeepSeek read
-        # x-api-key while gateways such as OpenRouter and Z.AI read Authorization: Bearer
-        self._client = ExplicitAsyncAnthropic(
-            api_key=api_key, auth_token=api_key, base_url=base_url, default_headers=default_headers
-        )
+        self._client = _AsyncAnthropic(api_key=api_key, base_url=base_url, default_headers=default_headers)
         self._history: list[UniMessage] = []
 
     def _convert_image_url_to_source(self, url: str) -> dict[str, Any]:

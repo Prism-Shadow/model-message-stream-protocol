@@ -2,14 +2,14 @@
 
 - **Date:** 2026-10-22
 - **Type:** fix
-- **Scope:** `anthropic_sdk`, `ant_messages`, `anthropic_official`, `tests`, `ci`
+- **Scope:** `ant_messages`, `anthropic_official`, `tests`, `ci`
 - **PR:** [#270](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/270)
 
 [中文版](2026-10-22-anthropic-sdk-2.zh.md)
 
 ## What changed
 
-- `AntMessagesClient` and `AnthropicOfficialClient` built the Anthropic SDK client through `ExplicitAsyncAnthropic` in `anthropic_sdk`, a subclass of `AsyncAnthropic` that sent the key as `x-api-key` and the token as `Authorization: Bearer` on every SDK version, sent nothing for a credential resolved as none, and never ran the SDK's own credential discovery (`ANTHROPIC_AUTH_TOKEN`, profiles under `ANTHROPIC_CONFIG_DIR`, workload identity federation). `ant-messages` kept sending its key through both headers, `anthropic-official` through `x-api-key` only. The clients worked on `anthropic` 0.87.0 through 2.x, and the dependency stayed `anthropic[bedrock]>=0.87.0`.
+- `AntMessagesClient` and `AnthropicOfficialClient` each built the Anthropic SDK client from a private subclass of `AsyncAnthropic` that overrode `auth_headers`, so on every SDK version only the client's own key went out: `ant-messages` through both `x-api-key` and `Authorization: Bearer`, `anthropic-official` through `x-api-key` only, and nothing for a key resolved as none. The SDK's own credential discovery (`ANTHROPIC_AUTH_TOKEN`, profiles under `ANTHROPIC_CONFIG_DIR`, workload identity federation) sent nothing. The clients worked on `anthropic` 0.87.0 through 2.x, and the dependency stayed `anthropic[bedrock]>=0.87.0`.
 - `AntMessagesClient` sent `temperature` through the SDK's `extra_body`, so it reached the server on the SDK lines that dropped the parameter.
 - `AnthropicOfficialClient` on Bedrock sent `anthropic_version: bedrock-2023-05-31` for the Claude 4.6 models, the body version those models take; later models kept the SDK's default.
 - `test_request_body.py` checked the request body of both Messages client types against a local server: `temperature` on `ant-messages` and the Bedrock body version on `anthropic-official`.

@@ -18,10 +18,9 @@ import re
 from typing import Any, AsyncIterator
 
 import httpx
-from anthropic import AsyncAnthropicBedrock
+from anthropic import AsyncAnthropic, AsyncAnthropicBedrock
 from anthropic.types.beta import BetaMessageParam, BetaRawMessageStreamEvent
 
-from ..anthropic_sdk import ExplicitAsyncAnthropic
 from ..base_client import LLMClient
 from ..errors import UnsupportedOperationError, UnsupportedParameterError
 from ..types import (
@@ -57,6 +56,14 @@ _NO_FAST_MODE = ("4-6", "sonnet-5-5", "haiku-5-5", "fable-5-1")
 _BEDROCK_LEGACY_VERSION = ("4-6",)
 
 
+class _AsyncAnthropic(AsyncAnthropic):
+    # The key goes as x-api-key and nothing else does: from 2.0 the SDK sends a key as
+    # Authorization: Bearer, and it also sends an ANTHROPIC_AUTH_TOKEN it finds.
+    @property
+    def auth_headers(self) -> dict[str, str]:
+        return {"X-Api-Key": self.api_key} if self.api_key else {}
+
+
 class AnthropicOfficialClient(LLMClient):
     """Claude LLM client: Claude 4.6 through Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.1."""
 
@@ -81,9 +88,7 @@ class AnthropicOfficialClient(LLMClient):
             )
             self._use_bedrock = True
         else:
-            self._client = ExplicitAsyncAnthropic(
-                api_key=api_key, auth_token=None, base_url=base_url, default_headers=default_headers
-            )
+            self._client = _AsyncAnthropic(api_key=api_key, base_url=base_url, default_headers=default_headers)
             self._use_bedrock = False
 
         self._history: list[UniMessage] = []
