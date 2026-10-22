@@ -19,7 +19,7 @@ Node 22.12 or newer.
 | --- | --- |
 | `src/components/Home.astro` | The overview page, with its copy in both languages |
 | `src/docs/<page>.en.md`, `<page>.zh.md` | The documentation, one file per page and language |
-| `../design/PRINCIPLES.md`, `../design/rfcs/MRFC-*.md` | The Design section, rendered from the repository's files by `src/shared/docs.ts`; a new RFC file is a new page |
+| `../design/README.md`, `../design/rfcs/MMSP-RFC-*.md` | The Design section, rendered from the repository's files by `src/shared/docs.ts`; a new RFC file is a new page |
 | `src/pages/docs/[slug].md.ts`, `src/shared/markdown.ts` | Every page as Markdown at its URL plus `.md`: what Copy Markdown copies |
 | `src/pages/sitemap.xml.ts`, `src/pages/llms.txt.ts`, `public/robots.txt` | What search engines and agents read first |
 | `src/shared/site.ts` | The sidebar and the top bar: add a page here after writing it, with its title in both languages |

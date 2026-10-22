@@ -15,7 +15,7 @@ MMSP, the Model Message Stream Protocol, takes the per-provider differences off 
 
 📖 Documentation: [mmsp.penguin.ooo](https://mmsp.penguin.ooo)
 
-Design: the invariants MMSP keeps and the RFCs that change them live in [`design/`](design/).
+Design: the rules MMSP keeps and the decisions that changed it, one RFC each, live in [`design/`](design/).
 
 Using a coding agent? Install the MMSP SKILL files from [`skills/`](skills/) so it can use MMSP correctly in generated code.
 
