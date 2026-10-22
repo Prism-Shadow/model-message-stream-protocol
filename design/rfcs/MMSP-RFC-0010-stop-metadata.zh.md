@@ -15,7 +15,7 @@
 ## Motivation
 [motivation]: #motivation
 
-调用方只能从 `stop` 事件读到一次请求的开销，存储的历史把每个回合的开销记在它的助手消息上；两者都需要 `stop` 事件的这两项元数据每次都在，而不只是通常都在。基类原本就拒绝发出缺少它们的 stop，用的却是裸的 `ValueError`，调用方无法把它与缺陷区分开（[MMSP-RFC-0007](MMSP-RFC-0007-typed-rejection.zh.md)）。定下这条规则所依据的案例：2026-10-22，CI 中一条 GLM-5.3-Flash 的流在携带用量的数据块到达之前就结束了（[run 39841678668](https://github.com/Prism-Shadow/model-message-stream-protocol/actions/runs/39841678668)）；对同一请求的探测表明，服务商的最后一个数据块每次都同时携带结束原因和用量，因此那是一条中途断开的流，而这正是调用方想要重试的情况。已在 <!-- W1 PR link -->`fix/incomplete-stream-error` 中修复。
+调用方只能从 `stop` 事件读到一次请求的开销，存储的历史把每个回合的开销记在它的助手消息上；两者都需要 `stop` 事件的这两项元数据每次都在，而不只是通常都在。基类原本就拒绝发出缺少它们的 stop，用的却是裸的 `ValueError`，调用方无法把它与缺陷区分开（[MMSP-RFC-0007](MMSP-RFC-0007-typed-rejection.zh.md)）。定下这条规则所依据的案例：2026-10-22，CI 中一条 GLM-5.3-Flash 的流在携带用量的数据块到达之前就结束了（[run 39841678668](https://github.com/Prism-Shadow/model-message-stream-protocol/actions/runs/39841678668)）；对同一请求的探测表明，服务商的最后一个数据块每次都同时携带结束原因和用量，因此那是一条中途断开的流，而这正是调用方想要重试的情况。已在 [#272](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/272) 中修复。
 
 ## Rule
 [rule]: #rule
