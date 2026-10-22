@@ -12,6 +12,8 @@
 | PR to `main`, push to `main`, manual CI run | All configured clients |
 | Package publication, including manual publication | All configured clients; both languages must pass before either package publishes |
 
+Python also reruns the offline tests with `anthropic[bedrock]<2` and `==0.87.0`, so both older SDK lines stay covered without extra model calls.
+
 All CI model runs set `RUN_SLOW_TEST=0`, including full coverage and publication gates. Full coverage means every client's default cases; cases marked `slow` remain opt-in for local runs. Missing keys for selected non-slow cases fail collection instead of silently dropping coverage. Fork PRs run offline checks only because repository secrets are unavailable. `mmsp` needs a user-provided server and remains optional through `MMSP_API_KEY`, `MMSP_BASE_URL`, and `MMSP_MODEL`; the vLLM adapter currently has offline coverage only.
 
 Use **CI passed** as the required PR check. It runs even when no language jobs are needed and fails if selection or any required language job fails or is cancelled. Existing branch rules requiring the old standalone test job names must be updated to this check.
