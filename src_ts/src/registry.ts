@@ -367,6 +367,16 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(0.3, 1.2, 0.06),
   },
   {
+    // official pay-as-you-go list price, one tier (guides/pricing-paygo, 2026-10-19)
+    model: "MiniMax-M3.1-Flash",
+    base_url: MINIMAX,
+    client: "minimax-official",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.15, 0.6, 0.015),
+  },
+  {
     model: "text-embedding-3-large",
     base_url: OPENAI,
     client: "openai-official",
@@ -631,6 +641,16 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Text"],
     context_window: 1048576,
     pricing: usd(0.3, 1.2, 0.06),
+  },
+  {
+    // models API 2026-10-19: the free variant is the only OpenRouter listing of MiniMax-M3.1-Flash
+    model: "minimax/minimax-m3.1-flash:free",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0, 0),
   },
   {
     model: "moonshotai/kimi-k3",
