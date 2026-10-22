@@ -3,6 +3,7 @@
 - **Date:** 2026-10-22
 - **Type:** process
 - **Scope:** `site`
+- **PR:** [#274](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/274)
 
 [English](2026-10-22-dependabot-site.md)
 
