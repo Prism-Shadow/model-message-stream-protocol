@@ -3,6 +3,7 @@
 - **Date:** 2026-10-22
 - **Type:** fix
 - **Scope:** `anthropic_sdk`, `ant_messages`, `anthropic_official`, `tests`, `ci`
+- **PR:** [#270](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/270)
 
 [English](2026-10-22-anthropic-sdk-2.md)
 
