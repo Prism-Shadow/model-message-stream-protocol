@@ -517,6 +517,39 @@ async def test_other_upstream_failure_raises_an_upstream_error_after_the_deltas_
     assert exc_info.value.error == {"type": "RuntimeError", "message": "connection reset"}
 
 
+@pytest.mark.asyncio
+async def test_a_stream_cut_short_raises_an_upstream_error_carrying_the_incomplete_stream_error(use_upstream, serve):
+    script = [
+        _delta({"type": "text.delta", "text": "Hel", "fidelity": {"item_id": "0"}}),
+        {**_stop(), "finish_reason": None},
+    ]
+    use_upstream(lambda model: ScriptedClient(script, model))
+    url = serve(_server_app())
+
+    events = []
+    with pytest.raises(UpstreamError) as exc_info:
+        async for event in _mmsp_client(url).streaming_response(_messages(), {}):
+            events.append(event)
+
+    direct = await _direct_error(script, {})
+    assert [event["content_items"] for event in events] == [
+        [{"type": "text.delta", "text": "Hel"}],
+        [{"type": "text.done", "text": "Hel"}],
+    ]
+    assert exc_info.value.client == "MmspClient"
+    assert exc_info.value.status is None
+    assert exc_info.value.error_type == "IncompleteStreamError"
+    assert str(exc_info.value) == str(direct)
+    assert exc_info.value.error == {
+        "type": "IncompleteStreamError",
+        "message": str(direct),
+        "client": "ScriptedClient",
+        "missing": ["finish_reason"],
+        "finish_reason": None,
+        "usage_metadata": USAGE,
+    }
+
+
 @pytest.mark.parametrize(
     "body, message",
     [

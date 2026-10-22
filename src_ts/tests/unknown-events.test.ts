@@ -16,6 +16,7 @@ import { expect, describe, test, afterEach } from "@jest/globals";
 import {
   AutoLLMClient,
   EventContentItem,
+  IncompleteStreamError,
   TextDeltaItem,
   UniConfig,
   UniEvent,
@@ -513,6 +514,28 @@ describe.each(RESPONSES_STREAM_CASES)(
         ).rejects.toThrow("Unknown output");
       },
     );
+
+    test("raises IncompleteStreamError for a completed event without usage", async () => {
+      const client = createAutoClient(testCase);
+      const completed = responsesCompletedEvent() as {
+        response: { usage: unknown };
+      };
+      completed.response.usage = null;
+      installFakeResponsesStream(client, [
+        responsesTextDeltaEvent("Here is"),
+        completed,
+      ]);
+
+      const error = await collectEvents(
+        client.streamingResponse({ messages, config: {} }),
+      ).catch((caught) => caught);
+
+      expect(error).toBeInstanceOf(IncompleteStreamError);
+      expect(error).toMatchObject({
+        missing: ["usage_metadata"],
+        finishReason: "stop",
+      });
+    });
   },
 );
 

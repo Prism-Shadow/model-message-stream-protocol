@@ -31,4 +31,4 @@ total_tokens  = input_tokens + output_tokens
 
 有状态调用记录的助手消息也包含相同的 `usage_metadata`，因此存储的历史会话会保留每一轮的成本。
 
-即使响应抛出了 `EmptyResponseError`，也已消耗 token。该错误同样包含其 `usage_metadata`。
+即使响应抛出了 `EmptyResponseError`，也已消耗 token。该错误同样包含其 `usage_metadata`。`IncompleteStreamError` 包含流中途断开之前已经到达的 `usage_metadata`，没有到达则为 null。

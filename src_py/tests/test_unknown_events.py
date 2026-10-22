@@ -20,7 +20,7 @@ from types import SimpleNamespace
 import pytest
 from stream_grammar import assert_stream_grammar
 
-from mmsp import AutoLLMClient
+from mmsp import AutoLLMClient, IncompleteStreamError
 
 
 @dataclass
@@ -418,6 +418,22 @@ async def test_responses_clients_reject_unknown_events_in_debug_mode(
     with pytest.raises(ValueError, match="Unknown output"):
         async for _event in client.streaming_response(MESSAGES, {}):
             pass
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", RESPONSES_STREAM_CASES, ids=[case.client_type for case in RESPONSES_STREAM_CASES])
+async def test_responses_clients_raise_incomplete_stream_error_for_a_completed_event_without_usage(case: StreamCase):
+    client = _create_auto_client(case)
+    completed = _responses_completed_event()
+    completed.response.usage = None
+    _install_fake_responses_stream(client, [_responses_text_delta_event("Here is"), completed])
+
+    with pytest.raises(IncompleteStreamError) as exc_info:
+        async for _event in client.streaming_response(MESSAGES, {}):
+            pass
+
+    assert exc_info.value.missing == ("usage_metadata",)
+    assert exc_info.value.finish_reason == "stop"
 
 
 @pytest.mark.asyncio
