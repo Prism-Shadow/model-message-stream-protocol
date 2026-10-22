@@ -3,6 +3,7 @@
 - **Date:** 2026-10-22
 - **Type:** fix
 - **Scope:** `src_ts`, `tests`
+- **PR:** [#275](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/275)
 
 [English](2026-10-22-dependabot-src-ts.md)
 
