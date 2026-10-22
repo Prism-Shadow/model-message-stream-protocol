@@ -3,6 +3,7 @@
 - **Date:** 2026-10-22
 - **Type:** fix
 - **Scope:** `openai_chat`, `tests`, `site`
+- **PR:** [#273](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/273)
 
 [中文版](2026-10-22-openai-chat-reasoning-details.zh.md)
 
