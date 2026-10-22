@@ -8,7 +8,7 @@
 
 # Features
 
-* **Automatic Caching**: Passive caching that automatically identifies repeated context content without changing API call methods (*In contrast, the caching mode that requires explicitly setting parameters in the Anthropic API is called "Explicit Prompt Caching", see [Explicit Prompt Caching (Anthropic API)](/docs/api-reference/anthropic-api-compatible-cache)*)
+* **Automatic Caching**: Automatically identifies repeated context content without changing API call methods
 * **Cost Reduction**: Input tokens that hit the cache are billed at a lower price, significantly saving costs
 * **Speed Improvement**: Reduces processing time for repeated content, accelerating model response
 
@@ -45,7 +45,7 @@ Scenarios that meet the above conditions can effectively save token consumption 
       client = anthropic.Anthropic()
 
     response1 = client.messages.create(
-          model="MiniMax-M3",
+          model="MiniMax-M3.1-Flash",
         system="You are an AI assistant tasked with analyzing literary works. Your goal is to provide insightful commentary on themes, characters, and writing style.\n",
           messages=[
               {
@@ -77,7 +77,7 @@ Scenarios that meet the above conditions can effectively save token consumption 
 
     ```python theme={null} theme={null}
     response2 = client.messages.create(
-        model="MiniMax-M3",
+        model="MiniMax-M3.1-Flash",
         system="You are an AI assistant tasked with analyzing literary works. Your goal is to provide insightful commentary on themes, characters, and writing style.\n",
         messages=[
               {
@@ -140,7 +140,7 @@ Scenarios that meet the above conditions can effectively save token consumption 
     client = OpenAI()
 
     response1 = client.chat.completions.create(
-        model="MiniMax-M3",
+        model="MiniMax-M3.1-Flash",
         messages=[
             {"role": "system", "content": "You are an AI assistant tasked with analyzing literary works. Your goal is to provide insightful commentary on themes, characters, and writing style.\n"},
             {"role": "user", "content": "<the entire contents of 'Pride and Prejudice'>"},
@@ -160,7 +160,7 @@ Scenarios that meet the above conditions can effectively save token consumption 
 
     ```python theme={null} theme={null}
     response2 = client.chat.completions.create(
-        model="MiniMax-M3",
+        model="MiniMax-M3.1-Flash",
         messages=[
             {"role": "system", "content": "You are an AI assistant tasked with analyzing literary works. Your goal is to provide insightful commentary on themes, characters, and writing style.\n"},
             {"role": "user", "content": "<the entire contents of 'Pride and Prejudice'>"},
@@ -196,6 +196,7 @@ Scenarios that meet the above conditions can effectively save token consumption 
 
 * Caching applies to API calls with 512 or more input tokens
 * Caching uses prefix matching, constructed in the order of "tool list → system prompts → user messages". Changes to any module's content may affect caching effectiveness
+* Supported models: MiniMax-M3.1-Flash, MiniMax-M3, MiniMax-M2.7 series, MiniMax-M2.5 series, MiniMax-M2.1 series
 
 # Best Practices
 
@@ -210,41 +211,21 @@ Prompt caching uses differentiated pricing:
 * New input tokens: Billed at standard input price
 * Output tokens: Billed at standard output price
 
-> See the [Pay as You Go pricing](/docs/guides/pricing-paygo) page for details.
+> See the [Pay as You Go pricing](https://platform.minimax.io/docs/pricing/overview#models/text) page for details.
 
-Pricing example:
+Pricing formula:
 
 ```
-Assuming the MiniMax-M3 standard price for input ≤512k tokens: input is $0.60/1M tokens, output is $2.40/1M tokens, and cache hit is $0.12/1M tokens:
+Cost per request = New input tokens × Input price
+                 + Cache hit tokens × Cache hit price
+                 + Output tokens × Output price
 
-Single request token usage details:
-- Total input tokens: 50000
-- Cache hit tokens: 45000
-- New input content tokens: 5000
-- Output tokens: 1000
-
-Billing calculation:
-- New input content cost: 5000 × 0.60/1000000 = $0.003
-- Cache cost: 45000 × 0.12/1000000 = $0.0054
-- Output cost: 1000 × 2.40/1000000 = $0.0024
-- Total cost: 0.003 + 0.0054 + 0.0024 = $0.0108
-
-Compared to no caching (50000 × 0.60/1000000 + 1000 × 2.40/1000000 = $0.0324), saves about 66.7%
+Where:
+- New input tokens = Total input tokens − Cache hit tokens
+- Prices are per 1M tokens; see the Pay as You Go pricing page for the actual values
 ```
 
-For MiniMax-M3, long-context pricing applies when input tokens are greater than 512k, including cache-hit tokens.
+Cache hit tokens are returned in the response `usage`:
 
-# Further Reading
-
-<Columns cols={1}>
-  <Card title="Explicit Prompt Caching (Anthropic API)" icon="book-open" href="/docs/api-reference/anthropic-api-compatible-cache" arrow="true" cta="Learn more" />
-</Columns>
-
-# Cache Comparison
-
-|                  | Prompt Caching (Passive)                                                               | Explicit Prompt Caching (Anthropic API)                                                           |
-| :--------------- | :------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------ |
-| Usage            | Automatically identifies and caches repeated content                                   | Explicitly set cache\_control in API                                                              |
-| Billing          | Cache hit tokens billed at discounted price<br />No additional charge for cache writes | Cache hit tokens billed at discounted price<br />First-time cache writes incur additional charges |
-| Expiration       | Expiration time automatically adjusted based on system load                            | 5-minute expiration, automatically renewed with continued use                                     |
-| Supported Models | MiniMax-M3<br />MiniMax-M2.7 series<br />MiniMax-M2.5 series<br />MiniMax-M2.1 series  | MiniMax-M2.7 series<br />MiniMax-M2.5 series<br />MiniMax-M2.1 series<br />MiniMax-M2 series      |
+* Anthropic-compatible API: `usage.cache_read_input_tokens`; `usage.input_tokens` is the number of new input tokens
+* OpenAI-compatible API: `usage.prompt_tokens_details.cached_tokens`; `usage.prompt_tokens` is the total number of input tokens
