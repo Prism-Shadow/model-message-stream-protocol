@@ -1,173 +1,493 @@
 > ## Documentation Index
->
-> Fetch the complete documentation index at: [/docs/llms.txt](https://platform.minimax.io/docs/llms.txt)
->
+> Fetch the complete documentation index at: https://platform.minimax.io/docs/llms.txt
 > Use this file to discover all available pages before exploring further.
 
-[Skip to main content](https://platform.minimax.io/docs/guides/pricing-paygo#content-area)
+# Pricing Overview
 
-Pay-as-you-go uses standard Open Platform API Keys and consumes your account balance by actual usage. Credits are a separate prepaid balance used through a Subscription Key with the same resource coverage as Token Plan. For Credits pricing and usage behavior, see [Token Plan pricing](https://platform.minimax.io/docs/guides/pricing-token-plan).
+<div id="pricing-document" data-pricing-language="en" data-pricing-overview-title="Pricing Overview" data-pricing-overview-group="Product Pricing">
+  <div role="navigation" className="pricing-sidebar-navigation pricing-anchor-navigation not-prose" data-pricing-sidebar="" aria-label="Pricing navigation">
+    <div className="pricing-navigation-group">
+      <span className="pricing-navigation-title">Product Pricing</span>
+      <a className="pricing-anchor-link" data-pricing-anchor="overview" href="#overview">Pricing Overview</a>
+    </div>
 
-## [​](https://platform.minimax.io/docs/guides/pricing-paygo\#llm)  LLM
+    <div className="pricing-navigation-group" data-pricing-group="models">
+      <span className="pricing-navigation-title">Model Pricing</span>
 
-[Recharge Now](https://platform.minimax.io/user-center/payment/balance)
+      <div>
+        <a className="pricing-anchor-link" data-pricing-anchor="models/text" href="#models/text">LLM</a>
+        <a className="pricing-anchor-link" data-pricing-anchor="models/speech" href="#models/speech">Audio</a>
+        <a className="pricing-anchor-link" data-pricing-anchor="models/video" href="#models/video">Video</a>
+        <a className="pricing-anchor-link" data-pricing-anchor="models/image" href="#models/image">Image</a>
+        <a className="pricing-anchor-link" data-pricing-anchor="models/music" href="#models/music">Music</a>
+      </div>
+    </div>
 
-- Standard
+    <div className="pricing-navigation-group" data-pricing-group="tools">
+      <span className="pricing-navigation-title">Tool Pricing</span>
 
-- Priority\*
+      <div>
+        <a className="pricing-anchor-link" data-pricing-anchor="tools/mcp" href="#tools/mcp">MCP</a>
+        <a className="pricing-anchor-link" data-pricing-anchor="tools/tools" href="#tools/tools">Server Tools</a>
+      </div>
+    </div>
 
+    <div className="pricing-navigation-group" data-pricing-group="packages">
+      <span className="pricing-navigation-title">Subscriptions & Packages</span>
 
-| Model | Input | Output | Prompt caching Read |
-| --- | --- | --- | --- |
-| **MiniMax-M3**<br>≤ 512k input tokens Permanent 50% off | ~~$0.60~~ $0.30 / M tokens | ~~$2.40~~ $1.20 / M tokens | ~~$0.12~~ $0.06 / M tokens |
-| **MiniMax-M3**<br>\> 512k input tokens\* Permanent 50% off | ~~$1.20~~ $0.60 / M tokens | ~~$4.80~~ $2.40 / M tokens | ~~$0.24~~ $0.12 / M tokens |
+      <div>
+        <a className="pricing-anchor-link" data-pricing-anchor="packages/speech" href="#packages/speech">Audio Subscription</a>
+        <a className="pricing-anchor-link" data-pricing-anchor="packages/video" href="#packages/video">Video Packages</a>
+      </div>
+    </div>
 
-| Model | Input | Output | Prompt caching Read |
-| --- | --- | --- | --- |
-| **MiniMax-M3**<br>≤ 512k input tokens Permanent 50% off | ~~$0.90~~ $0.45 / M tokens | ~~$3.60~~ $1.80 / M tokens | ~~$0.18~~ $0.09 / M tokens |
-| **MiniMax-M3**<br>\> 512k input tokens Permanent 50% off | ~~$1.80~~ $0.90 / M tokens | ~~$7.20~~ $3.60 / M tokens | ~~$0.36~~ $0.18 / M tokens |
+    <div className="pricing-navigation-group" data-pricing-group="guides">
+      <span className="pricing-navigation-title">Billing Guides</span>
 
-\\* Priority provides priority admission for faster response times and improved request reliability. Set `service_tier` to `priority` to enable it. Pricing is 1.5x standard.
+      <div>
+        <a className="pricing-anchor-link" data-pricing-anchor="guides/compare" href="#guides/compare">Payment Methods</a>
+        <a className="pricing-anchor-link" data-pricing-anchor="guides/billing" href="#guides/billing">Pay-as-you-go Billing</a>
+        <a className="pricing-anchor-link" data-pricing-anchor="guides/packages" href="#guides/packages">Package Usage Rules</a>
+        <a className="pricing-anchor-link" data-pricing-anchor="guides/faq" href="#guides/faq">FAQ</a>
+      </div>
+    </div>
+  </div>
 
-| Model | Input | Output | Prompt caching Read | Prompt caching Write |
-| --- | --- | --- | --- | --- |
-| **MiniMax-M2.7** | $0.3 / M tokens | $1.2 / M tokens | $0.06 / M tokens | $0.375 / M tokens |
-| **MiniMax-M2.7-highspeed** | $0.6 / M tokens | $2.4 / M tokens | $0.06 / M tokens | $0.375 / M tokens |
+  <div className="pricing-mobile-navigation not-prose">
+    <Accordion title="Pricing navigation">
+      <div role="navigation" className="pricing-anchor-navigation" aria-label="Pricing navigation">
+        <div className="pricing-navigation-group">
+          <span className="pricing-navigation-title">Product Pricing</span>
+          <a className="pricing-anchor-link" data-pricing-anchor="overview" href="#overview">Pricing Overview</a>
+        </div>
 
-Legacy Models
+        <div className="pricing-navigation-group" data-pricing-group="models">
+          <span className="pricing-navigation-title">Model Pricing</span>
 
-| Model | Input | Output | Prompt caching Read | Prompt caching Write |
-| --- | --- | --- | --- | --- |
-| **MiniMax-M2.5** | $0.3 / M tokens | $1.2 / M tokens | $0.03 / M tokens | $0.375 / M tokens |
-| **MiniMax-M2.5-highspeed** | $0.6 / M tokens | $2.4 / M tokens | $0.03 / M tokens | $0.375 / M tokens |
-| **MiniMax-M2.1** | $0.3 / M tokens | $1.2 / M tokens | $0.03 / M tokens | $0.375 / M tokens |
-| **MiniMax-M2.1-highspeed** | $0.6 / M tokens | $2.4 / M tokens | $0.03 / M tokens | $0.375 / M tokens |
-| **MiniMax-M2** | $0.3 / M tokens | $1.2 / M tokens | $0.03 / M tokens | $0.375 / M tokens |
+          <div>
+            <a className="pricing-anchor-link" data-pricing-anchor="models/text" href="#models/text">LLM</a>
+            <a className="pricing-anchor-link" data-pricing-anchor="models/speech" href="#models/speech">Audio</a>
+            <a className="pricing-anchor-link" data-pricing-anchor="models/video" href="#models/video">Video</a>
+            <a className="pricing-anchor-link" data-pricing-anchor="models/image" href="#models/image">Image</a>
+            <a className="pricing-anchor-link" data-pricing-anchor="models/music" href="#models/music">Music</a>
+          </div>
+        </div>
 
-Note:
+        <div className="pricing-navigation-group" data-pricing-group="tools">
+          <span className="pricing-navigation-title">Tool Pricing</span>
 
-1. The billing item is token count; the token-to-character ratio varies slightly depending on the usage scenario, subject to actual consumption
-2. Token to English word ratio (estimate): approximately 750 English words consume 1000 tokens
+          <div>
+            <a className="pricing-anchor-link" data-pricing-anchor="tools/mcp" href="#tools/mcp">MCP</a>
+            <a className="pricing-anchor-link" data-pricing-anchor="tools/tools" href="#tools/tools">Server Tools</a>
+          </div>
+        </div>
 
-## [​](https://platform.minimax.io/docs/guides/pricing-paygo\#audio)  Audio
+        <div className="pricing-navigation-group" data-pricing-group="packages">
+          <span className="pricing-navigation-title">Subscriptions & Packages</span>
 
-[Recharge Now](https://platform.minimax.io/user-center/payment/balance)
+          <div>
+            <a className="pricing-anchor-link" data-pricing-anchor="packages/speech" href="#packages/speech">Audio Subscription</a>
+            <a className="pricing-anchor-link" data-pricing-anchor="packages/video" href="#packages/video">Video Packages</a>
+          </div>
+        </div>
 
-| API | Model | Price |
-| --- | --- | --- |
-| **T2A** | speech-2.8-turbo | $60/M characters |
-| **T2A** | speech-2.8-hd | $100/M characters |
-| **Rapid Voice Cloning** | All Models | $1.5 per voice |
-| **Voice Design** | All Models | $3 per voice |
+        <div className="pricing-navigation-group" data-pricing-group="guides">
+          <span className="pricing-navigation-title">Billing Guides</span>
 
-Legacy Models
+          <div>
+            <a className="pricing-anchor-link" data-pricing-anchor="guides/compare" href="#guides/compare">Payment Methods</a>
+            <a className="pricing-anchor-link" data-pricing-anchor="guides/billing" href="#guides/billing">Pay-as-you-go Billing</a>
+            <a className="pricing-anchor-link" data-pricing-anchor="guides/packages" href="#guides/packages">Package Usage Rules</a>
+            <a className="pricing-anchor-link" data-pricing-anchor="guides/faq" href="#guides/faq">FAQ</a>
+          </div>
+        </div>
+      </div>
+    </Accordion>
+  </div>
 
-| API | Model | Price |
-| --- | --- | --- |
-| **T2A** | speech-2.6-turbo / speech-02-turbo | $60/M characters |
-| **T2A** | speech-2.6-hd / speech-02-hd | $100/M characters |
+  <div id="overview" className="pricing-overview">
+    Explore MiniMax model and tool pricing, choose an Audio Subscription or Video Package, or learn about billing.
+  </div>
 
-## [​](https://platform.minimax.io/docs/guides/pricing-paygo\#video)  Video
+  <section id="models/text" className="pricing-section" data-pricing-title="LLM">
+    ## LLM
 
-[Recharge Now](https://platform.minimax.io/user-center/payment/balance)**Video Generation - Output Pricing**
+    [Recharge Now](https://platform.minimax.io/user-center/payment/balance)
 
-| **Model / API** | **Resolution** | **Billing Rules** | **List Price** |
-| --- | --- | --- | --- |
-| MiniMax-H3 | 2K | Billed per second | $0.13 / second |
-| MiniMax-H3 | 768P | Billed per second | $0.08 / second |
+    | Model | Input | Output | Prompt caching Read |
+    | :- | :- | :- | :- |
+    | **MiniMax-M3.1-Flash** | \$0.15 / M tokens | \$0.60 / M tokens | \$0.015 / M tokens |
 
-**Video Generation - Input Material Pricing**
+    <Tabs>
+      <Tab title="Standard">
+        | Model | Input | Output | Prompt caching Read |
+        | :- | :- | :- | :- |
+        | **MiniMax-M3**<br />≤ 512k input tokens | \$0.30 / M tokens | \$1.20 / M tokens | \$0.06 / M tokens |
+        | **MiniMax-M3**<br />> 512k input tokens\* | \$0.60 / M tokens | \$2.40 / M tokens | \$0.12 / M tokens |
+      </Tab>
 
-| **Model / API** | **Material Type** | **Billing Rules** |
-| --- | --- | --- |
-| MiniMax-H3 | Audio | Free |
-| MiniMax-H3 | Image | First **5 images** free; **$0.04 per additional image** |
-| MiniMax-H3 | Video | Billed by input video duration and output video resolution: **2K $0.13/sec**, **768P $0.08/sec** |
+      <Tab title="Priority*">
+        | Model | Input | Output | Prompt caching Read |
+        | :- | :- | :- | :- |
+        | **MiniMax-M3**<br />≤ 512k input tokens | \$0.45 / M tokens | \$1.80 / M tokens | \$0.09 / M tokens |
+        | **MiniMax-M3**<br />> 512k input tokens | \$0.90 / M tokens | \$3.60 / M tokens | \$0.18 / M tokens |
 
-**Video Regeneration - Output Pricing**Regenerate a previously produced 768P video into 2K, billed per second of the regenerated output.
+        \* Priority provides priority admission for faster response times and improved request reliability. Set `service_tier` to `priority` to enable it. Pricing is 1.5x standard.
+      </Tab>
+    </Tabs>
 
-| **Model / API** | **Resolution** | **Billing Rules** | **List Price** |
-| --- | --- | --- | --- |
-| MiniMax-H3-Regeneration | 768P → 2K | Billed per second of the regenerated output | $0.05 / second |
+    <Info>
+      Note:
 
-**Video Regeneration - Input Material Pricing**The input materials used in the original 768P generation task will be billed again.
+      1. The billing item is token count; the token-to-character ratio varies slightly depending on the usage scenario, subject to actual consumption
+      2. Token to English word ratio (estimate): approximately 750 English words consume 1000 tokens
+    </Info>
+  </section>
 
-| **Model / API** | **Material Type** | **Billing Rules** |
-| --- | --- | --- |
-| MiniMax-H3-Regeneration | Audio | Free |
-| MiniMax-H3-Regeneration | Image | First **5 images** free; **$0.025 per additional image** |
-| MiniMax-H3-Regeneration | Video | Billed by input video duration from the original 768P task: **$0.05 / second** |
+  <section id="models/speech" className="pricing-section" data-pricing-title="Audio">
+    ## Audio
 
-**H3-Context-IR Task Pricing**
+    [Recharge Now](https://platform.minimax.io/user-center/payment/balance)
 
-| **Model / API** | **Input Price** | **Output Price** |
-| --- | --- | --- |
-| MiniMax-H3-Context-IR | $0.90 / M tokens | $3.60 / M tokens |
+    **Automatic Speech Recognition (ASR)**
 
-Legacy Models
+    | **API** | **Endpoint** | **Description** | **Price** |
+    | :- | :- | :- | :- |
+    | Speech Recognition | Speech-to-Text | Audio-to-text transcription with streaming, speaker diarization, and subtitle (srt/vtt) export. | \$0.38 / hour |
 
-| Model | Price |
-| --- | --- |
-| MiniMax-Hailuo-2.3-Fast | $0.19 per 768P, 6s video |
-| MiniMax-Hailuo-2.3-Fast | $0.32 per 768P, 10s video |
-| MiniMax-Hailuo-2.3-Fast | $0.33 per 1080P, 6s video |
-| MiniMax-Hailuo-2.3 | $0.28 per 768P, 6s video |
-| MiniMax-Hailuo-2.3 | $0.56 per 768P, 10s video |
-| MiniMax-Hailuo-2.3 | $0.49 per 1080P, 6s video |
-| MiniMax-Hailuo-02 | $0.28 per 768P, 6s video |
-| MiniMax-Hailuo-02 | $0.56 per 768P, 10s video |
-| MiniMax-Hailuo-02 | $0.49 per 1080P, 6s video |
-| MiniMax-Hailuo-02 | $0.10 per 512P, 6s video |
-| MiniMax-Hailuo-02 | $0.15 per 512P, 10s video |
+    **Text-to-Speech (TTS)**
 
-## [​](https://platform.minimax.io/docs/guides/pricing-paygo\#music)  Music
+    | **API** | **Model** | **Description** | **Price** |
+    | :- | :- | :- | :- |
+    | **T2A** (Sync) | speech-2.8-hd | Real-time synthesis with volume/pitch/speed/mixing controls and bitrate/sample-rate options. Best for short-form conversational audio. | \$100 / M characters |
+    | **T2A** (Sync) | speech-2.8-turbo | Same capabilities as hd, optimized for speed and cost. | \$60 / M characters |
+    | **T2A Async** | speech-2.8-hd | Asynchronous long-form synthesis, up to 1M characters per request, retrieved asynchronously. | \$100 / M characters |
+    | **T2A Async** | speech-2.8-turbo | Same capabilities as hd, optimized for speed and cost. | \$60 / M characters |
 
-[Recharge Now](https://platform.minimax.io/user-center/payment/balance)
+    **Voice Management**
 
-| Model | Description | Price |
-| --- | --- | --- |
-| Music-3.0-free | RPM = 3 | Free |
-| Music-3.0 | RPM = 120, contact sales to increase | $0.15/up-to-5 minutes music |
-| Music-2.6-free | RPM = 3 | Free |
-| Music-2.6 | RPM = 120, contact sales to increase | $0.15/up-to-5 minutes music |
-| Lyrics Generation | Lyrics generation/editing | $0.01/per song |
+    | **API** | **Description** | **Price** | **Notes** |
+    | :- | :- | :- | :- |
+    | **Voice Design** | Generate a voice (voice\_id) from a natural-language description; usable in both sync and async T2A endpoints. | \$3 per voice | Charged when the designed voice is first used for synthesis, not at generation time. In-API preview synthesis is billed at \$60 / M characters. |
+    | **Rapid Voice Cloning** | LLM-powered voice cloning that produces a high-fidelity replica in seconds, without long high-quality reference audio. | \$1.5 per voice | Charged when the cloned voice is first used for synthesis, not at cloning time. Preview characters are billed at the selected preview model's rate. |
 
-Legacy Models
+    <Accordion title="Legacy Models">
+      | API | Model | Price |
+      | :- | :- | :- |
+      | **T2A** | speech-2.6-turbo / speech-02-turbo | \$60/M characters |
+      | **T2A** | speech-2.6-hd / speech-02-hd | \$100/M characters |
+    </Accordion>
+  </section>
 
-| Model | Description | Price |
-| --- | --- | --- |
-| Music-2.5+ | Instrumental unlocked, break through style boundaries | $0.15/up-to-5 minutes music |
-| Music-2.5 | Direct the detail, define the real | $0.15/up-to-5 minutes music |
-| Music-2.0 | Enhanced musical expression | $0.03/up-to-5 minutes music |
+  <section id="models/video" className="pricing-section" data-pricing-title="Video">
+    ## Video
 
-## [​](https://platform.minimax.io/docs/guides/pricing-paygo\#image)  Image
+    [Recharge Now](https://platform.minimax.io/user-center/payment/balance)
 
-[Recharge Now](https://platform.minimax.io/user-center/payment/balance)
+    **Video Generation - Output Pricing**
 
-| Model | Price |
-| --- | --- |
-| image-01 | $0.0035 per image |
+    | **Model / API** | **Resolution** | **Billing Rules** | **List Price** |
+    | :- | :- | :- | :- |
+    | <div style={{minWidth:'240px'}}>MiniMax-H3</div> | 768P | Billed per second | \$0.08 / second |
+    | <div style={{minWidth:'240px'}}>MiniMax-H3</div> | 2K | Billed per second | \$0.13 / second |
+    | <div style={{minWidth:'240px'}}>MiniMax-H3-Max</div> | 480P | Billed per second | \$0.05 / second |
+    | <div style={{minWidth:'240px'}}>MiniMax-H3-Max</div> | 768P | Billed per second | \$0.08 / second |
 
-## [​](https://platform.minimax.io/docs/guides/pricing-paygo\#mcp)  MCP
+    **Video Generation - Input Material Pricing**
 
-[Recharge Now](https://platform.minimax.io/user-center/payment/balance)
+    | **Model / API** | **Material Type** | **Billing Rules** |
+    | :- | :- | :- |
+    | <div style={{minWidth:'240px'}}>MiniMax-H3</div> | Audio | Free |
+    | <div style={{minWidth:'240px'}}>MiniMax-H3</div> | Image | First **5 images** free; **\$0.04 per additional image** |
+    | <div style={{minWidth:'240px'}}>MiniMax-H3</div> | Video | Billed by input video duration and output video resolution: **2K \$0.13/sec**, **768P \$0.08/sec** |
+    | <div style={{minWidth:'240px'}}>MiniMax-H3-Max</div> | Audio | Free |
+    | <div style={{minWidth:'240px'}}>MiniMax-H3-Max</div> | Image | First **2 images** free; **\$0.074 per additional image** |
+    | <div style={{minWidth:'240px'}}>MiniMax-H3-Max</div> | Video | Billed by input video duration and output video resolution: **480P \$0.0553/sec**, **768P \$0.143/sec** |
 
-| Model | Input Price |
-| --- | --- |
-| **API-vlm** | $0.01 / request |
+    **Video Regeneration - Output Pricing**
 
-When API-vlm is called through Token Plan, usage deducts from the included Token Plan quota according to its pay-as-you-go price. If the included quota is exhausted and purchased Credits are available, additional usage can be automatically covered by purchased Credits.
+    Regenerate a previously produced 768P video into 2K, billed per second of the regenerated output.
 
-🔔 **Pricing Update Notice** — Effective July 22, 2026, the API-vlm price will be adjusted to $0.01 per call. Accordingly, the token quota deducted per API-vlm call under Token Plan subscriptions will decrease, allowing the same plan to support more calls. API endpoints and model capabilities remain unchanged — no code changes required.
+    | **Model / API** | **Resolution** | **Billing Rules** | **List Price** |
+    | :- | :- | :- | :- |
+    | <div style={{minWidth:'240px'}}>MiniMax-H3-Regeneration</div> | 768P → 2K | Billed per second of the regenerated output | \$0.05 / second |
 
-## [​](https://platform.minimax.io/docs/guides/pricing-paygo\#server-tools)  Server Tools
+    **Video Regeneration - Input Material Pricing**
 
-[Recharge Now](https://platform.minimax.io/user-center/payment/balance)
+    The input materials used in the original 768P generation task will be billed again.
 
-| Server Tool | Description | Price |
-| --- | --- | --- |
-| **web\_search** | Web search; the model runs the search on the server and answers based on the results. See [Server Tools](https://platform.minimax.io/docs/guides/server-tools). | $0.01 / request |
+    | **Model / API** | **Material Type** | **Billing Rules** |
+    | :- | :- | :- |
+    | <div style={{minWidth:'240px'}}>MiniMax-H3-Regeneration</div> | Audio | Free |
+    | <div style={{minWidth:'240px'}}>MiniMax-H3-Regeneration</div> | Image | First **5 images** free; **\$0.025 per additional image** |
+    | <div style={{minWidth:'240px'}}>MiniMax-H3-Regeneration</div> | Video | Billed by input video duration from the original 768P task: **\$0.05 / second** |
 
-[Overview](https://platform.minimax.io/docs/pricing/overview) [Audio Subscription](https://platform.minimax.io/docs/guides/pricing-speech)
+    **H3-Context-IR Task Pricing**
 
-⌘I
+    | **Model / API** | **Input Price** | **Output Price** |
+    | :- | :-: | :-: |
+    | <div style={{minWidth:'240px'}}>MiniMax-H3-Context-IR</div> | \$0.90 / M tokens | \$3.60 / M tokens |
+
+    <Accordion title="Legacy Models">
+      | Model | Price |
+      | :- | :- |
+      | MiniMax-Hailuo-2.3-Fast | \$0.19 per 768P, 6s video |
+      | MiniMax-Hailuo-2.3-Fast | \$0.32 per 768P, 10s video |
+      | MiniMax-Hailuo-2.3-Fast | \$0.33 per 1080P, 6s video |
+      | MiniMax-Hailuo-2.3 | \$0.28 per 768P, 6s video |
+      | MiniMax-Hailuo-2.3 | \$0.56 per 768P, 10s video |
+      | MiniMax-Hailuo-2.3 | \$0.49 per 1080P, 6s video |
+      | MiniMax-Hailuo-02 | \$0.28 per 768P, 6s video |
+      | MiniMax-Hailuo-02 | \$0.56 per 768P, 10s video |
+      | MiniMax-Hailuo-02 | \$0.49 per 1080P, 6s video |
+      | MiniMax-Hailuo-02 | \$0.10 per 512P, 6s video |
+      | MiniMax-Hailuo-02 | \$0.15 per 512P, 10s video |
+    </Accordion>
+  </section>
+
+  <section id="models/image" className="pricing-section" data-pricing-title="Image">
+    ## Image
+
+    [Recharge Now](https://platform.minimax.io/user-center/payment/balance)
+
+    | Model | Price |
+    | :- | :- |
+    | image-01 | \$0.0035 per image |
+  </section>
+
+  <section id="models/music" className="pricing-section" data-pricing-title="Music">
+    ## Music
+
+    <Note title="Music API Service Adjustment Notice">
+      Starting August 20, 2026, the paid APIs (Music Generation and Lyrics Generation) will no longer be available to new users; existing paying users can continue to use the current API services. The free music generation APIs (Music-3.0-free, Music-2.6-free, music-cover-free) will be discontinued.
+
+      To experience or use music generation capabilities, please visit [MiniMax Audio](https://www.minimax.io/audio), or use the open-source [MiniMax Music 3 model on Hugging Face](https://huggingface.co/MiniMaxAI/MiniMax-Music3).
+    </Note>
+
+    | Model | Description | Price |
+    | :- | :- | :-: |
+    | Music-3.0 (Discontinued) | RPM = 120, contact sales to increase | \$0.15/up-to-5 minutes music |
+    | Music-2.6 (Discontinued) | RPM = 120, contact sales to increase | \$0.15/up-to-5 minutes music |
+    | Lyrics Generation (Discontinued) | Lyrics generation/editing | \$0.01/per song |
+
+    <Accordion title="Legacy Models">
+      | Model | Description | Price |
+      | :- | :- | :-: |
+      | Music-2.5+ (Discontinued) | Instrumental unlocked, break through style boundaries | \$0.15/up-to-5 minutes music |
+      | Music-2.5 (Discontinued) | Direct the detail, define the real | \$0.15/up-to-5 minutes music |
+      | Music-2.0 (Discontinued) | Enhanced musical expression | \$0.03/up-to-5 minutes music |
+    </Accordion>
+  </section>
+
+  <section id="tools/mcp" className="pricing-section" data-pricing-title="MCP">
+    ## MCP
+
+    [Recharge Now](https://platform.minimax.io/user-center/payment/balance)
+
+    | Model | Input Price |
+    | :- | :- |
+    | **API-vlm** | \$0.01 / request |
+
+    When API-vlm is called through M Plan, usage deducts from the included M Plan quota according to its pay-as-you-go price. If the included quota is exhausted and purchased Credits are available, additional usage can be automatically covered by purchased Credits.
+
+    <Callout color="#FFC107">
+      🔔 **Pricing Update Notice** — Effective July 22, 2026, the API-vlm price will be adjusted to \$0.01 per call. Accordingly, the token quota deducted per API-vlm call under M Plan subscriptions will decrease, allowing the same plan to support more calls. API endpoints and model capabilities remain unchanged — no code changes required.
+    </Callout>
+  </section>
+
+  <section id="tools/tools" className="pricing-section" data-pricing-title="Server Tools">
+    ## Server Tools <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700 before:content-['Beta'] dark:bg-blue-900/30 dark:text-blue-300" />
+
+    [Recharge Now](https://platform.minimax.io/user-center/payment/balance)
+
+    | Server Tool | Description | Price |
+    | :- | :- | :- |
+    | **web\_search** | Web search; the model runs the search on the server and answers based on the results. See [Server Tools](/docs/guides/server-tools). | \$0.01 / request |
+  </section>
+
+  <section id="packages/speech" className="pricing-section" data-pricing-title="Audio Subscription">
+    ## Audio Subscription
+
+    [Purchase Now](https://platform.minimax.io/subscribe/audio-subscription)
+
+    | Category | Starter | Standard | Pro | Scale | Business | Customer Pricing |
+    | :- | :- | :- | :- | :- | :- | :- |
+    | **Monthly Subscription** | \$5 | \$30 | \$99 | \$249 | \$999 | / |
+    | **3-month Subscription** (10% off) | \$13.5 | \$81 | \$267 | \$672 | \$2,697 | / |
+    | **Yearly Subscription** (20% off) | \$48 | \$288 | \$950 | \$2,390 | \$9,590 | / |
+    | **Audio points per month** | 100,000 | 300,000 | 1,100,000 | 3,300,000 | 20,000,000 | As many audio points as you need |
+    | **Functions** | • Voice slots: 10 <br />• RPM: 10<br />• Faster speed of generating speech<br />• Supports T2A v2, T2A large v2 API <br />• Supports all speech models | • Voice slots: 100 <br />• RPM: 50 <br />• Faster speed of generating speech<br />• Supports T2A v2, T2A large v2 API<br />• Supports all speech models | • Voice slots: 250 <br />• RPM: 200<br /> • Faster speed of generating speech <br />• Supports T2A v2, T2A large v2 API <br />• Supports all speech models | • Voice slots: 500 <br />• RPM: 500 <br />• Faster speed of generating speech <br />• Supports T2A v2, T2A large v2 API <br />• Supports all speech models | • Voice slots: 800 <br />• RPM: 800 <br />• Faster speed of generating speech <br />• Supports T2A v2, T2A large v2 API <br />• Supports all speech models | • Unlimited RPM/TPM <br />• Priority access to model updates <br />• More voices and more cloning options <br />• Exclusive security and stability guarantees |
+  </section>
+
+  <section id="packages/video" className="pricing-section" data-pricing-title="Video Packages">
+    ## Video Packages
+
+    [Purchase Now](https://platform.minimax.io/subscribe/subscription)
+
+    <div className="video-package-alert" role="note" aria-label="Video package model support notice">
+      <div className="video-package-alert__icon" aria-hidden="true">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 3 2.8 20h18.4L12 3Z" />
+
+          <path d="M12 9v5M12 17h.01" />
+        </svg>
+      </div>
+
+      <div className="video-package-alert__content">
+        <div className="video-package-alert__title">
+          Video packages support Hailuo video models. MiniMax H3 is not supported yet
+        </div>
+
+        <div className="video-package-alert__desc">
+          Need H3? Use the{" "}
+          <a href="https://platform.minimax.io/docs/pricing/overview#models/video" target="_blank" rel="noreferrer">pay-as-you-go API</a>, or contact sales for a custom plan.
+        </div>
+      </div>
+    </div>
+
+    | Package Category | Standard <br />(SAVE 5%) | Pro <br />(SAVE 10%) | Scale<br /> (SAVE 15%) | Business <br />(SAVE 20%) | Custom Pricing |
+    | :- | :- | :- | :- | :- | :- |
+    | **Discounted Price** | \$1,000 | \$2,500 | \$4,500 | \$6,000 | - |
+    | **Valid** | 1 month | 1 month | 1 month | 1 month | - |
+    | **Total video points** | 3,760 video points | 9,920 video points | 18,900 video points | 26,780 video points | As many video points as you need |
+    | **Functions** | • Supports Video Generation API<br />• RPM: 20 | • Supports Video Generation API <br />• RPM: 30 | • Supports Video Generation API<br />• RPM: 40 | • Supports Video Generation API <br />• RPM: 50 | • Unlimited RPM/TPM<br /> • Priority access to model updates<br /> • Exclusive security and stability guarantees |
+
+    <Callout icon="lightbulb" color="#4885FF" iconType="regular">
+      Tips
+
+      1. The deduction times for generating videos differ depending on the model:
+         * For model \[MiniMax-Hailuo-2.3-Fast], generating a single 768p,6s video will deduct 0.7 video points
+         * For model \[MiniMax-Hailuo-2.3-Fast], generating a single 768p,10s video will deduct 1.1 video points
+         * For model \[MiniMax-Hailuo-2.3-Fast], generating a single 1080p,6s video will deduct 1.3 video points
+         * For model \[MiniMax-Hailuo-2.3] \[MiniMax-Hailuo-02], generating a single 768p,6s video will deduct 1 video point
+         * For model \[MiniMax-Hailuo-2.3] \[MiniMax-Hailuo-02], generating a single 768p,10s video will deduct 2 video points
+         * For model \[MiniMax-Hailuo-2.3] \[MiniMax-Hailuo-02], generating a single 1080p,6s video will deduct 2 video points
+         * For model \[MiniMax-Hailuo-02], generating a single 512p,6s video will deduct 0.3 video points
+         * For model \[MiniMax-Hailuo-02], generating a single 512p,10s video will deduct 0.5 video points
+
+      2. Video generation failures or videos that trigger security review will not result in a deduction.
+
+      3. Resource pack remaining quantity is not inherited; it will automatically reset to zero when expired.
+    </Callout>
+  </section>
+
+  <section id="guides/compare" className="pricing-section" data-pricing-title="Payment Methods">
+    <h2 id="guides/compare-title">
+      Payment Methods
+    </h2>
+
+    MiniMax offers pay-as-you-go billing, Audio Subscription plans, and Video Packages. Choose a billing option based on the models you use, how much you expect to use them, and for how long.
+
+    <h3 id="guides/compare/comparison">
+      Compare Billing Options
+    </h3>
+
+    | Feature | Pay-as-you-go | Subscriptions and Packages |
+    | - | - | - |
+    | Use cases | Use any MiniMax model or tool and pay for what you use, with the flexibility to support a wide range of business needs and API workloads. | For speech or video workloads where you expect to use the included points during the subscription term or before the package expires. |
+    | How you pay | Add funds to your account and pay for what you use | Purchase an Audio Subscription or a prepaid Video Package |
+    | Coverage | All MiniMax models and tools | All speech models; Hailuo video models |
+    | Billing units | Varies by model, configuration, and type of usage | Audio points per month; video points |
+    | Get started | [Recharge Now](https://platform.minimax.io/user-center/payment/balance) | [View Audio Subscription](#packages/speech) · [View Video Packages](#packages/video) |
+
+    <h3 id="guides/compare/choose-package">
+      Before You Buy
+    </h3>
+
+    Check the supported models, included points, and how long the subscription or package lasts. Audio Subscription plans support all speech models. Video Packages support Hailuo video models; MiniMax H3 is not yet supported.
+
+    [View Audio Subscription](#packages/speech) · [View Video Packages](#packages/video) · [View Usage Rules](#guides/packages)
+  </section>
+
+  <section id="guides/billing" className="pricing-section" data-pricing-title="Pay-as-you-go Billing">
+    <h2 id="guides/billing-title">
+      Pay-as-you-go Billing
+    </h2>
+
+    With pay-as-you-go billing, you use standard Open Platform API keys and pay from your account balance based on usage. All prices are in USD.
+
+    <h3 id="guides/billing/billing">
+      How Billing Works
+    </h3>
+
+    * <strong>Payment:</strong> API usage charges are deducted from your account balance.
+    * <strong>Billing units:</strong> Depending on the service, charges are based on tokens, characters, duration, images, voices, or requests. See the relevant pricing table for the exact unit.
+    * <strong>Rates:</strong> Rates vary by model, API, and configuration. For example, LLM input length and service tier, or video output resolution, can affect pricing.
+
+    <h3 id="guides/billing/calculation">
+      How Charges Are Calculated
+    </h3>
+
+    <Info>
+      For each billing item, multiply actual usage by the applicable unit price. First, convert usage to the unit listed in the pricing table. For example, if a price is listed per million tokens, divide the token count by 1,000,000 before multiplying by the price. If a request includes multiple billing items, add their costs together.
+    </Info>
+
+    See Model Pricing and Tool Pricing for individual rates. Audio Subscription plans and Video Packages are also available for supported models. To compare these options, see [Payment Methods](#guides/compare).
+  </section>
+
+  <section id="guides/packages" className="pricing-section" data-pricing-title="Package Usage Rules">
+    <h2 id="guides/packages-title">
+      Package Usage Rules
+    </h2>
+
+    Audio Subscription plans and Video Packages include points for use with supported models and APIs. Before purchasing, check which models are supported, how many points are included, and how long the subscription or package lasts.
+
+    <h3 id="guides/packages/scope">
+      Coverage
+    </h3>
+
+    | Feature | Audio Subscription | Video Packages |
+    | - | - | - |
+    | Supported models | All speech models | Hailuo video models; MiniMax H3 is not supported yet |
+    | Supported APIs | T2A v2 and T2A large v2 | Video Generation API |
+    | Included points | Audio points per month | Video points |
+    | Subscription term / package validity | Monthly, 3-month (10% off), or annual (20% off) subscriptions | The four standard packages are valid for 1 month |
+    | Plan details | [Audio Subscription](#packages/speech) | [Video Packages](#packages/video) |
+
+    <h3 id="guides/packages/deductions">
+      How Points Are Used
+    </h3>
+
+    * <strong>Audio points:</strong> Starter, Standard, Pro, Scale, and Business each include a monthly allowance of audio points. The allowance varies by plan. See the [Audio Subscription table](#packages/speech) for included points, voice slots, and rate limits.
+    * <strong>Video points:</strong> Points used depend on the model, resolution, and video duration. One point does not equal one video. See the [video point deduction rules](#packages/video/package-rules).
+    * <strong>Failed video tasks:</strong> No points are deducted when video generation fails or a video triggers a security review.
+
+    <h3 id="guides/packages/validity">
+      Expiration and Usage Limits
+    </h3>
+
+    Unused video points expire with the package and do not roll over. Your video point balance resets to zero when the package expires. For Audio Subscription plans, see the subscription table for available terms, monthly audio points, and plan features. Rate limits and other included features are listed in the relevant pricing tables.
+  </section>
+
+  <section id="guides/faq" className="pricing-section" data-pricing-title="FAQ">
+    <h2 id="guides/faq-title">
+      FAQ
+    </h2>
+
+    Find answers to common questions about pay-as-you-go billing, Audio Subscription plans, and Video Packages. See the relevant pricing tables for exact prices and included features.
+
+    <h3 id="guides/faq/faq">
+      Billing and Usage
+    </h3>
+
+    <Accordion title="What’s the difference between the Standard and Priority service tiers for MiniMax-M3?">
+      Priority gives your requests priority access for faster responses and improved reliability. It costs 1.5 times the Standard rate. To enable it, set `service_tier` to `priority`. See the LLM pricing tables for the rates that apply to each input length.
+    </Accordion>
+
+    <Accordion title="Does video output pricing include charges for input media?">
+      H3 video output and input media are billed separately. Images beyond the free allowance incur an additional charge. Input video is billed based on its duration and the output resolution. If you regenerate a video, the input media from the original task is billed again. See the video pricing tables for the applicable rates.
+    </Accordion>
+
+    <Accordion title="How do I add funds to my account?">
+      Visit the [Recharge page](https://platform.minimax.io/user-center/payment/balance) to add funds to your account for pay-as-you-go API usage.
+    </Accordion>
+
+    <Accordion title="Which models can I use with subscriptions and packages?">
+      You can use Audio Subscription plans with all speech models via the T2A v2 and T2A large v2 APIs. Video Packages support Hailuo video models, but do not currently support MiniMax H3. Before you buy, check the supported models, included points, and plan duration. For details, see [Package Usage Rules](#guides/packages).
+    </Accordion>
+
+    <Accordion title="What happens to unused video points when my package expires?">
+      Any unused video points expire when your package ends, and your video point balance resets to zero. Each of the four standard video packages is valid for one month.
+    </Accordion>
+  </section>
+</div>

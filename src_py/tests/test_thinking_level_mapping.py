@@ -157,8 +157,9 @@ def test_glm_thinking_level_maps_per_generation(
 # What each remaining client puts on the wire for a level, per its vendor's effort
 # vocabulary: OpenAI takes the full set except on GPT-6, which rejects "none" and
 # "minimal" so NONE degrades to low; Claude tops out at max (xhigh only from 4.7),
-# DeepSeek and Kimi accept low/high/max, DeepSeek turns thinking off with none, and
-# MiniMax has no level above high.
+# DeepSeek and Kimi accept low/high/max, DeepSeek turns thinking off with none,
+# MiniMax-M3 has no level above high, and MiniMax-M3.1-Flash cannot turn thinking off
+# but takes low through max.
 THINKING_EFFORT_CASES = [
     ("gpt-6-astra", None, ThinkingLevel.NONE, "low"),
     ("gpt-6-astra", None, ThinkingLevel.LOW, "low"),
@@ -206,6 +207,9 @@ THINKING_EFFORT_CASES = [
     ("kimi-k3", None, ThinkingLevel.MAX, "max"),
     ("MiniMax-M3", None, ThinkingLevel.XHIGH, "high"),
     ("MiniMax-M3", None, ThinkingLevel.MAX, "high"),
+    ("MiniMax-M3.1-Flash", None, ThinkingLevel.NONE, "low"),
+    ("MiniMax-M3.1-Flash", None, ThinkingLevel.XHIGH, "xhigh"),
+    ("MiniMax-M3.1-Flash", None, ThinkingLevel.MAX, "max"),
 ]
 
 
