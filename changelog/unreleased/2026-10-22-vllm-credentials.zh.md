@@ -3,6 +3,7 @@
 - **Date:** 2026-10-22
 - **Type:** fix
 - **Scope:** `credentials`, `openai_chat`, `openai_chat_vllm_adapter`, `tests`, `docs`
+- **PR:** [#276](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/276)
 - **Breaking:** yes — `openai-chat-vllm-adapter` 不再读取 `OPENAI_API_KEY` 和 `OPENAI_BASE_URL`
 
 [English](2026-10-22-vllm-credentials.md)
