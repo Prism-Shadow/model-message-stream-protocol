@@ -32,8 +32,8 @@ import {
 } from "../src/credentials";
 
 // Each case builds a client under a controlled environment and reads the credential its vendor
-// SDK instance ends up holding; nothing here reaches the network, and the vLLM cases at the end
-// read the key off a request to a local server. The OpenAI and Anthropic SDKs fill every
+// SDK instance ends up holding; nothing here reaches the network, and the cases at the end read
+// what a request to a local server actually carries. The OpenAI and Anthropic SDKs fill every
 // credential they are not handed from their own environment variables, so a client that hands
 // them undefined sends whatever those variables hold to its own host.
 
@@ -61,6 +61,11 @@ const CREDENTIAL_ENV = [
   "MMSP_BASE_URL",
   "VLLM_API_KEY",
   "VLLM_BASE_URL",
+  "OPENAI_ORG_ID",
+  "OPENAI_PROJECT_ID",
+  "OPENAI_ADMIN_KEY",
+  "OPENAI_WEBHOOK_SECRET",
+  "OPENAI_CUSTOM_HEADERS",
 ];
 
 let savedEnv: Record<string, string | undefined> = {};
@@ -646,6 +651,137 @@ describe("OpenaiChatVllmAdapterClient credentials", () => {
 
       await expect(client.listModels()).resolves.toEqual([model]);
       expect(authorization).toBe("Bearer EMPTY");
+    });
+  });
+});
+
+// The rest of OpenAI's environment: the OpenAI SDK fills the organization, the project, the admin
+// key and the webhook secret it is not handed from OPENAI_ORG_ID, OPENAI_PROJECT_ID,
+// OPENAI_ADMIN_KEY and OPENAI_WEBHOOK_SECRET, and adds every header OPENAI_CUSTOM_HEADERS lists.
+// Like the key, it goes only to the endpoint the environment's key goes to.
+describe("OpenAI's environment beyond the key", () => {
+  let server: http.Server;
+  let origin: string;
+  let received: http.IncomingHttpHeaders | undefined;
+
+  beforeAll(async () => {
+    server = http.createServer((req, res) => {
+      received = req.headers;
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ object: "list", data: [{ id: "m1" }] }));
+    });
+    await new Promise<void>((resolve) => {
+      server.listen(0, "127.0.0.1", resolve);
+    });
+    origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  });
+
+  afterAll(async () => {
+    await new Promise<void>((resolve) => {
+      server.close(() => resolve());
+    });
+  });
+
+  beforeEach(() => {
+    received = undefined;
+    process.env.OPENAI_ORG_ID = "org-env-PROBE";
+    process.env.OPENAI_PROJECT_ID = "proj-env-PROBE";
+    process.env.OPENAI_ADMIN_KEY = "admin-env-PROBE";
+    process.env.OPENAI_WEBHOOK_SECRET = "whsec-env-PROBE";
+  });
+
+  // What reached the server of OpenAI's environment, and the key that came with it.
+  async function sent(client: AutoLLMClient) {
+    await client.listModels();
+    expect(received).toBeDefined();
+    const headers = received as http.IncomingHttpHeaders;
+    return {
+      authorization: headers.authorization,
+      organization: headers["openai-organization"],
+      project: headers["openai-project"],
+      custom: headers["x-env-probe"],
+    };
+  }
+
+  // Every client built on the OpenAI SDK, at an endpoint that is not OpenAI's default one.
+  test.each([
+    ["openai-official", "gpt-6-astra"],
+    ["openai-responses", "gpt-5.6"],
+    ["openai-chat", "gpt-5.6"],
+    ["openai-embedding", "text-embedding-3-large"],
+    ["deepseek-official", "deepseek-v4-flash"],
+    ["zai-official", "glm-5.3"],
+    ["moonshot-official", "kimi-k3"],
+    ["minimax-official", "MiniMax-M3"],
+  ])(
+    "%s at another endpoint sends none of it, and an Authorization header in OPENAI_CUSTOM_HEADERS does not replace its key",
+    async (clientType, model) => {
+      process.env.OPENAI_CUSTOM_HEADERS =
+        "X-Env-Probe: from-env\nAuthorization: Bearer env-auth-PROBE";
+
+      const client = new AutoLLMClient({
+        model,
+        clientType,
+        apiKey: "sk-explicit-PROBE",
+        baseUrl: `${origin}/v1`,
+      });
+
+      expect(await sent(client)).toEqual({
+        authorization: "Bearer sk-explicit-PROBE",
+        organization: undefined,
+        project: undefined,
+        custom: undefined,
+      });
+    },
+  );
+
+  test("the vLLM adapter calls its server keyless with none of it", async () => {
+    process.env.OPENAI_CUSTOM_HEADERS = "X-Env-Probe: from-env";
+
+    const client = new AutoLLMClient({
+      model: "Qwen/Qwen3.6-35B-A3B",
+      clientType: "openai-chat-vllm-adapter",
+      baseUrl: `${origin}/v1`,
+    });
+
+    expect(await sent(client)).toEqual({
+      authorization: "Bearer EMPTY",
+      organization: undefined,
+      project: undefined,
+      custom: undefined,
+    });
+  });
+
+  test("another vendor's client at the endpoint its own variable names sends none of it", async () => {
+    process.env.OPENAI_CUSTOM_HEADERS = "X-Env-Probe: from-env";
+    process.env.DEEPSEEK_API_KEY = "sk-deepseek-PROBE";
+    process.env.DEEPSEEK_BASE_URL = `${origin}/v1`;
+
+    const client = new AutoLLMClient({ model: "deepseek-v4-flash" });
+
+    expect(await sent(client)).toEqual({
+      authorization: "Bearer sk-deepseek-PROBE",
+      organization: undefined,
+      project: undefined,
+      custom: undefined,
+    });
+  });
+
+  test("an OpenAI client at the endpoint OpenAI's environment names still sends all of it", async () => {
+    process.env.OPENAI_CUSTOM_HEADERS = "X-Env-Probe: from-env";
+    process.env.OPENAI_API_KEY = "sk-env-PROBE";
+    process.env.OPENAI_BASE_URL = `${origin}/v1`;
+
+    const client = new AutoLLMClient({
+      model: "gpt-5.6",
+      clientType: "openai-chat",
+    });
+
+    expect(await sent(client)).toEqual({
+      authorization: "Bearer sk-env-PROBE",
+      organization: "org-env-PROBE",
+      project: "proj-env-PROBE",
+      custom: "from-env",
     });
   });
 });

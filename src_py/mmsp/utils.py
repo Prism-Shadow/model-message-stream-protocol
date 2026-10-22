@@ -16,7 +16,10 @@ import base64
 import math
 import os
 import re
-from typing import Literal
+from collections.abc import Mapping
+from typing import Any, Literal
+
+from openai import Omit
 
 from .credentials import CLIENT_CREDENTIALS, environment_credential
 from .errors import ApiKeyRequiredError
@@ -76,6 +79,53 @@ def resolve_credentials(
     if credential is not None and credential.kind == "keyless":
         return None, resolved_base_url
     raise ApiKeyRequiredError(client, client_type, base_url)
+
+
+def _openai_environment_header_names() -> list[str]:
+    """The names of the headers OPENAI_CUSTOM_HEADERS lists, one `Name: value` per line, as the SDK parses it."""
+    lines = (os.getenv("OPENAI_CUSTOM_HEADERS") or "").split("\n")
+    return [line[: line.find(":")].strip() for line in lines if ":" in line]
+
+
+def openai_client_options(
+    client_type: str, base_url: str | None, api_key: str | None, default_headers: Mapping[str, str] | None
+) -> dict[str, Any]:
+    """The options besides its key and its endpoint that a client hands the OpenAI SDK.
+
+    The SDK fills what it is not handed from OpenAI's environment: the organization (OPENAI_ORG_ID), the project
+    (OPENAI_PROJECT_ID), the admin key (OPENAI_ADMIN_KEY), the webhook secret (OPENAI_WEBHOOK_SECRET), and every
+    header OPENAI_CUSTOM_HEADERS lists. Like OPENAI_API_KEY, all of it goes only where the environment's key goes:
+    to the endpoint of an OpenAI client handed no base URL or OpenAI's own default endpoint (environment_credential
+    says `env`). For any other endpoint (a gateway, a vLLM server, another vendor's API) each is handed explicitly so
+    that none is sent: an empty string for the four options, so the SDK reads none of them, `Omit()` for the
+    organization and project headers, so neither goes out, and `Omit()` for each header the variable lists, except an
+    Authorization header, which would replace the client's own key and is handed that key instead. The headers
+    passed to the client win over all of these.
+
+    Args:
+        client_type: The client type whose row of CLIENT_CREDENTIALS the client reads
+        base_url: The base URL passed to the client, if any
+        api_key: The key the client builds the SDK with
+        default_headers: The headers passed to the client, if any
+
+    Returns:
+        The keyword arguments to pass to the OpenAI SDK's client
+    """
+    credential = environment_credential(client_type, base_url)
+    environment_endpoint = credential is not None and credential.kind == "env"
+    if environment_endpoint and CLIENT_CREDENTIALS[client_type].api_key_env == "OPENAI_API_KEY":
+        return {"default_headers": default_headers}
+
+    headers: dict[str, str | Omit] = {"OpenAI-Organization": Omit(), "OpenAI-Project": Omit()}
+    for name in _openai_environment_header_names():
+        headers[name] = f"Bearer {api_key}" if name.lower() == "authorization" and api_key else Omit()
+    return {
+        "organization": "",
+        "project": "",
+        "admin_api_key": "",
+        "webhook_secret": "",
+        "default_headers": {**headers, **(default_headers or {})},
+    }
 
 
 def is_debug_enabled() -> bool:

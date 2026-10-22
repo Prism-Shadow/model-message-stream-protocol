@@ -34,7 +34,7 @@ from ..types import (
     UniMessage,
     UsageMetadata,
 )
-from ..utils import is_debug_enabled, resolve_credentials
+from ..utils import is_debug_enabled, openai_client_options, resolve_credentials
 
 
 # The DeepSeek ids that read no image: the current V4 Flash and V4 Pro, bare or with a dated
@@ -56,13 +56,16 @@ class DeepSeekOfficialClient(LLMClient):
     ):
         """Initialize DeepSeek client with model, API key, and base URL."""
         self._model = model
-        api_key, base_url = resolve_credentials(self.__class__.__name__, "deepseek-official", api_key, base_url)
+        key, url = resolve_credentials(self.__class__.__name__, "deepseek-official", api_key, base_url)
         # The wrapped OpenAI SDK falls back to OPENAI_API_KEY when handed None, which would send an
         # OpenAI credential to the DeepSeek host, so fail loudly instead.
-        if not api_key:
+        if not key:
             raise ValueError("DEEPSEEK_API_KEY is required for DeepSeekOfficialClient.")
-        base_url = base_url or CLIENT_CREDENTIALS["deepseek-official"].default_base_url
-        self._client = AsyncOpenAI(api_key=api_key, base_url=base_url, default_headers=default_headers)
+        self._client = AsyncOpenAI(
+            api_key=key,
+            base_url=url or CLIENT_CREDENTIALS["deepseek-official"].default_base_url,
+            **openai_client_options("deepseek-official", base_url, key, default_headers),
+        )
         self._history: list[UniMessage] = []
 
     def _convert_thinking_level_to_effort(self, thinking_level: ThinkingLevel) -> str:

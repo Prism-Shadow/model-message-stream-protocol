@@ -35,6 +35,7 @@ import {
 } from "../types";
 import {
   fixOpenrouterUsageMetadata,
+  openaiClientOptions,
   openaiImageDetail,
   resolveCredentials,
 } from "../utils";
@@ -70,10 +71,15 @@ export class OpenaiChatClient extends LLMClient {
     // as vLLM's docs do for a server started without --api-key.
     const { defaultBaseUrl, openServer } =
       CLIENT_CREDENTIALS[new.target.clientType];
+    const sdkKey = key ?? (openServer ? "EMPTY" : undefined);
     this._client = new OpenAI({
-      apiKey: key ?? (openServer ? "EMPTY" : undefined),
+      apiKey: sdkKey,
       baseURL: url || defaultBaseUrl,
-      defaultHeaders: options.defaultHeaders,
+      ...openaiClientOptions(new.target.clientType, {
+        baseUrl: options.baseUrl,
+        apiKey: sdkKey,
+        defaultHeaders: options.defaultHeaders,
+      }),
     });
   }
 

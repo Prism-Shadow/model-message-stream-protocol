@@ -20,7 +20,7 @@ import type {
 import { LLMClient } from "../baseClient";
 import { UnsupportedParameterError } from "../errors";
 import { UniConfig, UniEvent, UniMessage } from "../types";
-import { resolveCredentials } from "../utils";
+import { openaiClientOptions, resolveCredentials } from "../utils";
 
 /**
  * OpenAI Embeddings-compatible client implementation.
@@ -48,7 +48,11 @@ export class OpenaiEmbeddingClient extends LLMClient {
     this._client = new OpenAI({
       apiKey: key,
       baseURL: url,
-      defaultHeaders: options.defaultHeaders,
+      ...openaiClientOptions("openai-embedding", {
+        baseUrl: options.baseUrl,
+        apiKey: key,
+        defaultHeaders: options.defaultHeaders,
+      }),
     });
   }
 

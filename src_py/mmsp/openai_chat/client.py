@@ -35,7 +35,7 @@ from ..types import (
     UniMessage,
     UsageMetadata,
 )
-from ..utils import fix_openrouter_usage_metadata, openai_image_detail, resolve_credentials
+from ..utils import fix_openrouter_usage_metadata, openai_client_options, openai_image_detail, resolve_credentials
 
 
 class OpenaiChatClient(LLMClient):
@@ -53,16 +53,17 @@ class OpenaiChatClient(LLMClient):
     ):
         """Initialize OpenAI-compatible chat client with model, API key, and base URL."""
         self._model = model
-        api_key, base_url = resolve_credentials(self.__class__.__name__, self._CLIENT_TYPE, api_key, base_url)
+        key, url = resolve_credentials(self.__class__.__name__, self._CLIENT_TYPE, api_key, base_url)
         # The OpenAI SDK fills a key and an endpoint it is handed as None from OPENAI_API_KEY and
         # OPENAI_BASE_URL, and sends a key with every request. So the SDK is handed this client type's
         # own default endpoint, and a client of an open server with no key sends the placeholder EMPTY,
         # as vLLM's docs do for a server started without --api-key.
         credentials = CLIENT_CREDENTIALS[self._CLIENT_TYPE]
+        sdk_key = key or ("EMPTY" if credentials.open_server else None)
         self._client = AsyncOpenAI(
-            api_key=api_key or ("EMPTY" if credentials.open_server else None),
-            base_url=base_url or credentials.default_base_url,
-            default_headers=default_headers,
+            api_key=sdk_key,
+            base_url=url or credentials.default_base_url,
+            **openai_client_options(self._CLIENT_TYPE, base_url, sdk_key, default_headers),
         )
         self._history: list[UniMessage] = []
 

@@ -33,7 +33,11 @@ import {
   UniMessage,
   UsageMetadata,
 } from "../types";
-import { fixOpenrouterUsageMetadata, resolveCredentials } from "../utils";
+import {
+  fixOpenrouterUsageMetadata,
+  openaiClientOptions,
+  resolveCredentials,
+} from "../utils";
 
 /**
  * Unified client for the GLM series, named for the newest generation it serves (5.3).
@@ -69,7 +73,11 @@ export class ZAIOfficialClient extends LLMClient {
     this._client = new OpenAI({
       apiKey: key,
       baseURL: url || CLIENT_CREDENTIALS["zai-official"].defaultBaseUrl,
-      defaultHeaders: options.defaultHeaders,
+      ...openaiClientOptions("zai-official", {
+        baseUrl: options.baseUrl,
+        apiKey: key,
+        defaultHeaders: options.defaultHeaders,
+      }),
     });
   }
 

@@ -33,8 +33,8 @@ from mmsp.credentials import (
 
 
 # Each case builds a client under a controlled environment and reads the credential its vendor
-# SDK instance ends up holding; nothing here reaches the network, and the vLLM cases at the end
-# read the key off a request to a local server. The OpenAI and Anthropic SDKs fill every
+# SDK instance ends up holding; nothing here reaches the network, and the cases at the end read
+# what a request to a local server actually carries. The OpenAI and Anthropic SDKs fill every
 # credential they are handed as None from their own environment variables, so a client that hands
 # them None sends whatever those variables hold to its own host.
 _CREDENTIAL_ENV = [
@@ -61,6 +61,11 @@ _CREDENTIAL_ENV = [
     "MMSP_BASE_URL",
     "VLLM_API_KEY",
     "VLLM_BASE_URL",
+    "OPENAI_ORG_ID",
+    "OPENAI_PROJECT_ID",
+    "OPENAI_ADMIN_KEY",
+    "OPENAI_WEBHOOK_SECRET",
+    "OPENAI_CUSTOM_HEADERS",
     # the Python Bedrock client refuses AWS keys while this is set
     "AWS_BEARER_TOKEN_BEDROCK",
 ]
@@ -521,3 +526,126 @@ async def test_vllm_adapter_sends_a_base_url_passed_without_a_key_the_placeholde
 
     assert await client.list_models() == [_VLLM_MODEL]
     assert _AuthorizationRecorder.authorization == "Bearer EMPTY"
+
+
+# The rest of OpenAI's environment: the OpenAI SDK fills the organization, the project, the admin key
+# and the webhook secret it is handed as None from OPENAI_ORG_ID, OPENAI_PROJECT_ID, OPENAI_ADMIN_KEY
+# and OPENAI_WEBHOOK_SECRET, and adds every header OPENAI_CUSTOM_HEADERS lists. Like the key, it goes
+# only to the endpoint the environment's key goes to.
+class _HeaderRecorder(BaseHTTPRequestHandler):
+    """Records the headers of a model listing and answers it in OpenAI's shape."""
+
+    headers_received: dict[str, str] | None = None
+
+    def do_GET(self) -> None:  # noqa: N802 - the name is BaseHTTPRequestHandler's
+        type(self).headers_received = {name.lower(): value for name, value in self.headers.items()}
+        body = json.dumps({"object": "list", "data": [{"id": "m1"}]}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, *args: object) -> None:
+        """Keep the request log out of the test output."""
+
+
+@pytest.fixture
+def header_server(monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:
+    _HeaderRecorder.headers_received = None
+    monkeypatch.setenv("OPENAI_ORG_ID", "org-env-PROBE")
+    monkeypatch.setenv("OPENAI_PROJECT_ID", "proj-env-PROBE")
+    monkeypatch.setenv("OPENAI_ADMIN_KEY", "admin-env-PROBE")
+    monkeypatch.setenv("OPENAI_WEBHOOK_SECRET", "whsec-env-PROBE")
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _HeaderRecorder)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        yield f"http://127.0.0.1:{server.server_address[1]}/v1"
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+async def _sent(client: AutoLLMClient) -> dict[str, str | None]:
+    """What reached the server of OpenAI's environment, and the key that came with it."""
+    await client.list_models()
+    headers = _HeaderRecorder.headers_received
+    assert headers is not None
+    return {
+        "authorization": headers.get("authorization"),
+        "organization": headers.get("openai-organization"),
+        "project": headers.get("openai-project"),
+        "custom": headers.get("x-env-probe"),
+    }
+
+
+def _none_of_it(authorization: str) -> dict[str, str | None]:
+    return {"authorization": authorization, "organization": None, "project": None, "custom": None}
+
+
+# Every client built on the OpenAI SDK, at an endpoint that is not OpenAI's default one.
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("client_type", "model"),
+    [
+        ("openai-official", "gpt-6-astra"),
+        ("openai-responses", "gpt-5.6"),
+        ("openai-chat", "gpt-5.6"),
+        ("openai-embedding", "text-embedding-3-large"),
+        ("deepseek-official", "deepseek-v4-flash"),
+        ("zai-official", "glm-5.3"),
+        ("moonshot-official", "kimi-k3"),
+        ("minimax-official", "MiniMax-M3"),
+    ],
+)
+async def test_an_openai_sdk_client_at_another_endpoint_sends_none_of_openais_environment(
+    client_type: str, model: str, header_server: str, monkeypatch: pytest.MonkeyPatch
+):
+    # an Authorization header in OPENAI_CUSTOM_HEADERS does not replace the client's key either
+    monkeypatch.setenv("OPENAI_CUSTOM_HEADERS", "X-Env-Probe: from-env\nAuthorization: Bearer env-auth-PROBE")
+
+    client = AutoLLMClient(model=model, client_type=client_type, api_key="sk-explicit-PROBE", base_url=header_server)
+
+    assert await _sent(client) == _none_of_it("Bearer sk-explicit-PROBE")
+
+
+@pytest.mark.asyncio
+async def test_the_vllm_adapter_calls_its_server_keyless_with_none_of_openais_environment(
+    header_server: str, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("OPENAI_CUSTOM_HEADERS", "X-Env-Probe: from-env")
+
+    client = AutoLLMClient(model=_VLLM_MODEL, client_type=_VLLM, base_url=header_server)
+
+    assert await _sent(client) == _none_of_it("Bearer EMPTY")
+
+
+@pytest.mark.asyncio
+async def test_another_vendors_client_at_the_endpoint_its_own_variable_names_sends_none_of_openais_environment(
+    header_server: str, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("OPENAI_CUSTOM_HEADERS", "X-Env-Probe: from-env")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-deepseek-PROBE")
+    monkeypatch.setenv("DEEPSEEK_BASE_URL", header_server)
+
+    client = AutoLLMClient(model="deepseek-v4-flash")
+
+    assert await _sent(client) == _none_of_it("Bearer sk-deepseek-PROBE")
+
+
+@pytest.mark.asyncio
+async def test_an_openai_client_at_the_endpoint_openais_environment_names_still_sends_all_of_it(
+    header_server: str, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("OPENAI_CUSTOM_HEADERS", "X-Env-Probe: from-env")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-env-PROBE")
+    monkeypatch.setenv("OPENAI_BASE_URL", header_server)
+
+    client = AutoLLMClient(model="gpt-5.6", client_type="openai-chat")
+
+    assert await _sent(client) == {
+        "authorization": "Bearer sk-env-PROBE",
+        "organization": "org-env-PROBE",
+        "project": "proj-env-PROBE",
+        "custom": "from-env",
+    }

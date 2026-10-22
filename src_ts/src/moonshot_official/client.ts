@@ -34,7 +34,11 @@ import {
   UniMessage,
   UsageMetadata,
 } from "../types";
-import { fixOpenrouterUsageMetadata, resolveCredentials } from "../utils";
+import {
+  fixOpenrouterUsageMetadata,
+  openaiClientOptions,
+  resolveCredentials,
+} from "../utils";
 
 /**
  * Kimi K3-specific LLM client implementation using OpenAI-compatible API (also serves K2.5 and K2.6).
@@ -69,7 +73,11 @@ export class MoonshotOfficialClient extends LLMClient {
     this._client = new OpenAI({
       apiKey: key,
       baseURL: url || CLIENT_CREDENTIALS["moonshot-official"].defaultBaseUrl,
-      defaultHeaders: options.defaultHeaders,
+      ...openaiClientOptions("moonshot-official", {
+        baseUrl: options.baseUrl,
+        apiKey: key,
+        defaultHeaders: options.defaultHeaders,
+      }),
     });
   }
 

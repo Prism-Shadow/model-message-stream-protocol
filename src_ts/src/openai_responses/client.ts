@@ -35,6 +35,7 @@ import {
 } from "../types";
 import {
   isDebugEnabled,
+  openaiClientOptions,
   openaiImageDetail,
   resolveCredentials,
 } from "../utils";
@@ -65,7 +66,11 @@ export class OpenaiResponsesClient extends LLMClient {
     this._client = new OpenAI({
       apiKey: key,
       baseURL: url,
-      defaultHeaders: options.defaultHeaders,
+      ...openaiClientOptions("openai-responses", {
+        baseUrl: options.baseUrl,
+        apiKey: key,
+        defaultHeaders: options.defaultHeaders,
+      }),
     });
   }
 

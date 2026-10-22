@@ -32,7 +32,7 @@ from ..types import (
     UniMessage,
     UsageMetadata,
 )
-from ..utils import is_debug_enabled, openai_image_detail, resolve_credentials
+from ..utils import is_debug_enabled, openai_client_options, openai_image_detail, resolve_credentials
 
 
 class OpenAIOfficialClient(LLMClient):
@@ -47,8 +47,12 @@ class OpenAIOfficialClient(LLMClient):
     ):
         """Initialize GPT-6 client with model and API key."""
         self._model = model
-        api_key, base_url = resolve_credentials(self.__class__.__name__, "openai-official", api_key, base_url)
-        self._client = AsyncOpenAI(api_key=api_key, base_url=base_url, default_headers=default_headers)
+        key, url = resolve_credentials(self.__class__.__name__, "openai-official", api_key, base_url)
+        self._client = AsyncOpenAI(
+            api_key=key,
+            base_url=url,
+            **openai_client_options("openai-official", base_url, key, default_headers),
+        )
         self._history: list[UniMessage] = []
 
     def _convert_thinking_level_to_effort(self, thinking_level: ThinkingLevel) -> str:
