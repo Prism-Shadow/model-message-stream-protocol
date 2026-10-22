@@ -15,9 +15,9 @@
 import re
 from typing import Any, AsyncIterator
 
-from anthropic import AsyncAnthropic
 from anthropic.types.beta import BetaMessageParam, BetaRawMessageStreamEvent
 
+from ..anthropic_sdk import ExplicitAsyncAnthropic
 from ..base_client import LLMClient
 from ..errors import UnsupportedParameterError
 from ..types import (
@@ -53,12 +53,9 @@ class AntMessagesClient(LLMClient):
         api_key, base_url = resolve_credentials(self.__class__.__name__, "ant-messages", api_key, base_url)
         # send the credential through both header conventions: Anthropic and DeepSeek read
         # x-api-key while gateways such as OpenRouter and Z.AI read Authorization: Bearer
-        self._client = AsyncAnthropic(
+        self._client = ExplicitAsyncAnthropic(
             api_key=api_key, auth_token=api_key, base_url=base_url, default_headers=default_headers
         )
-        # With no credential the SDK reads the None auth_token as unset and may fill it from
-        # ANTHROPIC_AUTH_TOKEN, so pin the token to the key it was given.
-        self._client.auth_token = api_key
         self._history: list[UniMessage] = []
 
     def _convert_image_url_to_source(self, url: str) -> dict[str, Any]:
@@ -125,7 +122,9 @@ class AntMessagesClient(LLMClient):
             ant_config["max_tokens"] = 64000  # the Messages API requires max_tokens to be specified
 
         if config.get("temperature") is not None:
-            ant_config["temperature"] = config["temperature"]
+            # the SDK dropped the parameter in 1.0 and API version 2026-10-21 removed it, but the
+            # third-party servers this client speaks to still take it
+            ant_config["extra_body"] = {"temperature": config["temperature"]}
 
         if config.get("thinking_level") is not None:
             ant_config.update(self._convert_thinking_level_to_thinking_config(config["thinking_level"]))

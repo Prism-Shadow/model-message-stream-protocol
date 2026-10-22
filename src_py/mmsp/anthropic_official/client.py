@@ -18,9 +18,10 @@ import re
 from typing import Any, AsyncIterator
 
 import httpx
-from anthropic import AsyncAnthropic, AsyncAnthropicBedrock
+from anthropic import AsyncAnthropicBedrock
 from anthropic.types.beta import BetaMessageParam, BetaRawMessageStreamEvent
 
+from ..anthropic_sdk import ExplicitAsyncAnthropic
 from ..base_client import LLMClient
 from ..errors import UnsupportedOperationError, UnsupportedParameterError
 from ..types import (
@@ -51,6 +52,9 @@ _BETWEEN_TOOLS = ("sonnet-5-5",)
 _NO_FORCED_TOOL_CHOICE = ("opus-5-5", "sonnet-5-5", "haiku-5-5", "fable-5-1")
 # These reject the speed parameter ("does not support the `speed` parameter").
 _NO_FAST_MODE = ("4-6", "sonnet-5-5", "haiku-5-5", "fable-5-1")
+# On Bedrock the ARN-versioned models, 4.6 and earlier, take the legacy body version; the SDK
+# defaults the body to API version 2026-10-21 from 2.0, which those models reject.
+_BEDROCK_LEGACY_VERSION = ("4-6",)
 
 
 class AnthropicOfficialClient(LLMClient):
@@ -77,10 +81,9 @@ class AnthropicOfficialClient(LLMClient):
             )
             self._use_bedrock = True
         else:
-            self._client = AsyncAnthropic(api_key=api_key, base_url=base_url, default_headers=default_headers)
-            # The SDK reads a None auth_token as unset and may fill it from ANTHROPIC_AUTH_TOKEN, which it
-            # sends as Authorization: Bearer beside the key, to whatever base URL this client uses.
-            self._client.auth_token = None
+            self._client = ExplicitAsyncAnthropic(
+                api_key=api_key, auth_token=None, base_url=base_url, default_headers=default_headers
+            )
             self._use_bedrock = False
 
         self._history: list[UniMessage] = []
@@ -254,6 +257,8 @@ class AnthropicOfficialClient(LLMClient):
                 claude_config["cache_control"] = {"type": "ephemeral"}
             elif prompt_caching == PromptCaching.ENHANCE:
                 claude_config["cache_control"] = {"type": "ephemeral", "ttl": "1h"}
+        elif self._generation(_BEDROCK_LEGACY_VERSION):
+            claude_config["extra_body"] = {"anthropic_version": "bedrock-2023-05-31"}
 
         return claude_config
 
