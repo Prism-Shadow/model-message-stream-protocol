@@ -35,7 +35,8 @@ const icon = "h-[18px] w-[18px]";
       <span class="text-[15px] font-semibold tracking-tight">{SITE_NAME}</span>
     </a>
 
-    <nav class="ml-4 hidden items-center gap-0.5 md:flex" aria-label="Primary">
+    <!-- the eight entries fit beside the controls from 1024 px; narrower, they take a row below -->
+    <nav class="ml-4 hidden items-center gap-0.5 lg:flex" aria-label="Primary">
       {
         links.map((entry) => (
           <a
@@ -101,7 +102,7 @@ const icon = "h-[18px] w-[18px]";
     </div>
   </div>
 
-  <nav class="flex gap-0.5 overflow-x-auto border-t border-gray-200 px-3 py-1.5 md:hidden dark:border-gray-800" aria-label="Primary">
+  <nav class="flex gap-0.5 overflow-x-auto border-t border-gray-200 px-3 py-1.5 lg:hidden dark:border-gray-800" aria-label="Primary">
     {
       links.map((entry) => (
         <a
