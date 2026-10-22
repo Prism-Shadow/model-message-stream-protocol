@@ -3,6 +3,7 @@
 - **Date:** 2026-10-22
 - **Type:** fix
 - **Scope:** `errors`, `base_client`, `wire`, `openai_official`, `site`
+- **PR:** [#272](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/272)
 
 [中文版](2026-10-22-incomplete-stream-error.zh.md)
 
