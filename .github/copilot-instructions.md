@@ -54,6 +54,7 @@ MMSP, the Model Message Stream Protocol: one message format and one streaming gr
 
 - The rules every change keeps are the accepted rule RFCs in the index of `design/README.md`. When the code and a rule disagree, the rule wins: fix the code, or supersede the rule first through an RFC.
 - A change to a rule, to the message or stream shapes, to the public API, to what routing or the credential rule means, or anything breaking, starts as an RFC: copy `design/0000-template.md` to `design/rfcs/MMSP-RFC-NNNN-<slug>.md` and open a PR to `dev`. `design/README.md` has the process.
+- A client's transforms are direct and keep nothing redundant (MMSP-RFC-0012); what a replay must keep is MMSP-RFC-0011; every stream ends with its usage and finish reason (MMSP-RFC-0010).
 
 ## Implementation Rules
 
