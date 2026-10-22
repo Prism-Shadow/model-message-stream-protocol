@@ -2,119 +2,48 @@
 > Fetch the complete documentation index at: https://platform.minimax.io/docs/llms.txt
 > Use this file to discover all available pages before exploring further.
 
-# Token Plan Overview
+# Existing Token Plan subscribers
 
-> Token Plan subscription and usage overview
+> Learn about upgrading to M Plan or keeping your Token Plan subscription.
 
-<img src="https://file.cdn.minimax.io/public/token-plan-hero-v4.png" alt="Token Plan" style={{ display: "block", margin: "0 auto", maxWidth: "100%", borderRadius: "12px" }} />
+Thank you for your continued support of Token Plan. M Plan builds on Token Plan and takes it further: your price and text usage limits stay the same, and M Plan brings together MiniMax models and agent capabilities with expanded support for multimodal generation. See the [M Plan overview](/docs/m-plan/intro). With the launch of M Plan, Token Plan is no longer available for new purchases. You are welcome to upgrade to M Plan at any time, or you can choose to keep your Token Plan subscription. The following arrangements apply to both monthly and annual billing.
 
-## Welcome to the Token Plan!
+<h2 id="upgrade-to-m-plan">
+  Upgrade from Token Plan to M Plan
+</h2>
 
-MiniMax is one of the few AI labs that develops frontier models across the full spectrum of modalities: language, speech, video, music, and image. The [Token Plan](https://platform.minimax.io/subscribe/token-plan) extends upon our former Coding Plan by providing included Token Plan usage beyond language models, allowing more creative agents and applications to be built and used.
+After upgrading, you can keep using M3.1 Flash and also get the newly added H3 video generation:
 
-## Core Advantages
+| | Token Plan | M Plan |
+| :- | :- | :- |
+| Text model | M3.1 Flash | M3.1 Flash |
+| H3 video generation | Not available | Available on Explore and Build, not subject to the 5-hour limit |
 
-<CardGroup cols={3}>
-  <Card title="Full-Spectrum Multimodal" icon="layers">
-    One subscription covers eligible MiniMax resources through a shared usage bar.
-  </Card>
+When you upgrade, the unused portion of your current subscription is prorated based on the time remaining and applied toward the cost of M Plan, so you only pay the difference. Depending on your current tier, you can upgrade to the following M Plan tiers:
 
-  <Card title="Built for Agents" icon="zap">
-    Plans are designed for long-context agent, coding, and multimodal workflows.
-  </Card>
-
-  <Card title="Cost-Effective" icon="piggy-bank">
-    A flat subscription fee includes broad resource coverage while keeping usage predictable.
-  </Card>
-</CardGroup>
-
-## Subscription Key
-
-Each user has a dedicated **Subscription Key** for each Team they belong to. This key can exist before the Team has purchased Token Plan seats or Credits. If no resources are available to the user, the key has no usable paid resources. Once a Token Plan seat is assigned, or Credits access is available, the same Subscription Key can use those resources.
-
-For subscription and Credits rules, see [Token Plan pricing](/docs/guides/pricing-token-plan). For team usage, see [Token Plan for Teams](/docs/guides/pricing-token-plan-team).
-
-## Usage Quota
-
-The [Token Plan](https://platform.minimax.io/subscribe/token-plan) usage quota is shown as a usage bar in the console. For API endpoints that have pay-as-you-go pricing, usage deducts from the included Token Plan quota according to the corresponding endpoint pricing.
-
-|                   | **Plus**                          | **Max**                                      | **Ultra**                                   |
-| :---------------- | :-------------------------------- | :------------------------------------------- | :------------------------------------------ |
-| **Price**         | **\$20 /month**                   | **\$50 /month**                              | **\$120 /month**                            |
-| **Best for**      | Personal projects and prototyping | Daily coding with agents and multimodal work | Heavy Agent workflows and extended sessions |
-| **Quota windows** | 5-hour rolling and weekly windows | 5-hour rolling and weekly windows            | 5-hour rolling and weekly windows           |
-| **Agent usage**   | 3-4 agents                        | 4-5 agents                                   | 6-7 agents                                  |
-
-<div style={{ fontSize: "11px", color: "#6b7280", lineHeight: 1.35, marginTop: "-16px", marginBottom: "12px" }}>Available model coverage includes the full MiniMax lineup (M3 / M2.7 / image / speech / music). A small number of special models (MiniMax H3, voice design, rapid voice cloning, etc.) are not currently supported. Credits usage is unrestricted.</div>
+| Current Token Plan tier | Eligible M Plan tiers |
+| :- | :- |
+| Plus | Go, Explore, Build |
+| Max | Explore, Build |
+| Ultra | Build |
 
 <Tip>
-  To call supported multimodal resources with your Subscription Key, see the [MiniMax CLI guide](https://platform.minimax.io/docs/token-plan/minimax-cli).
+  **Please note that after upgrading**
+
+  * You cannot return to Token Plan.
+  * Models, usage limits, benefits, and renewal prices follow your new M Plan tier.
+  * Historical Token Plan discounts and additional benefits (such as ∞ limits and 150% weekly limit) no longer apply.
 </Tip>
 
-## Getting Started
+## Keep your Token Plan subscription
 
-<Steps>
-  <Step title="Subscribe or get assigned resources">
-    Visit the [Token Plan](https://platform.minimax.io/subscribe/token-plan) subscription page to buy an individual subscription or Credits in your Default Team, or join a Team where a Token Plan seat or shared Credits are available.
-  </Step>
+If you choose to keep your Token Plan subscription, **your current plan and benefits stay the same**. As long as automatic renewal stays on, your subscription continues to renew at the original price with the same benefits. If automatic renewal is off, the subscription ends when the current period expires.
 
-  <Step title="Get your Subscription Key">
-    Navigate to [Account / Token Plan](https://platform.minimax.io/user-center/payment/token-plan) to view your available resources and get your **Subscription Key**.
-  </Step>
-</Steps>
+<Tip>
+  **Please note that during the current subscription period**
 
-<Info>
-  **Important Notes**
-
-  * The Subscription Key is used for Token Plan subscriptions and purchased Credits.
-  * The Subscription Key is not interchangeable with pay-as-you-go API Keys.
-  * A Subscription Key can exist before any paid resource is available. It becomes usable when the user has a Token Plan seat or Credits access.
-  * Please protect your API Key to prevent any loss of resources.
-</Info>
-
-## Use in AI Agents and Coding Tools
-
-Pick your tool and follow the integration guide:
-
-<CardGroup cols={3}>
-  <Card title="OpenClaw" icon="bot" href="/docs/token-plan/openclaw" />
-
-  <Card title="Claude Code" icon="terminal" href="/docs/token-plan/claude-code" />
-
-  <Card title="Cursor" icon="square-code" href="/docs/token-plan/cursor" />
-
-  <Card title="TRAE" icon="code" href="/docs/token-plan/trae" />
-
-  <Card title="Hermes Agent" icon="sparkles" href="/docs/token-plan/hermes-agent" />
-</CardGroup>
-
-For other tools, see [Other Tools](/docs/token-plan/other-tools).
-
-## After Reaching the Usage Limit
-
-When you reach the 5-hour rolling quota or weekly quota, you have the following options:
-
-1. **Use purchased Credits**:
-   If purchased Credits are available, usage within Token Plan resource coverage can be automatically covered by purchased Credits.
-2. **Upgrade or get another assignment**:
-   Upgrade your subscription, or ask the Team Owner or Admin to assign a higher available plan.
-3. **Switch to Pay-As-You-Go**:
-   If you wish to continue without rate limits, you can replace your Subscription Key with your [pay-as-you-go API Key](https://platform.minimax.io/user-center/basic-information/interface-key). This will switch the tool to a pay-as-you-go model based on actual token usage, which will consume your API account balance.
-4. **Wait for the quota window to reset**:
-   The included Token Plan quota uses 5-hour rolling and weekly windows. Unused subscription quota does not carry over to the next billing cycle.
-
-## Next Steps
-
-<CardGroup cols={3}>
-  <Card title="Quickstart" icon="rocket" href="/docs/token-plan/quickstart">
-    Run your first MiniMax API call in 5 minutes.
-  </Card>
-
-  <Card title="FAQ" icon="info" href="/docs/token-plan/faq">
-    Common questions on quotas, billing, switching, refunds.
-  </Card>
-
-  <Card title="Promotions" icon="gift" href="/docs/token-plan/promotion">
-    Current discount campaigns.
-  </Card>
-</CardGroup>
+  * You can turn off automatic renewal. Once it is off, it cannot be turned back on, and your subscription ends when the current period expires.
+  * You cannot upgrade or downgrade between Token Plan tiers.
+  * If auto-renewal is on, your historical Token Plan discounts and additional benefits (such as ∞ limits and 150% weekly limit) are retained.
+  * Your Token Plan subscription continues to have access to the latest models.
+</Tip>

@@ -2,39 +2,56 @@
 > Fetch the complete documentation index at: https://platform.minimax.io/docs/llms.txt
 > Use this file to discover all available pages before exploring further.
 
-# Token Plan
+# M Plan overview
 
-> MiniMax Token Plan Subscription Pricing
+> Learn about M Plan tiers, available models, usage, and supported products.
 
-Token Plan subscriptions provide a monthly usage quota and access to eligible resources through the Subscription Key. Usage is shown as a usage bar in the console. Supported text, image, speech, and music resources share one quota.
+[**M Plan**](https://www.minimax.io/m-plan) is an AI subscription designed for individuals, bringing together MiniMax's leading models for text, video, image, and audio generation to help you with both work and personal interests. Choose from three tiers—Go, Explore, and Build—based on how much you use AI.
 
-Prepaid Credits packages are listed below. For team usage, see [Token Plan for Teams](/docs/guides/pricing-token-plan-team).
+## Available models
 
-## Monthly
+<Note>MiniMax-M3.1-Flash-Preview has been retired. Requests using the old name are now served by MiniMax-M3.1-Flash.</Note>
 
-[Subscribe Now](https://platform.minimax.io/subscribe/token-plan)
+| Model | Go | Explore | Build |
+| :- | :- | :- | :- |
+| Text model | M3.1 Flash | M3.1 Flash | M3.1 Flash |
+| Video model | Not included | H3 | H3 |
+| Other modalities | Image and audio models | Image and audio models | Image and audio models |
 
-| | **Plus** | **Max** | **Ultra** |
-| :---------------- | :-------------------------------- | :------------------------------------------- | :------------------------------------------ |
-| **Price** | **$20 /month** | **$50 /month** | **$120 /month** |
-| **Best for** | Personal projects and prototyping | Daily coding with agents and multimodal work | Heavy Agent workflows and extended sessions |
-| **Quota windows** | 5-hour rolling and weekly windows | 5-hour rolling and weekly windows | 5-hour rolling and weekly windows |
-| **Agent usage** | 3-4 agents | 4-5 agents | 6-7 agents |
+## Usage limits
 
-Available model coverage includes the full MiniMax lineup (M3 / M2.7 / image / speech / music). A small number of special models (MiniMax H3, voice design, rapid voice cloning, etc.) are not currently supported. Credits usage is unrestricted.
+Actual consumption varies with the model, context length, and task complexity. Video generation consumes far more than text, so frequent video generation brings you to your usage limit faster. Use the table below to choose a tier that suits your usage habits and tasks.
 
-## Credits Packages
+| Tier | Usage relative to Go | Usage guide |
+| :- | :- | :- |
+| Go | - | Getting started with simple research, light writing, or small code changes. |
+| Explore | 3x | Daily use for coding, writing, organizing information, and multi-turn tasks. |
+| Build | 7.5x | Frequent use for long-context work, complex coding tasks, or extensive multimodal creation. |
 
-[Recharge Credits](https://platform.minimax.io/user-center/payment/credits)
+## Supported products
 
-Credits packages are priced at **1,000 credits = $1**. Usage paid with Credits deducts the equivalent Credits amount at the resource's pay-as-you-go list price.
+With an M Plan subscription, you can use it in two ways:
 
-| Price | Credits received |
-| :-------- | :------------------ |
-| **$5** | **5,000 credits** |
-| **$25** | **25,000 credits** |
-| **$100** | **100,000 credits** |
+<Card title="MiniMax Code · Official recommendation" href="/docs/m-plan/minimax-code">
+  Use MiniMax's official agent app for local development and everyday work. Sign in to access your M Plan benefits, with no separate subscription or API Key setup.
+</Card>
 
-Validity: **365 days** from each purchase date.
+**Other AI tools:** Get your M Plan [API Key](https://platform.minimax.io/console/plan), then connect models to Claude Code, Codex, Cursor, OpenCode, or other AI tools you already use.
 
-Credits cover the same resources as Token Plan. When both Token Plan quota and Credits can cover usage, Token Plan quota is used first; Credits cover eligible overflow.
+<CardGroup cols={3}>
+  <Card title="Claude Code" icon="terminal" href="/docs/m-plan/claude-code" />
+
+  <Card title="Codex" icon="file-code" href="/docs/m-plan/codex" />
+
+  <Card title="Cursor" icon="square-code" href="/docs/m-plan/cursor" />
+
+  <Card title="OpenCode" icon="folder-open" href="/docs/m-plan/opencode" />
+
+  <Card title="Pi" icon="terminal" href="/docs/m-plan/pi" />
+
+  <Card title="Hermes Agent" icon="sparkles" href="/docs/m-plan/hermes-agent" />
+
+  <Card title="OpenClaw" icon="bot" href="/docs/m-plan/openclaw" />
+
+  <Card title="Other tools" icon="plug" href="/docs/m-plan/other-tools" />
+</CardGroup>

@@ -1,148 +1,175 @@
 # MiniMax API Docs
 
-## Docs
-
-- [Claude Code setup](https://platform.minimax.io/docs/ai-tools/claude-code.md): Configure Claude Code for your documentation workflow
-- [Cursor setup](https://platform.minimax.io/docs/ai-tools/cursor.md): Configure Cursor for your documentation workflow
-- [Windsurf setup](https://platform.minimax.io/docs/ai-tools/windsurf.md): Configure Windsurf for your documentation workflow
-- [Explicit Prompt Caching (Anthropic API)](https://platform.minimax.io/docs/api-reference/anthropic-api-compatible-cache.md): MiniMax supports Anthropic API compatible caching that is managed through explicit cache_control settings.
-- [API Overview](https://platform.minimax.io/docs/api-reference/api-overview.md): Overview of MiniMax API capabilities including language, speech, video, image, music, and file management.
-- [Error Codes](https://platform.minimax.io/docs/api-reference/errorcode.md): This document lists common MiniMax API error codes and solutions to help developers quickly resolve issues.
-- [Delete File](https://platform.minimax.io/docs/api-reference/file-management-delete.md): Delete files on the MiniMax API Platform.
-- [List Files](https://platform.minimax.io/docs/api-reference/file-management-list.md): List files on the MiniMax API Platform.
-- [Retrieve File](https://platform.minimax.io/docs/api-reference/file-management-retrieve.md): Retrieve files on the MiniMax API Platform.
-- [Retrieve Content](https://platform.minimax.io/docs/api-reference/file-management-retrieve-content.md): Download the contents of a generated file.
-- [Upload File](https://platform.minimax.io/docs/api-reference/file-management-upload.md): Upload a file on the MiniMax API Platform.
-- [Image-to-Image Generation](https://platform.minimax.io/docs/api-reference/image-generation-i2i.md): Use this API to generate images from image input.
-- [Text to Image Generation](https://platform.minimax.io/docs/api-reference/image-generation-t2i.md): Use this API to generate images from text input.
-- [Lyrics Generation](https://platform.minimax.io/docs/api-reference/lyrics-generation.md): Use this API to generate lyrics, supporting full song creation and lyrics editing/continuation.
-- [List Models](https://platform.minimax.io/docs/api-reference/models/anthropic/list-models.md): Returns a list of all available models compatible with Anthropic API specification.
-- [Retrieve Model](https://platform.minimax.io/docs/api-reference/models/anthropic/retrieve-model.md): Retrieves details for a specific model, compatible with Anthropic API specification.
-- [List Models](https://platform.minimax.io/docs/api-reference/models/openai/list-models.md): Returns a list of all available models compatible with OpenAI API specification.
-- [Retrieve Model](https://platform.minimax.io/docs/api-reference/models/openai/retrieve-model.md): Retrieves details for a specific model, compatible with OpenAI API specification.
-- [Music Cover Preprocess](https://platform.minimax.io/docs/api-reference/music-cover-preprocess.md): Preprocess reference audio to extract features and lyrics for two-step cover generation.
-- [Music Generation](https://platform.minimax.io/docs/api-reference/music-generation.md): Use this API to generate a song from lyrics and a prompt.
-- [Create Response](https://platform.minimax.io/docs/api-reference/responses-create.md): Call MiniMax models via the OpenAI Responses API compatible main endpoint. Generates model replies, supports streaming and non-streaming.
-- [Estimate Input Tokens](https://platform.minimax.io/docs/api-reference/responses-input-tokens.md): Estimate the input token count of a request without invoking the model. Useful for evaluating request cost or checking context length limits before calling the main endpoint.
-- [Create Speech Generation Task](https://platform.minimax.io/docs/api-reference/speech-t2a-async-create.md): Use this API to create an asynchronous Text-to-Speech task.
-- [Query Speech Generation Task Status](https://platform.minimax.io/docs/api-reference/speech-t2a-async-query.md): Use this API to query the status of an asynchronous Text-to-Speech task.
-- [Text to Speech (T2A) HTTP](https://platform.minimax.io/docs/api-reference/speech-t2a-http.md): Use this API for synchronous t2a over HTTP.
-- [Text to Speech (T2A) WebSocket](https://platform.minimax.io/docs/api-reference/speech-t2a-websocket.md): Use this API for synchronous t2a over WebSocket.
-- [AI SDK](https://platform.minimax.io/docs/api-reference/text-ai-sdk.md): Call MiniMax models using the AI SDK
-- [Anthropic SDK](https://platform.minimax.io/docs/api-reference/text-anthropic-api.md): Call MiniMax models using the Anthropic SDK
-- [Messages API](https://platform.minimax.io/docs/api-reference/text-chat-anthropic.md): Use the Anthropic API compatible Messages format to call MiniMax models.
-- [Chat Completions API](https://platform.minimax.io/docs/api-reference/text-chat-openai.md): Use the OpenAI API compatible Chat Completions format to call MiniMax models.
-- [OpenAI SDK](https://platform.minimax.io/docs/api-reference/text-openai-api.md): Call MiniMax models using the OpenAI SDK
-- [Text Generation](https://platform.minimax.io/docs/api-reference/text-post.md): Use this API to create chat completions.
-- [Prompt Caching](https://platform.minimax.io/docs/api-reference/text-prompt-caching.md): Prompt caching effectively reduces latency and costs.
-- [Create Video Agent Task](https://platform.minimax.io/docs/api-reference/video-agent-create.md): Use this API to create video Agent tasks.
-- [Query Video Template Generation Task](https://platform.minimax.io/docs/api-reference/video-agent-query.md): Use this API to query the task status of generated videos.
-- [Video Download](https://platform.minimax.io/docs/api-reference/video-generation-download.md): Use this API to download generated videos.
-- [Create First & Last Frame Video Generation Task](https://platform.minimax.io/docs/api-reference/video-generation-fl2v.md): Use this API to create a video generation task from start and end frame images, with optional text input.
-- [Image-to-Video Task](https://platform.minimax.io/docs/api-reference/video-generation-i2v.md): Use this API to create a video generation task from image, with optional text input.
-- [Query Video Generation Task Status](https://platform.minimax.io/docs/api-reference/video-generation-query.md)
-- [Subject-Reference to Video Generation Task](https://platform.minimax.io/docs/api-reference/video-generation-s2v.md)
-- [Create Text-to-Video Generation Task](https://platform.minimax.io/docs/api-reference/video-generation-t2v.md): Use this API to create a video generation task from text input.
-- [Create Video Generation Task](https://platform.minimax.io/docs/api-reference/video-generation-v2-create.md): Video generation V2 endpoint. Provide multimodal input via the content array (text / image / video / audio) to support text-to-video, image-to-video (first & last frame), and reference-to-video, with 2K output.
-- [Cancel or Delete Task](https://platform.minimax.io/docs/api-reference/video-generation-v2-delete.md): Cancel a queued task or delete a succeeded or failed video generation, H3-Context-IR, or video regeneration task record based on its current status.
-- [Create H3-Context-IR Task](https://platform.minimax.io/docs/api-reference/video-generation-v2-h3-context-ir.md): Deeply interpret multimodal context and generate a structured, semantically enriched video prompt.
-- [List Tasks](https://platform.minimax.io/docs/api-reference/video-generation-v2-list.md): List tasks from the last 7 days with pagination. Supports filtering by status, task ID, model, and task type.
-- [Query Task](https://platform.minimax.io/docs/api-reference/video-generation-v2-query.md): Query the status and result of a single video generation, H3-Context-IR, or video regeneration task from the last 7 days by task_id.
-- [Create Video Regeneration Task](https://platform.minimax.io/docs/api-reference/video-generation-v2-regeneration.md): Regenerate a source video that meets the MiniMax-H3 768P output specifications to produce a 2K video.
-- [Voice Clone](https://platform.minimax.io/docs/api-reference/voice-cloning-clone.md): Use this API for rapid voice cloning. If a cloned voice is not used within 7 days, the system will delete it.
-- [Upload Audio for Voice Cloning](https://platform.minimax.io/docs/api-reference/voice-cloning-uploadcloneaudio.md): Use this API to upload audio files for voice cloning.
-- [Upload Prompt Auido](https://platform.minimax.io/docs/api-reference/voice-cloning-uploadprompt.md): Use this API to upload prompt audio file. Providing this file helps to enhance the voice similarity and stability of the Text-to-Speech output.
-- [Voice Design](https://platform.minimax.io/docs/api-reference/voice-design-design.md): Use this API to design custom voices by inputting text.
-- [Delete Voice](https://platform.minimax.io/docs/api-reference/voice-management-delete.md): Use this API to delete generated voices.
-- [Get Voice](https://platform.minimax.io/docs/api-reference/voice-management-get.md): Use this API to list available voices by category.
-- [Code blocks](https://platform.minimax.io/docs/essentials/code.md): Display inline code and code blocks
-- [Images and embeds](https://platform.minimax.io/docs/essentials/images.md): Add image, video, and other HTML elements
-- [Markdown syntax](https://platform.minimax.io/docs/essentials/markdown.md): Text, title, and styling in standard markdown
-- [Navigation](https://platform.minimax.io/docs/essentials/navigation.md): The navigation field in docs.json defines the pages that go in the navigation menu
-- [Reusable snippets](https://platform.minimax.io/docs/essentials/reusable-snippets.md): Reusable, custom snippets to keep content in sync
-- [Global Settings](https://platform.minimax.io/docs/essentials/settings.md): Mintlify gives you complete control over the look and feel of your documentation using the docs.json file
-- [About Account](https://platform.minimax.io/docs/faq/about-account.md): Find answers to common MiniMax account questions on billing, invoices, balance alerts, and resource management.
-- [About APIs](https://platform.minimax.io/docs/faq/about-apis.md): Find answers to common questions about managing your MiniMax AI account.
-- [Contact Us](https://platform.minimax.io/docs/faq/contact-us.md): This page provides MiniMax official contact channels, including email support, enabling you to quickly get technical assistance and business inquiries.
-- [System Voice ID List](https://platform.minimax.io/docs/faq/system-voice-id.md): You can also obtain the latest system voice information through the [Get Voice API](/api-reference/voice-management-get)
-- [Video Agent Template List](https://platform.minimax.io/docs/faq/video-agent-templates.md): This document lists all official MiniMax Video Agent templates with IDs, features, and usage examples.
-- [Image Generation Guide](https://platform.minimax.io/docs/guides/image-generation.md): The Image Generation service provides two core capabilities: **Text-to-Image** and **Image-to-Image**.
-- [Local Deployment Guide](https://platform.minimax.io/docs/guides/local-deploy.md): Deploy MiniMax-M2.7 locally using vLLM, SGLang (Linux GPU), or MLX (Mac Studio), with hardware-specific configuration guides.
-- [Introduction to the Model Context Protocol (MCP)](https://platform.minimax.io/docs/guides/mcp-guide.md): This guide explains the Model Context Protocol (MCP) and its Python/JS tools for seamless multimodal AI integration.
 - [Models](https://platform.minimax.io/docs/guides/models-intro.md): Overview of MiniMax AI models and their capabilities
-- [Music Generation](https://platform.minimax.io/docs/guides/music-generation.md): Use the prompt parameter to define the music's style, mood, and scenario, and the lyrics parameter to provide the vocal content. This feature is ideal for quickly generating unique theme songs for videos, games, or applications.
-- [Pay as You Go](https://platform.minimax.io/docs/guides/pricing-paygo.md): MiniMax Pay as You Go Pricing
-- [Audio Subscription](https://platform.minimax.io/docs/guides/pricing-speech.md): MiniMax Audio Subscription Pricing
-- [Token Plan](https://platform.minimax.io/docs/guides/pricing-token-plan.md): MiniMax Token Plan Subscription Pricing
-- [Token Plan for Teams](https://platform.minimax.io/docs/guides/pricing-token-plan-team.md): How Token Plan seats, shared Credits, and pay-as-you-go resources work in Teams.
-- [Video Packages](https://platform.minimax.io/docs/guides/pricing-video.md): MiniMax Video Packages Pricing
-- [Privacy Policy](https://platform.minimax.io/docs/guides/privacy-policy.md)
 - [Prerequisites](https://platform.minimax.io/docs/guides/quickstart-preparation.md): Before using the MiniMax API, you need to complete account registration and obtain an API Key.
 - [Integrate via SDK](https://platform.minimax.io/docs/guides/quickstart-sdk.md): Use the Anthropic SDK to quickly integrate with the MiniMax API and start calling the MiniMax-M3 model.
-- [Rate Limits](https://platform.minimax.io/docs/guides/rate-limits.md): Rate limits are restrictions that our API imposes on the number of times a user or client can access our services within a specified period of time.
-- [Server Tools](https://platform.minimax.io/docs/guides/server-tools.md)
-- [Async Long TTS Guide](https://platform.minimax.io/docs/guides/speech-t2a-async.md): MiniMax provides an asynchronous TTS for long-form audio synthesis tasks, with a maximum limit of 1M characters per request for text input.
-- [Synchronous Text-to-Speech Guide (WebSocket)](https://platform.minimax.io/docs/guides/speech-t2a-websocket.md): Synchronous TTS allows real-time text-to-speech synthesis, handling up to 10,000 characters per request.
-- [Voice Clone](https://platform.minimax.io/docs/guides/speech-voice-clone.md): MiniMax’s speech models provide robust voice cloning capabilities, allowing you to synthesize preview audio using cloned voices.
-- [Terms of Service](https://platform.minimax.io/docs/guides/terms-of-service.md)
-- [Chat Model](https://platform.minimax.io/docs/guides/text-chat.md): M2-her chat model, designed for role-playing, multi-turn conversations and dialogue scenarios.
 - [Model Invocation](https://platform.minimax.io/docs/guides/text-generation.md): MiniMax LLMs, supporting multilingual programming, Agent workflows and complex task scenarios.
+- [Prompt Caching](https://platform.minimax.io/docs/api-reference/text-prompt-caching.md): Prompt caching effectively reduces latency and costs.
+- [Tool Use & Interleaved Thinking](https://platform.minimax.io/docs/guides/text-m3-function-call.md): MiniMax-M3.1-Flash is an Agentic Model with exceptional Tool Use capabilities.
+- [Server Tools](https://platform.minimax.io/docs/guides/server-tools.md)
 - [Aligning to What? Rethinking Agent Generalization in MiniMax M2](https://platform.minimax.io/docs/guides/text-m2-agent-generalization.md)
 - [Why Did MiniMax M2 End Up as a Full Attention Model?](https://platform.minimax.io/docs/guides/text-m2-full-attention.md): MiniMax M2 End Up as a Full Attention Model
 - [What makes good reasoning data](https://platform.minimax.io/docs/guides/text-m2-reasoning.md): MiniMax M2, ranks Top-1 among open-source models and Top-5 among all models
-- [Tool Use & Interleaved Thinking](https://platform.minimax.io/docs/guides/text-m3-function-call.md): MiniMax-M3 is an Agentic Model with exceptional Tool Use capabilities.
-- [Token Plan MCP Guide](https://platform.minimax.io/docs/guides/token-plan-mcp-guide.md): Token Plan MCP provides two exclusive tools: **web_search** and **understand_image**, helping developers quickly access information and understand image content during coding.
-- [Transparency](https://platform.minimax.io/docs/guides/transparency.md)
-- [Video Generation with Templates Guide](https://platform.minimax.io/docs/guides/video-agent.md): Video Agent generation service allows you to quickly create videos with a consistent style by filling predefined templates with assets such as images or text.
-- [Video Generation](https://platform.minimax.io/docs/guides/video-generation.md): MiniMax's video model (MiniMax H3) enables efficient video content creation.
+- [Video Generation](https://platform.minimax.io/docs/guides/video-generation.md): MiniMax's video models (MiniMax H3, MiniMax H3 Max) enable efficient video content creation.
 - [H3 Feature Highlights](https://platform.minimax.io/docs/guides/video-prompt.md): A gallery of representative examples showing MiniMax H3's three core capabilities: Native Multimodal Understanding & Generation, Precise Multimodal Editing & Control, and Production-Ready Content Creation Across Use Cases.
-- [Product Pricing](https://platform.minimax.io/docs/pricing/overview.md): MiniMax offers two pricing categories — choose by usage scenario.
-- [APIs](https://platform.minimax.io/docs/release-notes/apis.md): Track the latest MiniMax API updates to help developers build smarter, more seamless applications.
-- [Models](https://platform.minimax.io/docs/release-notes/models.md): Stay updated on MiniMax's latest model releases across language, audio, video, image, and music.
-- [Multi-Agent Cowork for Complex Tasks](https://platform.minimax.io/docs/solutions/eigent.md):  In this tutorial, we showed how to integrate the MiniMax M2.1 model into Eigent, an open-source Cowork, to complete complex tasks.
-- [Cookbook](https://platform.minimax.io/docs/solutions/index.md): Explore practical use cases and solutions for MiniMax API to quickly build AI applications.
-- [Mini-Agent: Build Your First Intelligent Assistant](https://platform.minimax.io/docs/solutions/mini-agent.md):  This tutorial will guide you through the core architecture of Mini-Agent and show you how to integrate with the MiniMax M2.1 model to build your own intelligent Agent.
-- [OpenClaw](https://platform.minimax.io/docs/solutions/openclaw.md):  In this tutorial, we'll show you how to use OpenClaw to connect MiniMax M3 to Telegram, creating your personal AI assistant that you can chat with anytime, anywhere.
-- [Control Robot Arm with Conversation: Make Robots Understand You](https://platform.minimax.io/docs/solutions/robot-agent.md):  This tutorial will guide you to use MiniMax LLM & MCP visual understanding to build an intelligent robot that can understand natural language instructions and perform complex robotic arm manipulation tasks.
+- [Speech-to-Text](https://platform.minimax.io/docs/guides/speech-to-text.md): MiniMax ASR transcribes audio to text, with streaming, speaker diarization and subtitle export — ready for meeting minutes, podcast/video transcription, content moderation and call QA.
+- [Voice Clone](https://platform.minimax.io/docs/guides/speech-voice-clone.md): MiniMax’s speech models provide robust voice cloning capabilities, allowing you to synthesize preview audio using cloned voices.
+- [Synchronous Text-to-Speech Guide (WebSocket)](https://platform.minimax.io/docs/guides/speech-t2a-websocket.md): Synchronous TTS allows real-time text-to-speech synthesis, handling up to 10,000 characters per request.
+- [Async Long TTS Guide](https://platform.minimax.io/docs/guides/speech-t2a-async.md): MiniMax provides an asynchronous TTS for long-form audio synthesis tasks, with a maximum limit of 1M characters per request for text input.
+- [System Voice ID List](https://platform.minimax.io/docs/faq/system-voice-id.md): You can also obtain the latest system voice information through the [Get Voice API](/docs/api-reference/voice-management-get)
+- [Image Generation Guide](https://platform.minimax.io/docs/guides/image-generation.md): The Image Generation service provides two core capabilities: **Text-to-Image** and **Image-to-Image**.
+- [Music Generation](https://platform.minimax.io/docs/guides/music-generation.md): Use the prompt parameter to define the music's style, mood, and scenario, and the lyrics parameter to provide the vocal content. This feature is ideal for quickly generating unique theme songs for videos, games, or applications.
+- [Introduction to the Model Context Protocol (MCP)](https://platform.minimax.io/docs/guides/mcp-guide.md): This guide explains the Model Context Protocol (MCP) and its Python/JS tools for seamless multimodal AI integration.
+- [M Plan MCP Guide](https://platform.minimax.io/docs/guides/token-plan-mcp-guide.md): M Plan MCP provides two exclusive tools: **web_search** and **understand_image**, helping developers quickly access information and understand image content during coding.
+- [Run and self-host MiniMax Open Models](https://platform.minimax.io/docs/guides/local-deploy.md): Choose a local or self-hosted path for MiniMax-M3, MiniMax-M2.7, MiniMax Music 3, and MiniMax H3.
+- [Self-host MiniMax-M3](https://platform.minimax.io/docs/guides/local-deploy-m3.md): Run the experimental MiniMax-M3 SGLang baseline, verify the service, and plan a secure self-hosted deployment.
+- [Deploy MiniMax-M2.7](https://platform.minimax.io/docs/guides/local-deploy-m2-7.md): Deploy MiniMax-M2.7 with the SGLang Cookbook and verify inference, reasoning, and tool calls through an OpenAI-compatible endpoint.
+- [Self-host MiniMax Music 3](https://platform.minimax.io/docs/guides/local-deploy-music-3.md): Serve MiniMax Music 3 with a pinned SGLang-Omni runtime and generate songs through the Speech API.
+- [Run and self-host MiniMax H3](https://platform.minimax.io/docs/guides/local-deploy-h3.md): Run MiniMax H3 locally with ComfyUI or deploy a reproducible H3-Base service with SGLang.
+- [Model List](https://platform.minimax.io/docs/faq/models.md): View the models currently available on the MiniMax API platform and those that have been retired.
+- [About APIs](https://platform.minimax.io/docs/faq/about-apis.md): Find answers to common questions about managing your MiniMax AI account.
+- [About Account](https://platform.minimax.io/docs/faq/about-account.md): Find answers to common MiniMax account questions on billing, invoices, balance alerts, and resource management.
+- [Contact Us](https://platform.minimax.io/docs/faq/contact-us.md): This page provides MiniMax official contact channels, including email support, enabling you to quickly get technical assistance and business inquiries.
+- [Terms of Service](https://platform.minimax.io/docs/guides/terms-of-service.md)
+- [Privacy Policy](https://platform.minimax.io/docs/guides/privacy-policy.md)
+- [Transparency](https://platform.minimax.io/docs/guides/transparency.md)
+- [API Overview](https://platform.minimax.io/docs/api-reference/api-overview.md): Overview of MiniMax API capabilities including language, speech, video, image, music, and file management.
+- [Rate Limits](https://platform.minimax.io/docs/guides/rate-limits.md): Rate limits are restrictions that our API imposes on the number of times a user or client can access our services within a specified period of time.
+- [Error Codes](https://platform.minimax.io/docs/api-reference/errorcode.md): This document lists common MiniMax API error codes and solutions to help developers quickly resolve issues.
+- [Anthropic SDK](https://platform.minimax.io/docs/api-reference/text-anthropic-api.md): Call MiniMax models using the Anthropic SDK
+- [OpenAI SDK](https://platform.minimax.io/docs/api-reference/text-openai-api.md): Call MiniMax models using the OpenAI SDK
+- [AI SDK](https://platform.minimax.io/docs/api-reference/text-ai-sdk.md): Call MiniMax models using the AI SDK
+- [Create Message](https://platform.minimax.io/docs/api-reference/text-chat-anthropic.md): Call MiniMax models via the Anthropic Messages API compatible endpoint. Generates model replies, supports streaming and non-streaming.
+- [Create Chat Completion](https://platform.minimax.io/docs/api-reference/text-chat-openai.md): Call MiniMax models via the OpenAI Chat Completions API compatible endpoint. Generates model replies, supports streaming and non-streaming.
+- [Create Response](https://platform.minimax.io/docs/api-reference/responses-create.md): Call MiniMax models via the OpenAI Responses API compatible main endpoint. Generates model replies, supports streaming and non-streaming.
+- [Estimate Input Tokens](https://platform.minimax.io/docs/api-reference/responses-input-tokens.md): Estimate the input token count of a request without invoking the model. Useful for evaluating request cost or checking context length limits before calling the main endpoint.
+- [Create Video Generation Task](https://platform.minimax.io/docs/api-reference/video-generation-v2-create.md): Video generation V2 endpoint. Provide multimodal input via the content array (text / image / video / audio); switch between MiniMax H3 and MiniMax H3 Max with the `model` field to support text-to-video, image-to-video (first & last frame), and reference-to-video, with output up to 2K.<br /><br />Not…
+- [Query Task](https://platform.minimax.io/docs/api-reference/video-generation-v2-query.md): Query the status and result of a single video generation, H3-Context-IR, or video regeneration task from the last 7 days by task_id.
+- [List Tasks](https://platform.minimax.io/docs/api-reference/video-generation-v2-list.md): List tasks from the last 7 days with pagination. Supports filtering by status, task ID, model, and task type.
+- [Cancel or Delete Task](https://platform.minimax.io/docs/api-reference/video-generation-v2-delete.md): Cancel a queued task or delete a succeeded or failed video generation, H3-Context-IR, or video regeneration task record based on its current status.
+- [Create H3-Context-IR Task](https://platform.minimax.io/docs/api-reference/video-generation-v2-h3-context-ir.md): Deeply interpret multimodal context and generate a structured, semantically enriched video prompt.
+- [Create Video Regeneration Task](https://platform.minimax.io/docs/api-reference/video-generation-v2-regeneration.md): Regenerate a source video that meets the MiniMax-H3 768P output specifications into a 2K video.
+- [Create Text-to-Video Generation Task](https://platform.minimax.io/docs/api-reference/video-generation-t2v.md): Use this API to create a video generation task from text input.
+- [Image-to-Video Task](https://platform.minimax.io/docs/api-reference/video-generation-i2v.md): Use this API to create a video generation task from image, with optional text input.
+- [Create First & Last Frame Video Generation Task](https://platform.minimax.io/docs/api-reference/video-generation-fl2v.md): Use this API to create a video generation task from start and end frame images, with optional text input.
+- [Subject-Reference to Video Generation Task](https://platform.minimax.io/docs/api-reference/video-generation-s2v.md)
+- [Query Video Generation Task Status](https://platform.minimax.io/docs/api-reference/video-generation-query.md)
+- [Video Download](https://platform.minimax.io/docs/api-reference/video-generation-download.md): Use this API to download generated videos.
+- [Speech to Text](https://platform.minimax.io/docs/api-reference/speech-to-text.md): Use this API to transcribe an audio file into text, with support for streaming output, speaker diarization and subtitle export.
+- [Synchronous Text to Speech](https://platform.minimax.io/docs/api-reference/speech-t2a-http.md): Submit the full text in a single HTTP request and get the synthesized audio back, with optional streaming output.
+- [Synchronous Text to Speech](https://platform.minimax.io/docs/api-reference/speech-t2a-websocket.md): Send text sentence by sentence over a WebSocket connection and receive streamed audio, suited for low-latency real-time playback.
+- [Bidirectional Streaming Text to Speech](https://platform.minimax.io/docs/api-reference/speech-t2a-websocket-bidi.md): Stream text over a WebSocket connection at any granularity (even character by character); the server buffers it into sentences before synthesis, ideal for piping LLM streaming output into speech.
+- [Create Speech Generation Task](https://platform.minimax.io/docs/api-reference/speech-t2a-async-create.md): Use this API to create an asynchronous Text-to-Speech task.
+- [Query Speech Generation Task Status](https://platform.minimax.io/docs/api-reference/speech-t2a-async-query.md): Use this API to query the status of an asynchronous Text-to-Speech task.
+- [Upload Audio for Voice Cloning](https://platform.minimax.io/docs/api-reference/voice-cloning-uploadcloneaudio.md): Use this API to upload audio files for voice cloning.
+- [Upload Prompt Auido](https://platform.minimax.io/docs/api-reference/voice-cloning-uploadprompt.md): Use this API to upload prompt audio file. Providing this file helps to enhance the voice similarity and stability of the Text-to-Speech output.
+- [Voice Clone](https://platform.minimax.io/docs/api-reference/voice-cloning-clone.md): Use this API for rapid voice cloning. If a cloned voice is not used within 7 days, the system will delete it.
+- [Voice Design](https://platform.minimax.io/docs/api-reference/voice-design-design.md): Use this API to design custom voices by inputting text.
+- [Get Voice](https://platform.minimax.io/docs/api-reference/voice-management-get.md): Use this API to list available voices by category.
+- [Delete Voice](https://platform.minimax.io/docs/api-reference/voice-management-delete.md): Use this API to delete generated voices.
+- [Text to Image Generation](https://platform.minimax.io/docs/api-reference/image-generation-t2i.md): Use this API to generate images from text input.
+- [Image-to-Image Generation](https://platform.minimax.io/docs/api-reference/image-generation-i2i.md): Use this API to generate images from image input.
+- [Music Generation](https://platform.minimax.io/docs/api-reference/music-generation.md): Use this API to generate a song from lyrics and a prompt.
+- [Music Cover Preprocess](https://platform.minimax.io/docs/api-reference/music-cover-preprocess.md): Preprocess reference audio to extract features and lyrics for two-step cover generation.
+- [Lyrics Generation](https://platform.minimax.io/docs/api-reference/lyrics-generation.md): Use this API to generate lyrics, supporting full song creation and lyrics editing/continuation.
+- [Upload File](https://platform.minimax.io/docs/api-reference/file-management-upload.md): Upload a file on the MiniMax API Platform.
+- [List Files](https://platform.minimax.io/docs/api-reference/file-management-list.md): List files on the MiniMax API Platform.
+- [Retrieve File](https://platform.minimax.io/docs/api-reference/file-management-retrieve.md): Retrieve files on the MiniMax API Platform.
+- [Retrieve Content](https://platform.minimax.io/docs/api-reference/file-management-retrieve-content.md): Download the contents of a generated file.
+- [Delete File](https://platform.minimax.io/docs/api-reference/file-management-delete.md): Delete files on the MiniMax API Platform.
+- [List Models](https://platform.minimax.io/docs/api-reference/models/openai/list-models.md): Returns a list of all available models compatible with OpenAI API specification.
+- [Retrieve Model](https://platform.minimax.io/docs/api-reference/models/openai/retrieve-model.md): Retrieves details for a specific model, compatible with OpenAI API specification.
+- [List Models](https://platform.minimax.io/docs/api-reference/models/anthropic/list-models.md): Returns a list of all available models compatible with Anthropic API specification.
+- [Retrieve Model](https://platform.minimax.io/docs/api-reference/models/anthropic/retrieve-model.md): Retrieves details for a specific model, compatible with Anthropic API specification.
+- [M Plan overview](https://platform.minimax.io/docs/m-plan/intro.md): Learn about M Plan tiers, available models, usage, and supported products.
+- [FAQ](https://platform.minimax.io/docs/m-plan/faq.md): Find answers to common questions about M Plan tiers, usage, Subscription Keys, and usage rules.
+- [Usage](https://platform.minimax.io/docs/m-plan/usage-rules.md): Learn when your usage resets, how to check your usage, and what you can do when you reach your usage limit.
+- [Upgrades and cancellation](https://platform.minimax.io/docs/m-plan/change-plan.md): Learn how to upgrade your plan, manage automatic renewal, and cancel your subscription on the web.
+- [Subscribe to M Plan](https://platform.minimax.io/docs/m-plan/quickstart.md): Subscribe to M Plan, get your Subscription Key, and test an API call.
+- [MiniMax Code](https://platform.minimax.io/docs/m-plan/minimax-code.md): Use the latest MiniMax M-series models in MiniMax Code.
+- [Claude Code](https://platform.minimax.io/docs/m-plan/claude-code.md): Use the latest MiniMax M-series models in Claude Code.
+- [Codex](https://platform.minimax.io/docs/m-plan/codex.md): Use the latest MiniMax M-series models in Codex.
+- [Cursor](https://platform.minimax.io/docs/m-plan/cursor.md): Use the latest MiniMax M-series models in Cursor.
+- [OpenCode](https://platform.minimax.io/docs/m-plan/opencode.md): Use the latest MiniMax M-series models in OpenCode.
+- [Pi](https://platform.minimax.io/docs/m-plan/pi.md): Use the latest MiniMax M-series models in Pi.
+- [Hermes Agent](https://platform.minimax.io/docs/m-plan/hermes-agent.md): Use the latest MiniMax M-series models in Hermes Agent.
+- [OpenClaw](https://platform.minimax.io/docs/m-plan/openclaw.md): Use the latest MiniMax M-series models in OpenClaw.
+- [Other Tools](https://platform.minimax.io/docs/m-plan/other-tools.md): Use the latest MiniMax M-series models in other AI tools.
+- [Web search MCP](https://platform.minimax.io/docs/m-plan/mcp-guide.md): Add web search to AI tools through MCP.
+- [MiniMax CLI](https://platform.minimax.io/docs/m-plan/minimax-cli.md): Install MiniMax CLI to use MiniMax multimodal and search capabilities from your terminal or AI agent.
+- [M Plan monthly: 50% off your first month](https://platform.minimax.io/docs/m-plan/monthly-offer.md): Learn about the offer period and rules.
+- [Existing Token Plan subscribers](https://platform.minimax.io/docs/m-plan/token-plan-notice.md): Learn about upgrading to M Plan or keeping your Token Plan subscription.
+- [Token Plan Overview](https://platform.minimax.io/docs/token-plan/intro.md): Token Plan subscription and usage overview
+- [Quick Start](https://platform.minimax.io/docs/token-plan/quickstart.md): Quick guide to Token Plan subscription and integration
+- [FAQs](https://platform.minimax.io/docs/token-plan/faq.md): Token Plan FAQs
+- [Subscription Plan Upgrade Announcement](https://platform.minimax.io/docs/token-plan/announcements.md)
 - [Claude Code](https://platform.minimax.io/docs/token-plan/claude-code.md): Use the latest MiniMax M-series models for AI programming in Claude Code.
 - [Codex](https://platform.minimax.io/docs/token-plan/codex.md): Use the latest MiniMax M-series models for AI programming in the Codex desktop app.
 - [Cursor](https://platform.minimax.io/docs/token-plan/cursor.md): Use the latest MiniMax M-series models for AI programming in Cursor.
-- [FAQs](https://platform.minimax.io/docs/token-plan/faq.md): Token Plan FAQs
-- [Hermes Agent ☤](https://platform.minimax.io/docs/token-plan/hermes-agent.md): Use the latest MiniMax M-series models in Hermes Agent for autonomous AI-powered development.
-- [Token Plan Overview](https://platform.minimax.io/docs/token-plan/intro.md): Token Plan subscription and usage overview
-- [Web Search MCP](https://platform.minimax.io/docs/token-plan/mcp-guide.md): **Token Plan MCP** provides the **web_search** tool, helping developers quickly access information during coding.
-- [Token Plan Migration Guide](https://platform.minimax.io/docs/token-plan/migration.md): How existing Token Plan subscriptions migrate to the M3-era plans, with quota protection and compensation top-ups for retired tiers.
-- [Mini-Agent](https://platform.minimax.io/docs/token-plan/mini-agent.md): Mini-Agent is a minimalist yet professional project that demonstrates best practices for building Agents using MiniMax M3. The project is fully compatible with the Anthropic API and supports interleaved thinking, unlocking the model's powerful reasoning capabilities for long and complex tasks.
-- [MiniMax CLI](https://platform.minimax.io/docs/token-plan/minimax-cli.md): [mmx-cli](https://github.com/MiniMax-AI/cli): one prompt to bring MiniMax into your AI agent
-- [OpenClaw](https://platform.minimax.io/docs/token-plan/openclaw.md): Use the latest MiniMax M-series models for anything you can think of in OpenClaw.
-- [Other Tools](https://platform.minimax.io/docs/token-plan/other-tools.md): Configure the latest MiniMax M-series models in any AI coding tool that supports custom OpenAI-compatible or Anthropic-compatible endpoints.
-- [Referral Program](https://platform.minimax.io/docs/token-plan/promotion.md): Token Plan Co-builder Referral Program - Earn rewards by inviting friends!
-- [M-series Usage Tips](https://platform.minimax.io/docs/token-plan/prompting-best-practices.md): Prompt patterns for using MiniMax Token Plan models effectively in coding, tool-use, agentic, and long-context workflows.
-- [Quick Start](https://platform.minimax.io/docs/token-plan/quickstart.md): Quick guide to Token Plan subscription and integration
 - [TRAE](https://platform.minimax.io/docs/token-plan/trae.md): Use the latest MiniMax M-series models for AI programming in TRAE.
+- [Hermes Agent](https://platform.minimax.io/docs/token-plan/hermes-agent.md): Use the latest MiniMax M-series models in Hermes Agent for autonomous AI-powered development.
+- [OpenClaw](https://platform.minimax.io/docs/token-plan/openclaw.md): Use the latest MiniMax M-series models for anything you can think of in OpenClaw.
+- [Pi](https://platform.minimax.io/docs/token-plan/pi.md): Use the latest MiniMax M-series models in Pi, an open-source terminal coding agent.
+- [Other Tools](https://platform.minimax.io/docs/token-plan/other-tools.md): Configure the latest MiniMax M-series models in any AI coding tool that supports custom OpenAI-compatible or Anthropic-compatible endpoints.
+- [Web Search MCP](https://platform.minimax.io/docs/token-plan/mcp-guide.md): **Token Plan MCP** provides the **web_search** tool, helping developers quickly access information during coding.
+- [MiniMax CLI](https://platform.minimax.io/docs/token-plan/minimax-cli.md): [mmx-cli](https://github.com/MiniMax-AI/cli): one prompt to bring MiniMax into your AI agent
+- [One-click setup wizard](https://platform.minimax.io/docs/token-plan/agent-setup.md)
+- [Pricing Overview](https://platform.minimax.io/docs/pricing/overview.md)
+- [Models](https://platform.minimax.io/docs/release-notes/models.md): Stay updated on MiniMax's latest model releases across language, audio, video, image, and music.
+- [APIs](https://platform.minimax.io/docs/release-notes/apis.md): Track the latest MiniMax API updates to help developers build smarter, more seamless applications.
+- [Claude Code setup](https://platform.minimax.io/docs/ai-tools/claude-code.md): Configure Claude Code for your documentation workflow
+- [Cursor setup](https://platform.minimax.io/docs/ai-tools/cursor.md): Configure Cursor for your documentation workflow
+- [Windsurf setup](https://platform.minimax.io/docs/ai-tools/windsurf.md): Configure Windsurf for your documentation workflow
+- [Text Generation](https://platform.minimax.io/docs/api-reference/text-post.md): Use this API to create chat completions.
+- [Create Video Agent Task](https://platform.minimax.io/docs/api-reference/video-agent-create.md): Use this API to create video Agent tasks.
+- [Query Video Template Generation Task](https://platform.minimax.io/docs/api-reference/video-agent-query.md): Use this API to query the task status of generated videos.
+- [Video Agent Template List](https://platform.minimax.io/docs/faq/video-agent-templates.md): This document lists all official MiniMax Video Agent templates with IDs, features, and usage examples.
+- [Chat Model](https://platform.minimax.io/docs/guides/text-chat.md): M2-her chat model, designed for role-playing, multi-turn conversations and dialogue scenarios.
+- [Video Generation with Templates Guide](https://platform.minimax.io/docs/guides/video-agent.md): Video Agent generation service allows you to quickly create videos with a consistent style by filling predefined templates with assets such as images or text.
+- [Multi-Agent Cowork for Complex Tasks](https://platform.minimax.io/docs/solutions/eigent.md): <Note> In this tutorial, we showed how to integrate the MiniMax M2.1 model into Eigent, an open-source Cowork, to complete complex tasks. </Note>
+- [Cookbook](https://platform.minimax.io/docs/solutions/index.md): Explore practical use cases and solutions for MiniMax API to quickly build AI applications.
+- [Mini-Agent: Build Your First Intelligent Assistant](https://platform.minimax.io/docs/solutions/mini-agent.md): <Note> This tutorial will guide you through the core architecture of Mini-Agent and show you how to integrate with the MiniMax M2.1 model to build your own intelligent Agent. </Note>
+- [OpenClaw](https://platform.minimax.io/docs/solutions/openclaw.md): <Note> In this tutorial, we'll show you how to use OpenClaw to connect MiniMax M3 to Telegram, creating your personal AI assistant that you can chat with anytime, anywhere. </Note>
+- [Control Robot Arm with Conversation: Make Robots Understand You](https://platform.minimax.io/docs/solutions/robot-agent.md): <Note> This tutorial will guide you to use MiniMax LLM & MCP visual understanding to build an intelligent robot that can understand natural language instructions and perform complex robotic arm manipulation tasks. </Note>
 
 ## OpenAPI Specs
 
-- [v2-video-generation](https://platform.minimax.io/docs/api-reference/video/generation/api/v2-video-generation.json)
-- [openapi](https://platform.minimax.io/docs/zh/api-reference/openapi.json)
-- [openapi-responses](https://platform.minimax.io/docs/api-reference/text/api/openapi-responses.json)
-- [openapi-chat-openai](https://platform.minimax.io/docs/api-reference/text/api/openapi-chat-openai.json)
-- [openapi-chat-anthropic](https://platform.minimax.io/docs/api-reference/text/api/openapi-chat-anthropic.json)
-- [text-to-video](https://platform.minimax.io/docs/api-reference/video/generation/api/text-to-video.json)
-- [subject-reference-to-video](https://platform.minimax.io/docs/api-reference/video/generation/api/subject-reference-to-video.json)
-- [start-end-to-video](https://platform.minimax.io/docs/api-reference/video/generation/api/start-end-to-video.json)
-- [image-to-video](https://platform.minimax.io/docs/api-reference/video/generation/api/image-to-video.json)
-- [upload-prompt](https://platform.minimax.io/docs/api-reference/speech/voice-cloning/api/upload-prompt.json)
-- [upload-file](https://platform.minimax.io/docs/api-reference/speech/voice-cloning/api/upload-file.json)
-- [retrieve-model](https://platform.minimax.io/docs/api-reference/models/openai/api/retrieve-model.json)
-- [list-models](https://platform.minimax.io/docs/api-reference/models/openai/api/list-models.json)
-- [text-to-image](https://platform.minimax.io/docs/api-reference/image/generation/api/text-to-image.json)
-- [image-to-image](https://platform.minimax.io/docs/api-reference/image/generation/api/image-to-image.json)
-- [openapi-chat](https://platform.minimax.io/docs/api-reference/text/api/openapi-chat.json)
+- [openapi](/docs/api-reference/file/management/api/openapi.json)
+- [image-to-image](/docs/api-reference/image/generation/api/image-to-image.json)
+- [openapi](/docs/api-reference/image/generation/api/openapi.json)
+- [text-to-image](/docs/api-reference/image/generation/api/text-to-image.json)
+- [list-models](/docs/api-reference/models/anthropic/api/list-models.json)
+- [retrieve-model](/docs/api-reference/models/anthropic/api/retrieve-model.json)
+- [list-models](/docs/api-reference/models/openai/api/list-models.json)
+- [retrieve-model](/docs/api-reference/models/openai/api/retrieve-model.json)
+- [openapi](/docs/api-reference/music/api/openapi.json)
+- [openapi](/docs/api-reference/music/lyrics/api/openapi.json)
+- [openapi](/docs/api-reference/speech/speech-to-text/api/openapi.json)
+- [openapi](/docs/api-reference/speech/t2a-async/api/openapi.json)
+- [openapi](/docs/api-reference/speech/t2a/api/openapi.json)
+- [openapi](/docs/api-reference/speech/voice-cloning/api/openapi.json)
+- [upload-file](/docs/api-reference/speech/voice-cloning/api/upload-file.json)
+- [upload-prompt](/docs/api-reference/speech/voice-cloning/api/upload-prompt.json)
+- [openapi](/docs/api-reference/speech/voice-design/api/openapi.json)
+- [openapi](/docs/api-reference/speech/voice-management/api/openapi.json)
+- [openapi-chat-anthropic](/docs/api-reference/text/api/openapi-chat-anthropic.json)
+- [openapi-chat-openai](/docs/api-reference/text/api/openapi-chat-openai.json)
+- [openapi-chat](/docs/api-reference/text/api/openapi-chat.json)
+- [openapi-responses](/docs/api-reference/text/api/openapi-responses.json)
+- [openapi](/docs/api-reference/text/api/openapi.json)
+- [openapi](/docs/api-reference/video/agent/api/openapi.json)
+- [image-to-video](/docs/api-reference/video/generation/api/image-to-video.json)
+- [openapi](/docs/api-reference/video/generation/api/openapi.json)
+- [start-end-to-video](/docs/api-reference/video/generation/api/start-end-to-video.json)
+- [subject-reference-to-video](/docs/api-reference/video/generation/api/subject-reference-to-video.json)
+- [text-to-video](/docs/api-reference/video/generation/api/text-to-video.json)
+- [v2-video-generation](/docs/api-reference/video/generation/api/v2-video-generation.json)
 
 ## AsyncAPI Specs
 
-- [asyncapi](https://platform.minimax.io/docs/api-reference/speech/t2a/api/asyncapi.json)
+- [asyncapi-bidi](/docs/api-reference/speech/t2a/api/asyncapi-bidi.json)
+- [asyncapi](/docs/api-reference/speech/t2a/api/asyncapi.json)
+- [asyncapi](/docs/en/api-reference/speech/t2a/api/asyncapi.json)
 
 ## Optional
 

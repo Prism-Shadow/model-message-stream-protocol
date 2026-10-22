@@ -49,11 +49,11 @@ Audit LLM executions by adding **a single `trace_id` parameter**, no database re
 | Gemini 3-3.8   | Official/Google Vertex AI           | `gemini-3.8-flash`     | Text, Image      | Text, Image, Speech, Embedding |
 | Claude 4.6-5.5 | Official/Amazon Bedrock/UModelVerse | `claude-opus-5-5`      | Text, Image      | Text                           |
 | GPT-5.4-6.1    | Official/OpenRouter/UModelVerse     | `gpt-6.1-sol`          | Text, Image      | Text, Embedding                |
-| Kimi-K2.5/K2.6/K3 | Official/OpenRouter/SiliconFlow  | `kimi-k3`              | Text, Image      | Text                           |
-| DeepSeek V4    | Official/OpenRouter/SiliconFlow     | `deepseek-flash`       | Text, Image      | Text                           |
-| GLM-5.1-5.3    | Official/OpenRouter/SiliconFlow     | `glm-5.3`              | Text, Image      | Text                           |
-| MiniMax-M3     | Official                            | `MiniMax-M3`           | Text, Image      | Text                           |
-| Qwen3.8        | OpenRouter/SiliconFlow/vLLM         | `qwen/qwen3.8-27b`     | Text, Image      | Text, Embedding                |
+| Kimi-K2.5/K2.6/K3 | Official/OpenRouter/SiliconFlow/TokenDance | `kimi-k3`       | Text, Image      | Text                           |
+| DeepSeek V4    | Official/OpenRouter/SiliconFlow/TokenDance | `deepseek-flash` | Text, Image      | Text                           |
+| GLM-5.1-5.3    | Official/OpenRouter/SiliconFlow/TokenDance | `glm-5.3`       | Text, Image      | Text                           |
+| MiniMax-M3/M3.1 | Official/OpenRouter/TokenDance     | `MiniMax-M3.1-Flash`   | Text, Image      | Text                           |
+| Qwen3.8        | OpenRouter/SiliconFlow/TokenDance/vLLM | `qwen/qwen3.8-27b` | Text, Image      | Text, Embedding                |
 
 ### Clients
 
@@ -88,6 +88,13 @@ not.
 Gemini on Google Vertex AI takes `client_type="google-genai"` and the service-account JSON key as
 the API key: Vertex AI's Interactions endpoint, which `google-official` speaks, serves none of these
 models.
+
+Claude on Amazon Bedrock takes `client_type="anthropic-official"`, `base_url="bedrock://<region>"`
+and `"ACCESS_KEY,SECRET_KEY"` as the API key, with a Bedrock inference profile as the model id, such
+as `global.anthropic.claude-opus-5-5`.
+
+TokenDance serves Chat Completions, Responses and Embeddings at `https://tokendance.space/gateway/v1`
+and Anthropic Messages at `https://tokendance.space/gateway`, all with one key.
 
 Where a gateway serves more than one protocol, prefer `"openai-responses"`: OpenRouter serves it
 for every model it hosts, while SiliconFlow serves Chat Completions only.
