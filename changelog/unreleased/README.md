@@ -2,6 +2,7 @@
 
 [中文版](README.zh.md)
 
+- [2026-10-22] Moved `@anthropic-ai/sdk` to `^0.91.1` and regenerated the TypeScript lockfile (`protobufjs` 7.6.6, `ws` 8.22.0, `express` 4.22.3, `jest` 30.5.2, `handlebars` 4.7.10 among others), and added the request-body test. ([details](2026-10-22-dependabot-src-ts.md))
 - [2026-10-19] Added the model catalog at `/models/` with an integration kit per entry, and the status page at `/status/` for the daily probe. ([details](2026-10-19-site-model-catalog.md), [#263](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/263))
 - [2026-10-19] Probe the configured model channels daily and publish their status, latency, speed and cost to the `status-data` branch. ([details](2026-10-19-status-probe.md), [#259](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/259))
 - [2026-10-19] Added Google Vertex AI, Amazon Bedrock and TokenDance rows to the model registry and refreshed the OpenRouter and SiliconFlow rows. ([details](2026-10-19-registry-vertex-bedrock-tokendance.md), [#261](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/261))
