@@ -174,8 +174,10 @@ html.dark .astro-code span {
 .md-body th {
   @apply bg-gray-50 text-left dark:bg-gray-900;
 }
-/* an identifier in a table stays whole: the table scrolls sideways instead */
-.md-body :is(th, td) code {
+/* an identifier in a table stays whole: the table scrolls sideways instead; so does a link that is a
+   row's key, such as an RFC id in the design index */
+.md-body :is(th, td) code,
+.md-body td:first-child > a:only-child {
   overflow-wrap: normal;
   white-space: nowrap;
 }
