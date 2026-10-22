@@ -13,14 +13,15 @@ Use exact model IDs, and pass the model's client type as `clientType`. If a mode
 | Gemini 3 TTS | Official / Vertex AI | `gemini-3.1-flash-tts-preview` | `google-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
 | Gemini Embedding | Official / Vertex AI | `gemini-embedding-2` | `google-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
 | Claude 4.6 | Official / ModelVerse | `claude-sonnet-4-6` | `anthropic-official` | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` |
-| Claude 4.6 | Bedrock | `global.anthropic.claude-sonnet-4-6` | `anthropic-official` | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` |
+| Claude 4.6 | Bedrock | `global.anthropic.claude-sonnet-4-6` | `anthropic-official` | `ANTHROPIC_API_KEY` (`ACCESS_KEY,SECRET_KEY`) | `ANTHROPIC_BASE_URL` (`bedrock://us-east-1`) |
 | Claude 4.7 | Official / ModelVerse | `claude-opus-4-7` | `anthropic-official` | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` |
-| Claude 4.7 | Bedrock | `global.anthropic.claude-opus-4-7` | `anthropic-official` | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` |
+| Claude 4.7 | Bedrock | `global.anthropic.claude-opus-4-7` | `anthropic-official` | `ANTHROPIC_API_KEY` (`ACCESS_KEY,SECRET_KEY`) | `ANTHROPIC_BASE_URL` (`bedrock://us-east-1`) |
 | Claude 4.8 | Official / ModelVerse | `claude-opus-4-8` | `anthropic-official` | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` |
-| Claude 4.8 | Bedrock | `global.anthropic.claude-opus-4-8` | `anthropic-official` | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` |
+| Claude 4.8 | Bedrock | `global.anthropic.claude-opus-4-8` | `anthropic-official` | `ANTHROPIC_API_KEY` (`ACCESS_KEY,SECRET_KEY`) | `ANTHROPIC_BASE_URL` (`bedrock://us-east-1`) |
 | Claude 5.5 / Fable 5.1 | Official | `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5`, `claude-fable-5-1` | `anthropic-official` | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` |
+| Claude 5.5 / Fable 5.1 | Bedrock | `global.anthropic.claude-opus-5-5`, `global.anthropic.claude-sonnet-5-5`, `global.anthropic.claude-haiku-5-5`, `global.anthropic.claude-fable-5-1` | `anthropic-official` | `ANTHROPIC_API_KEY` (`ACCESS_KEY,SECRET_KEY`) | `ANTHROPIC_BASE_URL` (`bedrock://us-east-1`) |
 | Claude 5 | Official / ModelVerse | `claude-fable-5`, `claude-opus-5`, `claude-sonnet-5` | `anthropic-official` | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` |
-| Claude 5 | Bedrock | `global.anthropic.claude-fable-5` | `anthropic-official` | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` |
+| Claude 5 | Bedrock | `global.anthropic.claude-fable-5`, `global.anthropic.claude-opus-5`, `global.anthropic.claude-sonnet-5` | `anthropic-official` | `ANTHROPIC_API_KEY` (`ACCESS_KEY,SECRET_KEY`) | `ANTHROPIC_BASE_URL` (`bedrock://us-east-1`) |
 | GPT 5.4 | Official / ModelVerse | `gpt-5.4`, `gpt-5.4-mini`, `gpt-5.4-nano` | `openai-official` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
 | GPT 5.5 | Official / ModelVerse | `gpt-5.5` | `openai-official` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
 | GPT 5.6 | Official | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | `openai-official` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
@@ -31,19 +32,26 @@ Use exact model IDs, and pass the model's client type as `clientType`. If a mode
 | Kimi-K2.6 | Official | `kimi-k2.6` | `moonshot-official` | `MOONSHOT_API_KEY` | `MOONSHOT_BASE_URL` |
 | Kimi-K2.6 | OpenRouter | `moonshotai/kimi-k2.6` | `moonshot-official` | `MOONSHOT_API_KEY` | `MOONSHOT_BASE_URL` |
 | Kimi-K2.6 | SiliconFlow | `Pro/moonshotai/Kimi-K2.6` | `moonshot-official` | `MOONSHOT_API_KEY` | `MOONSHOT_BASE_URL` |
+| Kimi-K2.6 | TokenDance | `kimi-k2.6` | `moonshot-official` | `MOONSHOT_API_KEY` | `MOONSHOT_BASE_URL` (`https://tokendance.space/gateway/v1`) |
 | Kimi-K3 | Official | `kimi-k3` | `moonshot-official` | `MOONSHOT_API_KEY` | `MOONSHOT_BASE_URL` |
 | Kimi-K3 | OpenRouter | `moonshotai/kimi-k3` | `moonshot-official` | `MOONSHOT_API_KEY` | `MOONSHOT_BASE_URL` |
+| Kimi-K3 | TokenDance | `kimi-k3` | `moonshot-official` | `MOONSHOT_API_KEY` | `MOONSHOT_BASE_URL` (`https://tokendance.space/gateway/v1`) |
 | DeepSeek V4 | Official | `deepseek-flash`, `deepseek-v4-pro` | `deepseek-official` | `DEEPSEEK_API_KEY` | `DEEPSEEK_BASE_URL` |
-| DeepSeek V4 | OpenRouter | `deepseek/deepseek-v4-pro`, `deepseek/deepseek-v4-flash` | `deepseek-official` | `DEEPSEEK_API_KEY` | `DEEPSEEK_BASE_URL` |
-| DeepSeek V4 | SiliconFlow | `deepseek-ai/DeepSeek-V4-Pro`, `deepseek-ai/DeepSeek-V4-Flash` | `openai-chat` | `DEEPSEEK_API_KEY` | `DEEPSEEK_BASE_URL` |
+| DeepSeek V4 | OpenRouter | `deepseek/deepseek-v4.1-flash`, `deepseek/deepseek-v4.1-flash-1017`, `deepseek/deepseek-v4-pro`, `deepseek/deepseek-v4-flash` | `deepseek-official` | `DEEPSEEK_API_KEY` | `DEEPSEEK_BASE_URL` |
+| DeepSeek V4 | SiliconFlow | `deepseek-ai/DeepSeek-V4.1-Flash`, `deepseek-ai/DeepSeek-V4-Pro`, `deepseek-ai/DeepSeek-V4-Flash` | `openai-chat` | `DEEPSEEK_API_KEY` | `DEEPSEEK_BASE_URL` |
+| DeepSeek V4 | TokenDance | `deepseek-v4.1-flash`, `deepseek-v4.1-flash-1017` | `deepseek-official` | `DEEPSEEK_API_KEY` | `DEEPSEEK_BASE_URL` (`https://tokendance.space/gateway/v1`) |
+| DeepSeek V4 | TokenDance | `deepseek-v4-pro` | `openai-chat` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` (`https://tokendance.space/gateway/v1`) |
 | GLM-5.1 | Official | `glm-5.1` | `zai-official` | `ZAI_API_KEY` | `ZAI_BASE_URL` |
 | GLM-5.1 | OpenRouter | `z-ai/glm-5.1` | `zai-official` | `ZAI_API_KEY` | `ZAI_BASE_URL` |
 | GLM-5.1 | SiliconFlow | `Pro/zai-org/GLM-5.1` | `zai-official` | `ZAI_API_KEY` | `ZAI_BASE_URL` |
 | GLM-5.2 | Official | `glm-5.2` | `zai-official` | `ZAI_API_KEY` | `ZAI_BASE_URL` |
 | GLM-5.2 | OpenRouter | `z-ai/glm-5.2` | `zai-official` | `ZAI_API_KEY` | `ZAI_BASE_URL` |
 | GLM-5.2 | SiliconFlow | `zai-org/GLM-5.2` | `zai-official` | `ZAI_API_KEY` | `ZAI_BASE_URL` |
+| GLM-5.2 | TokenDance | `glm-5.2` | `zai-official` | `ZAI_API_KEY` | `ZAI_BASE_URL` (`https://tokendance.space/gateway/v1`) |
 | GLM-5.3 | Official | `glm-5.3`, `glm-5.3-flash` | `zai-official` | `ZAI_API_KEY` | `ZAI_BASE_URL` |
 | GLM-5.3 | OpenRouter | `z-ai/glm-5.3` | `zai-official` | `ZAI_API_KEY` | `ZAI_BASE_URL` |
+| GLM-5.3 | SiliconFlow | `zai-org/GLM-5.3`, `zai-org/GLM-5.3-Flash` | `zai-official` | `ZAI_API_KEY` | `ZAI_BASE_URL` |
+| GLM-5.3 | TokenDance | `glm-5.3`, `glm-5.3-flash` | `zai-official` | `ZAI_API_KEY` | `ZAI_BASE_URL` (`https://tokendance.space/gateway/v1`) |
 | MiniMax-M3.1 | Official | `MiniMax-M3.1-Flash` | `minimax-official` | `MINIMAX_API_KEY` | `MINIMAX_BASE_URL` |
 | MiniMax-M3.1 | OpenRouter | `minimax/minimax-m3.1-flash:free` | `openai-responses` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
 | MiniMax-M3 | Official | `MiniMax-M3` | `minimax-official` | `MINIMAX_API_KEY` | `MINIMAX_BASE_URL` |
@@ -54,6 +62,9 @@ Common gateway base URLs:
 
 - OpenRouter: `https://openrouter.ai/api/v1`
 - SiliconFlow: `https://api.siliconflow.cn/v1`
+- TokenDance: `https://tokendance.space/gateway/v1` (`https://tokendance.space/gateway` for Anthropic Messages); it also serves `qwen3.8-flash`, `qwen3.8-max`, `mimo-v2.6-flash`, `step-5-preview` and `hy4-preview` through `openai-responses`, and `qwen3.7-text-embedding` through `openai-embedding`
+- Google Vertex AI: `https://aiplatform.googleapis.com` (`google-genai`, the service-account JSON as the key)
+- Amazon Bedrock: `bedrock://<region>`, such as `bedrock://us-east-1` (`anthropic-official`, `ACCESS_KEY,SECRET_KEY` as the key)
 - ModelVerse: `https://api.modelverse.cn/v1` (`https://api.modelverse.cn/` for Claude)
 - vLLM: `http://127.0.0.1:8000/v1/`
 

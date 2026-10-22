@@ -96,18 +96,23 @@ client = AutoLLMClient(
 
 </div>
 
-Common base URLs:
+Common base URLs, and the variable the examples read each key from:
 
-| Gateway | Base URL |
-| --- | --- |
-| OpenRouter | `https://openrouter.ai/api/v1` |
-| SiliconFlow | `https://api.siliconflow.cn/v1` |
-| ModelVerse | `https://api.modelverse.cn/v1`, and `https://api.modelverse.cn/` for Claude |
-| vLLM | `http://127.0.0.1:8000/v1/` |
+| Gateway | Base URL | Key |
+| --- | --- | --- |
+| OpenRouter | `https://openrouter.ai/api/v1` | `OPENROUTER_API_KEY` |
+| SiliconFlow | `https://api.siliconflow.cn/v1` | `SILICONFLOW_API_KEY` |
+| TokenDance | `https://tokendance.space/gateway/v1`, and `https://tokendance.space/gateway` for Anthropic Messages | `TOKENDANCE_API_KEY` |
+| Google Vertex AI | `https://aiplatform.googleapis.com` | `VERTEX_API_KEY`: the service-account JSON |
+| Amazon Bedrock | `bedrock://<region>`, such as `bedrock://us-east-1` | `BEDROCK_API_KEY`: `ACCESS_KEY,SECRET_KEY` |
+| ModelVerse | `https://api.modelverse.cn/v1`, and `https://api.modelverse.cn/` for Claude | `MODELVERSE_API_KEY` |
+| vLLM | `http://127.0.0.1:8000/v1/` | |
+
+TokenDance serves several protocols with one key. Its model list names the protocols of each model; pick a client that speaks one of them, and the vendor's official client where TokenDance speaks the vendor's API: `deepseek-v4.1-flash` through `deepseek-official`, `kimi-k3` through `moonshot-official`, `glm-5.3` through `zai-official`.
 
 ## Gemini on Vertex AI
 
-Name `google-genai` and pass the service-account JSON key as the API key. Vertex AI's Interactions endpoint serves none of these models, so `google-official`, which speaks Interactions, refuses such a key.
+Name `google-genai` and pass the service-account JSON key as the API key. Vertex AI's Interactions endpoint serves none of these models, so `google-official`, which speaks Interactions, refuses such a key. The client calls the global endpoint, `https://aiplatform.googleapis.com`, with or without that `base_url`.
 
 <div class="code-group">
 
@@ -130,6 +135,32 @@ client = AutoLLMClient(
 </div>
 
 Thought signatures replay only on the endpoint that issued them. See [Fidelity](/docs/fidelity/).
+
+## Claude on Amazon Bedrock
+
+Name `anthropic-official`, pass `bedrock://<region>` as the base URL and the AWS access key and secret key, joined by a comma, as the API key. The model id is a Bedrock inference profile such as `global.anthropic.claude-opus-5-5`; the `global.` profiles cost the Anthropic list price, the geo profiles (`us.`, `eu.`, `jp.`, `au.`) 10% more.
+
+<div class="code-group">
+
+```typescript
+const client = new AutoLLMClient({
+  model: "global.anthropic.claude-opus-5-5",
+  clientType: "anthropic-official",
+  baseUrl: "bedrock://us-east-1",
+  apiKey: process.env.BEDROCK_API_KEY, // "ACCESS_KEY,SECRET_KEY"
+});
+```
+
+```python
+client = AutoLLMClient(
+    model="global.anthropic.claude-opus-5-5",
+    client_type="anthropic-official",
+    base_url="bedrock://us-east-1",
+    api_key=os.environ["BEDROCK_API_KEY"],  # "ACCESS_KEY,SECRET_KEY"
+)
+```
+
+</div>
 
 ## Wire protocols
 

@@ -66,6 +66,13 @@
       {
         "api_key_env": "DEEPSEEK_API_KEY",
         "name": "deepseek-flash"
+      },
+      {
+        "api_key_env": "TOKENDANCE_API_KEY",
+        "name": "deepseek-v4.1-flash",
+        "provider": "tokendance",
+        "client_type": "deepseek-official",
+        "slow": true
       }
     ]
   },
