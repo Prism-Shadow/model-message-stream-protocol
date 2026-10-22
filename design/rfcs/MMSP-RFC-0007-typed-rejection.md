@@ -21,6 +21,7 @@ A caller that handles a rejected value needs one class to catch, the same in bot
 [rule]: #rule
 
 - The `mmsp` client relays its server's rejection as `UpstreamError`, whose `error_type` is `UnsupportedParameterError`.
+- The rejections inside a stream are typed too: `EmptyResponseError` for a response that is thinking and nothing else ([MMSP-RFC-0003](MMSP-RFC-0003-stream-grammar.md)), `IncompleteStreamError` for a stream that ended without its usage or finish reason ([MMSP-RFC-0010](MMSP-RFC-0010-stop-metadata.md)), `StreamProtocolError` for a client that broke the grammar.
 
 ## Enforced by
 [enforced-by]: #enforced-by

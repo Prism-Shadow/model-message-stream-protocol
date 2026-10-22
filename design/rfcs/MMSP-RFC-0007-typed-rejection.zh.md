@@ -21,6 +21,7 @@
 [rule]: #rule
 
 - `mmsp` 客户端把其服务端的拒绝作为 `UpstreamError` 抛出，其 `error_type` 为 `UnsupportedParameterError`。
+- 流内部的拒绝同样有类型：只有思考、没有别的内容的响应抛出 `EmptyResponseError`（[MMSP-RFC-0003](MMSP-RFC-0003-stream-grammar.zh.md)），在用量或结束原因到达前就结束的流抛出 `IncompleteStreamError`（[MMSP-RFC-0010](MMSP-RFC-0010-stop-metadata.zh.md)），违反语法的客户端抛出 `StreamProtocolError`。
 
 ## Enforced by
 [enforced-by]: #enforced-by

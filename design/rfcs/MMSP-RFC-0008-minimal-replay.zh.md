@@ -15,13 +15,14 @@
 ## Motivation
 [motivation]: #motivation
 
-回传的回合必须被 API 接受，且模型的行为不受影响；它不必逐字段重现线上的内容项，而每一个照搬进 `fidelity` 的字段，都是使用方、trace 与历史记录要多携带的一种服务商结构。`fidelity` 在 [#159](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/159) 中加入，用来承载严格的上游要求原样发回的推理字段；此后，一个字段只有在探测表明缺了它请求会失败或模型会退化时，才能放进去。[#268](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/268) 处理的是缺少 Claude 所要求签名的思考内容项：回传时略去它，而不是让请求失败。
+回传的回合必须被 API 接受，且模型的行为不受影响；它不必逐字段重现线上的内容项，而每一个照搬进 `fidelity` 的字段，都是使用方、trace 与历史记录要多携带的一种服务商结构。`fidelity` 在 [#159](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/159) 中加入，用来承载严格的上游要求原样发回的推理字段；此后，一个字段只有在探测表明缺了它请求会失败或模型会退化时，才能放进去。[#268](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/268) 处理的是缺少 Claude 所要求签名的思考内容项：回传时略去它，而不是让请求失败；回传必须保留什么、来自另一模型的思考变成什么，见 [MMSP-RFC-0011](MMSP-RFC-0011-thinking-round-trip.zh.md)。
 
 ## Rule
 [rule]: #rule
 
+- 本规则规定回传可以携带什么；[MMSP-RFC-0011](MMSP-RFC-0011-thinking-round-trip.zh.md) 规定必须保留什么，[MMSP-RFC-0012](MMSP-RFC-0012-direct-conversion.zh.md) 规定此外不保留任何东西。
 - 在流中，一个内容项最多只有一个 delta 携带它的 fidelity，该内容项的 `.done` 会再带一次。
-- Claude 只接受带有它自己签发的签名的思考块，因此回传给 Claude 时，不带签名的思考内容项会被略去。
+- Claude 只接受带有它自己签发的签名的思考块，因此回传给 Claude 时，不带签名的思考内容项会被略去；其他服务商对不是自己产生的思考的接受形式，见 [MMSP-RFC-0011](MMSP-RFC-0011-thinking-round-trip.zh.md)。
 - 线上格式带有调用 id 时，`tool_call_id` 保存服务商的调用 id，回传时发回；线上格式同时带有内容项 id 和调用 id 时，它保存的是调用 id，结果依靠调用 id 对应到它的调用。
 
 ## Enforced by

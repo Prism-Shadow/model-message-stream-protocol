@@ -24,7 +24,7 @@ MMSP 要遵守的规则原先写在 mmsp-dev skill 里，写法是操作指南�
 ## Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
-修改客户端之前，先读 `design/README.md` 中的索引：类别为 `rule`、状态为「已采纳」的行就是现行的规则。每条规则都是一篇由四个简短小节组成的 RFC：一到三句话的规则本身、制定它的原因、必要的细节，以及保证它成立的文件。`AGENTS.md` 与 mmsp-dev skill 仍然说明具体怎么做；其中服务于某篇 RFC 的规则，以 `(MMSP-RFC-000x)` 注明。
+修改客户端之前，先读 `design/README.md` 中的索引：类别为 `rule`、状态为「已采纳」的行就是现行的规则。每条规则都是一篇由四个简短小节组成的 RFC：一到三句话的规则本身、制定它的原因、必要的细节，以及保证它成立的文件。`AGENTS.md` 与 mmsp-dev skill 仍然说明具体怎么做；其中服务于某篇 RFC 的规则，以 `(MMSP-RFC-NNNN)` 注明。
 
 修改规则、消息或流的结构、公开 API、路由或凭据规则的含义，或者任何会破坏调用方的改动，都从 RFC 开始：把 [`0000-template.md`](../0000-template.md) 复制为 `design/rfcs/MMSP-RFC-NNNN-<slug>.md`，设定它的类别，写好它和它的中文对照，向 `dev` 提交 PR。规则只能经由一篇规则 RFC 修改：这篇 RFC 完整陈述修改后的规则，并取代旧的那篇。新模型、遵循既有模式的客户端、缺陷修复这类改动，仍然提普通 PR。完整的清单与步骤见 [`design/README.md`](../README.zh.md)。
 
@@ -39,7 +39,7 @@ MMSP 要遵守的规则原先写在 mmsp-dev skill 里，写法是操作指南�
 - 元数据：`Feature Name`、`Start Date`、`RFC PR`、`Kind`，适用时还有 `Supersedes`、`Superseded by` 与 `Implementation PR`；PR 链接写完整 URL。
 - 生命周期：PR 打开即提议，合并即采纳，关闭即撤回。`design/README.md` 中的索引为每篇已采纳的 RFC 列一行，写明类别与状态，状态为「已采纳」或「被 MMSP-RFC-NNNN 取代」；这一行由 RFC 自己的 PR 添加。取代旧 RFC 的 RFC，在同一个 PR 中更新旧文件的元数据与索引中旧的那一行。实现某篇 `change` 类 RFC 的 PR 加上它的 `Implementation PR` 一行。
 - 变更记录：RFC 的 PR 附一条 `process` 类型、Scope 为 `design` 的记录；实现 PR 附自己的记录，并链接这篇 RFC。
-- 指引：`AGENTS.md` 写明这个目录以及何时需要 RFC；mmsp-dev skill 要求修改客户端之前先读这些规则，并给其中的规则标上 `(MMSP-RFC-000x)`；README 链接这个目录。
+- 指引：`AGENTS.md` 写明这个目录以及何时需要 RFC；mmsp-dev skill 要求修改客户端之前先读这些规则，并给其中的规则标上 `(MMSP-RFC-NNNN)`；README 链接这个目录。
 - 网站：文档侧边栏有一个「设计」分组，直接用仓库中的 `design/README.md` 与每一篇 `design/rfcs/MMSP-RFC-*.md` 以两种语言渲染，因此新增一篇 RFC 就多一个页面，不必修改网站代码。
 
 ## Drawbacks

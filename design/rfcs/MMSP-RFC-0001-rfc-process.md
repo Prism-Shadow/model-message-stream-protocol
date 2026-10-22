@@ -24,7 +24,7 @@ The owner's case: no client may raise for a thinking level. That is a promise to
 ## Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
-Before changing a client, read the index in `design/README.md`: the rows of kind `rule` whose status is Accepted are the rules in force. Each is an RFC of four short sections: the rule in one to three sentences, why it was made, its essential detail, and the files that enforce it. `AGENTS.md` and the mmsp-dev skill still say how to do the work; a rule there that serves an RFC cites it as `(MMSP-RFC-000x)`.
+Before changing a client, read the index in `design/README.md`: the rows of kind `rule` whose status is Accepted are the rules in force. Each is an RFC of four short sections: the rule in one to three sentences, why it was made, its essential detail, and the files that enforce it. `AGENTS.md` and the mmsp-dev skill still say how to do the work; a rule there that serves an RFC cites it as `(MMSP-RFC-NNNN)`.
 
 A change to a rule, to the message or stream shapes, to the public API, to what routing or the credential rule means, or anything that breaks a caller starts as an RFC: copy [`0000-template.md`](../0000-template.md) to `design/rfcs/MMSP-RFC-NNNN-<slug>.md`, set its kind, write it and its Chinese twin, and open a PR to `dev`. A rule changes only by a rule RFC that states the whole rule as it now stands and supersedes the old one. A new model, a client that follows the pattern, a bug fix and the like stay normal PRs. [`design/README.md`](../README.md) has the full list and the steps.
 
@@ -39,7 +39,7 @@ When the code and an accepted RFC disagree, the RFC wins: the code is fixed, or 
 - Metadata: `Feature Name`, `Start Date`, `RFC PR`, `Kind`, and where they apply `Supersedes`, `Superseded by` and `Implementation PR`; PR links are full URLs.
 - Lifecycle: an open PR proposes, a merge accepts, a close withdraws. The index in `design/README.md` has one row per accepted RFC, with its kind and its status, `Accepted` or `Superseded by MMSP-RFC-NNNN`; the RFC's own PR adds the row. A superseding RFC updates the old file's metadata and the old row in the same PR. The PR that implements a change RFC adds its `Implementation PR` line.
 - Changelog: an RFC PR carries a `process` entry with Scope `design`; the implementation PR carries its own entry, which links the RFC.
-- Pointers: `AGENTS.md` names the folder and when an RFC is needed; the mmsp-dev skill sends a contributor to the rules before a client changes and tags its rules `(MMSP-RFC-000x)`; the README links the folder.
+- Pointers: `AGENTS.md` names the folder and when an RFC is needed; the mmsp-dev skill sends a contributor to the rules before a client changes and tags its rules `(MMSP-RFC-NNNN)`; the README links the folder.
 - Site: the docs sidebar has a Design section that renders `design/README.md` and every `design/rfcs/MMSP-RFC-*.md` from the repository's files in both languages, so a new RFC is a new page without a change to the site's code.
 
 ## Drawbacks

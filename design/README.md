@@ -17,6 +17,9 @@ The rules MMSP keeps and the decisions that changed it, each an RFC. When the co
 | [MMSP-RFC-0007](rfcs/MMSP-RFC-0007-typed-rejection.md) | A rejected value raises a typed error | rule | Accepted |
 | [MMSP-RFC-0008](rfcs/MMSP-RFC-0008-minimal-replay.md) | Replay is minimal; fidelity is the exception channel | rule | Accepted |
 | [MMSP-RFC-0009](rfcs/MMSP-RFC-0009-two-packages-one-contract.md) | Two packages, one contract | rule | Accepted |
+| [MMSP-RFC-0010](rfcs/MMSP-RFC-0010-stop-metadata.md) | Every stream ends with its usage and finish reason | rule | Accepted |
+| [MMSP-RFC-0011](rfcs/MMSP-RFC-0011-thinking-round-trip.md) | Thinking survives the round trip | rule | Accepted |
+| [MMSP-RFC-0012](rfcs/MMSP-RFC-0012-direct-conversion.md) | Conversion is direct and carries nothing redundant | rule | Accepted |
 
 A `rule` is an invariant the code keeps; a `change` changes the protocol or the public API; `process` is how this folder works. The status is `Accepted` or `Superseded by MMSP-RFC-NNNN`, so the rules in force are the `rule` rows that are Accepted. A proposed RFC is an open PR (`gh pr list --search "MMSP-RFC-"`) and a withdrawn one a closed PR; neither has a row.
 

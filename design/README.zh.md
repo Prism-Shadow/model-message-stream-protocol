@@ -17,6 +17,9 @@ MMSP 遵守的规则，以及改变过它的决定，每一项都是一篇 RFC�
 | [MMSP-RFC-0007](rfcs/MMSP-RFC-0007-typed-rejection.zh.md) | 被拒绝的值抛出有类型的错误 | rule | 已采纳 |
 | [MMSP-RFC-0008](rfcs/MMSP-RFC-0008-minimal-replay.zh.md) | 回传最小化，fidelity 是例外通道 | rule | 已采纳 |
 | [MMSP-RFC-0009](rfcs/MMSP-RFC-0009-two-packages-one-contract.zh.md) | 两个包，一份契约 | rule | 已采纳 |
+| [MMSP-RFC-0010](rfcs/MMSP-RFC-0010-stop-metadata.zh.md) | 每条流都以用量和结束原因收尾 | rule | 已采纳 |
+| [MMSP-RFC-0011](rfcs/MMSP-RFC-0011-thinking-round-trip.zh.md) | 思考经往返转换不丢失 | rule | 已采纳 |
+| [MMSP-RFC-0012](rfcs/MMSP-RFC-0012-direct-conversion.zh.md) | 转换直白，不带冗余 | rule | 已采纳 |
 
 `rule` 是代码遵守的不变量；`change` 修改协议或公开 API；`process` 是这个目录的运作方式。状态为「已采纳」或「被 MMSP-RFC-NNNN 取代」，因此现行的规则就是状态为「已采纳」的 `rule` 行。提议中的 RFC 是一个未关闭的 PR（`gh pr list --search "MMSP-RFC-"`），撤回的 RFC 是一个已关闭的 PR；两者在表中都没有行。
 
