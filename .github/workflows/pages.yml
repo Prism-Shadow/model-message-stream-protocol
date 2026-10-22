@@ -10,6 +10,9 @@ on:
       - "CHANGELOG.md"
       - "CHANGELOG.zh.md"
       - "design/**"
+      # the model catalog is built from the SDK's registry and its family table
+      - "src_ts/src/registry.ts"
+      - "src_ts/src/credentials.ts"
       - ".github/workflows/pages.yml"
   pull_request:
     branches:
@@ -21,6 +24,9 @@ on:
       - "CHANGELOG.md"
       - "CHANGELOG.zh.md"
       - "design/**"
+      # the model catalog is built from the SDK's registry and its family table
+      - "src_ts/src/registry.ts"
+      - "src_ts/src/credentials.ts"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
