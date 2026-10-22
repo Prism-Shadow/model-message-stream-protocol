@@ -2,7 +2,7 @@
 
 - **Date:** 2026-10-22
 - **Type:** fix
-- **Scope:** `errors`, `base_client`, `wire`, `openai_official`, `site`
+- **Scope:** `errors`, `base_client`, `wire`, `openai_official`, `minimax_official`
 - **PR:** [#272](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/272)
 
 [中文版](2026-10-22-incomplete-stream-error.zh.md)
@@ -13,4 +13,5 @@
 - `IncompleteStreamError` carried `client`, `missing` (`usage_metadata`, `finish_reason`, or both) and the `finish_reason` and `usage_metadata` that had arrived (`finishReason` and `usageMetadata` in TypeScript). Its message named what was missing, as in `<client>'s stream ended without usage_metadata and finish_reason.`
 - The MMSP server sent `IncompleteStreamError` with its fields, so the `mmsp` client raised an `UpstreamError` whose `error_type` was `IncompleteStreamError`.
 - `OpenAIOfficialClient` in Python read the usage of `response.completed` and `response.incomplete` only when the event carried one, as TypeScript already did, so an event without usage ended in `IncompleteStreamError` rather than an `AttributeError`.
+- `OpenAIOfficialClient`, `OpenaiResponsesClient`, `DeepSeekOfficialClient` and `MiniMaxOfficialClient` took no finish reason from a `response.completed` or `response.incomplete` event without a `status`, so that stream ended in `IncompleteStreamError`, where Python and the TypeScript `MiniMaxOfficialClient` had mapped a missing status to `unknown`. A status outside the mapping still finished as `unknown` in both languages.
 - Documented the error on the site's errors and usage pages and in the `mmsp-python` and `mmsp-typescript` skills.

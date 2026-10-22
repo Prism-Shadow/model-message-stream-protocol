@@ -351,7 +351,8 @@ class OpenAIOfficialClient(LLMClient):
                 "completed": "stop",
                 "incomplete": "length",
             }
-            finish_reason = finish_reason_mapping.get(model_output.response.status, "unknown")
+            if model_output.response.status:
+                finish_reason = finish_reason_mapping.get(model_output.response.status, "unknown")
 
             if model_output.response.usage:
                 input_tokens = model_output.response.usage.input_tokens
