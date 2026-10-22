@@ -28,4 +28,4 @@
 ## Enforced by
 [enforced-by]: #enforced-by
 
-按 `.agents/skills/mmsp-dev/SKILL.md` 所述，对照参考客户端审阅；`src_py/mmsp/stream_items.py` / `src_ts/src/streamItems.ts` 中的 `StreamItems`，以及 `src_py/tests/stream_grammar.py` / `src_ts/tests/streamGrammar.ts`，它们拒绝任何内容项上的 `item_id`；`src_py/tests/test_reasoning_fidelity.py` 及其对应的 Jest 测试，它们断言回传发出的推理内容项的确切内容，不带 id，也不带残缺的密文；`test_message_order.py`；`test_stream_protocol.py`，它检查旧的内容项类型在转换看到消息之前已被转换。
+按 `.agents/skills/mmsp-dev/SKILL.md` 所述，对照参考客户端审阅；`src_py/mmsp/stream_items.py` / `src_ts/src/streamItems.ts` 中的 `StreamItems`，它从每个内容项上去掉 `fidelity.item_id`，以及 `src_py/tests/stream_grammar.py` / `src_ts/tests/streamGrammar.ts`，它们拒绝仍带着 `fidelity.item_id` 的内容项；`src_py/tests/test_reasoning_fidelity.py` 及其对应的 Jest 测试，它们断言回传发出的推理内容项的确切内容，不带 id，也不带残缺的密文；`test_message_order.py`；`test_stream_protocol.py`，它检查旧的内容项类型在转换看到消息之前已被转换。
