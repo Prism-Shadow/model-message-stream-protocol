@@ -39,8 +39,8 @@ jobs:
         working-directory: ./src_py
         run: |
           make lint
-          uv run ruff check --config pyproject.toml ../.github/ci
-          uv run ruff format --check --config pyproject.toml ../.github/ci
+          uv run ruff check --config pyproject.toml ../.github/ci ../.github/status
+          uv run ruff format --check --config pyproject.toml ../.github/ci ../.github/status
 
       - name: Run tests
         working-directory: ./src_py
