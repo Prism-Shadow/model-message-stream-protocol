@@ -3,6 +3,7 @@
 - **Date:** 2026-10-22
 - **Type:** process
 - **Scope:** `tests`
+- **PR:** [#271](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/271)
 
 [中文版](2026-10-22-stream-grammar-joins.zh.md)
 
