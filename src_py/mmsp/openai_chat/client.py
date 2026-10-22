@@ -22,6 +22,7 @@ from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionChunk, ChatCompletionMessageParam
 
 from ..base_client import LLMClient
+from ..credentials import CLIENT_CREDENTIALS
 from ..errors import UnsupportedParameterError
 from ..types import (
     EventContentItem,
@@ -53,7 +54,16 @@ class OpenaiChatClient(LLMClient):
         """Initialize OpenAI-compatible chat client with model, API key, and base URL."""
         self._model = model
         api_key, base_url = resolve_credentials(self.__class__.__name__, self._CLIENT_TYPE, api_key, base_url)
-        self._client = AsyncOpenAI(api_key=api_key, base_url=base_url, default_headers=default_headers)
+        # The OpenAI SDK fills a key and an endpoint it is handed as None from OPENAI_API_KEY and
+        # OPENAI_BASE_URL, and sends a key with every request. So the SDK is handed this client type's
+        # own default endpoint, and a client of an open server with no key sends the placeholder EMPTY,
+        # as vLLM's docs do for a server started without --api-key.
+        credentials = CLIENT_CREDENTIALS[self._CLIENT_TYPE]
+        self._client = AsyncOpenAI(
+            api_key=api_key or ("EMPTY" if credentials.open_server else None),
+            base_url=base_url or credentials.default_base_url,
+            default_headers=default_headers,
+        )
         self._history: list[UniMessage] = []
 
     async def _convert_image_url_to_base64(self, url: str) -> str:

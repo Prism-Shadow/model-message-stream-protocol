@@ -20,6 +20,7 @@ import type {
   ChatCompletionCreateParamsStreaming,
 } from "openai/resources/chat/completions";
 import { LLMClient } from "../baseClient";
+import { CLIENT_CREDENTIALS } from "../credentials";
 import { UnsupportedParameterError } from "../errors";
 import {
   EventContentItem,
@@ -63,9 +64,15 @@ export class OpenaiChatClient extends LLMClient {
       new.target.clientType,
       options,
     );
+    // The OpenAI SDK fills a key and an endpoint it is not handed from OPENAI_API_KEY and
+    // OPENAI_BASE_URL, and sends a key with every request. So the SDK is handed this client type's
+    // own default endpoint, and a client of an open server with no key sends the placeholder EMPTY,
+    // as vLLM's docs do for a server started without --api-key.
+    const { defaultBaseUrl, openServer } =
+      CLIENT_CREDENTIALS[new.target.clientType];
     this._client = new OpenAI({
-      apiKey: key,
-      baseURL: url,
+      apiKey: key ?? (openServer ? "EMPTY" : undefined),
+      baseURL: url || defaultBaseUrl,
       defaultHeaders: options.defaultHeaders,
     });
   }

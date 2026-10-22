@@ -50,8 +50,8 @@ def resolve_credentials(
 
     A key passed in is used, with the base URL passed in, else `<P>_BASE_URL`. Without one,
     environment_credential decides: the environment's key is read for the endpoint the environment
-    names or for the client's default endpoint, any other base URL is refused, and the `mmsp` client
-    calls an open server keyless.
+    names or for the client's default endpoint, any other base URL is refused, and a client of an open
+    server (`mmsp`, `openai-chat-vllm-adapter`) calls it keyless.
 
     Args:
         client: The client's class name, for the error

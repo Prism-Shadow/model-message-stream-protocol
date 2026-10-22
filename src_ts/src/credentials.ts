@@ -68,7 +68,10 @@ export interface ClientCredentials {
   baseUrlEnv: string;
   /** The endpoint when no base URL is passed and baseUrlEnv is unset. */
   defaultBaseUrl: string;
-  /** A base URL passed without a key is an open server, which is sent no key. */
+  /**
+   * The client's server may take no key: a base URL passed without a key is called keyless, and so
+   * is the endpoint of `baseUrlEnv` or `defaultBaseUrl` when `apiKeyEnv` is unset as well.
+   */
   openServer?: boolean;
 }
 
@@ -115,7 +118,13 @@ export const CLIENT_CREDENTIALS: Readonly<Record<string, ClientCredentials>> = {
   },
   "openai-responses": OPENAI,
   "openai-chat": OPENAI,
-  "openai-chat-vllm-adapter": OPENAI,
+  // the variables `vllm serve` itself reads for its key, and the address it answers on by default
+  "openai-chat-vllm-adapter": {
+    apiKeyEnv: "VLLM_API_KEY",
+    baseUrlEnv: "VLLM_BASE_URL",
+    defaultBaseUrl: "http://127.0.0.1:8000/v1",
+    openServer: true,
+  },
   "openai-embedding": OPENAI,
   "ant-messages": ANTHROPIC,
   "google-genai": GEMINI,
@@ -131,7 +140,8 @@ export const CLIENT_CREDENTIALS: Readonly<Record<string, ClientCredentials>> = {
  * What a client handed no key does with the base URL it is handed:
  *
  * - `env`: it reads `apiKeyEnv`, and `baseUrlEnv` when that is not null (no base URL was passed);
- * - `keyless`: it sends no key, as an open MMSP server takes;
+ * - `keyless`: it sends no key, as an open server takes (`openai-chat-vllm-adapter`, built on the
+ *   OpenAI SDK, which sends a key with every request, sends the placeholder `EMPTY`);
  * - `required`: it refuses with ApiKeyRequiredError before any request.
  */
 export type EnvironmentCredential =
@@ -205,8 +215,8 @@ export function routedClientType(
  * What a client does for its key when it is handed none. Without a base URL it reads `<P>_API_KEY`
  * and `<P>_BASE_URL`. With its own default endpoint (trailing slashes and the host's case
  * ignored) it reads `<P>_API_KEY` for that endpoint. With any other base URL it refuses, because
- * the environment's key was not given for that endpoint, except the `mmsp` client, which calls an
- * open server keyless.
+ * the environment's key was not given for that endpoint, except a client of an open server (`mmsp`,
+ * `openai-chat-vllm-adapter`), which calls any base URL keyless.
  *
  * @param clientType - A client type, in any casing, an earlier name accepted
  * @param baseUrl - The base URL passed to the client, if any

@@ -12,7 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { afterEach, beforeEach, describe, expect, test } from "@jest/globals";
+import http from "http";
+import { AddressInfo } from "net";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+} from "@jest/globals";
 import { ApiKeyRequiredError, AutoLLMClient } from "../src";
 import {
   CLIENT_CREDENTIALS,
@@ -22,9 +32,10 @@ import {
 } from "../src/credentials";
 
 // Each case builds a client under a controlled environment and reads the credential its vendor
-// SDK instance ends up holding; nothing here reaches the network. The OpenAI and Anthropic SDKs
-// fill every credential they are not handed from their own environment variables, so a client
-// that hands them undefined sends whatever those variables hold to its own host.
+// SDK instance ends up holding; nothing here reaches the network, and the vLLM cases at the end
+// read the key off a request to a local server. The OpenAI and Anthropic SDKs fill every
+// credential they are not handed from their own environment variables, so a client that hands
+// them undefined sends whatever those variables hold to its own host.
 
 const CREDENTIAL_ENV = [
   "CLIENT_TYPE",
@@ -48,6 +59,8 @@ const CREDENTIAL_ENV = [
   "GOOGLE_GEMINI_BASE_URL",
   "MMSP_API_KEY",
   "MMSP_BASE_URL",
+  "VLLM_API_KEY",
+  "VLLM_BASE_URL",
 ];
 
 let savedEnv: Record<string, string | undefined> = {};
@@ -515,6 +528,124 @@ describe("MmspClient credentials", () => {
     expect(mmspCredentialOf(client)).toEqual({
       authorization: undefined,
       baseUrl: "http://127.0.0.1:25752/v1",
+    });
+  });
+});
+
+// The vLLM adapter, which VLLM_API_KEY and VLLM_BASE_URL belong to. vLLM serves without a key
+// unless it is started with one, so the adapter calls its server keyless when it has none, with
+// the placeholder EMPTY because the OpenAI SDK sends a key with every request.
+describe("OpenaiChatVllmAdapterClient credentials", () => {
+  const model = "Qwen/Qwen3.6-35B-A3B";
+  const clientType = "openai-chat-vllm-adapter";
+
+  beforeEach(() => {
+    process.env.OPENAI_API_KEY = "sk-openai-PROBE";
+    process.env.OPENAI_BASE_URL = "https://openai-env.example/v1";
+  });
+
+  test("without a key or a base URL, calls the local vLLM server keyless and reads nothing of OpenAI's", () => {
+    const client = new AutoLLMClient({ model, clientType });
+
+    expect(environmentCredential(clientType)).toEqual({
+      kind: "env",
+      apiKeyEnv: "VLLM_API_KEY",
+      baseUrlEnv: "VLLM_BASE_URL",
+    });
+    expect(openaiCredentialOf(client)).toEqual({
+      apiKey: "EMPTY",
+      baseURL: "http://127.0.0.1:8000/v1",
+    });
+  });
+
+  test("with VLLM_API_KEY set and no base URL, sends it to the local vLLM server", () => {
+    process.env.VLLM_API_KEY = "vllm-env-PROBE";
+
+    const client = new AutoLLMClient({ model, clientType });
+
+    expect(openaiCredentialOf(client)).toEqual({
+      apiKey: "vllm-env-PROBE",
+      baseURL: "http://127.0.0.1:8000/v1",
+    });
+  });
+
+  test("with a base URL and no key, calls it keyless rather than refusing", () => {
+    process.env.VLLM_API_KEY = "vllm-env-PROBE";
+
+    // VLLM_API_KEY is not sent to an endpoint named in code, the default one included
+    for (const baseUrl of [
+      "https://gpu-box.example/v1",
+      "http://127.0.0.1:8000/v1",
+    ]) {
+      const client = new AutoLLMClient({ model, clientType, baseUrl });
+
+      expect(environmentCredential(clientType, baseUrl)).toEqual({
+        kind: "keyless",
+      });
+      expect(openaiCredentialOf(client)).toEqual({
+        apiKey: "EMPTY",
+        baseURL: baseUrl,
+      });
+    }
+  });
+
+  describe("on the wire", () => {
+    let server: http.Server;
+    let origin: string;
+    let authorization: string | undefined;
+
+    beforeAll(async () => {
+      server = http.createServer((req, res) => {
+        authorization = req.headers.authorization;
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ object: "list", data: [{ id: model }] }));
+      });
+      await new Promise<void>((resolve) => {
+        server.listen(0, "127.0.0.1", resolve);
+      });
+      origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    });
+
+    afterAll(async () => {
+      await new Promise<void>((resolve) => {
+        server.close(() => resolve());
+      });
+    });
+
+    beforeEach(() => {
+      authorization = undefined;
+    });
+
+    test("the server VLLM_BASE_URL names is sent the placeholder, not OPENAI_API_KEY", async () => {
+      process.env.VLLM_BASE_URL = `${origin}/v1`;
+
+      const client = new AutoLLMClient({ model, clientType });
+
+      await expect(client.listModels()).resolves.toEqual([model]);
+      expect(authorization).toBe("Bearer EMPTY");
+    });
+
+    test("the server VLLM_BASE_URL names is sent VLLM_API_KEY when it is set", async () => {
+      process.env.VLLM_BASE_URL = `${origin}/v1`;
+      process.env.VLLM_API_KEY = "vllm-env-PROBE";
+
+      const client = new AutoLLMClient({ model, clientType });
+
+      await expect(client.listModels()).resolves.toEqual([model]);
+      expect(authorization).toBe("Bearer vllm-env-PROBE");
+    });
+
+    test("a base URL passed without a key is sent the placeholder, not VLLM_API_KEY", async () => {
+      process.env.VLLM_API_KEY = "vllm-env-PROBE";
+
+      const client = new AutoLLMClient({
+        model,
+        clientType,
+        baseUrl: `${origin}/v1`,
+      });
+
+      await expect(client.listModels()).resolves.toEqual([model]);
+      expect(authorization).toBe("Bearer EMPTY");
     });
   });
 });

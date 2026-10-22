@@ -50,6 +50,8 @@ main().catch(console.error);
 
 `mmsp` speaks MMSP itself to an MMSP server (`npm run server -- --config <file>`), with the key and endpoint of `MMSP_API_KEY` and `MMSP_BASE_URL`, by default `http://127.0.0.1:25752/v1`.
 
+`openai-chat-vllm-adapter` speaks Chat Completions to a vLLM server, with the key and endpoint of `VLLM_API_KEY` and `VLLM_BASE_URL`, by default `http://127.0.0.1:8000/v1`, where `vllm serve` answers. Like `mmsp`, it calls its server keyless when it has no key, sending vLLM's placeholder key `EMPTY`.
+
 Both streaming methods yield `delta` events, each carrying exactly one content item, then exactly one `stop` event, always last, carrying `usage_metadata` and `finish_reason`. Each item streams as one or more `.delta` fragments (`text.delta`, `tool_call.delta`, …) followed by its complete `.done` item (`text.done`, `tool_call.done`, …); items never interleave.
 
 ### History Management

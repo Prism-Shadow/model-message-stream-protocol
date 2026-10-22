@@ -46,8 +46,8 @@ export function fixOpenrouterUsageMetadata(
  * The key and the endpoint a client is built with; every client resolves them here. A key passed
  * in is used, with the base URL passed in, else `<P>_BASE_URL`. Without one, environmentCredential
  * decides: the environment's key is read for the endpoint the environment names or for the
- * client's default endpoint, any other base URL is refused, and the `mmsp` client calls an open
- * server keyless.
+ * client's default endpoint, any other base URL is refused, and a client of an open server (`mmsp`,
+ * `openai-chat-vllm-adapter`) calls it keyless.
  *
  * @param client - The client's class name, for the error
  * @param clientType - The client type whose row of CLIENT_CREDENTIALS the client reads

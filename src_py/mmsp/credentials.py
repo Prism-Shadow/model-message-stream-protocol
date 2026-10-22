@@ -76,7 +76,9 @@ class ClientCredentials:
         api_key_env: The variable holding the key, read when no key is passed (see environment_credential).
         base_url_env: The variable holding the endpoint, read when no base URL is passed.
         default_base_url: The endpoint when no base URL is passed and base_url_env is unset.
-        open_server: A base URL passed without a key is an open server, which is sent no key.
+        open_server: The client's server may take no key: a base URL passed without a key is called
+            keyless, and so is the endpoint of base_url_env or default_base_url when api_key_env is
+            unset as well.
     """
 
     api_key_env: str
@@ -100,7 +102,10 @@ CLIENT_CREDENTIALS: dict[str, ClientCredentials] = {
     "minimax-official": ClientCredentials("MINIMAX_API_KEY", "MINIMAX_BASE_URL", "https://api.minimax.io/v1"),
     "openai-responses": _OPENAI,
     "openai-chat": _OPENAI,
-    "openai-chat-vllm-adapter": _OPENAI,
+    # the variables `vllm serve` itself reads for its key, and the address it answers on by default
+    "openai-chat-vllm-adapter": ClientCredentials(
+        "VLLM_API_KEY", "VLLM_BASE_URL", "http://127.0.0.1:8000/v1", open_server=True
+    ),
     "openai-embedding": _OPENAI,
     "ant-messages": _ANTHROPIC,
     "google-genai": _GEMINI,
@@ -114,8 +119,9 @@ class EnvironmentCredential:
 
     Attributes:
         kind: `env` reads api_key_env, and base_url_env when that is not None (no base URL was
-            passed); `keyless` sends no key, as an open MMSP server takes; `required` refuses with
-            ApiKeyRequiredError before any request.
+            passed); `keyless` sends no key, as an open server takes (`openai-chat-vllm-adapter`,
+            built on the OpenAI SDK, which sends a key with every request, sends the placeholder
+            `EMPTY`); `required` refuses with ApiKeyRequiredError before any request.
         api_key_env: The variable holding the key, for `env` and `required`.
         base_url_env: The variable holding the endpoint: for `required`, and for `env` when no base
             URL was passed.
@@ -190,7 +196,7 @@ def environment_credential(client_type: str, base_url: str | None = None) -> Env
     Without a base URL it reads `<P>_API_KEY` and `<P>_BASE_URL`. With its own default endpoint
     (trailing slashes and the host's case ignored) it reads `<P>_API_KEY` for that endpoint. With any
     other base URL it refuses, because the environment's key was not given for that endpoint, except
-    the `mmsp` client, which calls an open server keyless.
+    a client of an open server (`mmsp`, `openai-chat-vllm-adapter`), which calls any base URL keyless.
 
     Args:
         client_type: A client type, in any casing, an earlier name accepted.
