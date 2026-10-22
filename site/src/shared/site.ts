@@ -44,7 +44,7 @@ export interface DocSection {
 }
 
 // every RFC in design/rfcs/, in number order and titled by its first line, so a new file is a new page
-const RFC_FILES = import.meta.glob<string>("../../../design/rfcs/MRFC-*.md", {
+const RFC_FILES = import.meta.glob<string>("../../../design/rfcs/MMSP-RFC-*.md", {
   query: "?raw",
   import: "default",
   eager: true,
@@ -112,13 +112,13 @@ export const DOC_SECTIONS: DocSection[] = [
     title: { en: "Design", zh: "设计" },
     docs: [
       {
-        slug: "principles",
-        title: { en: "Design principles", zh: "设计原则" },
+        slug: "rfcs",
+        title: { en: "RFC index", zh: "RFC 索引" },
         description: {
-          en: "The invariants MMSP keeps for every model, in both packages, and how one changes.",
-          zh: "MMSP 对每个模型、在两个包中都遵守的不变量，以及修改它们的方式。",
+          en: "Every rule MMSP keeps and every decision that changed it, as RFCs: the index, and when a change needs one.",
+          zh: "MMSP 遵守的每条规则与改变它的每个决定都是 RFC：这里是索引，以及哪些改动需要 RFC。",
         },
-        source: { en: "design/PRINCIPLES.md", zh: "design/PRINCIPLES.zh.md" },
+        source: { en: "design/README.md", zh: "design/README.zh.md" },
       },
       ...rfcDocs(),
     ],

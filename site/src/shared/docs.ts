@@ -11,7 +11,7 @@ const SITE_FILES: Record<Locale, Record<string, DocFile>> = {
 };
 
 // the design pages render the repository's files themselves, so they cannot fall behind them
-const DESIGN_FILES = import.meta.glob<DocFile>(["../../../design/PRINCIPLES*.md", "../../../design/rfcs/MRFC-*.md"], {
+const DESIGN_FILES = import.meta.glob<DocFile>(["../../../design/README*.md", "../../../design/rfcs/MMSP-RFC-*.md"], {
   eager: true,
 });
 
