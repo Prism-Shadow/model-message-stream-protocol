@@ -26,7 +26,7 @@ To add a target, copy the triple of a registry entry and name its key variable. 
 
 ## Data files
 
-The key of every target is `<client> <base_url> <model>`, the registry triple joined by spaces (files written before 2026-10-23 joined it with `|`; the probe rewrites them on its next run and the site reads both).
+The key of every target is `<client>+<base_url>+<model>`, the registry triple joined by `+` (files written before 2026-10-23 joined it with `|`; the probe rewrites them on its next run and the site reads both).
 
 ```jsonc
 // latest.json: the last result of every configured target
@@ -39,9 +39,12 @@ The key of every target is `<client> <base_url> <model>`, the registry triple jo
    "cost_usd": 0.00031,                  // null when the registry has no price for the key
    "error": null,                        // the last error when a sample failed
    "checked_at": "2026-10-19T04:35:02Z"}}}
-// history.json: one entry per UTC day per target, the day's last run, 90 days; a day written before
-// ok, samples and error were recorded lacks them
-{"days": 90, "targets": {"<key>": {"2026-10-19": {"status": "up", "ok": 3, "ttft_ms": 412, "tps": 87.3, "cost_usd": 0.00031, "error": null, "samples": 3}}}}
+// history.json: one entry per UTC day per target, the day's last run, the last 365 days; a day
+// written before ok, samples and error were recorded lacks them
+{"days": 365, "targets": {"<key>": {"2026-10-19": {"status": "up", "ok": 3, "ttft_ms": 412, "tps": 87.3, "cost_usd": 0.00031, "error": null, "samples": 3}}}}
+// history/2026.json: every day of one UTC year per target, the same day entries, never pruned; each
+// run also copies in every day history.json holds, so the archive is never missing one of them
+{"year": "2026", "targets": {"<key>": {"2026-10-19": {"status": "up", "...": "..."}}}}
 // monthly.json: every run of the month counted, manual ones included; a target without a price is left out
 {"months": {"2026-10": {"runs": 19, "total_usd": 0.0093, "targets": {"<key>": 0.0046}}}}
 // runs/2026-10-19.json: every run of the day, each the latest.json shape plus its samples
@@ -53,7 +56,7 @@ A run that probes some targets only keeps the other targets' `latest.json` entri
 
 ## Running it
 
-From the site, **Run a check now** on `/status/` opens this workflow's Run workflow page; only people with write access to the repository can start a run, and the run uses the repository secrets. The page then reads the `status-data` head from the GitHub API once a minute, for up to 30 minutes, and once a new `run_id` lands redraws itself from the new commit's files, read through raw.githubusercontent.com or, where raw is unreachable, through the GitHub contents API. A run on a day that already has one appends to that day's `runs/` file, replaces that day's `history.json` entry of each target it probes, and is counted in `monthly.json`. The `status` concurrency group makes it wait for a run in progress, such as the scheduled one, so two runs never push at once; the group holds one waiting run, and a newer one replaces it. A run that fails before the probe writes anything, such as one whose `targets` names no target, pushes no commit, and the page stops waiting after 30 minutes.
+From the site, **Run a check now** on `/status/` opens this workflow's Run workflow page; only people with write access to the repository can start a run, and the run uses the repository secrets. The page then reads the `status-data` head from the GitHub API once a minute, for up to 30 minutes, and once a new `run_id` lands redraws itself from the new commit's files, read through raw.githubusercontent.com or, where raw is unreachable, through the GitHub contents API. A run on a day that already has one appends to that day's `runs/` file, replaces that day's `history.json` and `history/YYYY.json` entries of each target it probes, and is counted in `monthly.json`. The `status` concurrency group makes it wait for a run in progress, such as the scheduled one, so two runs never push at once; the group holds one waiting run, and a newer one replaces it. A run that fails before the probe writes anything, such as one whose `targets` names no target, pushes no commit, and the page stops waiting after 30 minutes.
 
 ```sh
 # from main; targets is optional, a comma-separated list of model ids or keys

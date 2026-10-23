@@ -24,7 +24,7 @@ from typing import Any
 from mmsp import AutoLLMClient, EmptyResponseError, ThinkingLevel, list_supported_models
 
 
-HISTORY_DAYS = 90
+HISTORY_DAYS = 365
 SAMPLE_TIMEOUT_S = 120
 SAMPLE_GAP_S = 2
 # targets run side by side, at most this many at once; the samples of one target never overlap
@@ -40,13 +40,13 @@ MASKED_KEY = re.compile(r"\*{3,}[\w-]*")
 
 
 def target_key(entry: dict[str, Any]) -> str:
-    """The key the status files and the site join on: the registry triple, joined by spaces."""
-    return f"{entry['client']} {entry['base_url']} {entry['model']}"
+    """The key the status files and the site join on: the registry triple, joined by `+`."""
+    return f"{entry['client']}+{entry['base_url']}+{entry['model']}"
 
 
 def current_key(key: str) -> str:
     """A key as target_key writes it; a key written before 2026-10-23 joined the triple with `|`."""
-    return key.replace("|", " ")
+    return key.replace("|", "+")
 
 
 def with_current_keys(targets: dict[str, Any]) -> dict[str, Any]:
@@ -312,16 +312,20 @@ def write_latest(out: Path, run: dict[str, Any], configured: list[str]) -> None:
     write_json(out / "latest.json", {**latest, "targets": targets})
 
 
+def day_entry(entry: dict[str, Any], run: dict[str, Any]) -> dict[str, Any]:
+    """A target's result as one day of history.json and of the yearly archive."""
+    return {field: entry[field] for field in ("status", "ok", "ttft_ms", "tps", "cost_usd", "error")} | {
+        "samples": run["samples"]
+    }
+
+
 def write_history(out: Path, run: dict[str, Any], today: datetime) -> None:
     """Upsert today's entry per probed target (the day's last run wins) and drop days past the window."""
     history = read_json(out / "history.json", {"days": HISTORY_DAYS, "targets": {}})
     history["targets"] = with_current_keys(history["targets"])
     date = today.strftime("%Y-%m-%d")
     for key, entry in run["targets"].items():
-        days = history["targets"].setdefault(key, {})
-        days[date] = {field: entry[field] for field in ("status", "ok", "ttft_ms", "tps", "cost_usd", "error")} | {
-            "samples": run["samples"]
-        }
+        history["targets"].setdefault(key, {})[date] = day_entry(entry, run)
     oldest = (today - timedelta(days=HISTORY_DAYS - 1)).strftime("%Y-%m-%d")
     kept = {}
     for key, days in history["targets"].items():
@@ -329,6 +333,29 @@ def write_history(out: Path, run: dict[str, Any], today: datetime) -> None:
         if recent:
             kept[key] = recent
     write_json(out / "history.json", {"days": HISTORY_DAYS, "targets": kept})
+
+
+def write_archive(out: Path, run: dict[str, Any], today: datetime) -> None:
+    """Keep every day for good in history/YYYY.json, one file per UTC year.
+
+    Today's entries of the run go in, and so does every day history.json holds, so the first run
+    backfills the archive and a day the rolling file knew is never missing from it. Writing the same
+    days again leaves the files as they are.
+    """
+    rolling = with_current_keys(read_json(out / "history.json", {"targets": {}})["targets"])
+    date = today.strftime("%Y-%m-%d")
+    for key, entry in run["targets"].items():
+        rolling.setdefault(key, {})[date] = day_entry(entry, run)
+    years: dict[str, dict[str, dict[str, Any]]] = {}
+    for key, days in rolling.items():
+        for day, value in days.items():
+            years.setdefault(day[:4], {}).setdefault(key, {})[day] = value
+    for year, targets in sorted(years.items()):
+        path = out / "history" / f"{year}.json"
+        archive = with_current_keys(read_json(path, {"targets": {}})["targets"])
+        for key, days in targets.items():
+            archive[key] = dict(sorted((archive.get(key, {}) | days).items()))
+        write_json(path, {"year": year, "targets": archive})
 
 
 def write_monthly(out: Path, month: str) -> dict[str, Any]:
@@ -401,6 +428,7 @@ def main() -> None:
     }
     write_run(args.out, run, date)
     write_history(args.out, run, now)
+    write_archive(args.out, run, now)
     monthly = write_monthly(args.out, month)
     write_latest(args.out, run, [target_key(target) for target in settings["targets"]])
 
