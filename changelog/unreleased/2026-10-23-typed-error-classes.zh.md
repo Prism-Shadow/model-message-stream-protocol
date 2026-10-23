@@ -3,6 +3,7 @@
 - **Date:** 2026-10-23
 - **Type:** feature
 - **Scope:** `errors`, `wire`
+- **PR:** [#288](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/288)
 
 [English](2026-10-23-typed-error-classes.md)
 
