@@ -17,4 +17,4 @@
 - `site/src/shared/catalog-status.ts` was added: `metricCells()` draws the two cells, at build and in the browser, as bare numbers for the table and with units for the kit dialog.
 - `/models.json` joined each entry's `status_key` with `+` instead of `|` (`deepseek-official+https://api.deepseek.com+deepseek-flash`), and `status.key` reads `client+base_url+model`. `withCurrentKeys()` in `catalog-status.ts` rewrote the keys of a `latest.json` written with `|`, at build and in the browser, so the Model Index filled its latency and throughput from either form. The links to Model Status kept their anchors.
 - The Xiaomi entries (`xiaomi/mimo-v2.5` on OpenRouter, `mimo-v2.6-flash` on TokenDance) showed the Xiaomi mark: `marks.ts` gained Simple Icons' MI glyph (CC0) in `#FF6900`, and the Xiaomi vendor in `providers.ts` uses it.
-- `models.columns.status` was removed from `i18n.ts`.
+- `models.columns.status` and `models.probed` were removed from `i18n.ts`.

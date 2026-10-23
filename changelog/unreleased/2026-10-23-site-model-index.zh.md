@@ -17,4 +17,4 @@
 - 新增 `site/src/shared/catalog-status.ts`：`metricCells()` 在构建时和浏览器中绘制这两个单元格，表格中为纯数字，对话框中带单位。
 - `/models.json` 中各条目的 `status_key` 改用 `+` 而非 `|` 连接（`deepseek-official+https://api.deepseek.com+deepseek-flash`），`status.key` 为 `client+base_url+model`。`catalog-status.ts` 中的 `withCurrentKeys()` 在构建时和浏览器中改写以 `|` 写成的 `latest.json` 的键，因此模型索引无论读到哪种形式都能填出延迟与吞吐。指向模型监测页的链接锚点不变。
 - 小米的条目（OpenRouter 上的 `xiaomi/mimo-v2.5`、TokenDance 上的 `mimo-v2.6-flash`）显示了小米标志：`marks.ts` 新增 Simple Icons 的 MI 图形（CC0），颜色为 `#FF6900`，`providers.ts` 中的小米厂商使用该标志。
-- 从 `i18n.ts` 中删除了 `models.columns.status`。
+- 从 `i18n.ts` 中删除了 `models.columns.status` 和 `models.probed`。
