@@ -351,7 +351,9 @@ export class MiniMaxOfficialClient extends LLMClient {
         completed: "stop",
         incomplete: "length",
       };
-      finishReason = finishReasonMapping[response.status ?? ""] ?? "unknown";
+      if (response.status) {
+        finishReason = finishReasonMapping[response.status] ?? "unknown";
+      }
 
       if (response.usage) {
         // MiniMax drops the detail blocks on truncated responses, so default them to zero.

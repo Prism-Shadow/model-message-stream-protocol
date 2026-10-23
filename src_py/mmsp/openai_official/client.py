@@ -351,20 +351,22 @@ class OpenAIOfficialClient(LLMClient):
                 "completed": "stop",
                 "incomplete": "length",
             }
-            finish_reason = finish_reason_mapping.get(model_output.response.status, "unknown")
+            if model_output.response.status:
+                finish_reason = finish_reason_mapping.get(model_output.response.status, "unknown")
 
-            input_tokens = model_output.response.usage.input_tokens
-            output_tokens = model_output.response.usage.output_tokens
+            if model_output.response.usage:
+                input_tokens = model_output.response.usage.input_tokens
+                output_tokens = model_output.response.usage.output_tokens
 
-            cached_tokens = model_output.response.usage.input_tokens_details.cached_tokens
-            reasoning_tokens = model_output.response.usage.output_tokens_details.reasoning_tokens
+                cached_tokens = model_output.response.usage.input_tokens_details.cached_tokens
+                reasoning_tokens = model_output.response.usage.output_tokens_details.reasoning_tokens
 
-            usage_metadata = {
-                "cached_tokens": cached_tokens,
-                "prompt_tokens": input_tokens - cached_tokens,
-                "thoughts_tokens": reasoning_tokens,
-                "response_tokens": output_tokens - reasoning_tokens,
-            }
+                usage_metadata = {
+                    "cached_tokens": cached_tokens,
+                    "prompt_tokens": input_tokens - cached_tokens,
+                    "thoughts_tokens": reasoning_tokens,
+                    "response_tokens": output_tokens - reasoning_tokens,
+                }
 
         elif openai_event_type in [
             "response.created",

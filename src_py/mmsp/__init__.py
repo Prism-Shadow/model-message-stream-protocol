@@ -16,6 +16,7 @@ from .auto_client import AutoLLMClient
 from .errors import (
     ApiKeyRequiredError,
     EmptyResponseError,
+    IncompleteStreamError,
     MMSPError,
     StreamProtocolError,
     ToolCallArgumentParseError,
@@ -33,6 +34,7 @@ __all__ = [
     "AutoLLMClient",
     "Currency",
     "EmptyResponseError",
+    "IncompleteStreamError",
     "MMSPError",
     "Modality",
     "ModelPricing",

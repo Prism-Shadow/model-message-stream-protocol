@@ -313,7 +313,8 @@ class DeepSeekOfficialClient(LLMClient):
                 "completed": "stop",
                 "incomplete": "length",
             }
-            finish_reason = finish_reason_mapping.get(model_output.response.status, "unknown")
+            if model_output.response.status:
+                finish_reason = finish_reason_mapping.get(model_output.response.status, "unknown")
 
             if model_output.response.usage:
                 input_details = model_output.response.usage.input_tokens_details
