@@ -3,6 +3,7 @@
 - **Date:** 2026-10-23
 - **Type:** process
 - **Scope:** `tests`, `ci`
+- **PR:** [#280](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/280)
 
 [中文版](2026-10-23-e2e-retry-incomplete-stream.zh.md)
 
