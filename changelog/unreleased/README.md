@@ -2,6 +2,7 @@
 
 [中文版](README.zh.md)
 
+- [2026-10-23] The playground's reply head names the model and the time of day; the elapsed time stays in the usage line under the reply. ([details](2026-10-23-playground-reply-head.md), [#281](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/281))
 - [2026-10-23] The site's RFC pages moved to `/rfcs/`, with redirects from their old URLs, and the docs and RFC pages gained a search, opened with ⌘K / Ctrl K. ([details](2026-10-23-site-rfc-pages-and-search.md), [#285](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/285))
 - [2026-10-23] The RFC process's index and its `Site:` line named the site's RFC area at `/rfcs/` in place of the docs' Design section. ([details](2026-10-23-design-rfc-placement.md), [#285](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/285))
 - [2026-10-23] The site's top bar became Overview, Docs, RFC, Model Index, Model Status and Changelog, and the site build gained a reader for the status probe's files. ([details](2026-10-23-site-top-bar.md), [#282](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/282))

@@ -2,6 +2,7 @@
 
 [English](README.md)
 
+- [2026-10-23] Playground 回复头只显示模型与时刻；耗时留在回复下方的用量行。([详情](2026-10-23-playground-reply-head.zh.md), [#281](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/281))
 - [2026-10-23] 站点的 RFC 页面移至 `/rfcs/`，旧地址跳转到新地址；文档与 RFC 页面新增搜索，可用 ⌘K / Ctrl K 打开。([详情](2026-10-23-site-rfc-pages-and-search.zh.md), [#285](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/285))
 - [2026-10-23] RFC 流程的索引与 RFC 中的「网站」一条改为写明站点 `/rfcs/` 的 RFCs 区，不再写文档的「设计」分组。([详情](2026-10-23-design-rfc-placement.zh.md), [#285](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/285))
 - [2026-10-23] 站点顶栏改为概览、文档、RFC、模型索引、模型监测、更新日志，站点构建新增读取状态探测文件的模块。([详情](2026-10-23-site-top-bar.zh.md), [#282](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/282))
