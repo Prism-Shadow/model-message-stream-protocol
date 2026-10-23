@@ -12,7 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { EmptyResponseError, StreamProtocolError } from "./errors";
+import {
+  EmptyResponseError,
+  IncompleteStreamError,
+  StreamProtocolError,
+} from "./errors";
 import { normalizeLegacyMessages } from "./legacy";
 import { StreamItems } from "./streamItems";
 import {
@@ -113,11 +117,20 @@ class PublicStream {
    * Build the stop event once the client's stream ended, rejecting a response that cannot be one.
    */
   stop(): UniEvent {
+    const missing: string[] = [];
     if (this.usageMetadata === null) {
-      throw new Error("Streaming response ended without usage_metadata");
+      missing.push("usage_metadata");
     }
     if (this.finishReason === null) {
-      throw new Error("Streaming response ended without finish_reason");
+      missing.push("finish_reason");
+    }
+    if (missing.length > 0) {
+      throw new IncompleteStreamError({
+        client: this.client,
+        missing,
+        finishReason: this.finishReason,
+        usageMetadata: this.usageMetadata,
+      });
     }
     // replaying a thinking-only assistant message on the next turn fails with a 400 error
     const thinkingOnly = this.doneItems.every(

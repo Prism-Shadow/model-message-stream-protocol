@@ -287,15 +287,17 @@ class AnthropicOfficialClient(LLMClient):
                 elif item["type"] == "image_url.done":
                     content_blocks.append(await self._convert_image_url_to_source(item["image_url"]))
                 elif item["type"] == "thinking.done":
+                    signature = (item.get("fidelity") or {}).get("signature")
+                    if signature is None:
+                        # Claude takes a thinking block back only with the signature it issued and drops
+                        # the blocks it cannot read itself, so an item signed by nobody goes the same way
+                        continue
+
                     if item["thinking"] == REDACTED_THINKING:
-                        content_blocks.append({"type": "redacted_thinking", "data": item["fidelity"]["signature"]})
+                        content_blocks.append({"type": "redacted_thinking", "data": signature})
                     else:
                         content_blocks.append(
-                            {
-                                "type": "thinking",
-                                "thinking": item["thinking"],
-                                "signature": item["fidelity"]["signature"],
-                            }
+                            {"type": "thinking", "thinking": item["thinking"], "signature": signature}
                         )
                 elif item["type"] == "tool_call.done":
                     content_blocks.append(

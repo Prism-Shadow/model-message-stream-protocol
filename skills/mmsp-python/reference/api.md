@@ -72,4 +72,4 @@ values (e.g. `temperature` or `tool_choice` on models that reject them) raise
 `UnsupportedParameterError`, which carries `client` and `parameter` attributes. Thinking
 levels never raise: every client maps each `ThinkingLevel` to the closest supported level.
 Errors raised while streaming (`ToolCallArgumentParseError`, `EmptyResponseError`,
-`StreamProtocolError`) are listed in [Data models](data-models.md#errors).
+`IncompleteStreamError`, `StreamProtocolError`) are listed in [Data models](data-models.md#errors).

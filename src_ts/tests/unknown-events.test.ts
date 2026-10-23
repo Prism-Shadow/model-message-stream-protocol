@@ -16,10 +16,13 @@ import { expect, describe, test, afterEach } from "@jest/globals";
 import {
   AutoLLMClient,
   EventContentItem,
+  FinishReason,
+  IncompleteStreamError,
   TextDeltaItem,
   UniConfig,
   UniEvent,
   UniMessage,
+  UsageMetadata,
 } from "../src";
 import { assertStreamGrammar } from "./streamGrammar";
 
@@ -226,6 +229,14 @@ function responsesCompletedEvent(): unknown {
     },
   };
 }
+
+// the usage every Responses client reads from responsesCompletedEvent
+const COMPLETED_USAGE: UsageMetadata = {
+  cached_tokens: 0,
+  prompt_tokens: 2,
+  thoughts_tokens: 1,
+  response_tokens: 2,
+};
 
 function chatKeepaliveChunk(sequenceNumber: number): unknown {
   // A heartbeat is not a Chat Completions chunk, so the fields the client reads are
@@ -513,6 +524,50 @@ describe.each(RESPONSES_STREAM_CASES)(
         ).rejects.toThrow("Unknown output");
       },
     );
+
+    test.each<
+      [string, string[], FinishReason | null, UsageMetadata | null]
+    >([
+      ["usage", ["usage_metadata"], "stop", null],
+      ["status", ["finish_reason"], null, COMPLETED_USAGE],
+    ])(
+      "raises IncompleteStreamError for a completed event without %s",
+      async (dropped, missing, finishReason, usageMetadata) => {
+        const client = createAutoClient(testCase);
+        const completed = responsesCompletedEvent() as {
+          response: Record<string, unknown>;
+        };
+        completed.response[dropped] = null;
+        installFakeResponsesStream(client, [
+          responsesTextDeltaEvent("Here is"),
+          completed,
+        ]);
+
+        const error = await collectEvents(
+          client.streamingResponse({ messages, config: {} }),
+        ).catch((caught) => caught);
+
+        expect(error).toBeInstanceOf(IncompleteStreamError);
+        expect(error).toMatchObject({ missing, finishReason, usageMetadata });
+      },
+    );
+
+    test("finishes a completed event of an unmapped status as unknown", async () => {
+      const client = createAutoClient(testCase);
+      const completed = responsesCompletedEvent() as {
+        response: { status: string };
+      };
+      completed.response.status = "cancelled";
+      installFakeResponsesStream(client, [
+        responsesTextDeltaEvent("Here is"),
+        completed,
+      ]);
+
+      const events = await collectEvents(
+        client.streamingResponse({ messages, config: {} }),
+      );
+      expect(events[events.length - 1].finish_reason).toBe("unknown");
+    });
   },
 );
 

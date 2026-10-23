@@ -328,3 +328,55 @@ test("generateContent replay signs the first call of an unsigned turn with the p
     [{ ...call("call_3"), thoughtSignature: "sig-3" }],
   ]);
 });
+
+// Claude takes a thinking block back only with the signature it issued: one without a
+// signature is rejected with a 400, while a turn whose thinking is left out is accepted with
+// the answer intact, the way the API drops blocks the model cannot read itself (verified live
+// 2026-10-19 on Sonnet, Haiku and Opus 5.5, in the last turn and in an earlier one).
+test("claude replay drops a thinking item without a signature", async () => {
+  const client = new AutoLLMClient({
+    model: "claude-sonnet-5-5",
+    apiKey: "test-key",
+  });
+  expect(
+    (client as unknown as { _client: object })._client.constructor.name,
+  ).toBe("AnthropicOfficialClient");
+  const history: UniMessage[] = [
+    userText(),
+    assistant(
+      thinkingItem(THINKING, "reasoning_content"),
+      toolCallItem("call_1"),
+    ),
+    toolResults("call_1"),
+    assistant(
+      {
+        type: "thinking.done",
+        thinking: "Now London.",
+        fidelity: { signature: "sig-2" },
+      },
+      toolCallItem("call_2"),
+    ),
+    toolResults("call_2"),
+  ];
+
+  const messages = assistantMessages(await transformHistory(client, history));
+  expect(messages).toHaveLength(2);
+  const [unsigned, signed] = messages;
+  expect(unsigned.content).toEqual([
+    {
+      type: "tool_use",
+      id: "call_1",
+      name: "get_weather",
+      input: { city: "Paris" },
+    },
+  ]);
+  expect(signed.content).toEqual([
+    { type: "thinking", thinking: "Now London.", signature: "sig-2" },
+    {
+      type: "tool_use",
+      id: "call_2",
+      name: "get_weather",
+      input: { city: "Paris" },
+    },
+  ]);
+});

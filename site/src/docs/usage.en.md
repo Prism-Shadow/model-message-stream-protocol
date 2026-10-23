@@ -31,4 +31,4 @@ Read the counts from the `stop` event, once. `delta` events carry null, and noth
 
 The assistant message the stateful call records carries the same `usage_metadata`, so a stored history keeps the cost of every turn.
 
-A response that raised `EmptyResponseError` still spent tokens. The error carries its `usage_metadata`.
+A response that raised `EmptyResponseError` still spent tokens. The error carries its `usage_metadata`. `IncompleteStreamError` carries the `usage_metadata` that arrived before the stream was cut short, or null.
