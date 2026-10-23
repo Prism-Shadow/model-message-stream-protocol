@@ -3,6 +3,7 @@
 - **Date:** 2026-10-23
 - **Type:** fix
 - **Scope:** `base_client`, `auto_client`, `ant_messages`, `anthropic_official`, `deepseek_official`, `google_genai`, `google_official`, `minimax_official`, `moonshot_official`, `openai_chat`, `openai_official`, `openai_responses`, `zai_official`, `integration`
+- **PR:** [#292](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/292)
 
 [中文版](2026-10-23-interruption.zh.md)
 
