@@ -373,16 +373,20 @@ export class AnthropicOfficialClient extends LLMClient {
             await this._convertImageUrlToSource(imageUrl, signal),
           );
         } else if (item.type === "thinking.done") {
+          const signature = item.fidelity?.signature;
+          if (signature == null) {
+            // Claude takes a thinking block back only with the signature it issued and drops
+            // the blocks it cannot read itself, so an item signed by nobody goes the same way
+            continue;
+          }
+
           if (item.thinking === REDACTED_THINKING) {
-            contentBlocks.push({
-              type: "redacted_thinking",
-              data: item.fidelity?.signature,
-            });
+            contentBlocks.push({ type: "redacted_thinking", data: signature });
           } else {
             contentBlocks.push({
               type: "thinking",
               thinking: item.thinking,
-              signature: item.fidelity?.signature,
+              signature,
             });
           }
         } else if (item.type === "tool_call.done") {

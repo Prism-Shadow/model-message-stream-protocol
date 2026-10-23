@@ -2,6 +2,7 @@
 
 [中文版](README.zh.md)
 
+- [2026-10-19] Claude replay omits a thinking item that carries no signature. ([details](2026-10-19-claude-unsigned-thinking-replay.md), [#268](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/268))
 - [2026-10-19] GLM and Kimi K2 extension keys reach the API from TypeScript. ([details](2026-10-19-openai-node-extension-keys.md), [#267](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/267))
 - [2026-10-19] The vLLM adapter sends `chat_template_kwargs` through the Python SDK. ([details](2026-10-19-vllm-chat-template-kwargs.md), [#266](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/266))
 - [2026-10-22] The Chat Completions client read OpenRouter's `reasoning_details` and replayed the encrypted fragment, GPT's encrypted reasoning or Gemini's thought signature, as received ([MMSP-RFC-0011](../../design/rfcs/MMSP-RFC-0011-thinking-round-trip.md)). ([details](2026-10-22-openai-chat-reasoning-details.md), [#273](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/273))
