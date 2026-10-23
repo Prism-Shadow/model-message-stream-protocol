@@ -16,6 +16,7 @@ import { describe, expect, jest, test } from "@jest/globals";
 import { LLMClient } from "../src/baseClient";
 import {
   EmptyResponseError,
+  IncompleteStreamError,
   StreamProtocolError,
   ToolCallArgumentParseError,
 } from "../src/errors";
@@ -684,20 +685,65 @@ describe("stream protocol violations and rejected responses", () => {
     );
   });
 
-  test("a stream without usage or finish reason yields no stop event", async () => {
-    const events: UniEvent[] = [];
-    const run = async () => {
-      for await (const event of new ScriptedClient([
+  test.each<
+    [string, UsageMetadata | null, FinishReason | null, string[], string]
+  >([
+    [
+      "usage_metadata",
+      null,
+      "stop",
+      ["usage_metadata"],
+      "ScriptedClient's stream ended without usage_metadata.",
+    ],
+    [
+      "finish_reason",
+      USAGE,
+      null,
+      ["finish_reason"],
+      "ScriptedClient's stream ended without finish_reason.",
+    ],
+    [
+      "usage_metadata and finish_reason",
+      null,
+      null,
+      ["usage_metadata", "finish_reason"],
+      "ScriptedClient's stream ended without usage_metadata and finish_reason.",
+    ],
+  ])(
+    "a stream without %s raises IncompleteStreamError in place of the stop event",
+    async (_name, usage, finish, missing, message) => {
+      const events: UniEvent[] = [];
+      const client = new ScriptedClient([
         delta(withId("0", { type: "text.delta", text: "a" })),
-        stop(null, "stop"),
-      ]).streamingResponse({ messages: [USER], config: {} })) {
-        events.push(event);
-      }
-    };
+        stop(usage, finish),
+      ]);
+      const run = async () => {
+        for await (const event of client.streamingResponseStateful({
+          message: USER,
+          config: {},
+        })) {
+          events.push(event);
+        }
+      };
 
-    await expect(run()).rejects.toThrow("without usage_metadata");
-    expect(events.some((event) => event.event_type === "stop")).toBe(false);
-  });
+      const error = await run().catch((caught) => caught);
+
+      expect(error).toBeInstanceOf(IncompleteStreamError);
+      expect(error).toMatchObject({
+        client: "ScriptedClient",
+        missing,
+        usageMetadata: usage,
+        finishReason: finish,
+        message,
+      });
+      expect(items(events)).toEqual([
+        { type: "text.delta", text: "a" },
+        { type: "text.done", text: "a" },
+      ]);
+      expect(events.some((event) => event.event_type === "stop")).toBe(false);
+      expect(client.getHistory()).toEqual([]);
+    },
+  );
 
   test("a thinking-only response raises EmptyResponseError carrying its usage", async () => {
     const error = await collect([

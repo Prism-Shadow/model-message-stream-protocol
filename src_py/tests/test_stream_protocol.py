@@ -20,7 +20,7 @@ from stream_grammar import assert_stream_grammar
 
 from mmsp import legacy
 from mmsp.base_client import LLMClient
-from mmsp.errors import EmptyResponseError, StreamProtocolError, ToolCallArgumentParseError
+from mmsp.errors import EmptyResponseError, IncompleteStreamError, StreamProtocolError, ToolCallArgumentParseError
 from mmsp.legacy import normalize_legacy_messages
 from mmsp.types import EventContentItem, FinishReason, UniConfig, UniEvent, UniMessage, UsageMetadata
 
@@ -527,15 +527,50 @@ async def test_stream_protocol_violation_raises_stream_protocol_error(script: li
 
 
 @pytest.mark.asyncio
-async def test_a_stream_without_usage_or_finish_reason_yields_no_stop_event():
+@pytest.mark.parametrize(
+    "usage, finish, missing, message",
+    [
+        pytest.param(
+            None,
+            "stop",
+            ("usage_metadata",),
+            "ScriptedClient's stream ended without usage_metadata.",
+            id="usage_metadata",
+        ),
+        pytest.param(
+            USAGE,
+            None,
+            ("finish_reason",),
+            "ScriptedClient's stream ended without finish_reason.",
+            id="finish_reason",
+        ),
+        pytest.param(
+            None,
+            None,
+            ("usage_metadata", "finish_reason"),
+            "ScriptedClient's stream ended without usage_metadata and finish_reason.",
+            id="both",
+        ),
+    ],
+)
+async def test_a_stream_without_usage_or_finish_reason_raises_incomplete_stream_error_in_place_of_the_stop_event(
+    usage: UsageMetadata | None, finish: FinishReason | None, missing: tuple[str, ...], message: str
+):
     events: list[UniEvent] = []
-    client = ScriptedClient([delta(with_id("0", {"type": "text.delta", "text": "a"})), stop(None, "stop")])
+    client = ScriptedClient([delta(with_id("0", {"type": "text.delta", "text": "a"})), stop(usage, finish)])
 
-    with pytest.raises(ValueError, match="without usage_metadata"):
-        async for event in client.streaming_response(messages=[USER], config={}):
+    with pytest.raises(IncompleteStreamError) as exc_info:
+        async for event in client.streaming_response_stateful(message=USER, config={}):
             events.append(event)
 
+    assert exc_info.value.client == "ScriptedClient"
+    assert exc_info.value.missing == missing
+    assert exc_info.value.usage_metadata == usage
+    assert exc_info.value.finish_reason == finish
+    assert str(exc_info.value) == message
+    assert items(events) == [{"type": "text.delta", "text": "a"}, {"type": "text.done", "text": "a"}]
     assert not any(event["event_type"] == "stop" for event in events)
+    assert client.get_history() == []
 
 
 @pytest.mark.asyncio

@@ -77,4 +77,4 @@ All MMSP errors subclass `MMSPError`. Unsupported `UniConfig` values (e.g.
 `UnsupportedParameterError`, which carries `client` and `parameter` fields. Thinking
 levels never throw: every client maps each `ThinkingLevel` to the closest supported level.
 Errors thrown while streaming (`ToolCallArgumentParseError`, `EmptyResponseError`,
-`StreamProtocolError`) are listed in [Data models](data-models.md#errors).
+`IncompleteStreamError`, `StreamProtocolError`) are listed in [Data models](data-models.md#errors).

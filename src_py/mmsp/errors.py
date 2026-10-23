@@ -16,7 +16,7 @@ import json
 from typing import Any
 
 from .credentials import CLIENT_CREDENTIALS
-from .types import UsageMetadata
+from .types import FinishReason, UsageMetadata
 
 
 def _preview_tool_call_arguments(raw: str) -> str:
@@ -96,6 +96,28 @@ class EmptyResponseError(MMSPError):
         # the tokens the rejected response still cost, since no stop event carries them
         self.usage_metadata = usage_metadata
         super().__init__(f"{client} returned no content other than thinking (finish_reason={finish_reason!r}).")
+
+
+class IncompleteStreamError(MMSPError):
+    """Raised when the provider's stream ends before its usage or its finish reason arrived.
+
+    The stream was cut short, so the request is worth retrying. It is raised in place of the stop
+    event, after the items that did arrive, and carries the usage or finish reason that did, so the
+    tokens can still be counted.
+    """
+
+    def __init__(
+        self,
+        client: str,
+        missing: tuple[str, ...],
+        finish_reason: FinishReason | None,
+        usage_metadata: UsageMetadata | None,
+    ) -> None:
+        self.client = client
+        self.missing = missing
+        self.finish_reason = finish_reason
+        self.usage_metadata = usage_metadata
+        super().__init__(f"{client}'s stream ended without {' and '.join(missing)}.")
 
 
 class StreamProtocolError(MMSPError):

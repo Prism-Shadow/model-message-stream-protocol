@@ -99,6 +99,21 @@ export function assertStreamGrammar(events: UniEvent[]): void {
       expect(item.tool_call_id).toBe(
         open[0].type === "tool_call.delta" ? open[0].tool_call_id : "",
       );
+    } else if (
+      item.type === "inline_data.done" ||
+      item.type === "inline_thinking.done"
+    ) {
+      const joined = Buffer.concat(
+        open.map((delta) => ("data" in delta ? delta.data : Buffer.alloc(0))),
+      );
+      expect(item.data.equals(joined)).toBe(true);
+      expect(item.mime_type).toBe(
+        "mime_type" in open[0] ? open[0].mime_type : "",
+      );
+    } else if (item.type === "embedding.done") {
+      expect(item.embedding).toEqual(
+        open.flatMap((delta) => ("embedding" in delta ? delta.embedding : [])),
+      );
     }
     open = [];
   }

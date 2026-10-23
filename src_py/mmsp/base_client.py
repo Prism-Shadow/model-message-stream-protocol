@@ -19,7 +19,7 @@ from contextlib import suppress
 from typing import Any, AsyncIterator, Iterator
 
 from .abort_signal import AbortSignal
-from .errors import EmptyResponseError, StreamProtocolError
+from .errors import EmptyResponseError, IncompleteStreamError, StreamProtocolError
 from .legacy import normalize_legacy_messages
 from .stream_items import StreamItems
 from .types import (
@@ -97,11 +97,13 @@ class _PublicStream:
 
     def stop(self) -> UniEvent:
         """Build the stop event once the client's stream ended, rejecting a response that cannot be one."""
+        missing = []
         if self._usage_metadata is None:
-            raise ValueError("Streaming response ended without usage_metadata")
-
+            missing.append("usage_metadata")
         if self._finish_reason is None:
-            raise ValueError("Streaming response ended without finish_reason")
+            missing.append("finish_reason")
+        if missing:
+            raise IncompleteStreamError(self._client, tuple(missing), self._finish_reason, self._usage_metadata)
 
         # replaying a thinking-only assistant message on the next turn fails with a 400 error
         if all(item["type"] in ("thinking.done", "inline_thinking.done") for item in self.done_items):
