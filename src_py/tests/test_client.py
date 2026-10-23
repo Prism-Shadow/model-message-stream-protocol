@@ -50,6 +50,7 @@ class Model:
         "deepseek",
         "zai",
         "minimax",
+        "tokendance",
         "mmsp",
     ] = "official"
     client_type: str | None = None
@@ -113,6 +114,7 @@ _PROVIDER_API_KEY_ENVS = {
     "deepseek": "DEEPSEEK_API_KEY",
     "zai": "ZAI_API_KEY",
     "minimax": "MINIMAX_API_KEY",
+    "tokendance": "TOKENDANCE_API_KEY",
     "mmsp": "MMSP_API_KEY",
 }
 
@@ -121,6 +123,7 @@ _PROVIDER_BASE_URLS = {
     "openrouter": "https://openrouter.ai/api/v1",
     "siliconflow": "https://api.siliconflow.cn/v1",
     "modelverse": "https://api.modelverse.cn/v1",
+    "tokendance": "https://tokendance.space/gateway/v1",
 }
 
 
@@ -483,7 +486,10 @@ async def test_list_supported_models():
     for entry in entries:
         assert {"model", "base_url", "client", "input_modalities", "output_modalities"} <= set(entry)
         client = AutoLLMClient(
-            model=entry["model"], api_key="test-key", base_url=entry["base_url"], client_type=entry["client"]
+            model=entry["model"],
+            api_key="test-access,test-secret" if entry["base_url"].startswith("bedrock://") else "test-key",
+            base_url=entry["base_url"],
+            client_type=entry["client"],
         )
         assert client._client is not None
 

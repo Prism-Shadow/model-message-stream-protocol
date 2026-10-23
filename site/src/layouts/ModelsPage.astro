@@ -1,0 +1,20 @@
+---
+import Base from "./Base.astro";
+import MarkSprite from "../components/MarkSprite.astro";
+import ModelCatalog from "../components/ModelCatalog.astro";
+import { STRINGS, type Locale } from "../shared/i18n";
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const s = STRINGS[locale].models;
+---
+
+<Base locale={locale} title={s.title} description={s.description} active="models">
+  <MarkSprite />
+  <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+    <h1 class="text-3xl font-semibold tracking-tight">{s.title}</h1>
+    <ModelCatalog locale={locale} class="mt-6" />
+  </div>
+</Base>

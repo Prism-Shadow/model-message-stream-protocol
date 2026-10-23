@@ -8,6 +8,7 @@
 | `models.json` entries | Changed client groups, including removed entries |
 | Shared code, test logic, dependencies, lockfiles, CI, or an unclassified path | All configured clients |
 | Only docs, `site/`, artwork, or agent instructions | None |
+| The status probe, `.github/status/` or `status.yml` ([its README](../status/README.md)) | None; lint and offline tests still run |
 | PR to `main`, push to `main`, manual CI run | All configured clients |
 | Package publication, including manual publication | All configured clients; both languages must pass before either package publishes |
 

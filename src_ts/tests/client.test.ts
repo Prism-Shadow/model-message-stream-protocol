@@ -52,6 +52,7 @@ interface Model {
     | "deepseek"
     | "zai"
     | "minimax"
+    | "tokendance"
     | "mmsp";
 }
 
@@ -147,6 +148,7 @@ const PROVIDER_API_KEY_ENVS: { [provider: string]: string } = {
   deepseek: "DEEPSEEK_API_KEY",
   zai: "ZAI_API_KEY",
   minimax: "MINIMAX_API_KEY",
+  tokendance: "TOKENDANCE_API_KEY",
   mmsp: "MMSP_API_KEY",
 };
 
@@ -155,6 +157,7 @@ const PROVIDER_BASE_URLS: { [provider: string]: string } = {
   openrouter: "https://openrouter.ai/api/v1",
   siliconflow: "https://api.siliconflow.cn/v1",
   modelverse: "https://api.modelverse.cn/v1",
+  tokendance: "https://tokendance.space/gateway/v1",
 };
 
 test.each(
@@ -1284,7 +1287,7 @@ test("should list supported model entries", () => {
     expect(entry.output_modalities.length).toBeGreaterThan(0);
     const client = new AutoLLMClient({
       model: entry.model,
-      apiKey: "test-key",
+      apiKey: entry.base_url.startsWith("bedrock://") ? "test-access,test-secret" : "test-key",
       baseUrl: entry.base_url,
       clientType: entry.client,
     });
