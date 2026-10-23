@@ -3,6 +3,7 @@
 - **Date:** 2026-10-23
 - **Type:** process
 - **Scope:** `site`
+- **PR:** [#289](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/289)
 
 [English](2026-10-23-configuration-docs.md)
 
