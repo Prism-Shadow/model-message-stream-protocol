@@ -230,6 +230,33 @@ export function ago(iso: string, locale: string): string {
   return format.format(0, "minute");
 }
 
+// when status.yml runs the probe: one fixed UTC time a day, its only cron being "M H * * *"; null
+// for any other schedule, which the page then does not try to predict
+export interface DailySchedule {
+  hour: number;
+  minute: number;
+}
+
+export function dailySchedule(workflow: string): DailySchedule | null {
+  const crons = [...workflow.matchAll(/^\s*-?\s*cron:\s*(.*)$/gm)].map((match) =>
+    match[1]
+      .replace(/\s+#.*$/, "")
+      .trim()
+      .replace(/^(["'])(.*)\1$/, "$2"),
+  );
+  if (crons.length !== 1) return null;
+  const fields = crons[0].split(/\s+/);
+  if (fields.length !== 5 || fields.slice(2).some((field) => field !== "*") || !fields.slice(0, 2).every((field) => /^\d{1,2}$/.test(field))) return null;
+  const [minute, hour] = fields.map(Number);
+  return minute < 60 && hour < 24 ? { hour, minute } : null;
+}
+
+// the first time the schedule comes round after `now`
+export function nextRun({ hour, minute }: DailySchedule, now = new Date()): Date {
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hour, minute);
+  return new Date(today > now.getTime() ? today : today + 86_400_000);
+}
+
 // today's UTC date, as history.json names its days
 export function todayUtc(): string {
   return new Date().toISOString().slice(0, 10);

@@ -1,7 +1,8 @@
 ---
 // The status page's body, modeled on status.openai.com: one card whose head band takes the colour
 // of the worst status of every channel the daily probe watches, its icon and its words; under the
-// band when the probe last checked, Run a check now and the month's probe cost. Then a pager that
+// band when the probe last checked and when status.yml runs it next, Run a check now and the
+// month's probe cost. Then a pager that
 // moves the window of days shown back and forth, a switch of its length (7, 30 or 90, kept for the
 // next visit), and one block per channel: a head line with its state icon, vendor, model, provider,
 // TTFT, TPS, cost and uptime over the window, and under it one bar per day, each of which opens a
@@ -14,7 +15,7 @@
 // run and redraws itself from the commit it publishes. Marks point into the page's MarkSprite.
 import { STRINGS, type Locale } from "../shared/i18n";
 import { MARKS } from "../shared/marks";
-import { STATUS_WORKFLOW_URL, todayUtc, windowDays } from "../shared/status";
+import { STATUS_WORKFLOW_URL, dailySchedule, todayUtc, windowDays } from "../shared/status";
 import { statusAtBuild } from "../shared/status-build";
 
 interface Props {
@@ -47,9 +48,18 @@ const bakedHistory = baked.history && {
 // choice
 const RANGES = [7, 30, 90] as const;
 const DEFAULT_RANGE = 90;
+// when the probe runs next comes from the workflow itself, so the page never drifts from it
+const workflow = Object.values(import.meta.glob<string>("../../../.github/workflows/status.yml", { query: "?raw", import: "default", eager: true }))[0];
+const schedule = workflow ? dailySchedule(workflow) : null;
 ---
 
-<section class:list={["status-page", className]} data-status-board data-words={JSON.stringify(words)} data-tones={JSON.stringify(tones)}>
+<section
+  class:list={["status-page", className]}
+  data-status-board
+  data-words={JSON.stringify(words)}
+  data-tones={JSON.stringify(tones)}
+  data-schedule={schedule ? JSON.stringify(schedule) : undefined}
+>
   <h1 class="sr-only">{s.status.title}</h1>
   <script type="application/json" data-status-baked set:html={JSON.stringify({ ...baked, history: bakedHistory }).replaceAll("<", "\\u003c")} />
   <div class="status-card overflow-hidden rounded-xl border" data-status-overall>
@@ -60,7 +70,11 @@ const DEFAULT_RANGE = 90;
     <div class="flex flex-wrap items-start justify-between gap-x-8 gap-y-4 px-5 py-4 sm:px-6">
       <div class="min-w-0">
         <p class="text-[13px] text-gray-500 dark:text-gray-400" data-status-checked hidden>
-          <a class="underline decoration-gray-300 underline-offset-4 hover:text-gray-900 dark:decoration-gray-600 dark:hover:text-gray-100"></a>
+          <a
+            target="_blank"
+            rel="noreferrer"
+            class="underline decoration-gray-300 underline-offset-4 hover:text-gray-900 dark:decoration-gray-600 dark:hover:text-gray-100"
+          ></a><span data-status-next hidden><span class="mx-1.5 text-gray-300 dark:text-gray-600" aria-hidden="true">·</span><span data-status-next-text></span></span>
         </p>
         <p class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
           <a
@@ -129,6 +143,7 @@ const DEFAULT_RANGE = 90;
     loadHistoryYear,
     loadLatest,
     loadMonthly,
+    nextRun,
     statusCommitBase,
     statusHead,
     statusQuery,
@@ -139,6 +154,7 @@ const DEFAULT_RANGE = 90;
     todayUtc,
     windowDays,
     withCurrentKeys,
+    type DailySchedule,
     type Day,
     type History,
     type HistoryYear,
@@ -160,6 +176,7 @@ const DEFAULT_RANGE = 90;
     locale: string;
     overall: Record<Status | "allDown" | "none", string>;
     checked: string;
+    next: string;
     month: string;
     run: string;
     runs: string;
@@ -569,9 +586,30 @@ const DEFAULT_RANGE = 90;
       drawWindow();
     });
 
+    // ---------- when the probe last checked, and when it runs next by the workflow's schedule; both
+    // are relative times, said again every minute. GitHub may start a scheduled run late, so for a
+    // while after the hour the next time named is tomorrow's even before today's run has landed.
+    const checkedLine = board.querySelector<HTMLElement>("[data-status-checked]")!;
+    const checkedRun = checkedLine.querySelector("a")!;
+    const nextItem = checkedLine.querySelector<HTMLElement>("[data-status-next]")!;
+    const nextText = nextItem.querySelector<HTMLElement>("[data-status-next-text]")!;
+    const schedule = board.dataset.schedule ? (JSON.parse(board.dataset.schedule) as DailySchedule) : null;
+    const localTime = new Intl.DateTimeFormat(words.locale, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+    let checkedAt: string | undefined;
+    const tick = () => {
+      if (!checkedAt) return;
+      checkedRun.textContent = words.checked.replace("{ago}", ago(checkedAt, words.locale));
+      if (!schedule) return;
+      const next = nextRun(schedule);
+      nextText.textContent = words.next.replace("{in}", ago(next.toISOString(), words.locale));
+      nextItem.title = localTime.format(next);
+      nextItem.hidden = false;
+    };
+    window.setInterval(tick, 60_000);
+
     // the board as one set of files draws it: the build's at once, the branch's when it holds a
     // newer run, and again when a check run by hand lands
-    const render = (latest: Latest | null, historyData: History | null, monthly: Monthly | null) => {
+    const render =(latest: Latest | null, historyData: History | null, monthly: Monthly | null) => {
       shown = latest;
       rolling = historyData;
       shownMonthly = monthly;
@@ -596,11 +634,10 @@ const DEFAULT_RANGE = 90;
       if (!latest) return updatePager();
 
       const stamps = targets.map(([, target]) => target.checked_at).filter((stamp): stamp is string => Boolean(stamp)).sort();
-      const checked = board.querySelector<HTMLElement>("[data-status-checked]")!;
-      const run = checked.querySelector("a")!;
-      run.textContent = words.checked.replace("{ago}", ago(stamps.at(-1) ?? latest.generated_at, words.locale));
-      run.href = STATUS_RUN_URL + latest.run_id;
-      checked.hidden = false;
+      checkedAt = stamps.at(-1) ?? latest.generated_at;
+      checkedRun.href = STATUS_RUN_URL + latest.run_id;
+      checkedLine.hidden = false;
+      tick();
 
       const current = thisMonth();
       const month = monthly?.months[current];
