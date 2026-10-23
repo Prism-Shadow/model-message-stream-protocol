@@ -20,6 +20,7 @@ import type {
   ChatCompletionCreateParamsStreaming,
 } from "openai/resources/chat/completions";
 import { LLMClient } from "../baseClient";
+import { CLIENT_CREDENTIALS } from "../credentials";
 import { UnsupportedParameterError } from "../errors";
 import {
   EventContentItem,
@@ -34,6 +35,7 @@ import {
 } from "../types";
 import {
   fixOpenrouterUsageMetadata,
+  openaiClientOptions,
   openaiImageDetail,
   resolveCredentials,
 } from "../utils";
@@ -63,10 +65,21 @@ export class OpenaiChatClient extends LLMClient {
       new.target.clientType,
       options,
     );
+    // The OpenAI SDK fills a key and an endpoint it is not handed from OPENAI_API_KEY and
+    // OPENAI_BASE_URL, and sends a key with every request. So the SDK is handed this client type's
+    // own default endpoint, and a client of an open server with no key sends the placeholder EMPTY,
+    // as vLLM's docs do for a server started without --api-key.
+    const { defaultBaseUrl, openServer } =
+      CLIENT_CREDENTIALS[new.target.clientType];
+    const sdkKey = key ?? (openServer ? "EMPTY" : undefined);
     this._client = new OpenAI({
-      apiKey: key,
-      baseURL: url,
-      defaultHeaders: options.defaultHeaders,
+      apiKey: sdkKey,
+      baseURL: url || defaultBaseUrl,
+      ...openaiClientOptions(new.target.clientType, {
+        baseUrl: options.baseUrl,
+        apiKey: sdkKey,
+        defaultHeaders: options.defaultHeaders,
+      }),
     });
   }
 
@@ -222,6 +235,7 @@ export class OpenaiChatClient extends LLMClient {
       const toolCalls: any[] = [];
       let thinking = "";
       const thinkingFields = new Set<string | undefined>();
+      const reasoningDetails: Record<string, unknown>[] = [];
 
       for (const item of msg.content_items) {
         if (item.type === "text.done") {
@@ -236,6 +250,7 @@ export class OpenaiChatClient extends LLMClient {
           thinking += item.thinking;
           thinkingFields.add(item.fidelity?.reasoning_field);
           if (item.thinking) replayFields.add(item.fidelity?.reasoning_field);
+          reasoningDetails.push(...(item.fidelity?.reasoning_details ?? []));
         } else if (item.type === "tool_call.done") {
           toolCalls.push({
             id: item.tool_call_id,
@@ -303,6 +318,13 @@ export class OpenaiChatClient extends LLMClient {
         }
       }
 
+      // OpenRouter hands the model its encrypted reasoning or thought signature
+      // only from the fragments it sent; without them it accepts the turn and
+      // drops the reasoning
+      if (reasoningDetails.length > 0) {
+        message.reasoning_details = reasoningDetails;
+      }
+
       if (Object.keys(message).length > 1) {
         openaiMessages.push(message);
       }
@@ -339,7 +361,33 @@ export class OpenaiChatClient extends LLMClient {
       const reasoningContent = (delta as any)?.reasoning_content;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const reasoning = (delta as any)?.reasoning;
-      if (reasoningContent && reasoning) {
+      // OpenRouter streams the reasoning as reasoning_details fragments and
+      // mirrors their text in `reasoning`. A summary or text fragment is the
+      // thinking text; the one reasoning.encrypted fragment, GPT's encrypted
+      // reasoning or Gemini's thought signature, arrives whole and is taken
+      // back only as received, so it is the item's fidelity.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const reasoningDetails = (delta as any)?.reasoning_details;
+      if (reasoningDetails?.length) {
+        for (const fragment of reasoningDetails) {
+          if (fragment.type === "reasoning.encrypted") {
+            contentItems.push({
+              type: "thinking.delta",
+              thinking: "",
+              fidelity: {
+                item_id: "reasoning_details",
+                reasoning_details: [fragment],
+              },
+            });
+          } else {
+            contentItems.push({
+              type: "thinking.delta",
+              thinking: fragment.summary || fragment.text || "",
+              fidelity: { item_id: "reasoning_details" },
+            });
+          }
+        }
+      } else if (reasoningContent && reasoning) {
         // ambiguous origin: record no reasoning_field so a replay sends both fields back
         contentItems.push({
           type: "thinking.delta",

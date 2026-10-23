@@ -19,7 +19,7 @@ from openai import AsyncOpenAI
 from ..base_client import LLMClient
 from ..errors import UnsupportedParameterError
 from ..types import UniConfig, UniEvent, UniMessage
-from ..utils import resolve_credentials
+from ..utils import openai_client_options, resolve_credentials
 
 
 class OpenaiEmbeddingClient(LLMClient):
@@ -34,8 +34,12 @@ class OpenaiEmbeddingClient(LLMClient):
     ):
         """Initialize OpenAI-compatible embedding client with model, API key, and base URL."""
         self._model = model
-        api_key, base_url = resolve_credentials(self.__class__.__name__, "openai-embedding", api_key, base_url)
-        self._client = AsyncOpenAI(api_key=api_key, base_url=base_url, default_headers=default_headers)
+        key, url = resolve_credentials(self.__class__.__name__, "openai-embedding", api_key, base_url)
+        self._client = AsyncOpenAI(
+            api_key=key,
+            base_url=url,
+            **openai_client_options("openai-embedding", base_url, key, default_headers),
+        )
         self._history: list[UniMessage] = []
 
     def transform_uni_config_to_model_config(self, config: UniConfig) -> dict[str, Any]:

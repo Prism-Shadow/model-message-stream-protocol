@@ -265,3 +265,29 @@ async def test_generate_content_replay_signs_the_first_call_of_an_unsigned_turn_
         ],
         [{**call("call_3"), "thought_signature": signature}],
     ]
+
+
+# Claude takes a thinking block back only with the signature it issued: one without a signature is
+# rejected with a 400, while a turn whose thinking is left out is accepted with the answer intact,
+# the way the API drops blocks the model cannot read itself (verified live 2026-10-19 on Sonnet,
+# Haiku and Opus 5.5, in the last turn and in an earlier one).
+@pytest.mark.asyncio
+async def test_claude_replay_drops_a_thinking_item_without_a_signature():
+    client = AutoLLMClient(model="claude-sonnet-5-5", api_key="test-key")
+    assert client._client.__class__.__name__ == "AnthropicOfficialClient"  # noqa: SLF001
+    history = [
+        _user_text(),
+        _assistant(_thinking_item(THINKING, "reasoning_content"), _tool_call_item("call_1")),
+        _tool_results("call_1"),
+        _assistant({**_thinking_item("Now London."), "fidelity": {"signature": "sig-2"}}, _tool_call_item("call_2")),
+        _tool_results("call_2"),
+    ]
+
+    unsigned, signed = _assistant_messages(await _transform_history(client, history))
+    assert unsigned["content"] == [
+        {"type": "tool_use", "id": "call_1", "name": "get_weather", "input": {"city": "Paris"}}
+    ]
+    assert signed["content"] == [
+        {"type": "thinking", "thinking": "Now London.", "signature": "sig-2"},
+        {"type": "tool_use", "id": "call_2", "name": "get_weather", "input": {"city": "Paris"}},
+    ]

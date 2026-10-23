@@ -303,7 +303,11 @@ export class GoogleOfficialClient extends LLMClient {
     if (this._model.toLowerCase().includes("tts")) {
       const ttsConfig = config.tts_config ?? [{ voice: "Kore" }];
       if (![1, 2].includes(ttsConfig.length)) {
-        throw new Error("tts_config must contain 1 or 2 entries.");
+        throw new UnsupportedParameterError({
+          client: this.constructor.name,
+          parameter: "tts_config",
+          message: `Gemini TTS does not support ${ttsConfig.length} speakers; tts_config takes 1 or 2 entries.`,
+        });
       }
 
       geminiConfig.response_format = { type: "audio" };
@@ -312,9 +316,12 @@ export class GoogleOfficialClient extends LLMClient {
           ? [{ voice: ttsConfig[0].voice }]
           : ttsConfig.map((speakerConfig) => {
               if (!speakerConfig.speaker) {
-                throw new Error(
-                  "speaker is required when tts_config has 2 entries.",
-                );
+                throw new UnsupportedParameterError({
+                  client: this.constructor.name,
+                  parameter: "tts_config",
+                  message:
+                    "Gemini TTS does not support a two-speaker tts_config without a speaker on each entry.",
+                });
               }
               return {
                 speaker: speakerConfig.speaker,

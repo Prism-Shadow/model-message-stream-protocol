@@ -22,6 +22,7 @@ from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionChunk, ChatCompletionMessageParam
 
 from ..base_client import LLMClient
+from ..credentials import CLIENT_CREDENTIALS
 from ..errors import UnsupportedParameterError
 from ..types import (
     EventContentItem,
@@ -34,7 +35,7 @@ from ..types import (
     UniMessage,
     UsageMetadata,
 )
-from ..utils import fix_openrouter_usage_metadata, openai_image_detail, resolve_credentials
+from ..utils import fix_openrouter_usage_metadata, openai_client_options, openai_image_detail, resolve_credentials
 
 
 class OpenaiChatClient(LLMClient):
@@ -52,8 +53,18 @@ class OpenaiChatClient(LLMClient):
     ):
         """Initialize OpenAI-compatible chat client with model, API key, and base URL."""
         self._model = model
-        api_key, base_url = resolve_credentials(self.__class__.__name__, self._CLIENT_TYPE, api_key, base_url)
-        self._client = AsyncOpenAI(api_key=api_key, base_url=base_url, default_headers=default_headers)
+        key, url = resolve_credentials(self.__class__.__name__, self._CLIENT_TYPE, api_key, base_url)
+        # The OpenAI SDK fills a key and an endpoint it is handed as None from OPENAI_API_KEY and
+        # OPENAI_BASE_URL, and sends a key with every request. So the SDK is handed this client type's
+        # own default endpoint, and a client of an open server with no key sends the placeholder EMPTY,
+        # as vLLM's docs do for a server started without --api-key.
+        credentials = CLIENT_CREDENTIALS[self._CLIENT_TYPE]
+        sdk_key = key or ("EMPTY" if credentials.open_server else None)
+        self._client = AsyncOpenAI(
+            api_key=sdk_key,
+            base_url=url or credentials.default_base_url,
+            **openai_client_options(self._CLIENT_TYPE, base_url, sdk_key, default_headers),
+        )
         self._history: list[UniMessage] = []
 
     async def _convert_image_url_to_base64(self, url: str) -> str:
@@ -158,6 +169,7 @@ class OpenaiChatClient(LLMClient):
             tool_calls = []  # may be empty for no tool calls
             thinking = ""
             thinking_fields: set[str | None] = set()
+            reasoning_details: list[dict[str, Any]] = []
             for item in msg["content_items"]:
                 if item["type"] == "text.done":
                     content_parts.append({"type": "text", "text": item["text"]})
@@ -169,6 +181,7 @@ class OpenaiChatClient(LLMClient):
                     thinking_fields.add((item.get("fidelity") or {}).get("reasoning_field"))
                     if item["thinking"]:
                         replay_fields.add((item.get("fidelity") or {}).get("reasoning_field"))
+                    reasoning_details.extend((item.get("fidelity") or {}).get("reasoning_details", []))
                 elif item["type"] == "tool_call.done":
                     tool_calls.append(
                         {
@@ -226,6 +239,11 @@ class OpenaiChatClient(LLMClient):
                     message["reasoning_content"] = thinking  # vLLM & siliconflow compatibility
                     message["reasoning"] = thinking  # openrouter compatibility
 
+            # OpenRouter hands the model its encrypted reasoning or thought signature only from the
+            # fragments it sent; without them it accepts the turn and drops the reasoning
+            if reasoning_details:
+                message["reasoning_details"] = reasoning_details
+
             # message may be empty for tool results
             if len(message.keys()) > 1:
                 openai_messages.append(message)
@@ -262,7 +280,30 @@ class OpenaiChatClient(LLMClient):
             # goes before the content because a chunk may end the reasoning and begin the answer.
             reasoning_content = getattr(delta, "reasoning_content", None)
             reasoning = getattr(delta, "reasoning", None)
-            if reasoning_content and reasoning:
+            # OpenRouter streams the reasoning as reasoning_details fragments and mirrors their text
+            # in `reasoning`. A summary or text fragment is the thinking text; the one
+            # reasoning.encrypted fragment, GPT's encrypted reasoning or Gemini's thought signature,
+            # arrives whole and is taken back only as received, so it is the item's fidelity.
+            reasoning_details = getattr(delta, "reasoning_details", None)
+            if reasoning_details:
+                for fragment in reasoning_details:
+                    if fragment["type"] == "reasoning.encrypted":
+                        content_items.append(
+                            {
+                                "type": "thinking.delta",
+                                "thinking": "",
+                                "fidelity": {"item_id": "reasoning_details", "reasoning_details": [fragment]},
+                            }
+                        )
+                    else:
+                        content_items.append(
+                            {
+                                "type": "thinking.delta",
+                                "thinking": fragment.get("summary") or fragment.get("text") or "",
+                                "fidelity": {"item_id": "reasoning_details"},
+                            }
+                        )
+            elif reasoning_content and reasoning:
                 # ambiguous origin: record no reasoning_field so a replay sends both fields back
                 content_items.append(
                     {

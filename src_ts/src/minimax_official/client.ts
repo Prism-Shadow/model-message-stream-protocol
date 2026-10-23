@@ -32,7 +32,11 @@ import {
   UniMessage,
   UsageMetadata,
 } from "../types";
-import { isDebugEnabled, resolveCredentials } from "../utils";
+import {
+  isDebugEnabled,
+  openaiClientOptions,
+  resolveCredentials,
+} from "../utils";
 
 type MiniMaxReasoningEffort =
   | "none"
@@ -68,7 +72,11 @@ export class MiniMaxOfficialClient extends LLMClient {
     this._client = new OpenAI({
       apiKey,
       baseURL: baseUrl || CLIENT_CREDENTIALS["minimax-official"].defaultBaseUrl,
-      defaultHeaders: options.defaultHeaders,
+      ...openaiClientOptions("minimax-official", {
+        baseUrl: options.baseUrl,
+        apiKey,
+        defaultHeaders: options.defaultHeaders,
+      }),
     });
   }
 
@@ -351,7 +359,9 @@ export class MiniMaxOfficialClient extends LLMClient {
         completed: "stop",
         incomplete: "length",
       };
-      finishReason = finishReasonMapping[response.status ?? ""] ?? "unknown";
+      if (response.status) {
+        finishReason = finishReasonMapping[response.status] ?? "unknown";
+      }
 
       if (response.usage) {
         // MiniMax drops the detail blocks on truncated responses, so default them to zero.

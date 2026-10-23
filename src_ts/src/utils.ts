@@ -46,8 +46,8 @@ export function fixOpenrouterUsageMetadata(
  * The key and the endpoint a client is built with; every client resolves them here. A key passed
  * in is used, with the base URL passed in, else `<P>_BASE_URL`. Without one, environmentCredential
  * decides: the environment's key is read for the endpoint the environment names or for the
- * client's default endpoint, any other base URL is refused, and the `mmsp` client calls an open
- * server keyless.
+ * client's default endpoint, any other base URL is refused, and a client of an open server (`mmsp`,
+ * `openai-chat-vllm-adapter`) calls it keyless.
  *
  * @param client - The client's class name, for the error
  * @param clientType - The client type whose row of CLIENT_CREDENTIALS the client reads
@@ -81,6 +81,73 @@ export function resolveCredentials(
     clientType,
     baseUrl: options.baseUrl as string,
   });
+}
+
+/** The options openaiClientOptions hands the OpenAI SDK besides the key and the endpoint. */
+export interface OpenaiEnvironmentOptions {
+  organization?: null;
+  project?: null;
+  adminAPIKey?: null;
+  webhookSecret?: null;
+  defaultHeaders?: Record<string, string | null>;
+}
+
+// The names of the headers OPENAI_CUSTOM_HEADERS lists, one `Name: value` per line, as the OpenAI SDK
+// parses the variable.
+function openaiEnvironmentHeaderNames(): string[] {
+  return (process.env.OPENAI_CUSTOM_HEADERS || "")
+    .split("\n")
+    .filter((line) => line.includes(":"))
+    .map((line) => line.substring(0, line.indexOf(":")).trim());
+}
+
+/**
+ * The options besides its key and its endpoint that a client hands the OpenAI SDK. The SDK fills
+ * what it is not handed from OpenAI's environment: the organization (OPENAI_ORG_ID), the project
+ * (OPENAI_PROJECT_ID), the admin key (OPENAI_ADMIN_KEY), the webhook secret (OPENAI_WEBHOOK_SECRET),
+ * and every header OPENAI_CUSTOM_HEADERS lists. Like OPENAI_API_KEY, all of it goes only where the
+ * environment's key goes: to the endpoint of an OpenAI client handed no base URL or OpenAI's own
+ * default endpoint (environmentCredential says `env`). For any other endpoint (a gateway, a vLLM
+ * server, another vendor's API) each is handed explicitly so that none is sent: null for the four
+ * options and for each header the variable lists, except an Authorization header, which would
+ * replace the client's own key and is handed that key instead. The headers passed to the client
+ * win over both.
+ *
+ * @param clientType - The client type whose row of CLIENT_CREDENTIALS the client reads
+ * @param options - The base URL passed to the client, the key it builds the SDK with, and the
+ *   headers passed to it
+ * @returns The options to spread into the OpenAI SDK's
+ */
+export function openaiClientOptions(
+  clientType: string,
+  options: {
+    baseUrl?: string | null;
+    apiKey?: string;
+    defaultHeaders?: Record<string, string>;
+  },
+): OpenaiEnvironmentOptions {
+  const credential = environmentCredential(clientType, options.baseUrl);
+  if (
+    CLIENT_CREDENTIALS[clientType].apiKeyEnv === "OPENAI_API_KEY" &&
+    credential?.kind === "env"
+  ) {
+    return { defaultHeaders: options.defaultHeaders };
+  }
+  const environmentHeaders = Object.fromEntries(
+    openaiEnvironmentHeaderNames().map((name) => [
+      name,
+      name.toLowerCase() === "authorization" && options.apiKey
+        ? `Bearer ${options.apiKey}`
+        : null,
+    ]),
+  );
+  return {
+    organization: null,
+    project: null,
+    adminAPIKey: null,
+    webhookSecret: null,
+    defaultHeaders: { ...environmentHeaders, ...options.defaultHeaders },
+  };
 }
 
 /**

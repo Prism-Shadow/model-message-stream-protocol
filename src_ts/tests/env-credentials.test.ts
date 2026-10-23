@@ -12,7 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { afterEach, beforeEach, describe, expect, test } from "@jest/globals";
+import http from "http";
+import { AddressInfo } from "net";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+} from "@jest/globals";
 import { ApiKeyRequiredError, AutoLLMClient } from "../src";
 import {
   CLIENT_CREDENTIALS,
@@ -22,9 +32,10 @@ import {
 } from "../src/credentials";
 
 // Each case builds a client under a controlled environment and reads the credential its vendor
-// SDK instance ends up holding; nothing here reaches the network. The OpenAI and Anthropic SDKs
-// fill every credential they are not handed from their own environment variables, so a client
-// that hands them undefined sends whatever those variables hold to its own host.
+// SDK instance ends up holding; nothing here reaches the network, and the cases at the end read
+// what a request to a local server actually carries. The OpenAI and Anthropic SDKs fill every
+// credential they are not handed from their own environment variables, so a client that hands
+// them undefined sends whatever those variables hold to its own host.
 
 const CREDENTIAL_ENV = [
   "CLIENT_TYPE",
@@ -48,6 +59,13 @@ const CREDENTIAL_ENV = [
   "GOOGLE_GEMINI_BASE_URL",
   "MMSP_API_KEY",
   "MMSP_BASE_URL",
+  "VLLM_API_KEY",
+  "VLLM_BASE_URL",
+  "OPENAI_ORG_ID",
+  "OPENAI_PROJECT_ID",
+  "OPENAI_ADMIN_KEY",
+  "OPENAI_WEBHOOK_SECRET",
+  "OPENAI_CUSTOM_HEADERS",
 ];
 
 let savedEnv: Record<string, string | undefined> = {};
@@ -515,6 +533,255 @@ describe("MmspClient credentials", () => {
     expect(mmspCredentialOf(client)).toEqual({
       authorization: undefined,
       baseUrl: "http://127.0.0.1:25752/v1",
+    });
+  });
+});
+
+// The vLLM adapter, which VLLM_API_KEY and VLLM_BASE_URL belong to. vLLM serves without a key
+// unless it is started with one, so the adapter calls its server keyless when it has none, with
+// the placeholder EMPTY because the OpenAI SDK sends a key with every request.
+describe("OpenaiChatVllmAdapterClient credentials", () => {
+  const model = "Qwen/Qwen3.6-35B-A3B";
+  const clientType = "openai-chat-vllm-adapter";
+
+  beforeEach(() => {
+    process.env.OPENAI_API_KEY = "sk-openai-PROBE";
+    process.env.OPENAI_BASE_URL = "https://openai-env.example/v1";
+  });
+
+  test("without a key or a base URL, calls the local vLLM server keyless and reads nothing of OpenAI's", () => {
+    const client = new AutoLLMClient({ model, clientType });
+
+    expect(environmentCredential(clientType)).toEqual({
+      kind: "env",
+      apiKeyEnv: "VLLM_API_KEY",
+      baseUrlEnv: "VLLM_BASE_URL",
+    });
+    expect(openaiCredentialOf(client)).toEqual({
+      apiKey: "EMPTY",
+      baseURL: "http://127.0.0.1:8000/v1",
+    });
+  });
+
+  test("with VLLM_API_KEY set and no base URL, sends it to the local vLLM server", () => {
+    process.env.VLLM_API_KEY = "vllm-env-PROBE";
+
+    const client = new AutoLLMClient({ model, clientType });
+
+    expect(openaiCredentialOf(client)).toEqual({
+      apiKey: "vllm-env-PROBE",
+      baseURL: "http://127.0.0.1:8000/v1",
+    });
+  });
+
+  test("with a base URL and no key, calls it keyless rather than refusing", () => {
+    process.env.VLLM_API_KEY = "vllm-env-PROBE";
+
+    // VLLM_API_KEY is not sent to an endpoint named in code, the default one included
+    for (const baseUrl of [
+      "https://gpu-box.example/v1",
+      "http://127.0.0.1:8000/v1",
+    ]) {
+      const client = new AutoLLMClient({ model, clientType, baseUrl });
+
+      expect(environmentCredential(clientType, baseUrl)).toEqual({
+        kind: "keyless",
+      });
+      expect(openaiCredentialOf(client)).toEqual({
+        apiKey: "EMPTY",
+        baseURL: baseUrl,
+      });
+    }
+  });
+
+  describe("on the wire", () => {
+    let server: http.Server;
+    let origin: string;
+    let authorization: string | undefined;
+
+    beforeAll(async () => {
+      server = http.createServer((req, res) => {
+        authorization = req.headers.authorization;
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ object: "list", data: [{ id: model }] }));
+      });
+      await new Promise<void>((resolve) => {
+        server.listen(0, "127.0.0.1", resolve);
+      });
+      origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    });
+
+    afterAll(async () => {
+      await new Promise<void>((resolve) => {
+        server.close(() => resolve());
+      });
+    });
+
+    beforeEach(() => {
+      authorization = undefined;
+    });
+
+    test("the server VLLM_BASE_URL names is sent the placeholder, not OPENAI_API_KEY", async () => {
+      process.env.VLLM_BASE_URL = `${origin}/v1`;
+
+      const client = new AutoLLMClient({ model, clientType });
+
+      await expect(client.listModels()).resolves.toEqual([model]);
+      expect(authorization).toBe("Bearer EMPTY");
+    });
+
+    test("the server VLLM_BASE_URL names is sent VLLM_API_KEY when it is set", async () => {
+      process.env.VLLM_BASE_URL = `${origin}/v1`;
+      process.env.VLLM_API_KEY = "vllm-env-PROBE";
+
+      const client = new AutoLLMClient({ model, clientType });
+
+      await expect(client.listModels()).resolves.toEqual([model]);
+      expect(authorization).toBe("Bearer vllm-env-PROBE");
+    });
+
+    test("a base URL passed without a key is sent the placeholder, not VLLM_API_KEY", async () => {
+      process.env.VLLM_API_KEY = "vllm-env-PROBE";
+
+      const client = new AutoLLMClient({
+        model,
+        clientType,
+        baseUrl: `${origin}/v1`,
+      });
+
+      await expect(client.listModels()).resolves.toEqual([model]);
+      expect(authorization).toBe("Bearer EMPTY");
+    });
+  });
+});
+
+// The rest of OpenAI's environment: the OpenAI SDK fills the organization, the project, the admin
+// key and the webhook secret it is not handed from OPENAI_ORG_ID, OPENAI_PROJECT_ID,
+// OPENAI_ADMIN_KEY and OPENAI_WEBHOOK_SECRET, and adds every header OPENAI_CUSTOM_HEADERS lists.
+// Like the key, it goes only to the endpoint the environment's key goes to.
+describe("OpenAI's environment beyond the key", () => {
+  let server: http.Server;
+  let origin: string;
+  let received: http.IncomingHttpHeaders | undefined;
+
+  beforeAll(async () => {
+    server = http.createServer((req, res) => {
+      received = req.headers;
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ object: "list", data: [{ id: "m1" }] }));
+    });
+    await new Promise<void>((resolve) => {
+      server.listen(0, "127.0.0.1", resolve);
+    });
+    origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  });
+
+  afterAll(async () => {
+    await new Promise<void>((resolve) => {
+      server.close(() => resolve());
+    });
+  });
+
+  beforeEach(() => {
+    received = undefined;
+    process.env.OPENAI_ORG_ID = "org-env-PROBE";
+    process.env.OPENAI_PROJECT_ID = "proj-env-PROBE";
+    process.env.OPENAI_ADMIN_KEY = "admin-env-PROBE";
+    process.env.OPENAI_WEBHOOK_SECRET = "whsec-env-PROBE";
+  });
+
+  // What reached the server of OpenAI's environment, and the key that came with it.
+  async function sent(client: AutoLLMClient) {
+    await client.listModels();
+    expect(received).toBeDefined();
+    const headers = received as http.IncomingHttpHeaders;
+    return {
+      authorization: headers.authorization,
+      organization: headers["openai-organization"],
+      project: headers["openai-project"],
+      custom: headers["x-env-probe"],
+    };
+  }
+
+  // Every client built on the OpenAI SDK, at an endpoint that is not OpenAI's default one.
+  test.each([
+    ["openai-official", "gpt-6-astra"],
+    ["openai-responses", "gpt-5.6"],
+    ["openai-chat", "gpt-5.6"],
+    ["openai-embedding", "text-embedding-3-large"],
+    ["deepseek-official", "deepseek-v4-flash"],
+    ["zai-official", "glm-5.3"],
+    ["moonshot-official", "kimi-k3"],
+    ["minimax-official", "MiniMax-M3"],
+  ])(
+    "%s at another endpoint sends none of it, and an Authorization header in OPENAI_CUSTOM_HEADERS does not replace its key",
+    async (clientType, model) => {
+      process.env.OPENAI_CUSTOM_HEADERS =
+        "X-Env-Probe: from-env\nAuthorization: Bearer env-auth-PROBE";
+
+      const client = new AutoLLMClient({
+        model,
+        clientType,
+        apiKey: "sk-explicit-PROBE",
+        baseUrl: `${origin}/v1`,
+      });
+
+      expect(await sent(client)).toEqual({
+        authorization: "Bearer sk-explicit-PROBE",
+        organization: undefined,
+        project: undefined,
+        custom: undefined,
+      });
+    },
+  );
+
+  test("the vLLM adapter calls its server keyless with none of it", async () => {
+    process.env.OPENAI_CUSTOM_HEADERS = "X-Env-Probe: from-env";
+
+    const client = new AutoLLMClient({
+      model: "Qwen/Qwen3.6-35B-A3B",
+      clientType: "openai-chat-vllm-adapter",
+      baseUrl: `${origin}/v1`,
+    });
+
+    expect(await sent(client)).toEqual({
+      authorization: "Bearer EMPTY",
+      organization: undefined,
+      project: undefined,
+      custom: undefined,
+    });
+  });
+
+  test("another vendor's client at the endpoint its own variable names sends none of it", async () => {
+    process.env.OPENAI_CUSTOM_HEADERS = "X-Env-Probe: from-env";
+    process.env.DEEPSEEK_API_KEY = "sk-deepseek-PROBE";
+    process.env.DEEPSEEK_BASE_URL = `${origin}/v1`;
+
+    const client = new AutoLLMClient({ model: "deepseek-v4-flash" });
+
+    expect(await sent(client)).toEqual({
+      authorization: "Bearer sk-deepseek-PROBE",
+      organization: undefined,
+      project: undefined,
+      custom: undefined,
+    });
+  });
+
+  test("an OpenAI client at the endpoint OpenAI's environment names still sends all of it", async () => {
+    process.env.OPENAI_CUSTOM_HEADERS = "X-Env-Probe: from-env";
+    process.env.OPENAI_API_KEY = "sk-env-PROBE";
+    process.env.OPENAI_BASE_URL = `${origin}/v1`;
+
+    const client = new AutoLLMClient({
+      model: "gpt-5.6",
+      clientType: "openai-chat",
+    });
+
+    expect(await sent(client)).toEqual({
+      authorization: "Bearer sk-env-PROBE",
+      organization: "org-env-PROBE",
+      project: "proj-env-PROBE",
+      custom: "from-env",
     });
   });
 });

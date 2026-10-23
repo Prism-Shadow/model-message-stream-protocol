@@ -18,6 +18,7 @@ MMSP 统一将这些数据存放在内容项的 `fidelity` 字段中。
 | OpenAI Responses | `thinking.done` | 推理所在的 `channel`、`encrypted_content`，以及服务端要求返回的其他数据 |
 | OpenAI Responses | `text.done` | 消息的 `phase` |
 | Chat Completions | `thinking.done` | 服务端使用的 `reasoning_field`：`reasoning_content` 或 `reasoning` |
+| OpenRouter 上的 Chat Completions | `thinking.done` | 原样保存的加密 `reasoning_details` 片段：GPT 加密的推理内容或 Gemini 的思考签名 |
 | Gemini | 任何内容项 | 思考 `signature` |
 
 ## 使用规则
