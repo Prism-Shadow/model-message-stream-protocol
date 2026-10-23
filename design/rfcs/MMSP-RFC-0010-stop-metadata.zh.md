@@ -21,7 +21,7 @@
 [rule]: #rule
 
 - 客户端的 `stop` 事件在线上报告用量和结束原因的地方携带它们，可以分几次携带；基类把这些部分逐字段合并进唯一的公开 `stop`，后到的计数替换先到的（[MMSP-RFC-0003](MMSP-RFC-0003-stream-grammar.zh.md)）。服务商不报告的计数为 `None`；不要求任何计数必须是数字。
-- 一次 embedding 请求就是一个 `stop` 事件，携带它的向量、提示词的 token 数，以及值为 `stop` 的 `finish_reason`。
+- embedding 客户端产出一个 `stop` 事件，携带它的向量、提示词的 token 数，以及值为 `stop` 的 `finish_reason`。
 - `IncompleteStreamError` 指明客户端与缺少的一个或多个字段，并携带已经到达的用量或结束原因，好让这些 token 仍能计入。它不是 `StreamProtocolError`，那是客户端的缺陷；也不是 `EmptyResponseError`，那是没有内容的响应。
 - `concat_uni_events_to_uni_message`、有状态的历史与 tracer 把 `stop` 事件的 `usage_metadata` 和 `finish_reason` 复制到助手消息上；调用方手工构建的消息可以两者都不带。
 - `mmsp` 客户端原样转发其服务端的 `stop` 事件；服务端的 `IncompleteStreamError` 以 `UpstreamError` 的形式到达它，带有该 `error_type` 以及这个错误的各个字段。
@@ -29,4 +29,4 @@
 ## Enforced by
 [enforced-by]: #enforced-by
 
-`src_py/mmsp/base_client.py` 中的 `_PublicStream.stop` 与 `src_ts/src/baseClient.ts` 中的 `PublicStream.stop`；`src_py/mmsp/errors.py` / `src_ts/src/errors.ts` 中的 `IncompleteStreamError`，以及它在 `wire.py` / `wire.ts` 中的分支；`src_py/tests/stream_grammar.py` / `src_ts/tests/streamGrammar.ts`，共享的 e2e 测试用它检查每一条流；`test_stream_protocol.py`、`test_empty_response.py`、`test_mmsp_server.py` 及其对应的 Jest 测试。
+`src_py/mmsp/base_client.py` 中的 `_PublicStream.stop` 与 `src_ts/src/baseClient.ts` 中的 `PublicStream.stop`；`src_py/mmsp/errors.py` / `src_ts/src/errors.ts` 中的 `IncompleteStreamError`，以及它在 `wire.py` / `wire.ts` 中的分支；`src_py/tests/stream_grammar.py` / `src_ts/tests/streamGrammar.ts`，共享的 e2e 测试用它检查每一条流；`test_stream_protocol.py`、`test_unknown_events.py`、`test_empty_response.py`、`test_mmsp_server.py` 及其对应的 Jest 测试。

@@ -20,7 +20,7 @@
 ## Rule
 [rule]: #rule
 
-- 两个包发出的请求体相同。SDK 类型参数之外的键走各自 SDK 的通道：OpenAI Python SDK 用 `extra_body`，openai-node 直接放在请求体顶层。
+- 两个包发出的请求体相同。SDK 类型参数之外的键走各自 SDK 的通道：OpenAI 与 Anthropic 的 Python SDK 用 `extra_body`，它们的 TypeScript SDK 直接放在请求体顶层。
 - 共享的 e2e 测试 `src_py/tests/test_client.py` 与 `src_ts/tests/client.test.ts` 是每个客户端都要满足的同一份契约。模型以它在 `.github/ci/models.json` 中的条目进入这些测试，条目写明能力标记与密钥变量。没有共享测试按模型名分支，也没有模型拥有专属的测试文件。
 - 共享测试失败时，除非证明并非如此，都视为客户端有错。任何更大范围的测试改动，都需要项目负责人逐项明确批准。
 - 离开测试模型清单的一代模型仍然受支持，并照常路由（[MMSP-RFC-0004](MMSP-RFC-0004-explicit-routing.zh.md)）。
@@ -28,4 +28,4 @@
 ## Enforced by
 [enforced-by]: #enforced-by
 
-`src_py/tests/` 与 `src_ts/tests/` 下成对的测试文件；`.github/ci/models.json`，两套测试共同读取的唯一模型清单；`.github/ci/plan.py`、`.github/ci/README.md` 与 `.github/workflows/ci.yml`；`test_client.py::test_model_catalog_routes_to_its_client_group` 及其对应的 Jest 测试。
+`src_py/tests/` 与 `src_ts/tests/` 下成对的测试文件，其中 `test_request_body.py` / `request-body.test.ts` 读取 Anthropic 客户端在每条 SDK 版本线上发出的请求体；`.github/ci/models.json`，两套测试共同读取的唯一模型清单；`.github/ci/plan.py`、`.github/ci/README.md` 与 `.github/workflows/ci.yml`；`test_client.py::test_model_catalog_routes_to_its_client_group` 及其对应的 Jest 测试。

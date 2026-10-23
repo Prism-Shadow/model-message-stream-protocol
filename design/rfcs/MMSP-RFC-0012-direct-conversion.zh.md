@@ -20,7 +20,7 @@
 ## Rule
 [rule]: #rule
 
-- 客户端的转换就是 `transform_uni_config_to_model_config`、`transform_uni_message_to_model_input` 与 `transform_model_output_to_uni_event`（`transformUniConfigToModelConfig`，…），而 `_streaming_response_internal` / `_streamingResponseInternal` 是对线上事件的一个简单循环（[MMSP-RFC-0003](MMSP-RFC-0003-stream-grammar.zh.md)）。它的辅助函数只有其参考客户端拥有的那些私有转换方法、图片的获取，以及 `utils`；客户端之间除了经由 `utils` 和基类，不共享任何东西，一个客户端需要另一个客户端已有的东西时就复制过来，这样每个客户端读起来都像对其参考客户端的 diff（Responses 协议的参考是 `openai_official`，Chat Completions 的参考是 `openai_chat`）。
+- 客户端的转换就是 `transform_uni_config_to_model_config`、`transform_uni_message_to_model_input` 与 `transform_model_output_to_uni_event`（`transformUniConfigToModelConfig`，…），而 `_streaming_response_internal` / `_streamingResponseInternal` 是对线上事件的一个简单循环（[MMSP-RFC-0003](MMSP-RFC-0003-stream-grammar.zh.md)）。它的辅助函数只有其参考客户端拥有的那些私有转换方法、图片的获取，以及 `utils`；客户端之间除了经由 `utils` 和基类，或者由适配器继承它所服务协议的客户端、只覆盖其服务端读法不同的部分（如 `openai_chat_vllm_adapter` 之于 `openai_chat`），不共享任何东西；其他客户端需要另一个客户端已有的东西时就复制过来，这样每个客户端读起来都像对其参考客户端的 diff（Responses 协议的参考是 `openai_official`，Chat Completions 的参考是 `openai_chat`）。
 - 转换方法直接读取 SDK 的属性，字段访问、用量计算与错误文本都留在用到它们的地方；只有在内联会淹没主流程时才提取一段代码，绝不为几行代码提取，也绝不写成同时接受 dict 与 SDK 对象的垫片。
 - 每种输入只有一种形状：线上事件是 SDK 的类型，消息只包含 `.done` 内容项，0.5.0 之前记录的历史中的内容项类型在任何转换看到它们之前由 `legacy` 转换，直到 0.6.0 为止；这类历史在内容项内部携带的三种形状，即以 bytes 保存的思考签名、等于函数名的工具调用 id、不带通道的推理内容项，同样读取到 0.6.0 为止。
 - 不带冗余：`StreamItems` 在内容项发出之前去掉 `item_id`；`fidelity` 不存放通用字段的副本，也不存放服务商会重新生成的 id（[MMSP-RFC-0008](MMSP-RFC-0008-minimal-replay.zh.md)）；客户端记录了、却没有任何回传使用的字段要删除，而不是保留。

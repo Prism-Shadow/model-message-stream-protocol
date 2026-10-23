@@ -22,7 +22,7 @@ A replayed turn has to be accepted by the API with the model's behavior intact; 
 
 - This rule says what a replay may carry; [MMSP-RFC-0011](MMSP-RFC-0011-thinking-round-trip.md) says what it must keep, and [MMSP-RFC-0012](MMSP-RFC-0012-direct-conversion.md) that nothing else is kept.
 - In a stream, at most one delta of an item carries its fidelity, and the item's `.done` repeats it.
-- Claude takes a thinking block back only with the signature it issued, so a Claude replay omits a thinking item that carries none; the other providers' forms for thinking they did not produce are in [MMSP-RFC-0011](MMSP-RFC-0011-thinking-round-trip.md).
+- Claude takes a thinking block back only with the signature it issued, so `anthropic-official` omits a thinking item that carries none from its replay; the other providers' forms for thinking they did not produce are in [MMSP-RFC-0011](MMSP-RFC-0011-thinking-round-trip.md).
 - `tool_call_id` holds the provider's call id where the wire carries one, and a replay sends it back; where the wire carries both an item id and a call id, it holds the call id, which correlates a result to its call.
 
 ## Enforced by

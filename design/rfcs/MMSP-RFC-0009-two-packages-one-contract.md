@@ -20,7 +20,7 @@ The two packages are one protocol in two languages, and a caller moving between 
 ## Rule
 [rule]: #rule
 
-- Both packages put the same request body on the wire. A key outside an SDK's typed parameters travels through that SDK's own channel: `extra_body` in the OpenAI Python SDK, a top-level body key in openai-node.
+- Both packages put the same request body on the wire. A key outside an SDK's typed parameters travels through that SDK's own channel: `extra_body` in the OpenAI and Anthropic Python SDKs, a top-level body key in their TypeScript SDKs.
 - The shared e2e tests, `src_py/tests/test_client.py` and `src_ts/tests/client.test.ts`, are one contract every client satisfies. A model enters them as its entry in `.github/ci/models.json`, with its capability flags and key variable. No shared test branches on a model name, and no model gets a test file of its own.
 - A failing shared test means the client is wrong until proven otherwise. Any broader test edit needs the owner's explicit approval, per change.
 - A generation that leaves the catalog stays supported and routed ([MMSP-RFC-0004](MMSP-RFC-0004-explicit-routing.md)).
@@ -28,4 +28,4 @@ The two packages are one protocol in two languages, and a caller moving between 
 ## Enforced by
 [enforced-by]: #enforced-by
 
-The paired test files under `src_py/tests/` and `src_ts/tests/`; `.github/ci/models.json`, the one catalog both suites load; `.github/ci/plan.py`, `.github/ci/README.md` and `.github/workflows/ci.yml`; `test_client.py::test_model_catalog_routes_to_its_client_group` and its Jest mirror.
+The paired test files under `src_py/tests/` and `src_ts/tests/`, among them `test_request_body.py` / `request-body.test.ts`, which read the body the Anthropic clients send on every SDK line; `.github/ci/models.json`, the one catalog both suites load; `.github/ci/plan.py`, `.github/ci/README.md` and `.github/workflows/ci.yml`; `test_client.py::test_model_catalog_routes_to_its_client_group` and its Jest mirror.

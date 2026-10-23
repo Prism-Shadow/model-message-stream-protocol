@@ -21,7 +21,7 @@ A caller reads the cost of a request from the `stop` event and nowhere else, and
 [rule]: #rule
 
 - A client's `stop` events carry the usage and the finish reason wherever the wire reports them, in pieces; the base class merges the pieces field by field into the one public `stop`, a later count replacing an earlier one ([MMSP-RFC-0003](MMSP-RFC-0003-stream-grammar.md)). A count the provider does not report is `None`; no count is required to be a number.
-- An embedding request is one `stop` event carrying its vectors, its prompt tokens and `finish_reason` `stop`.
+- An embedding client yields one `stop` event carrying its vectors, its prompt tokens and `finish_reason` `stop`.
 - `IncompleteStreamError` names the client and the missing field or fields, and carries the usage or finish reason that did arrive, so the tokens can still be counted. It is not a `StreamProtocolError`, which is a bug in a client, and not an `EmptyResponseError`, which is a response without content.
 - `concat_uni_events_to_uni_message`, the stateful history and the tracer copy the `stop` event's `usage_metadata` and `finish_reason` onto the assistant message; a message a caller builds by hand may carry neither.
 - The `mmsp` client forwards its server's `stop` event as it is; a server-side `IncompleteStreamError` reaches it as `UpstreamError` with that `error_type` and the error's fields.
@@ -29,4 +29,4 @@ A caller reads the cost of a request from the `stop` event and nowhere else, and
 ## Enforced by
 [enforced-by]: #enforced-by
 
-`_PublicStream.stop` in `src_py/mmsp/base_client.py` and `PublicStream.stop` in `src_ts/src/baseClient.ts`; `IncompleteStreamError` in `src_py/mmsp/errors.py` / `src_ts/src/errors.ts` and its case in `wire.py` / `wire.ts`; `src_py/tests/stream_grammar.py` / `src_ts/tests/streamGrammar.ts`, which the shared e2e tests apply to every stream; `test_stream_protocol.py`, `test_empty_response.py`, `test_mmsp_server.py` and their Jest mirrors.
+`_PublicStream.stop` in `src_py/mmsp/base_client.py` and `PublicStream.stop` in `src_ts/src/baseClient.ts`; `IncompleteStreamError` in `src_py/mmsp/errors.py` / `src_ts/src/errors.ts` and its case in `wire.py` / `wire.ts`; `src_py/tests/stream_grammar.py` / `src_ts/tests/streamGrammar.ts`, which the shared e2e tests apply to every stream; `test_stream_protocol.py`, `test_unknown_events.py`, `test_empty_response.py`, `test_mmsp_server.py` and their Jest mirrors.

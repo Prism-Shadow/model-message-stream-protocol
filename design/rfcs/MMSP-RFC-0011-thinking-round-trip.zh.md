@@ -21,7 +21,8 @@
 [rule]: #rule
 
 - 每种线上格式需要发回的，就是客户端记录下来的：Responses 推理内容项的通道、`encrypted_content`，以及网关附加的 `signature` 与 `format`；Messages 思考块的 `signature`，以及 redacted 思考块的 `data`；Interactions 思考步骤的签名；generateContent 中 part 的 `thought_signature`，放回它当初所在的那个 part；Chat Completions 回合的推理字段名，文本放在该字段中，字段名未知时两个字段都放，对话已经产生过该字段之后，在只做工具调用、没有思考的回合中放空值；网关加密的 `reasoning_details` 片段，按收到的原样。一个字段只有在探测表明缺了它请求会失败或模型会退化时，才能加入这份清单（[MMSP-RFC-0008](MMSP-RFC-0008-minimal-replay.zh.md)）。
-- 范围是同一模型、同一端点。来自别处的思考：回传给 Claude 时略去不带签名的思考内容项，与 API 对模型无法读取的思考块的处理一致；回传给 Gemini 时以 Google 文档给出的占位签名开启这一回合，并把文本保留为不带签名的思考；Chat Completions 的回传把文本放进两个推理字段；Responses 的回传重建一个 `reasoning_text` 内容项。它们都不会把这段思考放进助手的文本。
+- 范围是同一模型、同一端点。来自别处的思考：`anthropic-official` 略去不带签名的思考内容项，与 API 对模型无法读取的思考块的处理一致；回传给 Gemini 时以 Google 文档给出的占位签名开启这一回合，并把文本保留为不带签名的思考；Chat Completions 的回传把文本放进两个推理字段；Responses 的回传重建一个 `reasoning_text` 内容项。它们都不会把这段思考放进助手的文本。
+- 经由兼容客户端 `ant-messages` 时，不带签名的思考内容项以不带签名的形式发回，这是第三方 Messages 服务端接受的形式；Anthropic 自己的 API 会拒绝它。
 - 只有思考、别无其他内容的响应不会被记录，因为没有服务商接受它回传：它抛出 `EmptyResponseError`（[MMSP-RFC-0003](MMSP-RFC-0003-stream-grammar.zh.md)）。
 - `mmsp` 客户端把内容项及其 `fidelity` 原样发给它的服务端，因此服务端的上游客户端按上述方式回传它们。
 
