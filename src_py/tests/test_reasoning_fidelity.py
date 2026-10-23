@@ -94,7 +94,7 @@ def _install_fake_openai_compatible_stream(client: AutoLLMClient, chunks: list[o
     client._client._client = _FakeOpenAICompatibleClient(chunks)  # noqa: SLF001
 
 
-def _delta_chunk(text: str | None = None, **reasoning_fields: str) -> object:
+def _delta_chunk(text: str | None = None, **reasoning_fields: object) -> object:
     return SimpleNamespace(
         choices=[
             SimpleNamespace(
@@ -240,6 +240,146 @@ async def test_replay_of_thinking_without_fidelity_sends_both_fields(case: Reaso
     replayed_message = model_input[-1]
     assert replayed_message["reasoning_content"] == "Let me think."
     assert replayed_message["reasoning"] == "Let me think."
+
+
+# The clients that share the Chat Completions transforms. OpenRouter streams their reasoning as
+# reasoning_details fragments, shaped here as captured on 2026-10-22: GPT's summary fragments,
+# mirrored in `reasoning`, then one reasoning.encrypted fragment holding its encrypted reasoning;
+# Gemini's one reasoning.encrypted fragment, on the first chunk, holding the thought signature
+# under the id of the call it signs. On replay only that fragment reaches the model, and only as
+# received: OpenRouter drops Gemini's signature from a fragment without its id.
+CHAT_TRANSFORM_CASES = [
+    ReasoningReplayCase(model="openai/gpt-5.6-luna", client_type="openai-chat"),
+    ReasoningReplayCase(model="Qwen/Qwen3.6-35B-A3B", client_type="openai-chat-vllm-adapter"),
+]
+
+OPENAI_ENCRYPTED_FRAGMENT = {
+    "type": "reasoning.encrypted",
+    "data": "gAAAAABq2oFY-encrypted-reasoning",
+    "format": "openai-responses-v1",
+    "id": "rs_0158635049d48323016ada8157556487d1bc52572a9851c225",
+    "index": 1,
+}
+GEMINI_ENCRYPTED_FRAGMENT = {
+    "type": "reasoning.encrypted",
+    "data": "AY89a1+Ob5tq-thought-signature",
+    "format": "google-gemini-v1",
+    "id": "call_1191618",
+    "index": 0,
+}
+
+
+def _summary_chunk(text: str) -> object:
+    fragment = {"type": "reasoning.summary", "summary": text, "format": "openai-responses-v1", "index": 0}
+    return _delta_chunk(reasoning=text, reasoning_details=[fragment])
+
+
+def _tool_call_chunk(tool_call_id: str) -> object:
+    tool_call = SimpleNamespace(
+        index=0, id=tool_call_id, function=SimpleNamespace(name="get_weather", arguments='{"city": "Paris"}')
+    )
+    return SimpleNamespace(
+        choices=[SimpleNamespace(delta=SimpleNamespace(content=None, tool_calls=[tool_call]), finish_reason=None)],
+        usage=None,
+    )
+
+
+def _replayed_tool_calls(tool_call_id: str) -> list[dict[str, Any]]:
+    return [
+        {
+            "id": tool_call_id,
+            "type": "function",
+            "function": {"name": "get_weather", "arguments": '{"city": "Paris"}'},
+        }
+    ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", CHAT_TRANSFORM_CASES, ids=[case.client_type for case in CHAT_TRANSFORM_CASES])
+async def test_chat_records_the_encrypted_reasoning_fragment_and_replays_it_as_received(case: ReasoningReplayCase):
+    client = _create_auto_client(case)
+    _install_fake_openai_compatible_stream(
+        client,
+        [
+            _summary_chunk("**Checking the parity"),
+            _summary_chunk(" of 17*3**"),
+            _delta_chunk(reasoning=None, reasoning_details=[OPENAI_ENCRYPTED_FRAGMENT]),
+            _tool_call_chunk("call_OTl4knsttXTxmrXjFY5DPCSM"),
+            _stop_chunk("tool_calls"),
+        ],
+    )
+
+    _events, history_message, model_input = await _run_turn_and_replay(client)
+    # one thinking item: the summary text, with the encrypted fragment as its one fidelity
+    assert [item for item in history_message["content_items"] if item["type"] == "thinking.done"] == [
+        {
+            "type": "thinking.done",
+            "thinking": "**Checking the parity of 17*3**",
+            "fidelity": {"reasoning_details": [OPENAI_ENCRYPTED_FRAGMENT]},
+        }
+    ]
+    # the fragment goes back as received and alone; the summary fragments never reach the model
+    assert model_input[-1] == {
+        "role": "assistant",
+        "tool_calls": _replayed_tool_calls("call_OTl4knsttXTxmrXjFY5DPCSM"),
+        "reasoning_content": "**Checking the parity of 17*3**",
+        "reasoning": "**Checking the parity of 17*3**",
+        "reasoning_details": [OPENAI_ENCRYPTED_FRAGMENT],
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", CHAT_TRANSFORM_CASES, ids=[case.client_type for case in CHAT_TRANSFORM_CASES])
+async def test_chat_records_a_thought_signature_fragment_without_text_and_replays_it_as_received(
+    case: ReasoningReplayCase,
+):
+    client = _create_auto_client(case)
+    _install_fake_openai_compatible_stream(
+        client,
+        [
+            _delta_chunk(reasoning=None, reasoning_details=[GEMINI_ENCRYPTED_FRAGMENT]),
+            _tool_call_chunk("call_1191618"),
+            _stop_chunk("tool_calls"),
+        ],
+    )
+
+    _events, history_message, model_input = await _run_turn_and_replay(client)
+    assert [item for item in history_message["content_items"] if item["type"] == "thinking.done"] == [
+        {"type": "thinking.done", "thinking": "", "fidelity": {"reasoning_details": [GEMINI_ENCRYPTED_FRAGMENT]}}
+    ]
+    assert model_input[-1] == {
+        "role": "assistant",
+        "tool_calls": _replayed_tool_calls("call_1191618"),
+        "reasoning_details": [GEMINI_ENCRYPTED_FRAGMENT],
+    }
+
+
+# A model that reasons in plain text gets reasoning.text fragments that repeat `reasoning`; they
+# carry nothing the text does not, so the item records no fidelity and the text goes back through
+# both fields, which OpenRouter reads as one.
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", CHAT_TRANSFORM_CASES, ids=[case.client_type for case in CHAT_TRANSFORM_CASES])
+async def test_chat_replays_reasoning_text_fragments_as_the_text(case: ReasoningReplayCase):
+    client = _create_auto_client(case)
+    fragment = {"type": "reasoning.text", "format": "unknown", "index": 0}
+    _install_fake_openai_compatible_stream(
+        client,
+        [
+            _delta_chunk(reasoning="Let me think", reasoning_details=[{**fragment, "text": "Let me think"}]),
+            _delta_chunk(reasoning=" about the memo.", reasoning_details=[{**fragment, "text": " about the memo."}]),
+            _delta_chunk(text="Here is the memo."),
+            _stop_chunk(),
+        ],
+    )
+
+    _events, history_message, model_input = await _run_turn_and_replay(client)
+    assert [item for item in history_message["content_items"] if item["type"] == "thinking.done"] == [
+        {"type": "thinking.done", "thinking": "Let me think about the memo."}
+    ]
+    replayed_message = model_input[-1]
+    assert replayed_message["reasoning_content"] == "Let me think about the memo."
+    assert replayed_message["reasoning"] == "Let me think about the memo."
+    assert "reasoning_details" not in replayed_message
 
 
 class _FakeCreateEndpoint:

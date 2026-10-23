@@ -12,6 +12,7 @@ MMSP 抛出的每个错误都是 `MMSPError`。在 Python 中它是 `ValueError`
 | --- | --- | --- |
 | `ToolCallArgumentParseError` | 工具调用的参数格式错误、被截断，或不是一个 JSON 对象。在原本该出现 `tool_call.done` 的位置抛出。 | `client`、工具名、工具调用 id、原始参数的长度和预览 |
 | `EmptyResponseError` | 响应只有思考，没有别的内容就结束了。这样的消息在下一轮送回会得到 400。在原本该出现 `stop` 事件的位置抛出。 | `client`、结束原因，以及 `usage_metadata`，token 仍可计数 |
+| `IncompleteStreamError` | 服务商的流在用量或结束原因到达之前就结束了。这是一条中途断开的流，重试即可。在原本该出现 `stop` 事件的位置抛出。 | `client`、`missing`，以及已经到达的 `finish_reason` 和 `usage_metadata` |
 | `StreamProtocolError` | 某个客户端产生的流违反了[文法](/zh/docs/streaming/)。这是 MMSP 的 bug，不是模型输出的问题。 | `client` |
 
 遇到 `ToolCallArgumentParseError`，记录预览后重试或重新提示模型。切勿使用不完整的参数运行工具。

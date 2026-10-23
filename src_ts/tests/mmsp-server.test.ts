@@ -736,6 +736,39 @@ describe("MMSP server stream", () => {
     });
   });
 
+  test("a stream cut short raises an UpstreamError carrying the IncompleteStreamError", async () => {
+    const script = [
+      delta({ type: "text.delta", text: "Hel", fidelity: { item_id: "0" } }),
+      { ...stop(), finish_reason: null },
+    ];
+    useUpstream((model) => new ScriptedClient(script, model));
+    const url = await serve(serverApp());
+    const events: UniEvent[] = [];
+
+    const error = await raised(mmspClient(url), {}, events);
+    const direct = await raised(new ScriptedClient(script));
+
+    expect(events.map((event) => event.content_items)).toEqual([
+      [{ type: "text.delta", text: "Hel" }],
+      [{ type: "text.done", text: "Hel" }],
+    ]);
+    expect(error).toBeInstanceOf(UpstreamError);
+    expect(error).toMatchObject({
+      client: "MmspClient",
+      status: null,
+      errorType: "IncompleteStreamError",
+      message: direct.message,
+    });
+    expect((error as UpstreamError).error).toEqual({
+      type: "IncompleteStreamError",
+      message: direct.message,
+      client: "ScriptedClient",
+      missing: ["finish_reason"],
+      finish_reason: null,
+      usage_metadata: USAGE,
+    });
+  });
+
   test("aborting the client cancels the upstream through the server", async () => {
     const upstream = new SlowScriptedClient([]);
     useUpstream(() => upstream);
