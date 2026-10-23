@@ -446,17 +446,18 @@ export class OpenaiResponsesClient extends LLMClient {
         finishReason = finishReasonMapping[response.status] || "unknown";
       }
       if (response.usage) {
-        // some servers drop the detail blocks (e.g. MiniMax on truncation), so default to zero
+        // some servers drop the detail blocks (e.g. MiniMax on truncation), so their counts stay null
         const cachedTokens =
-          response.usage.input_tokens_details?.cached_tokens || 0;
+          response.usage.input_tokens_details?.cached_tokens ?? null;
         const reasoningTokens =
-          response.usage.output_tokens_details?.reasoning_tokens || 0;
+          response.usage.output_tokens_details?.reasoning_tokens ?? null;
 
         usageMetadata = {
           cached_tokens: cachedTokens,
-          prompt_tokens: response.usage.input_tokens - cachedTokens,
+          prompt_tokens: response.usage.input_tokens - (cachedTokens ?? 0),
           thoughts_tokens: reasoningTokens,
-          response_tokens: response.usage.output_tokens - reasoningTokens,
+          response_tokens:
+            response.usage.output_tokens - (reasoningTokens ?? 0),
         };
       }
     } else if (

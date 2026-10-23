@@ -527,10 +527,14 @@ class GoogleOfficialClient(LLMClient):
             usage = model_output.interaction.usage or interactions.Usage()
             # total_input_tokens includes the cached tokens; total_output_tokens excludes the thoughts
             usage_metadata = {
-                "cached_tokens": usage.total_cached_tokens or None,
-                "prompt_tokens": (usage.total_input_tokens or 0) - (usage.total_cached_tokens or 0),
-                "thoughts_tokens": usage.total_thought_tokens or None,
-                "response_tokens": usage.total_output_tokens or None,
+                "cached_tokens": usage.total_cached_tokens,
+                "prompt_tokens": (
+                    usage.total_input_tokens - (usage.total_cached_tokens or 0)
+                    if usage.total_input_tokens is not None
+                    else None
+                ),
+                "thoughts_tokens": usage.total_thought_tokens,
+                "response_tokens": usage.total_output_tokens,
             }
 
         elif model_output.event_type == "error" and model_output.error is not None:

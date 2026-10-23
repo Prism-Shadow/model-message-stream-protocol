@@ -669,11 +669,13 @@ export class GoogleOfficialClient extends LLMClient {
       const usage = modelOutput.interaction.usage;
       // total_input_tokens includes the cached tokens; total_output_tokens excludes the thoughts
       usageMetadata = {
-        cached_tokens: usage?.total_cached_tokens || null,
+        cached_tokens: usage?.total_cached_tokens ?? null,
         prompt_tokens:
-          (usage?.total_input_tokens || 0) - (usage?.total_cached_tokens || 0),
-        thoughts_tokens: usage?.total_thought_tokens || null,
-        response_tokens: usage?.total_output_tokens || null,
+          usage?.total_input_tokens != null
+            ? usage.total_input_tokens - (usage.total_cached_tokens || 0)
+            : null,
+        thoughts_tokens: usage?.total_thought_tokens ?? null,
+        response_tokens: usage?.total_output_tokens ?? null,
       };
     } else if (modelOutput.event_type === "error" && modelOutput.error) {
       // Neither Interactions SDK raises on an error event inside an open stream, so the provider's

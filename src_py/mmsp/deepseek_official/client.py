@@ -322,13 +322,13 @@ class DeepSeekOfficialClient(LLMClient):
             if model_output.response.usage:
                 input_details = model_output.response.usage.input_tokens_details
                 output_details = model_output.response.usage.output_tokens_details
-                cached_tokens = input_details.cached_tokens if input_details else 0
-                reasoning_tokens = output_details.reasoning_tokens if output_details else 0
+                cached_tokens = input_details.cached_tokens if input_details else None
+                reasoning_tokens = output_details.reasoning_tokens if output_details else None
                 usage_metadata = {
                     "cached_tokens": cached_tokens,
-                    "prompt_tokens": model_output.response.usage.input_tokens - cached_tokens,
+                    "prompt_tokens": model_output.response.usage.input_tokens - (cached_tokens or 0),
                     "thoughts_tokens": reasoning_tokens,
-                    "response_tokens": model_output.response.usage.output_tokens - reasoning_tokens,
+                    "response_tokens": model_output.response.usage.output_tokens - (reasoning_tokens or 0),
                 }
 
         elif deepseek_event_type in (

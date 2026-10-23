@@ -344,16 +344,16 @@ class OpenaiResponsesClient(LLMClient):
                 finish_reason = finish_reason_mapping.get(model_output.response.status, "unknown")
 
             if model_output.response.usage:
-                # some servers drop the detail blocks (e.g. MiniMax on truncation), so default to zero
+                # some servers drop the detail blocks (e.g. MiniMax on truncation), so their counts stay None
                 input_details = model_output.response.usage.input_tokens_details
                 output_details = model_output.response.usage.output_tokens_details
-                cached_tokens = input_details.cached_tokens if input_details else 0
-                reasoning_tokens = output_details.reasoning_tokens if output_details else 0
+                cached_tokens = input_details.cached_tokens if input_details else None
+                reasoning_tokens = output_details.reasoning_tokens if output_details else None
                 usage_metadata = {
                     "cached_tokens": cached_tokens,
-                    "prompt_tokens": model_output.response.usage.input_tokens - cached_tokens,
+                    "prompt_tokens": model_output.response.usage.input_tokens - (cached_tokens or 0),
                     "thoughts_tokens": reasoning_tokens,
-                    "response_tokens": model_output.response.usage.output_tokens - reasoning_tokens,
+                    "response_tokens": model_output.response.usage.output_tokens - (reasoning_tokens or 0),
                 }
 
         elif openai_event_type in (

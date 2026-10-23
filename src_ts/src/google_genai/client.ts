@@ -720,11 +720,11 @@ export class GoogleGenaiClient extends LLMClient {
     if (usage?.promptTokenCount != null) {
       eventType = "stop";
       usageMetadata = {
-        cached_tokens: usage.cachedContentTokenCount || null,
+        cached_tokens: usage.cachedContentTokenCount ?? null,
         prompt_tokens:
           (usage.promptTokenCount || 0) - (usage.cachedContentTokenCount || 0),
-        thoughts_tokens: usage.thoughtsTokenCount || null,
-        response_tokens: usage.candidatesTokenCount || null,
+        thoughts_tokens: usage.thoughtsTokenCount ?? null,
+        response_tokens: usage.candidatesTokenCount ?? null,
       };
     }
 

@@ -526,10 +526,10 @@ class GoogleGenaiClient(LLMClient):
         if usage is not None and usage.prompt_token_count is not None:
             event_type = "stop"
             usage_metadata = {
-                "cached_tokens": usage.cached_content_token_count or None,
+                "cached_tokens": usage.cached_content_token_count,
                 "prompt_tokens": (usage.prompt_token_count or 0) - (usage.cached_content_token_count or 0),
-                "thoughts_tokens": usage.thoughts_token_count or None,
-                "response_tokens": usage.candidates_token_count or None,
+                "thoughts_tokens": usage.thoughts_token_count,
+                "response_tokens": usage.candidates_token_count,
             }
 
         return {

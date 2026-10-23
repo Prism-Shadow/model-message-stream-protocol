@@ -364,16 +364,17 @@ export class MiniMaxOfficialClient extends LLMClient {
       }
 
       if (response.usage) {
-        // MiniMax drops the detail blocks on truncated responses, so default them to zero.
+        // MiniMax drops the detail blocks on truncated responses, so their counts stay null.
         const cachedTokens =
-          response.usage.input_tokens_details?.cached_tokens ?? 0;
+          response.usage.input_tokens_details?.cached_tokens ?? null;
         const reasoningTokens =
-          response.usage.output_tokens_details?.reasoning_tokens ?? 0;
+          response.usage.output_tokens_details?.reasoning_tokens ?? null;
         usageMetadata = {
           cached_tokens: cachedTokens,
-          prompt_tokens: response.usage.input_tokens - cachedTokens,
+          prompt_tokens: response.usage.input_tokens - (cachedTokens ?? 0),
           thoughts_tokens: reasoningTokens,
-          response_tokens: response.usage.output_tokens - reasoningTokens,
+          response_tokens:
+            response.usage.output_tokens - (reasoningTokens ?? 0),
         };
       }
     } else if (
