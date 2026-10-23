@@ -1,0 +1,61 @@
+{
+  "generated_at": "2026-10-23T07:17:37Z",
+  "run_id": "39916559041",
+  "samples": 3,
+  "targets": {
+    "deepseek-official|https://api.deepseek.com|deepseek-flash": {
+      "model": "deepseek-flash",
+      "client": "deepseek-official",
+      "base_url": "https://api.deepseek.com",
+      "status": "up",
+      "ok": 3,
+      "ttft_ms": 835,
+      "tps": 100.8,
+      "usage": {
+        "cached_tokens": 0,
+        "prompt_tokens": 168,
+        "thoughts_tokens": 217,
+        "response_tokens": 952
+      },
+      "cost_usd": 0.000692,
+      "error": null,
+      "checked_at": "2026-10-23T07:15:45Z"
+    },
+    "google-genai|https://aiplatform.googleapis.com|gemini-3.8-flash": {
+      "model": "gemini-3.8-flash",
+      "client": "google-genai",
+      "base_url": "https://aiplatform.googleapis.com",
+      "status": "up",
+      "ok": 3,
+      "ttft_ms": 28041,
+      "tps": 87.2,
+      "usage": {
+        "cached_tokens": 0,
+        "prompt_tokens": 84,
+        "thoughts_tokens": 0,
+        "response_tokens": 1155
+      },
+      "cost_usd": 0.0087885,
+      "error": null,
+      "checked_at": "2026-10-23T07:17:37Z"
+    },
+    "deepseek-official|https://tokendance.space/gateway/v1|deepseek-v4.1-flash": {
+      "model": "deepseek-v4.1-flash",
+      "client": "deepseek-official",
+      "base_url": "https://tokendance.space/gateway/v1",
+      "status": "up",
+      "ok": 3,
+      "ttft_ms": 3107,
+      "tps": 135.3,
+      "usage": {
+        "cached_tokens": 0,
+        "prompt_tokens": 168,
+        "thoughts_tokens": 616,
+        "response_tokens": 966
+      },
+      "cost_usd": 0.0007424,
+      "error": null,
+      "checked_at": "2026-10-23T07:15:53Z"
+    }
+  }
+}

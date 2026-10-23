@@ -1,0 +1,29 @@
+{
+  "days": 90,
+  "targets": {
+    "deepseek-official|https://api.deepseek.com|deepseek-flash": {
+      "2026-10-23": {
+        "status": "up",
+        "ttft_ms": 835,
+        "tps": 100.8,
+        "cost_usd": 0.000692
+      }
+    },
+    "google-genai|https://aiplatform.googleapis.com|gemini-3.8-flash": {
+      "2026-10-23": {
+        "status": "up",
+        "ttft_ms": 28041,
+        "tps": 87.2,
+        "cost_usd": 0.0087885
+      }
+    },
+    "deepseek-official|https://tokendance.space/gateway/v1|deepseek-v4.1-flash": {
+      "2026-10-23": {
+        "status": "up",
+        "ttft_ms": 3107,
+        "tps": 135.3,
+        "cost_usd": 0.0007424
+      }
+    }
+  }
+}

@@ -1,0 +1,189 @@
+{
+  "date": "2026-10-23",
+  "runs": [
+    {
+      "generated_at": "2026-10-23T07:17:37Z",
+      "run_id": "39916559041",
+      "samples": 3,
+      "targets": {
+        "deepseek-official|https://api.deepseek.com|deepseek-flash": {
+          "model": "deepseek-flash",
+          "client": "deepseek-official",
+          "base_url": "https://api.deepseek.com",
+          "status": "up",
+          "ok": 3,
+          "ttft_ms": 835,
+          "tps": 100.8,
+          "usage": {
+            "cached_tokens": 0,
+            "prompt_tokens": 168,
+            "thoughts_tokens": 217,
+            "response_tokens": 952
+          },
+          "cost_usd": 0.000692,
+          "error": null,
+          "checked_at": "2026-10-23T07:15:45Z",
+          "samples": [
+            {
+              "ttft_ms": 1690,
+              "tps": 94.0,
+              "elapsed_ms": 6553,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 56,
+                "thoughts_tokens": 127,
+                "response_tokens": 328
+              },
+              "finish_reason": "stop",
+              "error": null
+            },
+            {
+              "ttft_ms": 835,
+              "tps": 100.8,
+              "elapsed_ms": 4519,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 56,
+                "thoughts_tokens": 44,
+                "response_tokens": 327
+              },
+              "finish_reason": "stop",
+              "error": null
+            },
+            {
+              "ttft_ms": 500,
+              "tps": 110.4,
+              "elapsed_ms": 3611,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 56,
+                "thoughts_tokens": 46,
+                "response_tokens": 297
+              },
+              "finish_reason": "stop",
+              "error": null
+            }
+          ]
+        },
+        "google-genai|https://aiplatform.googleapis.com|gemini-3.8-flash": {
+          "model": "gemini-3.8-flash",
+          "client": "google-genai",
+          "base_url": "https://aiplatform.googleapis.com",
+          "status": "up",
+          "ok": 3,
+          "ttft_ms": 28041,
+          "tps": 87.2,
+          "usage": {
+            "cached_tokens": 0,
+            "prompt_tokens": 84,
+            "thoughts_tokens": 0,
+            "response_tokens": 1155
+          },
+          "cost_usd": 0.0087885,
+          "error": null,
+          "checked_at": "2026-10-23T07:17:37Z",
+          "samples": [
+            {
+              "ttft_ms": 81159,
+              "tps": 87.2,
+              "elapsed_ms": 85547,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 28,
+                "thoughts_tokens": 0,
+                "response_tokens": 376
+              },
+              "finish_reason": "stop",
+              "error": null
+            },
+            {
+              "ttft_ms": 3567,
+              "tps": 86.5,
+              "elapsed_ms": 8300,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 28,
+                "thoughts_tokens": 0,
+                "response_tokens": 401
+              },
+              "finish_reason": "stop",
+              "error": null
+            },
+            {
+              "ttft_ms": 28041,
+              "tps": 110.3,
+              "elapsed_ms": 31581,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 28,
+                "thoughts_tokens": 0,
+                "response_tokens": 378
+              },
+              "finish_reason": "stop",
+              "error": null
+            }
+          ]
+        },
+        "deepseek-official|https://tokendance.space/gateway/v1|deepseek-v4.1-flash": {
+          "model": "deepseek-v4.1-flash",
+          "client": "deepseek-official",
+          "base_url": "https://tokendance.space/gateway/v1",
+          "status": "up",
+          "ok": 3,
+          "ttft_ms": 3107,
+          "tps": 135.3,
+          "usage": {
+            "cached_tokens": 0,
+            "prompt_tokens": 168,
+            "thoughts_tokens": 616,
+            "response_tokens": 966
+          },
+          "cost_usd": 0.0007424,
+          "error": null,
+          "checked_at": "2026-10-23T07:15:53Z",
+          "samples": [
+            {
+              "ttft_ms": 3973,
+              "tps": 135.3,
+              "elapsed_ms": 7901,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 56,
+                "thoughts_tokens": 217,
+                "response_tokens": 311
+              },
+              "finish_reason": "stop",
+              "error": null
+            },
+            {
+              "ttft_ms": 2739,
+              "tps": 123.5,
+              "elapsed_ms": 7292,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 56,
+                "thoughts_tokens": 194,
+                "response_tokens": 367
+              },
+              "finish_reason": "stop",
+              "error": null
+            },
+            {
+              "ttft_ms": 3107,
+              "tps": 136.4,
+              "elapsed_ms": 6761,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 56,
+                "thoughts_tokens": 205,
+                "response_tokens": 288
+              },
+              "finish_reason": "stop",
+              "error": null
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
