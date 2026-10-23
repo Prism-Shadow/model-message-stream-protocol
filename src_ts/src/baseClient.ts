@@ -197,8 +197,8 @@ class PublicStream {
 export abstract class LLMClient {
   protected _model: string;
   private _history: UniMessage[];
-  // the stateful call that holds the history until its stop event or its end, if any
-  private _inFlight: object | null;
+  // the stateful call that holds the history until its stop event, its end or its abort, if any
+  private _inFlight: { signal?: AbortSignal } | null;
 
   constructor() {
     this._model = "";
@@ -371,12 +371,13 @@ export abstract class LLMClient {
     signal?: AbortSignal;
   }): AsyncGenerator<UniEvent> {
     // two calls each sending the history as it was when they began would record their turns in
-    // the order they finished, the later one generated without the earlier
-    if (this._inFlight !== null) {
+    // the order they finished, the later one generated without the earlier; an aborted call
+    // records nothing, so it holds the client no longer
+    if (this._inFlight !== null && !this._inFlight.signal?.aborted) {
       throw new ConcurrentCallError({ client: this.constructor.name });
     }
 
-    const call = {};
+    const call = { signal: options.signal };
     this._inFlight = call;
     try {
       const { config } = options;
@@ -390,6 +391,10 @@ export abstract class LLMClient {
       })) {
         events.push(event);
         if (event.event_type === "stop") {
+          // an abort that lands as the stop arrives still records nothing: a newer call may hold
+          // the client by now
+          options.signal?.throwIfAborted();
+
           // recorded before the stop is yielded: a caller may stop iterating as soon as it sees
           // it, and the turn has ended then, so the next one may begin before this generator is
           // closed

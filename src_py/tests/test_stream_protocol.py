@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import copy
 import json
 from types import SimpleNamespace
@@ -21,6 +22,7 @@ import pytest
 from stream_grammar import assert_stream_grammar
 
 from mmsp import AutoLLMClient, legacy
+from mmsp.abort_signal import AbortSignal
 from mmsp.base_client import LLMClient
 from mmsp.errors import (
     ConcurrentCallError,
@@ -780,6 +782,55 @@ async def test_a_second_stateful_call_while_one_is_in_flight_raises_concurrent_c
         pass
 
     assert len(client.get_history()) == 6
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "reads",
+    [1, 2],
+    ids=["aborted mid-stream", "aborted once the provider's stream ended, before the stop event"],
+)
+async def test_an_aborted_stateful_call_releases_the_client_at_once_and_records_nothing(reads: int):
+    client = ScriptedClient(REPLY)
+    signal = AbortSignal()
+    first = client.streaming_response_stateful(message=_user("one"), config={}, signal=signal)
+    for _ in range(reads):
+        await anext(first)
+
+    # the playground's next turn: the abort, then at once the next stateful call
+    signal.abort("replaced")
+    async for _event in client.streaming_response_stateful(message=_user("two"), config={}):
+        pass
+
+    with pytest.raises(asyncio.CancelledError) as exc_info:
+        async for _event in first:
+            pass
+
+    assert exc_info.value.args == ("replaced",)
+    assert [message["content_items"][0]["text"] for message in client.get_history()] == ["two", "hello"]
+
+
+@pytest.mark.asyncio
+async def test_closing_a_stateful_stream_closes_the_clients_stream_before_it_returns():
+    closed: list[bool] = []
+
+    class TrackedClient(ScriptedClient):
+        async def _streaming_response_internal(
+            self,
+            messages: list[UniMessage],
+            config: UniConfig,
+        ) -> AsyncIterator[UniEvent]:
+            try:
+                async for event in super()._streaming_response_internal(messages, config):
+                    yield event
+            finally:
+                closed.append(True)
+
+    stream = TrackedClient(REPLY).streaming_response_stateful(message=_user("one"), config={})
+    await anext(stream)
+    await stream.aclose()
+
+    assert closed == [True]
 
 
 @pytest.mark.asyncio

@@ -16,7 +16,7 @@ import asyncio
 import copy
 import time
 from abc import ABC, abstractmethod
-from contextlib import suppress
+from contextlib import aclosing, suppress
 from typing import Any, AsyncIterator, Iterator
 
 from .abort_signal import AbortSignal
@@ -45,6 +45,17 @@ def _stamp_created_at(messages: list[UniMessage]) -> None:
     for message in messages:
         if message.get("created_at") is None:
             message["created_at"] = int(time.time() * 1000)
+
+
+class _StatefulCall:
+    """A stateful call, which holds its client's history until its stop event, its end or its abort."""
+
+    def __init__(self, signal: AbortSignal | None) -> None:
+        self.signal = signal
+
+    @property
+    def aborted(self) -> bool:
+        return self.signal is not None and self.signal.aborted
 
 
 def _delta_event(item: EventContentItem) -> UniEvent:
@@ -143,8 +154,7 @@ class LLMClient(ABC):
 
     _model: str
     _history: list[UniMessage]
-    # the stateful call that holds the history until its stop event or its end, if any
-    _in_flight: object | None = None
+    _in_flight: _StatefulCall | None = None
 
     @abstractmethod
     def transform_uni_config_to_model_config(self, config: UniConfig) -> Any:
@@ -379,27 +389,36 @@ class LLMClient(ABC):
             ConcurrentCallError: Another stateful call on this client has not ended.
         """
         # two calls each sending the history as it was when they began would record their turns in
-        # the order they finished, the later one generated without the earlier
-        if self._in_flight is not None:
+        # the order they finished, the later one generated without the earlier; an aborted call
+        # records nothing, so it holds the client no longer
+        if self._in_flight is not None and not self._in_flight.aborted:
             raise ConcurrentCallError(self.__class__.__name__)
 
-        call = object()
+        call = _StatefulCall(signal)
         self._in_flight = call
         try:
             [message] = normalize_legacy_messages([message])
 
             events: list[UniEvent] = []
-            async for event in self.streaming_response(
-                messages=self._history + [message], config=config, signal=signal
-            ):
-                events.append(event)
-                if event["event_type"] == "stop":
-                    # recorded before the stop is yielded: a caller may stop iterating as soon as it sees it,
-                    # and the turn has ended then, so the next one may begin before this generator is closed
-                    self._history.append(copy.deepcopy(message))
-                    self._history.append(copy.deepcopy(self.concat_uni_events_to_uni_message(events)))
-                    self._in_flight = None
-                yield event
+            # closed with this generator, so that closing it closes the provider's request before returning
+            async with aclosing(
+                self.streaming_response(messages=self._history + [message], config=config, signal=signal)
+            ) as stream:
+                async for event in stream:
+                    events.append(event)
+                    if event["event_type"] == "stop":
+                        # an abort that lands as the stop arrives still records nothing: a newer call may
+                        # hold the client by now
+                        if signal is not None:
+                            signal.throw_if_aborted()
+
+                        # recorded before the stop is yielded: a caller may stop iterating as soon as it sees
+                        # it, and the turn has ended then, so the next one may begin before this generator
+                        # is closed
+                        self._history.append(copy.deepcopy(message))
+                        self._history.append(copy.deepcopy(self.concat_uni_events_to_uni_message(events)))
+                        self._in_flight = None
+                    yield event
         finally:
             if self._in_flight is call:
                 self._in_flight = None

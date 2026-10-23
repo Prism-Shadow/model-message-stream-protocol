@@ -11,7 +11,8 @@
 ## 变更内容
 
 - `streaming_response_stateful` / `streamingResponseStateful` 记录的是所发送消息与助手消息的深拷贝，`get_history` / `getHistory` 返回深拷贝，`set_history` / `setHistory` 也存储一份深拷贝，因此历史记录与调用方以及已产出的事件不共享任何对象。Python 使用 `copy.deepcopy`；TypeScript 使用一个让 `Buffer` 仍是 `Buffer` 的拷贝，因为 `structuredClone` 会把它变成普通的 `Uint8Array`。
-- 同一客户端上另一个有状态调用尚未结束时，`streaming_response_stateful` 在发送任何内容之前抛出 `ConcurrentCallError`。一个调用在其 `stop` 事件处（本轮记录之后）、在其错误处、或在其生成器关闭时结束。`AutoLLMClient` 只做转发，因此由被包装的客户端持有该调用；`streaming_response` 不受影响。
+- 同一客户端上另一个有状态调用尚未结束时，`streaming_response_stateful` 在发送任何内容之前抛出 `ConcurrentCallError`。一个调用在其 `stop` 事件处（本轮记录之后）、在其错误处、在其信号被中止时、或在其生成器关闭时结束。被中止的调用立即释放客户端，且从不记录本轮对话，即使中止恰好在其 `stop` 事件到达时发生。`AutoLLMClient` 只做转发，因此由被包装的客户端持有该调用；`streaming_response` 不受影响。
+- Python 的 `streaming_response_stateful` 在 `contextlib.aclosing` 中读取其流，因此对它调用 `aclose()` 会在返回之前关闭客户端的流。
 - 对于经旧格式规范化后 `content_items` 为空的消息，`streaming_response` 在请求发出之前抛出带 `message_index` 的 `InvalidMessageError`。
 - 每个消息转换在消息的线路形式为空或只有思考时抛出 `InvalidMessageError`（`message <i> has nothing <Client> can send`）：`openai_chat`（因而 `openai_chat_vllm_adapter`）、`zai_official` 与 `moonshot_official` 在原先丢弃它的地方；`anthropic_official`（消息以 `once its unsigned thinking is left out` 结尾）与 `ant_messages` 在原先发送 `content: []` 或只有 thinking 块的地方；`openai_official`、`openai_responses`、`deepseek_official` 与 `minimax_official` 在消息没有产出任何条目或只产出 reasoning 条目的地方；`google_official` 在没有产出任何 step 或只产出 thought step 的地方；`google_genai` 在原先发送 `parts=[]` 或只有 thought part 的地方；`openai_embedding` 在原先为没有文本的消息发送 `" "` 的地方。
 - `openai_embedding` 按每个向量的 `index` 把它与输入配对，而不再按 `data` 的顺序。
@@ -23,5 +24,5 @@
 ## 兼容性
 
 - 通过 `set_history()` / `setHistory()` 修改已记录的历史：修改 `get_history()` 返回的消息，或修改传给 `set_history()`、`streaming_response_stateful()` 的消息，不再改变历史记录。
-- 每个客户端一次只运行一个有状态调用：在下一次 `streaming_response_stateful` 之前，把流读到 `stop` 事件，或将其关闭（Python 中 `await stream.aclose()`；TypeScript 中调用 `return()` 或离开 `for await`）。并发的多个对话各用一个客户端，或使用无状态的 `streaming_response`。
+- 每个客户端一次只运行一个有状态调用：在下一次 `streaming_response_stateful` 之前，把流读到 `stop` 事件、中止其信号，或将其关闭（Python 中 `await stream.aclose()`；TypeScript 中调用 `return()` 或离开 `for await`）。并发的多个对话各用一个客户端，或使用无状态的 `streaming_response`。
 - 从要发送的列表中去掉空消息或只有思考的消息；`InvalidMessageError.message_index` / `messageIndex` 指明是哪一条。用于嵌入时，不要发送没有文本的消息。

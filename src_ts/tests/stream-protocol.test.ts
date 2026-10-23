@@ -1073,6 +1073,67 @@ describe("history and legacy messages", () => {
     expect(client.getHistory()).toHaveLength(6);
   });
 
+  test.each<[string, number]>([
+    ["mid-stream", 1],
+    ["once the provider's stream ended, before the stop event", 2],
+  ])(
+    "an aborted stateful call releases the client at once and records nothing (aborted %s)",
+    async (_name, reads) => {
+      const client = new ScriptedClient(reply);
+      const controller = new AbortController();
+      const first = client.streamingResponseStateful({
+        message: userMessage("one"),
+        config: {},
+        signal: controller.signal,
+      });
+      for (let read = 0; read < reads; read++) {
+        await first.next();
+      }
+
+      // the playground's next turn: the abort, then at once the next stateful call
+      controller.abort("replaced");
+      await drain(
+        client.streamingResponseStateful({
+          message: userMessage("two"),
+          config: {},
+        }),
+      );
+
+      const error = await drain(first).catch((caught) => caught);
+      expect(error).toBe("replaced");
+      expect(
+        client
+          .getHistory()
+          .map((entry) => (entry.content_items[0] as { text: string }).text),
+      ).toEqual(["two", "hello"]);
+    },
+  );
+
+  test("closing a stateful stream closes the client's stream before it returns", async () => {
+    let closed = false;
+    class TrackedClient extends ScriptedClient {
+      async *_streamingResponseInternal(options: {
+        messages: UniMessage[];
+        config: UniConfig;
+      }): AsyncGenerator<UniEvent> {
+        try {
+          yield* super._streamingResponseInternal(options);
+        } finally {
+          closed = true;
+        }
+      }
+    }
+
+    const stream = new TrackedClient(reply).streamingResponseStateful({
+      message: userMessage("one"),
+      config: {},
+    });
+    await stream.next();
+    await stream.return(undefined);
+
+    expect(closed).toBe(true);
+  });
+
   test("a stateful call that fails releases the client", async () => {
     const client = new ScriptedClient([
       delta(withId("0", { type: "text.delta", text: "a" })),
