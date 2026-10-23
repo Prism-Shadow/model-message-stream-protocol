@@ -131,15 +131,13 @@ export function sectionOf(slug: string): DocSection | undefined {
   return DOC_SECTIONS.find((section) => section.docs.some((doc) => doc.slug === slug));
 }
 
-// the top bar: the overview, one entry per part of the documentation, models, status, the changelog
+// the top bar: the overview, the docs, the RFCs, the model index, the model status, the changelog
 export function navLinks(locale: Locale) {
   const s = STRINGS[locale].nav;
   return [
     { id: "overview", label: s.overview, href: localePath(locale, "/") },
-    { id: "start", label: s.quickstart, href: localePath(locale, "/docs/quickstart/") },
-    { id: "protocol", label: s.protocol, href: localePath(locale, "/docs/messages/") },
-    { id: "reference", label: s.reference, href: localePath(locale, "/docs/client/") },
-    { id: "tools", label: s.tools, href: localePath(locale, "/docs/tracing/") },
+    { id: "docs", label: s.docs, href: localePath(locale, "/docs/introduction/") },
+    { id: "rfc", label: s.rfc, href: localePath(locale, "/docs/rfcs/") },
     { id: "models", label: s.models, href: localePath(locale, "/models/") },
     { id: "status", label: s.status, href: localePath(locale, "/status/") },
     { id: "changelog", label: s.changelog, href: localePath(locale, "/changelog/") },

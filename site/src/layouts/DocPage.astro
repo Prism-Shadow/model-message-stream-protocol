@@ -39,7 +39,7 @@ const step =
   locale={locale}
   title={doc.title[locale]}
   description={description ?? docSummary(page)}
-  active={section.id}
+  active={doc.source ? "rfc" : "docs"}
   entry={doc.slug === ALL_DOCS[0].slug}
 >
   <div class="mx-auto grid max-w-7xl lg:grid-cols-[15rem_minmax(0,1fr)] xl:grid-cols-[15rem_minmax(0,1fr)_14rem]">
