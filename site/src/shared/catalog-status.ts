@@ -9,7 +9,7 @@ export type MetricWords = StatusWords & { tps: string };
 // until the probe's next run rewrites them, so a build or a reader in between gets either form
 export function withCurrentKeys(latest: Latest | null): Latest | null {
   if (!latest) return null;
-  const targets = Object.entries(latest.targets).map(([key, target]) => [key.replaceAll("|", " "), target] as const);
+  const targets = Object.entries(latest.targets).map(([key, target]) => [key.replaceAll("|", "+"), target] as const);
   return { ...latest, targets: Object.fromEntries(targets) };
 }
 
