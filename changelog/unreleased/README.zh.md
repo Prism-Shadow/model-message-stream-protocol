@@ -2,6 +2,7 @@
 
 [English](README.md)
 
+- [2026-10-19] 拒绝 `tts_config` 时抛出 `UnsupportedParameterError`。([详情](2026-10-19-tts-config-unsupported-parameter.zh.md), [#269](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/269))
 - [2026-10-19] Claude 回放时省略不带签名的思考条目。([详情](2026-10-19-claude-unsigned-thinking-replay.zh.md), [#268](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/268))
 - [2026-10-19] TypeScript 中 GLM 与 Kimi K2 的扩展参数送达 API。([详情](2026-10-19-openai-node-extension-keys.zh.md), [#267](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/267))
 - [2026-10-19] vLLM 适配器通过 Python SDK 发送 `chat_template_kwargs`。([详情](2026-10-19-vllm-chat-template-kwargs.zh.md), [#266](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/266))
