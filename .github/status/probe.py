@@ -308,7 +308,9 @@ def write_history(out: Path, run: dict[str, Any], today: datetime) -> None:
     date = today.strftime("%Y-%m-%d")
     for key, entry in run["targets"].items():
         days = history["targets"].setdefault(key, {})
-        days[date] = {field: entry[field] for field in ("status", "ttft_ms", "tps", "cost_usd")}
+        days[date] = {field: entry[field] for field in ("status", "ok", "ttft_ms", "tps", "cost_usd", "error")} | {
+            "samples": run["samples"]
+        }
     oldest = (today - timedelta(days=HISTORY_DAYS - 1)).strftime("%Y-%m-%d")
     kept = {}
     for key, days in history["targets"].items():

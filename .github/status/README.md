@@ -1,6 +1,6 @@
 # Model status probe
 
-`status.yml` runs `probe.py` every day at 04:30 UTC and commits the results to the `status-data` branch, which the site reads from `https://raw.githubusercontent.com/Prism-Shadow/model-message-stream-protocol/status-data/<file>`. GitHub fires scheduled runs from `main` only. The first run creates the branch.
+`status.yml` runs `probe.py` every day at 04:30 UTC and commits the results to the `status-data` branch, which the site reads from `https://raw.githubusercontent.com/Prism-Shadow/model-message-stream-protocol/status-data/<file>`. The site bakes the files into its pages at build (`pages.yml` checks the branch out as `MMSP_STATUS_DIR`) and `status.yml` rebuilds it after every run that published; the pages then refresh from the branch in the browser. GitHub fires scheduled runs from `main` only. The first run creates the branch.
 
 ## Targets
 
@@ -39,8 +39,9 @@ The key of every target is `<client>|<base_url>|<model>`.
    "cost_usd": 0.00031,                  // null when the registry has no price for the key
    "error": null,                        // the last error when a sample failed
    "checked_at": "2026-10-19T04:35:02Z"}}}
-// history.json: one entry per UTC day per target, the day's last run, 90 days
-{"days": 90, "targets": {"<key>": {"2026-10-19": {"status": "up", "ttft_ms": 412, "tps": 87.3, "cost_usd": 0.00031}}}}
+// history.json: one entry per UTC day per target, the day's last run, 90 days; a day written before
+// ok, samples and error were recorded lacks them
+{"days": 90, "targets": {"<key>": {"2026-10-19": {"status": "up", "ok": 3, "ttft_ms": 412, "tps": 87.3, "cost_usd": 0.00031, "error": null, "samples": 3}}}}
 // monthly.json: every run of the month counted, manual ones included; a target without a price is left out
 {"months": {"2026-10": {"runs": 19, "total_usd": 0.0093, "targets": {"<key>": 0.0046}}}}
 // runs/2026-10-19.json: every run of the day, each the latest.json shape plus its samples
@@ -52,7 +53,7 @@ A run that probes some targets only keeps the other targets' `latest.json` entri
 
 ## Running it
 
-From the site, **Run a check now** on `/status/` opens this workflow's Run workflow page; only people with write access to the repository can start a run, and the run uses the repository secrets. The page then reads the `status-data` head from the GitHub API once a minute, for up to 30 minutes, and redraws itself from the new commit's files once a new `run_id` lands. A run on a day that already has one appends to that day's `runs/` file, replaces that day's `history.json` entry of each target it probes, and is counted in `monthly.json`. The `status` concurrency group makes it wait for a run in progress, such as the scheduled one, so two runs never push at once; the group holds one waiting run, and a newer one replaces it. A run that fails before the probe writes anything, such as one whose `targets` names no target, pushes no commit, and the page stops waiting after 30 minutes.
+From the site, **Run a check now** on `/status/` opens this workflow's Run workflow page; only people with write access to the repository can start a run, and the run uses the repository secrets. The page then reads the `status-data` head from the GitHub API once a minute, for up to 30 minutes, and once a new `run_id` lands redraws itself from the new commit's files, read through raw.githubusercontent.com or, where raw is unreachable, through the GitHub contents API. A run on a day that already has one appends to that day's `runs/` file, replaces that day's `history.json` entry of each target it probes, and is counted in `monthly.json`. The `status` concurrency group makes it wait for a run in progress, such as the scheduled one, so two runs never push at once; the group holds one waiting run, and a newer one replaces it. A run that fails before the probe writes anything, such as one whose `targets` names no target, pushes no commit, and the page stops waiting after 30 minutes.
 
 ```sh
 # from main; targets is optional, a comma-separated list of model ids or keys
