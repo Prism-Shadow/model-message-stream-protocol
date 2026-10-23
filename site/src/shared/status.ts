@@ -3,7 +3,7 @@
 // The daily status probe's data: the files the status workflow commits to the status-data branch
 // (.github/status/README.md describes them). The pages are built with them (status-build.ts) and
 // read them again in the browser, to catch up with a run newer than the build. Every entry is
-// keyed by its registry triple, `${client} ${base_url} ${model}`; files written before 2026-10-23
+// keyed by its registry triple, `${client}+${base_url}+${model}`; files written before 2026-10-23
 // joined it with `|`, and withCurrentKeys() rewrites those keys as they are read. A file comes from
 // raw.githubusercontent.com, or where raw does not answer (from mainland China, for one) from the
 // GitHub contents API, which allows 60 anonymous requests an hour per IP. A check run by hand is
@@ -19,7 +19,8 @@ export const STATUS_RUNS_API = `https://api.github.com/repos/${REPO}/actions/wor
 // the files as of one commit: raw.githubusercontent.com may cache a branch's files for minutes, a
 // commit's never change
 export const statusCommitBase = (sha: string) => `https://raw.githubusercontent.com/${REPO}/${sha}/`;
-export const HISTORY_DAYS = 90;
+// the days history.json keeps; every earlier day is in history/YYYY.json
+export const HISTORY_DAYS = 365;
 const SVG = "http://www.w3.org/2000/svg";
 
 export type Status = "up" | "degraded" | "down" | "nokey";
@@ -70,6 +71,12 @@ export interface History {
   targets: Record<string, Record<string, Day>>;
 }
 
+// history/YYYY.json: every day of one UTC year, never pruned
+export interface HistoryYear {
+  year: string;
+  targets: Record<string, Record<string, Day>>;
+}
+
 export interface Month {
   runs: number;
   total_usd: number;
@@ -113,7 +120,7 @@ async function fetchJson<T>(url: string, headers?: Record<string, string>): Prom
 }
 
 // a key written before 2026-10-23 joined the triple with "|"
-const currentKey = (key: string) => key.replaceAll("|", " ");
+const currentKey = (key: string) => key.replaceAll("|", "+");
 const rekey = <V>(targets: Record<string, V>) => Object.fromEntries(Object.entries(targets).map(([key, value]) => [currentKey(key), value]));
 
 // a status file with every target keyed as today: the targets of latest.json and history.json, and
@@ -149,6 +156,7 @@ function load<T>(name: string, base = statusBase()): Promise<T | null> {
 
 export const loadLatest = (base?: string) => load<Latest>("latest.json", base);
 export const loadHistory = (base?: string) => load<History>("history.json", base);
+export const loadHistoryYear = (year: string, base?: string) => load<HistoryYear>(`history/${year}.json`, base);
 export const loadMonthly = (base?: string) => load<Monthly>("monthly.json", base);
 
 async function github<T>(url: string): Promise<{ status: number; body?: T } | undefined> {
@@ -222,11 +230,20 @@ export function ago(iso: string, locale: string): string {
   return format.format(0, "minute");
 }
 
-// the last HISTORY_DAYS UTC dates, oldest first, as history.json names its days
+// today's UTC date, as history.json names its days
+export function todayUtc(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// the `count` UTC dates that end on `end`, oldest first
+export function windowDays(end: string, count: number): string[] {
+  const last = Date.parse(`${end}T00:00:00Z`);
+  return Array.from({ length: count }, (_, index) => new Date(last - (count - 1 - index) * 86_400_000).toISOString().slice(0, 10));
+}
+
+// the last `count` UTC dates, oldest first
 export function lastDays(count = HISTORY_DAYS): string[] {
-  const now = new Date();
-  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-  return Array.from({ length: count }, (_, index) => new Date(today - (count - 1 - index) * 86_400_000).toISOString().slice(0, 10));
+  return windowDays(todayUtc(), count);
 }
 
 // each state's shape on a 16-unit square: filled in the state's colour, the glyph cut out in
