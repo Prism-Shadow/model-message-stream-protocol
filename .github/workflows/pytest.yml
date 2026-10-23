@@ -44,9 +44,12 @@ jobs:
 
       - name: Run tests
         working-directory: ./src_py
+        # --only-rerun searches "<class>: <message>" (rerunfailures 16; 15 prefixes the module), so the
+        # anchor leaves out failures that only name the class, such as pytest.raises' DID NOT RAISE
         run: |
           uv run pytest -vvv -n 16 --dist loadgroup \
             --reruns 5 --reruns-delay 30 --only-rerun RateLimitError --only-rerun 429 \
+            --only-rerun '^(mmsp\.errors\.)?IncompleteStreamError:' \
             tests
         env:
           MMSP_TEST_CLIENTS: ${{ inputs.clients }}
