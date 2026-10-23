@@ -26,7 +26,7 @@ is decoded back.
 While the model is silent, the server writes an SSE comment every KEEPALIVE_SECONDS, which a reader
 skips; it keeps proxies and clients from timing out a long thought.
 An error is `{"error": {"type", "message", ...}}`: the HTTP body when the server refuses a request,
-or one event followed by `data: [DONE]` once the stream has begun. The five MMSP errors travel with
+or one event followed by `data: [DONE]` once the stream has begun. The six MMSP errors travel with
 their fields; the mmsp client raises every error the server reports as an `UpstreamError` carrying
 the object.
 """
@@ -36,6 +36,7 @@ from typing import Any
 
 from .errors import (
     EmptyResponseError,
+    IncompleteStreamError,
     StreamProtocolError,
     ToolCallArgumentParseError,
     UnsupportedOperationError,
@@ -135,6 +136,15 @@ def to_wire_error(exc: BaseException) -> dict[str, Any]:
             "type": "EmptyResponseError",
             "message": str(exc),
             "client": exc.client,
+            "finish_reason": exc.finish_reason,
+            "usage_metadata": exc.usage_metadata,
+        }
+    if isinstance(exc, IncompleteStreamError):
+        return {
+            "type": "IncompleteStreamError",
+            "message": str(exc),
+            "client": exc.client,
+            "missing": list(exc.missing),
             "finish_reason": exc.finish_reason,
             "usage_metadata": exc.usage_metadata,
         }

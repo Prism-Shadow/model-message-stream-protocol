@@ -12,9 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import inspect
 from typing import Any
 
 import pytest
+from openai.resources.chat.completions import AsyncCompletions
 
 from mmsp import AutoLLMClient, ThinkingLevel
 
@@ -351,7 +353,8 @@ def test_openai_chat_vllm_adapter_thinking_level_maps_to_chat_template_kwargs(
         client_type="openai-chat-vllm-adapter",
     )
     config = client._client.transform_uni_config_to_model_config({"thinking_level": level})  # noqa: SLF001
-    assert config.get("chat_template_kwargs") == expected
+    assert (config.get("extra_body") or {}).get("chat_template_kwargs") == expected
+    assert set(config) <= set(inspect.signature(AsyncCompletions.create).parameters)
 
 
 def test_openai_chat_vllm_adapter_omits_chat_template_kwargs_without_thinking_level():
@@ -362,6 +365,7 @@ def test_openai_chat_vllm_adapter_omits_chat_template_kwargs_without_thinking_le
     )
     config = client._client.transform_uni_config_to_model_config({})  # noqa: SLF001
     assert "chat_template_kwargs" not in config
+    assert "extra_body" not in config
 
 
 def test_openai_chat_does_not_receive_the_vllm_extension():
@@ -374,3 +378,4 @@ def test_openai_chat_does_not_receive_the_vllm_extension():
         {"thinking_level": ThinkingLevel.NONE}
     )
     assert "chat_template_kwargs" not in config
+    assert "extra_body" not in config

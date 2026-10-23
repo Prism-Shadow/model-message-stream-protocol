@@ -70,6 +70,11 @@ def assert_stream_grammar(events: list[UniEvent]) -> None:
             assert item["arguments"] == json.loads(raw or "{}")
             assert item["name"] == open_deltas[0]["name"]
             assert item["tool_call_id"] == open_deltas[0]["tool_call_id"]
+        elif item["type"] in ("inline_data.done", "inline_thinking.done"):
+            assert item["data"] == b"".join(delta["data"] for delta in open_deltas)
+            assert item["mime_type"] == open_deltas[0]["mime_type"]
+        elif item["type"] == "embedding.done":
+            assert item["embedding"] == [value for delta in open_deltas for value in delta["embedding"]]
         open_deltas = []
 
     assert open_deltas == []

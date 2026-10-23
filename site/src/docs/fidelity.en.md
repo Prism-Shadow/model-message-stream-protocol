@@ -18,6 +18,7 @@ MMSP keeps that data in one place, the `fidelity` field of a content item.
 | OpenAI Responses | `thinking.done` | The `channel` the reasoning arrived on, `encrypted_content`, and what else the server demands back |
 | OpenAI Responses | `text.done` | The `phase` of the message |
 | Chat Completions | `thinking.done` | The `reasoning_field` the server used: `reasoning_content` or `reasoning` |
+| Chat Completions on OpenRouter | `thinking.done` | The encrypted `reasoning_details` fragment as received: GPT's encrypted reasoning or Gemini's thought signature |
 | Gemini | any item | The thought `signature` |
 
 ## The rules
