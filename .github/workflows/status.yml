@@ -6,12 +6,14 @@ on:
   workflow_dispatch:
     inputs:
       targets:
-        description: Comma-separated model ids or client|base_url|model keys to probe; empty probes every target
+        description: Comma-separated model ids or `client+base_url+model` keys to probe; empty probes every target
         type: string
         default: ""
 
 permissions:
   contents: write
+  # to start pages.yml, which rebuilds the site with the new data
+  actions: write
 
 concurrency:
   group: status
@@ -71,6 +73,7 @@ jobs:
 
       # whatever the probe managed to write is published, so a failing step still leaves a record
       - name: Publish the status data
+        id: publish
         if: always() && steps.data.outcome == 'success'
         working-directory: data
         run: |
@@ -83,3 +86,12 @@ jobs:
             -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
             commit -qm "status: $(date -u +%F) run $GITHUB_RUN_ID"
           git push origin HEAD:refs/heads/status-data
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+
+      # the site bakes the data in at build; a push made with the workflow token starts no
+      # workflow, a dispatch does
+      - name: Rebuild the site with the new data
+        if: always() && steps.publish.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --ref main

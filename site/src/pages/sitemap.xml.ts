@@ -1,9 +1,9 @@
 import type { APIRoute } from "astro";
 import { LOCALES, localePath } from "../shared/i18n";
-import { ALL_DOCS } from "../shared/site";
+import { ALL_DOCS, ALL_RFCS, docPath } from "../shared/site";
 
 // every page in both languages, each naming its counterpart, for search engines
-const PATHS = ["/", "/models/", "/status/", "/changelog/", ...ALL_DOCS.map((doc) => `/docs/${doc.slug}/`)];
+const PATHS = ["/", "/models/", "/status/", "/changelog/", ...ALL_DOCS.map(docPath), ...ALL_RFCS.map(docPath)];
 
 export const GET: APIRoute = ({ site }) => {
   const url = (locale: "en" | "zh", path: string) => new URL(localePath(locale, path), site).href;
