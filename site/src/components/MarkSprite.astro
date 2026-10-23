@@ -1,0 +1,9 @@
+---
+// Every mark once, as symbols the page's VendorMark elements and its scripts point at. Not display:
+// none, which would also hide the gradients the symbols fill with.
+import { MARKS } from "../shared/marks";
+---
+
+<svg width="0" height="0" class="absolute" aria-hidden="true">
+  {Object.entries(MARKS).map(([id, mark]) => <symbol id={`mark-${id}`} viewBox={mark.viewBox} set:html={mark.body} />)}
+</svg>

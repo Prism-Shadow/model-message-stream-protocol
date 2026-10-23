@@ -226,8 +226,9 @@ describe("thinking switch reaches the wire", () => {
 // What each remaining client puts on the wire for a level, per its vendor's effort
 // vocabulary: OpenAI takes the full set except on GPT-6, which rejects "none" and
 // "minimal" so NONE degrades to low; Claude tops out at max (xhigh only from 4.7),
-// DeepSeek and Kimi accept low/high/max, DeepSeek turns thinking off with none, and
-// MiniMax has no level above high.
+// DeepSeek and Kimi accept low/high/max, DeepSeek turns thinking off with none,
+// MiniMax-M3 has no level above high, and MiniMax-M3.1-Flash cannot turn thinking off
+// but takes low through max.
 const THINKING_EFFORT_CASES: Array<
   [string, string | undefined, ThinkingLevel, string | undefined]
 > = [
@@ -277,6 +278,9 @@ const THINKING_EFFORT_CASES: Array<
   ["kimi-k3", undefined, ThinkingLevel.MAX, "max"],
   ["MiniMax-M3", undefined, ThinkingLevel.XHIGH, "high"],
   ["MiniMax-M3", undefined, ThinkingLevel.MAX, "high"],
+  ["MiniMax-M3.1-Flash", undefined, ThinkingLevel.NONE, "low"],
+  ["MiniMax-M3.1-Flash", undefined, ThinkingLevel.XHIGH, "xhigh"],
+  ["MiniMax-M3.1-Flash", undefined, ThinkingLevel.MAX, "max"],
 ];
 
 /** Read the effort out of whichever config key the client used. */

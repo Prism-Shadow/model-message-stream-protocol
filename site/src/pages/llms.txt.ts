@@ -18,9 +18,17 @@ MMSP, the Model Message Stream Protocol, ships as the Python package \`mmsp\` an
 
 ${sections.join("\n\n")}
 
+## Models
+
+- [Model catalog](${new URL("/models.json", site).href}): every model MMSP supports, as JSON: its endpoint, client, key variable, list price and the code that calls it
+- [Models](${new URL("/models/", site).href}): the same catalog as a page
+- [Status](${new URL("/status/", site).href}): the daily probe of the watched channels: status, TTFT, TPS and probe cost
+
 ## 中文
 
 ${chinese.join("\n")}
+- [模型](${new URL("/zh/models/", site).href})
+- [状态](${new URL("/zh/status/", site).href})
 
 ## Optional
 
