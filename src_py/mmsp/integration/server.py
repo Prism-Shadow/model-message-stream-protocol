@@ -1190,7 +1190,7 @@ def create_server_app(
         def generate():
             """Generate streaming response using the persistent event loop."""
             signal = AbortSignal()
-            async_gen = None
+            async_gen = next_event = None
             loop = _get_event_loop()
             outcome = error = usage = None
             try:
@@ -1222,6 +1222,10 @@ def create_server_app(
             except GeneratorExit:
                 # the caller went away: the upstream request is cancelled, and nothing more is written
                 signal.abort("client disconnected")
+                # the abort cancels a pending read; wait for it, or aclose() would find the stream still running
+                if next_event is not None:
+                    with suppress(Exception):
+                        next_event.result(timeout=1)
                 if async_gen is not None:
                     with suppress(Exception):
                         asyncio.run_coroutine_threadsafe(async_gen.aclose(), loop).result(timeout=1)

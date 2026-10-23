@@ -268,22 +268,24 @@ class LLMClient(ABC):
 
         stream = self._streaming_response_internal(request_messages, config)
         abort_task: asyncio.Task[None] | None = None
+        close_task: asyncio.Task[None] | None = None
+        streaming_task: asyncio.Task[Any] | None = None
         waiting_for_stream = False
+        stream_closing = False
         if signal is not None:
-            streaming_task = asyncio.current_task()
             abort_task = asyncio.create_task(signal.wait())
 
             def cancel_streaming_task(task: asyncio.Task[None]) -> None:
-                if (
-                    task.cancelled()
-                    or not signal.aborted
-                    or not waiting_for_stream
-                    or streaming_task is None
-                    or streaming_task.done()
-                ):
+                nonlocal close_task
+                if task.cancelled() or not signal.aborted or stream_closing:
                     return
 
-                streaming_task.cancel(signal.reason)
+                if not waiting_for_stream:
+                    # no read is pending, so the client's generator rests at a yield: closing it there
+                    # closes the provider's request now rather than at the caller's next step
+                    close_task = asyncio.create_task(stream.aclose())
+                elif streaming_task is not None and not streaming_task.done():
+                    streaming_task.cancel(signal.reason)
 
             abort_task.add_done_callback(cancel_streaming_task)
 
@@ -292,6 +294,9 @@ class LLMClient(ABC):
                 try:
                     if signal is not None:
                         signal.throw_if_aborted()
+                        # a caller may read each event in a task of its own (the MMSP server and the
+                        # playground do), so the abort cancels whichever task reads now
+                        streaming_task = asyncio.current_task()
                         waiting_for_stream = True
                         signal.throw_if_aborted()
 
@@ -308,11 +313,20 @@ class LLMClient(ABC):
                 for public_event in output.push(event):
                     yield public_event
         finally:
+            stream_closing = True
             if abort_task is not None and not abort_task.done():
                 abort_task.cancel()
                 with suppress(asyncio.CancelledError):
                     await abort_task
-            await stream.aclose()
+            # a second aclose() would find the generator still closing
+            if close_task is not None:
+                await close_task
+            else:
+                await stream.aclose()
+
+        # an abort that lands as the provider's stream ends is still an abort: no done items, no stop
+        if signal is not None:
+            signal.throw_if_aborted()
 
         for public_event in output.end():
             yield public_event

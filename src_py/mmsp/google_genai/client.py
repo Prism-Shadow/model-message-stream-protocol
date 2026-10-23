@@ -13,9 +13,11 @@
 # limitations under the License.
 
 import base64
+import contextlib
 import json
 import mimetypes
 import re
+from contextvars import ContextVar
 from typing import Any, AsyncIterator
 
 import httpx
@@ -38,6 +40,19 @@ from ..types import (
     UsageMetadata,
 )
 from ..utils import is_debug_enabled, resolve_credentials, speaker_turns
+
+
+# generate_content_stream reads its HTTP response under nested async generators, the innermost in a
+# reference cycle with the response, so closing the stream it returns leaves the connection open until
+# the garbage collector runs (measured with google-genai 2.33). A stream therefore collects, through the
+# SDK client's httpx event hook, the responses its request opens, and closes them when it is closed.
+_OPENED_RESPONSES: ContextVar[list[Any] | None] = ContextVar("google_genai_opened_responses", default=None)
+
+
+async def _collect_opened_response(response: Any) -> None:
+    opened = _OPENED_RESPONSES.get()
+    if opened is not None:
+        opened.append(response)
 
 
 def _split_function_response_runs(parts: list[types.Part]) -> list[list[types.Part]]:
@@ -80,7 +95,9 @@ class GoogleGenaiClient(LLMClient):
         self._model = model
         api_key, base_url = resolve_credentials(self.__class__.__name__, "google-genai", api_key, base_url)
         # the Gemini SDK carries connection headers inside http_options rather than its own argument
-        http_options: dict[str, Any] = {}
+        http_options: dict[str, Any] = {
+            "async_client_args": {"event_hooks": {"response": [_collect_opened_response]}},
+        }
         if base_url:
             http_options["base_url"] = base_url
         if default_headers:
@@ -95,10 +112,10 @@ class GoogleGenaiClient(LLMClient):
                 credentials=credentials,
                 project=service_account_info["project_id"],
                 location="global",
-                http_options=http_options or None,
+                http_options=http_options,
             )
         else:
-            self._client = genai.Client(api_key=api_key, http_options=http_options or None)
+            self._client = genai.Client(api_key=api_key, http_options=http_options)
 
         self._history: list[UniMessage] = []
 
@@ -647,21 +664,38 @@ class GoogleGenaiClient(LLMClient):
                 }
             ]
 
-        response_stream = await self._client.aio.models.generate_content_stream(
-            model=self._model, contents=contents, config=gemini_config
-        )
-
-        saw_function_call = False
-        async for chunk in response_stream:
-            event = self.transform_model_output_to_uni_event(chunk)
-            if any(item["type"] == "tool_call.delta" for item in event["content_items"]):
-                saw_function_call = True
-
-            # generateContent reports STOP for a turn that stopped to call tools
-            finish_reason = (
-                "tool_call" if event["finish_reason"] == "stop" and saw_function_call else event["finish_reason"]
+        opened: list[Any] = []
+        collecting = _OPENED_RESPONSES.set(opened)
+        try:
+            response_stream = await self._client.aio.models.generate_content_stream(
+                model=self._model, contents=contents, config=gemini_config
             )
-            yield {**event, "finish_reason": finish_reason}
+
+            saw_function_call = False
+            async with contextlib.aclosing(response_stream):
+                async for chunk in response_stream:
+                    if collecting is not None:
+                        # the request went out with the first read, in the context this step runs in;
+                        # a later read may run in another task's
+                        _OPENED_RESPONSES.reset(collecting)
+                        collecting = None
+
+                    event = self.transform_model_output_to_uni_event(chunk)
+                    if any(item["type"] == "tool_call.delta" for item in event["content_items"]):
+                        saw_function_call = True
+
+                    # generateContent reports STOP for a turn that stopped to call tools
+                    finish_reason = (
+                        "tool_call"
+                        if event["finish_reason"] == "stop" and saw_function_call
+                        else event["finish_reason"]
+                    )
+                    yield {**event, "finish_reason": finish_reason}
+        finally:
+            if collecting is not None:
+                _OPENED_RESPONSES.reset(collecting)
+            for response in opened:
+                await response.aclose()
 
     async def list_models(self) -> list[str]:
         """
