@@ -1,9 +1,17 @@
 // The catalog's latency and throughput cells from a row's entry in the probe's latest.json: built
 // with the page, and drawn again by its script when the status-data branch has a newer run.
 
-import { formatMs, formatTps, statusAnchor, type StatusWords, type TargetLatest } from "./status";
+import { formatMs, formatTps, statusAnchor, type Latest, type StatusWords, type TargetLatest } from "./status";
 
 export type MetricWords = StatusWords & { tps: string };
+
+// files written before 2026-10-23 joined the triple with `|`; the status-data branch keeps them
+// until the probe's next run rewrites them, so a build or a reader in between gets either form
+export function withCurrentKeys(latest: Latest | null): Latest | null {
+  if (!latest) return null;
+  const targets = Object.entries(latest.targets).map(([key, target]) => [key.replaceAll("|", " "), target] as const);
+  return { ...latest, targets: Object.fromEntries(targets) };
+}
 
 export interface MetricCells {
   latency: string;

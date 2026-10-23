@@ -8,7 +8,7 @@
 import VendorMark from "./VendorMark.astro";
 import { STRINGS, localePath, type Locale } from "../shared/i18n";
 import { catalogRows, formatContext, formatPrice, literal } from "../shared/catalog";
-import { isProbed, metricCells } from "../shared/catalog-status";
+import { isProbed, metricCells, withCurrentKeys } from "../shared/catalog-status";
 import { statusAtBuild } from "../shared/status-build";
 import type { Modality } from "../../../src_ts/src/registry.ts";
 
@@ -22,7 +22,7 @@ const rows = catalogRows();
 const providers = new Set(rows.map((row) => row.provider.name)).size;
 // a Chinese reader sees the vendors' CNY list prices first; a choice made before wins
 const currency = locale === "zh" ? "CNY" : "USD";
-const { latest } = await statusAtBuild();
+const latest = withCurrentKeys((await statusAtBuild()).latest);
 const statusPage = localePath(locale, "/status/");
 const targets = rows.map((row) => latest?.targets[row.key]);
 const probed = targets.filter(isProbed).length;
@@ -713,7 +713,7 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
 </style>
 
 <script>
-  import { isProbed, metricCells, type MetricWords } from "../shared/catalog-status";
+  import { isProbed, metricCells, withCurrentKeys, type MetricWords } from "../shared/catalog-status";
   import { loadLatest, statusQuery } from "../shared/status";
 
   type Tab = "typescript" | "python" | "server";
@@ -929,7 +929,8 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
       if (data === null || data === undefined) delete row.dataset[name];
       else row.dataset[name] = String(data);
     };
-    void loadLatest().then((latest) => {
+    void loadLatest().then((loaded) => {
+      const latest = withCurrentKeys(loaded);
       if (!latest || (latest.run_id === root.dataset.runId && !statusQuery())) return;
       root.dataset.runId = latest.run_id;
       const page = root.dataset.statusPage! + statusQuery();

@@ -14,7 +14,7 @@ export { PROVIDERS, providerOf, vendorOf, type Provider, type Vendor } from "./p
 type Text = Record<Locale, string>;
 
 export function statusKey(entry: Pick<SupportedModel, "model" | "base_url" | "client">): string {
-  return `${entry.client}|${entry.base_url}|${entry.model}`;
+  return `${entry.client} ${entry.base_url} ${entry.model}`;
 }
 
 // MODEL_FAMILIES of credentials.ts, read as text: importing the SDK would pull every provider
