@@ -27,7 +27,7 @@ export const STRINGS = {
     nav: {
       overview: "Overview",
       docs: "Docs",
-      rfc: "RFC",
+      rfc: "RFCs",
       models: "Model Index",
       status: "Model Status",
       changelog: "Changelog",
