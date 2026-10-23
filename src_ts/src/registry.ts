@@ -1101,10 +1101,11 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   // https://tokendance.space/portal/api/models/all, read 2026-10-19; each row's client speaks
   // a protocol the catalog lists for the model, and its price is that protocol's)
   {
-    // weekday peak rates (09:00-12:00, 14:00-18:00 Beijing) are double on this row and the next
+    // this row and the next take the gateway's Chat Completions path; weekday peak rates
+    // (09:00-12:00, 14:00-18:00 Beijing) are double on both
     model: "deepseek-v4.1-flash-1017",
     base_url: TOKENDANCE,
-    client: "deepseek-official",
+    client: "openai-chat",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
     context_window: 1000000,
@@ -1113,7 +1114,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   {
     model: "deepseek-v4.1-flash",
     base_url: TOKENDANCE,
-    client: "deepseek-official",
+    client: "openai-chat",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
     context_window: 1000000,

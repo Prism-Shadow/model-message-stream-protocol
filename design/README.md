@@ -28,7 +28,7 @@ A `rule` is an invariant the code keeps; a `change` changes the protocol or the 
 | [`rfcs/`](rfcs/) | One decision per file, `MMSP-RFC-NNNN-<slug>.md` |
 | [`0000-template.md`](0000-template.md) | The file an RFC starts from |
 
-Every file except the template has a Chinese twin, `<name>.zh.md`, which mirrors it section for section. The site renders this index and every RFC from these files, in the Design section of its docs.
+Every file except the template has a Chinese twin, `<name>.zh.md`, which mirrors it section for section. The site renders this index and every RFC from these files at `/rfcs/`.
 
 ## When a change needs an RFC
 

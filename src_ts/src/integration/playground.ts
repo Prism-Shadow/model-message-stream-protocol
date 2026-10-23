@@ -3362,7 +3362,7 @@ export function createChatApp(): Express {
               document.getElementById('thread').classList.remove('hidden');
           }
 
-          function addMessageCard(role, content, metadata = null, images = [], timestamp = null, tookMs = null) {
+          function addMessageCard(role, content, metadata = null, images = [], timestamp = null) {
               const thread = document.getElementById('thread');
               showThread();
 
@@ -3383,7 +3383,7 @@ export function createChatApp(): Express {
                   }
                   html += \`<div class="message-content">\${escapeHtml(content || '')}</div></div>\`;
               } else {
-                  html += \`<div class="msg-head"><span class="msg-model">\${escapeHtml(getSelectedModel())}</span><span class="msg-took">\${tookMs !== null ? formatDuration(tookMs) : ''}</span><span class="msg-timestamp">\${timestamp ? formatClock(timestamp) : ''}</span></div>\`;
+                  html += \`<div class="msg-head"><span class="msg-model">\${escapeHtml(getSelectedModel())}</span><span class="msg-timestamp">\${timestamp ? formatClock(timestamp) : ''}</span></div>\`;
                   html += \`<div class="message-content">\${escapeHtml(content || '')}</div>\`;
               }
 
@@ -3693,10 +3693,6 @@ export function createChatApp(): Express {
                   const endTime = Date.now();
                   const responseTimeMs = endTime - userSendTime;
                   lastMessageTimestamp = endTime;
-                  const tookEl = assistantCard.querySelector('.msg-took');
-                  if (tookEl) {
-                      tookEl.textContent = formatDuration(responseTimeMs);
-                  }
 
                   if (metadata) {
                       const metadataHtml = renderMetadata(metadata, responseTimeMs, Boolean(contentDiv.querySelector('.text-content')));

@@ -26,7 +26,7 @@ const { locale, class: className } = Astro.props;
 const s = STRINGS[locale];
 // the trigger's note lives in the markup only, as the button's title and its description; the
 // axis words under the bars are no longer drawn, and a strip is named by its window's dates
-const { triggerNote: _triggerNote, daysAgo: _daysAgo, today: _today, days: _days, ...statusWords } = s.status;
+const { triggerNote: _triggerNote, ...statusWords } = s.status;
 const words = { ...statusWords, state: s.models.status, locale: s.htmlLang };
 // the colour of each mark drawn in currentColor, for the marks the script draws
 const tones = Object.fromEntries(Object.entries(MARKS).map(([id, mark]) => [id, mark.tone ?? ""]));
@@ -183,7 +183,6 @@ const schedule = workflow ? dailySchedule(workflow) : null;
     ttft: string;
     tps: string;
     tpsUnit: string;
-    cost: string;
     uptime: string;
     uptimeShare: string;
     samples: string;
