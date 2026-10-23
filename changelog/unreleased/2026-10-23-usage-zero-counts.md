@@ -3,6 +3,7 @@
 - **Date:** 2026-10-23
 - **Type:** fix
 - **Scope:** `anthropic_official`, `google_official`, `google_genai`, `openai_chat`, `openai_responses`
+- **PR:** [#279](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/279)
 
 [中文版](2026-10-23-usage-zero-counts.zh.md)
 
