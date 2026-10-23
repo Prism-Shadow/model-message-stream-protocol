@@ -74,6 +74,14 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(select_clients(paths, CATALOG, CATALOG)["checks"], False)
         self.assertEqual(select_clients(paths, CATALOG, CATALOG)["clients"], [])
 
+    def test_status_probe_runs_offline_checks_only(self):
+        for path in (".github/status/probe.py", ".github/status/targets.json", ".github/workflows/status.yml"):
+            with self.subTest(path=path):
+                result = select_clients([path], CATALOG, CATALOG)
+                self.assertTrue(result["checks"])
+                self.assertEqual(result["clients"], [])
+        self.assertEqual(select_clients([".github/status/README.md"], CATALOG, CATALOG)["checks"], False)
+
     def test_documentation_does_not_hide_code_changes(self):
         paths = ["site/package-lock.json", "README.md", "src_py/mmsp/base_client.py"]
         self.assertEqual(select_clients(paths, CATALOG, CATALOG)["clients"], ["*"])

@@ -39,6 +39,10 @@ def select_clients(files: list[str], catalog: dict, previous: dict | None, full:
             ".github/workflows/pr.yml",
         ):
             continue
+        # the status probe calls models only on its own schedule; the offline checks still lint it
+        if path.startswith(".github/status/") or path == ".github/workflows/status.yml":
+            checks = True
+            continue
 
         checks = True
         root = next((root for root in SOURCE_ROOTS if path.startswith(root)), None)

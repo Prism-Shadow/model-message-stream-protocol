@@ -1,0 +1,869 @@
+---
+// The model catalog: one row per registry entry, built with the page, so it reads without
+// JavaScript. The script searches and sorts the rows, switches the prices between USD and CNY,
+// opens an entry's integration kit in a dialog, and fills the status column from the daily probe,
+// each probed entry linking to its channel on the status page. Marks point into the page's
+// MarkSprite.
+import VendorMark from "./VendorMark.astro";
+import { STRINGS, localePath, type Locale } from "../shared/i18n";
+import { catalogRows, formatContext, formatPrice, literal } from "../shared/catalog";
+import type { Modality } from "../../../src_ts/src/registry.ts";
+
+interface Props {
+  locale: Locale;
+  class?: string;
+}
+const { locale, class: className } = Astro.props;
+const s = STRINGS[locale].models;
+const rows = catalogRows();
+const providers = new Set(rows.map((row) => row.provider.name)).size;
+// a Chinese reader sees the vendors' CNY list prices first; a choice made before wins
+const currency = locale === "zh" ? "CNY" : "USD";
+
+const INPUTS: Modality[] = ["Text", "Image", "Video", "Audio"];
+const OUTPUTS: Modality[] = ["Text", "Image", "Audio", "Embed"];
+// Lucide: type, image, video, audio-lines, axis-3d
+const MODALITY_ICONS: Record<Modality, string> = {
+  Text: '<path d="M4 7V4h16v3"></path><path d="M9 20h6"></path><path d="M12 4v16"></path>',
+  Image: '<rect width="18" height="18" x="3" y="3" rx="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path>',
+  Video: '<path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"></path><rect x="2" y="6" width="14" height="12" rx="2"></rect>',
+  Audio: '<path d="M2 10v3"></path><path d="M6 6v11"></path><path d="M10 3v18"></path><path d="M14 8v7"></path><path d="M18 5v13"></path><path d="M22 10v3"></path>',
+  Embed: '<path d="M13.5 10.5 15 9"></path><path d="M4 4v15a1 1 0 0 0 1 1h15"></path><path d="M4.293 19.707 6 18"></path><path d="m9 15 1.5-1.5"></path>',
+};
+
+const price = (value: number | undefined) => (value === undefined ? undefined : formatPrice(value));
+// each tab's file and the lines that install, key and run it; the Server tab's file is a whole
+// mmsp-server.json, started in the background so one paste also streams one answer through it
+const kits = rows.map(({ model, base_url, output_modalities, kit }) => {
+  const hint = kit.keyHint?.[locale];
+  const keyLine = `export ${kit.keyEnv}=${kit.keyValue}` + (hint && hint !== kit.keyValue ? `  # ${hint}` : "");
+  // a single-quoted shell word cannot hold a single quote, so the prompt's quotes become escaped
+  // double quotes
+  const body = literal(kit.request, "json").replaceAll("'", '\\"');
+  // an embedding, an image or speech streams as lines of numbers or base64; their heads show it
+  const heads = output_modalities.includes("Text") ? "" : " | cut -c 1-160";
+  return {
+    model,
+    baseUrl: base_url,
+    typescript: kit.typescript,
+    python: kit.python,
+    server: JSON.stringify({ models: [kit.server], api_keys: ["$MMSP_SERVER_API_KEY"] }, null, 2),
+    run: {
+      typescript: ["npm install @prismshadow/mmsp", keyLine, "npx tsx main.ts"].join("\n"),
+      python: ["pip install mmsp", keyLine, "python main.py"].join("\n"),
+      server: [
+        "pip install mmsp",
+        keyLine,
+        "export MMSP_SERVER_API_KEY=secret",
+        "python -m mmsp.integration.server --config mmsp-server.json &",
+        "curl -sSN --retry 5 --retry-connrefused http://127.0.0.1:25752/v1/stream \\",
+        '  -H "Authorization: Bearer $MMSP_SERVER_API_KEY" -H "Content-Type: application/json" \\',
+        `  -d '${body}'${heads}`,
+      ].join("\n"),
+    },
+  };
+});
+const columns = s.columns;
+const head = "px-3 py-2.5 text-[11px] font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400";
+const sortButton =
+  "group inline-flex items-center gap-1 uppercase transition-colors hover:text-gray-900 dark:hover:text-gray-100";
+const icon = "h-3.5 w-3.5";
+const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round" };
+---
+
+<section
+  class:list={["catalog", className]}
+  data-catalog
+  data-currency={currency}
+  data-words={JSON.stringify({ ...s.status, ...s.kit, models: s.models, probed: s.probed, perMillion: s.perMillion })}
+  data-status-page={localePath(locale, "/status/")}
+  data-locale={STRINGS[locale].htmlLang}
+>
+  <div class="flex flex-wrap items-center gap-x-4 gap-y-3">
+    <label class="relative w-full sm:w-72">
+      <span class="sr-only">{s.search}</span>
+      <svg viewBox="0 0 24 24" class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" {...stroke} aria-hidden="true">
+        <circle cx="11" cy="11" r="8"></circle>
+        <path d="m21 21-4.3-4.3"></path>
+      </svg>
+      <input
+        type="search"
+        placeholder={s.search}
+        autocomplete="off"
+        spellcheck="false"
+        data-catalog-search
+        class="h-9 w-full rounded-lg border border-gray-200 bg-white pr-3 pl-9 text-sm placeholder:text-gray-400 focus:border-gray-400 focus:outline-none dark:border-gray-800 dark:bg-gray-950 dark:placeholder:text-gray-500 dark:focus:border-gray-600"
+      />
+    </label>
+    <p class="text-[13px] text-gray-500 tabular-nums dark:text-gray-400">
+      <span data-catalog-count>{s.models.replace("{n}", String(rows.length))}</span>
+      <span aria-hidden="true"> · </span>
+      <span>{s.providers.replace("{n}", String(providers))}</span>
+      <span data-catalog-probed hidden></span>
+    </p>
+
+    <div class="ml-auto flex items-center gap-3">
+      <span class="text-xs text-gray-500 dark:text-gray-400">{s.perMillion}</span>
+      <div class="segmented" role="radiogroup" aria-label={s.currency} data-segmented data-value={currency}>
+        <span class="segmented-thumb" aria-hidden="true"></span>
+        <button type="button" role="radio" aria-checked={currency === "USD" ? "true" : "false"} data-value="USD">USD</button>
+        <button type="button" role="radio" aria-checked={currency === "CNY" ? "true" : "false"} data-value="CNY">CNY</button>
+      </div>
+      <a
+        href="/models.json"
+        title={s.json}
+        class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-950 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-900 dark:hover:text-white"
+      >
+        <svg viewBox="0 0 24 24" class={icon} {...stroke} aria-hidden="true">
+          <path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1"></path>
+          <path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"></path>
+        </svg>
+        JSON
+      </a>
+    </div>
+  </div>
+
+  <!-- the modality icons once, as symbols every row points at -->
+  <svg width="0" height="0" class="absolute" aria-hidden="true">
+    {Object.entries(MODALITY_ICONS).map(([modality, paths]) => <symbol id={`modality-${modality}`} viewBox="0 0 24 24" {...stroke} set:html={paths} />)}
+  </svg>
+
+  <table class="catalog-table mt-4 w-full text-sm">
+    <colgroup>
+      <col />
+      <col class="w-44" />
+      <col class="w-32" />
+      <col class="w-20" />
+      <col class="w-20" />
+      <col class="w-20" />
+      <col class="w-20" />
+      <col class="w-48" />
+    </colgroup>
+    <thead>
+      <tr class="border-b border-gray-200 text-left dark:border-gray-800">
+        {
+          (
+            [
+              ["model", columns.model, "left"],
+              ["provider", columns.provider, "left"],
+              [null, columns.modalities, "left"],
+              ["context", columns.context, "right"],
+              ["input", columns.input, "right"],
+              ["output", columns.output, "right"],
+              ["cached", columns.cached, "right"],
+              ["status", columns.status, "left"],
+            ] as const
+          ).map(([key, label, align]) => (
+            <th scope="col" class:list={[head, align === "right" && "text-right"]} data-sort-key={key ?? undefined} aria-sort={key ? "none" : undefined}>
+              {key ? (
+                <button type="button" class:list={[sortButton, align === "right" && "flex-row-reverse"]}>
+                  <span>{label}</span>
+                  <svg viewBox="0 0 24 24" class="sort-icon h-3 w-3" {...stroke} aria-hidden="true">
+                    <path d="m7 15 5 5 5-5"></path>
+                    <path d="m7 9 5-5 5 5"></path>
+                  </svg>
+                </button>
+              ) : (
+                label
+              )}
+            </th>
+          ))
+        }
+      </tr>
+    </thead>
+    <tbody data-catalog-body>
+      {
+        rows.map((row, index) => {
+          const usd = row.pricing;
+          const cny = row.pricing_cny;
+          const prices = [
+            ["input", columns.input, usd?.prompt_tokens, cny?.prompt_tokens],
+            ["output", columns.output, usd?.response_tokens, cny?.response_tokens],
+            ["cached", columns.cached, usd?.cached_tokens, cny?.cached_tokens],
+          ] as const;
+          return (
+            <tr
+              data-row
+              data-index={index}
+              data-key={row.key}
+              data-search={[row.model, row.provider.name, row.vendor?.name, row.client, row.base_url].filter(Boolean).join(" ").toLowerCase()}
+              data-model={row.model.toLowerCase()}
+              data-provider={row.provider.name.toLowerCase()}
+              data-context={row.context_window}
+              data-input={usd?.prompt_tokens}
+              data-output={usd?.response_tokens}
+              data-cached={usd?.cached_tokens}
+            >
+              <td data-cell="model">
+                <button type="button" class="catalog-expand" aria-haspopup="dialog" aria-label={s.kit.show.replace("{model}", row.model)}>
+                  <svg viewBox="0 0 24 24" class="catalog-code h-3.5 w-3.5 shrink-0 text-gray-400" {...stroke} aria-hidden="true">
+                    <path d="m16 18 6-6-6-6"></path>
+                    <path d="m8 6-6 6 6 6"></path>
+                  </svg>
+                  <span class="flex h-4 w-4 shrink-0 items-center justify-center" title={row.vendor?.name} data-row-mark>
+                    {row.vendor?.mark && <VendorMark id={row.vendor.mark} title={row.vendor.name} />}
+                  </span>
+                  <span class="mono truncate text-[13px]" title={row.model}>{row.model}</span>
+                </button>
+              </td>
+              <td data-cell="provider">
+                <span class="flex min-w-0 items-center gap-2 text-gray-600 dark:text-gray-400">
+                  <span class="flex h-4 w-4 shrink-0 items-center justify-center">{row.provider.mark && <VendorMark id={row.provider.mark} title={row.provider.name} />}</span>
+                  <span class="truncate text-[13px]" title={row.base_url}>{row.provider.name}</span>
+                </span>
+              </td>
+              <td data-cell="modalities">
+                <span class="flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                  {INPUTS.map((modality) => (
+                    <span class:list={["modality", !row.input_modalities.includes(modality) && "modality-empty"]} title={row.input_modalities.includes(modality) ? `${s.modality.in}: ${s.modality[modality]}` : undefined}>
+                      {row.input_modalities.includes(modality) && <svg class={icon} aria-label={`${s.modality.in}: ${s.modality[modality]}`} role="img"><use href={`#modality-${modality}`} /></svg>}
+                    </span>
+                  ))}
+                  <svg viewBox="0 0 24 24" class="mx-0.5 h-3 w-3 shrink-0 text-gray-300 dark:text-gray-600" {...stroke} aria-hidden="true">
+                    <path d="M5 12h14"></path>
+                    <path d="m12 5 7 7-7 7"></path>
+                  </svg>
+                  {OUTPUTS.filter((modality) => row.output_modalities.includes(modality)).map((modality) => (
+                    <span class="modality" title={`${s.modality.out}: ${s.modality[modality]}`}>
+                      <svg class={icon} aria-label={`${s.modality.out}: ${s.modality[modality]}`} role="img"><use href={`#modality-${modality}`} /></svg>
+                    </span>
+                  ))}
+                </span>
+              </td>
+              <td data-cell="context" class="mono text-right text-[13px] tabular-nums" title={row.context_window?.toLocaleString("en-US")} data-label={columns.context}>
+                {row.context_window ? formatContext(row.context_window) : <span class="text-gray-300 dark:text-gray-600">—</span>}
+              </td>
+              {prices.map(([cell, label, inUsd, inCny]) => (
+                <td
+                  data-cell={cell}
+                  data-price
+                  data-usd={price(inUsd)}
+                  data-cny={price(inCny)}
+                  data-label={label}
+                  class:list={["mono text-right text-[13px] tabular-nums", inUsd === undefined && "text-gray-300 dark:text-gray-600"]}
+                >
+                  {(currency === "CNY" ? price(inCny) : price(inUsd)) ?? "—"}
+                </td>
+              ))}
+              <td data-cell="status" data-status-cell>
+                <span class="text-xs text-gray-400 dark:text-gray-500">{s.status.none}</span>
+              </td>
+            </tr>
+          );
+        })
+      }
+    </tbody>
+  </table>
+  <p class="py-10 text-center text-sm text-gray-500 dark:text-gray-400" data-catalog-empty hidden>{s.noMatch}</p>
+  <dialog class="kit-dialog" data-kit-dialog aria-labelledby="catalog-kit-title">
+    <div class="kit-panel" tabindex="-1" data-kit-panel>
+      <div class="flex items-start justify-between gap-4">
+        <div class="min-w-0">
+          <h2 id="catalog-kit-title" class="flex items-center gap-2 text-[15px] font-semibold">
+            <span class="flex h-4 w-4 shrink-0 items-center justify-center" data-kit-mark></span>
+            <span class="mono break-all" data-kit-model></span>
+          </h2>
+          <p class="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[13px]">
+            <span class="flex min-w-0 items-center gap-2 text-gray-600 dark:text-gray-400" data-kit-provider></span>
+            <span class="mono truncate text-xs text-gray-400 dark:text-gray-500" data-kit-url></span>
+          </p>
+        </div>
+        <button type="button" class="kit-close" aria-label={s.kit.close} data-kit-close>
+          <svg viewBox="0 0 24 24" class="h-4 w-4" {...stroke} aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+        </button>
+      </div>
+      <p class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-gray-600 dark:text-gray-400">
+        <span class="flex items-center gap-1" data-kit-modalities></span>
+        <span><span class="text-gray-400 dark:text-gray-500">{columns.context}</span> <span class="mono tabular-nums" data-kit-context></span></span>
+        <span class="mono tabular-nums" data-kit-prices></span>
+        <span data-kit-status></span>
+      </p>
+      <div class="code-group" data-ready>
+        <div class="tab-strip items-center" role="tablist">
+          <button type="button" role="tab" data-kit-tab="TypeScript">TypeScript</button>
+          <button type="button" role="tab" data-kit-tab="Python">Python</button>
+          <button type="button" role="tab" data-kit-tab="Server">{s.kit.server}</button>
+          <span class="mono ml-auto text-xs text-gray-400 max-sm:hidden dark:text-gray-500" data-kit-file></span>
+          <button type="button" class="kit-copy max-sm:ml-auto" data-kit-copy>
+            <svg viewBox="0 0 24 24" class={icon} {...stroke} aria-hidden="true">
+              <rect x="8" y="8" width="14" height="14" rx="2"></rect>
+              <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
+            </svg>
+            <span>{s.kit.copy}</span>
+          </button>
+        </div>
+        <pre class="astro-code kit-code"><code data-kit-code></code></pre>
+      </div>
+      <p class="mt-3 text-[11px] font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400">{s.kit.run}</p>
+      <pre class="astro-code kit-code mt-1"><code data-kit-run></code></pre>
+    </div>
+  </dialog>
+  <script type="application/json" data-catalog-kits set:html={JSON.stringify(kits).replaceAll("<", "\\u003c")} />
+</section>
+
+<style is:global>
+  /* ---------- the table: columns on a desktop; on narrower screens each row stacks, the model and
+     its status first, then the provider, the context and the modalities, then the prices */
+  .catalog-table {
+    border-collapse: collapse;
+  }
+  .catalog-table td {
+    padding: 0.5rem 0.75rem;
+    vertical-align: middle;
+  }
+  .catalog-table tr[data-row] {
+    border-bottom: 1px solid var(--color-gray-100);
+  }
+  .dark .catalog-table tr[data-row] {
+    border-bottom-color: var(--color-gray-900);
+  }
+  .catalog-table tr[data-open] {
+    background: var(--color-gray-50);
+  }
+  .dark .catalog-table tr[data-open] {
+    background: var(--color-gray-900);
+  }
+  @media (hover: hover) and (min-width: 1024px) {
+    .catalog-table tr[data-row]:hover {
+      background: var(--color-gray-50);
+    }
+    .dark .catalog-table tr[data-row]:hover {
+      background: var(--color-gray-900);
+    }
+  }
+  .catalog-expand {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    align-items: center;
+    gap: 0.5rem;
+    text-align: left;
+  }
+  .catalog-expand:hover .catalog-code {
+    color: var(--color-gray-900);
+  }
+  .dark .catalog-expand:hover .catalog-code {
+    color: var(--color-gray-100);
+  }
+  .catalog-status {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 0.625rem;
+    row-gap: 0.125rem;
+  }
+  .catalog-status:hover .status-word {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .modality {
+    display: inline-flex;
+    width: 0.875rem;
+    height: 0.875rem;
+    flex: none;
+  }
+  .catalog-table th[aria-sort] .sort-icon {
+    opacity: 0;
+  }
+  .catalog-table th[aria-sort] button:hover .sort-icon,
+  .catalog-table th[aria-sort="ascending"] .sort-icon,
+  .catalog-table th[aria-sort="descending"] .sort-icon {
+    opacity: 1;
+  }
+  .catalog-table th[aria-sort="ascending"],
+  .catalog-table th[aria-sort="descending"] {
+    color: var(--color-gray-900);
+  }
+  .dark .catalog-table th[aria-sort="ascending"],
+  .dark .catalog-table th[aria-sort="descending"] {
+    color: var(--color-gray-100);
+  }
+  .catalog-table th[aria-sort="ascending"] .sort-icon path:first-child,
+  .catalog-table th[aria-sort="descending"] .sort-icon path:last-child {
+    opacity: 0;
+  }
+
+  @media (min-width: 1024px) {
+    .catalog-table {
+      table-layout: fixed;
+    }
+    .catalog-table thead th {
+      position: sticky;
+      top: 3.5rem;
+      z-index: 1;
+      background: var(--color-white);
+    }
+    .dark .catalog-table thead th {
+      background: var(--color-gray-950);
+    }
+    .catalog-table thead th {
+      box-shadow: inset 0 -1px var(--color-gray-200);
+    }
+    .dark .catalog-table thead th {
+      box-shadow: inset 0 -1px var(--color-gray-800);
+    }
+    .catalog-table td[data-cell="model"] {
+      padding-left: 0.25rem;
+    }
+    /* the header names the column where its ids begin, past the code icon and the mark */
+    .catalog-table th[data-sort-key="model"] {
+      padding-left: 3.125rem;
+    }
+  }
+
+  @media (max-width: 1023.98px) {
+    .catalog-table,
+    .catalog-table tbody {
+      display: block;
+    }
+    .catalog-table colgroup,
+    .catalog-table thead {
+      display: none;
+    }
+    .catalog-table tr[data-row] {
+      display: grid;
+      /* the first column is the code icon and the mark, so the lines under the model id start where
+         it does */
+      grid-template-columns: 2.875rem auto auto minmax(0, 1fr) auto;
+      grid-template-areas:
+        "model model model model status"
+        ". provider context modalities modalities"
+        ". input output cached cached";
+      row-gap: 0.25rem;
+      padding: 0.625rem 0;
+    }
+    .catalog-table td {
+      padding: 0;
+    }
+    /* the empty input slots that align the icons from row to row on a desktop */
+    .catalog-table .modality-empty {
+      display: none;
+    }
+    .catalog-table td[data-cell="model"] {
+      grid-area: model;
+      min-width: 0;
+      padding-right: 0.75rem;
+    }
+    .catalog-table td[data-cell="status"] {
+      grid-area: status;
+      justify-self: end;
+    }
+    .catalog-table td[data-cell="provider"] {
+      grid-area: provider;
+      min-width: 0;
+      padding-right: 1rem;
+    }
+    .catalog-table td[data-cell="context"] {
+      grid-area: context;
+      padding-right: 1rem;
+      text-align: left;
+    }
+    .catalog-table td[data-cell="modalities"] {
+      grid-area: modalities;
+    }
+    .catalog-table td[data-cell="input"] {
+      grid-area: input;
+      padding-right: 1rem;
+    }
+    .catalog-table td[data-cell="output"] {
+      grid-area: output;
+      padding-right: 1rem;
+    }
+    .catalog-table td[data-cell="cached"] {
+      grid-area: cached;
+    }
+    .catalog-table td[data-price] {
+      text-align: left;
+    }
+    .catalog-table td[data-price]::before {
+      content: attr(data-label) " ";
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 11px;
+      color: var(--color-gray-400);
+    }
+  }
+
+  /* ---------- the integration kit: a dialog over the page, which holds still under it; the panel
+     scrolls on a short screen and the code scrolls sideways */
+  .kit-dialog {
+    width: calc(100% - 2rem);
+    max-width: 50rem;
+    max-height: calc(100dvh - 2rem);
+    /* held at the top, so a tab of another length changes the dialog's height, not where its tabs
+       are */
+    margin: 1rem auto auto;
+    overflow: hidden;
+    padding: 0;
+    border: 1px solid var(--color-gray-200);
+    border-radius: 0.75rem;
+    background: var(--color-white);
+    color: inherit;
+    box-shadow: 0 24px 64px -16px rgb(0 0 0 / 0.25);
+  }
+  @media (min-width: 640px) {
+    .kit-dialog {
+      max-height: calc(100dvh - 4rem);
+      margin-top: 2rem;
+    }
+  }
+  .kit-dialog[open] {
+    display: flex;
+    flex-direction: column;
+    animation: kit-in 150ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  .dark .kit-dialog {
+    border-color: var(--color-gray-800);
+    background: var(--color-gray-950);
+  }
+  .kit-dialog::backdrop {
+    background: rgb(0 0 0 / 0.4);
+  }
+  .dark .kit-dialog::backdrop {
+    background: rgb(0 0 0 / 0.65);
+  }
+  .kit-dialog[open]::backdrop {
+    animation: kit-fade 150ms ease-out;
+  }
+  @keyframes kit-in {
+    from {
+      opacity: 0;
+      transform: translateY(0.375rem);
+    }
+  }
+  @keyframes kit-fade {
+    from {
+      opacity: 0;
+    }
+  }
+  .kit-panel {
+    min-height: 0;
+    overflow: auto;
+    padding: 1rem 1.25rem 1.25rem;
+    outline: none;
+  }
+  /* on a phone the file name gives way, and the tabs narrow, so Copy stays on their line */
+  @media (max-width: 639.98px) {
+    .kit-panel {
+      padding: 0.875rem 1rem 1rem;
+    }
+    .kit-panel .code-group .tab-strip button {
+      padding-inline: 0.5rem;
+    }
+  }
+  /* the page keeps its scrollbar's room, so it does not shift sideways */
+  html.kit-open {
+    overflow: hidden;
+    scrollbar-gutter: stable;
+  }
+  .kit-close {
+    display: inline-flex;
+    width: 2rem;
+    height: 2rem;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    color: var(--color-gray-500);
+  }
+  .kit-close:hover {
+    background: var(--color-gray-100);
+    color: var(--color-gray-900);
+  }
+  .dark .kit-close:hover {
+    background: var(--color-gray-800);
+    color: var(--color-gray-100);
+  }
+  .kit-panel .code-group {
+    margin: 1rem 0 0;
+  }
+  .kit-panel .modality-empty {
+    display: none;
+  }
+  .kit-code {
+    white-space: pre;
+  }
+  .code-group .tab-strip .kit-copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-bottom: 0.25rem;
+    border-radius: 0.375rem;
+    border-bottom: 0;
+    padding: 0.25rem 0.5rem;
+    font-size: 12px;
+  }
+
+  /* ---------- the USD / CNY switch: a segmented control whose thumb glides to the choice */
+  .segmented {
+    position: relative;
+    display: inline-grid;
+    grid-auto-columns: 1fr;
+    grid-auto-flow: column;
+    border-radius: 0.5rem;
+    background: var(--color-gray-100);
+    padding: 2px;
+  }
+  .dark .segmented {
+    background: var(--color-gray-900);
+  }
+  .segmented button {
+    position: relative;
+    z-index: 1;
+    height: 1.75rem;
+    padding: 0 0.625rem;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--color-gray-500);
+    transition: color 150ms;
+  }
+  .segmented button[aria-checked="true"] {
+    color: var(--color-gray-900);
+  }
+  .dark .segmented button[aria-checked="true"] {
+    color: var(--color-gray-100);
+  }
+  .segmented-thumb {
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    left: 2px;
+    width: calc(50% - 2px);
+    border-radius: 0.375rem;
+    background: var(--color-white);
+    box-shadow: 0 0 0 1px var(--color-gray-200);
+    transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  .dark .segmented-thumb {
+    background: var(--color-gray-800);
+    box-shadow: 0 0 0 1px var(--color-gray-700);
+  }
+  .segmented[data-value="CNY"] .segmented-thumb {
+    transform: translateX(100%);
+  }
+</style>
+
+<script>
+  import { STATUS_RANK, ago, formatMs, formatTps, loadLatest, statusAnchor, statusLabel, statusQuery, type StatusWords } from "../shared/status";
+
+  type Tab = "typescript" | "python" | "server";
+  interface KitText {
+    model: string;
+    baseUrl: string;
+    typescript: string;
+    python: string;
+    server: string;
+    run: Record<Tab, string>;
+  }
+  type Words = StatusWords & { copy: string; copied: string; copyFailed: string; models: string; probed: string; perMillion: string; tps: string };
+
+  const stored = (key: string) => {
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  };
+  const store = (key: string, value: string) => {
+    try {
+      localStorage.setItem(key, value);
+    } catch {}
+  };
+
+  const root = document.querySelector<HTMLElement>("[data-catalog]");
+  if (root) {
+    const words = JSON.parse(root.dataset.words!) as Words;
+    const locale = root.dataset.locale!;
+    const kits = JSON.parse(root.querySelector("[data-catalog-kits]")!.textContent!) as KitText[];
+    const body = root.querySelector<HTMLElement>("[data-catalog-body]")!;
+    const rows = [...body.querySelectorAll<HTMLTableRowElement>("tr[data-row]")];
+    const dialog = root.querySelector<HTMLDialogElement>("[data-kit-dialog]")!;
+
+    // ---------- the kit: one dialog, filled from the row that opens it; the language follows the
+    // site's code groups (mmsp-site.code), so a reader of Python docs opens Python here
+    const LANGUAGES = ["TypeScript", "Python", "Server"];
+    const FILES: Record<Tab, string> = { typescript: "main.ts", python: "main.py", server: "mmsp-server.json" };
+    const tabOf = (language: string): Tab => (language === "Python" ? "python" : language === "Server" ? "server" : "typescript");
+    const panel = dialog.querySelector<HTMLElement>("[data-kit-panel]")!;
+    const tabs = [...dialog.querySelectorAll<HTMLButtonElement>("[data-kit-tab]")];
+    const code = dialog.querySelector<HTMLElement>("[data-kit-code]")!;
+    const run = dialog.querySelector<HTMLElement>("[data-kit-run]")!;
+    const file = dialog.querySelector<HTMLElement>("[data-kit-file]")!;
+    const copy = dialog.querySelector<HTMLButtonElement>("[data-kit-copy]")!;
+    const copyLabel = copy.querySelector("span")!;
+    const slot = (name: string) => dialog.querySelector<HTMLElement>(`[data-kit-${name}]`)!;
+    const clones = (parent: Element | null | undefined) => [...(parent?.children ?? [])].map((child) => child.cloneNode(true));
+    let language = LANGUAGES.includes(stored("mmsp-site.code") ?? "") ? stored("mmsp-site.code")! : LANGUAGES[0];
+    let open: HTMLTableRowElement | null = null;
+
+    const renderKit = () => {
+      if (!open) return;
+      const kit = kits[Number(open.dataset.index)];
+      const tab = tabOf(language);
+      code.textContent = kit[tab];
+      run.textContent = kit.run[tab];
+      file.textContent = FILES[tab];
+      for (const button of tabs) button.setAttribute("aria-selected", String(button.dataset.kitTab === language));
+    };
+    const show = (row: HTMLTableRowElement) => {
+      const kit = kits[Number(row.dataset.index)];
+      open = row;
+      row.dataset.open = "";
+      slot("model").textContent = kit.model;
+      slot("url").textContent = kit.baseUrl;
+      slot("url").title = kit.baseUrl;
+      slot("mark").replaceChildren(...clones(row.querySelector("[data-row-mark]")));
+      slot("provider").replaceChildren(...clones(row.querySelector('[data-cell="provider"] > span')));
+      slot("modalities").replaceChildren(...clones(row.querySelector('[data-cell="modalities"] > span')));
+      slot("context").textContent = row.querySelector('[data-cell="context"]')!.textContent!.trim();
+      const prices = [...row.querySelectorAll<HTMLElement>("[data-price]")].filter((cell) => cell.textContent !== "—");
+      slot("prices").textContent = prices.length
+        ? `${prices.map((cell) => `${cell.dataset.label} ${cell.textContent}`).join(" · ")} ${segmented.dataset.value} ${words.perMillion}`
+        : "";
+      slot("status").replaceChildren(...clones(row.querySelector("[data-status-cell]")).slice(0, 1));
+      renderKit();
+      document.documentElement.classList.add("kit-open");
+      dialog.showModal();
+      panel.focus({ preventScroll: true });
+    };
+    dialog.addEventListener("close", () => {
+      document.documentElement.classList.remove("kit-open");
+      if (!open) return;
+      open.removeAttribute("data-open");
+      open.querySelector<HTMLElement>(".catalog-expand")!.focus();
+      open = null;
+    });
+    slot("close").addEventListener("click", () => dialog.close());
+    // a click on the backdrop lands on the dialog itself; one that began inside, as a selection of
+    // the code dragged out, does not close it
+    let pressedOutside = false;
+    dialog.addEventListener("pointerdown", (event) => (pressedOutside = event.target === dialog));
+    dialog.addEventListener("click", (event) => {
+      if (pressedOutside && event.target === dialog) dialog.close();
+    });
+    for (const row of rows) row.querySelector(".catalog-expand")!.addEventListener("click", () => show(row));
+    for (const tab of tabs) {
+      tab.addEventListener("click", () => {
+        language = tab.dataset.kitTab!;
+        store("mmsp-site.code", language);
+        renderKit();
+      });
+    }
+    let reset: number | undefined;
+    copy.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(code.textContent ?? "");
+        copyLabel.textContent = words.copied;
+      } catch {
+        copyLabel.textContent = words.copyFailed;
+      }
+      window.clearTimeout(reset);
+      reset = window.setTimeout(() => (copyLabel.textContent = words.copy), 2000);
+    });
+
+    // ---------- search: every word typed must appear in the model, provider, vendor, client or URL
+    const search = root.querySelector<HTMLInputElement>("[data-catalog-search]")!;
+    const count = root.querySelector<HTMLElement>("[data-catalog-count]")!;
+    const empty = root.querySelector<HTMLElement>("[data-catalog-empty]")!;
+    const filter = () => {
+      const terms = search.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+      let shown = 0;
+      for (const row of rows) {
+        row.hidden = !terms.every((term) => row.dataset.search!.includes(term));
+        if (!row.hidden) shown += 1;
+      }
+      count.textContent = words.models.replace("{n}", terms.length ? `${shown} / ${rows.length}` : String(rows.length));
+      empty.hidden = shown > 0;
+    };
+    search.addEventListener("input", filter);
+
+    // ---------- sort: a header cycles through ascending, descending and the registry's order;
+    // an entry without the value sorts last either way
+    const headers = [...root.querySelectorAll<HTMLElement>("th[data-sort-key]")];
+    let sortKey: string | null = null;
+    let direction = 0;
+    const value = (row: HTMLTableRowElement, key: string): number | string | undefined => {
+      if (key === "model" || key === "provider") return row.dataset[key];
+      if (key === "status") return row.dataset.status ? STATUS_RANK[row.dataset.status as keyof typeof STATUS_RANK] : undefined;
+      const raw = row.dataset[key];
+      return raw === undefined || raw === "" ? undefined : Number(raw);
+    };
+    const sort = () => {
+      const ordered = [...rows];
+      if (sortKey && direction) {
+        const key = sortKey;
+        ordered.sort((a, b) => {
+          const left = value(a, key);
+          const right = value(b, key);
+          if (left === undefined || right === undefined) return left === right ? 0 : left === undefined ? 1 : -1;
+          const order = typeof left === "string" ? left.localeCompare(String(right)) : left - Number(right);
+          return order * direction;
+        });
+      }
+      body.append(...ordered);
+      for (const header of headers) {
+        const sorted = header.dataset.sortKey === sortKey && direction !== 0;
+        header.setAttribute("aria-sort", sorted ? (direction > 0 ? "ascending" : "descending") : "none");
+      }
+    };
+    for (const header of headers) {
+      header.querySelector("button")!.addEventListener("click", () => {
+        if (header.dataset.sortKey !== sortKey) {
+          sortKey = header.dataset.sortKey!;
+          direction = 1;
+        } else {
+          direction = direction === 1 ? -1 : direction === -1 ? 0 : 1;
+        }
+        sort();
+      });
+    }
+
+    // ---------- USD or CNY, kept for the next visit
+    const segmented = root.querySelector<HTMLElement>("[data-segmented]")!;
+    const prices = [...root.querySelectorAll<HTMLElement>("[data-price]")];
+    const applyCurrency = (currency: string) => {
+      segmented.dataset.value = currency;
+      for (const button of segmented.querySelectorAll<HTMLButtonElement>("button")) {
+        button.setAttribute("aria-checked", String(button.dataset.value === currency));
+      }
+      for (const cell of prices) cell.textContent = (currency === "CNY" ? cell.dataset.cny : cell.dataset.usd) ?? "—";
+    };
+    for (const button of segmented.querySelectorAll<HTMLButtonElement>("button")) {
+      button.addEventListener("click", () => {
+        store("mmsp-site.currency", button.dataset.value!);
+        applyCurrency(button.dataset.value!);
+      });
+    }
+    const chosen = stored("mmsp-site.currency");
+    if (chosen === "USD" || chosen === "CNY") applyCurrency(chosen);
+
+    // ---------- the daily probe: a probed entry shows its status, TTFT and TPS, and links to its
+    // channel on the status page
+    loadLatest().then((latest) => {
+      if (!latest) return;
+      let probed = 0;
+      for (const row of rows) {
+        const target = latest.targets[row.dataset.key!];
+        if (!target) continue;
+        probed += 1;
+        row.dataset.status = target.status;
+        const link = document.createElement("a");
+        link.className = "catalog-status";
+        link.href = `${root.dataset.statusPage}${statusQuery()}#${statusAnchor(row.dataset.key!)}`;
+        if (target.checked_at) link.title = ago(target.checked_at, locale);
+        link.append(statusLabel(target.status, words));
+        if (target.ok > 0) {
+          const metrics = document.createElement("span");
+          metrics.className = "mono text-xs text-gray-500 dark:text-gray-400";
+          metrics.textContent = `${formatMs(target.ttft_ms)} · ${formatTps(target.tps)} ${words.tps}`;
+          link.append(metrics);
+        }
+        row.querySelector<HTMLElement>("[data-status-cell]")!.replaceChildren(link);
+      }
+      if (probed) {
+        const label = root.querySelector<HTMLElement>("[data-catalog-probed]")!;
+        label.textContent = ` · ${words.probed.replace("{n}", String(probed))}`;
+        label.hidden = false;
+      }
+    });
+  }
+</script>
