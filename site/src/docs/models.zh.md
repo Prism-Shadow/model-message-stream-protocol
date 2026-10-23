@@ -108,7 +108,7 @@ client = AutoLLMClient(
 | ModelVerse | `https://api.modelverse.cn/v1`，Claude 模型使用 `https://api.modelverse.cn/` | `MODELVERSE_API_KEY` |
 | vLLM | `http://127.0.0.1:8000/v1/` | |
 
-TokenDance 用一个 key 提供多种协议。它的模型列表写明了每个模型支持的协议；选择支持其中一种协议的客户端，TokenDance 支持厂商自有 API 时选用厂商的官方客户端：`deepseek-v4.1-flash` 用 `deepseek-official`，`kimi-k3` 用 `moonshot-official`，`glm-5.3` 用 `zai-official`。
+TokenDance 用一个 key 提供多种协议。它的模型列表写明了每个模型支持的协议；选择支持其中一种协议的客户端，例如 `deepseek-v4.1-flash` 用 `openai-chat`；TokenDance 支持厂商自有 API 时选用厂商的官方客户端：`kimi-k3` 用 `moonshot-official`，`glm-5.3` 用 `zai-official`。
 
 ## Vertex AI 上的 Gemini
 
