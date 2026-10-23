@@ -3,6 +3,7 @@
 - **Date:** 2026-10-23
 - **Type:** fix
 - **Scope:** `registry`, `tests`, `docs`, `skills`
+- **PR:** [#286](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/286)
 
 [English](2026-10-23-tokendance-openai-chat.md)
 
