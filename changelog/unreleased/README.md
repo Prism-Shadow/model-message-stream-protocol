@@ -2,7 +2,7 @@
 
 [中文版](README.zh.md)
 
-- [2026-10-23] `anthropic-official` turned thinking off for `ThinkingLevel.NONE` on Claude Sonnet 4.6, Opus 4.8, Sonnet 5 and Opus 5, with or without a thinking summary, and ran it on Fable 5 at the lowest effort. ([details](2026-10-23-thinking-level-gaps.md))
+- [2026-10-23] `anthropic-official` turned thinking off for `ThinkingLevel.NONE` on Claude Sonnet 4.6, Opus 4.8, Sonnet 5 and Opus 5, with or without a thinking summary, and ran it on Fable 5 at the lowest effort. ([details](2026-10-23-thinking-level-gaps.md), [#293](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/293))
 - [2026-10-23] TokenDance's DeepSeek V4.1 Flash rows and their CI case moved from `deepseek-official` to `openai-chat`, the gateway's Chat Completions path. ([details](2026-10-23-tokendance-openai-chat.md), [#286](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/286))
 - [2026-10-23] The Chat Completions client recorded a gateway's encrypted reasoning block as `encrypted_content`, `format` and `reasoning_id` and rebuilt it on replay, in place of the block kept whole. ([details](2026-10-23-openai-chat-generic-fidelity.md), [#287](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/287))
 - [2026-10-23] The playground's reply head names the model and the time of day; the elapsed time stays in the usage line under the reply. ([details](2026-10-23-playground-reply-head.md), [#281](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/281))

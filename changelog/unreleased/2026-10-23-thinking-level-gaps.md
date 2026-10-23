@@ -3,6 +3,7 @@
 - **Date:** 2026-10-23
 - **Type:** fix
 - **Scope:** `anthropic_official`, `types`, `tests`
+- **PR:** [#293](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/293)
 
 [中文版](2026-10-23-thinking-level-gaps.zh.md)
 

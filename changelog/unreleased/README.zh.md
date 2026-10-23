@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-- [2026-10-23] `anthropic-official` 在 Claude Sonnet 4.6、Opus 4.8、Sonnet 5 与 Opus 5 上为 `ThinkingLevel.NONE` 关闭思考，无论是否设置思考摘要；在 Fable 5 上以最低 effort 运行。([详情](2026-10-23-thinking-level-gaps.zh.md))
+- [2026-10-23] `anthropic-official` 在 Claude Sonnet 4.6、Opus 4.8、Sonnet 5 与 Opus 5 上为 `ThinkingLevel.NONE` 关闭思考，无论是否设置思考摘要；在 Fable 5 上以最低 effort 运行。([详情](2026-10-23-thinking-level-gaps.zh.md), [#293](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/293))
 - [2026-10-23] TokenDance 上 DeepSeek V4.1 Flash 的注册表条目及其 CI 用例由 `deepseek-official` 改为 `openai-chat`，即该网关的 Chat Completions 协议。([详情](2026-10-23-tokendance-openai-chat.zh.md), [#286](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/286))
 - [2026-10-23] Chat Completions 客户端把网关的加密推理块记录为 `encrypted_content`、`format` 与 `reasoning_id`，并在回传时重建该块，不再原样保存整个块。([详情](2026-10-23-openai-chat-generic-fidelity.zh.md), [#287](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/287))
 - [2026-10-23] Playground 回复头只显示模型与时刻；耗时留在回复下方的用量行。([详情](2026-10-23-playground-reply-head.zh.md), [#281](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/281))
