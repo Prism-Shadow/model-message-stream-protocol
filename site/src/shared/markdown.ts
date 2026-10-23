@@ -38,9 +38,16 @@ function designMarkdown(locale: Locale, source: string, page: DocFile, site: str
     .rawContent()
     .replace(/^# .*\n+/, "")
     .replace(/^\[(?:中文版|English)\]\([^)]*\.md\)\n+/m, "")
-    .replace(/\]\(([^)\s]+)\)/g, (_, href: string) =>
-      href.startsWith("#") ? `](${href})` : `](${new URL(designHref(locale, source, href), site).href})`,
+    // a link inside a code span is an example to copy as written, such as the line linking an RFC's twin
+    .split(/(`[^`\n]*`)/)
+    .map((part, index) =>
+      index % 2
+        ? part
+        : part.replace(/\]\(([^)\s]+)\)/g, (_, href: string) =>
+            href.startsWith("#") ? `](${href})` : `](${new URL(designHref(locale, source, href), site).href})`,
+          ),
     )
+    .join("")
     .trim();
 }
 
