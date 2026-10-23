@@ -19,7 +19,12 @@ import type {
 } from "openai/resources/responses/responses";
 import { LLMClient } from "../baseClient";
 import { CLIENT_CREDENTIALS } from "../credentials";
-import { UnsupportedParameterError } from "../errors";
+import {
+  ApiKeyRequiredError,
+  InvalidMessageError,
+  UnknownEventError,
+  UnsupportedParameterError,
+} from "../errors";
 import {
   EventContentItem,
   EventType,
@@ -67,7 +72,11 @@ export class MiniMaxOfficialClient extends LLMClient {
     // The wrapped OpenAI SDK falls back to OPENAI_API_KEY when handed undefined, which would send
     // an OpenAI credential to the MiniMax host, so fail loudly instead.
     if (!apiKey) {
-      throw new Error("MINIMAX_API_KEY is required for MiniMaxOfficialClient.");
+      throw new ApiKeyRequiredError({
+        client: this.constructor.name,
+        clientType: "minimax-official",
+        baseUrl: null,
+      });
     }
     this._client = new OpenAI({
       apiKey,
@@ -263,7 +272,11 @@ export class MiniMaxOfficialClient extends LLMClient {
           });
         } else if (item.type === "tool_result.done") {
           if (item.tool_call_id === undefined) {
-            throw new Error("tool_call_id is required for tool result.");
+            throw new InvalidMessageError({
+              client: this.constructor.name,
+              message: "tool_call_id is required for tool result.",
+              itemType: "tool_result",
+            });
           }
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           let output: any = item.text;
@@ -279,7 +292,11 @@ export class MiniMaxOfficialClient extends LLMClient {
             output,
           });
         } else {
-          throw new Error(`Unknown item: ${JSON.stringify(item)}`);
+          throw new InvalidMessageError({
+            client: this.constructor.name,
+            message: `Unknown item: ${JSON.stringify(item)}`,
+            itemType: (item as { type: string }).type,
+          });
         }
       }
 
@@ -392,7 +409,10 @@ export class MiniMaxOfficialClient extends LLMClient {
       ].includes(minimaxEventType) &&
       isDebugEnabled()
     ) {
-      throw new Error(`Unknown output: ${JSON.stringify(modelOutput)}`);
+      throw new UnknownEventError({
+        client: this.constructor.name,
+        event: JSON.stringify(modelOutput),
+      });
     }
 
     return {

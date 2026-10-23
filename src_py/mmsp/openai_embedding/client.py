@@ -17,7 +17,7 @@ from typing import Any, AsyncIterator
 from openai import AsyncOpenAI
 
 from ..base_client import LLMClient
-from ..errors import UnsupportedParameterError
+from ..errors import UnsupportedContentError, UnsupportedParameterError
 from ..types import UniConfig, UniEvent, UniMessage
 from ..utils import openai_client_options, resolve_credentials
 
@@ -62,7 +62,9 @@ class OpenaiEmbeddingClient(LLMClient):
             msg_text = ""
             for item in msg["content_items"]:
                 if item["type"] != "text.done":
-                    raise ValueError("OpenAI embeddings only support text content items.")
+                    raise UnsupportedContentError(
+                        self.__class__.__name__, item["type"], "OpenAI embeddings only support text content items."
+                    )
                 msg_text += item["text"]
             texts.append(msg_text or " ")
         return texts

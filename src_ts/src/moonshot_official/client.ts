@@ -21,7 +21,11 @@ import type {
 } from "openai/resources/chat/completions";
 import { LLMClient } from "../baseClient";
 import { CLIENT_CREDENTIALS } from "../credentials";
-import { UnsupportedParameterError } from "../errors";
+import {
+  ApiKeyRequiredError,
+  InvalidMessageError,
+  UnsupportedParameterError,
+} from "../errors";
 import {
   EventContentItem,
   EventType,
@@ -66,9 +70,11 @@ export class MoonshotOfficialClient extends LLMClient {
     // The wrapped OpenAI SDK falls back to OPENAI_API_KEY when handed undefined, which would send
     // an OpenAI credential to the Moonshot host, so fail loudly instead.
     if (!key) {
-      throw new Error(
-        "MOONSHOT_API_KEY is required for MoonshotOfficialClient.",
-      );
+      throw new ApiKeyRequiredError({
+        client: this.constructor.name,
+        clientType: "moonshot-official",
+        baseUrl: null,
+      });
     }
     this._client = new OpenAI({
       apiKey: key,
@@ -112,9 +118,11 @@ export class MoonshotOfficialClient extends LLMClient {
 
     const response = await fetch(url, { signal });
     if (!response.ok) {
-      throw new Error(
-        `Failed to fetch image: ${response.status} ${response.statusText}`,
-      );
+      throw new InvalidMessageError({
+        client: this.constructor.name,
+        message: `Failed to fetch image: ${response.status} ${response.statusText}`,
+        itemType: "image_url",
+      });
     }
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
@@ -310,7 +318,11 @@ export class MoonshotOfficialClient extends LLMClient {
           });
         } else if (item.type === "tool_result.done") {
           if (!item.tool_call_id) {
-            throw new Error("tool_call_id is required for tool result.");
+            throw new InvalidMessageError({
+              client: this.constructor.name,
+              message: "tool_call_id is required for tool result.",
+              itemType: "tool_result",
+            });
           }
 
           // Chat Completions lets a tool message carry text only, and a server that
@@ -338,9 +350,11 @@ export class MoonshotOfficialClient extends LLMClient {
             content: item.text,
           });
         } else {
-          throw new Error(
-            `Unknown item type: ${(item as { type: string }).type}`,
-          );
+          throw new InvalidMessageError({
+            client: this.constructor.name,
+            message: `Unknown item type: ${(item as { type: string }).type}`,
+            itemType: (item as { type: string }).type,
+          });
         }
       }
 

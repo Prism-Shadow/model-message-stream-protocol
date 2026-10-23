@@ -23,7 +23,7 @@ from openai.types.chat import ChatCompletionChunk, ChatCompletionMessageParam
 
 from ..base_client import LLMClient
 from ..credentials import CLIENT_CREDENTIALS
-from ..errors import UnsupportedParameterError
+from ..errors import ApiKeyRequiredError, InvalidMessageError, UnsupportedParameterError
 from ..types import (
     EventContentItem,
     EventType,
@@ -55,7 +55,7 @@ class MoonshotOfficialClient(LLMClient):
         # The wrapped OpenAI SDK falls back to OPENAI_API_KEY when handed None, which would send an
         # OpenAI credential to the Moonshot host, so fail loudly instead.
         if not key:
-            raise ValueError("MOONSHOT_API_KEY is required for MoonshotOfficialClient.")
+            raise ApiKeyRequiredError(self.__class__.__name__, "moonshot-official", None)
         self._client = AsyncOpenAI(
             api_key=key,
             base_url=url or CLIENT_CREDENTIALS["moonshot-official"].default_base_url,
@@ -219,7 +219,11 @@ class MoonshotOfficialClient(LLMClient):
                     )
                 elif item["type"] == "tool_result.done":
                     if "tool_call_id" not in item:
-                        raise ValueError("tool_call_id is required for tool result.")
+                        raise InvalidMessageError(
+                            self.__class__.__name__,
+                            "tool_call_id is required for tool result.",
+                            item_type="tool_result",
+                        )
 
                     # Chat Completions lets a tool message carry text only, and a server that
                     # validates the schema rejects the whole request over an image part in one.
@@ -240,7 +244,9 @@ class MoonshotOfficialClient(LLMClient):
                         }
                     )
                 else:
-                    raise ValueError(f"Unknown item type: {item['type']}")
+                    raise InvalidMessageError(
+                        self.__class__.__name__, f"Unknown item type: {item['type']}", item_type=item["type"]
+                    )
 
             message = {"role": msg["role"]}
             if content_parts:

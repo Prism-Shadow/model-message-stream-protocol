@@ -20,7 +20,7 @@ from types import SimpleNamespace
 import pytest
 from stream_grammar import assert_stream_grammar
 
-from mmsp import AutoLLMClient, IncompleteStreamError
+from mmsp import AutoLLMClient, IncompleteStreamError, ProviderStreamError, UnknownEventError
 
 
 @dataclass
@@ -419,9 +419,12 @@ async def test_responses_clients_reject_unknown_events_in_debug_mode(
         client, [event_factory(), *[_responses_text_delta_event("Here is"), _responses_completed_event()]]
     )
 
-    with pytest.raises(ValueError, match="Unknown output"):
+    with pytest.raises(UnknownEventError, match="does not recognize the event") as exc_info:
         async for _event in client.streaming_response(MESSAGES, {}):
             pass
+
+    assert isinstance(exc_info.value, ValueError)
+    assert exc_info.value.client == case.expected_client
 
 
 @pytest.mark.asyncio
@@ -566,9 +569,12 @@ async def test_messages_clients_reject_unknown_events_in_debug_mode(
         [event_factory(), *[_messages_start_event(), _messages_text_delta_event("Here is"), _messages_stop_event()]],
     )
 
-    with pytest.raises(ValueError, match="Unknown output"):
+    with pytest.raises(UnknownEventError, match="does not recognize the event") as exc_info:
         async for _event in client.streaming_response(MESSAGES, {}):
             pass
+
+    assert isinstance(exc_info.value, ValueError)
+    assert exc_info.value.client == case.expected_client
 
 
 @pytest.mark.asyncio
@@ -619,9 +625,12 @@ async def test_gemini_client_rejects_unknown_deltas_in_debug_mode(case: StreamCa
     client = _create_auto_client(case)
     _install_fake_gemini_stream(client, [_gemini_unknown_delta_event(), _gemini_completed_event()])
 
-    with pytest.raises(ValueError, match="Unknown output"):
+    with pytest.raises(UnknownEventError, match="does not recognize the event") as exc_info:
         async for _event in client.streaming_response(MESSAGES, {}):
             pass
+
+    assert isinstance(exc_info.value, ValueError)
+    assert exc_info.value.client == case.expected_client
 
 
 @pytest.mark.asyncio
@@ -633,10 +642,14 @@ async def test_gemini_client_raises_provider_error_events(case: StreamCase):
     )
 
     with pytest.raises(
-        RuntimeError, match="Gemini stream error gateway_timeout: Deadline expired before operation could complete."
-    ):
+        ProviderStreamError,
+        match="Gemini stream error gateway_timeout: Deadline expired before operation could complete.",
+    ) as exc_info:
         async for _event in client.streaming_response(MESSAGES, {}):
             pass
+
+    assert isinstance(exc_info.value, RuntimeError)
+    assert exc_info.value.code == "gateway_timeout"
 
 
 @pytest.mark.asyncio
@@ -764,9 +777,12 @@ async def test_generate_content_client_rejects_unknown_parts_in_debug_mode(case:
         client, [_generate_content_unknown_part_chunk(), _generate_content_stop_chunk()]
     )
 
-    with pytest.raises(ValueError, match="Unknown output"):
+    with pytest.raises(UnknownEventError, match="does not recognize the event") as exc_info:
         async for _event in client.streaming_response(MESSAGES, {}):
             pass
+
+    assert isinstance(exc_info.value, ValueError)
+    assert exc_info.value.client == case.expected_client
 
 
 # Every client, driven over a stream opening with an ignorable event of its own protocol.

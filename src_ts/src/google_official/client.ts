@@ -21,7 +21,14 @@ import {
 } from "@google/genai";
 import * as path from "path";
 import { LLMClient } from "../baseClient";
-import { UnsupportedParameterError } from "../errors";
+import {
+  InvalidMessageError,
+  ProviderStreamError,
+  RoutingError,
+  UnknownEventError,
+  UnsupportedContentError,
+  UnsupportedParameterError,
+} from "../errors";
 import {
   EventContentItem,
   EventType,
@@ -90,10 +97,13 @@ export class GoogleOfficialClient extends LLMClient {
     }
     // a service-account key carries a private key, which must not travel as an API key header
     if (key && key.startsWith("{")) {
-      throw new Error(
-        "GoogleOfficialClient does not serve a Vertex AI service-account key; " +
+      throw new RoutingError({
+        model: options.model,
+        clientType: "google-official",
+        message:
+          "GoogleOfficialClient does not serve a Vertex AI service-account key; " +
           'pass clientType: "google-genai" for Vertex AI.',
-      );
+      });
     }
     this._client = new GoogleGenAI({
       apiKey: key,
@@ -134,12 +144,20 @@ export class GoogleOfficialClient extends LLMClient {
         const data = Buffer.from(base64Data, "base64");
         return { data, mimeType };
       } else {
-        throw new Error(`Invalid base64 image: ${url}`);
+        throw new InvalidMessageError({
+          client: this.constructor.name,
+          message: `Invalid base64 image: ${url}`,
+          itemType: "image_url",
+        });
       }
     } else {
       const response = await fetch(url, { signal });
       if (!response.ok) {
-        throw new Error(`Failed to fetch image: ${url}`);
+        throw new InvalidMessageError({
+          client: this.constructor.name,
+          message: `Failed to fetch image: ${url}`,
+          itemType: "image_url",
+        });
       }
       const arrayBuffer = await response.arrayBuffer();
       const data = Buffer.from(arrayBuffer);
@@ -499,7 +517,11 @@ export class GoogleOfficialClient extends LLMClient {
         } else if (item.type === "tool_result.done") {
           content = null;
           if (!item.tool_call_id) {
-            throw new Error("tool_call_id is required for tool result.");
+            throw new InvalidMessageError({
+              client: this.constructor.name,
+              message: "tool_call_id is required for tool result.",
+              itemType: "tool_result",
+            });
           }
 
           let result: Interactions.FunctionResultStep["result"] = item.text;
@@ -533,7 +555,11 @@ export class GoogleOfficialClient extends LLMClient {
             result,
           } as Interactions.FunctionResultStep);
         } else {
-          throw new Error(`Unknown item: ${JSON.stringify(item)}`);
+          throw new InvalidMessageError({
+            client: this.constructor.name,
+            message: `Unknown item: ${JSON.stringify(item)}`,
+            itemType: (item as { type: string }).type,
+          });
         }
       }
 
@@ -596,7 +622,10 @@ export class GoogleOfficialClient extends LLMClient {
       } else if (step.type === "thought" || step.type === "model_output") {
         // their content arrives in the step's deltas
       } else if (isDebugEnabled()) {
-        throw new Error(`Unknown output: ${JSON.stringify(modelOutput)}`);
+        throw new UnknownEventError({
+          client: this.constructor.name,
+          event: JSON.stringify(modelOutput),
+        });
       }
     } else if (modelOutput.event_type === "step.delta") {
       const itemId = String(modelOutput.index);
@@ -656,7 +685,10 @@ export class GoogleOfficialClient extends LLMClient {
           fidelity: { item_id: itemId },
         });
       } else if (isDebugEnabled()) {
-        throw new Error(`Unknown output: ${JSON.stringify(modelOutput)}`);
+        throw new UnknownEventError({
+          client: this.constructor.name,
+          event: JSON.stringify(modelOutput),
+        });
       }
     } else if (modelOutput.event_type === "interaction.completed") {
       eventType = "stop";
@@ -681,9 +713,11 @@ export class GoogleOfficialClient extends LLMClient {
       // Neither Interactions SDK raises on an error event inside an open stream, so the provider's
       // failure is raised here rather than lost; an error event without an error, which the Python
       // SDK makes of a gateway heartbeat, stays with the unknown-event guard.
-      throw new Error(
-        `Gemini stream error ${modelOutput.error.code}: ${modelOutput.error.message}`,
-      );
+      throw new ProviderStreamError({
+        client: this.constructor.name,
+        code: modelOutput.error.code ?? null,
+        message: `Gemini stream error ${modelOutput.error.code}: ${modelOutput.error.message}`,
+      });
     } else if (
       [
         "interaction.created",
@@ -694,7 +728,10 @@ export class GoogleOfficialClient extends LLMClient {
       // the interaction's lifecycle carries nothing universal, and a step needs no stop: its
       // last item is done when the next step begins or the stream ends
     } else if (isDebugEnabled()) {
-      throw new Error(`Unknown output: ${JSON.stringify(modelOutput)}`);
+      throw new UnknownEventError({
+        client: this.constructor.name,
+        event: JSON.stringify(modelOutput),
+      });
     }
     // the API adds event, step and delta types over time, and killing a long generation
     // over one costs more than dropping it
@@ -740,7 +777,11 @@ export class GoogleOfficialClient extends LLMClient {
             },
           });
         } else {
-          throw new Error(`Unknown item: ${JSON.stringify(item)}`);
+          throw new InvalidMessageError({
+            client: this.constructor.name,
+            message: `Unknown item: ${JSON.stringify(item)}`,
+            itemType: (item as { type: string }).type,
+          });
         }
       }
       contents.push({
@@ -803,9 +844,11 @@ export class GoogleOfficialClient extends LLMClient {
         .flatMap((message) => message.content_items)
         .find((item) => item.type !== "text.done");
       if (invalidItem) {
-        throw new Error(
-          `Gemini TTS only supports text input, got content item type=${JSON.stringify(invalidItem.type)}.`,
-        );
+        throw new UnsupportedContentError({
+          client: this.constructor.name,
+          itemType: invalidItem.type,
+          message: `Gemini TTS only supports text input, got content item type=${JSON.stringify(invalidItem.type)}.`,
+        });
       }
     }
 
@@ -832,11 +875,13 @@ export class GoogleOfficialClient extends LLMClient {
       input = [
         {
           type: "user_input",
-          content: speakerTurns(script, speakers).map(([speaker, turn]) => ({
-            type: "text",
-            text: turn,
-            annotations: [{ type: "speech_metadata", speaker }],
-          })),
+          content: speakerTurns(script, speakers, this.constructor.name).map(
+            ([speaker, turn]) => ({
+              type: "text",
+              text: turn,
+              annotations: [{ type: "speech_metadata", speaker }],
+            }),
+          ),
         },
       ] as unknown as typeof input;
     }

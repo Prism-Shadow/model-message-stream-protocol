@@ -25,7 +25,7 @@ import httpx
 import pytest
 from stream_grammar import assert_stream_grammar
 
-from mmsp import AutoLLMClient, ThinkingLevel, UnsupportedParameterError, list_supported_models
+from mmsp import AutoLLMClient, RoutingError, ThinkingLevel, UnsupportedParameterError, list_supported_models
 
 
 IMAGE = "https://sghimages.shobserver.com/img/catch/2022/01/22/c1ae0300-9402-4128-a7e6-1244d3874167.jpg"
@@ -390,8 +390,11 @@ def test_client_type_or_model_family_names_the_client(model: str, client_type: s
 
 @pytest.mark.parametrize("client_type", [None, "google-official"])
 def test_google_official_refuses_a_vertex_service_account_key(client_type: str | None):
-    with pytest.raises(ValueError, match="google-genai"):
+    with pytest.raises(RoutingError, match="google-genai") as exc_info:
         AutoLLMClient(model="gemini-3.8-flash", api_key='{"project_id": "test-project"}', client_type=client_type)
+
+    assert isinstance(exc_info.value, ValueError)
+    assert (exc_info.value.model, exc_info.value.client_type) == ("gemini-3.8-flash", "google-official")
 
 
 @pytest.mark.asyncio
@@ -424,14 +427,20 @@ async def test_gemini_tts_config_rejects_a_speaker_list_it_cannot_voice(
 
 
 def test_a_model_of_no_known_family_asks_for_a_client_type():
-    with pytest.raises(ValueError, match="Pass client_type.*openai-official.*openai-responses"):
+    with pytest.raises(RoutingError, match="Pass client_type.*openai-official.*openai-responses") as exc_info:
         AutoLLMClient(model="qwen3.6", api_key="test-key")
+
+    assert isinstance(exc_info.value, ValueError)
+    assert (exc_info.value.model, exc_info.value.client_type) == ("qwen3.6", None)
 
 
 def test_an_unknown_client_type_is_refused_whatever_the_model():
     # a model id is not a client type, and neither are the names of the clients before 0.5.0
-    with pytest.raises(ValueError, match="Unknown client type 'gpt-5.5'"):
+    with pytest.raises(RoutingError, match="Unknown client type 'gpt-5.5'") as exc_info:
         AutoLLMClient(model="gpt-5.5", api_key="test-key", client_type="gpt-5.5")
+
+    assert isinstance(exc_info.value, ValueError)
+    assert (exc_info.value.model, exc_info.value.client_type) == ("gpt-5.5", "gpt-5.5")
 
 
 def test_the_environment_names_the_client_when_the_code_does_not(monkeypatch):

@@ -19,7 +19,7 @@ from typing import Any
 
 import pytest
 
-from mmsp import AutoLLMClient
+from mmsp import AutoLLMClient, InvalidMessageError
 
 
 # The Gemini SDK holds a thought signature as bytes and takes it as base64 text, the form a
@@ -192,6 +192,32 @@ async def test_message_transform_keeps_content_item_order(case: MessageOrderCase
         assert model_input[4]["result"] == "20 degrees."
     elif case.protocol == "generate_content":
         assert model_input[2].parts[0].function_response.response["result"] == "20 degrees."
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("item_type", ["tool_result", "audio_url.done"], ids=["no_tool_call_id", "unknown_item"])
+@pytest.mark.parametrize(
+    "case",
+    MESSAGE_ORDER_CASES,
+    ids=[f"{case.model}:{case.client_type or 'auto'}" for case in MESSAGE_ORDER_CASES],
+)
+async def test_a_message_that_cannot_be_sent_as_it_is_raises_invalid_message_error(
+    case: MessageOrderCase, item_type: str
+):
+    client = AutoLLMClient(model=case.model, api_key="test-key", client_type=case.client_type)
+    messages = _messages(case.thought_signature)
+    if item_type == "tool_result":
+        del messages[2]["content_items"][0]["tool_call_id"]
+    else:
+        messages[0]["content_items"].append({"type": item_type, "audio_url": "https://example.com/a.wav"})
+
+    with pytest.raises(InvalidMessageError) as exc_info:
+        model_input = client._client.transform_uni_message_to_model_input(messages)  # noqa: SLF001
+        if inspect.isawaitable(model_input):
+            await model_input
+
+    assert isinstance(exc_info.value, ValueError)
+    assert (exc_info.value.client, exc_info.value.item_type) == (case.expected_client, item_type)
 
 
 @pytest.mark.asyncio

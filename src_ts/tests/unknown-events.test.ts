@@ -18,10 +18,12 @@ import {
   EventContentItem,
   FinishReason,
   IncompleteStreamError,
+  ProviderStreamError,
   TextDeltaItem,
   UniConfig,
   UniEvent,
   UniMessage,
+  UnknownEventError,
   UsageMetadata,
 } from "../src";
 import { assertStreamGrammar } from "./streamGrammar";
@@ -519,9 +521,16 @@ describe.each(RESPONSES_STREAM_CASES)(
           responsesCompletedEvent(),
         ]);
 
-        await expect(
-          collectEvents(client.streamingResponse({ messages, config: {} })),
-        ).rejects.toThrow("Unknown output");
+        const rejection = collectEvents(
+          client.streamingResponse({ messages, config: {} }),
+        );
+        await expect(rejection).rejects.toBeInstanceOf(UnknownEventError);
+        await expect(rejection).rejects.toBeInstanceOf(Error);
+        await expect(rejection).rejects.toThrow("does not recognize the event");
+        await expect(rejection).rejects.toHaveProperty(
+          "client",
+          testCase.expectedClient,
+        );
       },
     );
 
@@ -674,9 +683,16 @@ describe.each(MESSAGES_STREAM_CASES)(
           messagesStopEvent(),
         ]);
 
-        await expect(
-          collectEvents(client.streamingResponse({ messages, config: {} })),
-        ).rejects.toThrow("Unknown output");
+        const rejection = collectEvents(
+          client.streamingResponse({ messages, config: {} }),
+        );
+        await expect(rejection).rejects.toBeInstanceOf(UnknownEventError);
+        await expect(rejection).rejects.toBeInstanceOf(Error);
+        await expect(rejection).rejects.toThrow("does not recognize the event");
+        await expect(rejection).rejects.toHaveProperty(
+          "client",
+          testCase.expectedClient,
+        );
       },
     );
   },
@@ -712,9 +728,16 @@ describe.each(GEMINI_STREAM_CASES)(
         geminiCompletedEvent(),
       ]);
 
-      await expect(
-        collectEvents(client.streamingResponse({ messages, config: {} })),
-      ).rejects.toThrow("Unknown output");
+      const rejection = collectEvents(
+        client.streamingResponse({ messages, config: {} }),
+      );
+      await expect(rejection).rejects.toBeInstanceOf(UnknownEventError);
+      await expect(rejection).rejects.toBeInstanceOf(Error);
+      await expect(rejection).rejects.toThrow("does not recognize the event");
+      await expect(rejection).rejects.toHaveProperty(
+        "client",
+        testCase.expectedClient,
+      );
     });
 
     test("skips gateway keepalive heartbeats between stream events", async () => {
@@ -748,11 +771,15 @@ describe.each(GEMINI_STREAM_CASES)(
         geminiCompletedEvent("failed"),
       ]);
 
-      await expect(
-        collectEvents(client.streamingResponse({ messages, config: {} })),
-      ).rejects.toThrow(
+      const rejection = collectEvents(
+        client.streamingResponse({ messages, config: {} }),
+      );
+      await expect(rejection).rejects.toBeInstanceOf(ProviderStreamError);
+      await expect(rejection).rejects.toBeInstanceOf(Error);
+      await expect(rejection).rejects.toThrow(
         "Gemini stream error gateway_timeout: Deadline expired before operation could complete.",
       );
+      await expect(rejection).rejects.toHaveProperty("code", "gateway_timeout");
     });
 
     test("streams every image of a step as an item of its own and audio chunks as one item", async () => {
@@ -880,9 +907,16 @@ describe.each(GENERATE_CONTENT_STREAM_CASES)(
         generateContentStopChunk(),
       ]);
 
-      await expect(
-        collectEvents(client.streamingResponse({ messages, config: {} })),
-      ).rejects.toThrow("Unknown output");
+      const rejection = collectEvents(
+        client.streamingResponse({ messages, config: {} }),
+      );
+      await expect(rejection).rejects.toBeInstanceOf(UnknownEventError);
+      await expect(rejection).rejects.toBeInstanceOf(Error);
+      await expect(rejection).rejects.toThrow("does not recognize the event");
+      await expect(rejection).rejects.toHaveProperty(
+        "client",
+        testCase.expectedClient,
+      );
     });
 
     test("skips gateway keepalive heartbeats between stream chunks", async () => {

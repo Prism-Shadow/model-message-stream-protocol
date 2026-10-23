@@ -24,7 +24,7 @@ from google.genai import types
 from google.oauth2 import service_account
 
 from ..base_client import LLMClient
-from ..errors import UnsupportedParameterError
+from ..errors import InvalidMessageError, UnknownEventError, UnsupportedContentError, UnsupportedParameterError
 from ..types import (
     EventContentItem,
     EventType,
@@ -116,7 +116,9 @@ class GoogleGenaiClient(LLMClient):
                 base64_string = match.group(2)
                 image_bytes = base64.b64decode(base64_string)
             else:
-                raise ValueError(f"Invalid base64 image: {url}")
+                raise InvalidMessageError(
+                    self.__class__.__name__, f"Invalid base64 image: {url}", item_type="image_url"
+                )
         else:
             async with httpx.AsyncClient() as client:
                 response = await client.get(url)
@@ -351,7 +353,11 @@ class GoogleGenaiClient(LLMClient):
                     parts.append(types.Part(function_call=function_call, thought_signature=thought_signature))
                 elif item["type"] == "tool_result.done":
                     if "tool_call_id" not in item:
-                        raise ValueError("tool_call_id is required for tool result.")
+                        raise InvalidMessageError(
+                            self.__class__.__name__,
+                            "tool_call_id is required for tool result.",
+                            item_type="tool_result",
+                        )
 
                     tool_result = {"result": item["text"]}
                     multimodal_parts = []
@@ -374,7 +380,7 @@ class GoogleGenaiClient(LLMClient):
                         )
                     )
                 else:
-                    raise ValueError(f"Unknown item: {item}")
+                    raise InvalidMessageError(self.__class__.__name__, f"Unknown item: {item}", item_type=item["type"])
 
             if msg["role"] == "assistant":
                 # generateContent validates a single signature, the one on the first function call of a step
@@ -510,7 +516,7 @@ class GoogleGenaiClient(LLMClient):
                             {"type": "text.delta", "text": part.text, "fidelity": {"item_id": "text", **fidelity}}
                         )
                 elif is_debug_enabled():
-                    raise ValueError(f"Unknown output: {part}")
+                    raise UnknownEventError(self.__class__.__name__, str(part))
 
             if candidate.finish_reason:
                 event_type = "stop"
@@ -565,7 +571,7 @@ class GoogleGenaiClient(LLMClient):
                 elif item["type"] == "inline_data.done":
                     parts.append(types.Part.from_bytes(data=item["data"], mime_type=item["mime_type"]))
                 else:
-                    raise ValueError(f"Unknown item: {item}")
+                    raise InvalidMessageError(self.__class__.__name__, f"Unknown item: {item}", item_type=item["type"])
 
             result = await self._client.aio.models.embed_content(
                 model=self._model,
@@ -627,7 +633,11 @@ class GoogleGenaiClient(LLMClient):
                 None,
             )
             if invalid_item is not None:
-                raise ValueError(f"Gemini TTS only supports text input, got content item type={invalid_item['type']}.")
+                raise UnsupportedContentError(
+                    self.__class__.__name__,
+                    invalid_item["type"],
+                    f"Gemini TTS only supports text input, got content item type={invalid_item['type']}.",
+                )
 
         contents = await self.transform_uni_message_to_model_input(messages)
 
@@ -642,7 +652,7 @@ class GoogleGenaiClient(LLMClient):
                     "role": "user",
                     "parts": [
                         {"text": turn, "speech_metadata": {"speaker": speaker}}
-                        for speaker, turn in speaker_turns(script, speakers)
+                        for speaker, turn in speaker_turns(script, speakers, self.__class__.__name__)
                     ],
                 }
             ]

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { expect, describe, test } from "@jest/globals";
-import { AutoLLMClient, UniMessage } from "../src";
+import { AutoLLMClient, UniMessage, UnsupportedContentError } from "../src";
 import { exceedsOpenaiPatchLimit, imageDimensions } from "../src/utils";
 
 // Header builders. Only the bytes the parser reads have to be right, so none of these is a
@@ -424,9 +424,17 @@ describe.each(IMAGE_DETAIL_CASES)(
       expect(routedClient.constructor.name).toBe(testCase.expectedClient);
 
       if (testCase.refusesImages) {
-        expect(() =>
-          routedClient.transformUniMessageToModelInput(MESSAGES),
-        ).toThrow(/does not support image/);
+        const transform = () =>
+          routedClient.transformUniMessageToModelInput(MESSAGES);
+        expect(transform).toThrow(UnsupportedContentError);
+        expect(transform).toThrow(Error);
+        expect(transform).toThrow(/does not support image/);
+        expect(transform).toThrow(
+          expect.objectContaining({
+            client: testCase.expectedClient,
+            itemType: "image_url",
+          }),
+        );
         return;
       }
 

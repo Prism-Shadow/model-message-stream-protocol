@@ -20,7 +20,7 @@ from openai.types.chat import ChatCompletionChunk, ChatCompletionMessageParam
 
 from ..base_client import LLMClient
 from ..credentials import CLIENT_CREDENTIALS
-from ..errors import UnsupportedParameterError
+from ..errors import ApiKeyRequiredError, InvalidMessageError, UnsupportedContentError, UnsupportedParameterError
 from ..types import (
     EventContentItem,
     EventType,
@@ -56,7 +56,7 @@ class ZAIOfficialClient(LLMClient):
         # The wrapped OpenAI SDK falls back to OPENAI_API_KEY when handed None, which would send an
         # OpenAI credential to the Z.AI host, so fail loudly instead.
         if not key:
-            raise ValueError("ZAI_API_KEY is required for ZAIOfficialClient.")
+            raise ApiKeyRequiredError(self.__class__.__name__, "zai-official", None)
         self._client = AsyncOpenAI(
             api_key=key,
             base_url=url or CLIENT_CREDENTIALS["zai-official"].default_base_url,
@@ -189,7 +189,9 @@ class ZAIOfficialClient(LLMClient):
                     content_parts.append({"type": "text", "text": item["text"]})
                 elif item["type"] == "image_url.done":
                     if not supports_image:
-                        raise ValueError(f"GLM {self._model} does not support image inputs.")
+                        raise UnsupportedContentError(
+                            self.__class__.__name__, "image_url", f"GLM {self._model} does not support image inputs."
+                        )
 
                     content_parts.append({"type": "image_url", "image_url": {"url": item["image_url"]}})
                 elif item["type"] == "thinking.done":
@@ -208,7 +210,11 @@ class ZAIOfficialClient(LLMClient):
                     )
                 elif item["type"] == "tool_result.done":
                     if "tool_call_id" not in item:
-                        raise ValueError("tool_call_id is required for tool result.")
+                        raise InvalidMessageError(
+                            self.__class__.__name__,
+                            "tool_call_id is required for tool result.",
+                            item_type="tool_result",
+                        )
 
                     # Chat Completions lets a tool message carry text only, and a server that
                     # validates the schema rejects the whole request over an image part in one.
@@ -216,7 +222,11 @@ class ZAIOfficialClient(LLMClient):
                     # the one place every OpenAI-compatible server reads them.
                     if "images" in item and item["images"]:
                         if not supports_image:
-                            raise ValueError(f"GLM {self._model} does not support images in tool results.")
+                            raise UnsupportedContentError(
+                                self.__class__.__name__,
+                                "tool_result",
+                                f"GLM {self._model} does not support images in tool results.",
+                            )
 
                         for image_url in item["images"]:
                             content_parts.append({"type": "image_url", "image_url": {"url": image_url}})
@@ -231,7 +241,9 @@ class ZAIOfficialClient(LLMClient):
                         }
                     )
                 else:
-                    raise ValueError(f"Unknown item type: {item['type']}")
+                    raise InvalidMessageError(
+                        self.__class__.__name__, f"Unknown item type: {item['type']}", item_type=item["type"]
+                    )
 
             message = {"role": msg["role"]}
             if content_parts:

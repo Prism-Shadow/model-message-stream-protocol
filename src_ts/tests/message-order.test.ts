@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { expect, describe, test } from "@jest/globals";
-import { AutoLLMClient, UniMessage } from "../src";
+import { AutoLLMClient, InvalidMessageError, UniMessage } from "../src";
 
 interface MessageOrderCase {
   expectedClient: string;
@@ -266,6 +266,39 @@ describe.each(MESSAGE_ORDER_CASES)(
         );
       }
     });
+
+    test.each([
+      ["no_tool_call_id", "tool_result"],
+      ["unknown_item", "audio_url.done"],
+    ])(
+      "a message that cannot be sent as it is raises InvalidMessageError (%s)",
+      async (_label, itemType) => {
+        const client = routedClient(testCase.model, testCase.clientType);
+        const messages = messagesFor();
+        if (itemType === "tool_result") {
+          delete (messages[2].content_items[0] as { tool_call_id?: string })
+            .tool_call_id;
+        } else {
+          messages[0].content_items.push({
+            type: itemType,
+            audio_url: "https://example.com/a.wav",
+          } as unknown as UniMessage["content_items"][number]);
+        }
+
+        let refusal: unknown;
+        try {
+          await client.transformUniMessageToModelInput(messages);
+        } catch (error) {
+          refusal = error;
+        }
+        expect(refusal).toBeInstanceOf(InvalidMessageError);
+        expect(refusal).toBeInstanceOf(Error);
+        expect(refusal).toMatchObject({
+          client: testCase.expectedClient,
+          itemType,
+        });
+      },
+    );
   },
 );
 

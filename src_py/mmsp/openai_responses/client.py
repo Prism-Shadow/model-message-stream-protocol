@@ -19,7 +19,7 @@ from openai import AsyncOpenAI
 from openai.types.responses import ResponseInputParam, ResponseStreamEvent
 
 from ..base_client import LLMClient
-from ..errors import UnsupportedParameterError
+from ..errors import InvalidMessageError, UnknownEventError, UnsupportedParameterError
 from ..types import (
     EventContentItem,
     EventType,
@@ -215,7 +215,11 @@ class OpenaiResponsesClient(LLMClient):
                     )
                 elif item["type"] == "tool_result.done":
                     if "tool_call_id" not in item:
-                        raise ValueError("tool_call_id is required for tool result.")
+                        raise InvalidMessageError(
+                            self.__class__.__name__,
+                            "tool_call_id is required for tool result.",
+                            item_type="tool_result",
+                        )
 
                     # NOTE: tool results are input items
                     image_parts = []
@@ -234,7 +238,7 @@ class OpenaiResponsesClient(LLMClient):
                         {"type": "function_call_output", "call_id": item["tool_call_id"], "output": output}
                     )
                 else:
-                    raise ValueError(f"Unknown item: {item}")
+                    raise InvalidMessageError(self.__class__.__name__, f"Unknown item: {item}", item_type=item["type"])
 
             if content_items:
                 entry = {"type": "message", "role": msg["role"], "content": content_items}
@@ -373,7 +377,7 @@ class OpenaiResponsesClient(LLMClient):
             pass
 
         elif is_debug_enabled():
-            raise ValueError(f"Unknown output: {model_output}")
+            raise UnknownEventError(self.__class__.__name__, str(model_output))
 
         else:
             # a gateway injects its own events (heartbeats, cost tickers) into the stream, and
