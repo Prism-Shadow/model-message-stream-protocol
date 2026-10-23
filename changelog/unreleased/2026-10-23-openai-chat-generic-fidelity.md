@@ -3,6 +3,7 @@
 - **Date:** 2026-10-23
 - **Type:** refactor
 - **Scope:** `openai_chat`, `tests`, `site`, `skills`
+- **PR:** [#287](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/287)
 
 [中文版](2026-10-23-openai-chat-generic-fidelity.zh.md)
 
