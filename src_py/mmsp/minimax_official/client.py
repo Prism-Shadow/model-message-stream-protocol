@@ -33,7 +33,7 @@ from ..types import (
     UniMessage,
     UsageMetadata,
 )
-from ..utils import is_debug_enabled, resolve_credentials
+from ..utils import is_debug_enabled, openai_client_options, resolve_credentials
 
 
 class MiniMaxOfficialClient(LLMClient):
@@ -48,15 +48,15 @@ class MiniMaxOfficialClient(LLMClient):
     ):
         """Initialize a MiniMax M-series Responses client with a Subscription Key or API key."""
         self._model = model
-        api_key, base_url = resolve_credentials(self.__class__.__name__, "minimax-official", api_key, base_url)
+        key, url = resolve_credentials(self.__class__.__name__, "minimax-official", api_key, base_url)
         # The wrapped OpenAI SDK falls back to OPENAI_API_KEY when handed None, which would send an
         # OpenAI credential to the MiniMax host, so fail loudly instead.
-        if not api_key:
+        if not key:
             raise ValueError("MINIMAX_API_KEY is required for MiniMaxOfficialClient.")
         self._client = AsyncOpenAI(
-            api_key=api_key,
-            base_url=base_url or CLIENT_CREDENTIALS["minimax-official"].default_base_url,
-            default_headers=default_headers,
+            api_key=key,
+            base_url=url or CLIENT_CREDENTIALS["minimax-official"].default_base_url,
+            **openai_client_options("minimax-official", base_url, key, default_headers),
         )
         self._history: list[UniMessage] = []
 

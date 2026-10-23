@@ -60,7 +60,7 @@ models = list_supported_models(currency="CNY")  # "USD" by default
 
 ## Compatible clients
 
-Seven compatible clients call any endpoint that serves their protocol. Name one with `client_type`, and give it the endpoint and its key together: as `base_url` and `api_key`, or as `OPENAI_BASE_URL` and `OPENAI_API_KEY` in the environment (the `ANTHROPIC_` pair for `ant-messages`, the `GEMINI_` pair for `google-genai`, the `MMSP_` pair for `mmsp`). A `base_url` other than the client's default endpoint without an `api_key` raises: the environment's key is not sent to an endpoint named in code ([the rule](/docs/client/)).
+Seven compatible clients call any endpoint that serves their protocol. Name one with `client_type`, and give it the endpoint and its key together: as `base_url` and `api_key`, or as `OPENAI_BASE_URL` and `OPENAI_API_KEY` in the environment (the `ANTHROPIC_` pair for `ant-messages`, the `GEMINI_` pair for `google-genai`, the `VLLM_` pair for `openai-chat-vllm-adapter`, the `MMSP_` pair for `mmsp`). A `base_url` other than the client's default endpoint without an `api_key` raises: the environment's key is not sent to an endpoint named in code ([the rule](/docs/client/)). `openai-chat-vllm-adapter` and `mmsp` call it keyless instead, because their servers may take no key; without either, they reach `http://127.0.0.1:8000/v1` and `http://127.0.0.1:25752/v1`.
 
 | `client_type` | Protocol | Served by |
 | --- | --- | --- |

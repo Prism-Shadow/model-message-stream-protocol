@@ -71,19 +71,25 @@ describe("environmentCredential", () => {
     });
   });
 
-  test("the mmsp client calls any base URL passed without a key keyless, its default included", () => {
-    expect(environmentCredential("mmsp", "https://gateway.example/v1")).toEqual(
-      { kind: "keyless" },
-    );
-    expect(environmentCredential("mmsp", "http://127.0.0.1:25752/v1")).toEqual(
-      { kind: "keyless" },
-    );
-    expect(environmentCredential("mmsp")).toEqual({
-      kind: "env",
-      apiKeyEnv: "MMSP_API_KEY",
-      baseUrlEnv: "MMSP_BASE_URL",
-    });
-  });
+  test.each([
+    ["mmsp", "http://127.0.0.1:25752/v1", "MMSP"],
+    ["openai-chat-vllm-adapter", "http://127.0.0.1:8000/v1", "VLLM"],
+  ])(
+    "%s, a client of an open server, calls any base URL passed without a key keyless, %s included",
+    (clientType, defaultBaseUrl, prefix) => {
+      expect(
+        environmentCredential(clientType, "https://gateway.example/v1"),
+      ).toEqual({ kind: "keyless" });
+      expect(environmentCredential(clientType, defaultBaseUrl)).toEqual({
+        kind: "keyless",
+      });
+      expect(environmentCredential(clientType)).toEqual({
+        kind: "env",
+        apiKeyEnv: `${prefix}_API_KEY`,
+        baseUrlEnv: `${prefix}_BASE_URL`,
+      });
+    },
+  );
 
   test("an earlier name, in any casing, answers as the client type it names", () => {
     expect(

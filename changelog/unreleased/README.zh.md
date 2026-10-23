@@ -2,6 +2,7 @@
 
 [English](README.md)
 
+- [2026-10-22] `openai-chat-vllm-adapter` 改读 `VLLM_API_KEY` 与 `VLLM_BASE_URL`，不再读 OpenAI 的变量对；默认端点为 `http://127.0.0.1:8000/v1`，没有 key 时以无 key 方式调用服务端；基于 OpenAI SDK 的客户端不再把 OpenAI 的其他环境变量发往 OpenAI 以外的端点。([详情](2026-10-22-vllm-credentials.zh.md), [#276](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/276))
 - [2026-10-19] 拒绝 `tts_config` 时抛出 `UnsupportedParameterError`。([详情](2026-10-19-tts-config-unsupported-parameter.zh.md), [#269](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/269))
 - [2026-10-19] Claude 回放时省略不带签名的思考条目。([详情](2026-10-19-claude-unsigned-thinking-replay.zh.md), [#268](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/268))
 - [2026-10-19] TypeScript 中 GLM 与 Kimi K2 的扩展参数送达 API。([详情](2026-10-19-openai-node-extension-keys.zh.md), [#267](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/267))

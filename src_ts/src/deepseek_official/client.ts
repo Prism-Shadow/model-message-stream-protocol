@@ -33,7 +33,11 @@ import {
   UniMessage,
   UsageMetadata,
 } from "../types";
-import { isDebugEnabled, resolveCredentials } from "../utils";
+import {
+  isDebugEnabled,
+  openaiClientOptions,
+  resolveCredentials,
+} from "../utils";
 
 /**
  * The DeepSeek ids that read no image: the current V4 Flash and V4 Pro, bare or with a
@@ -77,7 +81,11 @@ export class DeepSeekOfficialClient extends LLMClient {
     this._client = new OpenAI({
       apiKey: key,
       baseURL: url || CLIENT_CREDENTIALS["deepseek-official"].defaultBaseUrl,
-      defaultHeaders: options.defaultHeaders,
+      ...openaiClientOptions("deepseek-official", {
+        baseUrl: options.baseUrl,
+        apiKey: key,
+        defaultHeaders: options.defaultHeaders,
+      }),
     });
   }
 

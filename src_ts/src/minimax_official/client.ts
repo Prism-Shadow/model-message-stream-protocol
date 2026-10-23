@@ -32,7 +32,11 @@ import {
   UniMessage,
   UsageMetadata,
 } from "../types";
-import { isDebugEnabled, resolveCredentials } from "../utils";
+import {
+  isDebugEnabled,
+  openaiClientOptions,
+  resolveCredentials,
+} from "../utils";
 
 type MiniMaxReasoningEffort =
   | "none"
@@ -68,7 +72,11 @@ export class MiniMaxOfficialClient extends LLMClient {
     this._client = new OpenAI({
       apiKey,
       baseURL: baseUrl || CLIENT_CREDENTIALS["minimax-official"].defaultBaseUrl,
-      defaultHeaders: options.defaultHeaders,
+      ...openaiClientOptions("minimax-official", {
+        baseUrl: options.baseUrl,
+        apiKey,
+        defaultHeaders: options.defaultHeaders,
+      }),
     });
   }
 

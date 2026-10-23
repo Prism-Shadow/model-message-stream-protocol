@@ -2,6 +2,7 @@
 
 [中文版](README.zh.md)
 
+- [2026-10-22] `openai-chat-vllm-adapter` read `VLLM_API_KEY` and `VLLM_BASE_URL` instead of the OpenAI pair, defaulted to `http://127.0.0.1:8000/v1`, and called its server keyless without a key; OpenAI-SDK clients stopped sending OpenAI's other environment variables to endpoints other than OpenAI's. ([details](2026-10-22-vllm-credentials.md), [#276](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/276))
 - [2026-10-19] `tts_config` rejections raise `UnsupportedParameterError`. ([details](2026-10-19-tts-config-unsupported-parameter.md), [#269](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/269))
 - [2026-10-19] Claude replay omits a thinking item that carries no signature. ([details](2026-10-19-claude-unsigned-thinking-replay.md), [#268](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/268))
 - [2026-10-19] GLM and Kimi K2 extension keys reach the API from TypeScript. ([details](2026-10-19-openai-node-extension-keys.md), [#267](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/267))
