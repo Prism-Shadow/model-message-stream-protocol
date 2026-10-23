@@ -54,7 +54,7 @@ description: UniConfig, the options of a request, and what each client sends for
 
 A value a client cannot send raises `UnsupportedParameterError` before the request goes out, naming the client and the parameter. A key a client has no use for is ignored. The tables below give both, per client.
 
-`thinking_level` never raises. Where a model cannot turn thinking off, `"none"` asks for the least of it: the lowest effort on Claude Opus 5.5, Haiku 5.5 and Fable 5.1, GPT-6 Astra and GPT-6.1 Sol, Kimi K3, MiniMax-M3.1-Flash and GLM-5.3; no up-front thinking on Claude Sonnet 5.5; `minimal` or `low` on Gemini, whichever the model takes. GPT-6 Luna takes `"none"` as it is.
+`thinking_level` never raises. Where a model cannot turn thinking off, `"none"` asks for the least of it: the lowest effort on Claude Opus 5.5, Haiku 5.5, Fable 5 and Fable 5.1, GPT-6 Astra and GPT-6.1 Sol, Kimi K3, MiniMax-M3.1-Flash and GLM-5.3; no up-front thinking on Claude Sonnet 5.5; `minimal` or `low` on Gemini, whichever the model takes. GPT-6 Luna takes `"none"` as it is.
 
 ## What each client sends
 
@@ -121,16 +121,17 @@ Claude Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.1 cannot be forced to call a 
 
 ### `thinking_level`
 
-Each client sends the level as its protocol's effort: `output_config.effort` with adaptive thinking on the Anthropic clients, `reasoning.effort` on the Responses clients, `reasoning_effort` on `openai-chat`, Kimi K3 and GLM (with thinking enabled), `thinking_level` on Gemini. Kimi K2 gets a thinking type instead; `disabled` and `between_tools` are thinking types too. The first row that matches applies.
+Each client sends the level as its protocol's effort: `output_config.effort` with adaptive thinking on the Anthropic clients, `reasoning.effort` on the Responses clients, `reasoning_effort` on Kimi K3 and GLM (with thinking enabled), `thinking_level` on Gemini. Kimi K2 gets a thinking type instead; `disabled` and `between_tools` are thinking types too. `openai-chat` sends no level, so the endpoint runs its default. The first row that matches applies.
 
 | Client and model | `none` | `low` | `medium` | `high` | `xhigh` | `max` |
 | --- | --- | --- | --- | --- | --- | --- |
-| `anthropic-official`: Claude Opus 5.5, Haiku 5.5, Fable 5.1 | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
+| `anthropic-official`: Claude Opus 5.5, Haiku 5.5, Fable 5, Fable 5.1 | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `anthropic-official`: Claude Sonnet 5.5 | `between_tools` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `anthropic-official`: Claude 4.6 | `disabled` | `low` | `medium` | `high` | `high` | `max` |
 | `anthropic-official`: other Claude models; `ant-messages` | `disabled` | `low` | `medium` | `high` | `xhigh` | `max` |
-| `openai-official`, `openai-responses`, `openai-chat`: GPT-6 models except GPT-6 Luna | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
-| `openai-official`, `openai-responses`, `openai-chat`: other models | `none` | `low` | `medium` | `high` | `xhigh` | `max` |
+| `openai-official`, `openai-responses`: GPT-6 models except GPT-6 Luna | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
+| `openai-official`, `openai-responses`: other models | `none` | `low` | `medium` | `high` | `xhigh` | `max` |
+| `openai-chat` | not sent | not sent | not sent | not sent | not sent | not sent |
 | `deepseek-official` | `none` | `low` | `high` | `high` | `high` | `max` |
 | `minimax-official`: MiniMax-M3.1-Flash | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `minimax-official`: MiniMax-M3 | `none` | `low` | `medium` | `high` | `high` | `high` |
@@ -143,7 +144,7 @@ Each client sends the level as its protocol's effort: `output_config.effort` wit
 | `google-official`, `google-genai`: other Pro models, Gemini 3.7, 3.8, 4 Argon | `low` | `low` | `medium` | `high` | `high` | `high` |
 | `google-official`, `google-genai`: other Gemini models | `minimal` | `low` | `medium` | `high` | `high` | `high` |
 
-`openai-chat-vllm-adapter` sends no `reasoning_effort`. It sets the switch the served model's chat template reads, as `chat_template_kwargs`:
+`openai-chat-vllm-adapter` sends no `reasoning_effort` either. It sets the switch the served model's chat template reads, as `chat_template_kwargs`:
 
 | Served model | `chat_template_kwargs` |
 | --- | --- |

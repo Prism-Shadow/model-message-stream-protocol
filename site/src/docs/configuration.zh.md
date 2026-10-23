@@ -54,7 +54,7 @@ description: UniConfig，请求的配置选项，以及每个客户端为它们�
 
 客户端无法发送的参数值会在请求发出前抛出 `UnsupportedParameterError`，并指明客户端和具体参数。客户端用不到的字段会被忽略。下面的表格按客户端给出这两种情况。
 
-`thinking_level` 永远不会抛错。模型无法关闭思考时，`"none"` 取最少的思考：Claude Opus 5.5、Haiku 5.5、Fable 5.1，GPT-6 Astra、GPT-6.1 Sol，Kimi K3，MiniMax-M3.1-Flash 和 GLM-5.3 上是最低的思考档位；Claude Sonnet 5.5 上是不在回答前思考；Gemini 上是 `minimal` 或 `low`，取模型支持的那一个。GPT-6 Luna 原样接受 `"none"`。
+`thinking_level` 永远不会抛错。模型无法关闭思考时，`"none"` 取最少的思考：Claude Opus 5.5、Haiku 5.5、Fable 5、Fable 5.1，GPT-6 Astra、GPT-6.1 Sol，Kimi K3，MiniMax-M3.1-Flash 和 GLM-5.3 上是最低的思考档位；Claude Sonnet 5.5 上是不在回答前思考；Gemini 上是 `minimal` 或 `low`，取模型支持的那一个。GPT-6 Luna 原样接受 `"none"`。
 
 ## 每个客户端发送什么
 
@@ -121,16 +121,17 @@ Claude Opus 5.5、Sonnet 5.5、Haiku 5.5 和 Fable 5.1 不能强制调用工具�
 
 ### `thinking_level`
 
-每个客户端都把级别作为其协议的思考档位发送：Anthropic 的两个客户端上是自适应思考加 `output_config.effort`，Responses 客户端上是 `reasoning.effort`，`openai-chat`、Kimi K3 和 GLM（同时开启思考）上是 `reasoning_effort`，Gemini 上是 `thinking_level`。Kimi K2 改为发送思考类型；`disabled` 和 `between_tools` 也是思考类型。取第一个匹配的行。
+每个客户端都把级别作为其协议的思考档位发送：Anthropic 的两个客户端上是自适应思考加 `output_config.effort`，Responses 客户端上是 `reasoning.effort`，Kimi K3 和 GLM（同时开启思考）上是 `reasoning_effort`，Gemini 上是 `thinking_level`。Kimi K2 改为发送思考类型；`disabled` 和 `between_tools` 也是思考类型。`openai-chat` 不发送级别，由端点使用其默认值。取第一个匹配的行。
 
 | 客户端与模型 | `none` | `low` | `medium` | `high` | `xhigh` | `max` |
 | --- | --- | --- | --- | --- | --- | --- |
-| `anthropic-official`：Claude Opus 5.5、Haiku 5.5、Fable 5.1 | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
+| `anthropic-official`：Claude Opus 5.5、Haiku 5.5、Fable 5、Fable 5.1 | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `anthropic-official`：Claude Sonnet 5.5 | `between_tools` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `anthropic-official`：Claude 4.6 | `disabled` | `low` | `medium` | `high` | `high` | `max` |
 | `anthropic-official`：其他 Claude 模型；`ant-messages` | `disabled` | `low` | `medium` | `high` | `xhigh` | `max` |
-| `openai-official`、`openai-responses`、`openai-chat`：GPT-6 Luna 以外的 GPT-6 模型 | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
-| `openai-official`、`openai-responses`、`openai-chat`：其他模型 | `none` | `low` | `medium` | `high` | `xhigh` | `max` |
+| `openai-official`、`openai-responses`：GPT-6 Luna 以外的 GPT-6 模型 | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
+| `openai-official`、`openai-responses`：其他模型 | `none` | `low` | `medium` | `high` | `xhigh` | `max` |
+| `openai-chat` | 不发送 | 不发送 | 不发送 | 不发送 | 不发送 | 不发送 |
 | `deepseek-official` | `none` | `low` | `high` | `high` | `high` | `max` |
 | `minimax-official`：MiniMax-M3.1-Flash | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `minimax-official`：MiniMax-M3 | `none` | `low` | `medium` | `high` | `high` | `high` |
@@ -143,7 +144,7 @@ Claude Opus 5.5、Sonnet 5.5、Haiku 5.5 和 Fable 5.1 不能强制调用工具�
 | `google-official`、`google-genai`：其他 Pro 模型，Gemini 3.7、3.8、4 Argon | `low` | `low` | `medium` | `high` | `high` | `high` |
 | `google-official`、`google-genai`：其他 Gemini 模型 | `minimal` | `low` | `medium` | `high` | `high` | `high` |
 
-`openai-chat-vllm-adapter` 不发送 `reasoning_effort`，而是以 `chat_template_kwargs` 设置所部署模型的对话模板读取的开关：
+`openai-chat-vllm-adapter` 同样不发送 `reasoning_effort`，而是以 `chat_template_kwargs` 设置所部署模型的对话模板读取的开关：
 
 | 部署的模型 | `chat_template_kwargs` |
 | --- | --- |
