@@ -24,7 +24,7 @@ from google.genai import types
 from google.oauth2 import service_account
 
 from ..base_client import LLMClient
-from ..errors import UnsupportedParameterError
+from ..errors import InvalidMessageError, UnsupportedParameterError
 from ..types import (
     EventContentItem,
     EventType,
@@ -318,7 +318,7 @@ class GoogleGenaiClient(LLMClient):
         # response, but a universal tool_result carries only the id, so remember each call's name.
         call_names: dict[str, str] = {}
         contents = []
-        for msg in messages:
+        for message_index, msg in enumerate(messages):
             parts = []
             for item in msg["content_items"]:
                 # base64 text as the stream recorded it, or the bytes older Python histories hold
@@ -426,6 +426,13 @@ class GoogleGenaiClient(LLMClient):
                         part.thought and part.text == "" and part.inline_data is None and not part.thought_signature
                     )
                 ]
+
+            if all(part.thought for part in parts):
+                raise InvalidMessageError(
+                    self.__class__.__name__,
+                    f"message {message_index} has nothing {self.__class__.__name__} can send",
+                    message_index=message_index,
+                )
 
             # Vertex AI rejects a content that mixes function_response parts with any other
             # part kind — the request fails with a misleading 400, "Requests ending with a

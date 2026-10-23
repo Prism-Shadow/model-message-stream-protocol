@@ -12,15 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 import json
-from typing import AsyncIterator
+from types import SimpleNamespace
+from typing import Any, AsyncIterator
 
 import pytest
 from stream_grammar import assert_stream_grammar
 
-from mmsp import legacy
+from mmsp import AutoLLMClient, legacy
 from mmsp.base_client import LLMClient
-from mmsp.errors import EmptyResponseError, IncompleteStreamError, StreamProtocolError, ToolCallArgumentParseError
+from mmsp.errors import (
+    ConcurrentCallError,
+    EmptyResponseError,
+    IncompleteStreamError,
+    InvalidMessageError,
+    StreamProtocolError,
+    ToolCallArgumentParseError,
+)
 from mmsp.legacy import normalize_legacy_messages
 from mmsp.types import EventContentItem, FinishReason, UniConfig, UniEvent, UniMessage, UsageMetadata
 
@@ -454,6 +463,52 @@ async def test_embedding_vectors_need_no_item_id():
     ]
 
 
+def _embedding_client(data: list[Any]) -> AutoLLMClient:
+    """An embedding client whose endpoint answers every request with `data`."""
+    client = AutoLLMClient(model="text-embedding-3-large", api_key="test-key", client_type="openai-embedding")
+
+    async def create(**params: Any) -> SimpleNamespace:
+        return SimpleNamespace(data=data, usage=SimpleNamespace(prompt_tokens=4))
+
+    client._client._client = SimpleNamespace(embeddings=SimpleNamespace(create=create))  # noqa: SLF001
+    return client
+
+
+@pytest.mark.asyncio
+async def test_embedding_vectors_pair_with_their_messages_by_index():
+    # the endpoint answers out of order: each vector names the input it belongs to by its index
+    client = _embedding_client(
+        [SimpleNamespace(index=1, embedding=[0.3, 0.4]), SimpleNamespace(index=0, embedding=[0.1, 0.2])]
+    )
+    messages = [
+        {"role": "user", "content_items": [{"type": "text.done", "text": "first"}]},
+        {"role": "user", "content_items": [{"type": "text.done", "text": "second"}]},
+    ]
+
+    events = [event async for event in client.streaming_response(messages=messages, config={})]
+
+    assert [item["embedding"] for item in items(events) if item["type"] == "embedding.done"] == [
+        [0.1, 0.2],
+        [0.3, 0.4],
+    ]
+
+
+def test_an_embedding_message_without_text_raises_invalid_message_error():
+    client = _embedding_client([])
+
+    with pytest.raises(InvalidMessageError) as exc_info:
+        client.transform_uni_message_to_model_input(
+            [
+                {"role": "user", "content_items": [{"type": "text.done", "text": "first"}]},
+                {"role": "user", "content_items": [{"type": "text.done", "text": ""}]},
+            ]
+        )
+
+    assert exc_info.value.client == "OpenaiEmbeddingClient"
+    assert exc_info.value.message_index == 1
+    assert str(exc_info.value) == "message 1 has nothing OpenaiEmbeddingClient can send"
+
+
 @pytest.mark.asyncio
 async def test_an_empty_delta_event_and_a_stop_event_carrying_nothing_are_ignored():
     events = await collect(
@@ -624,6 +679,163 @@ async def test_stateful_history_is_recorded_even_when_the_caller_stops_at_the_st
     assert history[1]["content_items"] == [{"type": "text.done", "text": "hello"}]
     assert history[1]["usage_metadata"] == USAGE
     assert history[1]["finish_reason"] == "stop"
+
+
+def _user(text: str, **fields: Any) -> UniMessage:
+    return {"role": "user", "content_items": [{"type": "text.done", "text": text}], **fields}
+
+
+@pytest.mark.asyncio
+async def test_the_callers_messages_gain_their_created_at_and_nothing_else():
+    messages = [_user("earlier", created_at=1), _user("unset", created_at=None), _user("hi")]
+    before = copy.deepcopy(messages)
+
+    async for _event in ScriptedClient(REPLY).streaming_response(messages=messages, config={}):
+        pass
+
+    assert messages[0] == before[0]
+    for message, original in zip(messages[1:], before[1:]):
+        assert isinstance(message["created_at"], int)
+        assert {**message, "created_at": None} == {**original, "created_at": None}
+
+    message = _user("hi")
+    async for _event in ScriptedClient(REPLY).streaming_response_stateful(message=message, config={}):
+        pass
+
+    assert isinstance(message.pop("created_at"), int)
+    assert message == _user("hi")
+
+
+@pytest.mark.asyncio
+async def test_the_history_shares_no_object_with_the_caller_or_the_stream():
+    client = ScriptedClient(REPLY)
+    message: UniMessage = {
+        "role": "user",
+        "content_items": [
+            {"type": "text.done", "text": "hi"},
+            {"type": "inline_data.done", "data": b"\x89PNG", "mime_type": "image/png"},
+        ],
+    }
+    events = [event async for event in client.streaming_response_stateful(message=message, config={})]
+    expected = client.get_history()
+
+    # whatever the caller holds, it changes nothing the client recorded
+    message["content_items"][0]["text"] = "changed"
+    message["content_items"].append({"type": "text.done", "text": "added"})
+    next(item for item in items(events) if item["type"] == "text.done")["text"] = "changed"
+    returned = client.get_history()
+    returned[0]["content_items"].clear()
+    returned[1]["content_items"][0]["text"] = "changed"
+
+    assert client.get_history() == expected
+    assert expected[0]["content_items"] == [
+        {"type": "text.done", "text": "hi"},
+        {"type": "inline_data.done", "data": b"\x89PNG", "mime_type": "image/png"},
+    ]
+    assert expected[1]["content_items"] == [{"type": "text.done", "text": "hello"}]
+
+    given = [_user("Hi"), {"role": "assistant", "content_items": [{"type": "text.done", "text": "Hello!"}]}]
+    client.set_history(given)
+    given[0]["content_items"][0]["text"] = "changed"
+    given[1]["content_items"].clear()
+
+    assert client.get_history() == [
+        _user("Hi"),
+        {"role": "assistant", "content_items": [{"type": "text.done", "text": "Hello!"}]},
+    ]
+
+
+@pytest.mark.asyncio
+async def test_a_second_stateful_call_while_one_is_in_flight_raises_concurrent_call_error():
+    client = ScriptedClient(REPLY)
+    first = client.streaming_response_stateful(message=_user("one"), config={})
+    await anext(first)
+
+    with pytest.raises(ConcurrentCallError) as exc_info:
+        await anext(client.streaming_response_stateful(message=_user("two"), config={}))
+
+    assert exc_info.value.client == "ScriptedClient"
+    assert str(exc_info.value) == "ScriptedClient has a stateful call in flight; wait for its stop event or its error."
+    assert client.get_history() == []
+    assert len(client.sent_messages) == 1
+    # a stateless call keeps no history, so it runs beside a stateful one
+    assert [event async for event in client.streaming_response(messages=[_user("aside")], config={})]
+
+    async for _event in first:
+        pass
+    assert [message["content_items"][0]["text"] for message in client.get_history()] == ["one", "hello"]
+
+    # the turn has ended at its stop event, before its generator is closed
+    second = client.streaming_response_stateful(message=_user("two"), config={})
+    async for event in second:
+        if event["event_type"] == "stop":
+            break
+    third = client.streaming_response_stateful(message=_user("three"), config={})
+    await anext(third)
+    # closing the earlier generator late leaves the call in flight holding the client
+    await second.aclose()
+    with pytest.raises(ConcurrentCallError):
+        await anext(client.streaming_response_stateful(message=_user("four"), config={}))
+    async for _event in third:
+        pass
+
+    assert len(client.get_history()) == 6
+
+
+@pytest.mark.asyncio
+async def test_a_stateful_call_that_fails_releases_the_client():
+    client = ScriptedClient([delta(with_id("0", {"type": "text.delta", "text": "a"})), stop(USAGE, None)])
+
+    for _ in range(2):
+        with pytest.raises(IncompleteStreamError):
+            async for _event in client.streaming_response_stateful(message=USER, config={}):
+                pass
+
+    assert client.get_history() == []
+
+
+@pytest.mark.asyncio
+async def test_a_stateful_conversation_continues_the_history_it_was_given():
+    first = _user("Hi", created_at=1)
+    answer = {"role": "assistant", "content_items": [{"type": "text.done", "text": "Hello!"}], "created_at": 2}
+    client = ScriptedClient(REPLY)
+    client.set_history([first, answer])
+
+    turns = []
+    for message in (_user("one"), _user("two")):
+        events = [event async for event in client.streaming_response_stateful(message=message, config={})]
+        turns.append((message, client.concat_uni_events_to_uni_message(events)))
+
+    (one, reply_one), (two, reply_two) = turns
+    assert client.get_history() == [first, answer, one, reply_one, two, reply_two]
+    # each request carried the whole history ahead of its message
+    assert client.sent_messages == [[first, answer, one], [first, answer, one, reply_one, two]]
+
+
+@pytest.mark.asyncio
+@pytest.mark.filterwarnings("ignore::FutureWarning")
+@pytest.mark.parametrize(
+    "content_items",
+    [[], [{"type": "partial_tool_call", "name": "", "arguments": "", "tool_call_id": ""}]],
+    ids=["empty", "empty once normalized"],
+)
+async def test_a_message_without_content_items_raises_invalid_message_error_before_anything_is_sent(
+    content_items: list[Any],
+):
+    client = ScriptedClient(REPLY)
+    events: list[UniEvent] = []
+
+    with pytest.raises(InvalidMessageError) as exc_info:
+        async for event in client.streaming_response(
+            messages=[USER, {"role": "assistant", "content_items": content_items}], config={}
+        ):
+            events.append(event)
+
+    assert exc_info.value.client == "ScriptedClient"
+    assert exc_info.value.message_index == 1
+    assert str(exc_info.value) == "message 1 has nothing ScriptedClient can send"
+    assert events == []
+    assert client.sent_messages == []
 
 
 @pytest.mark.asyncio

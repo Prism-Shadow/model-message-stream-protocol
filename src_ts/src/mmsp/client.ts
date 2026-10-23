@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { LLMClient } from "../baseClient";
-import { UpstreamError } from "../errors";
+import { LLMClient, stampCreatedAt } from "../baseClient";
+import { IncompleteStreamError, UpstreamError } from "../errors";
 import { UniConfig, UniEvent, UniMessage } from "../types";
 import { resolveCredentials } from "../utils";
 import {
@@ -203,15 +203,29 @@ export class MmspClient extends LLMClient {
       throw upstreamError(await errorPayload(response), response.status);
     }
 
+    let stopped = false;
     for await (const data of sseData(response.body!)) {
       if (data === "[DONE]") {
-        return;
+        break;
       }
       const wire = JSON.parse(data);
       if ("error" in wire) {
         throw upstreamError(wire.error, null);
       }
-      yield this.transformModelOutputToUniEvent(wire);
+      const event = this.transformModelOutputToUniEvent(wire);
+      stopped = stopped || event.event_type === "stop";
+      yield event;
+    }
+
+    // the server's stream ended before its stop event, which carries the usage and the finish
+    // reason
+    if (!stopped) {
+      throw new IncompleteStreamError({
+        client: this.constructor.name,
+        missing: ["usage_metadata", "finish_reason"],
+        finishReason: null,
+        usageMetadata: null,
+      });
     }
   }
 
@@ -226,6 +240,7 @@ export class MmspClient extends LLMClient {
     config: UniConfig;
     signal?: AbortSignal;
   }): AsyncGenerator<UniEvent> {
+    stampCreatedAt(options.messages);
     yield* this._streamingResponseInternal(options);
   }
 

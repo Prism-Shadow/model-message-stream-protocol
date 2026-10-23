@@ -21,6 +21,7 @@ import {
 import { Stream } from "@anthropic-ai/sdk/core/streaming";
 import { LLMClient } from "../baseClient";
 import {
+  InvalidMessageError,
   UnsupportedOperationError,
   UnsupportedParameterError,
 } from "../errors";
@@ -361,7 +362,7 @@ export class AnthropicOfficialClient extends LLMClient {
   ): Promise<BetaMessageParam[]> {
     const claudeMessages: BetaMessageParam[] = [];
 
-    for (const msg of messages) {
+    for (const [messageIndex, msg] of messages.entries()) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const contentBlocks: any[] = [];
       for (const item of msg.content_items) {
@@ -420,6 +421,21 @@ export class AnthropicOfficialClient extends LLMClient {
         } else {
           throw new Error(`Unknown item: ${JSON.stringify(item)}`);
         }
+      }
+
+      if (
+        contentBlocks.every(
+          (block) =>
+            block.type === "thinking" || block.type === "redacted_thinking",
+        )
+      ) {
+        throw new InvalidMessageError({
+          client: this.constructor.name,
+          message:
+            `message ${messageIndex} has nothing ${this.constructor.name} can send ` +
+            "once its unsigned thinking is left out",
+          messageIndex,
+        });
       }
 
       claudeMessages.push({

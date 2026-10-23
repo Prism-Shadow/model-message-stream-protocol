@@ -158,6 +158,19 @@ class SlowScriptedClient(ScriptedClient):
             self.cleaned.set()
 
 
+class UnfinishedScriptedClient(ScriptedClient):
+    """Hands the server its script as the public stream itself, so a script without a stop event ends in [DONE]."""
+
+    async def streaming_response(
+        self,
+        messages: list[UniMessage],
+        config: UniConfig,
+        signal: AbortSignal | None = None,
+    ) -> AsyncIterator[UniEvent]:
+        for event in self._script:
+            yield event
+
+
 class SilentScriptedClient(ScriptedClient):
     """Stays silent for half a second before it streams its script, as a model does while it thinks."""
 
@@ -745,6 +758,41 @@ async def test_a_stream_cut_short_raises_an_upstream_error_carrying_the_incomple
         "finish_reason": None,
         "usage_metadata": USAGE,
     }
+
+
+@pytest.mark.asyncio
+async def test_done_before_a_stop_event_raises_incomplete_stream_error_and_records_nothing(use_upstream, serve):
+    script = [_delta({"type": "text.delta", "text": "Hel"})]
+    use_upstream(lambda model: UnfinishedScriptedClient(script, model))
+    client = _mmsp_client(serve(_server_app()))
+
+    events = []
+    with pytest.raises(IncompleteStreamError) as exc_info:
+        async for event in client.streaming_response_stateful(message=_messages()[0], config={}):
+            events.append(event)
+
+    assert [event["content_items"] for event in events] == [[{"type": "text.delta", "text": "Hel"}]]
+    assert exc_info.value.client == "MmspClient"
+    assert exc_info.value.missing == ("usage_metadata", "finish_reason")
+    assert exc_info.value.finish_reason is None
+    assert exc_info.value.usage_metadata is None
+    assert client.get_history() == []
+
+
+@pytest.mark.asyncio
+async def test_a_stateful_turn_through_the_client_records_both_messages_with_their_created_at(use_upstream, serve):
+    script = [_delta({"type": "text.delta", "text": "Hi", "fidelity": {"item_id": "0"}}), _stop()]
+    use_upstream(lambda model: ScriptedClient(script, model))
+    client = _mmsp_client(serve(_server_app()))
+    message = _messages()[0]
+
+    async for _ in client.streaming_response_stateful(message=message, config={}):
+        pass
+
+    history = client.get_history()
+    assert [entry["role"] for entry in history] == ["user", "assistant"]
+    assert history[0]["created_at"] == message["created_at"]
+    assert all(isinstance(entry["created_at"], int) for entry in history)
 
 
 @pytest.mark.parametrize(
