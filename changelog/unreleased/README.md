@@ -2,6 +2,7 @@
 
 [中文版](README.zh.md)
 
+- [2026-10-22] The Chat Completions client read OpenRouter's `reasoning_details` and replayed the encrypted fragment, GPT's encrypted reasoning or Gemini's thought signature, as received ([MMSP-RFC-0011](../../design/rfcs/MMSP-RFC-0011-thinking-round-trip.md)). ([details](2026-10-22-openai-chat-reasoning-details.md), [#273](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/273))
 - [2026-10-22] Added `IncompleteStreamError`, raised in place of the `stop` event when a stream ends without its usage or finish reason and relayed by the MMSP server. ([details](2026-10-22-incomplete-stream-error.md), [#272](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/272))
 - [2026-10-22] Extended the stream-grammar test helpers' join check to inline data, inline thinking and embeddings, so every `.done` item is compared with its fragments joined. ([details](2026-10-22-stream-grammar-joins.md), [#271](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/271))
 - [2026-10-22] Moved `@anthropic-ai/sdk` to `^0.91.1` and regenerated the TypeScript lockfile (`protobufjs` 7.6.6, `ws` 8.22.0, `express` 4.22.3, `jest` 30.5.2, `handlebars` 4.7.10 among others), and added the request-body test. ([details](2026-10-22-dependabot-src-ts.md), [#275](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/275))
