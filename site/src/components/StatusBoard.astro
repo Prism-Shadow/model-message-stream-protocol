@@ -1,14 +1,17 @@
 ---
-// The status page's body, modeled on status.openai.com: one line for every channel the daily probe
-// watches, the worst status naming it, with the month's probe cost beside it; then one block per
-// channel, its TTFT and TPS beside the name and its last 90 days as bars. Everything comes from
-// the status-data branch in the browser, and the provider and vendor of each channel from its
-// base URL and model id, as the catalog names them. Run a check now opens the status workflow on
-// GitHub, for a repository member to run; the page then follows that run and redraws itself from
-// the commit it publishes. Marks point into the page's MarkSprite.
+// The status page's body, modeled on status.openai.com: one framed card with the worst status of
+// every channel the daily probe watches, when it last checked, Run a check now and the month's
+// probe cost; then one block per channel, its TTFT and TPS beside the name and its last 90 days as
+// bars, each of which opens a card with that day's result. The page is built with the probe's files
+// (status-build.ts) and draws itself from them at once, then again from the status-data branch in
+// the browser when the branch holds a newer run. The provider and vendor of each channel come from
+// its base URL and model id, as the catalog names them. Run a check now opens the status workflow
+// on GitHub, for a repository member to run; the page then follows that run and redraws itself
+// from the commit it publishes. Marks point into the page's MarkSprite.
 import { STRINGS, type Locale } from "../shared/i18n";
 import { MARKS } from "../shared/marks";
 import { STATUS_WORKFLOW_URL } from "../shared/status";
+import { statusAtBuild } from "../shared/status-build";
 
 interface Props {
   locale: Locale;
@@ -16,28 +19,36 @@ interface Props {
 }
 const { locale, class: className } = Astro.props;
 const s = STRINGS[locale];
-const words = { ...s.status, state: s.models.status, locale: s.htmlLang };
+// the trigger's note lives in the markup only, as the button's title and its description; the
+// axis words under the bars are no longer drawn
+const { triggerNote: _triggerNote, daysAgo: _daysAgo, today: _today, ...statusWords } = s.status;
+const words = { ...statusWords, state: s.models.status, locale: s.htmlLang };
 // the colour of each mark drawn in currentColor, for the marks the script draws
 const tones = Object.fromEntries(Object.entries(MARKS).map(([id, mark]) => [id, mark.tone ?? ""]));
+// the probe's files as of the build: the page draws from them before it fetches anything
+const baked = await statusAtBuild();
 ---
 
 <section class:list={["status-page", className]} data-status-board data-words={JSON.stringify(words)} data-tones={JSON.stringify(tones)}>
   <h1 class="sr-only">{s.status.title}</h1>
-  <div class="flex flex-wrap items-start justify-between gap-x-8 gap-y-4 border-b border-gray-200 pb-6 dark:border-gray-800">
-    <div class="min-h-[3.5rem]">
-      <p class="status-overall" data-status-overall hidden>
+  <script type="application/json" data-status-baked set:html={JSON.stringify(baked).replaceAll("<", "\\u003c")} />
+  <div class="status-card flex flex-wrap items-start justify-between gap-x-8 gap-y-4 rounded-xl border border-gray-200 p-5 sm:p-6 dark:border-gray-800">
+    <div class="min-w-0">
+      <p class="status-overall" data-status-overall>
         <span class="status-dot"></span>
         <span data-status-overall-text></span>
       </p>
       <p class="mt-1.5 text-[13px] text-gray-500 dark:text-gray-400" data-status-checked hidden>
         <a class="underline decoration-gray-300 underline-offset-4 hover:text-gray-900 dark:decoration-gray-600 dark:hover:text-gray-100"></a>
       </p>
-      <p class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+      <p class="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5">
         <a
           href={STATUS_WORKFLOW_URL}
           target="_blank"
           rel="noreferrer"
           data-status-trigger
+          title={s.status.triggerNote}
+          aria-describedby="status-trigger-note"
           class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-950 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-900 dark:hover:text-white"
         >
           <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -45,7 +56,8 @@ const tones = Object.fromEntries(Object.entries(MARKS).map(([id, mark]) => [id, 
           </svg>
           <span>{s.status.trigger}</span>
         </a>
-        <span class="text-xs text-gray-500 dark:text-gray-400" aria-live="polite" data-status-trigger-note>{s.status.triggerNote}</span>
+        <span id="status-trigger-note" class="sr-only">{s.status.triggerNote}</span>
+        <span class="text-xs text-gray-500 dark:text-gray-400" aria-live="polite" data-status-trigger-progress hidden></span>
       </p>
     </div>
     <div class="sm:text-right" data-status-cost hidden>
@@ -54,7 +66,7 @@ const tones = Object.fromEntries(Object.entries(MARKS).map(([id, mark]) => [id, 
       <p class="mono mt-1 text-xs text-gray-400 tabular-nums dark:text-gray-500" data-status-cost-earlier></p>
     </div>
   </div>
-  <div data-status-blocks></div>
+  <div class="mt-2" data-status-blocks></div>
 </section>
 
 <script>
@@ -71,6 +83,7 @@ const tones = Object.fromEntries(Object.entries(MARKS).map(([id, mark]) => [id, 
     loadMonthly,
     statusCommitBase,
     statusHead,
+    statusQuery,
     statusRuns,
     statusAnchor,
     statusLabel,
@@ -82,6 +95,7 @@ const tones = Object.fromEntries(Object.entries(MARKS).map(([id, mark]) => [id, 
     type StatusWords,
     type TargetLatest,
   } from "../shared/status";
+  import type { StatusAtBuild } from "../shared/status-build";
   import { providerOf, vendorOf } from "../shared/providers";
 
   interface Side {
@@ -100,17 +114,24 @@ const tones = Object.fromEntries(Object.entries(MARKS).map(([id, mark]) => [id, 
     tps: string;
     tpsUnit: string;
     cost: string;
-    daysAgo: string;
-    today: string;
     uptime: string;
-    trigger: string;
-    triggerNote: string;
+    uptimeShare: string;
+    days: string;
+    samples: string;
     waiting: string;
     running: string;
     updated: string;
     failed: string;
     waitedOut: string;
   };
+  // a day as its card shows it, line by line, and as its bar's label reads it out
+  interface DayFacts {
+    date: string;
+    status: Status | null;
+    answered?: { ok: number; samples: number };
+    metrics: { label?: string; value: string }[];
+    error?: string;
+  }
 
   const board = document.querySelector<HTMLElement>("[data-status-board]");
   if (board) {
@@ -150,34 +171,179 @@ const tones = Object.fromEntries(Object.entries(MARKS).map(([id, mark]) => [id, 
       new Intl.DateTimeFormat(words.locale, { year: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${month}-01T00:00:00Z`));
     const runCount = (n: number) => (n === 1 ? words.run : words.runs).replace("{n}", String(n));
 
+    // ---------- a day of a channel: what its card says and what its bar reads out
+    const dayName = new Intl.DateTimeFormat(words.locale, { weekday: "short", year: "numeric", month: "short", day: "numeric", timeZone: "UTC" });
+    const factsOf = (date: string, day: Day | undefined): DayFacts => {
+      const facts: DayFacts = { date: dayName.format(new Date(`${date}T00:00:00Z`)), status: day?.status ?? null, metrics: [] };
+      // a day without a key asked nothing, so there is nothing more to say
+      if (!day || day.status === "nokey") return facts;
+      if (typeof day.ok === "number" && typeof day.samples === "number") facts.answered = { ok: day.ok, samples: day.samples };
+      if (day.ttft_ms !== null) facts.metrics.push({ label: words.ttft, value: formatMs(day.ttft_ms) });
+      if (day.tps !== null) facts.metrics.push({ label: words.tps, value: formatTps(day.tps) });
+      if (day.cost_usd !== null) facts.metrics.push({ value: formatUsd(day.cost_usd) });
+      if (day.error && day.status !== "up") facts.error = day.error;
+      return facts;
+    };
+    const answeredText = ({ ok, samples }: { ok: number; samples: number }) => words.samples.replace("{ok}", String(ok)).replace("{n}", String(samples));
+    const spoken = (facts: DayFacts) =>
+      [
+        facts.date,
+        facts.status ? words.state[facts.status] : words.state.none,
+        ...(facts.answered ? [answeredText(facts.answered)] : []),
+        ...facts.metrics.map(({ label, value }) => (label ? `${label} ${value}` : value)),
+        ...(facts.error ? [facts.error] : []),
+      ].join(", ");
+    const facts = new WeakMap<HTMLElement, DayFacts>();
+    const fillCard = (card: HTMLElement, day: DayFacts) => {
+      const lines: HTMLElement[] = [element("p", "text-xs text-gray-500 dark:text-gray-400", day.date)];
+      const state = element("p", "mt-1 flex items-center gap-2");
+      state.append(statusLabel(day.status, words.state));
+      if (day.answered) {
+        const count = element("span", "mono text-xs tabular-nums text-gray-500 dark:text-gray-400", `${day.answered.ok}/${day.answered.samples}`);
+        count.title = answeredText(day.answered);
+        state.append(count);
+      }
+      lines.push(state);
+      if (day.metrics.length) {
+        const metrics = element("p", "mt-1 flex flex-wrap items-baseline gap-x-1.5 text-[13px] tabular-nums");
+        day.metrics.forEach(({ label, value }, index) => {
+          if (index) metrics.append(element("span", "text-gray-300 dark:text-gray-600", "·"));
+          metrics.append(label ? metric(label, value) : element("span", "mono", value));
+        });
+        lines.push(metrics);
+      }
+      if (day.error) lines.push(element("p", "status-error mono", day.error));
+      card.replaceChildren(...lines);
+    };
+
+    // ---------- the day card of a strip: for the bar under the pointer or with focus, and on a
+    // phone for the bar tapped last. It floats over the page, so nothing moves when it opens.
+    const showDay = (bar: HTMLElement) => {
+      const strip = bar.closest<HTMLElement>(".status-strip")!;
+      const card = strip.querySelector<HTMLElement>(".status-day-card")!;
+      if (bar.dataset.active !== undefined && card.dataset.open !== undefined) return;
+      strip.querySelector(".status-bar[data-active]")?.removeAttribute("data-active");
+      fillCard(card, facts.get(bar)!);
+      // centred on the bar, held inside the strip; a card wider than the strip (on a phone) starts
+      // where the strip starts, and the page column still holds it
+      const left = bar.offsetLeft + bar.offsetWidth / 2 - card.offsetWidth / 2;
+      card.style.left = `${Math.max(0, Math.min(left, strip.clientWidth - card.offsetWidth))}px`;
+      const above = bar.getBoundingClientRect().bottom + 4 + card.offsetHeight > innerHeight;
+      card.style.top = above ? "auto" : "calc(2rem + 4px)";
+      card.style.bottom = above ? "calc(2rem + 4px)" : "auto";
+      bar.dataset.active = "";
+      card.dataset.open = "";
+    };
+    const hideDay = (strip: HTMLElement) => {
+      strip.querySelector(".status-bar[data-active]")?.removeAttribute("data-active");
+      strip.querySelector(".status-day-card")?.removeAttribute("data-open");
+    };
+    const installDayCard = (strip: HTMLElement) => {
+      const group = strip.querySelector<HTMLElement>(".status-bars")!;
+      const bars = [...group.querySelectorAll<HTMLButtonElement>(".status-bar")];
+      const barOf = (target: EventTarget | null) => (target instanceof Element ? target.closest<HTMLButtonElement>(".status-bar") : null);
+      group.addEventListener("pointerover", (event) => {
+        const bar = barOf(event.target);
+        if (bar && event.pointerType !== "touch") showDay(bar);
+      });
+      // a finger leaves the strip as it lifts; its card stays until the next tap
+      group.addEventListener("pointerleave", (event) => {
+        if (event.pointerType !== "touch") hideDay(strip);
+      });
+      group.addEventListener("pointerdown", (event) => {
+        const bar = barOf(event.target);
+        if (!bar || event.pointerType !== "touch") return;
+        if (bar.dataset.active === undefined) showDay(bar);
+        else hideDay(strip);
+      });
+      group.addEventListener("focusin", (event) => {
+        const bar = barOf(event.target);
+        if (!bar) return;
+        for (const other of bars) other.tabIndex = other === bar ? 0 : -1;
+        showDay(bar);
+      });
+      group.addEventListener("focusout", (event) => {
+        if (!(event.relatedTarget instanceof Node && group.contains(event.relatedTarget))) hideDay(strip);
+      });
+      group.addEventListener("keydown", (event) => {
+        const bar = barOf(event.target);
+        if (!bar) return;
+        if (event.key === "Escape") {
+          hideDay(strip);
+          return;
+        }
+        const index = bars.indexOf(bar);
+        const moves: Record<string, number> = { ArrowLeft: index - 1, ArrowRight: index + 1, Home: 0, End: bars.length - 1 };
+        if (!(event.key in moves)) return;
+        event.preventDefault();
+        bars[Math.max(0, Math.min(moves[event.key], bars.length - 1))].focus();
+      });
+    };
+    document.addEventListener(
+      "pointerdown",
+      (event) => {
+        const path = event.composedPath();
+        for (const card of blocks.querySelectorAll<HTMLElement>(".status-day-card[data-open]")) {
+          if (!path.includes(card.parentElement!)) hideDay(card.parentElement!);
+        }
+      },
+      true,
+    );
+    // a card stays where it was last shown; on a narrower window that place may lie past its edge
+    let width = innerWidth;
+    addEventListener("resize", () => {
+      if (innerWidth === width) return;
+      width = innerWidth;
+      for (const card of blocks.querySelectorAll<HTMLElement>(".status-day-card")) {
+        hideDay(card.parentElement!);
+        card.style.left = "0px";
+      }
+    });
+
     // one bar per day, coloured by the day's status, and the share of probed days that were up
-    const history = (days: Record<string, Day> | undefined) => {
-      const wrap = element("div", "mt-3");
-      const row = element("div", "flex items-center gap-3");
+    const history = (days: Record<string, Day> | undefined, model: string) => {
+      const row = element("div", "mt-3 flex items-start gap-3");
+      const strip = element("div", "status-strip relative min-w-0 flex-1");
       const bars = element("div", "status-bars");
+      bars.setAttribute("role", "group");
+      bars.setAttribute("aria-label", `${words.days} · ${model}`);
       let probed = 0;
       let up = 0;
+      let newest: HTMLButtonElement | undefined;
       for (const date of lastDays()) {
         const day = days?.[date];
-        const bar = element("span", "status-bar");
+        const bar = element("button", "status-bar");
+        bar.type = "button";
         bar.dataset.status = day?.status ?? "none";
-        const parts = [date, day ? words.state[day.status] : words.state.none];
+        bar.dataset.date = date;
+        bar.tabIndex = -1;
+        const dayFacts = factsOf(date, day);
+        facts.set(bar, dayFacts);
+        bar.setAttribute("aria-label", spoken(dayFacts));
+        if (day) newest = bar;
         if (day && day.status !== "nokey") {
           probed += 1;
           if (day.status === "up") up += 1;
-          if (day.ttft_ms !== null) parts.push(`TTFT ${formatMs(day.ttft_ms)}`);
-          if (day.tps !== null) parts.push(`TPS ${formatTps(day.tps)}`);
         }
-        bar.title = parts.join(" · ");
         bars.append(bar);
       }
-      const share = element("span", "mono w-14 shrink-0 text-right text-[13px] tabular-nums text-gray-600 dark:text-gray-300", probed ? `${Number(((up / probed) * 100).toFixed(1))}%` : "—");
+      // a Tab into the strip lands on the newest day the probe has an entry for
+      (newest ?? (bars.lastElementChild as HTMLButtonElement)).tabIndex = 0;
+      const card = element("div", "status-day-card");
+      card.setAttribute("aria-hidden", "true");
+      strip.append(bars, card);
+      installDayCard(strip);
+      const share = element("span", "w-24 shrink-0 text-right leading-8 whitespace-nowrap");
       share.title = words.uptime;
-      row.append(bars, share);
-      const legend = element("div", "status-legend");
-      legend.append(element("span", "", words.daysAgo), element("span", "", words.today));
-      wrap.append(row, legend);
-      return wrap;
+      const number = element("span", "mono text-[13px] tabular-nums text-gray-600 dark:text-gray-300", probed ? `${Number(((up / probed) * 100).toFixed(1))}%` : "—");
+      if (probed) {
+        const [before, after] = words.uptimeShare.split("{share}");
+        if (before) share.append(element("span", "text-xs text-gray-500 dark:text-gray-400", before));
+        share.append(number);
+        if (after) share.append(element("span", "text-xs text-gray-500 dark:text-gray-400", after));
+      } else share.append(number);
+      row.append(strip, share);
+      return row;
     };
 
     const block = (key: string, target: TargetLatest, days: Record<string, Day> | undefined, cost: string) => {
@@ -206,12 +372,13 @@ const tones = Object.fromEntries(Object.entries(MARKS).map(([id, mark]) => [id, 
         metric(words.cost, cost, words.month),
       );
       head.append(name, metrics);
-      section.append(head, history(days));
+      section.append(head, history(days, target.model));
       if (target.error && target.status !== "up") section.append(element("p", "status-error mono", target.error));
       return section;
     };
 
-    // the board as one set of files draws it: at load, and again when a check run by hand lands
+    // the board as one set of files draws it: the build's at once, the branch's when it holds a
+    // newer run, and again when a check run by hand lands
     let shown: Latest | null = null;
     let scrolled = false;
     const render = (latest: Latest | null, historyData: History | null, monthly: Monthly | null) => {
@@ -230,7 +397,6 @@ const tones = Object.fromEntries(Object.entries(MARKS).map(([id, mark]) => [id, 
       }
       overall.dataset.status = state === "allDown" ? "down" : state;
       overallText.textContent = words.overall[state];
-      overall.hidden = false;
       if (!latest) return;
 
       const stamps = targets.map(([, target]) => target.checked_at).filter((stamp): stamp is string => Boolean(stamp)).sort();
@@ -264,13 +430,18 @@ const tones = Object.fromEntries(Object.entries(MARKS).map(([id, mark]) => [id, 
       const wanted = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
       if (wanted) wanted.scrollIntoView();
     };
-    Promise.all([loadLatest(), loadHistory(), loadMonthly()]).then(([latest, historyData, monthly]) => render(latest, historyData, monthly));
+    const baked = JSON.parse(board.querySelector("[data-status-baked]")!.textContent!) as StatusAtBuild;
+    render(baked.latest, baked.history, baked.monthly);
+    // a ?status= override on this machine always wins over the build
+    void Promise.all([loadLatest(), loadHistory(), loadMonthly()]).then(([latest, historyData, monthly]) => {
+      if (latest && (latest.run_id !== shown?.run_id || statusQuery())) render(latest, historyData, monthly);
+    });
 
     // ---------- a check run by hand: the button opens the workflow on GitHub; from the click on,
     // the page follows the workflow's newest run once a minute, for up to 30 minutes, and draws the
     // commit it publishes. A tick the runs API does not answer watches the branch head instead.
     const trigger = board.querySelector<HTMLAnchorElement>("[data-status-trigger]")!;
-    const note = board.querySelector<HTMLElement>("[data-status-trigger-note]")!;
+    const note = board.querySelector<HTMLElement>("[data-status-trigger-progress]")!;
     const POLL_MS = 60_000;
     const WAIT_MS = 30 * 60_000;
     // a run is stamped by GitHub's clock, which may be behind this one
@@ -282,6 +453,7 @@ const tones = Object.fromEntries(Object.entries(MARKS).map(([id, mark]) => [id, 
     const say = (text: string, href?: string) => {
       if (said === `${text} ${href}`) return;
       said = `${text} ${href}`;
+      note.hidden = false;
       if (!href) {
         note.textContent = text;
         return;
@@ -381,8 +553,6 @@ const tones = Object.fromEntries(Object.entries(MARKS).map(([id, mark]) => [id, 
   /* 90 days, one bar each; on a phone the gaps narrow so the bars stay readable */
   .status-bars {
     display: flex;
-    flex: 1 1 auto;
-    min-width: 0;
     height: 2rem;
     gap: 2px;
   }
@@ -392,22 +562,52 @@ const tones = Object.fromEntries(Object.entries(MARKS).map(([id, mark]) => [id, 
     }
   }
   .status-bar {
+    appearance: none;
+    display: block;
     flex: 1 1 0;
     min-width: 0;
+    height: 2rem;
+    padding: 0;
+    border: 0;
     border-radius: 1px;
     background: var(--status);
+    cursor: pointer;
   }
-  .status-legend {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 0.375rem;
-    /* the share of up days ends the bars' line; the legend spans the bars only */
-    margin-right: 4.25rem;
-    font-size: 11px;
-    color: var(--color-gray-400);
+  .status-bar:hover,
+  .status-bar[data-active] {
+    box-shadow: 0 0 0 1px var(--color-gray-500);
   }
-  .dark .status-legend {
-    color: var(--color-gray-500);
+  /* a day's card, the kit dialog's frame at a tooltip's size: it floats under the bars, or over
+     them near the bottom of the window, so nothing moves when it opens */
+  .status-day-card {
+    position: absolute;
+    top: calc(2rem + 4px);
+    left: 0;
+    z-index: 20;
+    width: min(18rem, calc(100vw - 2rem));
+    padding: 0.5rem 0.625rem;
+    border: 1px solid var(--color-gray-200);
+    border-radius: 0.5rem;
+    background: var(--color-white);
+    box-shadow: 0 24px 64px -16px rgb(0 0 0 / 0.25);
+    pointer-events: none;
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(2px);
+    transition:
+      opacity 150ms cubic-bezier(0.23, 1, 0.32, 1),
+      transform 150ms cubic-bezier(0.23, 1, 0.32, 1),
+      visibility 0s 150ms;
+  }
+  .status-day-card[data-open] {
+    visibility: visible;
+    opacity: 1;
+    transform: none;
+    transition-delay: 0s;
+  }
+  .dark .status-day-card {
+    border-color: var(--color-gray-800);
+    background: var(--color-gray-950);
   }
   .status-state {
     font-size: 13px;
@@ -418,5 +618,13 @@ const tones = Object.fromEntries(Object.entries(MARKS).map(([id, mark]) => [id, 
     font-size: 12px;
     color: var(--color-gray-500);
     overflow-wrap: anywhere;
+  }
+  .status-day-card .status-error {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    overflow: hidden;
+    margin-top: 0.25rem;
+    font-size: 11px;
   }
 </style>

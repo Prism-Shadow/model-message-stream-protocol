@@ -1,11 +1,13 @@
 
 
-// The daily status probe's data, as the pages read it in the browser: the files the status
-// workflow commits to the status-data branch (.github/status/README.md describes them). Every
-// entry is keyed by its registry triple, `${client}|${base_url}|${model}`. Without the files, the
-// pages stay as they were built: every entry not probed. A check run by hand is followed through
-// the GitHub API, anonymously: the workflow's runs, the branch's head commit, then that commit's
-// files.
+// The daily status probe's data: the files the status workflow commits to the status-data branch
+// (.github/status/README.md describes them). The pages are built with them (status-build.ts) and
+// read them again in the browser, to catch up with a run newer than the build. Every entry is
+// keyed by its registry triple, `${client}|${base_url}|${model}`. A file comes from
+// raw.githubusercontent.com, or where raw does not answer (from mainland China, for one) from the
+// GitHub contents API, which allows 60 anonymous requests an hour per IP. A check run by hand is
+// followed through the same API: the workflow's runs, the branch's head commit, then that
+// commit's files.
 
 const REPO = "Prism-Shadow/model-message-stream-protocol";
 export const STATUS_DATA_URL = `https://raw.githubusercontent.com/${REPO}/status-data/`;
@@ -54,6 +56,11 @@ export interface Day {
   ttft_ms: number | null;
   tps: number | null;
   cost_usd: number | null;
+  // the samples that answered, of how many, and the last error: days written before the probe
+  // recorded them lack them
+  ok?: number;
+  samples?: number;
+  error?: string | null;
 }
 
 export interface History {
@@ -94,12 +101,23 @@ export function statusQuery(): string {
   return statusBase() === STATUS_DATA_URL ? "" : `?status=${encodeURIComponent(statusBase())}`;
 }
 
+const contentsApi = (name: string, ref: string) => `https://api.github.com/repos/${REPO}/contents/${name}?ref=${ref}`;
+// the branch, or the commit a base pins; null for a local ?status= override
+const refOf = (base: string) => (base === STATUS_DATA_URL ? "status-data" : (base.match(/\/([0-9a-f]{40})\/$/)?.[1] ?? null));
+
+async function fetchJson<T>(url: string, headers?: Record<string, string>): Promise<T | null> {
+  const response = await fetch(url, { headers, signal: AbortSignal.timeout(8_000) });
+  return response.ok ? ((await response.json()) as T) : null;
+}
+
 const loaded = new Map<string, Promise<unknown>>();
 function load<T>(name: string, base = statusBase()): Promise<T | null> {
   const url = base + name;
   if (!loaded.has(url)) {
-    const file = fetch(url, { cache: "no-store" })
-      .then((response) => (response.ok ? response.json() : null))
+    const ref = refOf(base);
+    // a missing file is null at once; a connection that fails or hangs tries the API instead
+    const file = fetchJson<T>(url)
+      .catch(() => (ref ? fetchJson<T>(contentsApi(name, ref), { accept: "application/vnd.github.raw+json" }) : null))
       .catch(() => null);
     loaded.set(url, file);
     // a file that did not arrive is asked for again next time
