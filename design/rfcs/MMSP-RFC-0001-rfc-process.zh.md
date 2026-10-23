@@ -40,7 +40,7 @@ MMSP 要遵守的规则原先写在 mmsp-dev skill 里，写法是操作指南�
 - 生命周期：PR 打开即提议，合并即采纳，关闭即撤回。`design/README.md` 中的索引为每篇已采纳的 RFC 列一行，写明类别与状态，状态为「已采纳」或「被 MMSP-RFC-NNNN 取代」；这一行由 RFC 自己的 PR 添加。取代旧 RFC 的 RFC，在同一个 PR 中更新旧文件的元数据与索引中旧的那一行。实现某篇 `change` 类 RFC 的 PR 加上它的 `Implementation PR` 一行。
 - 变更记录：RFC 的 PR 附一条 `process` 类型、Scope 为 `design` 的记录；实现 PR 附自己的记录，并链接这篇 RFC。
 - 指引：`AGENTS.md` 写明这个目录以及何时需要 RFC；mmsp-dev skill 要求修改客户端之前先读这些规则，并给其中的规则标上 `(MMSP-RFC-NNNN)`；README 链接这个目录。
-- 网站：文档侧边栏有一个「设计」分组，直接用仓库中的 `design/README.md` 与每一篇 `design/rfcs/MMSP-RFC-*.md` 以两种语言渲染，因此新增一篇 RFC 就多一个页面，不必修改网站代码。
+- 网站：`/rfcs/` 的 RFCs 区直接用仓库中的 `design/README.md` 与每一篇 `design/rfcs/MMSP-RFC-*.md` 以两种语言渲染，因此新增一篇 RFC 就多一个页面，不必修改网站代码。
 
 ## Drawbacks
 [drawbacks]: #drawbacks
