@@ -2,6 +2,7 @@
 
 [中文版](README.zh.md)
 
+- [2026-10-19] Added `design/`: the RFC process (MMSP-RFC-0001) and the rules MMSP keeps (MMSP-RFC-0002 to MMSP-RFC-0012), one RFC each, rendered in the docs sidebar. ([details](2026-10-19-rfc-process-and-rules.md), [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265))
 - [2026-10-22] `openai-chat-vllm-adapter` read `VLLM_API_KEY` and `VLLM_BASE_URL` instead of the OpenAI pair, defaulted to `http://127.0.0.1:8000/v1`, and called its server keyless without a key; OpenAI-SDK clients stopped sending OpenAI's other environment variables to endpoints other than OpenAI's. ([details](2026-10-22-vllm-credentials.md), [#276](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/276))
 - [2026-10-19] `tts_config` rejections raise `UnsupportedParameterError`. ([details](2026-10-19-tts-config-unsupported-parameter.md), [#269](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/269))
 - [2026-10-19] Claude replay omits a thinking item that carries no signature. ([details](2026-10-19-claude-unsigned-thinking-replay.md), [#268](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/268))

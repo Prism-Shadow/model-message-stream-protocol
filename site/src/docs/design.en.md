@@ -52,3 +52,5 @@ Those traces are also data an agent can read. An agent harness that reviews its 
 - [Quickstart](/docs/quickstart/) streams a first response and runs a tool call.
 - [Streaming](/docs/streaming/) has every rule of the two layers.
 - [Tracer and playground](/docs/tracing/) records and replays your runs.
+
+The rules every client keeps, and the decisions that changed them, are RFCs: see the [RFC index](/docs/rfcs/).

@@ -2,6 +2,7 @@
 
 [English](README.md)
 
+- [2026-10-19] 新增 `design/`：RFC 流程（MMSP-RFC-0001）与 MMSP 遵守的规则（MMSP-RFC-0002 至 MMSP-RFC-0012），一条规则一篇 RFC，并在文档侧边栏中渲染。([详情](2026-10-19-rfc-process-and-rules.zh.md), [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265))
 - [2026-10-22] `openai-chat-vllm-adapter` 改读 `VLLM_API_KEY` 与 `VLLM_BASE_URL`，不再读 OpenAI 的变量对；默认端点为 `http://127.0.0.1:8000/v1`，没有 key 时以无 key 方式调用服务端；基于 OpenAI SDK 的客户端不再把 OpenAI 的其他环境变量发往 OpenAI 以外的端点。([详情](2026-10-22-vllm-credentials.zh.md), [#276](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/276))
 - [2026-10-19] 拒绝 `tts_config` 时抛出 `UnsupportedParameterError`。([详情](2026-10-19-tts-config-unsupported-parameter.zh.md), [#269](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/269))
 - [2026-10-19] Claude 回放时省略不带签名的思考条目。([详情](2026-10-19-claude-unsigned-thinking-replay.zh.md), [#268](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/268))

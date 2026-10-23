@@ -15,6 +15,8 @@ MMSP, the Model Message Stream Protocol, takes the per-provider differences off 
 
 📖 Documentation: [mmsp.penguin.ooo](https://mmsp.penguin.ooo)
 
+Design: the rules MMSP keeps and the decisions that changed it, one RFC each, live in [`design/`](design/).
+
 Using a coding agent? Install the MMSP SKILL files from [`skills/`](skills/) so it can use MMSP correctly in generated code.
 
 📢 Follow us on [![X](https://img.shields.io/badge/X-code%5Fhiyouga-000000?logo=x&logoColor=white)](https://x.com/code_hiyouga) or join our [![Discord](https://img.shields.io/badge/Discord-join%20chat-5865F2?logo=discord&logoColor=white)](https://discord.gg/eFHKqqcU3D)

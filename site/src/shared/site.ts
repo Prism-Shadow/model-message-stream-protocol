@@ -31,12 +31,39 @@ type Text = Record<Locale, string>;
 export interface DocLink {
   slug: string;
   title: Text;
+  // the lede of a page whose file carries no frontmatter
+  description?: Text;
+  // a page rendered from the repository's design/ folder: its file in each language, from the root
+  source?: Text;
 }
 
 export interface DocSection {
   id: string;
   title: Text;
   docs: DocLink[];
+}
+
+// every RFC in design/rfcs/, in number order and titled by its first line, so a new file is a new page
+const RFC_FILES = import.meta.glob<string>("../../../design/rfcs/MMSP-RFC-*.md", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+});
+
+function rfcDocs(): DocLink[] {
+  const title = (path: string) => RFC_FILES[path].match(/^# (.+)$/m)?.[1].trim() ?? path;
+  return Object.keys(RFC_FILES)
+    .filter((path) => !path.endsWith(".zh.md"))
+    .sort()
+    .map((path) => {
+      const zh = RFC_FILES[path.replace(/\.md$/, ".zh.md")] ? path.replace(/\.md$/, ".zh.md") : path;
+      const file = (glob: string) => glob.slice(glob.indexOf("design/"));
+      return {
+        slug: path.slice(path.lastIndexOf("/") + 1, -".md".length).toLowerCase(),
+        title: { en: title(path), zh: title(zh) },
+        source: { en: file(path), zh: file(zh) },
+      };
+    });
 }
 
 // the order of the sidebar, and of the previous / next links under every page
@@ -78,6 +105,22 @@ export const DOC_SECTIONS: DocSection[] = [
       { slug: "tracing", title: { en: "Tracer and playground", zh: "Tracer 与 Playground" } },
       { slug: "server", title: { en: "Server", zh: "服务端" } },
       { slug: "skills", title: { en: "Agent skills", zh: "Agent Skills" } },
+    ],
+  },
+  {
+    id: "design",
+    title: { en: "Design", zh: "设计" },
+    docs: [
+      {
+        slug: "rfcs",
+        title: { en: "RFC index", zh: "RFC 索引" },
+        description: {
+          en: "Every rule MMSP keeps and every decision that changed it, as RFCs: the index, and when a change needs one.",
+          zh: "MMSP 遵守的每条规则与改变它的每个决定都是 RFC：这里是索引，以及哪些改动需要 RFC。",
+        },
+        source: { en: "design/README.md", zh: "design/README.zh.md" },
+      },
+      ...rfcDocs(),
     ],
   },
 ];

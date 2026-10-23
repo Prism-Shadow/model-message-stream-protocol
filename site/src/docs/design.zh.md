@@ -52,3 +52,5 @@ MMSP 保留完整的流，对所有服务商用同一种方式标记，并把完
 - [快速开始](/zh/docs/quickstart/) 流式输出第一条响应，并运行一次工具调用。
 - [流式输出](/zh/docs/streaming/) 列出了两层标记的全部规则。
 - [Tracer 与 Playground](/zh/docs/tracing/) 记录并回放你的运行。
+
+每个客户端都遵守的规则，以及改变它们的决定，都是 RFC，见 [RFC 索引](/zh/docs/rfcs/)。
