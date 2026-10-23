@@ -6,7 +6,7 @@
 import { listSupportedModels, type SupportedModel } from "../../../src_ts/src/registry.ts";
 import credentialsSource from "../../../src_ts/src/credentials.ts?raw";
 import { providerOf, vendorOf, type Provider, type Vendor } from "./providers";
-import type { Locale } from "./i18n";
+import { STRINGS, localePath, type Locale } from "./i18n";
 
 export { STATUS_DATA_URL } from "./status";
 export { PROVIDERS, providerOf, vendorOf, type Provider, type Vendor } from "./providers";
@@ -226,6 +226,130 @@ export function kitFor(entry: Pick<SupportedModel, "model" | "base_url" | "clien
     ...(Object.keys(config).length ? { config } : {}),
   };
   return { typescript, python, server, request, keyEnv: env, keyValue: provider.keyValue ?? "your-key", keyHint: provider.keyHint };
+}
+
+const PROMPT = {
+  en: {
+    goal: (model: string, provider: string, url: string) => `Add \`${model}\` (served by ${provider} at \`${url}\`) to this project through MMSP.`,
+    facts: "Facts",
+    packages: "Packages: `mmsp` for Python, `@prismshadow/mmsp` for TypeScript",
+    modelId: "Model id",
+    key: (env: string, value: string) => `API key: the environment variable \`${env}\`, holding ${value}`,
+    keyOf: (provider: string) => `${provider}'s API key`,
+    modalities: "Modalities",
+    context: (window: string, tokens: string) => `Context window: ${window} tokens (${tokens})`,
+    prices: "List prices per 1M tokens, USD",
+    price: { input: "input", output: "output", cached: "cached" },
+    code: "Code",
+    program: (language: string, file: string) => `${language}, \`${file}\`:`,
+    steps: "Steps",
+    list: (env: string) => [
+      "Use the project's language: the TypeScript program with `@prismshadow/mmsp`, or the Python one with `mmsp`.",
+      "Install the package: `npm install @prismshadow/mmsp` or `pip install mmsp`.",
+      `Read the key from \`${env}\`; never hard-code it or commit it.`,
+      "Wire the call into the project's existing LLM call site; if there is none, add a minimal module for it.",
+      "Run it once and check that the model answers.",
+      "Report what you changed: the files, the new dependency, and how to run it.",
+    ],
+    references: "References",
+    separator: ", ",
+    colon: ": ",
+  },
+  zh: {
+    goal: (model: string, provider: string, url: string) => `通过 MMSP 把 \`${model}\`（由 ${provider} 提供，地址 \`${url}\`）接入这个项目。`,
+    facts: "信息",
+    packages: "包：Python 用 `mmsp`，TypeScript 用 `@prismshadow/mmsp`",
+    modelId: "模型 id",
+    // a space between Chinese and a value that begins in Latin letters, as Chinese typesetting has it
+    key: (env: string, value: string) => `API 密钥：环境变量 \`${env}\`，值为${/^[A-Za-z0-9]/.test(value) ? " " : ""}${value}`,
+    keyOf: (provider: string) => `${provider} 的 API key`,
+    modalities: "模态",
+    context: (window: string, tokens: string) => `上下文窗口：${window} tokens（${tokens}）`,
+    prices: "每百万 tokens 标价（美元）",
+    price: { input: "输入", output: "输出", cached: "缓存" },
+    code: "代码",
+    program: (language: string, file: string) => `${language}，\`${file}\`：`,
+    steps: "步骤",
+    list: (env: string) => [
+      "使用项目本身的语言：TypeScript 项目用上面的 TypeScript 程序和 `@prismshadow/mmsp`，Python 项目用 Python 程序和 `mmsp`。",
+      "安装包：`npm install @prismshadow/mmsp` 或 `pip install mmsp`。",
+      `从 \`${env}\` 读取密钥，不要写进代码，也不要提交到仓库。`,
+      "把调用接到项目里现有的 LLM 调用处；没有的话，新增一个最小的模块来放它。",
+      "运行一次，确认模型有回复。",
+      "汇报改了什么：哪些文件、新增的依赖，以及如何运行。",
+    ],
+    references: "参考",
+    separator: "、",
+    colon: "：",
+  },
+} as const;
+
+/**
+ * A prompt for an AI agent that wires one entry into the project it works in, in the page's
+ * language: the goal, the facts the kit is built from, the kit's TypeScript and Python programs,
+ * the steps, and where to read more.
+ */
+export function agentPromptFor(
+  entry: Pick<SupportedModel, "model" | "base_url" | "client" | "input_modalities" | "output_modalities" | "context_window" | "pricing">,
+  locale: Locale,
+): string {
+  const words = PROMPT[locale];
+  const modality = STRINGS[locale].models.modality;
+  const provider = providerOf(entry.base_url);
+  const kit = kitFor(entry);
+  const site = import.meta.env.SITE;
+  const pricing = entry.pricing;
+  const prices = pricing
+    ? (
+        [
+          ["input", pricing.prompt_tokens],
+          ["output", pricing.response_tokens],
+          ["cached", pricing.cached_tokens],
+        ] as const
+      )
+        .filter(([, value]) => value !== undefined)
+        .map(([name, value]) => `${words.price[name]} ${formatPrice(value!)}`)
+        .join(words.separator)
+    : null;
+  return [
+    words.goal(entry.model, provider.name, entry.base_url),
+    "",
+    `## ${words.facts}`,
+    "",
+    `- ${words.packages}`,
+    `- \`client_type\`${words.colon}\`${entry.client}\``,
+    `- \`base_url\`${words.colon}\`${entry.base_url}\``,
+    `- ${words.modelId}${words.colon}\`${entry.model}\``,
+    `- ${words.key(kit.keyEnv, kit.keyHint?.[locale] ?? words.keyOf(provider.name))}`,
+    `- ${words.modalities}${words.colon}${entry.input_modalities.map((name) => modality[name]).join(words.separator)} → ${entry.output_modalities.map((name) => modality[name]).join(words.separator)}`,
+    ...(entry.context_window ? [`- ${words.context(formatContext(entry.context_window), entry.context_window.toLocaleString("en-US"))}`] : []),
+    ...(prices ? [`- ${words.prices}${words.colon}${prices}`] : []),
+    "",
+    `## ${words.code}`,
+    "",
+    words.program("TypeScript", "main.ts"),
+    "",
+    "```ts",
+    kit.typescript,
+    "```",
+    "",
+    words.program("Python", "main.py"),
+    "",
+    "```python",
+    kit.python,
+    "```",
+    "",
+    `## ${words.steps}`,
+    "",
+    ...words.list(kit.keyEnv).map((step, index) => `${index + 1}. ${step}`),
+    "",
+    `## ${words.references}`,
+    "",
+    `- ${new URL("/llms.txt", site).href}`,
+    `- ${new URL("/models.json", site).href}`,
+    `- ${new URL(localePath(locale, "/docs/quickstart/"), site).href}`,
+    "",
+  ].join("\n");
 }
 
 export interface CatalogRow extends SupportedModel {
