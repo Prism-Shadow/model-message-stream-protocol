@@ -3,6 +3,7 @@
 - **Date:** 2026-10-23
 - **Type:** feature
 - **Scope:** `site`, `design`
+- **PR:** [#285](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/285)
 
 [中文版](2026-10-23-site-rfc-pages-and-search.zh.md)
 

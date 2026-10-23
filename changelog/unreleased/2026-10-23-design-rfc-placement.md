@@ -3,6 +3,7 @@
 - **Date:** 2026-10-23
 - **Type:** process
 - **Scope:** `design`
+- **PR:** [#285](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/285)
 
 [中文版](2026-10-23-design-rfc-placement.zh.md)
 
