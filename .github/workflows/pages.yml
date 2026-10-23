@@ -44,6 +44,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # the status page and the catalog are built with the status probe's files
+      - name: Check out the status data
+        run: |
+          if git ls-remote --exit-code --heads origin status-data; then
+            git fetch --depth=1 origin status-data
+            git worktree add --detach status-data FETCH_HEAD
+            echo "MMSP_STATUS_DIR=$GITHUB_WORKSPACE/status-data" >> "$GITHUB_ENV"
+          else
+            # exit code 2 means the branch does not exist; anything else is a failure to look
+            test "$?" -eq 2
+          fi
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
