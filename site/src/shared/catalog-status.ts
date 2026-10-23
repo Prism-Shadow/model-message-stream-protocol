@@ -3,21 +3,13 @@
 // table's headers carry the units, so its cells hold bare numbers; the kit dialog, which has no
 // headers, shows the same figures with their units.
 
-import { formatMs, formatTps, statusAnchor, type Latest, type StatusWords, type TargetLatest } from "./status";
+import { formatMs, formatTps, statusAnchor, type StatusWords, type TargetLatest } from "./status";
 
 export type MetricWords = StatusWords & { tps: string };
 
 // the unit of the price columns, which follows the USD / CNY switch
 export const PRICE_UNITS = { USD: "$/M", CNY: "¥/M" } as const;
 export const LATENCY_UNIT = "s";
-
-// files written before 2026-10-23 joined the triple with `|`; the status-data branch keeps them
-// until the probe's next run rewrites them, so a build or a reader in between gets either form
-export function withCurrentKeys(latest: Latest | null): Latest | null {
-  if (!latest) return null;
-  const targets = Object.entries(latest.targets).map(([key, target]) => [key.replaceAll("|", "+"), target] as const);
-  return { ...latest, targets: Object.fromEntries(targets) };
-}
 
 export interface MetricCells {
   latency: string;

@@ -15,6 +15,6 @@
 - 集成代码改由每行最后一格、最右侧的 `<>` 按钮打开（该列标题为「代码」），不再由模型单元格打开。在手机上，按钮位于该行第一行的末尾，只有已探测的条目会多出第四行显示延迟与吞吐。集成代码对话框在价格旁列出该条目带单位的延迟与吞吐。
 - 集成代码对话框的「复制」按钮变为两个。「复制代码」复制当前标签页的文件；「复制给 Agent」复制一段页面语言的 Markdown 提示词，由 `catalog.ts` 中的 `agentPromptFor()` 生成：目标、该条目的信息（包、`client_type`、`base_url`、模型 id、密钥环境变量及其格式、模态、上下文窗口、美元标价）、TypeScript 与 Python 程序、接入项目的步骤，以及 `llms.txt`、`/models.json` 和快速开始文档的链接。两个按钮各自显示「已复制」或「复制失败」。
 - 新增 `site/src/shared/catalog-status.ts`：`metricCells()` 在构建时和浏览器中绘制这两个单元格，表格中为纯数字，对话框中带单位。
-- `/models.json` 中各条目的 `status_key` 改用 `+` 而非 `|` 连接（`deepseek-official+https://api.deepseek.com+deepseek-flash`），`status.key` 为 `client+base_url+model`。`catalog-status.ts` 中的 `withCurrentKeys()` 在构建时和浏览器中改写以 `|` 写成的 `latest.json` 的键，因此模型索引无论读到哪种形式都能填出延迟与吞吐。指向模型监测页的链接锚点不变。
+- `/models.json` 中各条目的 `status_key` 改用 `+` 而非 `|` 连接（`deepseek-official+https://api.deepseek.com+deepseek-flash`），`status.key` 为 `client+base_url+model`。模型索引在构建时和浏览器中通过 `status.ts` 的 `withCurrentKeys()` 读取 `latest.json`，它会改写以 `|` 写成的文件的键，因此无论读到哪种形式都能填出延迟与吞吐。指向模型监测页的链接锚点不变。
 - 小米的条目（OpenRouter 上的 `xiaomi/mimo-v2.5`、TokenDance 上的 `mimo-v2.6-flash`）显示了小米标志：`marks.ts` 新增 Simple Icons 的 MI 图形（CC0），颜色为 `#FF6900`，`providers.ts` 中的小米厂商使用该标志。
 - 从 `i18n.ts` 中删除了 `models.columns.status` 和 `models.probed`。
