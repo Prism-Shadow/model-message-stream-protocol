@@ -1,8 +1,19 @@
 ---
 import Base from "./Base.astro";
+import DocSearch from "../components/DocSearch.astro";
 import { designHtml, docDescription, docSummary, type DocFile } from "../shared/docs";
 import { STRINGS, localePath, type Locale } from "../shared/i18n";
-import { ALL_DOCS, DOC_SECTIONS, REPO_URL, sectionOf, type DocLink } from "../shared/site";
+import {
+  ALL_DOCS,
+  ALL_RFCS,
+  DOC_SECTIONS,
+  REPO_URL,
+  RFC_SECTIONS,
+  docHref,
+  docMarkdownPath,
+  sectionOf,
+  type DocLink,
+} from "../shared/site";
 
 interface Props {
   locale: Locale;
@@ -17,14 +28,21 @@ const description = docDescription(locale, doc, page);
 // a page of the design/ folder renders the repository's file, its links pointed at the site
 const html = doc.source ? await designHtml(locale, doc, page) : undefined;
 const edit = `${REPO_URL}/blob/main/${doc.source ? doc.source[locale] : `site/src/docs/${doc.slug}.${locale}.md`}`;
-const section = sectionOf(doc.slug)!;
-const index = ALL_DOCS.indexOf(doc);
-const previous = ALL_DOCS[index - 1];
-const next = ALL_DOCS[index + 1];
+// the docs and the RFCs are two areas, each with its own sidebar and its own previous / next
+const area = doc.area;
+const sections = area === "rfc" ? RFC_SECTIONS : DOC_SECTIONS;
+const all = area === "rfc" ? ALL_RFCS : ALL_DOCS;
+const section = sectionOf(doc)!;
+const index = all.indexOf(doc);
+const previous = all[index - 1];
+const next = all[index + 1];
 const headings = page.getHeadings().filter((heading) => heading.depth === 2 || heading.depth === 3);
-const href = (slug: string) => localePath(locale, `/docs/${slug}/`);
-// the page's own Markdown, served next to it (see src/pages/docs/[slug].md.ts)
-const markdown = localePath(locale, `/docs/${doc.slug}.md`);
+const href = (item: DocLink) => docHref(locale, item);
+// an RFC's sidebar entry: its number, then its title without the "MMSP-RFC-NNNN " the page's H1 keeps
+const entryTitle = (item: DocLink) =>
+  item.number ? item.title[locale].replace(/^MMSP-RFC-\d+\s+/, "") : item.title[locale];
+// the page's own Markdown, served next to it (see src/pages/docs/[slug].md.ts, src/pages/rfcs/[slug].md.ts)
+const markdown = localePath(locale, docMarkdownPath(doc));
 
 const label = "text-[13px] font-semibold text-gray-900 dark:text-gray-100";
 const entry = "-ml-px block border-l py-1 pl-3 transition-colors";
@@ -33,31 +51,40 @@ const entryOff =
   "border-transparent text-gray-600 hover:border-gray-400 hover:text-gray-900 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-100";
 const step =
   "group flex flex-col gap-1 rounded-lg border border-gray-200 p-4 transition-colors hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700";
+const number = "mono shrink-0 text-xs text-gray-400 dark:text-gray-500";
 ---
 
 <Base
   locale={locale}
   title={doc.title[locale]}
   description={description ?? docSummary(page)}
-  active={doc.source ? "rfc" : "docs"}
-  entry={doc.slug === ALL_DOCS[0].slug}
+  active={area}
+  entry={doc === ALL_DOCS[0]}
 >
   <div class="mx-auto grid max-w-7xl lg:grid-cols-[15rem_minmax(0,1fr)] xl:grid-cols-[15rem_minmax(0,1fr)_14rem]">
     <aside class="hidden border-r border-gray-200 lg:block dark:border-gray-800">
       <nav class="sticky top-14 max-h-[calc(100vh-3.5rem)] overflow-y-auto px-6 py-8 text-sm" aria-label={s.title}>
+        <DocSearch locale={locale} area={area} part="sidebar" />
         {
-          DOC_SECTIONS.map((group) => (
+          sections.map((group) => (
             <div class="mb-6">
               <p class:list={[label, "mb-2"]}>{group.title[locale]}</p>
               <ul class="space-y-0.5 border-l border-gray-200 dark:border-gray-800">
                 {group.docs.map((item) => (
                   <li>
                     <a
-                      href={href(item.slug)}
-                      class:list={[entry, item.slug === doc.slug ? entryOn : entryOff]}
-                      aria-current={item.slug === doc.slug ? "page" : undefined}
+                      href={href(item)}
+                      class:list={[entry, item === doc ? entryOn : entryOff]}
+                      aria-current={item === doc ? "page" : undefined}
                     >
-                      {item.title[locale]}
+                      {item.number ? (
+                        <span class="flex items-baseline gap-2">
+                          <span class={number}>{item.number}</span>
+                          <span>{entryTitle(item)}</span>
+                        </span>
+                      ) : (
+                        item.title[locale]
+                      )}
                     </a>
                   </li>
                 ))}
@@ -69,30 +96,42 @@ const step =
     </aside>
 
     <div class="min-w-0 px-4 py-10 sm:px-6 lg:px-10">
-      <details class="mb-6 rounded-lg border border-gray-200 text-sm lg:hidden dark:border-gray-800">
-        <summary class="cursor-pointer px-3 py-2 font-medium">{section.title[locale]}: {doc.title[locale]}</summary>
-        <div class="border-t border-gray-200 px-3 py-2 dark:border-gray-800">
-          {
-            DOC_SECTIONS.map((group) => (
-              <div class="py-1.5">
-                <p class={label}>{group.title[locale]}</p>
-                <ul class="mt-1">
-                  {group.docs.map((item) => (
-                    <li>
-                      <a
-                        href={href(item.slug)}
-                        class:list={["block py-1", item.slug === doc.slug ? "font-medium text-brand-700 dark:text-brand-400" : "text-gray-600 dark:text-gray-400"]}
-                      >
-                        {item.title[locale]}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))
-          }
-        </div>
-      </details>
+      <div class="mb-6 flex items-start gap-2 lg:hidden">
+        <details class="min-w-0 flex-1 rounded-lg border border-gray-200 text-sm dark:border-gray-800">
+          <summary class="cursor-pointer px-3 py-[7px] font-medium">
+            {section.title[locale]}: {doc.number ? `${doc.number} ${entryTitle(doc)}` : doc.title[locale]}
+          </summary>
+          <div class="border-t border-gray-200 px-3 py-2 dark:border-gray-800">
+            {
+              sections.map((group) => (
+                <div class="py-1.5">
+                  <p class={label}>{group.title[locale]}</p>
+                  <ul class="mt-1">
+                    {group.docs.map((item) => (
+                      <li>
+                        <a
+                          href={href(item)}
+                          class:list={["block py-1", item === doc ? "font-medium text-brand-700 dark:text-brand-400" : "text-gray-600 dark:text-gray-400"]}
+                        >
+                          {item.number ? (
+                            <span class="flex items-baseline gap-2">
+                              <span class={number}>{item.number}</span>
+                              <span>{entryTitle(item)}</span>
+                            </span>
+                          ) : (
+                            item.title[locale]
+                          )}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))
+            }
+          </div>
+        </details>
+        <DocSearch locale={locale} area={area} part="icon" />
+      </div>
 
       <article class="w-full max-w-3xl">
         <header>
@@ -122,7 +161,7 @@ const step =
         <div class="mt-10 grid gap-3 border-t border-gray-200 pt-6 sm:grid-cols-2 dark:border-gray-800">
           {
             previous ? (
-              <a href={href(previous.slug)} class={step}>
+              <a href={href(previous)} class={step}>
                 <span class="text-xs text-gray-500 dark:text-gray-400">{s.previous}</span>
                 <span class="text-sm font-medium group-hover:text-brand-700 dark:group-hover:text-brand-300">
                   {previous.title[locale]}
@@ -134,7 +173,7 @@ const step =
           }
           {
             next && (
-              <a href={href(next.slug)} class:list={[step, "sm:items-end sm:text-right"]}>
+              <a href={href(next)} class:list={[step, "sm:items-end sm:text-right"]}>
                 <span class="text-xs text-gray-500 dark:text-gray-400">{s.next}</span>
                 <span class="text-sm font-medium group-hover:text-brand-700 dark:group-hover:text-brand-300">
                   {next.title[locale]}
@@ -183,6 +222,7 @@ const step =
       }
     </aside>
   </div>
+  <DocSearch locale={locale} area={area} />
 </Base>
 
 <script>
