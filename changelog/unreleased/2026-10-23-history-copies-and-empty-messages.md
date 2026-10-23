@@ -3,6 +3,7 @@
 - **Date:** 2026-10-23
 - **Type:** fix
 - **Scope:** `base_client`, `mmsp`, `openai_embedding`
+- **PR:** [#291](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/291)
 - **Breaking:** yes — `get_history()` and `set_history()` copy the history deeply, a second `streaming_response_stateful` while one is in flight raises `ConcurrentCallError`, and a message with nothing a client can send raises `InvalidMessageError` where it was dropped or sent empty
 
 [中文版](2026-10-23-history-copies-and-empty-messages.zh.md)
