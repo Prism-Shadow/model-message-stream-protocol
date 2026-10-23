@@ -2,6 +2,7 @@
 
 [English](README.md)
 
+- [2026-10-19] TypeScript 中 GLM 与 Kimi K2 的扩展参数送达 API。([详情](2026-10-19-openai-node-extension-keys.zh.md), [#267](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/267))
 - [2026-10-19] vLLM 适配器通过 Python SDK 发送 `chat_template_kwargs`。([详情](2026-10-19-vllm-chat-template-kwargs.zh.md), [#266](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/266))
 - [2026-10-22] Chat Completions 客户端读取 OpenRouter 的 `reasoning_details`，并把其中的加密片段，即 GPT 加密的推理内容或 Gemini 的思考签名，原样回传（[MMSP-RFC-0011](../../design/rfcs/MMSP-RFC-0011-thinking-round-trip.zh.md)）。([详情](2026-10-22-openai-chat-reasoning-details.zh.md), [#273](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/273))
 - [2026-10-22] 新增 `IncompleteStreamError`：流在用量或结束原因到达之前结束时，在原本该出现 `stop` 事件的位置抛出，并由 MMSP 服务端转发。([详情](2026-10-22-incomplete-stream-error.zh.md), [#272](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/272))

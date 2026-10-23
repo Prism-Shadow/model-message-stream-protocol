@@ -202,12 +202,12 @@ export class MoonshotOfficialClient extends LLMClient {
     }
 
     if (config.thinking_level !== undefined) {
-      // the K2 generation configures thinking through extra_body and can disable
-      // it; K3 uses reasoning_effort and cannot
+      // the K2 generation configures thinking through a top-level thinking key and
+      // can disable it; K3 uses reasoning_effort and cannot
       if (this._model.toLowerCase().includes("k2.")) {
-        kimiConfig.extra_body = kimiConfig.extra_body || {};
-        kimiConfig.extra_body.thinking =
-          this._convertThinkingLevelToThinkingConfig(config.thinking_level);
+        kimiConfig.thinking = this._convertThinkingLevelToThinkingConfig(
+          config.thinking_level,
+        );
       } else {
         kimiConfig.reasoning_effort =
           this._convertThinkingLevelToReasoningEffort(config.thinking_level);
