@@ -499,7 +499,7 @@ export class AnthropicOfficialClient extends LLMClient {
       if (usage) {
         const cacheCreationTokens = usage.cache_creation_input_tokens || 0;
         usageMetadata = {
-          cached_tokens: usage.cache_read_input_tokens || null,
+          cached_tokens: usage.cache_read_input_tokens ?? null,
           prompt_tokens: usage.input_tokens + cacheCreationTokens,
           thoughts_tokens: null,
           response_tokens: null,

@@ -437,9 +437,9 @@ export class ZAIOfficialClient extends LLMClient {
       eventType = "stop";
 
       const cachedTokens =
-        modelOutput.usage.prompt_tokens_details?.cached_tokens || null;
+        modelOutput.usage.prompt_tokens_details?.cached_tokens ?? null;
       const reasoningTokens =
-        modelOutput.usage.completion_tokens_details?.reasoning_tokens || null;
+        modelOutput.usage.completion_tokens_details?.reasoning_tokens ?? null;
 
       const promptTokens =
         cachedTokens !== null

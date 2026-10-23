@@ -837,3 +837,225 @@ async def test_clients_turn_ignorable_events_into_empty_events(
     events = [event async for event in client.streaming_response(MESSAGES, {})]
     assert_stream_grammar(events)
     assert _collected_texts(events) == ["Here is"]
+
+
+def _responses_stream_reporting(usage: object) -> list[object]:
+    completed = _responses_completed_event()
+    completed.response.usage = usage
+    return [_responses_text_delta_event("Here is"), completed]
+
+
+def _chat_stream_reporting(usage: object) -> list[object]:
+    stop = _chat_stop_chunk()
+    stop.usage = usage
+    return [_chat_text_chunk("Here is"), stop]
+
+
+def _messages_stream_reporting(start_usage: object, stop_usage: object) -> list[object]:
+    start = _messages_start_event()
+    start.message.usage = start_usage
+    stop = _messages_stop_event()
+    stop.usage = stop_usage
+    return [start, _messages_text_delta_event("Here is"), stop]
+
+
+def _gemini_stream_reporting(usage: object) -> list[object]:
+    completed = _gemini_completed_event()
+    completed.interaction.usage = usage
+    return [_gemini_text_delta_event("Here is"), completed]
+
+
+def _generate_content_stream_reporting(usage: object) -> list[object]:
+    stop = _generate_content_stop_chunk()
+    stop.usage_metadata = usage
+    return [_generate_content_text_chunk("Here is"), stop]
+
+
+ZERO_USAGE = {"cached_tokens": 0, "prompt_tokens": 0, "thoughts_tokens": 0, "response_tokens": 0}
+
+# Every client over a stream whose usage sends each count as 0, then over one leaving out each count the
+# provider may leave out: a count is reported as sent, 0 included, and a count not sent is None.
+USAGE_CASES = [
+    *[
+        pytest.param(
+            case,
+            _install_fake_responses_stream,
+            _responses_stream_reporting(
+                SimpleNamespace(
+                    input_tokens=0,
+                    output_tokens=0,
+                    input_tokens_details=SimpleNamespace(cached_tokens=0),
+                    output_tokens_details=SimpleNamespace(reasoning_tokens=0),
+                )
+            ),
+            ZERO_USAGE,
+            id=f"{case.client_type}-zero",
+        )
+        for case in RESPONSES_STREAM_CASES
+    ],
+    *[
+        pytest.param(
+            case,
+            _install_fake_responses_stream,
+            _responses_stream_reporting(
+                SimpleNamespace(input_tokens=2, output_tokens=3, input_tokens_details=None, output_tokens_details=None)
+            ),
+            {"cached_tokens": None, "prompt_tokens": 2, "thoughts_tokens": None, "response_tokens": 3},
+            id=f"{case.client_type}-absent",
+        )
+        # OpenAI always sends the detail blocks, and OpenAIOfficialClient reads them as sent
+        for case in RESPONSES_STREAM_CASES
+        if case.client_type != "openai-official"
+    ],
+    *[
+        pytest.param(
+            case,
+            _install_fake_chat_stream,
+            _chat_stream_reporting(
+                SimpleNamespace(
+                    prompt_tokens=0,
+                    completion_tokens=0,
+                    prompt_tokens_details=SimpleNamespace(cached_tokens=0),
+                    completion_tokens_details=SimpleNamespace(reasoning_tokens=0),
+                )
+            ),
+            ZERO_USAGE,
+            id=f"{case.client_type}-zero",
+        )
+        for case in CHAT_STREAM_CASES
+    ],
+    *[
+        pytest.param(
+            case,
+            _install_fake_chat_stream,
+            _chat_stream_reporting(
+                SimpleNamespace(
+                    prompt_tokens=2, completion_tokens=3, prompt_tokens_details=None, completion_tokens_details=None
+                )
+            ),
+            {"cached_tokens": None, "prompt_tokens": 2, "thoughts_tokens": None, "response_tokens": 3},
+            id=f"{case.client_type}-absent",
+        )
+        for case in CHAT_STREAM_CASES
+    ],
+    *[
+        pytest.param(
+            case,
+            _install_fake_messages_stream,
+            _messages_stream_reporting(
+                SimpleNamespace(input_tokens=0, cache_creation_input_tokens=0, cache_read_input_tokens=0),
+                SimpleNamespace(
+                    input_tokens=0,
+                    cache_creation_input_tokens=0,
+                    cache_read_input_tokens=0,
+                    output_tokens=0,
+                    output_tokens_details=None,
+                ),
+            ),
+            # the Messages usage carries no thinking count
+            {"cached_tokens": 0, "prompt_tokens": 0, "thoughts_tokens": None, "response_tokens": 0},
+            id=f"{case.client_type}-zero",
+        )
+        for case in MESSAGES_STREAM_CASES
+    ],
+    *[
+        pytest.param(
+            case,
+            _install_fake_messages_stream,
+            _messages_stream_reporting(
+                SimpleNamespace(input_tokens=2, cache_creation_input_tokens=None, cache_read_input_tokens=None),
+                SimpleNamespace(
+                    input_tokens=2,
+                    cache_creation_input_tokens=None,
+                    cache_read_input_tokens=None,
+                    output_tokens=3,
+                    output_tokens_details=None,
+                ),
+            ),
+            {"cached_tokens": None, "prompt_tokens": 2, "thoughts_tokens": None, "response_tokens": 3},
+            id=f"{case.client_type}-absent",
+        )
+        for case in MESSAGES_STREAM_CASES
+    ],
+    *[
+        pytest.param(
+            case,
+            _install_fake_gemini_stream,
+            _gemini_stream_reporting(
+                SimpleNamespace(
+                    total_input_tokens=0, total_cached_tokens=0, total_thought_tokens=0, total_output_tokens=0
+                )
+            ),
+            ZERO_USAGE,
+            id=f"{case.client_type}-zero",
+        )
+        for case in GEMINI_STREAM_CASES
+    ],
+    *[
+        pytest.param(
+            case,
+            _install_fake_gemini_stream,
+            _gemini_stream_reporting(
+                SimpleNamespace(
+                    total_input_tokens=None,
+                    total_cached_tokens=None,
+                    total_thought_tokens=None,
+                    total_output_tokens=None,
+                )
+            ),
+            {"cached_tokens": None, "prompt_tokens": None, "thoughts_tokens": None, "response_tokens": None},
+            id=f"{case.client_type}-absent",
+        )
+        for case in GEMINI_STREAM_CASES
+    ],
+    *[
+        pytest.param(
+            case,
+            _install_fake_generate_content_stream,
+            _generate_content_stream_reporting(
+                SimpleNamespace(
+                    prompt_token_count=0,
+                    cached_content_token_count=0,
+                    thoughts_token_count=0,
+                    candidates_token_count=0,
+                )
+            ),
+            ZERO_USAGE,
+            id=f"{case.client_type}-zero",
+        )
+        for case in GENERATE_CONTENT_STREAM_CASES
+    ],
+    *[
+        pytest.param(
+            case,
+            _install_fake_generate_content_stream,
+            _generate_content_stream_reporting(
+                SimpleNamespace(
+                    prompt_token_count=2,
+                    cached_content_token_count=None,
+                    thoughts_token_count=None,
+                    candidates_token_count=None,
+                )
+            ),
+            {"cached_tokens": None, "prompt_tokens": 2, "thoughts_tokens": None, "response_tokens": None},
+            id=f"{case.client_type}-absent",
+        )
+        for case in GENERATE_CONTENT_STREAM_CASES
+    ],
+]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("case", "installer", "stream", "usage_metadata"), USAGE_CASES)
+async def test_clients_report_each_count_as_sent_and_a_count_not_sent_as_none(
+    case: StreamCase,
+    installer: Callable[[AutoLLMClient, list[object]], None],
+    stream: list[object],
+    usage_metadata: dict[str, int | None],
+):
+    client = _create_auto_client(case)
+    installer(client, stream)
+
+    events = [event async for event in client.streaming_response(MESSAGES, {})]
+    assert_stream_grammar(events)
+    assert events[-1]["usage_metadata"] == usage_metadata

@@ -291,16 +291,16 @@ class MiniMaxOfficialClient(LLMClient):
                 finish_reason = finish_reason_mapping.get(response.status, "unknown")
 
             if response.usage:
-                # MiniMax drops the detail blocks on truncated responses, so default them to zero.
+                # MiniMax drops the detail blocks on truncated responses, so their counts stay None.
                 input_details = response.usage.input_tokens_details
                 output_details = response.usage.output_tokens_details
-                cached_tokens = input_details.cached_tokens if input_details else 0
-                reasoning_tokens = output_details.reasoning_tokens if output_details else 0
+                cached_tokens = input_details.cached_tokens if input_details else None
+                reasoning_tokens = output_details.reasoning_tokens if output_details else None
                 usage_metadata = {
                     "cached_tokens": cached_tokens,
-                    "prompt_tokens": response.usage.input_tokens - cached_tokens,
+                    "prompt_tokens": response.usage.input_tokens - (cached_tokens or 0),
                     "thoughts_tokens": reasoning_tokens,
-                    "response_tokens": response.usage.output_tokens - reasoning_tokens,
+                    "response_tokens": response.usage.output_tokens - (reasoning_tokens or 0),
                 }
 
         elif (
