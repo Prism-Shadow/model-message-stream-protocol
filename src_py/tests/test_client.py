@@ -25,7 +25,7 @@ import httpx
 import pytest
 from stream_grammar import assert_stream_grammar
 
-from mmsp import AutoLLMClient, ThinkingLevel, list_supported_models
+from mmsp import AutoLLMClient, ThinkingLevel, UnsupportedParameterError, list_supported_models
 
 
 IMAGE = "https://sghimages.shobserver.com/img/catch/2022/01/22/c1ae0300-9402-4128-a7e6-1244d3874167.jpg"
@@ -50,6 +50,7 @@ class Model:
         "deepseek",
         "zai",
         "minimax",
+        "tokendance",
         "mmsp",
     ] = "official"
     client_type: str | None = None
@@ -113,6 +114,7 @@ _PROVIDER_API_KEY_ENVS = {
     "deepseek": "DEEPSEEK_API_KEY",
     "zai": "ZAI_API_KEY",
     "minimax": "MINIMAX_API_KEY",
+    "tokendance": "TOKENDANCE_API_KEY",
     "mmsp": "MMSP_API_KEY",
 }
 
@@ -121,6 +123,7 @@ _PROVIDER_BASE_URLS = {
     "openrouter": "https://openrouter.ai/api/v1",
     "siliconflow": "https://api.siliconflow.cn/v1",
     "modelverse": "https://api.modelverse.cn/v1",
+    "tokendance": "https://tokendance.space/gateway/v1",
 }
 
 
@@ -391,6 +394,35 @@ def test_google_official_refuses_a_vertex_service_account_key(client_type: str |
         AutoLLMClient(model="gemini-3.8-flash", api_key='{"project_id": "test-project"}', client_type=client_type)
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("client_type", ["google-official", "google-genai"])
+@pytest.mark.parametrize(
+    "tts_config",
+    [
+        [
+            {"voice": "Kore", "speaker": "Joe"},
+            {"voice": "Puck", "speaker": "Jane"},
+            {"voice": "Charon", "speaker": "Jim"},
+        ],
+        [{"voice": "Kore", "speaker": "Joe"}, {"voice": "Puck"}],
+    ],
+    ids=["three speakers", "two speakers, one unnamed"],
+)
+async def test_gemini_tts_config_rejects_a_speaker_list_it_cannot_voice(
+    client_type: str, tts_config: list[dict[str, str]]
+):
+    client = AutoLLMClient(model="gemini-3.8-flash-tts", api_key="test-key", client_type=client_type)
+
+    with pytest.raises(UnsupportedParameterError) as exc_info:
+        async for _ in client.streaming_response(
+            messages=[{"role": "user", "content_items": [{"type": "text.done", "text": "Joe: Hi.\nJane: Hello."}]}],
+            config={"tts_config": tts_config},
+        ):
+            pass
+
+    assert exc_info.value.parameter == "tts_config"
+
+
 def test_a_model_of_no_known_family_asks_for_a_client_type():
     with pytest.raises(ValueError, match="Pass client_type.*openai-official.*openai-responses"):
         AutoLLMClient(model="qwen3.6", api_key="test-key")
@@ -454,7 +486,10 @@ async def test_list_supported_models():
     for entry in entries:
         assert {"model", "base_url", "client", "input_modalities", "output_modalities"} <= set(entry)
         client = AutoLLMClient(
-            model=entry["model"], api_key="test-key", base_url=entry["base_url"], client_type=entry["client"]
+            model=entry["model"],
+            api_key="test-access,test-secret" if entry["base_url"].startswith("bedrock://") else "test-key",
+            base_url=entry["base_url"],
+            client_type=entry["client"],
         )
         assert client._client is not None
 

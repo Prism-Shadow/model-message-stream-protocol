@@ -12,9 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import inspect
 from typing import Any
 
 import pytest
+from openai.resources.chat.completions import AsyncCompletions
 
 from mmsp import AutoLLMClient, ThinkingLevel
 
@@ -154,11 +156,30 @@ def test_glm_thinking_level_maps_per_generation(
     assert config.get("reasoning_effort") == effort
 
 
+# GLM before 5.3 and the Kimi K2 generation turn thinking on and off with a thinking switch.
+# The Python client carries it in extra_body, which the SDK merges into the body at the top
+# level; the TypeScript client sets the same top-level key, because openai-node posts the body
+# as given.
+THINKING_SWITCH_CASES = [
+    ("kimi-k2.6", "moonshot-official", ThinkingLevel.NONE, "disabled"),
+    ("kimi-k2.6", "moonshot-official", ThinkingLevel.MEDIUM, "enabled"),
+    ("glm-5.2", "zai-official", ThinkingLevel.NONE, "disabled"),
+]
+
+
+@pytest.mark.parametrize(("model", "client_type", "level", "thinking_type"), THINKING_SWITCH_CASES)
+def test_thinking_switch_reaches_the_wire(model: str, client_type: str, level: ThinkingLevel, thinking_type: str):
+    client = AutoLLMClient(model=model, api_key="test-key", client_type=client_type)
+    config = client._client.transform_uni_config_to_model_config({"thinking_level": level})  # noqa: SLF001
+    assert config["extra_body"]["thinking"]["type"] == thinking_type
+
+
 # What each remaining client puts on the wire for a level, per its vendor's effort
 # vocabulary: OpenAI takes the full set except on GPT-6, which rejects "none" and
 # "minimal" so NONE degrades to low; Claude tops out at max (xhigh only from 4.7),
-# DeepSeek and Kimi accept low/high/max, DeepSeek turns thinking off with none, and
-# MiniMax has no level above high.
+# DeepSeek and Kimi accept low/high/max, DeepSeek turns thinking off with none,
+# MiniMax-M3 has no level above high, and MiniMax-M3.1-Flash cannot turn thinking off
+# but takes low through max.
 THINKING_EFFORT_CASES = [
     ("gpt-6-astra", None, ThinkingLevel.NONE, "low"),
     ("gpt-6-astra", None, ThinkingLevel.LOW, "low"),
@@ -206,6 +227,9 @@ THINKING_EFFORT_CASES = [
     ("kimi-k3", None, ThinkingLevel.MAX, "max"),
     ("MiniMax-M3", None, ThinkingLevel.XHIGH, "high"),
     ("MiniMax-M3", None, ThinkingLevel.MAX, "high"),
+    ("MiniMax-M3.1-Flash", None, ThinkingLevel.NONE, "low"),
+    ("MiniMax-M3.1-Flash", None, ThinkingLevel.XHIGH, "xhigh"),
+    ("MiniMax-M3.1-Flash", None, ThinkingLevel.MAX, "max"),
 ]
 
 
@@ -329,7 +353,8 @@ def test_openai_chat_vllm_adapter_thinking_level_maps_to_chat_template_kwargs(
         client_type="openai-chat-vllm-adapter",
     )
     config = client._client.transform_uni_config_to_model_config({"thinking_level": level})  # noqa: SLF001
-    assert config.get("chat_template_kwargs") == expected
+    assert (config.get("extra_body") or {}).get("chat_template_kwargs") == expected
+    assert set(config) <= set(inspect.signature(AsyncCompletions.create).parameters)
 
 
 def test_openai_chat_vllm_adapter_omits_chat_template_kwargs_without_thinking_level():
@@ -340,6 +365,7 @@ def test_openai_chat_vllm_adapter_omits_chat_template_kwargs_without_thinking_le
     )
     config = client._client.transform_uni_config_to_model_config({})  # noqa: SLF001
     assert "chat_template_kwargs" not in config
+    assert "extra_body" not in config
 
 
 def test_openai_chat_does_not_receive_the_vllm_extension():
@@ -352,3 +378,4 @@ def test_openai_chat_does_not_receive_the_vllm_extension():
         {"thinking_level": ThinkingLevel.NONE}
     )
     assert "chat_template_kwargs" not in config
+    assert "extra_body" not in config

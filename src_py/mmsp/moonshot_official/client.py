@@ -36,7 +36,7 @@ from ..types import (
     UniMessage,
     UsageMetadata,
 )
-from ..utils import fix_openrouter_usage_metadata, resolve_credentials
+from ..utils import fix_openrouter_usage_metadata, openai_client_options, resolve_credentials
 
 
 class MoonshotOfficialClient(LLMClient):
@@ -51,13 +51,16 @@ class MoonshotOfficialClient(LLMClient):
     ):
         """Initialize Kimi K3 client with model and API key."""
         self._model = model
-        api_key, base_url = resolve_credentials(self.__class__.__name__, "moonshot-official", api_key, base_url)
+        key, url = resolve_credentials(self.__class__.__name__, "moonshot-official", api_key, base_url)
         # The wrapped OpenAI SDK falls back to OPENAI_API_KEY when handed None, which would send an
         # OpenAI credential to the Moonshot host, so fail loudly instead.
-        if not api_key:
+        if not key:
             raise ValueError("MOONSHOT_API_KEY is required for MoonshotOfficialClient.")
-        base_url = base_url or CLIENT_CREDENTIALS["moonshot-official"].default_base_url
-        self._client = AsyncOpenAI(api_key=api_key, base_url=base_url, default_headers=default_headers)
+        self._client = AsyncOpenAI(
+            api_key=key,
+            base_url=url or CLIENT_CREDENTIALS["moonshot-official"].default_base_url,
+            **openai_client_options("moonshot-official", base_url, key, default_headers),
+        )
         self._history: list[UniMessage] = []
 
     async def _convert_image_url_to_base64(self, url: str) -> str:

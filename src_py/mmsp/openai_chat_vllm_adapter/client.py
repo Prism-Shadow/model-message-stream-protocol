@@ -23,6 +23,10 @@ from ..types import ThinkingLevel, UniConfig
 # below maps an MMSP level onto one family's kwargs; an empty mapping means the
 # request carries no chat_template_kwargs at all.
 #
+# The OpenAI SDK's create() takes no chat_template_kwargs keyword, so the kwargs ride in
+# its extra_body, which the SDK merges into the request body at top level, where vLLM
+# reads them.
+#
 # The upstream artifacts these profiles are read off, and the clamping those artifacts
 # force, are snapshotted in llmsdk_docs/openai_chat_vllm_adapter/. Update that snapshot
 # whenever a model is added here.
@@ -119,6 +123,6 @@ class OpenaiChatVllmAdapterClient(OpenaiChatClient):
         if config.get("thinking_level") is not None:
             chat_template_kwargs = self._thinking_chat_template_kwargs(config["thinking_level"])
             if chat_template_kwargs:
-                vllm_config["chat_template_kwargs"] = chat_template_kwargs
+                vllm_config.setdefault("extra_body", {})["chat_template_kwargs"] = chat_template_kwargs
 
         return vllm_config

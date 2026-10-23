@@ -4,6 +4,8 @@
 
 在这里，我们记录模型的新增与移除时间、主要功能更新、缺陷修复，以及关键版本的发布时间。每个发布版本在此保留一行简述；逐条目的摘要位于 `changelog/<version>/README.md`，且每个条目都会链接到自己的详情文件。
 
+- [2026-10-23] [版本 0.5.5](changelog/0.5.5/README.zh.md)：支持 MiniMax-M3.1-Flash，模型注册表新增 Google Vertex AI、Amazon Bedrock 与 TokenDance 条目并更新 OpenRouter 与 SiliconFlow 条目；网站新增实时模型目录（每个条目附接入代码）和由每日探测驱动的状态页；MMSP 坚持的规则以 RFC 形式写下（MMSP-RFC-0001 至 MMSP-RFC-0012）；Anthropic 客户端支持 `anthropic` SDK 2.x；vLLM 适配器改读 `VLLM_API_KEY` 与 `VLLM_BASE_URL`，不再读取 OpenAI 的变量，OpenAI 的其他环境变量只随 `OPENAI_API_KEY` 发往同一端点；流在没有用量或结束原因时结束会抛出 `IncompleteStreamError`；OpenRouter 的加密推理在回放中得以保留，Claude 回放省略无签名的思考，TypeScript 中 GLM 与 Kimi K2 的扩展参数能送达 API，Python 中 vLLM 适配器能发送 `chat_template_kwargs`，`tts_config` 被拒时抛出 `UnsupportedParameterError`。
+
 - [2026-10-19] [版本 0.5.4](changelog/0.5.4/README.zh.md)：所有客户端只在未传入 base URL 或传入自己的默认端点时读取环境变量密钥，未带密钥的其他 base URL 以 `ApiKeyRequiredError` 拒绝，这条规则以 `@prismshadow/mmsp/credentials` 与 `mmsp.credentials` 导出；支持 GPT-6 Luna，并保留关闭思考设置；模型 CI 按受影响客户端选择，发布前须通过完整测试；README 补充 Gemini 4 Argon 对 Google Vertex AI 的支持。
 
 - [2026-10-14] [版本 0.5.3](changelog/0.5.3/README.zh.md)：Python 与 TypeScript 支持 Gemini 4 Argon，补齐思考档位映射、模型注册信息与官方 API 文档。

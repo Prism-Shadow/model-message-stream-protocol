@@ -69,7 +69,8 @@ API key 只会发送到它被指定的地方。所有客户端遵循同一条规
 - 传入了 key 就使用它。端点依次取传入的 base URL、`<P>_BASE_URL`、客户端的默认端点。
 - 未传入 key 时，客户端只在两种情况下读取 `<P>_API_KEY`：未传入 base URL，此时端点为 `<P>_BASE_URL` 或默认端点；或传入的 base URL 正是客户端自己的默认端点（忽略末尾斜杠与主机名大小写）。例如 `deepseek-official` 客户端未传 base URL 或传入 `https://api.deepseek.com` 时，使用 `DEEPSEEK_API_KEY`。
 - 未传入 key 而传入其他 base URL 时，客户端在构造时抛出 `ApiKeyRequiredError`，环境变量中的 key 绝不会发往该端点。请传入 key，或去掉 base URL 并设置 `<P>_API_KEY`；端点不是默认端点时再设置 `<P>_BASE_URL`。
-- `mmsp` 客户端是唯一的例外：传入 base URL 而不传 key，表示一个开放的 MMSP 服务端，请求不带 key。
+- OpenAI 环境中的其余各项（`OPENAI_ORG_ID`、`OPENAI_PROJECT_ID`、`OPENAI_ADMIN_KEY`、`OPENAI_WEBHOOK_SECRET`，以及 `OPENAI_CUSTOM_HEADERS` 列出的请求头）跟随 `OPENAI_API_KEY`：基于 OpenAI SDK 的客户端只把它们发往该 key 所发往的端点，绝不发往网关、vLLM 服务端或其他厂商的 API。
+- 服务端可以不要 key 的客户端是例外：对 `mmsp` 和 `openai-chat-vllm-adapter`，传入 base URL 而不传 key，表示一个开放的服务端，请求不带 key；未设置 `<P>_API_KEY` 时，默认端点同样不带 key 调用（`mmsp` 为 `http://127.0.0.1:25752/v1`；vLLM 适配器为 `vllm serve` 默认监听的 `http://127.0.0.1:8000/v1`，并发送 vLLM 的占位 key `EMPTY`）。
 
 这条规则也以数据形式导出：TypeScript 为 `@prismshadow/mmsp/credentials`，它不导入任何模块，可放入浏览器包；Python 为 `mmsp.credentials`。`environmentCredential(clientType, baseUrl)`（`environment_credential`）回答未传 key 的客户端会怎么做，`routedClientType(model, clientType)`（`routed_client_type`）回答模型会用哪个客户端，`CLIENT_CREDENTIALS` 列出每个客户端类型的环境变量与默认端点。客户端解析凭据时用的也是同一张表。
 

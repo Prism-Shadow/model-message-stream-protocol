@@ -15,6 +15,8 @@ MMSP, the Model Message Stream Protocol, takes the per-provider differences off 
 
 📖 Documentation: [mmsp.penguin.ooo](https://mmsp.penguin.ooo)
 
+Design: the rules MMSP keeps and the decisions that changed it, one RFC each, live in [`design/`](design/).
+
 Using a coding agent? Install the MMSP SKILL files from [`skills/`](skills/) so it can use MMSP correctly in generated code.
 
 📢 Follow us on [![X](https://img.shields.io/badge/X-code%5Fhiyouga-000000?logo=x&logoColor=white)](https://x.com/code_hiyouga) or join our [![Discord](https://img.shields.io/badge/Discord-join%20chat-5865F2?logo=discord&logoColor=white)](https://discord.gg/eFHKqqcU3D)
@@ -49,11 +51,11 @@ Audit LLM executions by adding **a single `trace_id` parameter**, no database re
 | Gemini 3-3.8   | Official/Google Vertex AI           | `gemini-3.8-flash`     | Text, Image      | Text, Image, Speech, Embedding |
 | Claude 4.6-5.5 | Official/Amazon Bedrock/UModelVerse | `claude-opus-5-5`      | Text, Image      | Text                           |
 | GPT-5.4-6.1    | Official/OpenRouter/UModelVerse     | `gpt-6.1-sol`          | Text, Image      | Text, Embedding                |
-| Kimi-K2.5/K2.6/K3 | Official/OpenRouter/SiliconFlow  | `kimi-k3`              | Text, Image      | Text                           |
-| DeepSeek V4    | Official/OpenRouter/SiliconFlow     | `deepseek-flash`       | Text, Image      | Text                           |
-| GLM-5.1-5.3    | Official/OpenRouter/SiliconFlow     | `glm-5.3`              | Text, Image      | Text                           |
-| MiniMax-M3     | Official                            | `MiniMax-M3`           | Text, Image      | Text                           |
-| Qwen3.8        | OpenRouter/SiliconFlow/vLLM         | `qwen/qwen3.8-27b`     | Text, Image      | Text, Embedding                |
+| Kimi-K2.5/K2.6/K3 | Official/OpenRouter/SiliconFlow/TokenDance | `kimi-k3`       | Text, Image      | Text                           |
+| DeepSeek V4    | Official/OpenRouter/SiliconFlow/TokenDance | `deepseek-flash` | Text, Image      | Text                           |
+| GLM-5.1-5.3    | Official/OpenRouter/SiliconFlow/TokenDance | `glm-5.3`       | Text, Image      | Text                           |
+| MiniMax-M3/M3.1 | Official/OpenRouter/TokenDance     | `MiniMax-M3.1-Flash`   | Text, Image      | Text                           |
+| Qwen3.8        | OpenRouter/SiliconFlow/TokenDance/vLLM | `qwen/qwen3.8-27b` | Text, Image      | Text, Embedding                |
 
 ### Clients
 
@@ -72,7 +74,7 @@ a **compatible client** speaks one wire protocol for any endpoint that serves it
 | `minimax-official`         | MiniMax Responses                                                      | `MINIMAX_API_KEY`, `MINIMAX_BASE_URL`    |
 | `openai-responses`         | OpenAI Responses, served by OpenAI, OpenRouter, DeepSeek, Z.AI, MiniMax | `OPENAI_API_KEY`, `OPENAI_BASE_URL`      |
 | `openai-chat` (`openai`)   | OpenAI Chat Completions, served by most gateways, SiliconFlow, vLLM    | `OPENAI_API_KEY`, `OPENAI_BASE_URL`      |
-| `openai-chat-vllm-adapter` | Chat Completions as vLLM serves it, mapping `thinking_level` onto the template's switches | `OPENAI_API_KEY`, `OPENAI_BASE_URL` |
+| `openai-chat-vllm-adapter` | Chat Completions as vLLM serves it, mapping `thinking_level` onto the template's switches | `VLLM_API_KEY`, `VLLM_BASE_URL`          |
 | `openai-embedding`         | OpenAI Embeddings, served by any embedding endpoint                    | `OPENAI_API_KEY`, `OPENAI_BASE_URL`      |
 | `ant-messages`             | Anthropic Messages, served by Anthropic, OpenRouter, DeepSeek, Z.AI, MiniMax | `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL` |
 | `google-genai`             | Google generateContent, served by Vertex AI, the Gemini API, and gateways that proxy it | `GEMINI_API_KEY`, `GEMINI_BASE_URL` |
@@ -88,6 +90,13 @@ not.
 Gemini on Google Vertex AI takes `client_type="google-genai"` and the service-account JSON key as
 the API key: Vertex AI's Interactions endpoint, which `google-official` speaks, serves none of these
 models.
+
+Claude on Amazon Bedrock takes `client_type="anthropic-official"`, `base_url="bedrock://<region>"`
+and `"ACCESS_KEY,SECRET_KEY"` as the API key, with a Bedrock inference profile as the model id, such
+as `global.anthropic.claude-opus-5-5`.
+
+TokenDance serves Chat Completions, Responses and Embeddings at `https://tokendance.space/gateway/v1`
+and Anthropic Messages at `https://tokendance.space/gateway`, all with one key.
 
 Where a gateway serves more than one protocol, prefer `"openai-responses"`: OpenRouter serves it
 for every model it hosts, while SiliconFlow serves Chat Completions only.
@@ -154,7 +163,7 @@ MMSP provides Codex/Claude Code skill files for assistants that need to help use
 
 `AutoLLMClient` is the main class for interacting with the MMSP SDK. It is constructed with `model` and `client_type` (see [Clients](#clients); a model id of a known family names its official client on its own), plus optional `api_key`, `base_url`, and `default_headers` — headers sent with every request, for endpoints that demand their own. It provides the following methods:
 
-A key goes only where it was given for. A key passed in is used, with the `base_url` passed in, else the client's `<P>_BASE_URL` (see [Clients](#clients)), else its default endpoint. Without a key, a client reads its `<P>_API_KEY` only when it is given no `base_url` or its own default endpoint: `deepseek-official` with no `base_url` or `https://api.deepseek.com` uses `DEEPSEEK_API_KEY`. Any other `base_url` without a key raises `ApiKeyRequiredError` at construction: pass the key with it, or drop it and set `<P>_API_KEY`, plus `<P>_BASE_URL` for an endpoint other than the default. The `mmsp` client is the exception: it calls a `base_url` given without a key keyless, as an open MMSP server. `@prismshadow/mmsp/credentials` and `mmsp.credentials` export the rule as data for hosts.
+A key goes only where it was given for. A key passed in is used, with the `base_url` passed in, else the client's `<P>_BASE_URL` (see [Clients](#clients)), else its default endpoint. Without a key, a client reads its `<P>_API_KEY` only when it is given no `base_url` or its own default endpoint: `deepseek-official` with no `base_url` or `https://api.deepseek.com` uses `DEEPSEEK_API_KEY`. Any other `base_url` without a key raises `ApiKeyRequiredError` at construction: pass the key with it, or drop it and set `<P>_API_KEY`, plus `<P>_BASE_URL` for an endpoint other than the default. Two clients are the exception, because their servers may take no key: `mmsp` and `openai-chat-vllm-adapter` call a `base_url` given without a key keyless, and their default endpoint too when `<P>_API_KEY` is unset (`http://127.0.0.1:25752/v1`, and `http://127.0.0.1:8000/v1`, where `vllm serve` answers); the vLLM adapter sends vLLM's placeholder key `EMPTY`. The rest of OpenAI's environment (`OPENAI_ORG_ID`, `OPENAI_PROJECT_ID`, `OPENAI_ADMIN_KEY`, `OPENAI_WEBHOOK_SECRET` and the headers `OPENAI_CUSTOM_HEADERS` lists) goes only where `OPENAI_API_KEY` goes: a client built on the OpenAI SDK sends none of it to a gateway, a vLLM server or another vendor's API. `@prismshadow/mmsp/credentials` and `mmsp.credentials` export the rule as data for hosts.
 
 - `(async) streaming_response(messages, config)`: Streams the response of LLMs in a stateless manner.
 - `(async) streaming_response_stateful(message, config)`: Streams the response of LLMs in a stateful manner.

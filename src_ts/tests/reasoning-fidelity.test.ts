@@ -105,7 +105,8 @@ function createAutoClient(testCase: ReasoningReplayCase): AutoLLMClient {
 function deltaChunk(delta: {
   content?: string;
   reasoning_content?: string;
-  reasoning?: string;
+  reasoning?: string | null;
+  reasoning_details?: Record<string, unknown>[];
 }): unknown {
   return {
     choices: [{ delta, finish_reason: null }],
@@ -268,6 +269,165 @@ describe.each(REASONING_REPLAY_CASES)(
 
       expect(replayedMessage.reasoning_content).toBe("Let me think.");
       expect(replayedMessage.reasoning).toBe("Let me think.");
+    });
+  },
+);
+
+// The clients that share the Chat Completions transforms. OpenRouter streams
+// their reasoning as reasoning_details fragments, shaped here as captured on
+// 2026-10-22: GPT's summary fragments, mirrored in `reasoning`, then one
+// reasoning.encrypted fragment holding its encrypted reasoning; Gemini's one
+// reasoning.encrypted fragment, on the first chunk, holding the thought
+// signature under the id of the call it signs. On replay only that fragment
+// reaches the model, and only as received: OpenRouter drops Gemini's signature
+// from a fragment without its id.
+const CHAT_TRANSFORM_CASES: ReasoningReplayCase[] = [
+  { model: "openai/gpt-5.6-luna", clientType: "openai-chat" },
+  { model: "Qwen/Qwen3.6-35B-A3B", clientType: "openai-chat-vllm-adapter" },
+];
+
+const OPENAI_ENCRYPTED_FRAGMENT = {
+  type: "reasoning.encrypted",
+  data: "gAAAAABq2oFY-encrypted-reasoning",
+  format: "openai-responses-v1",
+  id: "rs_0158635049d48323016ada8157556487d1bc52572a9851c225",
+  index: 1,
+};
+const GEMINI_ENCRYPTED_FRAGMENT = {
+  type: "reasoning.encrypted",
+  data: "AY89a1+Ob5tq-thought-signature",
+  format: "google-gemini-v1",
+  id: "call_1191618",
+  index: 0,
+};
+
+function summaryChunk(text: string): unknown {
+  const fragment = {
+    type: "reasoning.summary",
+    summary: text,
+    format: "openai-responses-v1",
+    index: 0,
+  };
+  return deltaChunk({ reasoning: text, reasoning_details: [fragment] });
+}
+
+function toolCallChunk(toolCallId: string): unknown {
+  const toolCall = {
+    index: 0,
+    id: toolCallId,
+    function: { name: "get_weather", arguments: '{"city": "Paris"}' },
+  };
+  return {
+    choices: [{ delta: { tool_calls: [toolCall] }, finish_reason: null }],
+    usage: null,
+  };
+}
+
+function replayedToolCalls(toolCallId: string): unknown[] {
+  return [
+    {
+      id: toolCallId,
+      type: "function",
+      function: { name: "get_weather", arguments: '{"city":"Paris"}' },
+    },
+  ];
+}
+
+describe.each(CHAT_TRANSFORM_CASES)(
+  "OpenRouter reasoning_details for $clientType",
+  (testCase) => {
+    test("records the encrypted reasoning fragment and replays it as received", async () => {
+      const client = createAutoClient(testCase);
+      installFakeOpenAICompatibleStream(client, [
+        summaryChunk("**Checking the parity"),
+        summaryChunk(" of 17*3**"),
+        deltaChunk({
+          reasoning: null,
+          reasoning_details: [OPENAI_ENCRYPTED_FRAGMENT],
+        }),
+        toolCallChunk("call_OTl4knsttXTxmrXjFY5DPCSM"),
+        stopChunk("tool_calls"),
+      ]);
+
+      const { historyMessage, replayedMessage } =
+        await runTurnAndReplay(client);
+      // one thinking item: the summary text, with the encrypted fragment as
+      // its one fidelity
+      expect(thinkingItems(historyMessage)).toEqual([
+        {
+          type: "thinking.done",
+          thinking: "**Checking the parity of 17*3**",
+          fidelity: { reasoning_details: [OPENAI_ENCRYPTED_FRAGMENT] },
+        },
+      ]);
+      // the fragment goes back as received and alone; the summary fragments
+      // never reach the model
+      expect(replayedMessage).toEqual({
+        role: "assistant",
+        tool_calls: replayedToolCalls("call_OTl4knsttXTxmrXjFY5DPCSM"),
+        reasoning_content: "**Checking the parity of 17*3**",
+        reasoning: "**Checking the parity of 17*3**",
+        reasoning_details: [OPENAI_ENCRYPTED_FRAGMENT],
+      });
+    });
+
+    test("records a thought signature fragment without text and replays it as received", async () => {
+      const client = createAutoClient(testCase);
+      installFakeOpenAICompatibleStream(client, [
+        deltaChunk({
+          reasoning: null,
+          reasoning_details: [GEMINI_ENCRYPTED_FRAGMENT],
+        }),
+        toolCallChunk("call_1191618"),
+        stopChunk("tool_calls"),
+      ]);
+
+      const { historyMessage, replayedMessage } =
+        await runTurnAndReplay(client);
+      expect(thinkingItems(historyMessage)).toEqual([
+        {
+          type: "thinking.done",
+          thinking: "",
+          fidelity: { reasoning_details: [GEMINI_ENCRYPTED_FRAGMENT] },
+        },
+      ]);
+      expect(replayedMessage).toEqual({
+        role: "assistant",
+        tool_calls: replayedToolCalls("call_1191618"),
+        reasoning_details: [GEMINI_ENCRYPTED_FRAGMENT],
+      });
+    });
+
+    // A model that reasons in plain text gets reasoning.text fragments that
+    // repeat `reasoning`; they carry nothing the text does not, so the item
+    // records no fidelity and the text goes back through both fields, which
+    // OpenRouter reads as one.
+    test("replays reasoning.text fragments as the text", async () => {
+      const client = createAutoClient(testCase);
+      const fragment = { type: "reasoning.text", format: "unknown", index: 0 };
+      installFakeOpenAICompatibleStream(client, [
+        deltaChunk({
+          reasoning: "Let me think",
+          reasoning_details: [{ ...fragment, text: "Let me think" }],
+        }),
+        deltaChunk({
+          reasoning: " about the memo.",
+          reasoning_details: [{ ...fragment, text: " about the memo." }],
+        }),
+        deltaChunk({ content: "Here is the memo." }),
+        stopChunk(),
+      ]);
+
+      const { historyMessage, replayedMessage } =
+        await runTurnAndReplay(client);
+      expect(thinkingItems(historyMessage)).toEqual([
+        { type: "thinking.done", thinking: "Let me think about the memo." },
+      ]);
+      expect(replayedMessage.reasoning_content).toBe(
+        "Let me think about the memo.",
+      );
+      expect(replayedMessage.reasoning).toBe("Let me think about the memo.");
+      expect(replayedMessage).not.toHaveProperty("reasoning_details");
     });
   },
 );

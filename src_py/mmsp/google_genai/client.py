@@ -239,7 +239,11 @@ class GoogleGenaiClient(LLMClient):
             config_params["response_modalities"] = ["AUDIO"]
             tts_config = config.get("tts_config") or [{"voice": "Kore"}]
             if len(tts_config) not in (1, 2):
-                raise ValueError("tts_config must contain 1 or 2 entries.")
+                raise UnsupportedParameterError(
+                    self.__class__.__name__,
+                    "tts_config",
+                    f"Gemini TTS does not support {len(tts_config)} speakers; tts_config takes 1 or 2 entries.",
+                )
 
             if len(tts_config) == 1:
                 config_params["speech_config"] = types.SpeechConfig(
@@ -252,7 +256,11 @@ class GoogleGenaiClient(LLMClient):
                 for speaker_config in tts_config:
                     speaker = speaker_config.get("speaker")
                     if not speaker:
-                        raise ValueError("speaker is required when tts_config has 2 entries.")
+                        raise UnsupportedParameterError(
+                            self.__class__.__name__,
+                            "tts_config",
+                            "Gemini TTS does not support a two-speaker tts_config without a speaker on each entry.",
+                        )
 
                     speaker_voice_configs.append(
                         types.SpeakerVoiceConfig(

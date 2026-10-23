@@ -14,6 +14,7 @@
 
 import { AutoLLMClient } from "../src/autoClient";
 import { listSupportedModels } from "../src/registry";
+import { UnsupportedParameterError } from "../src/errors";
 import {
   EmbeddingDoneItem,
   EventContentItem,
@@ -51,6 +52,7 @@ interface Model {
     | "deepseek"
     | "zai"
     | "minimax"
+    | "tokendance"
     | "mmsp";
 }
 
@@ -146,6 +148,7 @@ const PROVIDER_API_KEY_ENVS: { [provider: string]: string } = {
   deepseek: "DEEPSEEK_API_KEY",
   zai: "ZAI_API_KEY",
   minimax: "MINIMAX_API_KEY",
+  tokendance: "TOKENDANCE_API_KEY",
   mmsp: "MMSP_API_KEY",
 };
 
@@ -154,6 +157,7 @@ const PROVIDER_BASE_URLS: { [provider: string]: string } = {
   openrouter: "https://openrouter.ai/api/v1",
   siliconflow: "https://api.siliconflow.cn/v1",
   modelverse: "https://api.modelverse.cn/v1",
+  tokendance: "https://tokendance.space/gateway/v1",
 };
 
 test.each(
@@ -1146,6 +1150,49 @@ test.each([undefined, "google-official"])(
   },
 );
 
+describe.each(["google-official", "google-genai"])(
+  "gemini tts_config rejects a speaker list it cannot voice (%s)",
+  (clientType) => {
+    test.each<[string, UniConfig["tts_config"]]>([
+      [
+        "three speakers",
+        [
+          { voice: "Kore", speaker: "Joe" },
+          { voice: "Puck", speaker: "Jane" },
+          { voice: "Charon", speaker: "Jim" },
+        ],
+      ],
+      [
+        "two speakers, one unnamed",
+        [{ voice: "Kore", speaker: "Joe" }, { voice: "Puck" }],
+      ],
+    ])("%s", async (_, ttsConfig) => {
+      const client = new AutoLLMClient({
+        model: "gemini-3.8-flash-tts",
+        apiKey: "test-key",
+        clientType,
+      });
+
+      const rejection = client
+        .streamingResponse({
+          messages: [
+            {
+              role: "user",
+              content_items: [
+                { type: "text.done", text: "Joe: Hi.\nJane: Hello." },
+              ],
+            },
+          ],
+          config: { tts_config: ttsConfig },
+        })
+        .next();
+
+      await expect(rejection).rejects.toBeInstanceOf(UnsupportedParameterError);
+      await expect(rejection).rejects.toHaveProperty("parameter", "tts_config");
+    });
+  },
+);
+
 test("a model of no known family asks for a client type", () => {
   expect(
     () => new AutoLLMClient({ model: "qwen3.6", apiKey: "test-key" }),
@@ -1240,7 +1287,7 @@ test("should list supported model entries", () => {
     expect(entry.output_modalities.length).toBeGreaterThan(0);
     const client = new AutoLLMClient({
       model: entry.model,
-      apiKey: "test-key",
+      apiKey: entry.base_url.startsWith("bedrock://") ? "test-access,test-secret" : "test-key",
       baseUrl: entry.base_url,
       clientType: entry.client,
     });

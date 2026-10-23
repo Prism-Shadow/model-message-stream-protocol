@@ -63,10 +63,21 @@ def test_another_endpoint_needs_a_key_passed_in(base_url: str):
     )
 
 
-def test_the_mmsp_client_calls_any_base_url_passed_without_a_key_keyless_its_default_included():
-    assert environment_credential("mmsp", "https://gateway.example/v1") == EnvironmentCredential("keyless")
-    assert environment_credential("mmsp", "http://127.0.0.1:25752/v1") == EnvironmentCredential("keyless")
-    assert environment_credential("mmsp") == EnvironmentCredential("env", "MMSP_API_KEY", "MMSP_BASE_URL")
+@pytest.mark.parametrize(
+    ("client_type", "default_base_url", "prefix"),
+    [
+        ("mmsp", "http://127.0.0.1:25752/v1", "MMSP"),
+        ("openai-chat-vllm-adapter", "http://127.0.0.1:8000/v1", "VLLM"),
+    ],
+)
+def test_a_client_of_an_open_server_calls_any_base_url_passed_without_a_key_keyless_its_default_included(
+    client_type: str, default_base_url: str, prefix: str
+):
+    assert environment_credential(client_type, "https://gateway.example/v1") == EnvironmentCredential("keyless")
+    assert environment_credential(client_type, default_base_url) == EnvironmentCredential("keyless")
+    assert environment_credential(client_type) == EnvironmentCredential(
+        "env", f"{prefix}_API_KEY", f"{prefix}_BASE_URL"
+    )
 
 
 def test_an_earlier_name_in_any_casing_answers_as_the_client_type_it_names():

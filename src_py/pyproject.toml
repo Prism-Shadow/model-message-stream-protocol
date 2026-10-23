@@ -1,12 +1,12 @@
 [project]
 name = "mmsp"
-version = "0.5.4"
+version = "0.5.5"
 description = "MMSP, the Model Message Stream Protocol: one message format and one streaming grammar for every model provider, in Python and TypeScript."
 keywords = ["mmsp", "llm", "stream", "gemini", "claude", "gpt"]
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.11"
-dependencies = ["google-genai>=2.23.0", "anthropic[bedrock]>=0.87.0", "flask>=3.0.0", "openai>=2.30.0", "httpx>=0.27.0"]
+dependencies = ["google-genai>=2.23.0", "anthropic[bedrock]>=0.87.0", "flask>=3.0.0", "openai>=2.34.0", "httpx>=0.27.0"]
 authors = [
   {name = "PrismShadow"},
 ]
