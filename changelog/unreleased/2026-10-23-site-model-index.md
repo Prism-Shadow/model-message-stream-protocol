@@ -3,6 +3,7 @@
 - **Date:** 2026-10-23
 - **Type:** feature
 - **Scope:** `site`
+- **PR:** [#284](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/284)
 
 [中文版](2026-10-23-site-model-index.zh.md)
 
