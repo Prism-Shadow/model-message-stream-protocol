@@ -88,7 +88,7 @@ export function sectionOf(slug: string): DocSection | undefined {
   return DOC_SECTIONS.find((section) => section.docs.some((doc) => doc.slug === slug));
 }
 
-// the top bar: the overview, one entry per part of the documentation, the changelog
+// the top bar: the overview, one entry per part of the documentation, models, status, the changelog
 export function navLinks(locale: Locale) {
   const s = STRINGS[locale].nav;
   return [
@@ -97,6 +97,8 @@ export function navLinks(locale: Locale) {
     { id: "protocol", label: s.protocol, href: localePath(locale, "/docs/messages/") },
     { id: "reference", label: s.reference, href: localePath(locale, "/docs/client/") },
     { id: "tools", label: s.tools, href: localePath(locale, "/docs/tracing/") },
+    { id: "models", label: s.models, href: localePath(locale, "/models/") },
+    { id: "status", label: s.status, href: localePath(locale, "/status/") },
     { id: "changelog", label: s.changelog, href: localePath(locale, "/changelog/") },
   ];
 }
