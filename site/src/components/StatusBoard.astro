@@ -1,16 +1,18 @@
 ---
-// The status page's body, modeled on status.openai.com: one framed card with the worst status of
-// every channel the daily probe watches, when it last checked, Run a check now and the month's
-// probe cost; then one block per channel, its TTFT and TPS beside the name and its last 90 days as
-// bars, each of which opens a card with that day's result. The page is built with the probe's files
-// (status-build.ts) and draws itself from them at once, then again from the status-data branch in
-// the browser when the branch holds a newer run. The provider and vendor of each channel come from
-// its base URL and model id, as the catalog names them. Run a check now opens the status workflow
-// on GitHub, for a repository member to run; the page then follows that run and redraws itself
-// from the commit it publishes. Marks point into the page's MarkSprite.
+// The status page's body, modeled on status.openai.com: one card whose head band takes the colour
+// of the worst status of every channel the daily probe watches, its icon and its words; under the
+// band when the probe last checked, Run a check now and the month's probe cost. Then a switch of
+// the days shown (7, 30 or 90, kept for the next visit) and one block per channel: a head line with
+// its state icon, vendor, model, provider, TTFT, TPS, cost and uptime over those days, and under it
+// one bar per day, each of which opens a card with that day's result. The page is built with the
+// probe's files (status-build.ts) and draws itself from them at once, then again from the
+// status-data branch in the browser when the branch holds a newer run. The provider and vendor of
+// each channel come from its base URL and model id, as the catalog names them. Run a check now
+// opens the status workflow on GitHub, for a repository member to run; the page then follows that
+// run and redraws itself from the commit it publishes. Marks point into the page's MarkSprite.
 import { STRINGS, type Locale } from "../shared/i18n";
 import { MARKS } from "../shared/marks";
-import { STATUS_WORKFLOW_URL } from "../shared/status";
+import { HISTORY_DAYS, STATUS_WORKFLOW_URL } from "../shared/status";
 import { statusAtBuild } from "../shared/status-build";
 
 interface Props {
@@ -27,43 +29,59 @@ const words = { ...statusWords, state: s.models.status, locale: s.htmlLang };
 const tones = Object.fromEntries(Object.entries(MARKS).map(([id, mark]) => [id, mark.tone ?? ""]));
 // the probe's files as of the build: the page draws from them before it fetches anything
 const baked = await statusAtBuild();
+// the days a strip can show; the script restores the visitor's last choice
+const RANGES = [7, 30, 90] as const;
 ---
 
 <section class:list={["status-page", className]} data-status-board data-words={JSON.stringify(words)} data-tones={JSON.stringify(tones)}>
   <h1 class="sr-only">{s.status.title}</h1>
   <script type="application/json" data-status-baked set:html={JSON.stringify(baked).replaceAll("<", "\\u003c")} />
-  <div class="status-card flex flex-wrap items-start justify-between gap-x-8 gap-y-4 rounded-xl border border-gray-200 p-5 sm:p-6 dark:border-gray-800">
-    <div class="min-w-0">
-      <p class="status-overall" data-status-overall>
-        <span class="status-dot"></span>
-        <span data-status-overall-text></span>
-      </p>
-      <p class="mt-1.5 text-[13px] text-gray-500 dark:text-gray-400" data-status-checked hidden>
-        <a class="underline decoration-gray-300 underline-offset-4 hover:text-gray-900 dark:decoration-gray-600 dark:hover:text-gray-100"></a>
-      </p>
-      <p class="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <a
-          href={STATUS_WORKFLOW_URL}
-          target="_blank"
-          rel="noreferrer"
-          data-status-trigger
-          title={s.status.triggerNote}
-          aria-describedby="status-trigger-note"
-          class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-950 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-900 dark:hover:text-white"
-        >
-          <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <polygon points="6 3 20 12 6 21 6 3"></polygon>
-          </svg>
-          <span>{s.status.trigger}</span>
-        </a>
-        <span id="status-trigger-note" class="sr-only">{s.status.triggerNote}</span>
-        <span class="text-xs text-gray-500 dark:text-gray-400" aria-live="polite" data-status-trigger-progress hidden></span>
-      </p>
+  <div class="status-card overflow-hidden rounded-xl border" data-status-overall>
+    <div class="status-card-head flex items-center gap-2.5 px-5 py-3.5 sm:px-6">
+      <span class="flex h-5 w-5 items-center justify-center" data-status-overall-icon></span>
+      <p class="text-xl font-semibold tracking-tight" data-status-overall-text></p>
     </div>
-    <div class="sm:text-right" data-status-cost hidden>
-      <p class="mono text-2xl font-semibold tabular-nums" data-status-cost-month></p>
-      <p class="mt-1 text-xs text-gray-500 dark:text-gray-400" data-status-cost-label></p>
-      <p class="mono mt-1 text-xs text-gray-400 tabular-nums dark:text-gray-500" data-status-cost-earlier></p>
+    <div class="flex flex-wrap items-start justify-between gap-x-8 gap-y-4 px-5 py-4 sm:px-6">
+      <div class="min-w-0">
+        <p class="text-[13px] text-gray-500 dark:text-gray-400" data-status-checked hidden>
+          <a class="underline decoration-gray-300 underline-offset-4 hover:text-gray-900 dark:decoration-gray-600 dark:hover:text-gray-100"></a>
+        </p>
+        <p class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <a
+            href={STATUS_WORKFLOW_URL}
+            target="_blank"
+            rel="noreferrer"
+            data-status-trigger
+            title={s.status.triggerNote}
+            aria-describedby="status-trigger-note"
+            class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-950 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-900 dark:hover:text-white"
+          >
+            <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polygon points="6 3 20 12 6 21 6 3"></polygon>
+            </svg>
+            <span>{s.status.trigger}</span>
+          </a>
+          <span id="status-trigger-note" class="sr-only">{s.status.triggerNote}</span>
+          <span class="text-xs text-gray-500 dark:text-gray-400" aria-live="polite" data-status-trigger-progress hidden></span>
+        </p>
+      </div>
+      <div class="sm:text-right" data-status-cost hidden>
+        <p class="mono text-2xl font-semibold tabular-nums" data-status-cost-month></p>
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400" data-status-cost-label></p>
+        <p class="mono mt-1 text-xs text-gray-400 tabular-nums dark:text-gray-500" data-status-cost-earlier></p>
+      </div>
+    </div>
+  </div>
+  <div class="mt-6 flex items-center justify-end">
+    <div class="segmented" role="radiogroup" aria-label={s.status.rangeLabel} data-status-range style={`--n: ${RANGES.length}; --i: ${RANGES.indexOf(HISTORY_DAYS)}`}>
+      <span class="segmented-thumb" aria-hidden="true"></span>
+      {
+        RANGES.map((days) => (
+          <button type="button" role="radio" aria-checked={days === HISTORY_DAYS ? "true" : "false"} data-value={days}>
+            {s.status.range[days]}
+          </button>
+        ))
+      }
     </div>
   </div>
   <div class="mt-2" data-status-blocks></div>
@@ -71,6 +89,7 @@ const baked = await statusAtBuild();
 
 <script>
   import {
+    HISTORY_DAYS,
     STATUS_RANK,
     STATUS_RUN_URL,
     ago,
@@ -86,7 +105,9 @@ const baked = await statusAtBuild();
     statusQuery,
     statusRuns,
     statusAnchor,
+    statusIcon,
     statusLabel,
+    withCurrentKeys,
     type Day,
     type History,
     type Latest,
@@ -229,8 +250,8 @@ const baked = await statusAtBuild();
       const left = bar.offsetLeft + bar.offsetWidth / 2 - card.offsetWidth / 2;
       card.style.left = `${Math.max(0, Math.min(left, strip.clientWidth - card.offsetWidth))}px`;
       const above = bar.getBoundingClientRect().bottom + 4 + card.offsetHeight > innerHeight;
-      card.style.top = above ? "auto" : "calc(2rem + 4px)";
-      card.style.bottom = above ? "calc(2rem + 4px)" : "auto";
+      card.style.top = above ? "auto" : "calc(1rem + 4px)";
+      card.style.bottom = above ? "calc(1rem + 4px)" : "auto";
       bar.dataset.active = "";
       card.dataset.open = "";
     };
@@ -300,17 +321,17 @@ const baked = await statusAtBuild();
       }
     });
 
-    // one bar per day, coloured by the day's status, and the share of probed days that were up
+    // one bar per day of the range shown, coloured by the day's status, and the share of the probed
+    // days in it that were up, which the block's head line shows
     const history = (days: Record<string, Day> | undefined, model: string) => {
-      const row = element("div", "mt-3 flex items-start gap-3");
-      const strip = element("div", "status-strip relative min-w-0 flex-1");
+      const strip = element("div", "status-strip relative mt-2");
       const bars = element("div", "status-bars");
       bars.setAttribute("role", "group");
-      bars.setAttribute("aria-label", `${words.days} · ${model}`);
+      bars.setAttribute("aria-label", `${words.days.replace("{n}", String(range))} · ${model}`);
       let probed = 0;
       let up = 0;
       let newest: HTMLButtonElement | undefined;
-      for (const date of lastDays()) {
+      for (const date of lastDays(range)) {
         const day = days?.[date];
         const bar = element("button", "status-bar");
         bar.type = "button";
@@ -333,17 +354,14 @@ const baked = await statusAtBuild();
       card.setAttribute("aria-hidden", "true");
       strip.append(bars, card);
       installDayCard(strip);
-      const share = element("span", "w-24 shrink-0 text-right leading-8 whitespace-nowrap");
-      share.title = words.uptime;
-      const number = element("span", "mono text-[13px] tabular-nums text-gray-600 dark:text-gray-300", probed ? `${Number(((up / probed) * 100).toFixed(1))}%` : "—");
-      if (probed) {
-        const [before, after] = words.uptimeShare.split("{share}");
-        if (before) share.append(element("span", "text-xs text-gray-500 dark:text-gray-400", before));
-        share.append(number);
-        if (after) share.append(element("span", "text-xs text-gray-500 dark:text-gray-400", after));
-      } else share.append(number);
-      row.append(strip, share);
-      return row;
+      // "100% uptime" / "可用率 100%": the number, and the word on whichever side the language puts it
+      const uptime = element("span", "status-metric");
+      uptime.title = words.uptime;
+      const [before, after] = words.uptimeShare.split("{share}").map((part) => part.trim());
+      if (before) uptime.append(element("span", "status-metric-label", before));
+      uptime.append(element("span", "mono", probed ? `${Number(((up / probed) * 100).toFixed(1))}%` : "—"));
+      if (after) uptime.append(element("span", "status-metric-label", after));
+      return { row: strip, uptime };
     };
 
     const block = (key: string, target: TargetLatest, days: Record<string, Day> | undefined, cost: string) => {
@@ -351,38 +369,85 @@ const baked = await statusAtBuild();
       const provider = providerOf(target.base_url);
       const section = element("section", "status-block");
       section.id = statusAnchor(key);
-      const head = element("div", "flex flex-wrap items-center justify-between gap-x-6 gap-y-2");
-      // the dot and the names line up from block to block; a state other than up is said in words
+      // one line above the strip: the channel on the left, its numbers on the right; on a phone the
+      // numbers take the next line
+      const head = element("div", "flex flex-wrap items-center justify-between gap-x-6 gap-y-1");
+      // the icon and the names line up from block to block; a state other than up is said in words
       // after them
       const name = element("div", "flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1");
       if (target.checked_at) name.title = ago(target.checked_at, words.locale);
       const label = statusLabel(target.status, words.state);
+      label.title = words.state[target.status];
       label.querySelector(".status-word")!.classList.add("sr-only");
       const model = element("span", "flex min-w-0 items-center gap-2");
       model.append(label, mark(vendor), element("span", "mono text-[14px] font-medium break-all", target.model));
-      // on a phone the provider takes the next line, under the model id
-      const served = element("span", "flex items-center gap-2 max-sm:basis-full max-sm:pl-10");
-      served.append(element("span", "text-gray-300 max-sm:hidden dark:text-gray-600", "·"), mark(provider), element("span", "text-[14px] text-gray-600 dark:text-gray-400", provider.name));
+      const served = element("span", "flex items-center gap-2");
+      served.append(element("span", "text-gray-300 dark:text-gray-600", "·"), mark(provider), element("span", "text-[14px] text-gray-600 dark:text-gray-400", provider.name));
       if (target.status !== "up") served.append(element("span", "status-state", words.state[target.status]));
       name.append(model, served);
-      const metrics = element("div", "flex items-center gap-x-5 text-[13px] tabular-nums");
-      metrics.append(
-        metric(words.ttft, formatMs(target.ttft_ms)),
-        metric(words.tps, formatTps(target.tps), words.tpsUnit),
-        metric(words.cost, cost, words.month),
-      );
+      const { row, uptime } = history(days, target.model);
+      const spent = element("span", "mono", cost);
+      spent.title = words.month;
+      const metrics = element("div", "flex flex-wrap items-baseline gap-x-1.5 gap-y-1 text-[13px] tabular-nums max-sm:basis-full");
+      [metric(words.ttft, formatMs(target.ttft_ms)), metric(words.tps, formatTps(target.tps), words.tpsUnit), spent, uptime].forEach((item, index) => {
+        if (index) metrics.append(element("span", "text-gray-300 dark:text-gray-600", "·"));
+        metrics.append(item);
+      });
       head.append(name, metrics);
-      section.append(head, history(days, target.model));
+      section.append(head, row);
       if (target.error && target.status !== "up") section.append(element("p", "status-error mono", target.error));
       return section;
     };
 
+    // ---------- the days each strip shows, 7, 30 or 90, kept for the next visit; a change redraws
+    // the blocks from the files on screen
+    const RANGE_KEY = "mmsp-site.status-range";
+    const ranges = board.querySelector<HTMLElement>("[data-status-range]")!;
+    const rangeButtons = [...ranges.querySelectorAll<HTMLButtonElement>("button")];
+    let range = HISTORY_DAYS;
+    const applyRange = (days: number) => {
+      range = days;
+      rangeButtons.forEach((button, index) => {
+        const chosen = Number(button.dataset.value) === days;
+        button.setAttribute("aria-checked", String(chosen));
+        if (chosen) ranges.style.setProperty("--i", String(index));
+      });
+    };
+    try {
+      const remembered = Number(localStorage.getItem(RANGE_KEY));
+      if (rangeButtons.some((button) => Number(button.dataset.value) === remembered)) applyRange(remembered);
+    } catch {}
+
     // the board as one set of files draws it: the build's at once, the branch's when it holds a
     // newer run, and again when a check run by hand lands
     let shown: Latest | null = null;
+    let shownHistory: History | null = null;
+    let shownMonthly: Monthly | null = null;
     let scrolled = false;
+    const thisMonth = () => new Date().toISOString().slice(0, 7);
+    const renderBlocks = (latest: Latest | null, historyData: History | null, monthly: Monthly | null) => {
+      const month = monthly?.months[thisMonth()];
+      blocks.replaceChildren(
+        ...Object.entries(latest?.targets ?? {}).map(([key, target]) =>
+          block(key, target, historyData?.targets[key], target.status === "nokey" ? "—" : formatUsd(month?.targets[key])),
+        ),
+      );
+    };
+    for (const button of rangeButtons) {
+      button.addEventListener("click", () => {
+        const days = Number(button.dataset.value);
+        if (days === range) return;
+        try {
+          localStorage.setItem(RANGE_KEY, String(days));
+        } catch {}
+        applyRange(days);
+        renderBlocks(shown, shownHistory, shownMonthly);
+      });
+    }
     const render = (latest: Latest | null, historyData: History | null, monthly: Monthly | null) => {
       shown = latest;
+      shownHistory = historyData;
+      shownMonthly = monthly;
       const overall = board.querySelector<HTMLElement>("[data-status-overall]")!;
       const overallText = board.querySelector<HTMLElement>("[data-status-overall-text]")!;
       const targets = Object.entries(latest?.targets ?? {});
@@ -395,7 +460,10 @@ const baked = await statusAtBuild();
         const worst = probed.reduce<Status>((acc, [, target]) => (STATUS_RANK[target.status] > STATUS_RANK[acc] ? target.status : acc), "up");
         state = worst === "down" && probed.every(([, target]) => target.status === "down") ? "allDown" : worst;
       }
-      overall.dataset.status = state === "allDown" ? "down" : state;
+      // the card's band and icon take the state; a page without a key or without data is grey
+      const shape = state === "allDown" ? "down" : state;
+      overall.dataset.status = shape;
+      board.querySelector("[data-status-overall-icon]")!.replaceChildren(statusIcon(shape, "h-5 w-5"));
       overallText.textContent = words.overall[state];
       if (!latest) return;
 
@@ -406,13 +474,13 @@ const baked = await statusAtBuild();
       run.href = STATUS_RUN_URL + latest.run_id;
       checked.hidden = false;
 
-      const thisMonth = new Date().toISOString().slice(0, 7);
-      const month = monthly?.months[thisMonth];
+      const current = thisMonth();
+      const month = monthly?.months[current];
       if (monthly) {
         board.querySelector("[data-status-cost-month]")!.textContent = formatUsd(month?.total_usd ?? 0);
         board.querySelector("[data-status-cost-label]")!.textContent = [words.month, month ? runCount(month.runs) : ""].filter(Boolean).join(" · ");
         const earlier = Object.keys(monthly.months)
-          .filter((name) => name < thisMonth)
+          .filter((name) => name < current)
           .sort()
           .reverse();
         const earlierLine = board.querySelector<HTMLElement>("[data-status-cost-earlier]")!;
@@ -421,9 +489,7 @@ const baked = await statusAtBuild();
         board.querySelector<HTMLElement>("[data-status-cost]")!.hidden = false;
       }
 
-      blocks.replaceChildren(
-        ...targets.map(([key, target]) => block(key, target, historyData?.targets[key], target.status === "nokey" ? "—" : formatUsd(month?.targets[key]))),
-      );
+      renderBlocks(latest, historyData, monthly);
       // a link from the catalog names a block that only exists now
       if (scrolled) return;
       scrolled = true;
@@ -431,7 +497,9 @@ const baked = await statusAtBuild();
       if (wanted) wanted.scrollIntoView();
     };
     const baked = JSON.parse(board.querySelector("[data-status-baked]")!.textContent!) as StatusAtBuild;
-    render(baked.latest, baked.history, baked.monthly);
+    // the build copies the branch's files as they are, so a build made before the probe's first run
+    // with the new keys carries the old ones
+    render(withCurrentKeys(baked.latest), withCurrentKeys(baked.history), withCurrentKeys(baked.monthly));
     // a ?status= override on this machine always wins over the build
     void Promise.all([loadLatest(), loadHistory(), loadMonthly()]).then(([latest, historyData, monthly]) => {
       if (latest && (latest.run_id !== shown?.run_id || statusQuery())) render(latest, historyData, monthly);
@@ -515,17 +583,43 @@ const baked = await statusAtBuild();
 </script>
 
 <style is:global>
-  .status-overall {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    font-size: 1.5rem;
-    font-weight: 600;
-    letter-spacing: -0.015em;
+  /* the page's overall state: the card's border and its head band take the state's colour, the
+     body under the band stays plain; grey before data and when no key is configured */
+  .status-card {
+    --card-border: var(--color-gray-200);
+    --card-tint: var(--color-gray-50);
+    border-color: var(--card-border);
   }
-  .status-overall .status-dot {
-    width: 0.75rem;
-    height: 0.75rem;
+  .status-card-head {
+    background: var(--card-tint);
+  }
+  .status-card[data-status="up"] {
+    --card-border: var(--color-green-200);
+    --card-tint: var(--color-green-50);
+  }
+  .status-card[data-status="degraded"] {
+    --card-border: var(--color-amber-200);
+    --card-tint: var(--color-amber-50);
+  }
+  .status-card[data-status="down"] {
+    --card-border: var(--color-red-200);
+    --card-tint: var(--color-red-50);
+  }
+  .dark .status-card {
+    --card-border: var(--color-gray-800);
+    --card-tint: var(--color-gray-900);
+  }
+  .dark .status-card[data-status="up"] {
+    --card-border: rgb(34 197 94 / 0.35);
+    --card-tint: rgb(34 197 94 / 0.1);
+  }
+  .dark .status-card[data-status="degraded"] {
+    --card-border: rgb(245 158 11 / 0.35);
+    --card-tint: rgb(245 158 11 / 0.1);
+  }
+  .dark .status-card[data-status="down"] {
+    --card-border: rgb(239 68 68 / 0.35);
+    --card-tint: rgb(239 68 68 / 0.1);
   }
   .status-block {
     border-bottom: 1px solid var(--color-gray-200);
@@ -550,10 +644,11 @@ const baked = await statusAtBuild();
   .dark .status-metric-label {
     color: var(--color-gray-400);
   }
-  /* 90 days, one bar each; on a phone the gaps narrow so the bars stay readable */
+  /* one bar a day, 16 px tall as on status.openai.com: 90 of them fill the column, and the cap keeps
+     7 or 30 from turning into slabs; on a phone the gaps narrow so the bars stay readable */
   .status-bars {
     display: flex;
-    height: 2rem;
+    height: 1rem;
     gap: 2px;
   }
   @media (max-width: 639.98px) {
@@ -566,10 +661,11 @@ const baked = await statusAtBuild();
     display: block;
     flex: 1 1 0;
     min-width: 0;
-    height: 2rem;
+    max-width: 1.25rem;
+    height: 1rem;
     padding: 0;
     border: 0;
-    border-radius: 1px;
+    border-radius: 2px;
     background: var(--status);
     cursor: pointer;
   }
@@ -581,7 +677,7 @@ const baked = await statusAtBuild();
      them near the bottom of the window, so nothing moves when it opens */
   .status-day-card {
     position: absolute;
-    top: calc(2rem + 4px);
+    top: calc(1rem + 4px);
     left: 0;
     z-index: 20;
     width: min(18rem, calc(100vw - 2rem));

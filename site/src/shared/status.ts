@@ -3,7 +3,8 @@
 // The daily status probe's data: the files the status workflow commits to the status-data branch
 // (.github/status/README.md describes them). The pages are built with them (status-build.ts) and
 // read them again in the browser, to catch up with a run newer than the build. Every entry is
-// keyed by its registry triple, `${client}|${base_url}|${model}`. A file comes from
+// keyed by its registry triple, `${client} ${base_url} ${model}`; files written before 2026-10-23
+// joined it with `|`, and withCurrentKeys() rewrites those keys as they are read. A file comes from
 // raw.githubusercontent.com, or where raw does not answer (from mainland China, for one) from the
 // GitHub contents API, which allows 60 anonymous requests an hour per IP. A check run by hand is
 // followed through the same API: the workflow's runs, the branch's head commit, then that
@@ -19,6 +20,7 @@ export const STATUS_RUNS_API = `https://api.github.com/repos/${REPO}/actions/wor
 // commit's never change
 export const statusCommitBase = (sha: string) => `https://raw.githubusercontent.com/${REPO}/${sha}/`;
 export const HISTORY_DAYS = 90;
+const SVG = "http://www.w3.org/2000/svg";
 
 export type Status = "up" | "degraded" | "down" | "nokey";
 
@@ -110,6 +112,24 @@ async function fetchJson<T>(url: string, headers?: Record<string, string>): Prom
   return response.ok ? ((await response.json()) as T) : null;
 }
 
+// a key written before 2026-10-23 joined the triple with "|"
+const currentKey = (key: string) => key.replaceAll("|", " ");
+const rekey = <V>(targets: Record<string, V>) => Object.fromEntries(Object.entries(targets).map(([key, value]) => [currentKey(key), value]));
+
+// a status file with every target keyed as today: the targets of latest.json and history.json, and
+// of each month of monthly.json
+export function withCurrentKeys<T>(data: T): T {
+  if (!data || typeof data !== "object") return data;
+  const { targets, months } = data as { targets?: Record<string, unknown>; months?: Record<string, Month> };
+  return {
+    ...data,
+    ...(targets && { targets: rekey(targets) }),
+    ...(months && {
+      months: Object.fromEntries(Object.entries(months).map(([name, month]) => [name, month?.targets ? { ...month, targets: rekey(month.targets) } : month])),
+    }),
+  };
+}
+
 const loaded = new Map<string, Promise<unknown>>();
 function load<T>(name: string, base = statusBase()): Promise<T | null> {
   const url = base + name;
@@ -118,7 +138,8 @@ function load<T>(name: string, base = statusBase()): Promise<T | null> {
     // a missing file is null at once; a connection that fails or hangs tries the API instead
     const file = fetchJson<T>(url)
       .catch(() => (ref ? fetchJson<T>(contentsApi(name, ref), { accept: "application/vnd.github.raw+json" }) : null))
-      .catch(() => null);
+      .catch(() => null)
+      .then(withCurrentKeys);
     loaded.set(url, file);
     // a file that did not arrive is asked for again next time
     void file.then((data) => data === null && loaded.delete(url));
@@ -208,16 +229,46 @@ export function lastDays(count = HISTORY_DAYS): string[] {
   return Array.from({ length: count }, (_, index) => new Date(today - (count - 1 - index) * 86_400_000).toISOString().slice(0, 10));
 }
 
-// a status as a flat dot and its word
+// each state's shape on a 16-unit square: filled in the state's colour, the glyph cut out in
+// --status-cut; a day nobody probed is a ring
+type Shape = [tag: "circle" | "path", attributes: Record<string, string>][];
+const DISC: Shape[number] = ["circle", { cx: "8", cy: "8", r: "7.5", fill: "currentColor" }];
+const CUT = { fill: "none", "stroke-width": "1.75", "stroke-linecap": "round", style: "stroke: var(--status-cut)" };
+const ICONS: Record<Status | "none", Shape> = {
+  up: [DISC, ["path", { d: "M4.75 8.25 7 10.5l4.25-5", ...CUT, "stroke-linejoin": "round" }]],
+  degraded: [
+    ["path", { d: "M7.1 1.9a1 1 0 0 1 1.8 0l6.1 11.6a1 1 0 0 1-.9 1.5H1.9a1 1 0 0 1-.9-1.5z", fill: "currentColor" }],
+    ["path", { d: "M8 6v3.6", ...CUT }],
+    ["circle", { cx: "8", cy: "12.1", r: "1", style: "fill: var(--status-cut)" }],
+  ],
+  down: [DISC, ["path", { d: "m5.5 5.5 5 5m0-5-5 5", ...CUT }]],
+  nokey: [DISC, ["path", { d: "M5 8h6", ...CUT }]],
+  none: [["circle", { cx: "8", cy: "8", r: "6.75", fill: "none", stroke: "currentColor", "stroke-width": "1.5" }]],
+};
+
+// a status as its icon, for beside a word or a name that says the rest
+export function statusIcon(status: Status | "none", size = "h-4 w-4"): SVGElement {
+  const svg = document.createElementNS(SVG, "svg");
+  svg.setAttribute("viewBox", "0 0 16 16");
+  svg.setAttribute("class", `status-icon ${size}`);
+  svg.setAttribute("aria-hidden", "true");
+  svg.dataset.status = status;
+  for (const [tag, attributes] of ICONS[status]) {
+    const shape = document.createElementNS(SVG, tag);
+    for (const [name, value] of Object.entries(attributes)) shape.setAttribute(name, value);
+    svg.append(shape);
+  }
+  return svg;
+}
+
+// a status as its icon and its word
 export function statusLabel(status: Status | null, words: StatusWords): HTMLElement {
   const label = document.createElement("span");
   label.className = "status-label";
   label.dataset.status = status ?? "none";
-  const dot = document.createElement("span");
-  dot.className = "status-dot";
   const word = document.createElement("span");
   word.className = "status-word";
   word.textContent = status ? words[status] : words.none;
-  label.append(dot, word);
+  label.append(statusIcon(status ?? "none"), word);
   return label;
 }
