@@ -25,7 +25,7 @@ import httpx
 import pytest
 from stream_grammar import assert_stream_grammar
 
-from mmsp import AutoLLMClient, ThinkingLevel, list_supported_models
+from mmsp import AutoLLMClient, ThinkingLevel, UnsupportedParameterError, list_supported_models
 
 
 IMAGE = "https://sghimages.shobserver.com/img/catch/2022/01/22/c1ae0300-9402-4128-a7e6-1244d3874167.jpg"
@@ -392,6 +392,35 @@ def test_client_type_or_model_family_names_the_client(model: str, client_type: s
 def test_google_official_refuses_a_vertex_service_account_key(client_type: str | None):
     with pytest.raises(ValueError, match="google-genai"):
         AutoLLMClient(model="gemini-3.8-flash", api_key='{"project_id": "test-project"}', client_type=client_type)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("client_type", ["google-official", "google-genai"])
+@pytest.mark.parametrize(
+    "tts_config",
+    [
+        [
+            {"voice": "Kore", "speaker": "Joe"},
+            {"voice": "Puck", "speaker": "Jane"},
+            {"voice": "Charon", "speaker": "Jim"},
+        ],
+        [{"voice": "Kore", "speaker": "Joe"}, {"voice": "Puck"}],
+    ],
+    ids=["three speakers", "two speakers, one unnamed"],
+)
+async def test_gemini_tts_config_rejects_a_speaker_list_it_cannot_voice(
+    client_type: str, tts_config: list[dict[str, str]]
+):
+    client = AutoLLMClient(model="gemini-3.8-flash-tts", api_key="test-key", client_type=client_type)
+
+    with pytest.raises(UnsupportedParameterError) as exc_info:
+        async for _ in client.streaming_response(
+            messages=[{"role": "user", "content_items": [{"type": "text.done", "text": "Joe: Hi.\nJane: Hello."}]}],
+            config={"tts_config": tts_config},
+        ):
+            pass
+
+    assert exc_info.value.parameter == "tts_config"
 
 
 def test_a_model_of_no_known_family_asks_for_a_client_type():

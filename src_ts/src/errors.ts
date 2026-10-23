@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { CLIENT_CREDENTIALS } from "./credentials";
-import { UsageMetadata } from "./types";
+import { FinishReason, UsageMetadata } from "./types";
 
 function previewToolCallArguments(raw: string): string {
   const maxLength = 160;
@@ -125,6 +125,36 @@ export class EmptyResponseError extends MMSPError {
     this.client = args.client;
     this.finishReason = args.finishReason;
     this.usageMetadata = args.usageMetadata ?? null;
+  }
+}
+
+/**
+ * Raised when the provider's stream ends before its usage or its finish reason arrived.
+ *
+ * The stream was cut short, so the request is worth retrying. It is thrown in place of the stop
+ * event, after the items that did arrive, and carries the usage or finish reason that did, so the
+ * tokens can still be counted.
+ */
+export class IncompleteStreamError extends MMSPError {
+  readonly client: string;
+  readonly missing: string[];
+  readonly finishReason: FinishReason | null;
+  readonly usageMetadata: UsageMetadata | null;
+
+  constructor(args: {
+    client: string;
+    missing: string[];
+    finishReason: FinishReason | null;
+    usageMetadata: UsageMetadata | null;
+  }) {
+    super(
+      `${args.client}'s stream ended without ${args.missing.join(" and ")}.`,
+    );
+    this.name = "IncompleteStreamError";
+    this.client = args.client;
+    this.missing = args.missing;
+    this.finishReason = args.finishReason;
+    this.usageMetadata = args.usageMetadata;
   }
 }
 

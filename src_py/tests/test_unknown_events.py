@@ -20,7 +20,7 @@ from types import SimpleNamespace
 import pytest
 from stream_grammar import assert_stream_grammar
 
-from mmsp import AutoLLMClient
+from mmsp import AutoLLMClient, IncompleteStreamError
 
 
 @dataclass
@@ -156,6 +156,10 @@ def _responses_completed_event() -> object:
             ),
         ),
     )
+
+
+# the usage every Responses client reads from _responses_completed_event
+COMPLETED_USAGE = {"cached_tokens": 0, "prompt_tokens": 2, "thoughts_tokens": 1, "response_tokens": 2}
 
 
 def _chat_keepalive_chunk(sequence_number: int) -> object:
@@ -418,6 +422,48 @@ async def test_responses_clients_reject_unknown_events_in_debug_mode(
     with pytest.raises(ValueError, match="Unknown output"):
         async for _event in client.streaming_response(MESSAGES, {}):
             pass
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "dropped, missing, finish_reason, usage_metadata",
+    [
+        pytest.param("usage", ("usage_metadata",), "stop", None, id="usage"),
+        pytest.param("status", ("finish_reason",), None, COMPLETED_USAGE, id="status"),
+    ],
+)
+@pytest.mark.parametrize("case", RESPONSES_STREAM_CASES, ids=[case.client_type for case in RESPONSES_STREAM_CASES])
+async def test_responses_clients_raise_incomplete_stream_error_for_a_completed_event_without_usage_or_status(
+    case: StreamCase,
+    dropped: str,
+    missing: tuple[str, ...],
+    finish_reason: str | None,
+    usage_metadata: dict[str, int] | None,
+):
+    client = _create_auto_client(case)
+    completed = _responses_completed_event()
+    setattr(completed.response, dropped, None)
+    _install_fake_responses_stream(client, [_responses_text_delta_event("Here is"), completed])
+
+    with pytest.raises(IncompleteStreamError) as exc_info:
+        async for _event in client.streaming_response(MESSAGES, {}):
+            pass
+
+    assert exc_info.value.missing == missing
+    assert exc_info.value.finish_reason == finish_reason
+    assert exc_info.value.usage_metadata == usage_metadata
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", RESPONSES_STREAM_CASES, ids=[case.client_type for case in RESPONSES_STREAM_CASES])
+async def test_responses_clients_finish_a_completed_event_of_an_unmapped_status_as_unknown(case: StreamCase):
+    client = _create_auto_client(case)
+    completed = _responses_completed_event()
+    completed.response.status = "cancelled"
+    _install_fake_responses_stream(client, [_responses_text_delta_event("Here is"), completed])
+
+    events = [event async for event in client.streaming_response(MESSAGES, {})]
+    assert events[-1]["finish_reason"] == "unknown"
 
 
 @pytest.mark.asyncio

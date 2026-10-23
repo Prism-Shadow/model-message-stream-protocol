@@ -17,6 +17,7 @@ export {
   MMSPError,
   ApiKeyRequiredError,
   EmptyResponseError,
+  IncompleteStreamError,
   StreamProtocolError,
   ToolCallArgumentParseError,
   UnsupportedOperationError,

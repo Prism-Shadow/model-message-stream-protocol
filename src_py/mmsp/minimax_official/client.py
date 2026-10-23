@@ -287,7 +287,8 @@ class MiniMaxOfficialClient(LLMClient):
             event_type = "stop"
             response = model_output.response
             finish_reason_mapping: dict[str, FinishReason] = {"completed": "stop", "incomplete": "length"}
-            finish_reason = finish_reason_mapping.get(response.status, "unknown")
+            if response.status:
+                finish_reason = finish_reason_mapping.get(response.status, "unknown")
 
             if response.usage:
                 # MiniMax drops the detail blocks on truncated responses, so default them to zero.

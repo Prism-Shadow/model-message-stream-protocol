@@ -51,6 +51,17 @@ _BETWEEN_TOOLS = ("sonnet-5-5",)
 _NO_FORCED_TOOL_CHOICE = ("opus-5-5", "sonnet-5-5", "haiku-5-5", "fable-5-1")
 # These reject the speed parameter ("does not support the `speed` parameter").
 _NO_FAST_MODE = ("4-6", "sonnet-5-5", "haiku-5-5", "fable-5-1")
+# On Bedrock the ARN-versioned models, 4.6 and earlier, take the legacy body version; the SDK
+# defaults the body to API version 2026-10-21 from 2.0, which those models reject.
+_BEDROCK_LEGACY_VERSION = ("4-6",)
+
+
+class _AsyncAnthropic(AsyncAnthropic):
+    # The key goes as x-api-key and nothing else does: from 2.0 the SDK sends a key as
+    # Authorization: Bearer, and it also sends an ANTHROPIC_AUTH_TOKEN it finds.
+    @property
+    def auth_headers(self) -> dict[str, str]:
+        return {"X-Api-Key": self.api_key} if self.api_key else {}
 
 
 class AnthropicOfficialClient(LLMClient):
@@ -77,10 +88,7 @@ class AnthropicOfficialClient(LLMClient):
             )
             self._use_bedrock = True
         else:
-            self._client = AsyncAnthropic(api_key=api_key, base_url=base_url, default_headers=default_headers)
-            # The SDK reads a None auth_token as unset and may fill it from ANTHROPIC_AUTH_TOKEN, which it
-            # sends as Authorization: Bearer beside the key, to whatever base URL this client uses.
-            self._client.auth_token = None
+            self._client = _AsyncAnthropic(api_key=api_key, base_url=base_url, default_headers=default_headers)
             self._use_bedrock = False
 
         self._history: list[UniMessage] = []
@@ -254,6 +262,8 @@ class AnthropicOfficialClient(LLMClient):
                 claude_config["cache_control"] = {"type": "ephemeral"}
             elif prompt_caching == PromptCaching.ENHANCE:
                 claude_config["cache_control"] = {"type": "ephemeral", "ttl": "1h"}
+        elif self._generation(_BEDROCK_LEGACY_VERSION):
+            claude_config["extra_body"] = {"anthropic_version": "bedrock-2023-05-31"}
 
         return claude_config
 
@@ -277,15 +287,17 @@ class AnthropicOfficialClient(LLMClient):
                 elif item["type"] == "image_url.done":
                     content_blocks.append(await self._convert_image_url_to_source(item["image_url"]))
                 elif item["type"] == "thinking.done":
+                    signature = (item.get("fidelity") or {}).get("signature")
+                    if signature is None:
+                        # Claude takes a thinking block back only with the signature it issued and drops
+                        # the blocks it cannot read itself, so an item signed by nobody goes the same way
+                        continue
+
                     if item["thinking"] == REDACTED_THINKING:
-                        content_blocks.append({"type": "redacted_thinking", "data": item["fidelity"]["signature"]})
+                        content_blocks.append({"type": "redacted_thinking", "data": signature})
                     else:
                         content_blocks.append(
-                            {
-                                "type": "thinking",
-                                "thinking": item["thinking"],
-                                "signature": item["fidelity"]["signature"],
-                            }
+                            {"type": "thinking", "thinking": item["thinking"], "signature": signature}
                         )
                 elif item["type"] == "tool_call.done":
                     content_blocks.append(
