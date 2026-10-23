@@ -3,6 +3,7 @@
 - **Date:** 2026-10-23
 - **Type:** fix
 - **Scope:** `ant_messages`, `anthropic_official`, `deepseek_official`, `google_genai`, `google_official`, `minimax_official`, `moonshot_official`, `openai_chat`, `openai_embedding`, `openai_official`, `openai_responses`, `zai_official`, `auto_client`, `utils`
+- **PR:** [#290](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/290)
 
 [中文版](2026-10-23-typed-error-sites.zh.md)
 
