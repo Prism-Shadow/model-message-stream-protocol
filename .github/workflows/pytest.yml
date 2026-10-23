@@ -65,3 +65,13 @@ jobs:
           BEDROCK_API_KEY: ${{ secrets.BEDROCK_API_KEY }}
           VERTEX_API_KEY: ${{ secrets.VERTEX_API_KEY }}
           TOKENDANCE_API_KEY: ${{ secrets.TOKENDANCE_API_KEY }}
+
+      - name: Rerun the offline tests on the older anthropic lines
+        working-directory: ./src_py
+        run: |
+          for sdk in "anthropic[bedrock]<2" "anthropic[bedrock]==0.87.0"; do
+            uv run --with "$sdk" python -c "import anthropic; print('anthropic', anthropic.__version__)"
+            uv run --with "$sdk" pytest -n 16 --dist loadgroup tests
+          done
+        env:
+          MMSP_TEST_CLIENTS: "[]"
