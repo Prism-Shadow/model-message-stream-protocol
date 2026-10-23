@@ -145,7 +145,7 @@ export const STRINGS = {
     nav: {
       overview: "概览",
       docs: "文档",
-      rfc: "RFC",
+      rfc: "RFCs",
       models: "模型索引",
       status: "模型监测",
       changelog: "更新日志",
