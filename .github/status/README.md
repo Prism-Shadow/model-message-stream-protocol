@@ -26,7 +26,7 @@ To add a target, copy the triple of a registry entry and name its key variable. 
 
 ## Data files
 
-The key of every target is `<client>|<base_url>|<model>`.
+The key of every target is `<client> <base_url> <model>`, the registry triple joined by spaces (files written before 2026-10-23 joined it with `|`; the probe rewrites them on its next run and the site reads both).
 
 ```jsonc
 // latest.json: the last result of every configured target

@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       targets:
-        description: Comma-separated model ids or client|base_url|model keys to probe; empty probes every target
+        description: Comma-separated model ids or `client base_url model` keys to probe; empty probes every target
         type: string
         default: ""
 

@@ -40,8 +40,18 @@ MASKED_KEY = re.compile(r"\*{3,}[\w-]*")
 
 
 def target_key(entry: dict[str, Any]) -> str:
-    """The key the status files and the site join on: the registry triple."""
-    return f"{entry['client']}|{entry['base_url']}|{entry['model']}"
+    """The key the status files and the site join on: the registry triple, joined by spaces."""
+    return f"{entry['client']} {entry['base_url']} {entry['model']}"
+
+
+def current_key(key: str) -> str:
+    """A key as target_key writes it; a key written before 2026-10-23 joined the triple with `|`."""
+    return key.replace("|", " ")
+
+
+def with_current_keys(targets: dict[str, Any]) -> dict[str, Any]:
+    """The targets of a status file read back, keyed as target_key writes them."""
+    return {current_key(key): value for key, value in targets.items()}
 
 
 def uni_config(settings: dict[str, Any]) -> dict[str, Any]:
@@ -291,7 +301,7 @@ def write_run(out: Path, run: dict[str, Any], date: str) -> None:
 
 def write_latest(out: Path, run: dict[str, Any], configured: list[str]) -> None:
     """Rewrite latest.json; a target this run skipped keeps its previous entry while it is configured."""
-    previous = read_json(out / "latest.json", {}).get("targets", {})
+    previous = with_current_keys(read_json(out / "latest.json", {}).get("targets", {}))
     targets = {}
     for key in configured:
         if key in run["targets"]:
@@ -305,6 +315,7 @@ def write_latest(out: Path, run: dict[str, Any], configured: list[str]) -> None:
 def write_history(out: Path, run: dict[str, Any], today: datetime) -> None:
     """Upsert today's entry per probed target (the day's last run wins) and drop days past the window."""
     history = read_json(out / "history.json", {"days": HISTORY_DAYS, "targets": {}})
+    history["targets"] = with_current_keys(history["targets"])
     date = today.strftime("%Y-%m-%d")
     for key, entry in run["targets"].items():
         days = history["targets"].setdefault(key, {})
@@ -321,20 +332,23 @@ def write_history(out: Path, run: dict[str, Any], today: datetime) -> None:
 
 
 def write_monthly(out: Path, month: str) -> dict[str, Any]:
-    """Recount this month's probe cost from its run files; earlier months stay as they were written.
+    """Recount this month's probe cost from its run files; earlier months keep their sums.
 
     A target the registry has no price for is left out, as its cost is unknown rather than zero.
     """
     runs = 0
     targets: dict[str, float] = {}
     for path in sorted((out / "runs").glob(f"{month}-*.json")):
+        # the run files are a log and keep the keys they were written with
         for run in read_json(path, {"runs": []})["runs"]:
             runs += 1
-            for key, entry in run["targets"].items():
+            for key, entry in with_current_keys(run["targets"]).items():
                 if entry["cost_usd"] is not None:
                     targets[key] = round(targets.get(key, 0.0) + entry["cost_usd"], 8)
     summary = {"runs": runs, "total_usd": round(sum(targets.values(), 0.0), 8), "targets": targets}
     monthly = read_json(out / "monthly.json", {"months": {}})
+    for earlier in monthly["months"].values():
+        earlier["targets"] = with_current_keys(earlier["targets"])
     monthly["months"][month] = summary
     write_json(out / "monthly.json", {"months": dict(sorted(monthly["months"].items()))})
     return summary
