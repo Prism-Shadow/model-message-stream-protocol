@@ -12,6 +12,7 @@ A stream ends with its `stop` event or with an exception, never both. When one i
 | --- | --- | --- |
 | `ToolCallArgumentParseError` | The arguments of a tool call are malformed, cut short, or not a JSON object. Raised in place of the `tool_call.done`. | `client`, the tool name, the tool call id, the length and a preview of the raw arguments |
 | `EmptyResponseError` | The response finished with thinking and nothing else. Sent back on the next turn, such a message fails with a 400. Raised in place of the `stop` event. | `client`, the finish reason, and `usage_metadata`, so the tokens can still be counted |
+| `IncompleteStreamError` | The provider's stream ended before its usage or its finish reason arrived. The stream was cut short, so retry. Raised in place of the `stop` event. | `client`, `missing`, and the `finish_reason` and `usage_metadata` that did arrive |
 | `StreamProtocolError` | A client produced a stream that breaks [the grammar](/docs/streaming/). This is a bug in MMSP, not in the model's output. | `client` |
 
 For `ToolCallArgumentParseError`, log the preview and retry or re-prompt the model. Never run a tool from partial arguments.

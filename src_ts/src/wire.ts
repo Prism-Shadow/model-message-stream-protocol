@@ -27,12 +27,13 @@
  * silent, the server writes an SSE comment every KEEPALIVE_SECONDS, which a reader skips; it keeps
  * proxies and clients from timing out a long thought. An error is `{"error": {"type", "message",
  * ...fields}}`: the body of an HTTP error before a stream starts, an event followed by
- * `data: [DONE]` once it has. The five MMSP errors travel with their fields; the mmsp client
+ * `data: [DONE]` once it has. The six MMSP errors travel with their fields; the mmsp client
  * raises every error the server reports as an UpstreamError carrying the object.
  */
 
 import {
   EmptyResponseError,
+  IncompleteStreamError,
   StreamProtocolError,
   ToolCallArgumentParseError,
   UnsupportedOperationError,
@@ -142,6 +143,16 @@ export function toWireError(error: unknown): Record<string, unknown> {
       type: "EmptyResponseError",
       message: error.message,
       client: error.client,
+      finish_reason: error.finishReason,
+      usage_metadata: error.usageMetadata,
+    };
+  }
+  if (error instanceof IncompleteStreamError) {
+    return {
+      type: "IncompleteStreamError",
+      message: error.message,
+      client: error.client,
+      missing: error.missing,
       finish_reason: error.finishReason,
       usage_metadata: error.usageMetadata,
     };
