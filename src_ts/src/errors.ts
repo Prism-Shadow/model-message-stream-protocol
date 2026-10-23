@@ -51,25 +51,33 @@ export class UnsupportedParameterError extends MMSPError {
 }
 
 /**
- * Raised at construction when a client is given a base URL without a key and the environment's
- * key may not go there: only the client's default endpoint and the endpoint `baseUrlEnv` names
- * take `apiKeyEnv` (see environmentCredential in `credentials`).
+ * Raised at construction when a client has no key it may use: either it is given a base URL
+ * without a key and the environment's key may not go there (only the client's default endpoint
+ * and the endpoint `baseUrlEnv` names take `apiKeyEnv`, see environmentCredential in
+ * `credentials`), or, with `baseUrl` null, it cannot call its endpoint without a key and is given
+ * none, neither passed nor in `apiKeyEnv`.
  */
 export class ApiKeyRequiredError extends MMSPError {
   readonly client: string;
   readonly clientType: string;
   readonly apiKeyEnv: string;
   readonly baseUrlEnv: string;
-  readonly baseUrl: string;
+  readonly baseUrl: string | null;
 
-  constructor(args: { client: string; clientType: string; baseUrl: string }) {
+  constructor(args: {
+    client: string;
+    clientType: string;
+    baseUrl: string | null;
+  }) {
     const { apiKeyEnv, baseUrlEnv, defaultBaseUrl } =
       CLIENT_CREDENTIALS[args.clientType];
     super(
-      `apiKey is required for ${args.client} with baseUrl ${args.baseUrl}: ` +
-        `${apiKeyEnv} is sent only to ${defaultBaseUrl} or to the endpoint ${baseUrlEnv} names. ` +
-        `Pass apiKey, or drop baseUrl and set ${apiKeyEnv}, plus ${baseUrlEnv} for an endpoint ` +
-        `other than ${defaultBaseUrl}.`,
+      args.baseUrl === null
+        ? `${apiKeyEnv} is required for ${args.client}: pass apiKey or set ${apiKeyEnv}.`
+        : `apiKey is required for ${args.client} with baseUrl ${args.baseUrl}: ` +
+            `${apiKeyEnv} is sent only to ${defaultBaseUrl} or to the endpoint ${baseUrlEnv} names. ` +
+            `Pass apiKey, or drop baseUrl and set ${apiKeyEnv}, plus ${baseUrlEnv} for an endpoint ` +
+            `other than ${defaultBaseUrl}.`,
     );
     this.name = "ApiKeyRequiredError";
     this.client = args.client;
@@ -229,6 +237,120 @@ export class UpstreamError extends MMSPError {
     this.status = args.status;
     this.errorType = args.errorType;
     this.error = args.error ? { ...args.error } : {};
+  }
+}
+
+/**
+ * Raised by AutoLLMClient when neither the client type nor the model id names a client.
+ */
+export class RoutingError extends MMSPError {
+  readonly model: string;
+  readonly clientType: string | null;
+
+  constructor(args: {
+    model: string;
+    clientType: string | null;
+    message: string;
+  }) {
+    super(args.message);
+    this.name = "RoutingError";
+    this.model = args.model;
+    this.clientType = args.clientType;
+  }
+}
+
+/**
+ * Raised when a message cannot be sent as it is: an item of an unknown kind, a tool result
+ * without tool_call_id, an image that is not valid base64 or cannot be fetched, a TTS script
+ * without its speaker labels, or a message with nothing the wire can carry.
+ */
+export class InvalidMessageError extends MMSPError {
+  readonly client: string;
+  readonly itemType: string | null;
+  readonly messageIndex: number | null;
+
+  constructor(args: {
+    client: string;
+    message: string;
+    itemType?: string | null;
+    messageIndex?: number | null;
+  }) {
+    super(args.message);
+    this.name = "InvalidMessageError";
+    this.client = args.client;
+    this.itemType = args.itemType ?? null;
+    this.messageIndex = args.messageIndex ?? null;
+  }
+}
+
+/**
+ * Raised when a well-formed item is one the model cannot take: an image on a text-only model, a
+ * non-text item for embeddings or speech. Distinct from UnsupportedParameterError, which rejects
+ * a UniConfig value.
+ */
+export class UnsupportedContentError extends MMSPError {
+  readonly client: string;
+  readonly itemType: string;
+
+  constructor(args: { client: string; itemType: string; message: string }) {
+    super(args.message);
+    this.name = "UnsupportedContentError";
+    this.client = args.client;
+    this.itemType = args.itemType;
+  }
+}
+
+/**
+ * Raised with MMSP_DEBUG set when a client does not recognize a wire event; without it the event
+ * is skipped (MMSP-RFC-0003).
+ */
+export class UnknownEventError extends MMSPError {
+  readonly client: string;
+  readonly event: string;
+
+  constructor(args: { client: string; event: string }) {
+    // a preview, cut as tool call arguments are: an unknown frame may carry a whole image
+    const event = previewToolCallArguments(args.event);
+    super(`${args.client} does not recognize the event ${event}`);
+    this.name = "UnknownEventError";
+    this.client = args.client;
+    this.event = event;
+  }
+}
+
+/**
+ * Raised when a provider reports an error inside an open stream (Gemini Interactions' `error`
+ * event), with the provider's code and message.
+ */
+export class ProviderStreamError extends MMSPError {
+  readonly client: string;
+  readonly code: number | string | null;
+
+  constructor(args: {
+    client: string;
+    code: number | string | null;
+    message: string;
+  }) {
+    super(args.message);
+    this.name = "ProviderStreamError";
+    this.client = args.client;
+    this.code = args.code;
+  }
+}
+
+/**
+ * Raised when streamingResponseStateful is called while another stateful call on the same client
+ * has not ended: two turns cannot be recorded in one history at once.
+ */
+export class ConcurrentCallError extends MMSPError {
+  readonly client: string;
+
+  constructor(args: { client: string }) {
+    super(
+      `${args.client} has a stateful call in flight; wait for its stop event or its error.`,
+    );
+    this.name = "ConcurrentCallError";
+    this.client = args.client;
   }
 }
 

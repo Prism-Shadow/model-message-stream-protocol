@@ -27,17 +27,25 @@
  * silent, the server writes an SSE comment every KEEPALIVE_SECONDS, which a reader skips; it keeps
  * proxies and clients from timing out a long thought. An error is `{"error": {"type", "message",
  * ...fields}}`: the body of an HTTP error before a stream starts, an event followed by
- * `data: [DONE]` once it has. The six MMSP errors travel with their fields; the mmsp client
- * raises every error the server reports as an UpstreamError carrying the object.
+ * `data: [DONE]` once it has. Every MMSP error travels with its fields; the mmsp client raises
+ * every error the server reports as an UpstreamError carrying the object.
  */
 
 import {
+  ApiKeyRequiredError,
+  ConcurrentCallError,
   EmptyResponseError,
   IncompleteStreamError,
+  InvalidMessageError,
+  ProviderStreamError,
+  RoutingError,
   StreamProtocolError,
   ToolCallArgumentParseError,
+  UnknownEventError,
+  UnsupportedContentError,
   UnsupportedOperationError,
   UnsupportedParameterError,
+  UpstreamError,
 } from "./errors";
 
 export const DEFAULT_HOST = "127.0.0.1";
@@ -173,6 +181,76 @@ export function toWireError(error: unknown): Record<string, unknown> {
       tool_call_id: error.toolCallId,
       raw_arguments_length: error.rawArgumentsLength,
       raw_arguments_preview: error.rawArgumentsPreview,
+    };
+  }
+  if (error instanceof ApiKeyRequiredError) {
+    return {
+      type: "ApiKeyRequiredError",
+      message: error.message,
+      client: error.client,
+      client_type: error.clientType,
+      api_key_env: error.apiKeyEnv,
+      base_url_env: error.baseUrlEnv,
+      base_url: error.baseUrl,
+    };
+  }
+  if (error instanceof RoutingError) {
+    return {
+      type: "RoutingError",
+      message: error.message,
+      model: error.model,
+      client_type: error.clientType,
+    };
+  }
+  if (error instanceof InvalidMessageError) {
+    return {
+      type: "InvalidMessageError",
+      message: error.message,
+      client: error.client,
+      item_type: error.itemType,
+      message_index: error.messageIndex,
+    };
+  }
+  if (error instanceof UnsupportedContentError) {
+    return {
+      type: "UnsupportedContentError",
+      message: error.message,
+      client: error.client,
+      item_type: error.itemType,
+    };
+  }
+  if (error instanceof UnknownEventError) {
+    return {
+      type: "UnknownEventError",
+      message: error.message,
+      client: error.client,
+      event: error.event,
+    };
+  }
+  if (error instanceof ProviderStreamError) {
+    return {
+      type: "ProviderStreamError",
+      message: error.message,
+      client: error.client,
+      code: error.code,
+    };
+  }
+  if (error instanceof ConcurrentCallError) {
+    return {
+      type: "ConcurrentCallError",
+      message: error.message,
+      client: error.client,
+    };
+  }
+  if (error instanceof UpstreamError) {
+    // a server whose upstream is another MMSP server passes on what that server reported
+    return {
+      type: "UpstreamError",
+      message: error.message,
+      client: error.client,
+      status: error.status,
+      error_type: error.errorType,
+      error: error.error,
     };
   }
   if (!(error instanceof Error)) {
