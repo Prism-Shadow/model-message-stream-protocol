@@ -21,7 +21,7 @@ export interface MetricCells {
 const DASH = '<span class="text-gray-300 dark:text-gray-600">—</span>';
 const empty = (title: string) => `<span class="text-gray-300 dark:text-gray-600" title="${title}">—</span>`;
 
-// a channel the probe reached; one without a key was skipped, so the catalog counts it as not probed
+// a channel the probe reached; one without a key was skipped, so the catalog treats it as not probed
 export function isProbed(target: TargetLatest | undefined): target is TargetLatest {
   return target !== undefined && target.status !== "nokey";
 }

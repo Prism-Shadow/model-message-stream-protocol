@@ -25,7 +25,6 @@ const currency = locale === "zh" ? "CNY" : "USD";
 const latest = withCurrentKeys((await statusAtBuild()).latest);
 const statusPage = localePath(locale, "/status/");
 const targets = rows.map((row) => latest?.targets[row.key]);
-const probed = targets.filter(isProbed).length;
 // the header that sorts best first: the shortest latency, the highest throughput
 const SORT_FIRST: Record<string, "asc" | "desc"> = { latency: "asc", throughput: "desc" };
 
@@ -87,7 +86,7 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
   class:list={["catalog", className]}
   data-catalog
   data-currency={currency}
-  data-words={JSON.stringify({ ...s.status, ...s.kit, models: s.models, probed: s.probed, perMillion: s.perMillion })}
+  data-words={JSON.stringify({ ...s.status, ...s.kit, models: s.models, perMillion: s.perMillion })}
   data-status-page={statusPage}
   data-run-id={latest?.run_id}
 >
@@ -111,7 +110,6 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
       <span data-catalog-count>{s.models.replace("{n}", String(rows.length))}</span>
       <span aria-hidden="true"> · </span>
       <span>{s.providers.replace("{n}", String(providers))}</span>
-      <span data-catalog-probed hidden={!probed}>{probed ? ` · ${s.probed.replace("{n}", String(probed))}` : ""}</span>
     </p>
 
     <div class="ml-auto flex items-center gap-3">
@@ -725,7 +723,7 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
     server: string;
     run: Record<Tab, string>;
   }
-  type Words = MetricWords & { copy: string; copied: string; copyFailed: string; models: string; probed: string; perMillion: string };
+  type Words = MetricWords & { copy: string; copied: string; copyFailed: string; models: string; perMillion: string };
 
   const stored = (key: string) => {
     try {
@@ -934,12 +932,10 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
       if (!latest || (latest.run_id === root.dataset.runId && !statusQuery())) return;
       root.dataset.runId = latest.run_id;
       const page = root.dataset.statusPage! + statusQuery();
-      let probed = 0;
       for (const row of rows) {
         const key = row.dataset.key!;
         const target = latest.targets[key];
         const probe = isProbed(target) ? target : undefined;
-        if (probe) probed += 1;
         setData(row, "status", probe?.status);
         setData(row, "ttft", probe?.ttft_ms);
         setData(row, "tps", probe?.tps);
@@ -947,9 +943,6 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
         row.querySelector('[data-cell="latency"]')!.innerHTML = cells.latency;
         row.querySelector('[data-cell="throughput"]')!.innerHTML = cells.throughput;
       }
-      const label = root.querySelector<HTMLElement>("[data-catalog-probed]")!;
-      label.textContent = probed ? ` · ${words.probed.replace("{n}", String(probed))}` : "";
-      label.hidden = !probed;
       if (sortKey && direction) sort();
     });
   }
