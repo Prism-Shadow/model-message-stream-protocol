@@ -3,6 +3,7 @@
 - **Date:** 2026-10-23
 - **Type:** feature
 - **Scope:** `integration`
+- **PR:** [#281](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/281)
 
 [English](2026-10-23-playground-reply-head.md)
 
