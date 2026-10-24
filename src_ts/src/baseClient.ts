@@ -343,6 +343,7 @@ export abstract class LLMClient {
       throw new ConcurrentCallError({ client: this.constructor.name });
     }
 
+    // a fresh object per call, so that the late close of an earlier call cannot release this one
     const call = { signal: options.signal };
     this._inFlight = call;
     try {
