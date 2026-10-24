@@ -24,7 +24,6 @@ import { StreamItems } from "./streamItems";
 import {
   ContentItem,
   DeltaContentItem,
-  EventContentItem,
   FinishReason,
   UniConfig,
   UniEvent,
@@ -62,132 +61,6 @@ function deepCopy(value: unknown): unknown {
   return value;
 }
 
-function deltaEvent(item: EventContentItem): UniEvent {
-  return {
-    role: "assistant",
-    event_type: "delta",
-    content_items: [item],
-    usage_metadata: null,
-    finish_reason: null,
-    created_at: Date.now(),
-  };
-}
-
-/**
- * Turns the events a client yields into the public stream. A client yields deltas only; every
- * one goes out as it arrives, in an event of its own, and `StreamItems` closes each item with its
- * done item when the next item begins or the stream ends. The usage and finish reason of the
- * client's stop events are merged into the one final stop.
- */
-class PublicStream {
-  private readonly items: StreamItems;
-  private usageMetadata: UsageMetadata | null = null;
-  private finishReason: FinishReason | null = null;
-  readonly doneItems: ContentItem[] = [];
-
-  constructor(private readonly client: string) {
-    this.items = new StreamItems(client);
-  }
-
-  // a generator, so the deltas of an event reach the caller even when a later one fails
-  *push(event: UniEvent): Generator<UniEvent> {
-    if (
-      event.event_type === "delta" &&
-      (event.usage_metadata != null || event.finish_reason != null)
-    ) {
-      throw new StreamProtocolError({
-        client: this.client,
-        message: "a delta event carries usage_metadata or finish_reason",
-      });
-    }
-
-    for (const delta of event.content_items) {
-      yield* this.emit(this.items.delta(delta as DeltaContentItem));
-    }
-
-    if (event.usage_metadata) {
-      const usage: UsageMetadata = this.usageMetadata ?? {
-        cached_tokens: null,
-        prompt_tokens: null,
-        thoughts_tokens: null,
-        response_tokens: null,
-      };
-      for (const field of [
-        "cached_tokens",
-        "prompt_tokens",
-        "thoughts_tokens",
-        "response_tokens",
-      ] as const) {
-        if (event.usage_metadata[field] != null) {
-          usage[field] = event.usage_metadata[field];
-        }
-      }
-      this.usageMetadata = usage;
-    }
-    if (event.finish_reason) {
-      this.finishReason = event.finish_reason;
-    }
-  }
-
-  /**
-   * The client's stream ended: the item still streaming is done.
-   */
-  *end(): Generator<UniEvent> {
-    yield* this.emit(this.items.end());
-  }
-
-  private *emit(items: EventContentItem[]): Generator<UniEvent> {
-    for (const item of items) {
-      if (item.type.endsWith(".done")) {
-        this.doneItems.push(item as ContentItem);
-      }
-      yield deltaEvent(item);
-    }
-  }
-
-  /**
-   * Build the stop event once the client's stream ended, rejecting a response that cannot be one.
-   */
-  stop(): UniEvent {
-    const missing: string[] = [];
-    if (this.usageMetadata === null) {
-      missing.push("usage_metadata");
-    }
-    if (this.finishReason === null) {
-      missing.push("finish_reason");
-    }
-    if (missing.length > 0) {
-      throw new IncompleteStreamError({
-        client: this.client,
-        missing,
-        finishReason: this.finishReason,
-        usageMetadata: this.usageMetadata,
-      });
-    }
-    // replaying a thinking-only assistant message on the next turn fails with a 400 error
-    const thinkingOnly = this.doneItems.every(
-      (item) =>
-        item.type === "thinking.done" || item.type === "inline_thinking.done",
-    );
-    if (thinkingOnly) {
-      throw new EmptyResponseError({
-        client: this.client,
-        finishReason: this.finishReason,
-        usageMetadata: this.usageMetadata,
-      });
-    }
-
-    return {
-      role: "assistant",
-      event_type: "stop",
-      content_items: [],
-      usage_metadata: this.usageMetadata,
-      finish_reason: this.finishReason,
-      created_at: Date.now(),
-    };
-  }
-}
-
 /**
  * Abstract base class for LLM clients.
  *
@@ -208,18 +81,13 @@ export abstract class LLMClient {
 
   /**
    * Transform universal configuration to model-specific configuration.
-   *
-   * @param config - Universal configuration object
-   * @returns Model-specific configuration object
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   abstract transformUniConfigToModelConfig(config: UniConfig): any;
 
   /**
-   * Transform universal message format to model-specific input format.
-   *
-   * @param messages - List of universal message objects
-   * @returns Model-specific input format (e.g., Gemini's Content list, OpenAI's messages array)
+   * Transform universal messages to the model's input format (Gemini's Content list, OpenAI's
+   * messages array).
    */
   abstract transformUniMessageToModelInput(
     messages: UniMessage[],
@@ -235,11 +103,8 @@ export abstract class LLMClient {
    * item are contiguous and carry the same `fidelity.item_id`, the provider's id for the item
    * where it has one, which never reaches the public stream. Its event_type is "stop" on the wire
    * events that report usage_metadata and/or finish_reason, in pieces the base class merges field
-   * by field, and "delta" otherwise; a "delta" event carries neither.
-   *
-   * @param modelOutput - Model-specific output object (streaming chunk)
-   * @returns Universal event object, an empty delta event when the wire event carries nothing
-   *   universal
+   * by field, and "delta" otherwise; a "delta" event carries neither. It is an empty delta event
+   * when the wire event carries nothing universal.
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   abstract transformModelOutputToUniEvent(modelOutput: any): UniEvent;
@@ -280,9 +145,6 @@ export abstract class LLMClient {
    *
    * Each model client implements it to send the request and yield one universal event per event
    * of the provider's stream; streamingResponse turns them into the public stream.
-   *
-   * @param options - Object containing messages and config
-   * @yields Universal events of the streaming response
    */
   abstract _streamingResponseInternal(options: {
     messages: UniMessage[];
@@ -291,9 +153,7 @@ export abstract class LLMClient {
   }): AsyncGenerator<UniEvent>;
 
   /**
-   * List the model ids the configured endpoint serves.
-   *
-   * @returns The model ids, in the order the endpoint returned them.
+   * List the model ids the configured endpoint serves, in the order the endpoint returned them.
    */
   abstract listModels(): Promise<string[]>;
 
@@ -311,39 +171,142 @@ export abstract class LLMClient {
     signal?: AbortSignal;
   }): AsyncGenerator<UniEvent> {
     const { messages, config } = options;
+    const clientName = this.constructor.name;
 
     stampCreatedAt(messages);
     const requestMessages = normalizeLegacyMessages(messages);
     for (const [index, message] of requestMessages.entries()) {
       if (message.content_items.length === 0) {
         throw new InvalidMessageError({
-          client: this.constructor.name,
-          message: `message ${index} has nothing ${this.constructor.name} can send`,
+          client: clientName,
+          message: `message ${index} has nothing ${clientName} can send`,
           messageIndex: index,
         });
       }
     }
 
-    const output = new PublicStream(this.constructor.name);
+    // a client yields deltas only: every one goes out as it arrives, in an event of its own, and
+    // StreamItems closes each item with its done item when the next item begins or the stream
+    // ends; the usage and finish reason of the client's stop events merge into the one public stop
+    const items = new StreamItems(clientName);
+    const doneItems: ContentItem[] = [];
+    let usageMetadata: UsageMetadata | null = null;
+    let finishReason: FinishReason | null = null;
     for await (const event of this._streamingResponseInternal({
       messages: requestMessages,
       config,
       signal: options.signal,
     })) {
-      yield* output.push(event);
+      if (
+        event.event_type === "delta" &&
+        (event.usage_metadata != null || event.finish_reason != null)
+      ) {
+        throw new StreamProtocolError({
+          client: clientName,
+          message: "a delta event carries usage_metadata or finish_reason",
+        });
+      }
+
+      // yielded one by one, so the deltas of an event reach the caller even when a later one fails
+      for (const delta of event.content_items) {
+        for (const item of items.delta(delta as DeltaContentItem)) {
+          if (item.type.endsWith(".done")) {
+            doneItems.push(item as ContentItem);
+          }
+          yield {
+            role: "assistant",
+            event_type: "delta",
+            content_items: [item],
+            usage_metadata: null,
+            finish_reason: null,
+            created_at: Date.now(),
+          };
+        }
+      }
+
+      if (event.usage_metadata) {
+        const usage: UsageMetadata = usageMetadata ?? {
+          cached_tokens: null,
+          prompt_tokens: null,
+          thoughts_tokens: null,
+          response_tokens: null,
+        };
+        for (const field of [
+          "cached_tokens",
+          "prompt_tokens",
+          "thoughts_tokens",
+          "response_tokens",
+        ] as const) {
+          if (event.usage_metadata[field] != null) {
+            usage[field] = event.usage_metadata[field];
+          }
+        }
+        usageMetadata = usage;
+      }
+      if (event.finish_reason) {
+        finishReason = event.finish_reason;
+      }
     }
     // the openai and anthropic SDKs end their stream quietly when the signal aborts their request,
     // so an abort is thrown here: no done items, no stop, nothing recorded
     options.signal?.throwIfAborted();
-    yield* output.end();
-    const stopEvent = output.stop();
+
+    // the item still streaming is done
+    for (const item of items.end()) {
+      doneItems.push(item);
+      yield {
+        role: "assistant",
+        event_type: "delta",
+        content_items: [item],
+        usage_metadata: null,
+        finish_reason: null,
+        created_at: Date.now(),
+      };
+    }
+
+    const missing: string[] = [];
+    if (usageMetadata === null) {
+      missing.push("usage_metadata");
+    }
+    if (finishReason === null) {
+      missing.push("finish_reason");
+    }
+    if (missing.length > 0) {
+      throw new IncompleteStreamError({
+        client: clientName,
+        missing,
+        finishReason,
+        usageMetadata,
+      });
+    }
+    // replaying a thinking-only assistant message on the next turn fails with a 400 error
+    const thinkingOnly = doneItems.every(
+      (item) =>
+        item.type === "thinking.done" || item.type === "inline_thinking.done",
+    );
+    if (thinkingOnly) {
+      throw new EmptyResponseError({
+        client: clientName,
+        finishReason,
+        usageMetadata,
+      });
+    }
+
+    const stopEvent: UniEvent = {
+      role: "assistant",
+      event_type: "stop",
+      content_items: [],
+      usage_metadata: usageMetadata,
+      finish_reason: finishReason,
+      created_at: Date.now(),
+    };
 
     // saved before the stop is yielded: a caller may stop iterating as soon as it sees it
     if (config.trace_id) {
       const { Tracer } = await import("./integration/tracer");
       const assistantMessage: UniMessage = {
         role: "assistant",
-        content_items: output.doneItems,
+        content_items: doneItems,
         usage_metadata: stopEvent.usage_metadata,
         finish_reason: stopEvent.finish_reason,
         created_at: stopEvent.created_at,
