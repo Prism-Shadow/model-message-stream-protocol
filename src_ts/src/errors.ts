@@ -34,9 +34,9 @@ export class MMSPError extends Error {
 /**
  * Raised when a UniConfig parameter value is not supported by the target model client.
  *
- * Thinking levels never raise this by design: every client maps each ThinkingLevel from
- * a fixed table, and a level the model lacks runs at another level it accepts. Parameters
- * such as temperature and tool_choice may reject unsupported values with this error.
+ * Thinking levels never raise this by design: every client maps each ThinkingLevel
+ * onto the closest level the model supports. Parameters such as temperature and
+ * tool_choice may reject unsupported values with this error.
  */
 export class UnsupportedParameterError extends MMSPError {
   readonly client: string;
