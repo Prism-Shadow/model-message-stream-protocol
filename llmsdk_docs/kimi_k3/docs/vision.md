@@ -1,9 +1,12 @@
+> ## Documentation Index
 > Fetch the complete documentation index at: https://platform.kimi.com/docs/llms.txt
 > Use this file to discover all available pages before exploring further.
 
 # 配置 Kimi 视觉模型
 
-Kimi 视觉模型（包括 `kimi-k3`/`moonshot-v1-8k-vision-preview`/`moonshot-v1-32k-vision-preview`/`moonshot-v1-128k-vision-preview`/`kimi-k2.5`/`kimi-k2.6`/`kimi-k2.7-code`/`kimi-k2.7-code-highspeed`）能够理解视觉内容，包括图片文字、图片颜色和物体形状等内容。`kimi-k3`、`kimi-k2.6`、`kimi-k2.7-code` 和 `kimi-k2.7-code-highspeed` 模型还能理解视频内容。需要让模型识别图片或视频时，按本页方式构造多模态请求。
+> 为 Kimi 多模态模型构建图片和视频输入，支持 base64、URL、文件上传与多图片对话。
+
+Kimi 视觉模型（包括 `kimi-k3.1-pro`/`kimi-k3`/`kimi-k2.6`/`kimi-k2.7-code`/`kimi-k2.7-code-highspeed`）能够理解视觉内容，包括图片文字、图片颜色和物体形状等内容。`kimi-k3.1-pro`、`kimi-k3`、`kimi-k2.6`、`kimi-k2.7-code` 和 `kimi-k2.7-code-highspeed` 模型还能理解视频内容。需要让模型识别图片或视频时，按本页方式构造多模态请求。
 
 ## 用 base64 直接上传图片
 
@@ -31,7 +34,7 @@ image_url = f"data:image/{os.path.splitext(image_path)[1].lstrip('.')};base64,{b
 
 
 completion = client.chat.completions.create(
-    model="kimi-k3",
+    model="kimi-k3.1-pro",
     messages=[
         {"role": "system", "content": "你是 Kimi。"},
         {
@@ -63,7 +66,7 @@ print(completion.choices[0].message.content)
 
 ```json theme={null}
 {
-    "model": "kimi-k3",
+    "model": "kimi-k3.1-pro",
     "messages":
     [
         {
@@ -95,7 +98,7 @@ print(completion.choices[0].message.content)
 
 ```json theme={null}
 {
-    "model": "kimi-k3",
+    "model": "kimi-k3.1-pro",
     "messages":
     [
         {
@@ -112,7 +115,7 @@ print(completion.choices[0].message.content)
 
 ## 用文件 ID 引用已上传的图片或视频
 
-视频文件往往更大，可以先把图片或视频上传到 Moonshot，再通过文件 ID 引用，上传方式请参阅 [图片理解上传](/docs/api/files-upload)。以下示例上传一个视频文件，并通过 `ms://` 协议的 `video_url` 请求模型描述视频内容：
+视频文件往往更大，可以先把图片或视频上传到 Moonshot，再通过文件 ID 引用，上传方式请参阅 [图片理解上传](https://platform.kimi.com/docs/api/files-upload.md)。以下示例上传一个视频文件，并通过 `ms://` 协议的 `video_url` 请求模型描述视频内容：
 
 ```python theme={null}
 import os
@@ -131,7 +134,7 @@ video_path = "video.mp4"
 file_object = client.files.create(file=Path(video_path), purpose="video")  # 上传视频到 Moonshot
 
 completion = client.chat.completions.create(
-    model="kimi-k3",
+    model="kimi-k3.1-pro",
     messages=[
         {
             "role": "system",
@@ -164,30 +167,43 @@ print(completion.choices[0].message.content)
 
 ## 支持的图片与视频格式
 
-图片支持以下格式：
+### 图片
 
-* png
-* jpeg
-* webp
-* gif
+图片支持以下格式（MIME 类型）：
 
-视频支持以下格式：
+* image/jpeg
+* image/png
+* image/gif
+* image/webp
+* image/bmp
+* image/heic
+* image/heif
 
-* mp4
-* mpeg
-* mov
-* avi
-* x-flv
-* mpg
-* webm
-* wmv
-* 3gpp
+注意：GIF、WebP 动图同样通过 `image_url` 方式传入，但底层可能会按视频解码，token 消耗也按视频方式计算。
+
+### SVG
+
+SVG 不支持作为图片输入：通过 `purpose="image"` 上传 SVG，或在 `image_url` 中传入 SVG（包括 base64 形式），都会被拒绝。如需让模型理解 SVG 内容，可以将 SVG 源码（XML 文本）直接放入 `messages` 中作为文本输入。
+
+### 视频
+
+视频支持以下格式（MIME 类型）：
+
+* video/mp4
+* video/mpeg
+* video/mov
+* video/avi
+* video/x-flv
+* video/mpg
+* video/webm
+* video/wmv
+* video/3gpp
 
 ## 估算 token 消耗与费用
 
-* 图片与视频按动态 token 计算：通过 [计算 token 接口](/docs/api/estimate)，可以在开始理解前获取包含图片或视频的请求的 token 消耗；
+* 图片与视频按动态 token 计算：通过 [计算 token 接口](https://platform.kimi.com/docs/api/estimate.md)，可以在开始理解前获取包含图片或视频的请求的 token 消耗；
 * 图片分辨率越高，消耗的 token 越多；视频由若干张关键帧组成，关键帧的数量越多、分辨率越高，token 消耗越多；
-* Vision 模型在计费方式上与 `moonshot-v1` 系列模型保持一致，根据模型推理的总 Tokens 计费，token 价格详见 [模型推理价格说明](/docs/pricing/chat-k27-code)。
+* Vision 模型根据模型推理的总 Tokens 计费，token 价格详见 [模型推理价格说明](https://platform.kimi.com/docs/pricing/chat.md)。
 
 ## 控制图片与视频分辨率
 
@@ -197,7 +213,7 @@ print(completion.choices[0].message.content)
 
 * 由于请求体的整体大小有限制，对于非常大的视频，必须使用上传文件的方式使用视觉理解功能；
 * 对于需要多次引用的图片或视频，推荐使用文件上传的方式使用视觉理解功能；
-* 关于上传文件的限制，请参阅 [文件上传](/docs/api/files-upload) 文档。
+* 关于上传文件的限制，请参阅 [文件上传](https://platform.kimi.com/docs/api/files-upload.md) 文档。
 
 ## 功能支持与限制
 
@@ -217,4 +233,4 @@ Vision 视觉模型支持的特性包括：
 
 * 图片数量：Vision 模型没有图片数量限制，但请确保请求的 Body 大小不超过 100M
 
-不同模型对 `temperature`、`top_p`、`n` 等参数的取值约束不同，建议不要手动设置；各模型参数差异见 [模型参数配置差异](/docs/api/models-overview) 。
+不同模型对 `temperature`、`top_p`、`n` 等参数的取值约束不同，建议不要手动设置；各模型参数差异见 [模型参数配置差异](https://platform.kimi.com/docs/api/models-overview.md) 。

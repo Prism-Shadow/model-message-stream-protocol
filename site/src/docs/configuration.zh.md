@@ -54,7 +54,7 @@ description: UniConfig，请求的配置选项，以及每个客户端为它们�
 
 客户端无法发送的参数值会在请求发出前抛出 `UnsupportedParameterError`，并指明客户端和具体参数。客户端用不到的字段会被忽略。下面的表格按客户端给出这两种情况。
 
-`thinking_level` 永远不会抛错。模型无法关闭思考时，`"none"` 取最少的思考：Claude Opus 5.5、Haiku 5.5、Fable 5、Fable 5.1，GPT-6 Astra、GPT-6.1 Sol，Kimi K3，MiniMax-M3.1-Flash 和 GLM-5.3 上是最低的思考档位；Claude Sonnet 5.5 上是不在回答前思考；Gemini 上是 `minimal` 或 `low`，取模型支持的那一个。GPT-6 Luna 原样接受 `"none"`。
+`thinking_level` 永远不会抛错。模型无法关闭思考时，`"none"` 取最少的思考：Claude Opus 5.5、Haiku 5.5、Fable 5、Fable 5.1，GPT-6 Astra、GPT-6.1 Sol，MiniMax-M3.1-Flash 和 GLM-5.3 上是最低的思考档位；Claude Sonnet 5.5 上是不在回答前思考；Gemini 上是 `minimal` 或 `low`，取模型支持的那一个。GPT-6 Luna、Kimi K3 和 Kimi K3.1 Pro 原样接受 `"none"`。
 
 ## 每个客户端发送什么
 
@@ -112,7 +112,7 @@ description: UniConfig，请求的配置选项，以及每个客户端为它们�
 | `openai-chat`、`openai-chat-vllm-adapter` | `auto` | `none` | `required` | `allowed_tools`，`mode: "auto"` |
 | `google-official` | `auto` | `none` | `any` | `allowed_tools`，`mode: "any"` |
 | `google-genai` | `AUTO` | `NONE` | `ANY` | `ANY` 加 `allowed_function_names` |
-| `moonshot-official` | `auto` | `none` | Kimi K3 上为 `required`；Kimi K2 上抛错 | 抛错 |
+| `moonshot-official` | `auto` | `none` | Kimi K3 与 K3.1 Pro 上为 `required`；Kimi K2 上抛错 | 抛错 |
 | `deepseek-official` | `auto` | `none` | 抛错 | 抛错 |
 | `minimax-official` | `auto` | `none`；MiniMax-M3.1-Flash 上抛错 | 抛错 | 抛错 |
 | `zai-official` | `auto` | 抛错 | 抛错 | 抛错 |
@@ -121,7 +121,7 @@ Claude Opus 5.5、Sonnet 5.5、Haiku 5.5 和 Fable 5.1 不能强制调用工具�
 
 ### `thinking_level`
 
-每个客户端都把级别作为其协议的思考档位发送：Anthropic 的两个客户端上是自适应思考加 `output_config.effort`，Responses 客户端上是 `reasoning.effort`，Kimi K3 和 GLM（同时开启思考）上是 `reasoning_effort`，Gemini 上是 `thinking_level`。Kimi K2 改为发送思考类型；`disabled` 和 `between_tools` 也是思考类型。`openai-chat` 不发送级别，由端点使用其默认值。取第一个匹配的行。
+每个客户端都把级别作为其协议的思考档位发送：Anthropic 的两个客户端上是自适应思考加 `output_config.effort`，Responses 客户端上是 `reasoning.effort`，Kimi K3、K3.1 Pro 和 GLM（同时开启思考）上是 `reasoning_effort`，Gemini 上是 `thinking_level`。Kimi K2 改为发送思考类型；`disabled` 和 `between_tools` 也是思考类型。`openai-chat` 不发送级别，由端点使用其默认值。取第一个匹配的行。
 
 | 客户端与模型 | `none` | `low` | `medium` | `high` | `xhigh` | `max` |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -136,7 +136,7 @@ Claude Opus 5.5、Sonnet 5.5、Haiku 5.5 和 Fable 5.1 不能强制调用工具�
 | `minimax-official`：MiniMax-M3.1-Flash | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `minimax-official`：MiniMax-M3 | `none` | `low` | `medium` | `high` | `high` | `high` |
 | `moonshot-official`：Kimi K2 | `disabled` | `enabled` | `enabled` | `enabled` | `enabled` | `enabled` |
-| `moonshot-official`：Kimi K3 | `low` | `low` | `high` | `high` | `max` | `max` |
+| `moonshot-official`：Kimi K3、Kimi K3.1 Pro | `none` | `low` | `high` | `high` | `max` | `max` |
 | `zai-official`：GLM-5.3、GLM-5.3-Flash | `low` | `low` | `high` | `high` | `max` | `max` |
 | `zai-official`：其他 GLM 模型 | `disabled` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `google-official`、`google-genai`：图像模型 | `minimal` | `minimal` | `high` | `high` | `high` | `high` |
@@ -174,7 +174,8 @@ Claude Opus 5.5、Sonnet 5.5、Haiku 5.5 和 Fable 5.1 不能强制调用工具�
 | --- | --- | --- | --- |
 | `anthropic-official` | `cache_control: {"type": "ephemeral"}`，未设置时也是 | 同上加 `ttl: "1h"` | 不发送 |
 | `anthropic-official`（Bedrock） | 同样的标记加 `ttl: "5m"`，放在最后一条用户消息的最后一块上，未设置时也是 | 同上加 `ttl: "1h"` | 不发送 |
-| 其他所有客户端 | 不发送 | 抛错 | 抛错 |
+| `moonshot-official`（Kimi K3 与 K3.1 Pro） | 不发送 | `prompt_cache_options: {"mode": "implicit", "ttl": "1h"}` | 抛错 |
+| 其他所有客户端；`moonshot-official`（Kimi K2） | 不发送 | 抛错 | 抛错 |
 | `openai-embedding`、Gemini 向量模型 | 忽略 | 忽略 | 忽略 |
 
 ### `fast_mode`

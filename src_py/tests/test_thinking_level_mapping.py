@@ -194,9 +194,9 @@ def test_thinking_switch_reaches_the_wire(model: str, client_type: str, level: T
 # What each remaining client puts on the wire for a level, per its vendor's effort
 # vocabulary: OpenAI takes the full set except on GPT-6, which rejects "none" and
 # "minimal" so NONE degrades to low (GPT-6 Luna takes none); Claude tops out at max (xhigh
-# only from 4.7), DeepSeek and Kimi accept low/high/max, DeepSeek turns thinking off with
-# none, Kimi K3 cannot and runs NONE at low, MiniMax-M3 has no level above high, and
-# MiniMax-M3.1-Flash cannot turn thinking off but takes low through max.
+# only from 4.7), DeepSeek and Kimi accept low/high/max, DeepSeek and the Kimi K3 series
+# turn thinking off with none, MiniMax-M3 has no level above high, and MiniMax-M3.1-Flash
+# cannot turn thinking off but takes low through max.
 THINKING_EFFORT_CASES = [
     ("gpt-6-astra", None, ThinkingLevel.NONE, "low"),
     ("gpt-6-astra", None, ThinkingLevel.LOW, "low"),
@@ -251,12 +251,17 @@ THINKING_EFFORT_CASES = [
     ("deepseek-v4", None, ThinkingLevel.MAX, "max"),
     ("deepseek-flash", None, ThinkingLevel.NONE, "none"),
     ("deepseek-flash", None, ThinkingLevel.MAX, "max"),
-    ("kimi-k3", None, ThinkingLevel.NONE, "low"),
+    ("kimi-k3", None, ThinkingLevel.NONE, "none"),
     ("kimi-k3", None, ThinkingLevel.LOW, "low"),
     ("kimi-k3", None, ThinkingLevel.MEDIUM, "high"),
     ("kimi-k3", None, ThinkingLevel.HIGH, "high"),
     ("kimi-k3", None, ThinkingLevel.XHIGH, "max"),
     ("kimi-k3", None, ThinkingLevel.MAX, "max"),
+    ("kimi-k3.1-pro", None, ThinkingLevel.NONE, "none"),
+    ("kimi-k3.1-pro", None, ThinkingLevel.LOW, "low"),
+    ("kimi-k3.1-pro", None, ThinkingLevel.MEDIUM, "high"),
+    ("kimi-k3.1-pro", None, ThinkingLevel.XHIGH, "max"),
+    ("kimi-k3.1-pro-highspeed", None, ThinkingLevel.MAX, "max"),
     ("MiniMax-M3", None, ThinkingLevel.NONE, "none"),
     ("MiniMax-M3", None, ThinkingLevel.LOW, "low"),
     ("MiniMax-M3", None, ThinkingLevel.MEDIUM, "medium"),
