@@ -10,10 +10,7 @@
 ## Summary
 [summary]: #summary
 
-What a stream reports reaches the caller, and what a model needs back goes back:
-- **The stop event.** A stream a client finishes ends with one `stop` event whose `usage_metadata` is an object and whose `finish_reason` is set, and the assistant message built from it carries both. A provider stream that ends without either raises `IncompleteStreamError` in place of the `stop`, after the events before it, so no caller sees a stop without them and no history records the turn.
-- **Thinking.** A client replays the thinking its own model produced with everything that model needs to continue from it. Thinking another model or endpoint produced goes back in the form the provider takes for it, or is left out where the provider rejects it; it never goes back as the assistant's own text.
-- **Tool calls.** A client replays every tool call with the provider's call id.
+What a stream reports reaches the caller: a stream a client finishes ends with one `stop` event whose `usage_metadata` is an object and whose `finish_reason` is set, and the assistant message built from it carries both. What a model needs back goes back: a client replays the thinking its own model produced with everything that model needs to continue from it, and every tool call with the provider's call id. Thinking another model or endpoint produced goes back in the form the provider takes for it, or is left out where the provider rejects it; it never goes back as the assistant's own text.
 
 ## Motivation
 [motivation]: #motivation
@@ -32,7 +29,7 @@ The owner's ask was that a message turned into a `UniMessage` and back loses not
 
 - **Usage and finish reason.** A client's `stop` events carry the usage and the finish reason wherever the wire reports them, in pieces. The base class merges them field by field into the one public `stop`: a later count replaces an earlier one, and a 0 stays 0. A count the provider does not report is `None`; no count is required to be a number.
 - **Embeddings.** An embedding request streams its vectors as items, then one `stop` carrying the input count its endpoint reports as `prompt_tokens`, and `finish_reason` `stop`. `openai-embedding` pairs each vector with its input by the vector's `index`.
-- **`IncompleteStreamError`** names the client and the missing field or fields, and carries the usage or finish reason that did arrive, so the tokens can still be counted. It is not a `StreamProtocolError`, which is a bug in a client, and not an `EmptyResponseError`, which is a response without content ([MMSP-RFC-0009](MMSP-RFC-0009-typed-errors.md)).
+- **`IncompleteStreamError`.** A provider stream that ends without the usage or the finish reason raises `IncompleteStreamError` in place of the `stop`, after the events before it, so no caller sees a stop without them and no history records the turn. The error names the client and the missing field or fields, and carries the usage or finish reason that did arrive, so the tokens can still be counted. It is not a `StreamProtocolError`, which is a bug in a client, and not an `EmptyResponseError`, which is a response without content ([MMSP-RFC-0009](MMSP-RFC-0009-typed-errors.md)).
 - **Copying onto the assistant message.** `concat_uni_events_to_uni_message`, the stateful history and the tracer copy the `stop` event's `usage_metadata` and `finish_reason` onto the assistant message. A message a caller builds by hand may carry neither.
 - **The `mmsp` client:**
   - forwards its server's `stop` as it is;

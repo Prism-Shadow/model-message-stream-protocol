@@ -10,10 +10,7 @@
 ## Summary
 [summary]: #summary
 
-流报告的内容要到达调用方，模型需要拿回的内容要发回去：
-- **stop 事件。** 客户端走完的一条流，以一个 `stop` 事件结束：它的 `usage_metadata` 是一个对象，`finish_reason` 有值；由这条流构建的助手消息同时带有这两项。服务商的流缺少其中任何一项就结束时，在它之前的事件之后、原本 `stop` 的位置抛出 `IncompleteStreamError`，因此调用方不会看到缺少这两项的 stop，历史也不会记录这一回合。
-- **思考。** 客户端回传它自己的模型产生的思考时，带上该模型从这段思考继续所需的一切。另一个模型或端点产生的思考，按服务商接受它的形式发回，在服务商拒绝它的地方则略去；它绝不作为助手自己的文本发回。
-- **工具调用。** 客户端回传每个工具调用时，都带上服务商的调用 id。
+流报告的内容要到达调用方：客户端走完的一条流，以一个 `stop` 事件结束，它的 `usage_metadata` 是一个对象，`finish_reason` 有值，由这条流构建的助手消息同时带有这两项。模型需要拿回的内容要发回去：客户端回传它自己的模型产生的思考时，带上该模型从这段思考继续所需的一切，回传每个工具调用时都带上服务商的调用 id。另一个模型或端点产生的思考，按服务商接受它的形式发回，在服务商拒绝它的地方则略去；它绝不作为助手自己的文本发回。
 
 ## Motivation
 [motivation]: #motivation
@@ -32,7 +29,7 @@
 
 - **用量与结束原因。** 客户端的 `stop` 事件在线上报告用量和结束原因的地方携带它们，可以分几次携带。基类把这些部分逐字段合并进唯一的公开 `stop`：后到的计数替换先到的，0 仍然是 0。服务商不报告的计数为 `None`；不要求任何计数必须是数字。
 - **embedding。** embedding 请求先以内容项流出它的向量，然后是一个 `stop`，以 `prompt_tokens` 携带端点报告的输入计数，`finish_reason` 为 `stop`。`openai-embedding` 按向量的 `index` 把每个向量与它的输入对应起来。
-- **`IncompleteStreamError`** 指明客户端与缺少的一个或多个字段，并携带已经到达的用量或结束原因，好让这些 token 仍能计入。它不是 `StreamProtocolError`，那是客户端的缺陷；也不是 `EmptyResponseError`，那是没有内容的响应（[MMSP-RFC-0009](MMSP-RFC-0009-typed-errors.zh.md)）。
+- **`IncompleteStreamError`。** 服务商的流缺少用量或结束原因就结束时，在它之前的事件之后、原本 `stop` 的位置抛出 `IncompleteStreamError`，因此调用方不会看到缺少这两项的 stop，历史也不会记录这一回合。这个错误指明客户端与缺少的一个或多个字段，并携带已经到达的用量或结束原因，好让这些 token 仍能计入。它不是 `StreamProtocolError`，那是客户端的缺陷；也不是 `EmptyResponseError`，那是没有内容的响应（[MMSP-RFC-0009](MMSP-RFC-0009-typed-errors.zh.md)）。
 - **复制到助手消息上。** `concat_uni_events_to_uni_message`、有状态的历史与 tracer 把 `stop` 事件的 `usage_metadata` 和 `finish_reason` 复制到助手消息上。调用方手工构建的消息可以两者都不带。
 - **`mmsp` 客户端：**
   - 原样转发其服务端的 `stop`；

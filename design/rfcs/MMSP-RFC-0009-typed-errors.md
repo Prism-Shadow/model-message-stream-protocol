@@ -10,7 +10,7 @@
 ## Summary
 [summary]: #summary
 
-Every error MMSP raises is an `MMSPError` subclass from `errors.py` / `errors.ts`, named for what went wrong and carrying its fields. Each is still the built-in it replaced: a `ValueError` in Python and an `Error` in TypeScript, with `ProviderStreamError` also a `RuntimeError`. Apart from the abort error ([MMSP-RFC-0012](MMSP-RFC-0012-interruptible-requests.md)), no code outside `integration/` raises or throws a bare built-in error. The MMSP server relays every MMSP error with its fields, so the `mmsp` client raises `UpstreamError` whose `error_type` is the class and whose `error` holds the fields.
+Every error MMSP raises is an `MMSPError` subclass from `errors.py` / `errors.ts`, named for what went wrong and carrying its fields. Apart from the abort error ([MMSP-RFC-0012](MMSP-RFC-0012-interruptible-requests.md)), no code outside `integration/` raises or throws a bare built-in error. The MMSP server relays every MMSP error with its fields, so the `mmsp` client raises `UpstreamError` whose `error_type` is the class and whose `error` holds the fields.
 
 ## Motivation
 [motivation]: #motivation
@@ -35,6 +35,7 @@ A caller that handles a refusal needs one class to catch, the same in both packa
   - `StreamProtocolError`, for a client that broke the grammar ([MMSP-RFC-0003](MMSP-RFC-0003-async-streaming.md));
   - `ProviderStreamError`, for an error a provider reports inside an open stream;
   - `UnknownEventError`, for an unrecognized event under `MMSP_DEBUG`.
+- **Each class** is still the built-in it replaced: a `ValueError` in Python and an `Error` in TypeScript, with `ProviderStreamError` also a `RuntimeError`.
 - **A new class** joins `to_wire_error` / `toWireError` and the exports of both packages in the same change. The vendor SDKs' own exceptions propagate as they are, and the server relays them by their class name.
 
 ## Enforced by

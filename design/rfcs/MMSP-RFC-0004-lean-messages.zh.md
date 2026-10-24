@@ -23,7 +23,7 @@
 - 本规则规定消息可以携带什么；[MMSP-RFC-0005](MMSP-RFC-0005-essential-fields.zh.md) 规定必须保留什么。
 - 同一种数据在每个客户端的 `fidelity` 中都用同一个名字：`signature`、`encrypted_content`、`format`、`channel`、`phase`、`reasoning_field`、`reasoning_id`。客户端绝不以线上格式自己的名字整块保存一个线上内容项或一组线上内容项。`reasoning_id` 只为网关加密的推理块保存，网关需要拿回这个块的 id。
 - `StreamItems` 在内容项发出之前去掉 `fidelity.item_id`。`item_id` 是客户端在流式过程中用来标识自己内容项的 id，因此它不会出现在使用方、trace 或历史记录中。
-- 客户端记录了、却没有任何回传使用的字段要删除，而不是保留。早先版本在内容项内部记录的那些形状，读取到 0.6.0 为止（[MMSP-RFC-0013](MMSP-RFC-0013-direct-implementation.zh.md)）。
+- 客户端记录了、却没有任何回传使用的字段要删除，而不是保留。早先版本在内容项内部记录、如今已没有客户端再记录的那些形状，读取到 0.6.0 为止（[MMSP-RFC-0013](MMSP-RFC-0013-direct-implementation.zh.md)）。
 
 ## Enforced by
 [enforced-by]: #enforced-by

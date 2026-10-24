@@ -10,12 +10,7 @@
 ## Summary
 [summary]: #summary
 
-What a client sends for a model is decided by an explicit match, never by a guess:
-- A generation or variant is told apart by the version in its id (`"4-6"`; `"gpt-6"` and not `"gpt-6-luna"`; `"k2."`; `"m3.1"`; `"glm-5.3"`), never by a bare family substring such as `"claude"` or `"gpt"`.
-- Each `UniConfig` value is sent as the setting a fixed mapping names for the client and the model's generation, or it raises `UnsupportedParameterError`.
-- A key a client has no use for is ignored.
-
-This RFC states the rule; the configuration page of the site writes down what every client sends for every key. Which client a model id reaches is [MMSP-RFC-0006](MMSP-RFC-0006-explicit-routing.md).
+What a client sends for a model is decided by an explicit match, never by a guess: a generation or variant is told apart by the version in its id (`"4-6"`; `"gpt-6"` and not `"gpt-6-luna"`; `"k2."`; `"m3.1"`; `"glm-5.3"`), never by a bare family substring such as `"claude"` or `"gpt"`. Each `UniConfig` value is sent as the setting a fixed mapping names for the client and the model's generation, or it raises `UnsupportedParameterError`. A key a client has no use for is ignored.
 
 ## Motivation
 [motivation]: #motivation
@@ -25,14 +20,15 @@ A request built from a fuzzy match sends one generation another's parameters, an
 ## Rule
 [rule]: #rule
 
+- Which client a model id reaches is [MMSP-RFC-0006](MMSP-RFC-0006-explicit-routing.md).
 - **Official clients.** Inside an official client, the generations of a vendor are told apart by explicit version strings, kept in named tuples or plain conditions (`"4-6"` in the model id, the `_LOW_EFFORT_FOR_NONE` tuple of `anthropic-official`). The first row that matches applies. A tier or modality marker in the id (`-pro`, `-image`, `tts`, `embedding`) selects the model's kind the same way. A new generation adds a row or a condition, never a looser match.
 - **Compatible clients.** A compatible client reads the model id only where what it sends differs by model, and then by an explicit name too. For example:
   - the vLLM adapter picks a chat template's thinking switch by the model's name from its own table, and falls back to Qwen3's;
   - `openai-responses` turns `none` into `low` on GPT-6 except Luna, as the official client does;
   - `openai-chat` and `openai-responses` ask for `detail: "high"` on an image GPT-5.6 would otherwise refuse.
 - **Values with no setting.** A `UniConfig` value with no setting on the model raises before the request goes out ([MMSP-RFC-0009](MMSP-RFC-0009-typed-errors.md)). `thinking_level` is the exception: it runs as a fixed row instead ([MMSP-RFC-0010](MMSP-RFC-0010-thinking-levels-usable.md)).
-- **Values with another form.** Where a protocol has another form for a value, the mapping says which. For example, a list of tool names is `allowed_tools` on `openai-chat` and `{type: "tool", name}` on `ant-messages`, and an unset `max_tokens` is 64000 on the Anthropic clients.
-- **Keeping the page in sync.** A row of [`site/src/docs/configuration.en.md`](../../site/src/docs/configuration.en.md) changes with the code that changes it, in the same PR.
+- **Values with another form.** Where a protocol has another form for a value, the mapping says which. For example, a list of tool names is `allowed_tools` on `openai-chat`, a list of one name is `{type: "tool", name}` on `ant-messages`, and an unset `max_tokens` is 64000 on the Anthropic clients.
+- **The configuration page.** This RFC states the rule; the configuration page of the site, [`site/src/docs/configuration.en.md`](../../site/src/docs/configuration.en.md), writes down what every client sends for every key. A row of it changes with the code that changes it, in the same PR.
 
 ## Enforced by
 [enforced-by]: #enforced-by

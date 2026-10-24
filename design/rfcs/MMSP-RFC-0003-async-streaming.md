@@ -10,13 +10,13 @@
 ## Summary
 [summary]: #summary
 
-A model is called only through `streaming_response` and `streaming_response_stateful` (`streamingResponse` and `streamingResponseStateful` in TypeScript), asynchronous generators of `UniEvent`. There is no synchronous call and no call that returns a whole response, and a client reads the provider's streaming endpoint wherever the provider has one.
+A model is called only through `streaming_response` and `streaming_response_stateful` (`streamingResponse` and `streamingResponseStateful` in TypeScript), asynchronous generators of `UniEvent`; there is no synchronous call and no call that returns a whole response.
 
 The stream has one grammar, closed by the base class:
 - a run of `delta` events, each carrying exactly one item;
 - then exactly one `stop` event, which carries the usage and the finish reason and no items.
 
-Every item streams as contiguous `.delta` fragments followed by its one `.done` item, which is those fragments joined. Items never interleave. The `.done` items in order, with the `stop` event's two fields, are the assistant message. A stream ends with its `stop` event or with an exception, never both.
+A stream ends with its `stop` event or with an exception, never both.
 
 ## Motivation
 [motivation]: #motivation
@@ -31,8 +31,9 @@ Stated in [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/p
 ## Rule
 [rule]: #rule
 
-- **What a client yields.** A client's `_streaming_response_internal` / `_streamingResponseInternal` sends the request and yields one `UniEvent` per event of the provider's stream. It yields deltas only, never a `.done` item.
+- **What a client yields.** A client's `_streaming_response_internal` / `_streamingResponseInternal` sends the request and yields one `UniEvent` per event of the provider's stream. It reads the provider's streaming endpoint wherever the provider has one. It yields deltas only, never a `.done` item.
 - **What the base class does.** It hands each delta to `StreamItems` (`stream_items.py` / `streamItems.ts`), which decides where each item ends and closes it. It merges the usage and finish reason of the client's `stop` events into the one public `stop` ([MMSP-RFC-0005](MMSP-RFC-0005-essential-fields.md)).
+- **Items.** Every item streams as contiguous `.delta` fragments followed by its one `.done` item, which is those fragments joined. Items never interleave. The `.done` items in order, with the `stop` event's two fields, are the assistant message.
 - **How a `.done` item is built.** `StreamItems` alone builds it, from the fragments that went out, so what a consumer streamed and what it is handed never disagree:
   - its growing field is the join of theirs;
   - a tool call's arguments are parsed from the joined JSON;

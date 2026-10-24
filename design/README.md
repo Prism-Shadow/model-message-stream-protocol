@@ -14,7 +14,7 @@ The rules MMSP keeps and the decisions that changed it, each an RFC. When the co
 | [MMSP-RFC-0004](rfcs/MMSP-RFC-0004-lean-messages.md) | Messages stay lean | rule | Accepted |
 | [MMSP-RFC-0005](rfcs/MMSP-RFC-0005-essential-fields.md) | Essential fields are never dropped | rule | Accepted |
 | [MMSP-RFC-0006](rfcs/MMSP-RFC-0006-explicit-routing.md) | Client routing is explicit | rule | Accepted |
-| [MMSP-RFC-0007](rfcs/MMSP-RFC-0007-credential-scope.md) | Keys stay safe: a credential goes only where it was given for | rule | Accepted |
+| [MMSP-RFC-0007](rfcs/MMSP-RFC-0007-credential-scope.md) | Keys stay safe | rule | Accepted |
 | [MMSP-RFC-0008](rfcs/MMSP-RFC-0008-immutable-history.md) | History does not change | rule | Accepted |
 | [MMSP-RFC-0009](rfcs/MMSP-RFC-0009-typed-errors.md) | Every error is typed | rule | Accepted |
 | [MMSP-RFC-0010](rfcs/MMSP-RFC-0010-thinking-levels-usable.md) | Every thinking level is supported | rule | Accepted |

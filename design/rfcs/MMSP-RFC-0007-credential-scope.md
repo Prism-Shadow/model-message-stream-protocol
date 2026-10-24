@@ -1,4 +1,4 @@
-# MMSP-RFC-0007 Keys stay safe: a credential goes only where it was given for
+# MMSP-RFC-0007 Keys stay safe
 
 - Feature Name: `credential_scope`
 - Start Date: 2026-10-24

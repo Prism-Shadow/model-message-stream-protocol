@@ -10,13 +10,13 @@
 ## Summary
 [summary]: #summary
 
-调用模型只有 `streaming_response` 与 `streaming_response_stateful` 两个入口（TypeScript 中为 `streamingResponse` 与 `streamingResponseStateful`），它们都是产出 `UniEvent` 的异步生成器。没有同步调用，也没有一次返回整个响应的调用；服务商提供流式端点时，客户端就读取流式端点。
+调用模型只有 `streaming_response` 与 `streaming_response_stateful` 两个入口（TypeScript 中为 `streamingResponse` 与 `streamingResponseStateful`），它们都是产出 `UniEvent` 的异步生成器；没有同步调用，也没有一次返回整个响应的调用。
 
 流只有一套语法，由基类收尾：
 - 先是若干 `delta` 事件，每个事件恰好携带一个内容项；
 - 然后恰好一个 `stop` 事件，携带用量和结束原因，不携带内容项。
 
-每个内容项都以连续的 `.delta` 片段流出，随后是它唯一的 `.done` 内容项，也就是那些片段拼接的结果。内容项之间从不交错。按顺序排列的 `.done` 内容项，加上 `stop` 事件的这两个字段，就是助手消息。一条流要么以 `stop` 事件结束，要么以异常结束，不会两者兼有。
+一条流要么以 `stop` 事件结束，要么以异常结束，不会两者兼有。
 
 ## Motivation
 [motivation]: #motivation
@@ -31,8 +31,9 @@
 ## Rule
 [rule]: #rule
 
-- **客户端产出什么。** 客户端的 `_streaming_response_internal` / `_streamingResponseInternal` 发出请求，服务商的流中每来一个事件，就产出一个 `UniEvent`。它只产出 delta，从不产出 `.done` 内容项。
+- **客户端产出什么。** 客户端的 `_streaming_response_internal` / `_streamingResponseInternal` 发出请求，服务商的流中每来一个事件，就产出一个 `UniEvent`。服务商提供流式端点时，客户端就读取流式端点。它只产出 delta，从不产出 `.done` 内容项。
 - **基类做什么。** 基类把每个 delta 交给 `StreamItems`（`stream_items.py` / `streamItems.ts`），由它判断每个内容项在哪里结束，并为它收尾。客户端各个 `stop` 事件上的用量和结束原因，由基类合并进唯一的公开 `stop`（[MMSP-RFC-0005](MMSP-RFC-0005-essential-fields.zh.md)）。
+- **内容项。** 每个内容项都以连续的 `.delta` 片段流出，随后是它唯一的 `.done` 内容项，也就是那些片段拼接的结果。内容项之间从不交错。按顺序排列的 `.done` 内容项，加上 `stop` 事件的这两个字段，就是助手消息。
 - **`.done` 内容项怎样构建。** 只由 `StreamItems` 用已经流出的片段构建，因此使用方流式收到的内容与最终交到它手上的内容绝不会不一致：
   - 增长字段是各片段该字段的拼接；
   - 工具调用的参数由拼接后的 JSON 解析而来；

@@ -23,7 +23,7 @@ A replayed turn has to be accepted by the API with the model's behavior intact; 
 - This rule says what a message may carry; [MMSP-RFC-0005](MMSP-RFC-0005-essential-fields.md) says what it must keep.
 - `fidelity` gives a kind of data the same name in every client: `signature`, `encrypted_content`, `format`, `channel`, `phase`, `reasoning_field`, `reasoning_id`. A client never keeps a wire item, or a list of them, whole under the wire's own name. A `reasoning_id` is kept only for a gateway's encrypted reasoning block, whose id the gateway needs back.
 - `StreamItems` strips `fidelity.item_id` before an item goes out. `item_id` is the id a client identifies its items with while streaming, so it never reaches consumers, traces or histories.
-- A field a client records that no replay uses is removed, not kept. The shapes earlier releases recorded inside an item are read until 0.6.0 ([MMSP-RFC-0013](MMSP-RFC-0013-direct-implementation.md)).
+- A field a client records that no replay uses is removed, not kept. The shapes earlier releases recorded inside an item and no client records any longer are read until 0.6.0 ([MMSP-RFC-0013](MMSP-RFC-0013-direct-implementation.md)).
 
 ## Enforced by
 [enforced-by]: #enforced-by

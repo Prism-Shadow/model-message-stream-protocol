@@ -10,7 +10,7 @@
 ## Summary
 [summary]: #summary
 
-MMSP 抛出的每个错误都是 `errors.py` / `errors.ts` 中的 `MMSPError` 子类，以出错的事情命名，并携带它的字段。每个类仍然是它所取代的内置错误：Python 中是 `ValueError`，TypeScript 中是 `Error`，`ProviderStreamError` 同时也是 `RuntimeError`。除中止错误外（[MMSP-RFC-0012](MMSP-RFC-0012-interruptible-requests.zh.md)），`integration/` 之外的代码不会抛出裸的内置错误。MMSP 服务端转发每个 MMSP 错误时都带上它的字段，所以 `mmsp` 客户端抛出的 `UpstreamError` 以 `error_type` 指明错误类，以 `error` 携带这些字段。
+MMSP 抛出的每个错误都是 `errors.py` / `errors.ts` 中的 `MMSPError` 子类，以出错的事情命名，并携带它的字段。除中止错误外（[MMSP-RFC-0012](MMSP-RFC-0012-interruptible-requests.zh.md)），`integration/` 之外的代码不会抛出裸的内置错误。MMSP 服务端转发每个 MMSP 错误时都带上它的字段，所以 `mmsp` 客户端抛出的 `UpstreamError` 以 `error_type` 指明错误类，以 `error` 携带这些字段。
 
 ## Motivation
 [motivation]: #motivation
@@ -35,6 +35,7 @@ MMSP 抛出的每个错误都是 `errors.py` / `errors.ts` 中的 `MMSPError` �
   - `StreamProtocolError`，客户端违反了流语法（[MMSP-RFC-0003](MMSP-RFC-0003-async-streaming.zh.md)）；
   - `ProviderStreamError`，服务商在已打开的流中报告的错误；
   - `UnknownEventError`，设置了 `MMSP_DEBUG` 时无法识别的事件。
+- **每个错误类**仍然是它所取代的内置错误：Python 中是 `ValueError`，TypeScript 中是 `Error`，`ProviderStreamError` 同时也是 `RuntimeError`。
 - **新增的错误类**在同一个改动中加入 `to_wire_error` / `toWireError` 和两个包的导出。厂商 SDK 自己的异常原样传播，服务端按类名转发它们。
 
 ## Enforced by

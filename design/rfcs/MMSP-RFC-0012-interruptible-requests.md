@@ -10,9 +10,7 @@
 ## Summary
 [summary]: #summary
 
-A caller stops a stream at any point by aborting its signal or by closing the generator: `aclose()` / `return()`, or leaving the loop (in Python, once nothing else holds the generator). The provider's request closes with it at once, in every client of both packages. The one exception is the Python `mmsp` client: when the abort comes while the caller is busy between reads, it closes its request at the caller's next read.
-
-The caller gets the deltas that arrived and then the abort error: `asyncio.CancelledError` carrying the signal's reason in Python, and the signal's `reason` in TypeScript. On a closed generator the caller gets nothing more. The caller never gets a `.done` for the open item, never a `stop`, and never a partial `.done` followed by `IncompleteStreamError`. A stream that ends without its `stop` records nothing and saves no trace.
+A caller stops a stream at any point by aborting its signal or by closing the generator, and the provider's request closes with it at once, in every client of both packages, except that the Python `mmsp` client, aborted while the caller is busy between reads, closes its request at the caller's next read. The caller gets the deltas that arrived and then the abort error, or nothing more from a closed generator, and never a `.done` for the open item or a `stop`. A stream that ends without its `stop` records nothing and saves no trace.
 
 ## Motivation
 [motivation]: #motivation
@@ -27,6 +25,7 @@ So in Python the playground's Stop, and a server whose caller had gone, could ke
 ## Rule
 [rule]: #rule
 
+- **Closing and the abort error.** A caller closes the generator with `aclose()` / `return()`, or by leaving the loop (in Python, once nothing else holds the generator). The abort error is `asyncio.CancelledError` carrying the signal's reason in Python, and the signal's `reason` in TypeScript. The caller never gets a partial `.done` followed by `IncompleteStreamError`.
 - **Python.** Every Python client reads the provider's stream, where it has one, inside a context that closes it (`async with stream:`; `aclosing` on `google_genai`, which also closes the HTTP responses its request opened, because its SDK leaves them to the garbage collector). So closing the client's generator closes the connection. The base class does that as soon as the signal is aborted: it cancels a pending read in whichever task makes it, and with no read pending it closes the client's generator where it rests. `AutoLLMClient` and `streaming_response_stateful` close the generator they read with their own.
 - **TypeScript.** Every TypeScript client passes the signal to its SDK, or to `fetch` in the `mmsp` client. `google_genai` passes it through an `AbortController` of its own, which its generator aborts on the way out too, because closing that SDK's stream leaves the connection open. An aborted stream throws the caller's reason, not the SDK's: the base class throws it when the SDK ends its stream quietly, and `google_genai` rethrows it in place of the SDK's own `AbortError`.
 - **Stateful calls.** An abort releases a stateful call's claim on the client at once, and the aborted call never records its turn, even when the abort lands as the `stop` arrives ([MMSP-RFC-0008](MMSP-RFC-0008-immutable-history.md)). An abort that lands as the provider's stream ends is still an abort.

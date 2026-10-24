@@ -10,9 +10,7 @@
 ## Summary
 [summary]: #summary
 
-调用方可以在任何时候停下一条流：中止它的信号，或者关闭生成器，即 `aclose()` / `return()`，或者离开循环（在 Python 中，要等再没有别的东西持有这个生成器）。在两个包的每个客户端中，发往服务商的请求都随之立即关闭。唯一的例外是 Python 的 `mmsp` 客户端：中止发生在调用方两次读取之间忙于别的事时，它在调用方下一次读取时才关闭请求。
-
-调用方先拿到已经到达的 delta，然后拿到中止错误：Python 中是携带信号原因的 `asyncio.CancelledError`，TypeScript 中是信号的 `reason`。生成器被关闭时，调用方不会再拿到任何东西。调用方绝不会拿到未完成内容项的 `.done`，绝不会拿到 `stop`，也绝不会先拿到一个残缺的 `.done` 再拿到 `IncompleteStreamError`。没有 `stop` 就结束的流什么也不记录，也不保存 trace。
+调用方可以在任何时候中止信号或关闭生成器来停下一条流，发往服务商的请求随之立即关闭，两个包的每个客户端都是如此，只有一种情况例外：调用方在两次读取之间忙于别的事时中止 Python 的 `mmsp` 客户端，它要到调用方下一次读取时才关闭请求。调用方先拿到已经到达的 delta，然后拿到中止错误，生成器被关闭时则不再拿到任何东西，绝不会拿到未完成内容项的 `.done`，也绝不会拿到 `stop`。没有 `stop` 就结束的流什么也不记录，也不保存 trace。
 
 ## Motivation
 [motivation]: #motivation
@@ -27,6 +25,7 @@
 ## Rule
 [rule]: #rule
 
+- **关闭与中止错误。** 调用方用 `aclose()` / `return()` 关闭生成器，或者离开循环（在 Python 中，要等再没有别的东西持有这个生成器）。中止错误在 Python 中是携带信号原因的 `asyncio.CancelledError`，在 TypeScript 中是信号的 `reason`。调用方绝不会先拿到一个残缺的 `.done` 再拿到 `IncompleteStreamError`。
 - **Python。** 每个 Python 客户端在服务商有流时，都在一个会关闭它的上下文中读取这条流（`async with stream:`；`google_genai` 用 `aclosing`，并且还会关闭它的请求打开的 HTTP 响应，因为它的 SDK 把这些响应留给垃圾回收）。所以关闭客户端的生成器就会关闭连接。信号一被中止，基类就这样做：有读取在进行时，取消发起这次读取的任务，不管它是哪个任务；没有读取在进行时，就在客户端生成器停着的地方关闭它。`AutoLLMClient` 和 `streaming_response_stateful` 在自己的生成器关闭时，一并关闭它们读取的那个生成器。
 - **TypeScript。** 每个 TypeScript 客户端都把信号交给它的 SDK，`mmsp` 客户端则交给 `fetch`。`google_genai` 通过自己的一个 `AbortController` 传递信号，它的生成器退出时也会中止这个控制器，因为关闭那个 SDK 的流并不会关闭连接。被中止的流抛出的是调用方的原因，而不是 SDK 的：SDK 悄悄结束它的流时，由基类抛出这个原因；`google_genai` 则用它替换 SDK 自己的 `AbortError` 重新抛出。
 - **有状态调用。** 中止会立即释放有状态调用对客户端的占用，被中止的调用绝不记录它的回合，即使中止恰好发生在 `stop` 到达之时（[MMSP-RFC-0008](MMSP-RFC-0008-immutable-history.zh.md)）。恰好在服务商的流结束时发生的中止，仍然是中止。
