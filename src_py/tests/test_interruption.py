@@ -64,9 +64,10 @@ QUIET_ON_ABORT_CLIENT_TYPES = ["openai-chat", "ant-messages"]
 
 TEXTS = ("one ", "two ", "three ")
 
+# recorded history carries created_at; a call stamps an entry without one, aborted or not
 HISTORY: list[UniMessage] = [
-    {"role": "user", "content_items": [{"type": "text.done", "text": "Hello"}]},
-    {"role": "assistant", "content_items": [{"type": "text.done", "text": "Hi"}]},
+    {"role": "user", "content_items": [{"type": "text.done", "text": "Hello"}], "created_at": 1767225600000},
+    {"role": "assistant", "content_items": [{"type": "text.done", "text": "Hi"}], "created_at": 1767225601000},
 ]
 
 # a stream that reached its stop would be saved under MMSP_CACHE_DIR
