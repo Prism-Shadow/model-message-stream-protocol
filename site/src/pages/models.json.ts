@@ -27,7 +27,7 @@ export const GET: APIRoute = ({ site }) => {
     status: {
       page: new URL("/status/", site).href,
       files: ["latest.json", "history.json", "monthly.json"].map((name) => STATUS_DATA_URL + name),
-      key: "client|base_url|model",
+      key: "client+base_url+model",
     },
     models,
   };
