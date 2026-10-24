@@ -17,7 +17,7 @@ import copy
 import time
 from abc import ABC, abstractmethod
 from contextlib import aclosing, suppress
-from typing import Any, AsyncIterator, Iterator
+from typing import Any, AsyncIterator
 
 from .abort_signal import AbortSignal
 from .errors import (
@@ -29,15 +29,7 @@ from .errors import (
 )
 from .legacy import normalize_legacy_messages
 from .stream_items import StreamItems
-from .types import (
-    ContentItem,
-    EventContentItem,
-    FinishReason,
-    UniConfig,
-    UniEvent,
-    UniMessage,
-    UsageMetadata,
-)
+from .types import ContentItem, FinishReason, UniConfig, UniEvent, UniMessage, UsageMetadata
 
 
 def _stamp_created_at(messages: list[UniMessage]) -> None:
@@ -45,103 +37,6 @@ def _stamp_created_at(messages: list[UniMessage]) -> None:
     for message in messages:
         if message.get("created_at") is None:
             message["created_at"] = int(time.time() * 1000)
-
-
-class _StatefulCall:
-    """A stateful call, which holds its client's history until its stop event, its end or its abort."""
-
-    def __init__(self, signal: AbortSignal | None) -> None:
-        self.signal = signal
-
-    @property
-    def aborted(self) -> bool:
-        return self.signal is not None and self.signal.aborted
-
-
-def _delta_event(item: EventContentItem) -> UniEvent:
-    return {
-        "role": "assistant",
-        "event_type": "delta",
-        "content_items": [item],
-        "usage_metadata": None,
-        "finish_reason": None,
-        "created_at": int(time.time() * 1000),
-    }
-
-
-class _PublicStream:
-    """Turns the events a client yields into the public stream.
-
-    A client yields deltas only; every one goes out as it arrives, in an event of its own, and
-    `StreamItems` closes each item with its done item when the next item begins or the stream ends.
-    The usage and finish reason of the client's stop events are merged into the one final stop.
-    """
-
-    def __init__(self, client: str) -> None:
-        self._client = client
-        self._items = StreamItems(client)
-        self._usage_metadata: UsageMetadata | None = None
-        self._finish_reason: FinishReason | None = None
-        self.done_items: list[ContentItem] = []
-
-    def push(self, event: UniEvent) -> Iterator[UniEvent]:
-        # a generator, so the deltas of an event reach the caller even when a later one fails
-        if event["event_type"] == "delta" and (
-            event["usage_metadata"] is not None or event["finish_reason"] is not None
-        ):
-            raise StreamProtocolError(self._client, "a delta event carries usage_metadata or finish_reason")
-
-        for delta in event["content_items"]:
-            yield from self._emit(self._items.delta(delta))
-
-        if event["usage_metadata"] is not None:
-            if self._usage_metadata is None:
-                self._usage_metadata = {
-                    "cached_tokens": None,
-                    "prompt_tokens": None,
-                    "thoughts_tokens": None,
-                    "response_tokens": None,
-                }
-            for usage_field in ("cached_tokens", "prompt_tokens", "thoughts_tokens", "response_tokens"):
-                if event["usage_metadata"].get(usage_field) is not None:
-                    self._usage_metadata[usage_field] = event["usage_metadata"][usage_field]
-
-        if event["finish_reason"]:
-            self._finish_reason = event["finish_reason"]
-
-    def end(self) -> Iterator[UniEvent]:
-        """The client's stream ended: the item still streaming is done."""
-        yield from self._emit(self._items.end())
-
-    def _emit(self, items: list[EventContentItem]) -> Iterator[UniEvent]:
-        for item in items:
-            if item["type"].endswith(".done"):
-                self.done_items.append(item)
-
-            yield _delta_event(item)
-
-    def stop(self) -> UniEvent:
-        """Build the stop event once the client's stream ended, rejecting a response that cannot be one."""
-        missing = []
-        if self._usage_metadata is None:
-            missing.append("usage_metadata")
-        if self._finish_reason is None:
-            missing.append("finish_reason")
-        if missing:
-            raise IncompleteStreamError(self._client, tuple(missing), self._finish_reason, self._usage_metadata)
-
-        # replaying a thinking-only assistant message on the next turn fails with a 400 error
-        if all(item["type"] in ("thinking.done", "inline_thinking.done") for item in self.done_items):
-            raise EmptyResponseError(self._client, self._finish_reason, self._usage_metadata)
-
-        return {
-            "role": "assistant",
-            "event_type": "stop",
-            "content_items": [],
-            "usage_metadata": self._usage_metadata,
-            "finish_reason": self._finish_reason,
-            "created_at": int(time.time() * 1000),
-        }
 
 
 class LLMClient(ABC):
@@ -154,33 +49,19 @@ class LLMClient(ABC):
 
     _model: str
     _history: list[UniMessage]
-    _in_flight: _StatefulCall | None = None
+    # the stateful call that holds the history until its stop event, its end or its abort, if any
+    _in_flight: dict[str, AbortSignal | None] | None = None
 
     @abstractmethod
     def transform_uni_config_to_model_config(self, config: UniConfig) -> Any:
-        """
-        Transform universal configuration to model-specific configuration.
-
-        Args:
-            config: Universal configuration dict
-
-        Returns:
-            Model-specific configuration object
-        """
-        pass
+        """Transform universal configuration to model-specific configuration."""
 
     @abstractmethod
     def transform_uni_message_to_model_input(self, messages: list[UniMessage]) -> Any:
         """
-        Transform universal message format to model-specific input format.
-
-        Args:
-            messages: List of universal message dictionaries
-
-        Returns:
-            Model-specific input format (e.g., Gemini's Content list, OpenAI's messages array)
+        Transform universal messages to the model's input format (Gemini's Content list, OpenAI's
+        messages array).
         """
-        pass
 
     @abstractmethod
     def transform_model_output_to_uni_event(self, model_output: Any) -> UniEvent:
@@ -193,16 +74,9 @@ class LLMClient(ABC):
         item are contiguous and carry the same `fidelity.item_id`, the provider's id for the item
         where it has one, which never reaches the public stream. Its event_type is "stop" on the
         wire events that report usage_metadata and/or finish_reason, in pieces the base class merges
-        field by field, and "delta" otherwise; a "delta" event carries neither.
-
-        Args:
-            model_output: Model-specific output object (streaming chunk)
-
-        Returns:
-            Universal event dictionary, an empty delta event when the wire event carries nothing
-            universal
+        field by field, and "delta" otherwise; a "delta" event carries neither. It is an empty delta
+        event when the wire event carries nothing universal.
         """
-        pass
 
     def concat_uni_events_to_uni_message(self, events: list[UniEvent]) -> UniMessage:
         """
@@ -245,24 +119,11 @@ class LLMClient(ABC):
 
         Each model client implements it to send the request and yield one universal event per event
         of the provider's stream; streaming_response turns them into the public stream.
-
-        Args:
-            messages: List of universal message dictionaries
-            config: Universal configuration dict
-
-        Yields:
-            Universal events of the streaming response
         """
-        pass
 
     @abstractmethod
     async def list_models(self) -> list[str]:
-        """
-        List the model ids the configured endpoint serves.
-
-        Returns:
-            list[str]: The model ids, in the order the endpoint returned them.
-        """
+        """List the model ids the configured endpoint serves, in the order the endpoint returned them."""
 
     async def streaming_response(
         self,
@@ -285,73 +146,112 @@ class LLMClient(ABC):
         Raises:
             InvalidMessageError: A message has no content items, before anything is sent.
         """
+        client_name = self.__class__.__name__
         _stamp_created_at(messages)
         request_messages = normalize_legacy_messages(messages)
         for index, message in enumerate(request_messages):
             if not message["content_items"]:
                 raise InvalidMessageError(
-                    self.__class__.__name__,
-                    f"message {index} has nothing {self.__class__.__name__} can send",
-                    message_index=index,
+                    client_name, f"message {index} has nothing {client_name} can send", message_index=index
                 )
 
-        output = _PublicStream(self.__class__.__name__)
         if signal is not None:
             signal.throw_if_aborted()
 
+        # a client yields deltas only: every one goes out as it arrives, in an event of its own, and
+        # StreamItems closes each item with its done item when the next item begins or the stream
+        # ends; the usage and finish reason of the client's stop events merge into the one public stop
         stream = self._streaming_response_internal(request_messages, config)
+        items = StreamItems(client_name)
+        done_items: list[ContentItem] = []
+        usage_metadata: UsageMetadata | None = None
+        finish_reason: FinishReason | None = None
+
+        # An abort ends the stream wherever it lands. One waiter per stream watches the signal. When
+        # it fires while a read is pending, it cancels the task reading, whichever task that is;
+        # otherwise the client's generator rests at a yield, so it is closed there and the provider's
+        # request ends now rather than at the caller's next read. `closing` keeps the waiter off a
+        # generator the finally below is already closing: a second aclose() would find it running.
         abort_task: asyncio.Task[None] | None = None
+        reading_task: asyncio.Task[Any] | None = None
         close_task: asyncio.Task[None] | None = None
-        streaming_task: asyncio.Task[Any] | None = None
-        waiting_for_stream = False
-        stream_closing = False
+        closing = False
         if signal is not None:
             abort_task = asyncio.create_task(signal.wait())
 
-            def cancel_streaming_task(task: asyncio.Task[None]) -> None:
+            def on_abort(task: asyncio.Task[None]) -> None:
                 nonlocal close_task
-                if task.cancelled() or not signal.aborted or stream_closing:
+                if task.cancelled() or not signal.aborted or closing:
                     return
 
-                if not waiting_for_stream:
-                    # no read is pending, so the client's generator rests at a yield: closing it there
-                    # closes the provider's request now rather than at the caller's next step
+                if reading_task is None:
                     close_task = asyncio.create_task(stream.aclose())
-                elif streaming_task is not None and not streaming_task.done():
-                    streaming_task.cancel(signal.reason)
+                else:
+                    reading_task.cancel(signal.reason)
 
-            abort_task.add_done_callback(cancel_streaming_task)
+            abort_task.add_done_callback(on_abort)
 
         try:
             while True:
                 try:
                     if signal is not None:
-                        signal.throw_if_aborted()
                         # a caller may read each event in a task of its own (the MMSP server and the
                         # playground do), so the abort cancels whichever task reads now
-                        streaming_task = asyncio.current_task()
-                        waiting_for_stream = True
+                        reading_task = asyncio.current_task()
                         signal.throw_if_aborted()
 
                     event = await anext(stream)
                 except StopAsyncIteration:
                     break
                 except asyncio.CancelledError:
+                    # re-raised from the signal, so the caller gets its reason whatever the client raised
                     if signal is not None and signal.aborted:
                         signal.throw_if_aborted()
                     raise
                 finally:
-                    waiting_for_stream = False
+                    reading_task = None
 
-                for public_event in output.push(event):
-                    yield public_event
+                if event["event_type"] == "delta" and (
+                    event["usage_metadata"] is not None or event["finish_reason"] is not None
+                ):
+                    raise StreamProtocolError(client_name, "a delta event carries usage_metadata or finish_reason")
+
+                # yielded one by one, so the deltas of an event reach the caller even when a later one fails
+                for delta in event["content_items"]:
+                    for item in items.delta(delta):
+                        if item["type"].endswith(".done"):
+                            done_items.append(item)
+
+                        yield {
+                            "role": "assistant",
+                            "event_type": "delta",
+                            "content_items": [item],
+                            "usage_metadata": None,
+                            "finish_reason": None,
+                            "created_at": int(time.time() * 1000),
+                        }
+
+                if event["usage_metadata"] is not None:
+                    if usage_metadata is None:
+                        usage_metadata = {
+                            "cached_tokens": None,
+                            "prompt_tokens": None,
+                            "thoughts_tokens": None,
+                            "response_tokens": None,
+                        }
+                    for usage_field in ("cached_tokens", "prompt_tokens", "thoughts_tokens", "response_tokens"):
+                        if event["usage_metadata"].get(usage_field) is not None:
+                            usage_metadata[usage_field] = event["usage_metadata"][usage_field]
+
+                if event["finish_reason"]:
+                    finish_reason = event["finish_reason"]
         finally:
-            stream_closing = True
+            closing = True
             if abort_task is not None and not abort_task.done():
                 abort_task.cancel()
                 with suppress(asyncio.CancelledError):
                     await abort_task
-            # a second aclose() would find the generator still closing
+            # the abort may have scheduled the close already; a second aclose() would find the generator running
             if close_task is not None:
                 await close_task
             else:
@@ -361,10 +261,38 @@ class LLMClient(ABC):
         if signal is not None:
             signal.throw_if_aborted()
 
-        for public_event in output.end():
-            yield public_event
+        # the item still streaming is done
+        for item in items.end():
+            done_items.append(item)
+            yield {
+                "role": "assistant",
+                "event_type": "delta",
+                "content_items": [item],
+                "usage_metadata": None,
+                "finish_reason": None,
+                "created_at": int(time.time() * 1000),
+            }
 
-        stop_event = output.stop()
+        missing = []
+        if usage_metadata is None:
+            missing.append("usage_metadata")
+        if finish_reason is None:
+            missing.append("finish_reason")
+        if missing:
+            raise IncompleteStreamError(client_name, tuple(missing), finish_reason, usage_metadata)
+
+        # replaying a thinking-only assistant message on the next turn fails with a 400 error
+        if all(item["type"] in ("thinking.done", "inline_thinking.done") for item in done_items):
+            raise EmptyResponseError(client_name, finish_reason, usage_metadata)
+
+        stop_event: UniEvent = {
+            "role": "assistant",
+            "event_type": "stop",
+            "content_items": [],
+            "usage_metadata": usage_metadata,
+            "finish_reason": finish_reason,
+            "created_at": int(time.time() * 1000),
+        }
 
         # saved before the stop is yielded: a caller may stop iterating as soon as it sees it
         if config.get("trace_id"):
@@ -372,7 +300,7 @@ class LLMClient(ABC):
 
             assistant_message: UniMessage = {
                 "role": "assistant",
-                "content_items": output.done_items,
+                "content_items": done_items,
                 "usage_metadata": stop_event["usage_metadata"],
                 "finish_reason": stop_event["finish_reason"],
                 "created_at": stop_event["created_at"],
@@ -405,10 +333,12 @@ class LLMClient(ABC):
         # two calls each sending the history as it was when they began would record their turns in
         # the order they finished, the later one generated without the earlier; an aborted call
         # records nothing, so it holds the client no longer
-        if self._in_flight is not None and not self._in_flight.aborted:
+        in_flight = self._in_flight
+        if in_flight is not None and (in_flight["signal"] is None or not in_flight["signal"].aborted):
             raise ConcurrentCallError(self.__class__.__name__)
 
-        call = _StatefulCall(signal)
+        # a fresh dict per call, so that the late close of an earlier call cannot release this one
+        call: dict[str, AbortSignal | None] = {"signal": signal}
         self._in_flight = call
         try:
             [message] = normalize_legacy_messages([message])
