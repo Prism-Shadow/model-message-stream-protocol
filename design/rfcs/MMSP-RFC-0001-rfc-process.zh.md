@@ -35,7 +35,22 @@ MMSP 要遵守的规则原先写在 mmsp-dev skill 里，写法是操作指南�
 
 - 目录结构：`design/README.md`（索引与流程）、`design/0000-template.md`（只有英文）与 `design/rfcs/MMSP-RFC-NNNN-<slug>.md`；除模板外，每个文件都有 `.zh.md` 对照版本。目录中只放 Markdown，因此 CI 把对它的改动归为文档改动，不运行模型测试。
 - 类别：`rule`，代码遵守的不变量；`change`，对协议或公开 API 的修改；`process`，这个目录的运作方式。规则 RFC 包含 Summary、Motivation、Rule 与 Enforced by 四节；`change` 与 `process` 类 RFC 采用 Rust RFC 的节次，从 Summary 到 Future possibilities。无话可说的小节直接省略。
-- 编号：RFC 取目录与未关闭的 PR 都没有用过的下一个 `MMSP-RFC-NNNN`。编号永不复用。
+- 编号：RFC 取目录与未关闭的 PR 都没有用过的下一个 `MMSP-RFC-NNNN`，编号永不复用。唯一的例外是 2026-10-24 按项目负责人的要求所做的那次重编号（TBD）：十二条规则按项目负责人给出的标题顺序，依次取 MMSP-RFC-0002 到 MMSP-RFC-0013；0.5.5 的十一条规则，其内容按下表迁移。
+
+  | 0.5.5 的编号 | 内容现在所在 |
+  | --- | --- |
+  | MMSP-RFC-0002 所有模型共用一套协议 | [MMSP-RFC-0002](MMSP-RFC-0002-one-protocol.zh.md) |
+  | MMSP-RFC-0003 同一套流语法，由基类收尾 | [MMSP-RFC-0003](MMSP-RFC-0003-async-streaming.zh.md)（流语法）、[MMSP-RFC-0005](MMSP-RFC-0005-essential-fields.zh.md)（`IncompleteStreamError`） |
+  | MMSP-RFC-0004 路由是显式的 | [MMSP-RFC-0006](MMSP-RFC-0006-explicit-routing.zh.md)（路由）、[MMSP-RFC-0011](MMSP-RFC-0011-explicit-parameters.zh.md)（版本匹配） |
+  | MMSP-RFC-0005 凭据只发往它被指定的地方 | [MMSP-RFC-0007](MMSP-RFC-0007-credential-scope.zh.md) |
+  | MMSP-RFC-0006 每个思考级别在每个客户端上都可用 | [MMSP-RFC-0010](MMSP-RFC-0010-thinking-levels-usable.zh.md) |
+  | MMSP-RFC-0007 被拒绝的值抛出有类型的错误 | [MMSP-RFC-0009](MMSP-RFC-0009-typed-errors.zh.md) |
+  | MMSP-RFC-0008 回传最小化，fidelity 是例外通道 | [MMSP-RFC-0004](MMSP-RFC-0004-lean-messages.zh.md)（fidelity 可以存放什么）、[MMSP-RFC-0005](MMSP-RFC-0005-essential-fields.zh.md)（`tool_call_id`、不带签名的思考） |
+  | MMSP-RFC-0009 两个包，一份契约 | [MMSP-RFC-0002](MMSP-RFC-0002-one-protocol.zh.md) |
+  | MMSP-RFC-0010 每条流都以用量和结束原因收尾 | [MMSP-RFC-0005](MMSP-RFC-0005-essential-fields.zh.md) |
+  | MMSP-RFC-0011 思考经往返转换不丢失 | [MMSP-RFC-0005](MMSP-RFC-0005-essential-fields.zh.md) |
+  | MMSP-RFC-0012 转换直白，不带冗余 | [MMSP-RFC-0013](MMSP-RFC-0013-direct-implementation.zh.md)（直白）、[MMSP-RFC-0004](MMSP-RFC-0004-lean-messages.zh.md)（不带冗余） |
+
 - 元数据：`Feature Name`、`Start Date`、`RFC PR`、`Kind`，适用时还有 `Supersedes`、`Superseded by` 与 `Implementation PR`；PR 链接写完整 URL。
 - 生命周期：PR 打开即提议，合并即采纳，关闭即撤回。`design/README.md` 中的索引为每篇已采纳的 RFC 列一行，写明类别与状态，状态为「已采纳」或「被 MMSP-RFC-NNNN 取代」；这一行由 RFC 自己的 PR 添加。取代旧 RFC 的 RFC，在同一个 PR 中更新旧文件的元数据与索引中旧的那一行。实现某篇 `change` 类 RFC 的 PR 加上它的 `Implementation PR` 一行。
 - 变更记录：RFC 的 PR 附一条 `process` 类型、Scope 为 `design` 的记录；实现 PR 附自己的记录，并链接这篇 RFC。
