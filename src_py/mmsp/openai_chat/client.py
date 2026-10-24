@@ -23,7 +23,7 @@ from openai.types.chat import ChatCompletionChunk, ChatCompletionMessageParam
 
 from ..base_client import LLMClient
 from ..credentials import CLIENT_CREDENTIALS
-from ..errors import UnsupportedParameterError
+from ..errors import InvalidMessageError, UnsupportedParameterError
 from ..types import (
     EventContentItem,
     EventType,
@@ -165,7 +165,8 @@ class OpenaiChatClient(LLMClient):
         # reasoning field never receives one.
         replay_fields: set[str | None] = set()
 
-        for msg in messages:
+        for message_index, msg in enumerate(messages):
+            message_start = len(openai_messages)
             content_parts = []  # may be empty for tool results
             tool_calls = []  # may be empty for no tool calls
             thinking = ""
@@ -262,6 +263,15 @@ class OpenaiChatClient(LLMClient):
             # blocks it sent; without them it accepts the turn and the reasoning is lost
             if reasoning_details:
                 message["reasoning_details"] = reasoning_details
+
+            # a message of tool results went out as its tool messages; one of thinking alone is an
+            # assistant turn with neither content nor tool calls
+            if not content_parts and not tool_calls and len(openai_messages) == message_start:
+                raise InvalidMessageError(
+                    self.__class__.__name__,
+                    f"message {message_index} has nothing {self.__class__.__name__} can send",
+                    message_index=message_index,
+                )
 
             # message may be empty for tool results
             if len(message.keys()) > 1:

@@ -13,13 +13,20 @@
 # limitations under the License.
 
 import asyncio
+import copy
 import time
 from abc import ABC, abstractmethod
-from contextlib import suppress
+from contextlib import aclosing, suppress
 from typing import Any, AsyncIterator, Iterator
 
 from .abort_signal import AbortSignal
-from .errors import EmptyResponseError, IncompleteStreamError, StreamProtocolError
+from .errors import (
+    ConcurrentCallError,
+    EmptyResponseError,
+    IncompleteStreamError,
+    InvalidMessageError,
+    StreamProtocolError,
+)
 from .legacy import normalize_legacy_messages
 from .stream_items import StreamItems
 from .types import (
@@ -31,6 +38,24 @@ from .types import (
     UniMessage,
     UsageMetadata,
 )
+
+
+def _stamp_created_at(messages: list[UniMessage]) -> None:
+    """Stamp each message that has no created_at with the time it is sent, on the caller's own object."""
+    for message in messages:
+        if message.get("created_at") is None:
+            message["created_at"] = int(time.time() * 1000)
+
+
+class _StatefulCall:
+    """A stateful call, which holds its client's history until its stop event, its end or its abort."""
+
+    def __init__(self, signal: AbortSignal | None) -> None:
+        self.signal = signal
+
+    @property
+    def aborted(self) -> bool:
+        return self.signal is not None and self.signal.aborted
 
 
 def _delta_event(item: EventContentItem) -> UniEvent:
@@ -128,7 +153,8 @@ class LLMClient(ABC):
     """
 
     _model: str
-    _history: list[UniMessage] = []
+    _history: list[UniMessage]
+    _in_flight: _StatefulCall | None = None
 
     @abstractmethod
     def transform_uni_config_to_model_config(self, config: UniConfig) -> Any:
@@ -255,12 +281,19 @@ class LLMClient(ABC):
         Yields:
             Delta events, each carrying one delta or done item, then exactly one stop event
             carrying the usage and the finish reason
+
+        Raises:
+            InvalidMessageError: A message has no content items, before anything is sent.
         """
-        # Stamp any messages that don't yet have a created_at timestamp
-        for msg in messages:
-            if "created_at" not in msg:
-                msg["created_at"] = int(time.time() * 1000)
+        _stamp_created_at(messages)
         request_messages = normalize_legacy_messages(messages)
+        for index, message in enumerate(request_messages):
+            if not message["content_items"]:
+                raise InvalidMessageError(
+                    self.__class__.__name__,
+                    f"message {index} has nothing {self.__class__.__name__} can send",
+                    message_index=index,
+                )
 
         output = _PublicStream(self.__class__.__name__)
         if signal is not None:
@@ -351,30 +384,57 @@ class LLMClient(ABC):
 
         Yields:
             Universal events from the streaming response
-        """
-        [message] = normalize_legacy_messages([message])
 
-        events: list[UniEvent] = []
-        async for event in self.streaming_response(messages=self._history + [message], config=config, signal=signal):
-            events.append(event)
-            if event["event_type"] == "stop":
-                # recorded before the stop is yielded: a caller may stop iterating as soon as it sees it
-                self._history.append(message)
-                self._history.append(self.concat_uni_events_to_uni_message(events))
-            yield event
+        Raises:
+            ConcurrentCallError: Another stateful call on this client has not ended.
+        """
+        # two calls each sending the history as it was when they began would record their turns in
+        # the order they finished, the later one generated without the earlier; an aborted call
+        # records nothing, so it holds the client no longer
+        if self._in_flight is not None and not self._in_flight.aborted:
+            raise ConcurrentCallError(self.__class__.__name__)
+
+        call = _StatefulCall(signal)
+        self._in_flight = call
+        try:
+            [message] = normalize_legacy_messages([message])
+
+            events: list[UniEvent] = []
+            # closed with this generator, so that closing it closes the provider's request before returning
+            async with aclosing(
+                self.streaming_response(messages=self._history + [message], config=config, signal=signal)
+            ) as stream:
+                async for event in stream:
+                    events.append(event)
+                    if event["event_type"] == "stop":
+                        # an abort that lands as the stop arrives still records nothing: a newer call may
+                        # hold the client by now
+                        if signal is not None:
+                            signal.throw_if_aborted()
+
+                        # recorded before the stop is yielded: a caller may stop iterating as soon as it sees
+                        # it, and the turn has ended then, so the next one may begin before this generator
+                        # is closed
+                        self._history.append(copy.deepcopy(message))
+                        self._history.append(copy.deepcopy(self.concat_uni_events_to_uni_message(events)))
+                        self._in_flight = None
+                    yield event
+        finally:
+            if self._in_flight is call:
+                self._in_flight = None
 
     def clear_history(self) -> None:
         """Clear the message history."""
-        self._history.clear()
+        self._history = []
 
     def get_history(self) -> list[UniMessage]:
-        """Get the current message history."""
-        return self._history.copy()
+        """Get a deep copy of the current message history."""
+        return copy.deepcopy(self._history)
 
     def set_history(self, history: list[UniMessage]) -> None:
-        """Replace the message history with a copy of the provided history.
+        """Replace the message history with a deep copy of the provided history.
 
         Args:
             history: List of universal message dictionaries to set as the new history
         """
-        self._history = normalize_legacy_messages(history)
+        self._history = copy.deepcopy(normalize_legacy_messages(history))

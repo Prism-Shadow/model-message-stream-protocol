@@ -22,7 +22,7 @@ from anthropic import AsyncAnthropic, AsyncAnthropicBedrock
 from anthropic.types.beta import BetaMessageParam, BetaRawMessageStreamEvent
 
 from ..base_client import LLMClient
-from ..errors import UnsupportedOperationError, UnsupportedParameterError
+from ..errors import InvalidMessageError, UnsupportedOperationError, UnsupportedParameterError
 from ..types import (
     EventContentItem,
     EventType,
@@ -284,7 +284,7 @@ class AnthropicOfficialClient(LLMClient):
         """
         claude_messages: list[BetaMessageParam] = []
 
-        for msg in messages:
+        for message_index, msg in enumerate(messages):
             content_blocks = []
             for item in msg["content_items"]:
                 if item["type"] == "text.done":
@@ -327,6 +327,14 @@ class AnthropicOfficialClient(LLMClient):
                     )
                 else:
                     raise ValueError(f"Unknown item: {item}")
+
+            if all(block["type"] in ("thinking", "redacted_thinking") for block in content_blocks):
+                raise InvalidMessageError(
+                    self.__class__.__name__,
+                    f"message {message_index} has nothing {self.__class__.__name__} can send "
+                    "once its unsigned thinking is left out",
+                    message_index=message_index,
+                )
 
             claude_messages.append({"role": msg["role"], "content": content_blocks})
 

@@ -18,8 +18,8 @@ from typing import Any, AsyncIterator
 import httpx
 
 from ..abort_signal import AbortSignal, run_with_abort
-from ..base_client import LLMClient
-from ..errors import UpstreamError
+from ..base_client import LLMClient, _stamp_created_at
+from ..errors import IncompleteStreamError, UpstreamError
 from ..types import UniConfig, UniEvent, UniMessage
 from ..utils import resolve_credentials
 from ..wire import DEFAULT_BASE_URL, MODELS_ROUTE, STREAM_ROUTE, decode_wire, encode_wire
@@ -155,15 +155,22 @@ class MmspClient(LLMClient):
                     _error_payload(await response.aread(), response.status_code), response.status_code
                 )
 
+            stopped = False
             async for data in _sse_data(response.aiter_lines()):
                 if data == "[DONE]":
-                    return
+                    break
 
                 wire = json.loads(data)
                 if "error" in wire:
                     raise _upstream_error(wire["error"], None)
 
-                yield self.transform_model_output_to_uni_event(wire)
+                event = self.transform_model_output_to_uni_event(wire)
+                stopped = stopped or event["event_type"] == "stop"
+                yield event
+
+            # the server's stream ended before its stop event, which carries the usage and the finish reason
+            if not stopped:
+                raise IncompleteStreamError(self.__class__.__name__, ("usage_metadata", "finish_reason"), None, None)
 
     async def streaming_response(
         self,
@@ -185,6 +192,7 @@ class MmspClient(LLMClient):
         Yields:
             The events of the server's public stream, in order
         """
+        _stamp_created_at(messages)
         if signal is not None:
             signal.throw_if_aborted()
         stream = self._streaming_response_internal(messages, config)

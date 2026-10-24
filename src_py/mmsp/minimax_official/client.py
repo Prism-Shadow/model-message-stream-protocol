@@ -20,7 +20,7 @@ from openai.types.responses import ResponseStreamEvent
 
 from ..base_client import LLMClient
 from ..credentials import CLIENT_CREDENTIALS
-from ..errors import UnsupportedParameterError
+from ..errors import InvalidMessageError, UnsupportedParameterError
 from ..types import (
     EventContentItem,
     EventType,
@@ -156,7 +156,8 @@ class MiniMaxOfficialClient(LLMClient):
         """Transform universal messages to MiniMax Responses input items."""
         input_list: list[dict[str, Any]] = []
 
-        for message in messages:
+        for message_index, message in enumerate(messages):
+            message_start = len(input_list)
             content_items: list[dict[str, Any]] = []
             for item in message["content_items"]:
                 # anything that is not message content becomes an input item of its own, so the
@@ -220,6 +221,13 @@ class MiniMaxOfficialClient(LLMClient):
 
             if content_items:
                 input_list.append({"type": "message", "role": message["role"], "content": content_items})
+
+            if all(entry["type"] == "reasoning" for entry in input_list[message_start:]):
+                raise InvalidMessageError(
+                    self.__class__.__name__,
+                    f"message {message_index} has nothing {self.__class__.__name__} can send",
+                    message_index=message_index,
+                )
 
         return input_list
 

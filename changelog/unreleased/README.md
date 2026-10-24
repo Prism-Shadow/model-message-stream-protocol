@@ -2,6 +2,7 @@
 
 [中文版](README.zh.md)
 
+- [2026-10-23] The history held deep copies, a second stateful call while one was in flight raised `ConcurrentCallError`, a message with nothing a client can send raised `InvalidMessageError` instead of being dropped or sent empty, embedding vectors paired with their inputs by `index`, and the `mmsp` client stamped `created_at` and raised `IncompleteStreamError` for a stream ended before its `stop` event. ([details](2026-10-23-history-copies-and-empty-messages.md), [#291](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/291))
 - [2026-10-23] Added `RoutingError`, `InvalidMessageError`, `UnsupportedContentError`, `UnknownEventError`, `ProviderStreamError` and `ConcurrentCallError`, each a subclass of the built-in error it replaces, and relayed every MMSP error through the MMSP server with its fields. ([details](2026-10-23-typed-error-classes.md), [#288](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/288))
 - [2026-10-23] The configuration page gives, for each `UniConfig` key, what each client sends, ignores or raises on. ([details](2026-10-23-configuration-docs.md), [#289](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/289))
 - [2026-10-23] `anthropic-official` turned thinking off for `ThinkingLevel.NONE` on Claude Sonnet 4.6, Opus 4.8, Sonnet 5 and Opus 5, with or without a thinking summary, and ran it on Fable 5 at the lowest effort. ([details](2026-10-23-thinking-level-gaps.md), [#293](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/293))

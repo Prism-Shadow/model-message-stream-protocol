@@ -2,6 +2,7 @@
 
 [English](README.md)
 
+- [2026-10-23] 历史记录保存深拷贝；一个有状态调用尚未结束时再发起有状态调用会抛出 `ConcurrentCallError`；客户端没有任何可发送内容的消息抛出 `InvalidMessageError`，不再被丢弃或以空内容发送；嵌入向量按 `index` 与输入配对；`mmsp` 客户端补上 `created_at`，并在流于 `stop` 事件之前结束时抛出 `IncompleteStreamError`。([详情](2026-10-23-history-copies-and-empty-messages.zh.md), [#291](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/291))
 - [2026-10-23] 新增 `RoutingError`、`InvalidMessageError`、`UnsupportedContentError`、`UnknownEventError`、`ProviderStreamError` 与 `ConcurrentCallError`，每个都是它所取代的内置错误的子类；每个 MMSP 错误都连同字段经 MMSP 服务端转发。([详情](2026-10-23-typed-error-classes.zh.md), [#288](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/288))
 - [2026-10-23] 配置页按每个 `UniConfig` 字段给出每个客户端发送、忽略或抛错的情况。([详情](2026-10-23-configuration-docs.zh.md), [#289](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/289))
 - [2026-10-23] `anthropic-official` 在 Claude Sonnet 4.6、Opus 4.8、Sonnet 5 与 Opus 5 上为 `ThinkingLevel.NONE` 关闭思考，无论是否设置思考摘要；在 Fable 5 上以最低 effort 运行。([详情](2026-10-23-thinking-level-gaps.zh.md), [#293](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/293))
