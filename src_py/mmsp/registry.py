@@ -424,6 +424,27 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "pricing": _usd(1.4, 4.4, cached=0.26),
     },
     {
+        # official list price (2026-10-23); the default 5m cache write costs the input price, so
+        # the prompt bucket is exact; only the 1h write of prompt_caching enhance costs 2x
+        "model": "kimi-k3.1-pro",
+        "base_url": _MOONSHOT,
+        "client": "moonshot-official",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1048576,
+        "pricing": _cny(13.0, 68.0, cached=1.3),
+    },
+    {
+        # image input verified live 2026-10-23; the cache-hit price is the standard model's
+        "model": "kimi-k3.1-pro-highspeed",
+        "base_url": _MOONSHOT,
+        "client": "moonshot-official",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1048576,
+        "pricing": _cny(26.0, 136.0, cached=1.3),
+    },
+    {
         "model": "kimi-k3",
         "base_url": _MOONSHOT,
         "client": "moonshot-official",
@@ -654,13 +675,25 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "pricing": _usd(0, 0),
     },
     {
+        # models API 2026-10-23; the slug's `moonshotai/highspeed` endpoint (4/20/0.2) is a
+        # provider route, not a model id
+        "model": "moonshotai/kimi-k3.1-pro",
+        "base_url": _OPENROUTER,
+        "client": "moonshot-official",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1048576,
+        "pricing": _usd(2.0, 10.0, cached=0.2),
+    },
+    {
+        # models API 2026-10-23
         "model": "moonshotai/kimi-k3",
         "base_url": _OPENROUTER,
         "client": "moonshot-official",
         "input_modalities": ["Text", "Image"],
         "output_modalities": ["Text"],
         "context_window": 1048576,
-        "pricing": _usd(0.239, 11.936, cached=0.21),
+        "pricing": _usd(0.239, 10.8, cached=0.21),
     },
     {
         "model": "moonshotai/kimi-k2.6",
@@ -1150,6 +1183,16 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "output_modalities": ["Text"],
         "context_window": 1000000,
         "pricing": _cny(1.0, 4.0, cached=0.1),
+    },
+    {
+        # catalog 2026-10-23, whose context window is 1000000 rather than Moonshot's 1048576
+        "model": "kimi-k3.1-pro",
+        "base_url": _TOKENDANCE,
+        "client": "moonshot-official",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1000000,
+        "pricing": _cny(13.0, 68.0, cached=1.3),
     },
     {
         "model": "kimi-k3",

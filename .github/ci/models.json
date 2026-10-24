@@ -155,11 +155,11 @@
     "models": [
       {
         "api_key_env": "MOONSHOT_API_KEY",
-        "name": "kimi-k3"
+        "name": "kimi-k3.1-pro"
       },
       {
         "api_key_env": "OPENROUTER_API_KEY",
-        "name": "moonshotai/kimi-k3",
+        "name": "moonshotai/kimi-k3.1-pro",
         "provider": "openrouter",
         "client_type": "moonshot-official",
         "slow": true
