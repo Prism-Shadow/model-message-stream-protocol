@@ -3,6 +3,7 @@
 - **Date:** 2026-10-24
 - **Type:** refactor
 - **Scope:** `base_client`
+- **PR:** [#297](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/297)
 
 [English](2026-10-24-base-client-inline.md)
 
