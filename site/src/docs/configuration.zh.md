@@ -112,7 +112,7 @@ description: UniConfig，请求的配置选项，以及每个客户端为它们�
 | `openai-chat`、`openai-chat-vllm-adapter` | `auto` | `none` | `required` | `allowed_tools`，`mode: "auto"` |
 | `google-official` | `auto` | `none` | `any` | `allowed_tools`，`mode: "any"` |
 | `google-genai` | `AUTO` | `NONE` | `ANY` | `ANY` 加 `allowed_function_names` |
-| `moonshot-official` | `auto` | `none` | Kimi K3 上为 `required`；Kimi K2 上抛错 | 抛错 |
+| `moonshot-official` | `auto` | `none` | Kimi K3 与 K3.1 Pro 上为 `required`；Kimi K2 上抛错 | 抛错 |
 | `deepseek-official` | `auto` | `none` | 抛错 | 抛错 |
 | `minimax-official` | `auto` | `none`；MiniMax-M3.1-Flash 上抛错 | 抛错 | 抛错 |
 | `zai-official` | `auto` | 抛错 | 抛错 | 抛错 |

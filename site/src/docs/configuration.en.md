@@ -112,7 +112,7 @@ A cell is the value sent: the `type` on the Anthropic clients, the function call
 | `openai-chat`, `openai-chat-vllm-adapter` | `auto` | `none` | `required` | `allowed_tools` with `mode: "auto"` |
 | `google-official` | `auto` | `none` | `any` | `allowed_tools` with `mode: "any"` |
 | `google-genai` | `AUTO` | `NONE` | `ANY` | `ANY` with `allowed_function_names` |
-| `moonshot-official` | `auto` | `none` | `required` on Kimi K3; raises on Kimi K2 | raises |
+| `moonshot-official` | `auto` | `none` | `required` on Kimi K3 and K3.1 Pro; raises on Kimi K2 | raises |
 | `deepseek-official` | `auto` | `none` | raises | raises |
 | `minimax-official` | `auto` | `none`; raises on MiniMax-M3.1-Flash | raises | raises |
 | `zai-official` | `auto` | raises | raises | raises |
