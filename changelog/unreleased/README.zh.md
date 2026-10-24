@@ -3,6 +3,7 @@
 [English](README.md)
 
 - [2026-10-23] `anthropic-official` 在 Claude Sonnet 4.6、Opus 4.8、Sonnet 5 与 Opus 5 上为 `ThinkingLevel.NONE` 关闭思考，无论是否设置思考摘要；在 Fable 5 上以最低 effort 运行。([详情](2026-10-23-thinking-level-gaps.zh.md), [#293](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/293))
+- [2026-10-23] 模型索引显示各条目的延迟与吞吐（构建时由状态探测数据写入页面，单位在列标题中），改由每行末尾的按钮打开集成代码（可复制代码或复制给 Agent），并显示了小米标志。([详情](2026-10-23-site-model-index.zh.md), [#284](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/284))
 - [2026-10-23] 模型监测页顶部改为一张按总体状态着色的卡片，状态改用图标，每个渠道的数字和可用率与名称同处柱条上方一行，可切换 7、30、90 天并前后翻页（一年的历史及按年归档），逐日柱条可弹出当天卡片，看板铺满页面宽度，并在构建时写入探测数据、每次探测后重新构建；状态键改用 `+` 连接三元组。([详情](2026-10-23-site-status-page.zh.md), [#283](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/283))
 - [2026-10-23] TokenDance 上 DeepSeek V4.1 Flash 的注册表条目及其 CI 用例由 `deepseek-official` 改为 `openai-chat`，即该网关的 Chat Completions 协议。([详情](2026-10-23-tokendance-openai-chat.zh.md), [#286](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/286))
 - [2026-10-23] Chat Completions 客户端把网关的加密推理块记录为 `encrypted_content`、`format` 与 `reasoning_id`，并在回传时重建该块，不再原样保存整个块。([详情](2026-10-23-openai-chat-generic-fidelity.zh.md), [#287](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/287))
