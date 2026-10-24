@@ -40,7 +40,7 @@ from ..utils import fix_openrouter_usage_metadata, openai_client_options, resolv
 
 
 class MoonshotOfficialClient(LLMClient):
-    """Kimi K3-specific LLM client implementation using OpenAI-compatible API (also serves K2.5 and K2.6)."""
+    """Kimi K3-series LLM client (K3, K3.1 Pro) using the OpenAI-compatible API; also serves the K2 generation."""
 
     def __init__(
         self,
@@ -96,12 +96,10 @@ class MoonshotOfficialClient(LLMClient):
         return mapping.get(thinking_level)
 
     def _convert_thinking_level_to_reasoning_effort(self, thinking_level: ThinkingLevel) -> str:
-        """Convert ThinkingLevel enum to Kimi K3's reasoning_effort.
-
-        K3 cannot disable reasoning, so NONE degrades to the lowest effort instead of raising.
-        """
+        """Convert ThinkingLevel enum to Kimi K3's reasoning_effort."""
         mapping = {
-            ThinkingLevel.NONE: "low",
+            # "none" turns reasoning off on the K3 series (verified live 2026-10-23; the docs list only low/high/max)
+            ThinkingLevel.NONE: "none",
             ThinkingLevel.LOW: "low",
             ThinkingLevel.MEDIUM: "high",
             ThinkingLevel.HIGH: "high",
@@ -119,8 +117,8 @@ class MoonshotOfficialClient(LLMClient):
         elif tool_choice == "required" and "k2." not in self._model.lower():
             return "required"
         else:
-            # the K2 generation rejects "required"; forcing a specific tool is
-            # unsupported family-wide
+            # the K2 generation rejects "required"; the K3 series takes a forced tool only with
+            # reasoning off, so forcing a specific tool stays unsupported family-wide
             raise UnsupportedParameterError(
                 self.__class__.__name__,
                 "tool_choice",
@@ -148,8 +146,7 @@ class MoonshotOfficialClient(LLMClient):
             )
 
         if config.get("thinking_level") is not None:
-            # the K2 generation configures thinking through extra_body and can disable it;
-            # K3 uses reasoning_effort and cannot
+            # the K2 generation configures thinking through extra_body; the K3 series uses reasoning_effort
             if "k2." in self._model.lower():
                 thinking_config = self._convert_thinking_level_to_thinking_config(config["thinking_level"])
                 kimi_config.setdefault("extra_body", {})["thinking"] = thinking_config
@@ -167,9 +164,15 @@ class MoonshotOfficialClient(LLMClient):
         if config.get("fast_mode"):
             raise UnsupportedParameterError(self.__class__.__name__, "fast_mode", "Kimi does not support fast mode.")
 
-        if config.get("prompt_caching") is not None and config["prompt_caching"] != PromptCaching.ENABLE:
+        if config.get("prompt_caching") == PromptCaching.ENHANCE and "k2." not in self._model.lower():
+            # the K3 series writes its automatic prefix cache with a 5m TTL; enhance asks for the 1h cache,
+            # at twice the cache-write price
+            kimi_config.setdefault("extra_body", {})["prompt_cache_options"] = {"mode": "implicit", "ttl": "1h"}
+        elif config.get("prompt_caching") is not None and config["prompt_caching"] != PromptCaching.ENABLE:
             raise UnsupportedParameterError(
-                self.__class__.__name__, "prompt_caching", "prompt_caching must be ENABLE for Kimi."
+                self.__class__.__name__,
+                "prompt_caching",
+                "Kimi does not support this prompt_caching (disable has no equivalent; enhance needs Kimi K3).",
             )
 
         # K3 context caching is automatic; the K2 generation keys its prompt cache on trace_id
