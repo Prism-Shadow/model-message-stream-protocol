@@ -217,7 +217,8 @@ export class OpenAIOfficialClient extends LLMClient {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const inputList: any[] = [];
 
-    for (const msg of messages) {
+    for (const [messageIndex, msg] of messages.entries()) {
+      const messageStart = inputList.length;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let contentItems: any[] = [];
       let lastPhase: string | null = null;
@@ -361,6 +362,18 @@ export class OpenAIOfficialClient extends LLMClient {
           entry.phase = lastPhase;
         }
         inputList.push(entry);
+      }
+
+      if (
+        inputList
+          .slice(messageStart)
+          .every((entry) => entry.type === "reasoning")
+      ) {
+        throw new InvalidMessageError({
+          client: this.constructor.name,
+          message: `message ${messageIndex} has nothing ${this.constructor.name} can send`,
+          messageIndex,
+        });
       }
     }
 

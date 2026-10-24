@@ -3214,7 +3214,7 @@ def create_chat_app() -> Flask:
                 document.getElementById('thread').classList.remove('hidden');
             }
 
-            function addMessageCard(role, content, metadata = null, images = [], timestamp = null, tookMs = null) {
+            function addMessageCard(role, content, metadata = null, images = [], timestamp = null) {
                 const thread = document.getElementById('thread');
                 showThread();
 
@@ -3235,7 +3235,7 @@ def create_chat_app() -> Flask:
                     }
                     html += `<div class="message-content">${escapeHtml(content || '')}</div></div>`;
                 } else {
-                    html += `<div class="msg-head"><span class="msg-model">${escapeHtml(getSelectedModel())}</span><span class="msg-took">${tookMs !== null ? formatDuration(tookMs) : ''}</span><span class="msg-timestamp">${timestamp ? formatClock(timestamp) : ''}</span></div>`;
+                    html += `<div class="msg-head"><span class="msg-model">${escapeHtml(getSelectedModel())}</span><span class="msg-timestamp">${timestamp ? formatClock(timestamp) : ''}</span></div>`;
                     html += `<div class="message-content">${escapeHtml(content || '')}</div>`;
                 }
 
@@ -3545,10 +3545,6 @@ def create_chat_app() -> Flask:
                     const endTime = Date.now();
                     const responseTimeMs = endTime - userSendTime;
                     lastMessageTimestamp = endTime;
-                    const tookEl = assistantCard.querySelector('.msg-took');
-                    if (tookEl) {
-                        tookEl.textContent = formatDuration(responseTimeMs);
-                    }
 
                     if (metadata) {
                         const metadataHtml = renderMetadata(metadata, responseTimeMs, Boolean(contentDiv.querySelector('.text-content')));
@@ -3745,7 +3741,7 @@ def create_chat_app() -> Flask:
             if previous_signal is not None:
                 previous_signal.abort("replaced")
             _session_abort_signals[session_id] = signal
-            async_gen = None
+            async_gen = next_event = None
             loop = _get_event_loop()
             try:
                 # Get or create client for this session
@@ -3784,7 +3780,8 @@ def create_chat_app() -> Flask:
                 async_gen = stream_events()
                 while True:
                     try:
-                        event = asyncio.run_coroutine_threadsafe(async_gen.__anext__(), loop).result()
+                        next_event = asyncio.run_coroutine_threadsafe(async_gen.__anext__(), loop)
+                        event = next_event.result()
                         yield event
                     except StopAsyncIteration:
                         break
@@ -3794,6 +3791,12 @@ def create_chat_app() -> Flask:
                 yield "data: [DONE]\n\n"
             except GeneratorExit:
                 signal.abort("client disconnected")
+                # the abort cancels a pending read; wait for it, or aclose() would find the stream still running
+                if next_event is not None:
+                    try:
+                        next_event.result(timeout=1)
+                    except Exception:
+                        pass
                 if async_gen is not None:
                     try:
                         asyncio.run_coroutine_threadsafe(async_gen.aclose(), loop).result(timeout=1)

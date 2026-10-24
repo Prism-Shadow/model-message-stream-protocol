@@ -246,7 +246,8 @@ export class ZAIOfficialClient extends LLMClient {
     const supportsImage = this._model.toLowerCase().includes("glm-5.3-flash");
     const openaiMessages: ChatCompletionMessageParam[] = [];
 
-    for (const msg of messages) {
+    for (const [messageIndex, msg] of messages.entries()) {
+      const messageStart = openaiMessages.length;
       const contentParts: Array<{
         type: string;
         text?: string;
@@ -358,6 +359,20 @@ export class ZAIOfficialClient extends LLMClient {
           message.reasoning_content = thinking; // vLLM & siliconflow compatibility
           message.reasoning = thinking; // openrouter compatibility
         }
+      }
+
+      // a message of tool results went out as its tool messages; one of thinking alone is an
+      // assistant turn with neither content nor tool calls
+      if (
+        contentParts.length === 0 &&
+        toolCalls.length === 0 &&
+        openaiMessages.length === messageStart
+      ) {
+        throw new InvalidMessageError({
+          client: this.constructor.name,
+          message: `message ${messageIndex} has nothing ${this.constructor.name} can send`,
+          messageIndex,
+        });
       }
 
       if (Object.keys(message).length > 1) {

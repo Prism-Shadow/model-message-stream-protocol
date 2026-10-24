@@ -1,11 +1,14 @@
 
 
-// The daily status probe's data, as the pages read it in the browser: the files the status
-// workflow commits to the status-data branch (.github/status/README.md describes them). Every
-// entry is keyed by its registry triple, `${client}|${base_url}|${model}`. Without the files, the
-// pages stay as they were built: every entry not probed. A check run by hand is followed through
-// the GitHub API, anonymously: the workflow's runs, the branch's head commit, then that commit's
-// files.
+// The daily status probe's data: the files the status workflow commits to the status-data branch
+// (.github/status/README.md describes them). The pages are built with them (status-build.ts) and
+// read them again in the browser, to catch up with a run newer than the build. Every entry is
+// keyed by its registry triple, `${client}+${base_url}+${model}`; files written before 2026-10-23
+// joined it with `|`, and withCurrentKeys() rewrites those keys as they are read. A file comes from
+// raw.githubusercontent.com, or where raw does not answer (from mainland China, for one) from the
+// GitHub contents API, which allows 60 anonymous requests an hour per IP. A check run by hand is
+// followed through the same API: the workflow's runs, the branch's head commit, then that
+// commit's files.
 
 const REPO = "Prism-Shadow/model-message-stream-protocol";
 export const STATUS_DATA_URL = `https://raw.githubusercontent.com/${REPO}/status-data/`;
@@ -16,7 +19,9 @@ export const STATUS_RUNS_API = `https://api.github.com/repos/${REPO}/actions/wor
 // the files as of one commit: raw.githubusercontent.com may cache a branch's files for minutes, a
 // commit's never change
 export const statusCommitBase = (sha: string) => `https://raw.githubusercontent.com/${REPO}/${sha}/`;
-export const HISTORY_DAYS = 90;
+// the days history.json keeps; every earlier day is in history/YYYY.json
+export const HISTORY_DAYS = 365;
+const SVG = "http://www.w3.org/2000/svg";
 
 export type Status = "up" | "degraded" | "down" | "nokey";
 
@@ -54,10 +59,21 @@ export interface Day {
   ttft_ms: number | null;
   tps: number | null;
   cost_usd: number | null;
+  // the samples that answered, of how many, and the last error: days written before the probe
+  // recorded them lack them
+  ok?: number;
+  samples?: number;
+  error?: string | null;
 }
 
 export interface History {
   days: number;
+  targets: Record<string, Record<string, Day>>;
+}
+
+// history/YYYY.json: every day of one UTC year, never pruned
+export interface HistoryYear {
+  year: string;
   targets: Record<string, Record<string, Day>>;
 }
 
@@ -94,13 +110,43 @@ export function statusQuery(): string {
   return statusBase() === STATUS_DATA_URL ? "" : `?status=${encodeURIComponent(statusBase())}`;
 }
 
+const contentsApi = (name: string, ref: string) => `https://api.github.com/repos/${REPO}/contents/${name}?ref=${ref}`;
+// the branch, or the commit a base pins; null for a local ?status= override
+const refOf = (base: string) => (base === STATUS_DATA_URL ? "status-data" : (base.match(/\/([0-9a-f]{40})\/$/)?.[1] ?? null));
+
+async function fetchJson<T>(url: string, headers?: Record<string, string>): Promise<T | null> {
+  const response = await fetch(url, { headers, signal: AbortSignal.timeout(8_000) });
+  return response.ok ? ((await response.json()) as T) : null;
+}
+
+// a key written before 2026-10-23 joined the triple with "|"
+const currentKey = (key: string) => key.replaceAll("|", "+");
+const rekey = <V>(targets: Record<string, V>) => Object.fromEntries(Object.entries(targets).map(([key, value]) => [currentKey(key), value]));
+
+// a status file with every target keyed as today: the targets of latest.json and history.json, and
+// of each month of monthly.json
+export function withCurrentKeys<T>(data: T): T {
+  if (!data || typeof data !== "object") return data;
+  const { targets, months } = data as { targets?: Record<string, unknown>; months?: Record<string, Month> };
+  return {
+    ...data,
+    ...(targets && { targets: rekey(targets) }),
+    ...(months && {
+      months: Object.fromEntries(Object.entries(months).map(([name, month]) => [name, month?.targets ? { ...month, targets: rekey(month.targets) } : month])),
+    }),
+  };
+}
+
 const loaded = new Map<string, Promise<unknown>>();
 function load<T>(name: string, base = statusBase()): Promise<T | null> {
   const url = base + name;
   if (!loaded.has(url)) {
-    const file = fetch(url, { cache: "no-store" })
-      .then((response) => (response.ok ? response.json() : null))
-      .catch(() => null);
+    const ref = refOf(base);
+    // a missing file is null at once; a connection that fails or hangs tries the API instead
+    const file = fetchJson<T>(url)
+      .catch(() => (ref ? fetchJson<T>(contentsApi(name, ref), { accept: "application/vnd.github.raw+json" }) : null))
+      .catch(() => null)
+      .then(withCurrentKeys);
     loaded.set(url, file);
     // a file that did not arrive is asked for again next time
     void file.then((data) => data === null && loaded.delete(url));
@@ -110,6 +156,7 @@ function load<T>(name: string, base = statusBase()): Promise<T | null> {
 
 export const loadLatest = (base?: string) => load<Latest>("latest.json", base);
 export const loadHistory = (base?: string) => load<History>("history.json", base);
+export const loadHistoryYear = (year: string, base?: string) => load<HistoryYear>(`history/${year}.json`, base);
 export const loadMonthly = (base?: string) => load<Monthly>("monthly.json", base);
 
 async function github<T>(url: string): Promise<{ status: number; body?: T } | undefined> {
@@ -183,23 +230,89 @@ export function ago(iso: string, locale: string): string {
   return format.format(0, "minute");
 }
 
-// the last HISTORY_DAYS UTC dates, oldest first, as history.json names its days
-export function lastDays(count = HISTORY_DAYS): string[] {
-  const now = new Date();
-  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-  return Array.from({ length: count }, (_, index) => new Date(today - (count - 1 - index) * 86_400_000).toISOString().slice(0, 10));
+// when status.yml runs the probe: one fixed UTC time a day, its only cron being "M H * * *"; null
+// for any other schedule, which the page then does not try to predict
+export interface DailySchedule {
+  hour: number;
+  minute: number;
 }
 
-// a status as a flat dot and its word
+export function dailySchedule(workflow: string): DailySchedule | null {
+  const crons = [...workflow.matchAll(/^\s*-?\s*cron:\s*(.*)$/gm)].map((match) =>
+    match[1]
+      .replace(/\s+#.*$/, "")
+      .trim()
+      .replace(/^(["'])(.*)\1$/, "$2"),
+  );
+  if (crons.length !== 1) return null;
+  const fields = crons[0].split(/\s+/);
+  if (fields.length !== 5 || fields.slice(2).some((field) => field !== "*") || !fields.slice(0, 2).every((field) => /^\d{1,2}$/.test(field))) return null;
+  const [minute, hour] = fields.map(Number);
+  return minute < 60 && hour < 24 ? { hour, minute } : null;
+}
+
+// the first time the schedule comes round after `now`
+export function nextRun({ hour, minute }: DailySchedule, now = new Date()): Date {
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hour, minute);
+  return new Date(today > now.getTime() ? today : today + 86_400_000);
+}
+
+// today's UTC date, as history.json names its days
+export function todayUtc(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// the `count` UTC dates that end on `end`, oldest first
+export function windowDays(end: string, count: number): string[] {
+  const last = Date.parse(`${end}T00:00:00Z`);
+  return Array.from({ length: count }, (_, index) => new Date(last - (count - 1 - index) * 86_400_000).toISOString().slice(0, 10));
+}
+
+// the last `count` UTC dates, oldest first
+export function lastDays(count = HISTORY_DAYS): string[] {
+  return windowDays(todayUtc(), count);
+}
+
+// each state's shape on a 16-unit square: filled in the state's colour, the glyph cut out in
+// --status-cut; a day nobody probed is a ring
+type Shape = [tag: "circle" | "path", attributes: Record<string, string>][];
+const DISC: Shape[number] = ["circle", { cx: "8", cy: "8", r: "7.5", fill: "currentColor" }];
+const CUT = { fill: "none", "stroke-width": "1.75", "stroke-linecap": "round", style: "stroke: var(--status-cut)" };
+const ICONS: Record<Status | "none", Shape> = {
+  up: [DISC, ["path", { d: "M4.75 8.25 7 10.5l4.25-5", ...CUT, "stroke-linejoin": "round" }]],
+  degraded: [
+    ["path", { d: "M7.1 1.9a1 1 0 0 1 1.8 0l6.1 11.6a1 1 0 0 1-.9 1.5H1.9a1 1 0 0 1-.9-1.5z", fill: "currentColor" }],
+    ["path", { d: "M8 6v3.6", ...CUT }],
+    ["circle", { cx: "8", cy: "12.1", r: "1", style: "fill: var(--status-cut)" }],
+  ],
+  down: [DISC, ["path", { d: "m5.5 5.5 5 5m0-5-5 5", ...CUT }]],
+  nokey: [DISC, ["path", { d: "M5 8h6", ...CUT }]],
+  none: [["circle", { cx: "8", cy: "8", r: "6.75", fill: "none", stroke: "currentColor", "stroke-width": "1.5" }]],
+};
+
+// a status as its icon, for beside a word or a name that says the rest
+export function statusIcon(status: Status | "none", size = "h-4 w-4"): SVGElement {
+  const svg = document.createElementNS(SVG, "svg");
+  svg.setAttribute("viewBox", "0 0 16 16");
+  svg.setAttribute("class", `status-icon ${size}`);
+  svg.setAttribute("aria-hidden", "true");
+  svg.dataset.status = status;
+  for (const [tag, attributes] of ICONS[status]) {
+    const shape = document.createElementNS(SVG, tag);
+    for (const [name, value] of Object.entries(attributes)) shape.setAttribute(name, value);
+    svg.append(shape);
+  }
+  return svg;
+}
+
+// a status as its icon and its word
 export function statusLabel(status: Status | null, words: StatusWords): HTMLElement {
   const label = document.createElement("span");
   label.className = "status-label";
   label.dataset.status = status ?? "none";
-  const dot = document.createElement("span");
-  dot.className = "status-dot";
   const word = document.createElement("span");
   word.className = "status-word";
   word.textContent = status ? words[status] : words.none;
-  label.append(dot, word);
+  label.append(statusIcon(status ?? "none"), word);
   return label;
 }

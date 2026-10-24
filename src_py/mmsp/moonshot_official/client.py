@@ -192,7 +192,8 @@ class MoonshotOfficialClient(LLMClient):
         """
         openai_messages = []
 
-        for msg in messages:
+        for message_index, msg in enumerate(messages):
+            message_start = len(openai_messages)
             content_parts = []  # may be empty for tool results
             tool_calls = []  # may be empty for no tool calls
             thinking = ""
@@ -265,6 +266,15 @@ class MoonshotOfficialClient(LLMClient):
                 else:
                     message["reasoning_content"] = thinking  # vLLM & siliconflow compatibility
                     message["reasoning"] = thinking  # openrouter compatibility
+
+            # a message of tool results went out as its tool messages; one of thinking alone is an
+            # assistant turn with neither content nor tool calls
+            if not content_parts and not tool_calls and len(openai_messages) == message_start:
+                raise InvalidMessageError(
+                    self.__class__.__name__,
+                    f"message {message_index} has nothing {self.__class__.__name__} can send",
+                    message_index=message_index,
+                )
 
             # message may be empty for tool results
             if len(message.keys()) > 1:
@@ -408,8 +418,9 @@ class MoonshotOfficialClient(LLMClient):
         # Stream generate
         stream = await self._client.chat.completions.create(**kimi_config, messages=kimi_messages)
 
-        async for chunk in stream:
-            yield self.transform_model_output_to_uni_event(chunk)
+        async with stream:
+            async for chunk in stream:
+                yield self.transform_model_output_to_uni_event(chunk)
 
     async def list_models(self) -> list[str]:
         """

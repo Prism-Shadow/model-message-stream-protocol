@@ -169,7 +169,8 @@ class DeepSeekOfficialClient(LLMClient):
         supports_image = not _TEXT_ONLY_MODELS.fullmatch(self._model.lower().rsplit("/", 1)[-1])
         input_list: list[ResponseInputParam] = []
 
-        for msg in messages:
+        for message_index, msg in enumerate(messages):
+            message_start = len(input_list)
             content_items: list = []
 
             for item in msg["content_items"]:
@@ -255,6 +256,13 @@ class DeepSeekOfficialClient(LLMClient):
 
             if content_items:
                 input_list.append({"type": "message", "role": msg["role"], "content": content_items})
+
+            if all(entry["type"] == "reasoning" for entry in input_list[message_start:]):
+                raise InvalidMessageError(
+                    self.__class__.__name__,
+                    f"message {message_index} has nothing {self.__class__.__name__} can send",
+                    message_index=message_index,
+                )
 
         return input_list
 
@@ -393,8 +401,9 @@ class DeepSeekOfficialClient(LLMClient):
 
         # Stream generate
         stream = await self._client.responses.create(**deepseek_config, input=input_list, stream=True)
-        async for model_event in stream:
-            yield self.transform_model_output_to_uni_event(model_event)
+        async with stream:
+            async for model_event in stream:
+                yield self.transform_model_output_to_uni_event(model_event)
 
     async def list_models(self) -> list[str]:
         """

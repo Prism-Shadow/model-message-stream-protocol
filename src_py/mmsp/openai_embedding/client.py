@@ -17,7 +17,7 @@ from typing import Any, AsyncIterator
 from openai import AsyncOpenAI
 
 from ..base_client import LLMClient
-from ..errors import UnsupportedContentError, UnsupportedParameterError
+from ..errors import InvalidMessageError, UnsupportedContentError, UnsupportedParameterError
 from ..types import UniConfig, UniEvent, UniMessage
 from ..utils import openai_client_options, resolve_credentials
 
@@ -58,7 +58,7 @@ class OpenaiEmbeddingClient(LLMClient):
     def transform_uni_message_to_model_input(self, messages: list[UniMessage]) -> list[str]:
         """Transform universal messages to OpenAI Embeddings input strings."""
         texts = []
-        for msg in messages:
+        for message_index, msg in enumerate(messages):
             msg_text = ""
             for item in msg["content_items"]:
                 if item["type"] != "text.done":
@@ -66,7 +66,13 @@ class OpenaiEmbeddingClient(LLMClient):
                         self.__class__.__name__, item["type"], "OpenAI embeddings only support text content items."
                     )
                 msg_text += item["text"]
-            texts.append(msg_text or " ")
+            if not msg_text:
+                raise InvalidMessageError(
+                    self.__class__.__name__,
+                    f"message {message_index} has nothing {self.__class__.__name__} can send",
+                    message_index=message_index,
+                )
+            texts.append(msg_text)
         return texts
 
     def transform_model_output_to_uni_event(self, model_output: Any) -> UniEvent:
@@ -75,7 +81,11 @@ class OpenaiEmbeddingClient(LLMClient):
         return {
             "role": "assistant",
             "event_type": "stop",
-            "content_items": [{"type": "embedding.delta", "embedding": item.embedding} for item in model_output.data],
+            # the vectors pair with the inputs by index, which an endpoint need not return in order
+            "content_items": [
+                {"type": "embedding.delta", "embedding": item.embedding}
+                for item in sorted(model_output.data, key=lambda item: item.index)
+            ],
             "usage_metadata": {
                 "cached_tokens": None,
                 "prompt_tokens": usage.prompt_tokens if usage else None,

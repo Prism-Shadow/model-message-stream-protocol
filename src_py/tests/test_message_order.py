@@ -195,6 +195,38 @@ async def test_message_transform_keeps_content_item_order(case: MessageOrderCase
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("contents", ["nothing", "signed thinking alone", "unsigned thinking alone"])
+@pytest.mark.parametrize(
+    "case",
+    MESSAGE_ORDER_CASES,
+    ids=[f"{case.model}:{case.client_type or 'auto'}" for case in MESSAGE_ORDER_CASES],
+)
+async def test_a_message_with_nothing_to_send_raises_invalid_message_error(case: MessageOrderCase, contents: str):
+    client = AutoLLMClient(model=case.model, api_key="test-key", client_type=case.client_type)
+    thinking = {"type": "thinking.done", "thinking": "I should answer."}
+    content_items = {
+        "nothing": [],
+        "signed thinking alone": [{**thinking, "fidelity": {"signature": case.thought_signature}}],
+        "unsigned thinking alone": [thinking],
+    }[contents]
+    messages = [
+        {"role": "user", "content_items": [{"type": "text.done", "text": "Hello."}]},
+        {"role": "assistant", "content_items": content_items},
+        {"role": "user", "content_items": [{"type": "text.done", "text": "And now?"}]},
+    ]
+
+    # never dropped and never sent empty: a turn of thinking alone is no turn a provider takes back
+    with pytest.raises(InvalidMessageError) as exc_info:
+        model_input = client._client.transform_uni_message_to_model_input(messages)  # noqa: SLF001
+        if inspect.isawaitable(model_input):
+            await model_input
+
+    assert exc_info.value.client == case.expected_client
+    assert exc_info.value.message_index == 1
+    assert str(exc_info.value).startswith(f"message 1 has nothing {case.expected_client} can send")
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("item_type", ["tool_result", "audio_url.done"], ids=["no_tool_call_id", "unknown_item"])
 @pytest.mark.parametrize(
     "case",

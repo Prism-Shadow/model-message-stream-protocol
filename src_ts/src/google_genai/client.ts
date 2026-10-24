@@ -475,7 +475,7 @@ export class GoogleGenaiClient extends LLMClient {
     // The generateContent API wants both the call id and the function name on a function
     // response, but a universal tool_result carries only the id, so remember each call's name.
     const callNames = new Map<string, string>();
-    for (const msg of messages) {
+    for (const [messageIndex, msg] of messages.entries()) {
       let parts: Part[] = [];
       for (const item of msg.content_items) {
         const thoughtSignature =
@@ -638,6 +638,14 @@ export class GoogleGenaiClient extends LLMClient {
               !part.thoughtSignature
             ),
         );
+      }
+
+      if (parts.every((part) => part.thought)) {
+        throw new InvalidMessageError({
+          client: this.constructor.name,
+          message: `message ${messageIndex} has nothing ${this.constructor.name} can send`,
+          messageIndex,
+        });
       }
 
       // Vertex AI rejects a content that mixes functionResponse parts with any other
@@ -881,10 +889,7 @@ export class GoogleGenaiClient extends LLMClient {
       }
     }
 
-    const geminiConfig = this._withAbortSignal<GenerateContentConfig>(
-      this.transformUniConfigToModelConfig(options.config),
-      options.signal,
-    );
+    const geminiConfig = this.transformUniConfigToModelConfig(options.config);
     let contents = await this.transformUniMessageToModelInput(
       messages,
       options.signal,
@@ -918,24 +923,45 @@ export class GoogleGenaiClient extends LLMClient {
       ];
     }
 
-    const responseStream = await this._client.models.generateContentStream({
-      model: this._model,
-      contents: contents,
-      config: geminiConfig,
-    });
+    // closing the SDK's stream only releases its reader and leaves the connection open, so the
+    // request is bound to a controller this generator aborts on its way out, as the caller's
+    // signal does
+    const controller = new AbortController();
+    const forwardAbort = () => controller.abort(options.signal?.reason);
+    if (options.signal?.aborted) {
+      forwardAbort();
+    } else {
+      options.signal?.addEventListener("abort", forwardAbort, { once: true });
+    }
+    try {
+      const responseStream = await this._client.models.generateContentStream({
+        model: this._model,
+        contents: contents,
+        config: this._withAbortSignal(geminiConfig, controller.signal),
+      });
 
-    let sawFunctionCall = false;
-    for await (const chunk of responseStream) {
-      const event = this.transformModelOutputToUniEvent(chunk);
-      if (event.content_items.some((item) => item.type === "tool_call.delta")) {
-        sawFunctionCall = true;
+      let sawFunctionCall = false;
+      for await (const chunk of responseStream) {
+        const event = this.transformModelOutputToUniEvent(chunk);
+        if (
+          event.content_items.some((item) => item.type === "tool_call.delta")
+        ) {
+          sawFunctionCall = true;
+        }
+        // generateContent reports STOP for a turn that stopped to call tools
+        const finishReason =
+          event.finish_reason === "stop" && sawFunctionCall
+            ? "tool_call"
+            : event.finish_reason;
+        yield { ...event, finish_reason: finishReason };
       }
-      // generateContent reports STOP for a turn that stopped to call tools
-      const finishReason =
-        event.finish_reason === "stop" && sawFunctionCall
-          ? "tool_call"
-          : event.finish_reason;
-      yield { ...event, finish_reason: finishReason };
+    } catch (error) {
+      // the SDK fails an aborted request with an AbortError of its own, whatever the reason
+      options.signal?.throwIfAborted();
+      throw error;
+    } finally {
+      options.signal?.removeEventListener("abort", forwardAbort);
+      controller.abort();
     }
   }
 

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+from contextlib import aclosing
 from typing import Any, AsyncIterator
 
 from .abort_signal import AbortSignal
@@ -184,12 +185,12 @@ class AutoLLMClient(LLMClient):
         signal: AbortSignal | None = None,
     ) -> AsyncIterator[UniEvent]:
         """Route to underlying client's streaming_response."""
-        async for event in self._client.streaming_response(
-            messages=messages,
-            config=config,
-            signal=signal,
-        ):
-            yield event
+        # closing this generator closes the client's, and with it the provider's request
+        async with aclosing(
+            self._client.streaming_response(messages=messages, config=config, signal=signal)
+        ) as stream:
+            async for event in stream:
+                yield event
 
     async def streaming_response_stateful(
         self,
@@ -198,12 +199,11 @@ class AutoLLMClient(LLMClient):
         signal: AbortSignal | None = None,
     ) -> AsyncIterator[UniEvent]:
         """Route to underlying client's streaming_response_stateful."""
-        async for event in self._client.streaming_response_stateful(
-            message=message,
-            config=config,
-            signal=signal,
-        ):
-            yield event
+        async with aclosing(
+            self._client.streaming_response_stateful(message=message, config=config, signal=signal)
+        ) as stream:
+            async for event in stream:
+                yield event
 
     def clear_history(self) -> None:
         """Clear history in the underlying client."""

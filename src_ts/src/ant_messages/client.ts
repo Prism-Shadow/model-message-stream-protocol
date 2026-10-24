@@ -250,7 +250,7 @@ export class AntMessagesClient extends LLMClient {
   ): BetaMessageParam[] {
     const antMessages: BetaMessageParam[] = [];
 
-    for (const msg of messages) {
+    for (const [messageIndex, msg] of messages.entries()) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const contentBlocks: any[] = [];
       for (const item of msg.content_items) {
@@ -314,6 +314,19 @@ export class AntMessagesClient extends LLMClient {
             itemType: (item as { type: string }).type,
           });
         }
+      }
+
+      if (
+        contentBlocks.every(
+          (block) =>
+            block.type === "thinking" || block.type === "redacted_thinking",
+        )
+      ) {
+        throw new InvalidMessageError({
+          client: this.constructor.name,
+          message: `message ${messageIndex} has nothing ${this.constructor.name} can send`,
+          messageIndex,
+        });
       }
 
       antMessages.push({ role: msg.role, content: contentBlocks });

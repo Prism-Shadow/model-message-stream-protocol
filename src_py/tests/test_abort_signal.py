@@ -114,6 +114,48 @@ class MultiEventStreamingClient(LLMClient):
         }
 
 
+class SilentAfterFirstEventClient(MultiEventStreamingClient):
+    """Streams one text delta, then stays silent, and records that its stream was closed."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.cleaned = asyncio.Event()
+
+    async def _streaming_response_internal(
+        self,
+        messages: list[UniMessage],
+        config: UniConfig,
+    ) -> AsyncIterator[UniEvent]:
+        try:
+            yield {
+                "role": "assistant",
+                "event_type": "delta",
+                "content_items": [{"type": "text.delta", "text": "hello", "fidelity": {"item_id": "0"}}],
+                "usage_metadata": None,
+                "finish_reason": None,
+            }
+            await asyncio.sleep(60)
+        finally:
+            self.cleaned.set()
+
+
+class AbortedAtTheEndClient(MultiEventStreamingClient):
+    """Streams a whole response, and its signal is aborted just as the stream ends."""
+
+    def __init__(self, signal: AbortSignal) -> None:
+        super().__init__()
+        self.signal = signal
+
+    async def _streaming_response_internal(
+        self,
+        messages: list[UniMessage],
+        config: UniConfig,
+    ) -> AsyncIterator[UniEvent]:
+        async for event in super()._streaming_response_internal(messages, config):
+            yield event
+        self.signal.abort("late")
+
+
 class CountingAbortSignal(AbortSignal):
     def __init__(self) -> None:
         super().__init__()
@@ -295,3 +337,39 @@ async def test_streaming_response_does_not_create_stream_when_signal_is_already_
             pass
 
     assert not client.stream_created
+
+
+@pytest.mark.asyncio
+async def test_streaming_response_cancels_a_read_running_in_another_task() -> None:
+    client = SilentAfterFirstEventClient()
+    signal = AbortSignal()
+    messages: list[UniMessage] = [{"role": "user", "content_items": [{"type": "text.done", "text": "hello"}]}]
+    stream = client.streaming_response(messages=messages, config={}, signal=signal)
+
+    # the MMSP server and the playground read each event in a task of their own
+    await asyncio.create_task(anext(stream))
+    read = asyncio.create_task(anext(stream))
+    await asyncio.sleep(0.01)
+
+    signal.abort("stop")
+
+    with pytest.raises(asyncio.CancelledError):
+        await asyncio.wait_for(read, timeout=1)
+
+    assert client.cleaned.is_set()
+
+
+@pytest.mark.asyncio
+async def test_streaming_response_ends_as_an_abort_when_the_signal_fires_as_the_stream_ends() -> None:
+    signal = AbortSignal()
+    client = AbortedAtTheEndClient(signal)
+    messages: list[UniMessage] = [{"role": "user", "content_items": [{"type": "text.done", "text": "hello"}]}]
+    events: list[UniEvent] = []
+
+    with pytest.raises(asyncio.CancelledError):
+        async for event in client.streaming_response_stateful(message=messages[0], config={}, signal=signal):
+            events.append(event)
+
+    # the deltas that arrived, and neither the done item nor the stop that would record the turn
+    assert [event["content_items"][0]["type"] for event in events] == ["text.delta", "text.delta"]
+    assert client.get_history() == []

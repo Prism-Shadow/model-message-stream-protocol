@@ -289,7 +289,7 @@ class GoogleOfficialClient(LLMClient):
         # A function_result must name its function (HTTP 400 without it), but a universal
         # tool_result carries only the call id, so remember each call's name.
         call_names: dict[str, str] = {}
-        for msg in messages:
+        for message_index, msg in enumerate(messages):
             message_start = len(steps)
             # consecutive text and media of a message share one user_input or model_output step
             content: list[interactions.ContentParam] | None = None
@@ -414,6 +414,13 @@ class GoogleOfficialClient(LLMClient):
                     steps.append(function_result)
                 else:
                     raise InvalidMessageError(self.__class__.__name__, f"Unknown item: {item}", item_type=item["type"])
+
+            if all(step["type"] == "thought" for step in steps[message_start:]):
+                raise InvalidMessageError(
+                    self.__class__.__name__,
+                    f"message {message_index} has nothing {self.__class__.__name__} can send",
+                    message_index=message_index,
+                )
 
             # An image generation model (gemini-*-image) sometimes streams its text before its first
             # thought step, but the API takes a turn holding a thought back only when the turn opens
@@ -685,8 +692,9 @@ class GoogleOfficialClient(LLMClient):
 
         stream = await self._client.aio.interactions.create(**gemini_config, input=steps)
 
-        async for event in stream:
-            yield self.transform_model_output_to_uni_event(event)
+        async with stream:
+            async for event in stream:
+                yield self.transform_model_output_to_uni_event(event)
 
     async def list_models(self) -> list[str]:
         """

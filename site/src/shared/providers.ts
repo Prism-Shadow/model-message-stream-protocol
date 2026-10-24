@@ -137,7 +137,7 @@ const VENDORS: [RegExp, Vendor][] = [
   [/stepfun\/|(^|\/)step-/, { id: "stepfun", name: "StepFun", mark: "stepfun" }],
   [/tencent\/|hunyuan|(^|\/)hy\d/, { id: "tencent", name: "Tencent", mark: "hunyuan" }],
   [/x-ai\/|grok/, { id: "xai", name: "xAI", mark: "xai" }],
-  [/xiaomi\/|(^|\/)mimo/, { id: "xiaomi", name: "Xiaomi" }],
+  [/xiaomi\/|(^|\/)mimo/, { id: "xiaomi", name: "Xiaomi", mark: "xiaomi" }],
   [/meituan|longcat/, { id: "meituan", name: "Meituan", mark: "longcat" }],
 ];
 

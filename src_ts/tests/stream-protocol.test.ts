@@ -13,10 +13,13 @@
 // limitations under the License.
 
 import { describe, expect, jest, test } from "@jest/globals";
+import { AutoLLMClient } from "../src/autoClient";
 import { LLMClient } from "../src/baseClient";
 import {
+  ConcurrentCallError,
   EmptyResponseError,
   IncompleteStreamError,
+  InvalidMessageError,
   StreamProtocolError,
   ToolCallArgumentParseError,
 } from "../src/errors";
@@ -136,6 +139,36 @@ async function collect(
 
 function items(events: UniEvent[]) {
   return events.flatMap((event) => event.content_items);
+}
+
+function userMessage(
+  text: string,
+  fields: Partial<UniMessage> = {},
+): UniMessage {
+  return {
+    role: "user",
+    content_items: [{ type: "text.done", text }],
+    ...fields,
+  };
+}
+
+/**
+ * An embedding client whose endpoint answers every request with `data`.
+ */
+function embeddingClient(
+  data: { index: number; embedding: number[] }[],
+): AutoLLMClient {
+  const client = new AutoLLMClient({
+    model: "text-embedding-3-large",
+    apiKey: "test-key",
+    clientType: "openai-embedding",
+  });
+  (client as unknown as { _client: { _client: unknown } })._client._client = {
+    embeddings: {
+      create: async () => ({ data, usage: { prompt_tokens: 4 } }),
+    },
+  };
+  return client;
 }
 
 describe("stream assembly", () => {
@@ -580,6 +613,51 @@ describe("stream assembly", () => {
     ]);
   });
 
+  test("embedding vectors pair with their messages by index", async () => {
+    // the endpoint answers out of order: each vector names the input it belongs to by its index
+    const client = embeddingClient([
+      { index: 1, embedding: [0.3, 0.4] },
+      { index: 0, embedding: [0.1, 0.2] },
+    ]);
+    const events: UniEvent[] = [];
+    for await (const event of client.streamingResponse({
+      messages: [userMessage("first"), userMessage("second")],
+      config: {},
+    })) {
+      events.push(event);
+    }
+
+    expect(
+      items(events)
+        .filter((item) => item.type === "embedding.done")
+        .map((item) => (item as { embedding: number[] }).embedding),
+    ).toEqual([
+      [0.1, 0.2],
+      [0.3, 0.4],
+    ]);
+  });
+
+  test("an embedding message without text raises InvalidMessageError", () => {
+    const client = embeddingClient([]);
+
+    let error: unknown;
+    try {
+      client.transformUniMessageToModelInput([
+        userMessage("first"),
+        userMessage(""),
+      ]);
+    } catch (caught) {
+      error = caught;
+    }
+
+    expect(error).toBeInstanceOf(InvalidMessageError);
+    expect(error).toMatchObject({
+      client: "OpenaiEmbeddingClient",
+      messageIndex: 1,
+      message: "message 1 has nothing OpenaiEmbeddingClient can send",
+    });
+  });
+
   test("an empty delta event and a stop event carrying nothing are ignored", async () => {
     const events = await collect([
       delta(),
@@ -820,6 +898,339 @@ describe("history and legacy messages", () => {
       finish_reason: "stop",
     });
   });
+
+  async function drain(stream: AsyncGenerator<UniEvent>): Promise<UniEvent[]> {
+    const events: UniEvent[] = [];
+    for await (const event of stream) {
+      events.push(event);
+    }
+    return events;
+  }
+
+  test("the caller's messages gain their created_at and nothing else", async () => {
+    const messages = [
+      userMessage("earlier", { created_at: 1 }),
+      userMessage("unset", { created_at: null as unknown as number }),
+      userMessage("hi"),
+    ];
+    const before = structuredClone(messages);
+
+    await drain(
+      new ScriptedClient(reply).streamingResponse({ messages, config: {} }),
+    );
+
+    expect(messages[0]).toEqual(before[0]);
+    for (const [index, message] of messages.entries()) {
+      expect(typeof message.created_at).toBe("number");
+      expect({ ...message, created_at: null }).toEqual({
+        ...before[index],
+        created_at: null,
+      });
+    }
+
+    const message = userMessage("hi");
+    await drain(
+      new ScriptedClient(reply).streamingResponseStateful({
+        message,
+        config: {},
+      }),
+    );
+
+    expect(typeof message.created_at).toBe("number");
+    expect({ ...message, created_at: undefined }).toEqual(userMessage("hi"));
+  });
+
+  test("the history shares no object with the caller or the stream", async () => {
+    const client = new ScriptedClient(reply);
+    const image = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+    const message: UniMessage = {
+      role: "user",
+      content_items: [
+        { type: "text.done", text: "hi" },
+        { type: "inline_data.done", data: image, mime_type: "image/png" },
+      ],
+    };
+    const events = await drain(
+      client.streamingResponseStateful({ message, config: {} }),
+    );
+    const expected = client.getHistory();
+
+    // whatever the caller holds, it changes nothing the client recorded
+    (message.content_items[0] as { text: string }).text = "changed";
+    message.content_items.push({ type: "text.done", text: "added" });
+    image[0] = 0;
+    (
+      items(events).find((item) => item.type === "text.done") as {
+        text: string;
+      }
+    ).text = "changed";
+    const returned = client.getHistory();
+    returned[0].content_items.length = 0;
+    (returned[1].content_items[0] as { text: string }).text = "changed";
+
+    expect(client.getHistory()).toEqual(expected);
+    expect(expected[0].content_items).toEqual([
+      { type: "text.done", text: "hi" },
+      {
+        type: "inline_data.done",
+        data: Buffer.from([0x89, 0x50, 0x4e, 0x47]),
+        mime_type: "image/png",
+      },
+    ]);
+    // a Buffer stays a Buffer, which the clients encode with toString("base64")
+    expect(
+      Buffer.isBuffer(
+        (client.getHistory()[0].content_items[1] as { data: Buffer }).data,
+      ),
+    ).toBe(true);
+    expect(expected[1].content_items).toEqual([
+      { type: "text.done", text: "hello" },
+    ]);
+
+    const given: UniMessage[] = [
+      userMessage("Hi"),
+      {
+        role: "assistant",
+        content_items: [{ type: "text.done", text: "Hello!" }],
+      },
+    ];
+    client.setHistory(given);
+    (given[0].content_items[0] as { text: string }).text = "changed";
+    given[1].content_items.length = 0;
+
+    expect(client.getHistory()).toEqual([
+      userMessage("Hi"),
+      {
+        role: "assistant",
+        content_items: [{ type: "text.done", text: "Hello!" }],
+      },
+    ]);
+  });
+
+  test("a second stateful call while one is in flight raises ConcurrentCallError", async () => {
+    const client = new ScriptedClient(reply);
+    const first = client.streamingResponseStateful({
+      message: userMessage("one"),
+      config: {},
+    });
+    await first.next();
+
+    const error = await client
+      .streamingResponseStateful({ message: userMessage("two"), config: {} })
+      .next()
+      .catch((caught) => caught);
+
+    expect(error).toBeInstanceOf(ConcurrentCallError);
+    expect(error).toMatchObject({
+      client: "ScriptedClient",
+      message:
+        "ScriptedClient has a stateful call in flight; wait for its stop event or its error.",
+    });
+    expect(client.getHistory()).toEqual([]);
+    expect(client.sentMessages).toHaveLength(1);
+    // a stateless call keeps no history, so it runs beside a stateful one
+    expect(
+      await drain(
+        client.streamingResponse({
+          messages: [userMessage("aside")],
+          config: {},
+        }),
+      ),
+    ).not.toHaveLength(0);
+
+    await drain(first);
+    expect(
+      client
+        .getHistory()
+        .map((entry) => (entry.content_items[0] as { text: string }).text),
+    ).toEqual(["one", "hello"]);
+
+    // the turn has ended at its stop event, before its generator is closed
+    const second = client.streamingResponseStateful({
+      message: userMessage("two"),
+      config: {},
+    });
+    for (;;) {
+      const { value } = await second.next();
+      if (value.event_type === "stop") {
+        break;
+      }
+    }
+    const third = client.streamingResponseStateful({
+      message: userMessage("three"),
+      config: {},
+    });
+    await third.next();
+    // closing the earlier generator late leaves the call in flight holding the client
+    await second.return(undefined);
+    await expect(
+      client
+        .streamingResponseStateful({ message: userMessage("four"), config: {} })
+        .next(),
+    ).rejects.toBeInstanceOf(ConcurrentCallError);
+    await drain(third);
+
+    expect(client.getHistory()).toHaveLength(6);
+  });
+
+  test.each<[string, number]>([
+    ["mid-stream", 1],
+    ["once the provider's stream ended, before the stop event", 2],
+  ])(
+    "an aborted stateful call releases the client at once and records nothing (aborted %s)",
+    async (_name, reads) => {
+      const client = new ScriptedClient(reply);
+      const controller = new AbortController();
+      const first = client.streamingResponseStateful({
+        message: userMessage("one"),
+        config: {},
+        signal: controller.signal,
+      });
+      for (let read = 0; read < reads; read++) {
+        await first.next();
+      }
+
+      // the playground's next turn: the abort, then at once the next stateful call
+      controller.abort("replaced");
+      await drain(
+        client.streamingResponseStateful({
+          message: userMessage("two"),
+          config: {},
+        }),
+      );
+
+      const error = await drain(first).catch((caught) => caught);
+      expect(error).toBe("replaced");
+      expect(
+        client
+          .getHistory()
+          .map((entry) => (entry.content_items[0] as { text: string }).text),
+      ).toEqual(["two", "hello"]);
+    },
+  );
+
+  test("closing a stateful stream closes the client's stream before it returns", async () => {
+    let closed = false;
+    class TrackedClient extends ScriptedClient {
+      async *_streamingResponseInternal(options: {
+        messages: UniMessage[];
+        config: UniConfig;
+      }): AsyncGenerator<UniEvent> {
+        try {
+          yield* super._streamingResponseInternal(options);
+        } finally {
+          closed = true;
+        }
+      }
+    }
+
+    const stream = new TrackedClient(reply).streamingResponseStateful({
+      message: userMessage("one"),
+      config: {},
+    });
+    await stream.next();
+    await stream.return(undefined);
+
+    expect(closed).toBe(true);
+  });
+
+  test("a stateful call that fails releases the client", async () => {
+    const client = new ScriptedClient([
+      delta(withId("0", { type: "text.delta", text: "a" })),
+      stop(USAGE, null),
+    ]);
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await expect(
+        drain(client.streamingResponseStateful({ message: USER, config: {} })),
+      ).rejects.toBeInstanceOf(IncompleteStreamError);
+    }
+    expect(client.getHistory()).toEqual([]);
+  });
+
+  test("a stateful conversation continues the history it was given", async () => {
+    const first = userMessage("Hi", { created_at: 1 });
+    const answer: UniMessage = {
+      role: "assistant",
+      content_items: [{ type: "text.done", text: "Hello!" }],
+      created_at: 2,
+    };
+    const client = new ScriptedClient(reply);
+    client.setHistory([first, answer]);
+
+    const turns: [UniMessage, UniMessage][] = [];
+    for (const message of [userMessage("one"), userMessage("two")]) {
+      const events = await drain(
+        client.streamingResponseStateful({ message, config: {} }),
+      );
+      turns.push([message, client.concatUniEventsToUniMessage(events)]);
+    }
+
+    const [[one, replyOne], [two, replyTwo]] = turns;
+    expect(client.getHistory()).toEqual([
+      first,
+      answer,
+      one,
+      replyOne,
+      two,
+      replyTwo,
+    ]);
+    // each request carried the whole history ahead of its message
+    expect(client.sentMessages).toEqual([
+      [first, answer, one],
+      [first, answer, one, replyOne, two],
+    ]);
+  });
+
+  test.each<[string, unknown[]]>([
+    ["empty", []],
+    [
+      "empty once normalized",
+      [
+        {
+          type: "partial_tool_call",
+          name: "",
+          arguments: "",
+          tool_call_id: "",
+        },
+      ],
+    ],
+  ])(
+    "a message without content items (%s) raises InvalidMessageError before anything is sent",
+    async (_name, contentItems) => {
+      const warn = jest
+        .spyOn(process, "emitWarning")
+        .mockImplementation(() => undefined);
+      const client = new ScriptedClient(reply);
+      const events: UniEvent[] = [];
+      const run = async () => {
+        for await (const event of client.streamingResponse({
+          messages: [
+            USER,
+            {
+              role: "assistant",
+              content_items: contentItems,
+            } as UniMessage,
+          ],
+          config: {},
+        })) {
+          events.push(event);
+        }
+      };
+
+      const error = await run().catch((caught) => caught);
+      warn.mockRestore();
+
+      expect(error).toBeInstanceOf(InvalidMessageError);
+      expect(error).toMatchObject({
+        client: "ScriptedClient",
+        messageIndex: 1,
+        message: "message 1 has nothing ScriptedClient can send",
+      });
+      expect(events).toEqual([]);
+      expect(client.sentMessages).toEqual([]);
+    },
+  );
 
   test("concatUniEventsToUniMessage keeps the done items and the stop event's metadata", async () => {
     const events = await collect(reply);

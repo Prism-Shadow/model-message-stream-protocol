@@ -184,7 +184,7 @@ class AntMessagesClient(LLMClient):
         """
         ant_messages: list[BetaMessageParam] = []
 
-        for msg in messages:
+        for message_index, msg in enumerate(messages):
             content_blocks = []
             for item in msg["content_items"]:
                 if item["type"] == "text.done":
@@ -230,6 +230,13 @@ class AntMessagesClient(LLMClient):
                     )
                 else:
                     raise InvalidMessageError(self.__class__.__name__, f"Unknown item: {item}", item_type=item["type"])
+
+            if all(block["type"] in ("thinking", "redacted_thinking") for block in content_blocks):
+                raise InvalidMessageError(
+                    self.__class__.__name__,
+                    f"message {message_index} has nothing {self.__class__.__name__} can send",
+                    message_index=message_index,
+                )
 
             ant_messages.append({"role": msg["role"], "content": content_blocks})
 
@@ -390,8 +397,9 @@ class AntMessagesClient(LLMClient):
         ant_messages = self.transform_uni_message_to_model_input(messages)
 
         stream = await self._client.beta.messages.create(**ant_config, messages=ant_messages)
-        async for event in stream:
-            yield self.transform_model_output_to_uni_event(event)
+        async with stream:
+            async for event in stream:
+                yield self.transform_model_output_to_uni_event(event)
 
     async def list_models(self) -> list[str]:
         """

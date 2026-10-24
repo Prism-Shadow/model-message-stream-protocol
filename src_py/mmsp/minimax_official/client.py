@@ -156,7 +156,8 @@ class MiniMaxOfficialClient(LLMClient):
         """Transform universal messages to MiniMax Responses input items."""
         input_list: list[dict[str, Any]] = []
 
-        for message in messages:
+        for message_index, message in enumerate(messages):
+            message_start = len(input_list)
             content_items: list[dict[str, Any]] = []
             for item in message["content_items"]:
                 # anything that is not message content becomes an input item of its own, so the
@@ -224,6 +225,13 @@ class MiniMaxOfficialClient(LLMClient):
 
             if content_items:
                 input_list.append({"type": "message", "role": message["role"], "content": content_items})
+
+            if all(entry["type"] == "reasoning" for entry in input_list[message_start:]):
+                raise InvalidMessageError(
+                    self.__class__.__name__,
+                    f"message {message_index} has nothing {self.__class__.__name__} can send",
+                    message_index=message_index,
+                )
 
         return input_list
 
@@ -340,8 +348,9 @@ class MiniMaxOfficialClient(LLMClient):
         input_list = self.transform_uni_message_to_model_input(messages)
 
         stream = await self._client.responses.create(**minimax_config, input=input_list, stream=True)
-        async for model_event in stream:
-            yield self.transform_model_output_to_uni_event(model_event)
+        async with stream:
+            async for model_event in stream:
+                yield self.transform_model_output_to_uni_event(model_event)
 
     async def list_models(self) -> list[str]:
         """

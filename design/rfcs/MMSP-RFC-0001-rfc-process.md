@@ -40,7 +40,7 @@ When the code and an accepted RFC disagree, the RFC wins: the code is fixed, or 
 - Lifecycle: an open PR proposes, a merge accepts, a close withdraws. The index in `design/README.md` has one row per accepted RFC, with its kind and its status, `Accepted` or `Superseded by MMSP-RFC-NNNN`; the RFC's own PR adds the row. A superseding RFC updates the old file's metadata and the old row in the same PR. The PR that implements a change RFC adds its `Implementation PR` line.
 - Changelog: an RFC PR carries a `process` entry with Scope `design`; the implementation PR carries its own entry, which links the RFC.
 - Pointers: `AGENTS.md` names the folder and when an RFC is needed; the mmsp-dev skill sends a contributor to the rules before a client changes and tags its rules `(MMSP-RFC-NNNN)`; the README links the folder.
-- Site: the docs sidebar has a Design section that renders `design/README.md` and every `design/rfcs/MMSP-RFC-*.md` from the repository's files in both languages, so a new RFC is a new page without a change to the site's code.
+- Site: an RFC area at `/rfcs/` renders `design/README.md` and every `design/rfcs/MMSP-RFC-*.md` from the repository's files in both languages, so a new RFC is a new page without a change to the site's code.
 
 ## Drawbacks
 [drawbacks]: #drawbacks

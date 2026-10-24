@@ -190,11 +190,25 @@ class ScriptedClient extends LLMClient {
 
 /**
  * Streams a text delta every 50 ms until its request is aborted or it is told to stop, and
- * records that its stream was closed.
+ * records that its stream was closed and what its public stream threw.
  */
 class SlowScriptedClient extends ScriptedClient {
   stopped = false;
   cleaned = false;
+  thrown: unknown;
+
+  async *streamingResponse(options: {
+    messages: UniMessage[];
+    config: UniConfig;
+    signal?: AbortSignal;
+  }): AsyncGenerator<UniEvent> {
+    try {
+      yield* super.streamingResponse(options);
+    } catch (error) {
+      this.thrown = error;
+      throw error;
+    }
+  }
 
   async *_streamingResponseInternal(options: {
     messages: UniMessage[];
@@ -202,10 +216,9 @@ class SlowScriptedClient extends ScriptedClient {
     signal?: AbortSignal;
   }): AsyncGenerator<UniEvent> {
     try {
-      while (!this.stopped) {
-        // the base class does not cancel a client: each one hands the signal to its request,
-        // which fails once the signal fires
-        options.signal?.throwIfAborted();
+      // the openai and anthropic SDKs end their stream quietly once the signal aborts their
+      // request, and the base class throws the signal's reason
+      while (!this.stopped && !options.signal?.aborted) {
         yield delta({
           type: "text.delta",
           text: "tick",
@@ -216,6 +229,23 @@ class SlowScriptedClient extends ScriptedClient {
     } finally {
       this.cleaned = true;
     }
+  }
+}
+
+/**
+ * Hands the server its script as the public stream itself, so a script without a stop event
+ * ends in [DONE].
+ */
+class UnfinishedScriptedClient extends ScriptedClient {
+  constructor(
+    private readonly events: UniEvent[],
+    model = "scripted",
+  ) {
+    super(events, model);
+  }
+
+  async *streamingResponse(): AsyncGenerator<UniEvent> {
+    yield* this.events;
   }
 }
 
@@ -1043,6 +1073,64 @@ describe("MMSP server stream", () => {
     });
   });
 
+  test("[DONE] before a stop event raises IncompleteStreamError and records nothing", async () => {
+    useUpstream(
+      (model) =>
+        new UnfinishedScriptedClient(
+          [delta({ type: "text.delta", text: "Hel" })],
+          model,
+        ),
+    );
+    const client = mmspClient(await serve(serverApp()));
+    const events: UniEvent[] = [];
+    const run = async () => {
+      for await (const event of client.streamingResponseStateful({
+        message: messages()[0],
+        config: {},
+      })) {
+        events.push(event);
+      }
+    };
+
+    const error = await run().catch((caught) => caught);
+
+    expect(events.map((event) => event.content_items)).toEqual([
+      [{ type: "text.delta", text: "Hel" }],
+    ]);
+    expect(error).toBeInstanceOf(IncompleteStreamError);
+    expect(error).toMatchObject({
+      client: "MmspClient",
+      missing: ["usage_metadata", "finish_reason"],
+      finishReason: null,
+      usageMetadata: null,
+    });
+    expect(client.getHistory()).toEqual([]);
+  });
+
+  test("a stateful turn through the client records both messages with their created_at", async () => {
+    const script = [
+      delta({ type: "text.delta", text: "Hi", fidelity: { item_id: "0" } }),
+      stop(),
+    ];
+    useUpstream((model) => new ScriptedClient(script, model));
+    const client = mmspClient(await serve(serverApp()));
+    const message = messages()[0];
+
+    for await (const event of client.streamingResponseStateful({
+      message,
+      config: {},
+    })) {
+      void event;
+    }
+
+    const history = client.getHistory();
+    expect(history.map((entry) => entry.role)).toEqual(["user", "assistant"]);
+    expect(history[0].created_at).toBe(message.created_at);
+    for (const entry of history) {
+      expect(typeof entry.created_at).toBe("number");
+    }
+  });
+
   test("aborting the client cancels the upstream through the server", async () => {
     const upstream = new SlowScriptedClient([]);
     useUpstream(() => upstream);
@@ -1072,10 +1160,16 @@ describe("MMSP server stream", () => {
       // the server aborts its request when the connection closes, and the upstream stops at
       // its next delta
       const deadline = Date.now() + 5000;
-      while (!upstream.cleaned && Date.now() < deadline) {
+      while (
+        (!upstream.cleaned || upstream.thrown === undefined) &&
+        Date.now() < deadline
+      ) {
         await new Promise((resolve) => setTimeout(resolve, 10));
       }
       expect(upstream.cleaned).toBe(true);
+      // the upstream ended quietly, and its stream still ended as an abort, with no done items
+      // and no stop
+      expect((upstream.thrown as Error).name).toBe("AbortError");
     } finally {
       upstream.stopped = true;
     }
