@@ -21,7 +21,7 @@ import {
 } from "@google/genai";
 import * as path from "path";
 import { LLMClient } from "../baseClient";
-import { UnsupportedParameterError } from "../errors";
+import { InvalidMessageError, UnsupportedParameterError } from "../errors";
 import {
   EventContentItem,
   EventType,
@@ -385,7 +385,7 @@ export class GoogleOfficialClient extends LLMClient {
     // A function_result must name its function (HTTP 400 without it), but a universal
     // tool_result carries only the call id, so remember each call's name.
     const callNames = new Map<string, string>();
-    for (const msg of messages) {
+    for (const [messageIndex, msg] of messages.entries()) {
       const messageStart = steps.length;
       // consecutive text and media of a message share one user_input or model_output step
       let content: Interactions.Content[] | null = null;
@@ -535,6 +535,14 @@ export class GoogleOfficialClient extends LLMClient {
         } else {
           throw new Error(`Unknown item: ${JSON.stringify(item)}`);
         }
+      }
+
+      if (steps.slice(messageStart).every((step) => step.type === "thought")) {
+        throw new InvalidMessageError({
+          client: this.constructor.name,
+          message: `message ${messageIndex} has nothing ${this.constructor.name} can send`,
+          messageIndex,
+        });
       }
 
       // An image generation model (gemini-*-image) sometimes streams its text before its first

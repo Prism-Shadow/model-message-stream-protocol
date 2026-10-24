@@ -22,7 +22,7 @@ from anthropic import AsyncAnthropic, AsyncAnthropicBedrock
 from anthropic.types.beta import BetaMessageParam, BetaRawMessageStreamEvent
 
 from ..base_client import LLMClient
-from ..errors import UnsupportedOperationError, UnsupportedParameterError
+from ..errors import InvalidMessageError, UnsupportedOperationError, UnsupportedParameterError
 from ..types import (
     EventContentItem,
     EventType,
@@ -42,9 +42,11 @@ REDACTED_THINKING = "_REDACTED_THINKING"
 
 # Generations told apart by explicit version, matched anywhere in the id so Bedrock's
 # anthropic.claude-opus-5-5 counts too. Opus 5.5 and Fable 5.1 always think: "disabled" and
-# "between_tools" return 400. Haiku 5.5 takes "disabled" but runs NONE at the lowest effort
-# like them. Sonnet 5.5 drops only up-front thinking, with "between_tools".
-_LOW_EFFORT_FOR_NONE = ("opus-5-5", "fable-5-1", "haiku-5-5")
+# "between_tools" return 400, and Fable 5 returns 400 for "disabled" too (verified live
+# 2026-10-23); "fable-5" matches both Fable generations. Haiku 5.5 takes "disabled" but runs
+# NONE at the lowest effort like them. Sonnet 5.5 drops only up-front thinking, with
+# "between_tools".
+_LOW_EFFORT_FOR_NONE = ("opus-5-5", "fable-5", "haiku-5-5")
 _BETWEEN_TOOLS = ("sonnet-5-5",)
 # The 2026-09 generation returns 400 for tool_choice "any" and "tool". Haiku 5.5 takes them but
 # answers without thinking, so it is rejected with the rest of the 5.5 family.
@@ -145,7 +147,9 @@ class AnthropicOfficialClient(LLMClient):
         elif self._generation(_BETWEEN_TOOLS):
             none = {"thinking": {"type": "between_tools"}}
         else:
-            none = {}  # omit thinking config
+            # the other generations take "disabled"; without a thinking block Opus 5 still runs
+            # adaptive thinking (verified live 2026-10-23)
+            none = {"thinking": {"type": "disabled"}}
         mapping = {
             ThinkingLevel.NONE: none,
             ThinkingLevel.LOW: {"thinking": {"type": "adaptive"}, "output_config": {"effort": "low"}},
@@ -216,12 +220,13 @@ class AnthropicOfficialClient(LLMClient):
 
         if config.get("thinking_summary") is not None:
             # display lives on the thinking block, so a summary asked for on its own selects
-            # adaptive thinking, which is what this family runs by default anyway; a block
-            # carrying display but no output_config is accepted on 4.6 through 5 (verified
-            # live 2026-09-03). NONE omits the block, so the request lands on that default.
+            # adaptive thinking; a block carrying display but no output_config is accepted on
+            # 4.6 through 5 (verified live 2026-09-03). A disabled block rejects display
+            # ("thinking.disabled.display: Extra inputs are not permitted", 400, verified live
+            # 2026-10-23) and has no thinking to show, and between_tools takes none: its
+            # updates between tool calls always carry their text.
             thinking = claude_config.setdefault("thinking", {"type": "adaptive"})
-            # between_tools takes no display: its updates between tool calls always carry their text
-            if thinking["type"] != "between_tools":
+            if thinking["type"] not in ("disabled", "between_tools"):
                 thinking["display"] = "summarized" if config["thinking_summary"] else "omitted"
 
         # Convert tools to Claude's tool schema
@@ -279,7 +284,7 @@ class AnthropicOfficialClient(LLMClient):
         """
         claude_messages: list[BetaMessageParam] = []
 
-        for msg in messages:
+        for message_index, msg in enumerate(messages):
             content_blocks = []
             for item in msg["content_items"]:
                 if item["type"] == "text.done":
@@ -322,6 +327,14 @@ class AnthropicOfficialClient(LLMClient):
                     )
                 else:
                     raise ValueError(f"Unknown item: {item}")
+
+            if all(block["type"] in ("thinking", "redacted_thinking") for block in content_blocks):
+                raise InvalidMessageError(
+                    self.__class__.__name__,
+                    f"message {message_index} has nothing {self.__class__.__name__} can send "
+                    "once its unsigned thinking is left out",
+                    message_index=message_index,
+                )
 
             claude_messages.append({"role": msg["role"], "content": content_blocks})
 

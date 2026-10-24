@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { expect, describe, test } from "@jest/globals";
-import { AutoLLMClient, UniMessage } from "../src";
+import { AutoLLMClient, InvalidMessageError, UniMessage } from "../src";
 
 interface MessageOrderCase {
   expectedClient: string;
@@ -266,6 +266,53 @@ describe.each(MESSAGE_ORDER_CASES)(
         );
       }
     });
+
+    test.each(["nothing", "signed thinking alone", "unsigned thinking alone"])(
+      "raises InvalidMessageError for a message of %s",
+      async (contents) => {
+        const client = routedClient(testCase.model, testCase.clientType);
+        const thinking = {
+          type: "thinking.done" as const,
+          thinking: "I should answer.",
+        };
+        const contentItems: Record<string, UniMessage["content_items"]> = {
+          nothing: [],
+          "signed thinking alone": [
+            { ...thinking, fidelity: { signature: "sig-1" } },
+          ],
+          "unsigned thinking alone": [thinking],
+        };
+        const messages: UniMessage[] = [
+          {
+            role: "user",
+            content_items: [{ type: "text.done", text: "Hello." }],
+          },
+          { role: "assistant", content_items: contentItems[contents] },
+          {
+            role: "user",
+            content_items: [{ type: "text.done", text: "And now?" }],
+          },
+        ];
+
+        // never dropped and never sent empty: a turn of thinking alone is no turn a provider
+        // takes back
+        const error = await (async () =>
+          client.transformUniMessageToModelInput(messages))().catch(
+          (caught) => caught,
+        );
+
+        expect(error).toBeInstanceOf(InvalidMessageError);
+        expect(error).toMatchObject({
+          client: testCase.expectedClient,
+          messageIndex: 1,
+        });
+        expect(error.message).toMatch(
+          new RegExp(
+            `^message 1 has nothing ${testCase.expectedClient} can send`,
+          ),
+        );
+      },
+    );
   },
 );
 

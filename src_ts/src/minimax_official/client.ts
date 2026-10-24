@@ -19,7 +19,7 @@ import type {
 } from "openai/resources/responses/responses";
 import { LLMClient } from "../baseClient";
 import { CLIENT_CREDENTIALS } from "../credentials";
-import { UnsupportedParameterError } from "../errors";
+import { InvalidMessageError, UnsupportedParameterError } from "../errors";
 import {
   EventContentItem,
   EventType,
@@ -212,7 +212,8 @@ export class MiniMaxOfficialClient extends LLMClient {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const inputList: any[] = [];
 
-    for (const message of messages) {
+    for (const [messageIndex, message] of messages.entries()) {
+      const messageStart = inputList.length;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let contentItems: any[] = [];
 
@@ -288,6 +289,18 @@ export class MiniMaxOfficialClient extends LLMClient {
           type: "message",
           role: message.role,
           content: contentItems,
+        });
+      }
+
+      if (
+        inputList
+          .slice(messageStart)
+          .every((entry) => entry.type === "reasoning")
+      ) {
+        throw new InvalidMessageError({
+          client: this.constructor.name,
+          message: `message ${messageIndex} has nothing ${this.constructor.name} can send`,
+          messageIndex,
         });
       }
     }

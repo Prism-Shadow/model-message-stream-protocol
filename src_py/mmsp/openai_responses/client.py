@@ -19,7 +19,7 @@ from openai import AsyncOpenAI
 from openai.types.responses import ResponseInputParam, ResponseStreamEvent
 
 from ..base_client import LLMClient
-from ..errors import UnsupportedParameterError
+from ..errors import InvalidMessageError, UnsupportedParameterError
 from ..types import (
     EventContentItem,
     EventType,
@@ -147,7 +147,8 @@ class OpenaiResponsesClient(LLMClient):
         """
         input_list: list[ResponseInputParam] = []
 
-        for msg in messages:
+        for message_index, msg in enumerate(messages):
+            message_start = len(input_list)
             content_items: list = []
             last_phase: str | None = None
 
@@ -241,6 +242,13 @@ class OpenaiResponsesClient(LLMClient):
                 if last_phase is not None:
                     entry["phase"] = last_phase
                 input_list.append(entry)
+
+            if all(entry["type"] == "reasoning" for entry in input_list[message_start:]):
+                raise InvalidMessageError(
+                    self.__class__.__name__,
+                    f"message {message_index} has nothing {self.__class__.__name__} can send",
+                    message_index=message_index,
+                )
 
         return input_list
 

@@ -251,9 +251,11 @@ export interface UniConfig {
   tool_choice?: ToolChoice;
   system_prompt?: string;
   prompt_caching?: PromptCaching;
-  // fast processing at premium pricing: OpenAI-protocol and Gemini clients send
-  // service_tier="priority", Anthropic-protocol clients send speed="fast"; clients without a
-  // fast tier reject it
+  // fast processing at premium pricing: openai-official, openai-responses, openai-chat (with its
+  // vLLM adapter), google-official and minimax-official send service_tier="priority";
+  // anthropic-official and ant-messages send speed="fast"; google-genai, deepseek-official,
+  // moonshot-official, zai-official and openai-embedding raise UnsupportedParameterError, and
+  // so does a sending client for a model without a fast tier
   fast_mode?: boolean;
   image_config?: ImageConfig;
   tts_config?: SpeakerConfig[];

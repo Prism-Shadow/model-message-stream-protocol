@@ -108,7 +108,7 @@ Common base URLs, and the variable the examples read each key from:
 | ModelVerse | `https://api.modelverse.cn/v1`, and `https://api.modelverse.cn/` for Claude | `MODELVERSE_API_KEY` |
 | vLLM | `http://127.0.0.1:8000/v1/` | |
 
-TokenDance serves several protocols with one key. Its model list names the protocols of each model; pick a client that speaks one of them, and the vendor's official client where TokenDance speaks the vendor's API: `deepseek-v4.1-flash` through `deepseek-official`, `kimi-k3` through `moonshot-official`, `glm-5.3` through `zai-official`.
+TokenDance serves several protocols with one key. Its model list names the protocols of each model; pick a client that speaks one of them, such as `deepseek-v4.1-flash` through `openai-chat`, and the vendor's official client where TokenDance speaks the vendor's API: `kimi-k3` through `moonshot-official`, `glm-5.3` through `zai-official`.
 
 ## Gemini on Vertex AI
 

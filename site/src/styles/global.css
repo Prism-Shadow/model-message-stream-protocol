@@ -285,17 +285,19 @@ html.dark .flowchart-svg .fc-label {
   @apply sr-only;
 }
 
-/* ---------- Status: the daily probe's states, a flat dot and a word; the colour is the state's
-   only. Up is the brand blue, a key that is not configured is grey, not an outage ---------- */
+/* ---------- Status: the daily probe's states, an icon and a word; the colour is the state's
+   only. Up is green, as a check; a key that is not configured is grey, not an outage ---------- */
 [data-status] {
   --status: var(--color-gray-200);
 }
 .dark [data-status] {
   --status: var(--color-gray-800);
 }
-[data-status="up"],
+[data-status="up"] {
+  --status: var(--color-green-600);
+}
 .dark [data-status="up"] {
-  --status: #477dfb;
+  --status: var(--color-green-500);
 }
 [data-status="degraded"],
 .dark [data-status="degraded"] {
@@ -317,12 +319,23 @@ html.dark .flowchart-svg .fc-label {
   gap: 0.375rem;
   white-space: nowrap;
 }
+/* the catalog's dot beside a channel that is not up */
 .status-dot {
   width: 0.5rem;
   height: 0.5rem;
   flex: none;
   border-radius: 9999px;
   background: var(--status);
+}
+/* a filled shape in the state's colour with its glyph cut out in the page's background */
+.status-icon {
+  display: inline-block;
+  flex: none;
+  color: var(--status);
+  --status-cut: var(--color-white);
+}
+.dark .status-icon {
+  --status-cut: var(--color-gray-950);
 }
 .status-word {
   font-size: 13px;
@@ -331,4 +344,52 @@ html.dark .flowchart-svg .fc-label {
 .status-label[data-status="nokey"] .status-word,
 .status-label[data-status="none"] .status-word {
   @apply font-normal text-gray-500 dark:text-gray-400;
+}
+
+/* ---------- A segmented control: --n choices side by side; the thumb glides to the --i-th ---------- */
+.segmented {
+  --n: 2;
+  --i: 0;
+  position: relative;
+  display: inline-grid;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
+  border-radius: 0.5rem;
+  background: var(--color-gray-100);
+  padding: 2px;
+}
+.dark .segmented {
+  background: var(--color-gray-900);
+}
+.segmented button {
+  position: relative;
+  z-index: 1;
+  height: 1.75rem;
+  padding: 0 0.625rem;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-gray-500);
+  transition: color 150ms;
+}
+.segmented button[aria-checked="true"] {
+  color: var(--color-gray-900);
+}
+.dark .segmented button[aria-checked="true"] {
+  color: var(--color-gray-100);
+}
+.segmented-thumb {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc((100% - 4px) / var(--n));
+  transform: translateX(calc(var(--i) * 100%));
+  border-radius: 0.375rem;
+  background: var(--color-white);
+  box-shadow: 0 0 0 1px var(--color-gray-200);
+  transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.dark .segmented-thumb {
+  background: var(--color-gray-800);
+  box-shadow: 0 0 0 1px var(--color-gray-700);
 }

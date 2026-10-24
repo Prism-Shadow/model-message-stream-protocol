@@ -38,7 +38,7 @@ import {
 } from "@google/genai";
 import * as path from "path";
 import { LLMClient } from "../baseClient";
-import { UnsupportedParameterError } from "../errors";
+import { InvalidMessageError, UnsupportedParameterError } from "../errors";
 import {
   EventContentItem,
   EventType,
@@ -462,7 +462,7 @@ export class GoogleGenaiClient extends LLMClient {
     // The generateContent API wants both the call id and the function name on a function
     // response, but a universal tool_result carries only the id, so remember each call's name.
     const callNames = new Map<string, string>();
-    for (const msg of messages) {
+    for (const [messageIndex, msg] of messages.entries()) {
       let parts: Part[] = [];
       for (const item of msg.content_items) {
         const thoughtSignature =
@@ -617,6 +617,14 @@ export class GoogleGenaiClient extends LLMClient {
               !part.thoughtSignature
             ),
         );
+      }
+
+      if (parts.every((part) => part.thought)) {
+        throw new InvalidMessageError({
+          client: this.constructor.name,
+          message: `message ${messageIndex} has nothing ${this.constructor.name} can send`,
+          messageIndex,
+        });
       }
 
       // Vertex AI rejects a content that mixes functionResponse parts with any other

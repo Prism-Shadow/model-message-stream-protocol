@@ -19,7 +19,7 @@ from anthropic import AsyncAnthropic
 from anthropic.types.beta import BetaMessageParam, BetaRawMessageStreamEvent
 
 from ..base_client import LLMClient
-from ..errors import UnsupportedParameterError
+from ..errors import InvalidMessageError, UnsupportedParameterError
 from ..types import (
     EventContentItem,
     EventType,
@@ -182,7 +182,7 @@ class AntMessagesClient(LLMClient):
         """
         ant_messages: list[BetaMessageParam] = []
 
-        for msg in messages:
+        for message_index, msg in enumerate(messages):
             content_blocks = []
             for item in msg["content_items"]:
                 if item["type"] == "text.done":
@@ -224,6 +224,13 @@ class AntMessagesClient(LLMClient):
                     )
                 else:
                     raise ValueError(f"Unknown item: {item}")
+
+            if all(block["type"] in ("thinking", "redacted_thinking") for block in content_blocks):
+                raise InvalidMessageError(
+                    self.__class__.__name__,
+                    f"message {message_index} has nothing {self.__class__.__name__} can send",
+                    message_index=message_index,
+                )
 
             ant_messages.append({"role": msg["role"], "content": content_blocks})
 

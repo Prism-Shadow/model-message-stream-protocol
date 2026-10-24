@@ -23,10 +23,11 @@ from openai.types.chat import ChatCompletionChunk, ChatCompletionMessageParam
 
 from ..base_client import LLMClient
 from ..credentials import CLIENT_CREDENTIALS
-from ..errors import UnsupportedParameterError
+from ..errors import InvalidMessageError, UnsupportedParameterError
 from ..types import (
     EventContentItem,
     EventType,
+    Fidelity,
     FinishReason,
     PromptCaching,
     ToolChoice,
@@ -164,7 +165,8 @@ class OpenaiChatClient(LLMClient):
         # reasoning field never receives one.
         replay_fields: set[str | None] = set()
 
-        for msg in messages:
+        for message_index, msg in enumerate(messages):
+            message_start = len(openai_messages)
             content_parts = []  # may be empty for tool results
             tool_calls = []  # may be empty for no tool calls
             thinking = ""
@@ -178,10 +180,27 @@ class OpenaiChatClient(LLMClient):
                     content_parts.append(self._convert_image_url(base64_image))
                 elif item["type"] == "thinking.done":
                     thinking += item["thinking"]
-                    thinking_fields.add((item.get("fidelity") or {}).get("reasoning_field"))
+                    fidelity = item.get("fidelity") or {}
+                    thinking_fields.add(fidelity.get("reasoning_field"))
                     if item["thinking"]:
-                        replay_fields.add((item.get("fidelity") or {}).get("reasoning_field"))
-                    reasoning_details.extend((item.get("fidelity") or {}).get("reasoning_details", []))
+                        replay_fields.add(fidelity.get("reasoning_field"))
+
+                    # a gateway's encrypted reasoning block, rebuilt from the recorded keys; the
+                    # format marks the data as a block of this protocol, so encrypted reasoning a
+                    # Responses client recorded off its own server is not sent as one
+                    if fidelity.get("encrypted_content") is not None and fidelity.get("format") is not None:
+                        block = {
+                            "type": "reasoning.encrypted",
+                            "data": fidelity["encrypted_content"],
+                            "format": fidelity["format"],
+                        }
+                        if fidelity.get("reasoning_id") is not None:
+                            block["id"] = fidelity["reasoning_id"]
+
+                        reasoning_details.append(block)
+
+                    # 0.5.5 recorded the block as received; read until 0.6.0
+                    reasoning_details.extend(fidelity.get("reasoning_details", []))
                 elif item["type"] == "tool_call.done":
                     tool_calls.append(
                         {
@@ -236,13 +255,23 @@ class OpenaiChatClient(LLMClient):
                 elif fields == {"reasoning"}:
                     message["reasoning"] = thinking
                 else:
-                    message["reasoning_content"] = thinking  # vLLM & siliconflow compatibility
-                    message["reasoning"] = thinking  # openrouter compatibility
+                    # the field is unknown, so both spellings go out; a server reads the one it knows
+                    message["reasoning_content"] = thinking
+                    message["reasoning"] = thinking
 
-            # OpenRouter hands the model its encrypted reasoning or thought signature only from the
-            # fragments it sent; without them it accepts the turn and drops the reasoning
+            # a gateway hands the model its encrypted reasoning or thought signature only from the
+            # blocks it sent; without them it accepts the turn and the reasoning is lost
             if reasoning_details:
                 message["reasoning_details"] = reasoning_details
+
+            # a message of tool results went out as its tool messages; one of thinking alone is an
+            # assistant turn with neither content nor tool calls
+            if not content_parts and not tool_calls and len(openai_messages) == message_start:
+                raise InvalidMessageError(
+                    self.__class__.__name__,
+                    f"message {message_index} has nothing {self.__class__.__name__} can send",
+                    message_index=message_index,
+                )
 
             # message may be empty for tool results
             if len(message.keys()) > 1:
@@ -274,35 +303,36 @@ class OpenaiChatClient(LLMClient):
             choice = model_output.choices[0]
             delta = choice.delta
 
-            # the thinking field name differs by server: vLLM & siliconflow use reasoning_content
-            # while openrouter uses reasoning; record the wire field that carried each delta
-            # so a replay can reproduce exactly the field the upstream produced. The reasoning
-            # goes before the content because a chunk may end the reasoning and begin the answer.
+            # the thinking field name differs by server (reasoning_content or reasoning); record the
+            # wire field that carried each delta so a replay reproduces the field the upstream
+            # produced. The reasoning goes before the content because a chunk may end the
+            # reasoning and begin the answer.
             reasoning_content = getattr(delta, "reasoning_content", None)
             reasoning = getattr(delta, "reasoning", None)
-            # OpenRouter streams the reasoning as reasoning_details fragments and mirrors their text
-            # in `reasoning`. A summary or text fragment is the thinking text; the one
-            # reasoning.encrypted fragment, GPT's encrypted reasoning or Gemini's thought signature,
-            # arrives whole and is taken back only as received, so it is the item's fidelity.
+            # A gateway may stream the reasoning as reasoning_details blocks and mirror their text
+            # in `reasoning`. A reasoning.summary or reasoning.text block is the thinking text. A
+            # reasoning.encrypted block is opaque data the gateway takes back only as it sent it:
+            # its data is the item's encrypted_content, with the block's format and the id by
+            # which a gateway binds a thought signature to the call it signs. The block arrives
+            # whole, so its delta carries the item's one fidelity.
             reasoning_details = getattr(delta, "reasoning_details", None)
             if reasoning_details:
-                for fragment in reasoning_details:
-                    if fragment["type"] == "reasoning.encrypted":
-                        content_items.append(
-                            {
-                                "type": "thinking.delta",
-                                "thinking": "",
-                                "fidelity": {"item_id": "reasoning_details", "reasoning_details": [fragment]},
-                            }
-                        )
-                    else:
-                        content_items.append(
-                            {
-                                "type": "thinking.delta",
-                                "thinking": fragment.get("summary") or fragment.get("text") or "",
-                                "fidelity": {"item_id": "reasoning_details"},
-                            }
-                        )
+                for block in reasoning_details:
+                    fidelity: Fidelity = {"item_id": "reasoning_details"}
+                    if block["type"] == "reasoning.encrypted":
+                        fidelity["encrypted_content"] = block["data"]
+                        if block.get("format") is not None:
+                            fidelity["format"] = block["format"]
+                        if block.get("id") is not None:
+                            fidelity["reasoning_id"] = block["id"]
+
+                    content_items.append(
+                        {
+                            "type": "thinking.delta",
+                            "thinking": block.get("summary") or block.get("text") or "",
+                            "fidelity": fidelity,
+                        }
+                    )
             elif reasoning_content and reasoning:
                 # ambiguous origin: record no reasoning_field so a replay sends both fields back
                 content_items.append(

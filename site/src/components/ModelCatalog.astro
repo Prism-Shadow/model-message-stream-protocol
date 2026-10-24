@@ -1,12 +1,17 @@
 ---
 // The model catalog: one row per registry entry, built with the page, so it reads without
-// JavaScript. The script searches and sorts the rows, switches the prices between USD and CNY,
-// opens an entry's integration kit in a dialog, and fills the status column from the daily probe,
-// each probed entry linking to its channel on the status page. Marks point into the page's
-// MarkSprite.
+// JavaScript. A probed entry's latency and throughput come from the daily probe's files as the site
+// is built, and link to its channel on the status page. The script searches and sorts the rows,
+// switches the prices and their unit between USD and CNY, opens an entry's integration kit in a
+// dialog from the button at the end of its row, copies its code or a prompt for an agent, and
+// redraws the latency and throughput when the status-data branch has a newer run than the build.
+// Marks point into the page's MarkSprite.
 import VendorMark from "./VendorMark.astro";
 import { STRINGS, localePath, type Locale } from "../shared/i18n";
-import { catalogRows, formatContext, formatPrice, literal } from "../shared/catalog";
+import { agentPromptFor, catalogRows, formatContext, formatPrice, literal } from "../shared/catalog";
+import { LATENCY_UNIT, PRICE_UNITS, isProbed, metricCells } from "../shared/catalog-status";
+import { withCurrentKeys } from "../shared/status";
+import { statusAtBuild } from "../shared/status-build";
 import type { Modality } from "../../../src_ts/src/registry.ts";
 
 interface Props {
@@ -19,6 +24,11 @@ const rows = catalogRows();
 const providers = new Set(rows.map((row) => row.provider.name)).size;
 // a Chinese reader sees the vendors' CNY list prices first; a choice made before wins
 const currency = locale === "zh" ? "CNY" : "USD";
+const latest = withCurrentKeys((await statusAtBuild()).latest);
+const statusPage = localePath(locale, "/status/");
+const targets = rows.map((row) => latest?.targets[row.key]);
+// the header that sorts best first: the shortest latency, the highest throughput
+const SORT_FIRST: Record<string, "asc" | "desc"> = { latency: "asc", throughput: "desc" };
 
 const INPUTS: Modality[] = ["Text", "Image", "Video", "Audio"];
 const OUTPUTS: Modality[] = ["Text", "Image", "Audio", "Embed"];
@@ -34,7 +44,8 @@ const MODALITY_ICONS: Record<Modality, string> = {
 const price = (value: number | undefined) => (value === undefined ? undefined : formatPrice(value));
 // each tab's file and the lines that install, key and run it; the Server tab's file is a whole
 // mmsp-server.json, started in the background so one paste also streams one answer through it
-const kits = rows.map(({ model, base_url, output_modalities, kit }) => {
+const kits = rows.map((row) => {
+  const { model, base_url, output_modalities, kit } = row;
   const hint = kit.keyHint?.[locale];
   const keyLine = `export ${kit.keyEnv}=${kit.keyValue}` + (hint && hint !== kit.keyValue ? `  # ${hint}` : "");
   // a single-quoted shell word cannot hold a single quote, so the prompt's quotes become escaped
@@ -47,6 +58,7 @@ const kits = rows.map(({ model, base_url, output_modalities, kit }) => {
     baseUrl: base_url,
     typescript: kit.typescript,
     python: kit.python,
+    agent: agentPromptFor(row, locale),
     server: JSON.stringify({ models: [kit.server], api_keys: ["$MMSP_SERVER_API_KEY"] }, null, 2),
     run: {
       typescript: ["npm install @prismshadow/mmsp", keyLine, "npx tsx main.ts"].join("\n"),
@@ -64,20 +76,26 @@ const kits = rows.map(({ model, base_url, output_modalities, kit }) => {
   };
 });
 const columns = s.columns;
+// the units sit in the headers, small, so the cells hold bare numbers; the prices' follows the switch
+const units = { price: PRICE_UNITS[currency], latency: LATENCY_UNIT, throughput: s.status.tps };
+const priceTitle = `${currency} ${s.perMillion}`;
 const head = "px-3 py-2.5 text-[11px] font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400";
 const sortButton =
-  "group inline-flex items-center gap-1 uppercase transition-colors hover:text-gray-900 dark:hover:text-gray-100";
+  "group items-center gap-1 whitespace-nowrap uppercase transition-colors hover:text-gray-900 dark:hover:text-gray-100";
+// a right-aligned header holds its label at the cell's right edge, over the numbers, so a label
+// wider than a narrow column runs into its own padding on the left instead of under the next header
+const sortRight = "flex w-full flex-row-reverse";
 const icon = "h-3.5 w-3.5";
-const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round" };
+const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round" } as const;
 ---
 
 <section
   class:list={["catalog", className]}
   data-catalog
   data-currency={currency}
-  data-words={JSON.stringify({ ...s.status, ...s.kit, models: s.models, probed: s.probed, perMillion: s.perMillion })}
-  data-status-page={localePath(locale, "/status/")}
-  data-locale={STRINGS[locale].htmlLang}
+  data-words={JSON.stringify({ ...s.status, ...s.kit, models: s.models, perMillion: s.perMillion })}
+  data-status-page={statusPage}
+  data-run-id={latest?.run_id}
 >
   <div class="flex flex-wrap items-center gap-x-4 gap-y-3">
     <label class="relative w-full sm:w-72">
@@ -99,12 +117,10 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
       <span data-catalog-count>{s.models.replace("{n}", String(rows.length))}</span>
       <span aria-hidden="true"> · </span>
       <span>{s.providers.replace("{n}", String(providers))}</span>
-      <span data-catalog-probed hidden></span>
     </p>
 
     <div class="ml-auto flex items-center gap-3">
-      <span class="text-xs text-gray-500 dark:text-gray-400">{s.perMillion}</span>
-      <div class="segmented" role="radiogroup" aria-label={s.currency} data-segmented data-value={currency}>
+      <div class="segmented" role="radiogroup" aria-label={s.currency} data-segmented data-value={currency} style={`--i: ${currency === "CNY" ? 1 : 0}`}>
         <span class="segmented-thumb" aria-hidden="true"></span>
         <button type="button" role="radio" aria-checked={currency === "USD" ? "true" : "false"} data-value="USD">USD</button>
         <button type="button" role="radio" aria-checked={currency === "CNY" ? "true" : "false"} data-value="CNY">CNY</button>
@@ -131,33 +147,52 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
   <table class="catalog-table mt-4 w-full text-sm">
     <colgroup>
       <col />
-      <col class="w-44" />
-      <col class="w-32" />
+      <col class="w-40" />
+      <col class="w-28" />
+      <col class="w-16" />
+      {/* a price is up to seven characters, 0.00286 */}
       <col class="w-20" />
       <col class="w-20" />
       <col class="w-20" />
-      <col class="w-20" />
-      <col class="w-48" />
+      <col class="w-24" />
+      {/* "Throughput" and its unit, tok/s, are the widest header */}
+      <col class="w-30" />
+      <col class="w-10" />
     </colgroup>
     <thead>
       <tr class="border-b border-gray-200 text-left dark:border-gray-800">
         {
           (
             [
-              ["model", columns.model, "left"],
-              ["provider", columns.provider, "left"],
-              [null, columns.modalities, "left"],
-              ["context", columns.context, "right"],
-              ["input", columns.input, "right"],
-              ["output", columns.output, "right"],
-              ["cached", columns.cached, "right"],
-              ["status", columns.status, "left"],
+              ["model", columns.model, "left", null],
+              ["provider", columns.provider, "left", null],
+              [null, columns.modalities, "left", null],
+              ["context", columns.context, "right", null],
+              ["input", columns.input, "right", "price"],
+              ["output", columns.output, "right", "price"],
+              ["cached", columns.cached, "right", "price"],
+              ["latency", columns.latency, "right", "latency"],
+              ["throughput", columns.throughput, "right", "throughput"],
             ] as const
-          ).map(([key, label, align]) => (
-            <th scope="col" class:list={[head, align === "right" && "text-right"]} data-sort-key={key ?? undefined} aria-sort={key ? "none" : undefined}>
+          ).map(([key, label, align, unit]) => (
+            <th
+              scope="col"
+              class:list={[head, align === "right" && "text-right"]}
+              data-sort-key={key ?? undefined}
+              data-sort-first={key ? SORT_FIRST[key] : undefined}
+              aria-sort={key ? "none" : undefined}
+            >
               {key ? (
-                <button type="button" class:list={[sortButton, align === "right" && "flex-row-reverse"]}>
-                  <span>{label}</span>
+                <button type="button" class:list={[sortButton, align === "right" ? sortRight : "inline-flex"]}>
+                  <span>
+                    {label}
+                    {unit ? " " : ""}
+                    {unit && (
+                      <span class="catalog-unit" data-price-unit={unit === "price" ? "" : undefined} title={unit === "price" ? priceTitle : undefined}>
+                        {units[unit]}
+                      </span>
+                    )}
+                  </span>
                   <svg viewBox="0 0 24 24" class="sort-icon h-3 w-3" {...stroke} aria-hidden="true">
                     <path d="m7 15 5 5 5-5"></path>
                     <path d="m7 9 5-5 5 5"></path>
@@ -169,6 +204,7 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
             </th>
           ))
         }
+        <th scope="col" class:list={[head, "text-right"]} data-head="kit">{s.kit.code}</th>
       </tr>
     </thead>
     <tbody data-catalog-body>
@@ -181,6 +217,10 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
             ["output", columns.output, usd?.response_tokens, cny?.response_tokens],
             ["cached", columns.cached, usd?.cached_tokens, cny?.cached_tokens],
           ] as const;
+          const target = targets[index];
+          const probe = isProbed(target) ? target : undefined;
+          const cells = metricCells(target, s.status, statusPage, row.key);
+          const metric = "mono text-right text-[13px] tabular-nums whitespace-nowrap";
           return (
             <tr
               data-row
@@ -193,18 +233,17 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
               data-input={usd?.prompt_tokens}
               data-output={usd?.response_tokens}
               data-cached={usd?.cached_tokens}
+              data-status={probe?.status}
+              data-ttft={probe?.ttft_ms ?? undefined}
+              data-tps={probe?.tps ?? undefined}
             >
               <td data-cell="model">
-                <button type="button" class="catalog-expand" aria-haspopup="dialog" aria-label={s.kit.show.replace("{model}", row.model)}>
-                  <svg viewBox="0 0 24 24" class="catalog-code h-3.5 w-3.5 shrink-0 text-gray-400" {...stroke} aria-hidden="true">
-                    <path d="m16 18 6-6-6-6"></path>
-                    <path d="m8 6-6 6 6 6"></path>
-                  </svg>
+                <span class="flex min-w-0 items-center gap-2">
                   <span class="flex h-4 w-4 shrink-0 items-center justify-center" title={row.vendor?.name} data-row-mark>
                     {row.vendor?.mark && <VendorMark id={row.vendor.mark} title={row.vendor.name} />}
                   </span>
                   <span class="mono truncate text-[13px]" title={row.model}>{row.model}</span>
-                </button>
+                </span>
               </td>
               <td data-cell="provider">
                 <span class="flex min-w-0 items-center gap-2 text-gray-600 dark:text-gray-400">
@@ -240,13 +279,21 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
                   data-usd={price(inUsd)}
                   data-cny={price(inCny)}
                   data-label={label}
+                  data-unit={units.price}
                   class:list={["mono text-right text-[13px] tabular-nums", inUsd === undefined && "text-gray-300 dark:text-gray-600"]}
                 >
                   {(currency === "CNY" ? price(inCny) : price(inUsd)) ?? "—"}
                 </td>
               ))}
-              <td data-cell="status" data-status-cell>
-                <span class="text-xs text-gray-400 dark:text-gray-500">{s.status.none}</span>
+              <td data-cell="latency" data-label={columns.latency} data-unit={units.latency} class={metric} set:html={cells.latency} />
+              <td data-cell="throughput" data-label={columns.throughput} data-unit={units.throughput} class={metric} set:html={cells.throughput} />
+              <td data-cell="kit" class="text-right">
+                <button type="button" class="catalog-kit" aria-haspopup="dialog" aria-label={s.kit.show.replace("{model}", row.model)}>
+                  <svg viewBox="0 0 24 24" class={icon} {...stroke} aria-hidden="true">
+                    <path d="m16 18 6-6-6-6"></path>
+                    <path d="m8 6-6 6 6 6"></path>
+                  </svg>
+                </button>
               </td>
             </tr>
           );
@@ -276,21 +323,35 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
         <span class="flex items-center gap-1" data-kit-modalities></span>
         <span><span class="text-gray-400 dark:text-gray-500">{columns.context}</span> <span class="mono tabular-nums" data-kit-context></span></span>
         <span class="mono tabular-nums" data-kit-prices></span>
-        <span data-kit-status></span>
+        <span class="contents" data-kit-status></span>
       </p>
       <div class="code-group" data-ready>
         <div class="tab-strip items-center" role="tablist">
           <button type="button" role="tab" data-kit-tab="TypeScript">TypeScript</button>
           <button type="button" role="tab" data-kit-tab="Python">Python</button>
           <button type="button" role="tab" data-kit-tab="Server">{s.kit.server}</button>
-          <span class="mono ml-auto text-xs text-gray-400 max-sm:hidden dark:text-gray-500" data-kit-file></span>
-          <button type="button" class="kit-copy max-sm:ml-auto" data-kit-copy>
-            <svg viewBox="0 0 24 24" class={icon} {...stroke} aria-hidden="true">
-              <rect x="8" y="8" width="14" height="14" rx="2"></rect>
-              <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
-            </svg>
-            <span>{s.kit.copy}</span>
-          </button>
+          <span class="mono ml-auto text-xs text-gray-400 max-md:hidden dark:text-gray-500" data-kit-file></span>
+          <span class="kit-copies max-md:ml-auto">
+            <button type="button" class="kit-copy" data-kit-copy="code">
+              <svg viewBox="0 0 24 24" class={icon} {...stroke} aria-hidden="true">
+                <rect x="8" y="8" width="14" height="14" rx="2"></rect>
+                <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
+              </svg>
+              <span>{s.kit.copyCode}</span>
+            </button>
+            {/* Lucide: bot */}
+            <button type="button" class="kit-copy" title={s.kit.agentHint} data-kit-copy="agent">
+              <svg viewBox="0 0 24 24" class={icon} {...stroke} aria-hidden="true">
+                <path d="M12 8V4H8"></path>
+                <rect width="16" height="12" x="4" y="8" rx="2"></rect>
+                <path d="M2 14h2"></path>
+                <path d="M20 14h2"></path>
+                <path d="M15 13v2"></path>
+                <path d="M9 13v2"></path>
+              </svg>
+              <span>{s.kit.copyAgent}</span>
+            </button>
+          </span>
         </div>
         <pre class="astro-code kit-code"><code data-kit-code></code></pre>
       </div>
@@ -303,7 +364,8 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
 
 <style is:global>
   /* ---------- the table: columns on a desktop; on narrower screens each row stacks, the model and
-     its status first, then the provider, the context and the modalities, then the prices */
+     its code button first, then the provider, the context and the modalities, then the prices, then
+     a probed entry's latency and throughput */
   .catalog-table {
     border-collapse: collapse;
   }
@@ -331,30 +393,47 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
       background: var(--color-gray-900);
     }
   }
-  .catalog-expand {
-    display: flex;
-    width: 100%;
-    min-width: 0;
+  .catalog-kit {
+    display: inline-flex;
+    width: 2rem;
+    height: 2rem;
     align-items: center;
-    gap: 0.5rem;
-    text-align: left;
+    justify-content: center;
+    border-radius: 0.5rem;
+    color: var(--color-gray-400);
+    transition:
+      background-color 150ms cubic-bezier(0.23, 1, 0.32, 1),
+      color 150ms cubic-bezier(0.23, 1, 0.32, 1);
   }
-  .catalog-expand:hover .catalog-code {
+  .catalog-kit:hover {
+    background: var(--color-gray-100);
     color: var(--color-gray-900);
   }
-  .dark .catalog-expand:hover .catalog-code {
+  .dark .catalog-kit:hover {
+    background: var(--color-gray-800);
     color: var(--color-gray-100);
   }
-  .catalog-status {
+  .catalog-metric {
     display: inline-flex;
-    flex-wrap: wrap;
     align-items: center;
-    column-gap: 0.625rem;
-    row-gap: 0.125rem;
+    gap: 0.375rem;
+    white-space: nowrap;
   }
-  .catalog-status:hover .status-word {
+  .catalog-metric:hover {
     text-decoration: underline;
     text-underline-offset: 3px;
+  }
+  /* a column's unit after its name: smaller, muted, on the name's baseline */
+  .catalog-unit {
+    font-size: 0.8em;
+    font-weight: 400;
+    letter-spacing: normal;
+    text-transform: none;
+    white-space: nowrap;
+    color: var(--color-gray-400);
+  }
+  .dark .catalog-unit {
+    color: var(--color-gray-500);
   }
   .modality {
     display: inline-flex;
@@ -402,12 +481,17 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
     .dark .catalog-table thead th {
       box-shadow: inset 0 -1px var(--color-gray-800);
     }
-    .catalog-table td[data-cell="model"] {
-      padding-left: 0.25rem;
-    }
-    /* the header names the column where its ids begin, past the code icon and the mark */
+    /* the header names the column where its ids begin, past the mark */
     .catalog-table th[data-sort-key="model"] {
-      padding-left: 3.125rem;
+      padding-left: 2.25rem;
+    }
+    /* the code button fills its column and ends with the table, no taller than a row of text; its
+       header ends where the buttons do */
+    .catalog-table td[data-cell="kit"] {
+      padding: 0 0 0 0.5rem;
+    }
+    .catalog-table th[data-head="kit"] {
+      padding-inline: 0;
     }
   }
 
@@ -422,15 +506,28 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
     }
     .catalog-table tr[data-row] {
       display: grid;
-      /* the first column is the code icon and the mark, so the lines under the model id start where
-         it does */
-      grid-template-columns: 2.875rem auto auto minmax(0, 1fr) auto;
+      /* the first column is the mark and its gap, so the lines under the model id start where it
+         does; an entry the probe has not reached has no fourth line */
+      grid-template-columns: 1.5rem auto auto minmax(0, 1fr) 2.25rem;
       grid-template-areas:
-        "model model model model status"
+        "model model model model kit"
         ". provider context modalities modalities"
         ". input output cached cached";
       row-gap: 0.25rem;
       padding: 0.625rem 0;
+    }
+    /* the throughput runs to the row's end, so its label does not widen the context and output
+       column above it */
+    .catalog-table tr[data-row][data-status] {
+      grid-template-areas:
+        "model model model model kit"
+        ". provider context modalities modalities"
+        ". input output cached cached"
+        ". latency throughput throughput throughput";
+    }
+    .catalog-table tr[data-row]:not([data-status]) td[data-cell="latency"],
+    .catalog-table tr[data-row]:not([data-status]) td[data-cell="throughput"] {
+      display: none;
     }
     .catalog-table td {
       padding: 0;
@@ -441,21 +538,27 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
     }
     .catalog-table td[data-cell="model"] {
       grid-area: model;
+      align-self: center;
       min-width: 0;
       padding-right: 0.75rem;
     }
-    .catalog-table td[data-cell="status"] {
-      grid-area: status;
+    .catalog-table td[data-cell="kit"] {
+      grid-area: kit;
+      align-self: center;
       justify-self: end;
+    }
+    /* the button reaches into the row's padding, so the first line is as tall as the id */
+    .catalog-table td[data-cell="kit"] .catalog-kit {
+      margin-block: -0.375rem;
     }
     .catalog-table td[data-cell="provider"] {
       grid-area: provider;
       min-width: 0;
-      padding-right: 1rem;
+      padding-right: 0.5rem;
     }
     .catalog-table td[data-cell="context"] {
       grid-area: context;
-      padding-right: 1rem;
+      padding-right: 0.5rem;
       text-align: left;
     }
     .catalog-table td[data-cell="modalities"] {
@@ -463,23 +566,56 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
     }
     .catalog-table td[data-cell="input"] {
       grid-area: input;
-      padding-right: 1rem;
+      padding-right: 0.5rem;
     }
     .catalog-table td[data-cell="output"] {
       grid-area: output;
-      padding-right: 1rem;
+      padding-right: 0.5rem;
     }
     .catalog-table td[data-cell="cached"] {
       grid-area: cached;
     }
-    .catalog-table td[data-price] {
-      text-align: left;
+    .catalog-table td[data-cell="latency"] {
+      grid-area: latency;
+      padding-right: 0.5rem;
     }
-    .catalog-table td[data-price]::before {
-      content: attr(data-label) " ";
+    .catalog-table td[data-cell="throughput"] {
+      grid-area: throughput;
+    }
+    /* each figure after its column's name and unit, the unit small as in the desktop's headers; a line
+       too narrow for its three prices puts a value under its name rather than past the row */
+    .catalog-table td[data-price],
+    .catalog-table td[data-cell="latency"],
+    .catalog-table td[data-cell="throughput"] {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      white-space: nowrap;
+    }
+    .catalog-table td[data-price]::before,
+    .catalog-table td[data-cell="latency"]::before,
+    .catalog-table td[data-cell="throughput"]::before,
+    .catalog-table td[data-price]::after,
+    .catalog-table td[data-cell="latency"]::after,
+    .catalog-table td[data-cell="throughput"]::after {
       font-family: ui-sans-serif, system-ui, sans-serif;
-      font-size: 11px;
       color: var(--color-gray-400);
+    }
+    .catalog-table td[data-price]::before,
+    .catalog-table td[data-cell="latency"]::before,
+    .catalog-table td[data-cell="throughput"]::before {
+      content: attr(data-label);
+      order: -2;
+      margin-right: 0.125rem;
+      font-size: 11px;
+    }
+    .catalog-table td[data-price]::after,
+    .catalog-table td[data-cell="latency"]::after,
+    .catalog-table td[data-cell="throughput"]::after {
+      content: attr(data-unit);
+      order: -1;
+      margin-right: 0.25rem;
+      font-size: 8.5px;
     }
   }
 
@@ -541,13 +677,23 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
     padding: 1rem 1.25rem 1.25rem;
     outline: none;
   }
-  /* on a phone the file name gives way, and the tabs narrow, so Copy stays on their line */
+  .kit-copies {
+    display: flex;
+    gap: 0.25rem;
+  }
+  /* on a phone the file name gives way, the tabs narrow, and the two copy buttons take a line of
+     their own above the tabs, so the selected tab still meets the code */
   @media (max-width: 639.98px) {
     .kit-panel {
       padding: 0.875rem 1rem 1rem;
     }
     .kit-panel .code-group .tab-strip button {
       padding-inline: 0.5rem;
+    }
+    .kit-copies {
+      order: -1;
+      flex-basis: 100%;
+      justify-content: flex-end;
     }
   }
   /* the page keeps its scrollbar's room, so it does not shift sideways */
@@ -592,58 +738,11 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
     padding: 0.25rem 0.5rem;
     font-size: 12px;
   }
-
-  /* ---------- the USD / CNY switch: a segmented control whose thumb glides to the choice */
-  .segmented {
-    position: relative;
-    display: inline-grid;
-    grid-auto-columns: 1fr;
-    grid-auto-flow: column;
-    border-radius: 0.5rem;
-    background: var(--color-gray-100);
-    padding: 2px;
-  }
-  .dark .segmented {
-    background: var(--color-gray-900);
-  }
-  .segmented button {
-    position: relative;
-    z-index: 1;
-    height: 1.75rem;
-    padding: 0 0.625rem;
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--color-gray-500);
-    transition: color 150ms;
-  }
-  .segmented button[aria-checked="true"] {
-    color: var(--color-gray-900);
-  }
-  .dark .segmented button[aria-checked="true"] {
-    color: var(--color-gray-100);
-  }
-  .segmented-thumb {
-    position: absolute;
-    top: 2px;
-    bottom: 2px;
-    left: 2px;
-    width: calc(50% - 2px);
-    border-radius: 0.375rem;
-    background: var(--color-white);
-    box-shadow: 0 0 0 1px var(--color-gray-200);
-    transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1);
-  }
-  .dark .segmented-thumb {
-    background: var(--color-gray-800);
-    box-shadow: 0 0 0 1px var(--color-gray-700);
-  }
-  .segmented[data-value="CNY"] .segmented-thumb {
-    transform: translateX(100%);
-  }
 </style>
 
 <script>
-  import { STATUS_RANK, ago, formatMs, formatTps, loadLatest, statusAnchor, statusLabel, statusQuery, type StatusWords } from "../shared/status";
+  import { PRICE_UNITS, isProbed, metricCells, type MetricWords } from "../shared/catalog-status";
+  import { loadLatest, statusQuery, withCurrentKeys, type Status } from "../shared/status";
 
   type Tab = "typescript" | "python" | "server";
   interface KitText {
@@ -651,10 +750,12 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
     baseUrl: string;
     typescript: string;
     python: string;
+    // the prompt "Copy for agent" puts on the clipboard
+    agent: string;
     server: string;
     run: Record<Tab, string>;
   }
-  type Words = StatusWords & { copy: string; copied: string; copyFailed: string; models: string; probed: string; perMillion: string; tps: string };
+  type Words = MetricWords & { copied: string; copyFailed: string; models: string; perMillion: string };
 
   const stored = (key: string) => {
     try {
@@ -672,7 +773,6 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
   const root = document.querySelector<HTMLElement>("[data-catalog]");
   if (root) {
     const words = JSON.parse(root.dataset.words!) as Words;
-    const locale = root.dataset.locale!;
     const kits = JSON.parse(root.querySelector("[data-catalog-kits]")!.textContent!) as KitText[];
     const body = root.querySelector<HTMLElement>("[data-catalog-body]")!;
     const rows = [...body.querySelectorAll<HTMLTableRowElement>("tr[data-row]")];
@@ -688,8 +788,6 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
     const code = dialog.querySelector<HTMLElement>("[data-kit-code]")!;
     const run = dialog.querySelector<HTMLElement>("[data-kit-run]")!;
     const file = dialog.querySelector<HTMLElement>("[data-kit-file]")!;
-    const copy = dialog.querySelector<HTMLButtonElement>("[data-kit-copy]")!;
-    const copyLabel = copy.querySelector("span")!;
     const slot = (name: string) => dialog.querySelector<HTMLElement>(`[data-kit-${name}]`)!;
     const clones = (parent: Element | null | undefined) => [...(parent?.children ?? [])].map((child) => child.cloneNode(true));
     let language = LANGUAGES.includes(stored("mmsp-site.code") ?? "") ? stored("mmsp-site.code")! : LANGUAGES[0];
@@ -719,17 +817,40 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
       slot("prices").textContent = prices.length
         ? `${prices.map((cell) => `${cell.dataset.label} ${cell.textContent}`).join(" · ")} ${segmented.dataset.value} ${words.perMillion}`
         : "";
-      slot("status").replaceChildren(...clones(row.querySelector("[data-status-cell]")).slice(0, 1));
+      // a probed entry's latency and throughput, each after its column's name as the context is,
+      // with their units, since the dialog has no headers to carry them
+      const status = row.dataset.status as Status | undefined;
+      const numeric = (data: string | undefined) => (data === undefined ? null : Number(data));
+      const figures = status
+        ? metricCells({ status, ttft_ms: numeric(row.dataset.ttft), tps: numeric(row.dataset.tps) }, words, root.dataset.statusPage! + statusQuery(), row.dataset.key!, true)
+        : null;
+      slot("status").replaceChildren(
+        ...(figures ? (["latency", "throughput"] as const) : []).map((name) => {
+          const item = document.createElement("span");
+          const label = document.createElement("span");
+          label.className = "text-gray-400 dark:text-gray-500";
+          label.textContent = row.querySelector<HTMLElement>(`[data-cell="${name}"]`)!.dataset.label!;
+          const value = document.createElement("span");
+          value.className = "mono tabular-nums";
+          value.innerHTML = figures![name];
+          item.append(label, " ", value);
+          return item;
+        }),
+      );
       renderKit();
       document.documentElement.classList.add("kit-open");
       dialog.showModal();
       panel.focus({ preventScroll: true });
     };
+    // the copy buttons' labels go back to their names when the dialog closes, so the next entry's
+    // kit does not open saying Copied
+    const settle: (() => void)[] = [];
     dialog.addEventListener("close", () => {
       document.documentElement.classList.remove("kit-open");
+      for (const done of settle) done();
       if (!open) return;
       open.removeAttribute("data-open");
-      open.querySelector<HTMLElement>(".catalog-expand")!.focus();
+      open.querySelector<HTMLElement>(".catalog-kit")!.focus();
       open = null;
     });
     slot("close").addEventListener("click", () => dialog.close());
@@ -740,7 +861,7 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
     dialog.addEventListener("click", (event) => {
       if (pressedOutside && event.target === dialog) dialog.close();
     });
-    for (const row of rows) row.querySelector(".catalog-expand")!.addEventListener("click", () => show(row));
+    for (const row of rows) row.querySelector(".catalog-kit")!.addEventListener("click", () => show(row));
     for (const tab of tabs) {
       tab.addEventListener("click", () => {
         language = tab.dataset.kitTab!;
@@ -748,17 +869,30 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
         renderKit();
       });
     }
-    let reset: number | undefined;
-    copy.addEventListener("click", async () => {
-      try {
-        await navigator.clipboard.writeText(code.textContent ?? "");
-        copyLabel.textContent = words.copied;
-      } catch {
-        copyLabel.textContent = words.copyFailed;
-      }
-      window.clearTimeout(reset);
-      reset = window.setTimeout(() => (copyLabel.textContent = words.copy), 2000);
-    });
+    // Copy code takes the open tab's file as it reads; Copy for agent, the entry's agent prompt.
+    // Each says what happened in its own label for two seconds.
+    for (const button of dialog.querySelectorAll<HTMLButtonElement>("[data-kit-copy]")) {
+      const label = button.querySelector("span")!;
+      const idle = label.textContent!;
+      let reset: number | undefined;
+      settle.push(() => {
+        window.clearTimeout(reset);
+        label.textContent = idle;
+      });
+      button.addEventListener("click", async () => {
+        const text = button.dataset.kitCopy === "agent" ? (open ? kits[Number(open.dataset.index)].agent : "") : code.textContent;
+        // held at its width while its label changes, so the button beside it stays put
+        button.style.minWidth = `${button.offsetWidth}px`;
+        try {
+          await navigator.clipboard.writeText(text ?? "");
+          label.textContent = words.copied;
+        } catch {
+          label.textContent = words.copyFailed;
+        }
+        window.clearTimeout(reset);
+        reset = window.setTimeout(() => (label.textContent = idle), 2000);
+      });
+    }
 
     // ---------- search: every word typed must appear in the model, provider, vendor, client or URL
     const search = root.querySelector<HTMLInputElement>("[data-catalog-search]")!;
@@ -776,15 +910,16 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
     };
     search.addEventListener("input", filter);
 
-    // ---------- sort: a header cycles through ascending, descending and the registry's order;
-    // an entry without the value sorts last either way
+    // ---------- sort: a header cycles through ascending, descending and the registry's order, or
+    // through descending first where the highest is best (data-sort-first); an entry without the
+    // value sorts last either way
     const headers = [...root.querySelectorAll<HTMLElement>("th[data-sort-key]")];
     let sortKey: string | null = null;
     let direction = 0;
+    const PROBED: Record<string, string> = { latency: "ttft", throughput: "tps" };
     const value = (row: HTMLTableRowElement, key: string): number | string | undefined => {
       if (key === "model" || key === "provider") return row.dataset[key];
-      if (key === "status") return row.dataset.status ? STATUS_RANK[row.dataset.status as keyof typeof STATUS_RANK] : undefined;
-      const raw = row.dataset[key];
+      const raw = row.dataset[PROBED[key] ?? key];
       return raw === undefined || raw === "" ? undefined : Number(raw);
     };
     const sort = () => {
@@ -806,12 +941,13 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
       }
     };
     for (const header of headers) {
+      const first = header.dataset.sortFirst === "desc" ? -1 : 1;
       header.querySelector("button")!.addEventListener("click", () => {
         if (header.dataset.sortKey !== sortKey) {
           sortKey = header.dataset.sortKey!;
-          direction = 1;
+          direction = first;
         } else {
-          direction = direction === 1 ? -1 : direction === -1 ? 0 : 1;
+          direction = direction === first ? -first : direction === -first ? 0 : first;
         }
         sort();
       });
@@ -820,50 +956,55 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
     // ---------- USD or CNY, kept for the next visit
     const segmented = root.querySelector<HTMLElement>("[data-segmented]")!;
     const prices = [...root.querySelectorAll<HTMLElement>("[data-price]")];
-    const applyCurrency = (currency: string) => {
+    const priceUnits = [...root.querySelectorAll<HTMLElement>("[data-price-unit]")];
+    const applyCurrency = (currency: "USD" | "CNY") => {
       segmented.dataset.value = currency;
+      segmented.style.setProperty("--i", currency === "CNY" ? "1" : "0");
       for (const button of segmented.querySelectorAll<HTMLButtonElement>("button")) {
         button.setAttribute("aria-checked", String(button.dataset.value === currency));
       }
-      for (const cell of prices) cell.textContent = (currency === "CNY" ? cell.dataset.cny : cell.dataset.usd) ?? "—";
+      for (const unit of priceUnits) {
+        unit.textContent = PRICE_UNITS[currency];
+        unit.title = `${currency} ${words.perMillion}`;
+      }
+      for (const cell of prices) {
+        cell.textContent = (currency === "CNY" ? cell.dataset.cny : cell.dataset.usd) ?? "—";
+        cell.dataset.unit = PRICE_UNITS[currency];
+      }
     };
     for (const button of segmented.querySelectorAll<HTMLButtonElement>("button")) {
       button.addEventListener("click", () => {
         store("mmsp-site.currency", button.dataset.value!);
-        applyCurrency(button.dataset.value!);
+        applyCurrency(button.dataset.value as "USD" | "CNY");
       });
     }
     const chosen = stored("mmsp-site.currency");
     if (chosen === "USD" || chosen === "CNY") applyCurrency(chosen);
 
-    // ---------- the daily probe: a probed entry shows its status, TTFT and TPS, and links to its
-    // channel on the status page
-    loadLatest().then((latest) => {
-      if (!latest) return;
-      let probed = 0;
+    // ---------- the daily probe: the page carries the run that was the latest when it was built; a
+    // newer run on the branch redraws every row's latency and throughput with the cells the build
+    // drew (a ?status= override on this machine always does, so its links keep the override)
+    const setData = (row: HTMLTableRowElement, name: string, data: string | number | null | undefined) => {
+      if (data === null || data === undefined) delete row.dataset[name];
+      else row.dataset[name] = String(data);
+    };
+    void loadLatest().then((loaded) => {
+      const latest = withCurrentKeys(loaded);
+      if (!latest || (latest.run_id === root.dataset.runId && !statusQuery())) return;
+      root.dataset.runId = latest.run_id;
+      const page = root.dataset.statusPage! + statusQuery();
       for (const row of rows) {
-        const target = latest.targets[row.dataset.key!];
-        if (!target) continue;
-        probed += 1;
-        row.dataset.status = target.status;
-        const link = document.createElement("a");
-        link.className = "catalog-status";
-        link.href = `${root.dataset.statusPage}${statusQuery()}#${statusAnchor(row.dataset.key!)}`;
-        if (target.checked_at) link.title = ago(target.checked_at, locale);
-        link.append(statusLabel(target.status, words));
-        if (target.ok > 0) {
-          const metrics = document.createElement("span");
-          metrics.className = "mono text-xs text-gray-500 dark:text-gray-400";
-          metrics.textContent = `${formatMs(target.ttft_ms)} · ${formatTps(target.tps)} ${words.tps}`;
-          link.append(metrics);
-        }
-        row.querySelector<HTMLElement>("[data-status-cell]")!.replaceChildren(link);
+        const key = row.dataset.key!;
+        const target = latest.targets[key];
+        const probe = isProbed(target) ? target : undefined;
+        setData(row, "status", probe?.status);
+        setData(row, "ttft", probe?.ttft_ms);
+        setData(row, "tps", probe?.tps);
+        const cells = metricCells(target, words, page, key);
+        row.querySelector('[data-cell="latency"]')!.innerHTML = cells.latency;
+        row.querySelector('[data-cell="throughput"]')!.innerHTML = cells.throughput;
       }
-      if (probed) {
-        const label = root.querySelector<HTMLElement>("[data-catalog-probed]")!;
-        label.textContent = ` · ${words.probed.replace("{n}", String(probed))}`;
-        label.hidden = false;
-      }
+      if (sortKey && direction) sort();
     });
   }
 </script>
