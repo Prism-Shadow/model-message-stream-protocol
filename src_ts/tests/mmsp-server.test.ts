@@ -190,11 +190,25 @@ class ScriptedClient extends LLMClient {
 
 /**
  * Streams a text delta every 50 ms until its request is aborted or it is told to stop, and
- * records that its stream was closed.
+ * records that its stream was closed and what its public stream threw.
  */
 class SlowScriptedClient extends ScriptedClient {
   stopped = false;
   cleaned = false;
+  thrown: unknown;
+
+  async *streamingResponse(options: {
+    messages: UniMessage[];
+    config: UniConfig;
+    signal?: AbortSignal;
+  }): AsyncGenerator<UniEvent> {
+    try {
+      yield* super.streamingResponse(options);
+    } catch (error) {
+      this.thrown = error;
+      throw error;
+    }
+  }
 
   async *_streamingResponseInternal(options: {
     messages: UniMessage[];
@@ -202,10 +216,9 @@ class SlowScriptedClient extends ScriptedClient {
     signal?: AbortSignal;
   }): AsyncGenerator<UniEvent> {
     try {
-      while (!this.stopped) {
-        // the base class does not cancel a client: each one hands the signal to its request,
-        // which fails once the signal fires
-        options.signal?.throwIfAborted();
+      // the openai and anthropic SDKs end their stream quietly once the signal aborts their
+      // request, and the base class throws the signal's reason
+      while (!this.stopped && !options.signal?.aborted) {
         yield delta({
           type: "text.delta",
           text: "tick",
@@ -1147,10 +1160,16 @@ describe("MMSP server stream", () => {
       // the server aborts its request when the connection closes, and the upstream stops at
       // its next delta
       const deadline = Date.now() + 5000;
-      while (!upstream.cleaned && Date.now() < deadline) {
+      while (
+        (!upstream.cleaned || upstream.thrown === undefined) &&
+        Date.now() < deadline
+      ) {
         await new Promise((resolve) => setTimeout(resolve, 10));
       }
       expect(upstream.cleaned).toBe(true);
+      // the upstream ended quietly, and its stream still ended as an abort, with no done items
+      // and no stop
+      expect((upstream.thrown as Error).name).toBe("AbortError");
     } finally {
       upstream.stopped = true;
     }

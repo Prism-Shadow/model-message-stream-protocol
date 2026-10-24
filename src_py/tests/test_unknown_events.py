@@ -81,9 +81,29 @@ def _create_auto_client(case: StreamCase) -> AutoLLMClient:
     return AutoLLMClient(model=case.model, api_key="test-key", client_type=case.client_type)
 
 
-async def _stream_from_events(events: list[object]) -> AsyncIterator[object]:
-    for event in events:
-        yield event
+class _FakeStream:
+    """Stands in for an SDK stream, which a client iterates inside `async with` so that it is closed."""
+
+    def __init__(self, chunks: list[object]) -> None:
+        self._chunks = iter(chunks)
+
+    async def __aenter__(self) -> "_FakeStream":
+        return self
+
+    async def __aexit__(self, *_exc_info: object) -> None:
+        await self.aclose()
+
+    def __aiter__(self) -> "_FakeStream":
+        return self
+
+    async def __anext__(self) -> object:
+        try:
+            return next(self._chunks)
+        except StopIteration:
+            raise StopAsyncIteration from None
+
+    async def aclose(self) -> None:
+        self._chunks = iter(())
 
 
 class _FakeCreateEndpoint:
@@ -93,7 +113,7 @@ class _FakeCreateEndpoint:
         self._events = events
 
     async def create(self, **_kwargs: object) -> AsyncIterator[object]:
-        return _stream_from_events(self._events)
+        return _FakeStream(self._events)
 
 
 class _FakeGenerateContentModels:
@@ -103,7 +123,7 @@ class _FakeGenerateContentModels:
         self._events = events
 
     async def generate_content_stream(self, **_kwargs: object) -> AsyncIterator[object]:
-        return _stream_from_events(self._events)
+        return _FakeStream(self._events)
 
 
 def _install_fake_responses_stream(client: AutoLLMClient, events: list[object]) -> None:

@@ -669,8 +669,9 @@ class GoogleOfficialClient(LLMClient):
 
         stream = await self._client.aio.interactions.create(**gemini_config, input=steps)
 
-        async for event in stream:
-            yield self.transform_model_output_to_uni_event(event)
+        async with stream:
+            async for event in stream:
+                yield self.transform_model_output_to_uni_event(event)
 
     async def list_models(self) -> list[str]:
         """

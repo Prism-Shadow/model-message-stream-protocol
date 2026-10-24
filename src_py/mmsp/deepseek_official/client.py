@@ -383,8 +383,9 @@ class DeepSeekOfficialClient(LLMClient):
 
         # Stream generate
         stream = await self._client.responses.create(**deepseek_config, input=input_list, stream=True)
-        async for model_event in stream:
-            yield self.transform_model_output_to_uni_event(model_event)
+        async with stream:
+            async for model_event in stream:
+                yield self.transform_model_output_to_uni_event(model_event)
 
     async def list_models(self) -> list[str]:
         """

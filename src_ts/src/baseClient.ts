@@ -332,6 +332,9 @@ export abstract class LLMClient {
     })) {
       yield* output.push(event);
     }
+    // the openai and anthropic SDKs end their stream quietly when the signal aborts their request,
+    // so an abort is thrown here: no done items, no stop, nothing recorded
+    options.signal?.throwIfAborted();
     yield* output.end();
     const stopEvent = output.stop();
 

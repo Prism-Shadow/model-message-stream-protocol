@@ -391,8 +391,9 @@ class AntMessagesClient(LLMClient):
         ant_messages = self.transform_uni_message_to_model_input(messages)
 
         stream = await self._client.beta.messages.create(**ant_config, messages=ant_messages)
-        async for event in stream:
-            yield self.transform_model_output_to_uni_event(event)
+        async with stream:
+            async for event in stream:
+                yield self.transform_model_output_to_uni_event(event)
 
     async def list_models(self) -> list[str]:
         """

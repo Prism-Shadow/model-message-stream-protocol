@@ -406,8 +406,9 @@ class ZAIOfficialClient(LLMClient):
         # Stream generate
         stream = await self._client.chat.completions.create(**glm_config, messages=glm_messages)
 
-        async for chunk in stream:
-            yield self.transform_model_output_to_uni_event(chunk)
+        async with stream:
+            async for chunk in stream:
+                yield self.transform_model_output_to_uni_event(chunk)
 
     async def list_models(self) -> list[str]:
         """

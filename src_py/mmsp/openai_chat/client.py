@@ -438,8 +438,9 @@ class OpenaiChatClient(LLMClient):
 
         stream = await self._client.chat.completions.create(**openai_config, messages=openai_messages)
 
-        async for chunk in stream:
-            yield self.transform_model_output_to_uni_event(chunk)
+        async with stream:
+            async for chunk in stream:
+                yield self.transform_model_output_to_uni_event(chunk)
 
     async def list_models(self) -> list[str]:
         """
