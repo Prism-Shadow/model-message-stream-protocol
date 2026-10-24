@@ -13,9 +13,11 @@
 # limitations under the License.
 
 import base64
+import contextlib
 import json
 import mimetypes
 import re
+from contextvars import ContextVar
 from typing import Any, AsyncIterator
 
 import httpx
@@ -24,7 +26,7 @@ from google.genai import types
 from google.oauth2 import service_account
 
 from ..base_client import LLMClient
-from ..errors import UnsupportedParameterError
+from ..errors import InvalidMessageError, UnknownEventError, UnsupportedContentError, UnsupportedParameterError
 from ..types import (
     EventContentItem,
     EventType,
@@ -38,6 +40,19 @@ from ..types import (
     UsageMetadata,
 )
 from ..utils import is_debug_enabled, resolve_credentials, speaker_turns
+
+
+# generate_content_stream reads its HTTP response under nested async generators, the innermost in a
+# reference cycle with the response, so closing the stream it returns leaves the connection open until
+# the garbage collector runs (measured with google-genai 2.33). A stream therefore collects, through the
+# SDK client's httpx event hook, the responses its request opens, and closes them when it is closed.
+_OPENED_RESPONSES: ContextVar[list[Any] | None] = ContextVar("google_genai_opened_responses", default=None)
+
+
+async def _collect_opened_response(response: Any) -> None:
+    opened = _OPENED_RESPONSES.get()
+    if opened is not None:
+        opened.append(response)
 
 
 def _split_function_response_runs(parts: list[types.Part]) -> list[list[types.Part]]:
@@ -80,7 +95,9 @@ class GoogleGenaiClient(LLMClient):
         self._model = model
         api_key, base_url = resolve_credentials(self.__class__.__name__, "google-genai", api_key, base_url)
         # the Gemini SDK carries connection headers inside http_options rather than its own argument
-        http_options: dict[str, Any] = {}
+        http_options: dict[str, Any] = {
+            "async_client_args": {"event_hooks": {"response": [_collect_opened_response]}},
+        }
         if base_url:
             http_options["base_url"] = base_url
         if default_headers:
@@ -95,10 +112,10 @@ class GoogleGenaiClient(LLMClient):
                 credentials=credentials,
                 project=service_account_info["project_id"],
                 location="global",
-                http_options=http_options or None,
+                http_options=http_options,
             )
         else:
-            self._client = genai.Client(api_key=api_key, http_options=http_options or None)
+            self._client = genai.Client(api_key=api_key, http_options=http_options)
 
         self._history: list[UniMessage] = []
 
@@ -116,7 +133,9 @@ class GoogleGenaiClient(LLMClient):
                 base64_string = match.group(2)
                 image_bytes = base64.b64decode(base64_string)
             else:
-                raise ValueError(f"Invalid base64 image: {url}")
+                raise InvalidMessageError(
+                    self.__class__.__name__, f"Invalid base64 image: {url}", item_type="image_url"
+                )
         else:
             async with httpx.AsyncClient() as client:
                 response = await client.get(url)
@@ -318,7 +337,7 @@ class GoogleGenaiClient(LLMClient):
         # response, but a universal tool_result carries only the id, so remember each call's name.
         call_names: dict[str, str] = {}
         contents = []
-        for msg in messages:
+        for message_index, msg in enumerate(messages):
             parts = []
             for item in msg["content_items"]:
                 # base64 text as the stream recorded it, or the bytes older Python histories hold
@@ -351,7 +370,11 @@ class GoogleGenaiClient(LLMClient):
                     parts.append(types.Part(function_call=function_call, thought_signature=thought_signature))
                 elif item["type"] == "tool_result.done":
                     if "tool_call_id" not in item:
-                        raise ValueError("tool_call_id is required for tool result.")
+                        raise InvalidMessageError(
+                            self.__class__.__name__,
+                            "tool_call_id is required for tool result.",
+                            item_type="tool_result",
+                        )
 
                     tool_result = {"result": item["text"]}
                     multimodal_parts = []
@@ -374,7 +397,7 @@ class GoogleGenaiClient(LLMClient):
                         )
                     )
                 else:
-                    raise ValueError(f"Unknown item: {item}")
+                    raise InvalidMessageError(self.__class__.__name__, f"Unknown item: {item}", item_type=item["type"])
 
             if msg["role"] == "assistant":
                 # generateContent validates a single signature, the one on the first function call of a step
@@ -426,6 +449,13 @@ class GoogleGenaiClient(LLMClient):
                         part.thought and part.text == "" and part.inline_data is None and not part.thought_signature
                     )
                 ]
+
+            if all(part.thought for part in parts):
+                raise InvalidMessageError(
+                    self.__class__.__name__,
+                    f"message {message_index} has nothing {self.__class__.__name__} can send",
+                    message_index=message_index,
+                )
 
             # Vertex AI rejects a content that mixes function_response parts with any other
             # part kind — the request fails with a misleading 400, "Requests ending with a
@@ -510,7 +540,7 @@ class GoogleGenaiClient(LLMClient):
                             {"type": "text.delta", "text": part.text, "fidelity": {"item_id": "text", **fidelity}}
                         )
                 elif is_debug_enabled():
-                    raise ValueError(f"Unknown output: {part}")
+                    raise UnknownEventError(self.__class__.__name__, str(part))
 
             if candidate.finish_reason:
                 event_type = "stop"
@@ -526,10 +556,10 @@ class GoogleGenaiClient(LLMClient):
         if usage is not None and usage.prompt_token_count is not None:
             event_type = "stop"
             usage_metadata = {
-                "cached_tokens": usage.cached_content_token_count or None,
+                "cached_tokens": usage.cached_content_token_count,
                 "prompt_tokens": (usage.prompt_token_count or 0) - (usage.cached_content_token_count or 0),
-                "thoughts_tokens": usage.thoughts_token_count or None,
-                "response_tokens": usage.candidates_token_count or None,
+                "thoughts_tokens": usage.thoughts_token_count,
+                "response_tokens": usage.candidates_token_count,
             }
 
         return {
@@ -565,7 +595,7 @@ class GoogleGenaiClient(LLMClient):
                 elif item["type"] == "inline_data.done":
                     parts.append(types.Part.from_bytes(data=item["data"], mime_type=item["mime_type"]))
                 else:
-                    raise ValueError(f"Unknown item: {item}")
+                    raise InvalidMessageError(self.__class__.__name__, f"Unknown item: {item}", item_type=item["type"])
 
             result = await self._client.aio.models.embed_content(
                 model=self._model,
@@ -627,7 +657,11 @@ class GoogleGenaiClient(LLMClient):
                 None,
             )
             if invalid_item is not None:
-                raise ValueError(f"Gemini TTS only supports text input, got content item type={invalid_item['type']}.")
+                raise UnsupportedContentError(
+                    self.__class__.__name__,
+                    invalid_item["type"],
+                    f"Gemini TTS only supports text input, got content item type={invalid_item['type']}.",
+                )
 
         contents = await self.transform_uni_message_to_model_input(messages)
 
@@ -642,26 +676,43 @@ class GoogleGenaiClient(LLMClient):
                     "role": "user",
                     "parts": [
                         {"text": turn, "speech_metadata": {"speaker": speaker}}
-                        for speaker, turn in speaker_turns(script, speakers)
+                        for speaker, turn in speaker_turns(script, speakers, self.__class__.__name__)
                     ],
                 }
             ]
 
-        response_stream = await self._client.aio.models.generate_content_stream(
-            model=self._model, contents=contents, config=gemini_config
-        )
-
-        saw_function_call = False
-        async for chunk in response_stream:
-            event = self.transform_model_output_to_uni_event(chunk)
-            if any(item["type"] == "tool_call.delta" for item in event["content_items"]):
-                saw_function_call = True
-
-            # generateContent reports STOP for a turn that stopped to call tools
-            finish_reason = (
-                "tool_call" if event["finish_reason"] == "stop" and saw_function_call else event["finish_reason"]
+        opened: list[Any] = []
+        collecting = _OPENED_RESPONSES.set(opened)
+        try:
+            response_stream = await self._client.aio.models.generate_content_stream(
+                model=self._model, contents=contents, config=gemini_config
             )
-            yield {**event, "finish_reason": finish_reason}
+
+            saw_function_call = False
+            async with contextlib.aclosing(response_stream):
+                async for chunk in response_stream:
+                    if collecting is not None:
+                        # the request went out with the first read, in the context this step runs in;
+                        # a later read may run in another task's
+                        _OPENED_RESPONSES.reset(collecting)
+                        collecting = None
+
+                    event = self.transform_model_output_to_uni_event(chunk)
+                    if any(item["type"] == "tool_call.delta" for item in event["content_items"]):
+                        saw_function_call = True
+
+                    # generateContent reports STOP for a turn that stopped to call tools
+                    finish_reason = (
+                        "tool_call"
+                        if event["finish_reason"] == "stop" and saw_function_call
+                        else event["finish_reason"]
+                    )
+                    yield {**event, "finish_reason": finish_reason}
+        finally:
+            if collecting is not None:
+                _OPENED_RESPONSES.reset(collecting)
+            for response in opened:
+                await response.aclose()
 
     async def list_models(self) -> list[str]:
         """

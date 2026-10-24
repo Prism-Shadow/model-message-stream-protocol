@@ -26,8 +26,8 @@ is decoded back.
 While the model is silent, the server writes an SSE comment every KEEPALIVE_SECONDS, which a reader
 skips; it keeps proxies and clients from timing out a long thought.
 An error is `{"error": {"type", "message", ...}}`: the HTTP body when the server refuses a request,
-or one event followed by `data: [DONE]` once the stream has begun. The six MMSP errors travel with
-their fields; the mmsp client raises every error the server reports as an `UpstreamError` carrying
+or one event followed by `data: [DONE]` once the stream has begun. Every MMSP error travels with
+its fields; the mmsp client raises every error the server reports as an `UpstreamError` carrying
 the object.
 """
 
@@ -35,12 +35,20 @@ import base64
 from typing import Any
 
 from .errors import (
+    ApiKeyRequiredError,
+    ConcurrentCallError,
     EmptyResponseError,
     IncompleteStreamError,
+    InvalidMessageError,
+    ProviderStreamError,
+    RoutingError,
     StreamProtocolError,
     ToolCallArgumentParseError,
+    UnknownEventError,
+    UnsupportedContentError,
     UnsupportedOperationError,
     UnsupportedParameterError,
+    UpstreamError,
 )
 
 
@@ -159,6 +167,49 @@ def to_wire_error(exc: BaseException) -> dict[str, Any]:
             "tool_call_id": exc.tool_call_id,
             "raw_arguments_length": exc.raw_arguments_length,
             "raw_arguments_preview": exc.raw_arguments_preview,
+        }
+    if isinstance(exc, ApiKeyRequiredError):
+        return {
+            "type": "ApiKeyRequiredError",
+            "message": str(exc),
+            "client": exc.client,
+            "client_type": exc.client_type,
+            "api_key_env": exc.api_key_env,
+            "base_url_env": exc.base_url_env,
+            "base_url": exc.base_url,
+        }
+    if isinstance(exc, RoutingError):
+        return {"type": "RoutingError", "message": str(exc), "model": exc.model, "client_type": exc.client_type}
+    if isinstance(exc, InvalidMessageError):
+        return {
+            "type": "InvalidMessageError",
+            "message": str(exc),
+            "client": exc.client,
+            "item_type": exc.item_type,
+            "message_index": exc.message_index,
+        }
+    if isinstance(exc, UnsupportedContentError):
+        return {
+            "type": "UnsupportedContentError",
+            "message": str(exc),
+            "client": exc.client,
+            "item_type": exc.item_type,
+        }
+    if isinstance(exc, UnknownEventError):
+        return {"type": "UnknownEventError", "message": str(exc), "client": exc.client, "event": exc.event}
+    if isinstance(exc, ProviderStreamError):
+        return {"type": "ProviderStreamError", "message": str(exc), "client": exc.client, "code": exc.code}
+    if isinstance(exc, ConcurrentCallError):
+        return {"type": "ConcurrentCallError", "message": str(exc), "client": exc.client}
+    if isinstance(exc, UpstreamError):
+        # a server whose upstream is another MMSP server passes on what that server reported
+        return {
+            "type": "UpstreamError",
+            "message": str(exc),
+            "client": exc.client,
+            "status": exc.status,
+            "error_type": exc.error_type,
+            "error": exc.error,
         }
 
     error: dict[str, Any] = {"type": type(exc).__name__, "message": str(exc) or type(exc).__name__}

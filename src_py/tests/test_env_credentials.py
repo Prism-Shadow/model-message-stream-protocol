@@ -108,21 +108,28 @@ VENDOR_IDS = [case.expected_client for case in VENDOR_CASES]
 
 
 def _missing_key_message(case: VendorCase) -> str:
-    return re.escape(f"{case.key_env} is required for {case.expected_client}.")
+    return re.escape(f"{case.key_env} is required for {case.expected_client}: pass api_key or set {case.key_env}.")
 
 
 @pytest.mark.parametrize("case", VENDOR_CASES, ids=VENDOR_IDS)
 def test_vendor_client_refuses_to_build_on_openai_api_key_alone(case: VendorCase, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("OPENAI_API_KEY", "sk-openai-PROBE")
 
-    with pytest.raises(ValueError, match=_missing_key_message(case)):
+    with pytest.raises(ApiKeyRequiredError, match=_missing_key_message(case)):
         AutoLLMClient(model=case.model)
 
 
 @pytest.mark.parametrize("case", VENDOR_CASES, ids=VENDOR_IDS)
 def test_vendor_client_without_any_key_names_its_own_variable(case: VendorCase):
-    with pytest.raises(ValueError, match=_missing_key_message(case)):
+    with pytest.raises(ApiKeyRequiredError, match=_missing_key_message(case)) as exc_info:
         AutoLLMClient(model=case.model)
+
+    assert isinstance(exc_info.value, ValueError)
+    assert (exc_info.value.client, exc_info.value.api_key_env, exc_info.value.base_url) == (
+        case.expected_client,
+        case.key_env,
+        None,
+    )
 
 
 @pytest.mark.parametrize("case", VENDOR_CASES, ids=VENDOR_IDS)

@@ -14,7 +14,11 @@
 
 import { AutoLLMClient } from "../src/autoClient";
 import { listSupportedModels } from "../src/registry";
-import { UnsupportedParameterError } from "../src/errors";
+import {
+  IncompleteStreamError,
+  RoutingError,
+  UnsupportedParameterError,
+} from "../src/errors";
 import {
   EmbeddingDoneItem,
   EventContentItem,
@@ -271,6 +275,39 @@ const MODEL_CASES = AVAILABLE_MODELS.map((m): [string, Model] => [
   m,
 ]);
 
+// Providers throttle live E2E traffic, and a provider sometimes cuts a stream short (Z.AI
+// ends it with finish_reason "network_error" and no usage); a 429 or an
+// IncompleteStreamError says "later", not "broken", so retry it rather than failing the
+// run. Every other error propagates on the first attempt.
+// mirrors the pytest job's --reruns 5 --reruns-delay 30
+const TRANSIENT_RETRIES = 5;
+const TRANSIENT_RETRY_DELAY_MS = 30_000;
+
+function isTransient(error: unknown): boolean {
+  if (error instanceof IncompleteStreamError) {
+    return true;
+  }
+  const status = (error as { status?: number })?.status;
+  const message = (error as { message?: string })?.message ?? "";
+  return status === 429 || /rate limit|429/i.test(message);
+}
+
+async function withTransientRetry(run: () => Promise<void>): Promise<void> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await run();
+      return;
+    } catch (error) {
+      if (attempt >= TRANSIENT_RETRIES || !isTransient(error)) {
+        throw error;
+      }
+      await new Promise((resolve) =>
+        setTimeout(resolve, TRANSIENT_RETRY_DELAY_MS),
+      );
+    }
+  }
+}
+
 /**
  * Declare one check across every available model.
  *
@@ -278,34 +315,6 @@ const MODEL_CASES = AVAILABLE_MODELS.map((m): [string, Model] => [
  * after another, so a single model never has two checks in flight — providers rate-limit
  * per client. Inside a block the models run concurrently, which is the wall-clock saving.
  */
-// Providers throttle live E2E traffic; a 429 says "later", not "broken", so retry it
-// rather than failing the run. Every other error propagates on the first attempt.
-// mirrors the pytest job's --reruns 5 --reruns-delay 30
-const RATE_LIMIT_RETRIES = 5;
-const RATE_LIMIT_RETRY_DELAY_MS = 30_000;
-
-function isRateLimited(error: unknown): boolean {
-  const status = (error as { status?: number })?.status;
-  const message = (error as { message?: string })?.message ?? "";
-  return status === 429 || /rate limit|429/i.test(message);
-}
-
-async function withRateLimitRetry(run: () => Promise<void>): Promise<void> {
-  for (let attempt = 0; ; attempt++) {
-    try {
-      await run();
-      return;
-    } catch (error) {
-      if (attempt >= RATE_LIMIT_RETRIES || !isRateLimited(error)) {
-        throw error;
-      }
-      await new Promise((resolve) =>
-        setTimeout(resolve, RATE_LIMIT_RETRY_DELAY_MS),
-      );
-    }
-  }
-}
-
 function modelTest(
   name: string,
   // ahead of the body so Prettier keeps the body hugged against the call
@@ -313,13 +322,12 @@ function modelTest(
   body: (model: Model) => void | Promise<void>,
 ): void {
   // the deadline covers every retried attempt plus the waits between them
-  const retryBudget =
-    RATE_LIMIT_RETRIES * (timeout + RATE_LIMIT_RETRY_DELAY_MS);
+  const retryBudget = TRANSIENT_RETRIES * (timeout + TRANSIENT_RETRY_DELAY_MS);
   describe(name, () => {
     test.concurrent.each(MODEL_CASES)(
       "%s",
       async (_caseName, model) => {
-        await withRateLimitRetry(async () => {
+        await withTransientRetry(async () => {
           await body(model);
         });
       },
@@ -1139,14 +1147,23 @@ test.each(ROUTING_CASES)(
 test.each([undefined, "google-official"])(
   "google-official refuses a Vertex AI service-account key (%s)",
   (clientType) => {
-    expect(
-      () =>
-        new AutoLLMClient({
-          model: "gemini-3.8-flash",
-          apiKey: '{"project_id": "test-project"}',
-          clientType,
-        }),
-    ).toThrow(/google-genai/);
+    let refusal: unknown;
+    try {
+      new AutoLLMClient({
+        model: "gemini-3.8-flash",
+        apiKey: '{"project_id": "test-project"}',
+        clientType,
+      });
+    } catch (error) {
+      refusal = error;
+    }
+    expect(refusal).toBeInstanceOf(RoutingError);
+    expect(refusal).toBeInstanceOf(Error);
+    expect((refusal as Error).message).toMatch(/google-genai/);
+    expect(refusal).toMatchObject({
+      model: "gemini-3.8-flash",
+      clientType: "google-official",
+    });
   },
 );
 
@@ -1194,21 +1211,28 @@ describe.each(["google-official", "google-genai"])(
 );
 
 test("a model of no known family asks for a client type", () => {
-  expect(
-    () => new AutoLLMClient({ model: "qwen3.6", apiKey: "test-key" }),
-  ).toThrow(/Pass clientType.*openai-official.*openai-responses/);
+  const build = () =>
+    new AutoLLMClient({ model: "qwen3.6", apiKey: "test-key" });
+  expect(build).toThrow(RoutingError);
+  expect(build).toThrow(/Pass clientType.*openai-official.*openai-responses/);
+  expect(build).toThrow(
+    expect.objectContaining({ model: "qwen3.6", clientType: null }),
+  );
 });
 
 test("an unknown client type is refused whatever the model", () => {
   // a model id is not a client type, and neither are the names of the clients before 0.5.0
-  expect(
-    () =>
-      new AutoLLMClient({
-        model: "gpt-5.5",
-        apiKey: "test-key",
-        clientType: "gpt-5.5",
-      }),
-  ).toThrow('Unknown client type "gpt-5.5"');
+  const build = () =>
+    new AutoLLMClient({
+      model: "gpt-5.5",
+      apiKey: "test-key",
+      clientType: "gpt-5.5",
+    });
+  expect(build).toThrow(RoutingError);
+  expect(build).toThrow('Unknown client type "gpt-5.5"');
+  expect(build).toThrow(
+    expect.objectContaining({ model: "gpt-5.5", clientType: "gpt-5.5" }),
+  );
 });
 
 test("the environment names the client when the code does not", () => {

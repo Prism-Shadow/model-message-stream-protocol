@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+from contextlib import aclosing
 from typing import Any, AsyncIterator
 
 from .abort_signal import AbortSignal
@@ -23,6 +24,7 @@ from .credentials import (
     client_type_for_model,
     routed_client_type,
 )
+from .errors import RoutingError, UnsupportedOperationError
 from .types import UniConfig, UniEvent, UniMessage
 
 
@@ -33,13 +35,14 @@ def _client_types() -> str:
     )
 
 
-def _client_class(client_type: str) -> type[LLMClient]:
+def _client_class(client_type: str, model: str) -> type[LLMClient]:
     """
     The client class of a client type routed_client_type returns. Each is imported here, so that no
     client pays for another vendor's SDK.
 
     Args:
         client_type: A canonical client type.
+        model: The model id the client is created for, carried by the error.
 
     Returns:
         type[LLMClient]: The class.
@@ -101,7 +104,7 @@ def _client_class(client_type: str) -> type[LLMClient]:
             from .mmsp import MmspClient
 
             return MmspClient
-    raise ValueError(f"No client class for client type {client_type}.")
+    raise RoutingError(model, client_type, f"No client class for client type {client_type}.")
 
 
 class AutoLLMClient(LLMClient):
@@ -140,16 +143,18 @@ class AutoLLMClient(LLMClient):
         routed = routed_client_type(model, named)
         if routed is None:
             if named:
-                raise ValueError(f"Unknown client type {named!r}. Pass one of the {_client_types()}.")
-            raise ValueError(
+                raise RoutingError(model, named, f"Unknown client type {named!r}. Pass one of the {_client_types()}.")
+            raise RoutingError(
+                model,
+                None,
                 f"No client for model {model!r}: its family is not known. "
-                f"Pass client_type, one of the {_client_types()}."
+                f"Pass client_type, one of the {_client_types()}.",
             )
         # the official client the model id's family names, whose ids a deduced client lists
         self._family = client_type_for_model(model)
         # a client named explicitly speaks for whatever its endpoint serves (see list_models)
         self._named = bool(named)
-        client_class = _client_class(routed)
+        client_class = _client_class(routed, model)
         self._client = client_class(model=model, api_key=api_key, base_url=base_url, default_headers=default_headers)
 
     def transform_uni_config_to_model_config(self, config: UniConfig) -> Any:
@@ -169,7 +174,9 @@ class AutoLLMClient(LLMClient):
         messages: list[UniMessage],
         config: UniConfig,
     ) -> AsyncIterator[UniEvent]:
-        raise NotImplementedError("Please use streaming_response instead.")
+        raise UnsupportedOperationError(
+            "AutoLLMClient", "_streaming_response_internal", "Please use streaming_response instead."
+        )
 
     async def streaming_response(
         self,
@@ -178,12 +185,12 @@ class AutoLLMClient(LLMClient):
         signal: AbortSignal | None = None,
     ) -> AsyncIterator[UniEvent]:
         """Route to underlying client's streaming_response."""
-        async for event in self._client.streaming_response(
-            messages=messages,
-            config=config,
-            signal=signal,
-        ):
-            yield event
+        # closing this generator closes the client's, and with it the provider's request
+        async with aclosing(
+            self._client.streaming_response(messages=messages, config=config, signal=signal)
+        ) as stream:
+            async for event in stream:
+                yield event
 
     async def streaming_response_stateful(
         self,
@@ -192,12 +199,11 @@ class AutoLLMClient(LLMClient):
         signal: AbortSignal | None = None,
     ) -> AsyncIterator[UniEvent]:
         """Route to underlying client's streaming_response_stateful."""
-        async for event in self._client.streaming_response_stateful(
-            message=message,
-            config=config,
-            signal=signal,
-        ):
-            yield event
+        async with aclosing(
+            self._client.streaming_response_stateful(message=message, config=config, signal=signal)
+        ) as stream:
+            async for event in stream:
+                yield event
 
     def clear_history(self) -> None:
         """Clear history in the underlying client."""

@@ -22,7 +22,7 @@ from typing import Any, Literal
 from openai import Omit
 
 from .credentials import CLIENT_CREDENTIALS, environment_credential
-from .errors import ApiKeyRequiredError
+from .errors import ApiKeyRequiredError, InvalidMessageError
 from .types import UsageMetadata
 
 
@@ -330,7 +330,7 @@ def openai_image_detail(model: str, image_url: str) -> Literal["high"] | None:
     return None
 
 
-def speaker_turns(text: str, speakers: list[str]) -> list[tuple[str, str]]:
+def speaker_turns(text: str, speakers: list[str], client: str) -> list[tuple[str, str]]:
     """
     Split a two-speaker TTS script into turns, for the TTS models that take each turn's speaker
     as metadata rather than as a label in the text.
@@ -341,12 +341,13 @@ def speaker_turns(text: str, speakers: list[str]) -> list[tuple[str, str]]:
     Args:
         text: The script, one "Name: line" per turn.
         speakers: The speaker names the request configures.
+        client: The client the script is sent through, named in the error.
 
     Returns:
         list[tuple[str, str]]: (speaker, text) per turn, in order.
 
     Raises:
-        ValueError: When the script does not begin with a speaker's label.
+        InvalidMessageError: When the script does not begin with a speaker's label.
     """
     turns: list[tuple[str, list[str]]] = []
     for line in text.splitlines():
@@ -356,7 +357,9 @@ def speaker_turns(text: str, speakers: list[str]) -> list[tuple[str, str]]:
         elif turns:
             turns[-1][1].append(line)
         elif line.strip():
-            raise ValueError(
-                f"A two-speaker script must start each turn with a speaker's name and a colon, one of {speakers}."
+            raise InvalidMessageError(
+                client,
+                f"A two-speaker script must start each turn with a speaker's name and a colon, one of {speakers}.",
+                item_type="text",
             )
     return [(speaker, "\n".join(lines).strip()) for speaker, lines in turns]

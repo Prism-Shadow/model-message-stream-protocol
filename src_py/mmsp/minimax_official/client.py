@@ -20,7 +20,7 @@ from openai.types.responses import ResponseStreamEvent
 
 from ..base_client import LLMClient
 from ..credentials import CLIENT_CREDENTIALS
-from ..errors import UnsupportedParameterError
+from ..errors import ApiKeyRequiredError, InvalidMessageError, UnknownEventError, UnsupportedParameterError
 from ..types import (
     EventContentItem,
     EventType,
@@ -52,7 +52,7 @@ class MiniMaxOfficialClient(LLMClient):
         # The wrapped OpenAI SDK falls back to OPENAI_API_KEY when handed None, which would send an
         # OpenAI credential to the MiniMax host, so fail loudly instead.
         if not key:
-            raise ValueError("MINIMAX_API_KEY is required for MiniMaxOfficialClient.")
+            raise ApiKeyRequiredError(self.__class__.__name__, "minimax-official", None)
         self._client = AsyncOpenAI(
             api_key=key,
             base_url=url or CLIENT_CREDENTIALS["minimax-official"].default_base_url,
@@ -156,7 +156,8 @@ class MiniMaxOfficialClient(LLMClient):
         """Transform universal messages to MiniMax Responses input items."""
         input_list: list[dict[str, Any]] = []
 
-        for message in messages:
+        for message_index, message in enumerate(messages):
+            message_start = len(input_list)
             content_items: list[dict[str, Any]] = []
             for item in message["content_items"]:
                 # anything that is not message content becomes an input item of its own, so the
@@ -202,7 +203,11 @@ class MiniMaxOfficialClient(LLMClient):
                     )
                 elif item["type"] == "tool_result.done":
                     if "tool_call_id" not in item:
-                        raise ValueError("tool_call_id is required for tool result.")
+                        raise InvalidMessageError(
+                            self.__class__.__name__,
+                            "tool_call_id is required for tool result.",
+                            item_type="tool_result",
+                        )
 
                     output: str | list[dict[str, Any]] = item["text"]
                     if item.get("images"):
@@ -216,10 +221,17 @@ class MiniMaxOfficialClient(LLMClient):
                         }
                     )
                 else:
-                    raise ValueError(f"Unknown item: {item}")
+                    raise InvalidMessageError(self.__class__.__name__, f"Unknown item: {item}", item_type=item["type"])
 
             if content_items:
                 input_list.append({"type": "message", "role": message["role"], "content": content_items})
+
+            if all(entry["type"] == "reasoning" for entry in input_list[message_start:]):
+                raise InvalidMessageError(
+                    self.__class__.__name__,
+                    f"message {message_index} has nothing {self.__class__.__name__} can send",
+                    message_index=message_index,
+                )
 
         return input_list
 
@@ -291,16 +303,16 @@ class MiniMaxOfficialClient(LLMClient):
                 finish_reason = finish_reason_mapping.get(response.status, "unknown")
 
             if response.usage:
-                # MiniMax drops the detail blocks on truncated responses, so default them to zero.
+                # MiniMax drops the detail blocks on truncated responses, so their counts stay None.
                 input_details = response.usage.input_tokens_details
                 output_details = response.usage.output_tokens_details
-                cached_tokens = input_details.cached_tokens if input_details else 0
-                reasoning_tokens = output_details.reasoning_tokens if output_details else 0
+                cached_tokens = input_details.cached_tokens if input_details else None
+                reasoning_tokens = output_details.reasoning_tokens if output_details else None
                 usage_metadata = {
                     "cached_tokens": cached_tokens,
-                    "prompt_tokens": response.usage.input_tokens - cached_tokens,
+                    "prompt_tokens": response.usage.input_tokens - (cached_tokens or 0),
                     "thoughts_tokens": reasoning_tokens,
-                    "response_tokens": response.usage.output_tokens - reasoning_tokens,
+                    "response_tokens": response.usage.output_tokens - (reasoning_tokens or 0),
                 }
 
         elif (
@@ -318,7 +330,7 @@ class MiniMaxOfficialClient(LLMClient):
             )
             and is_debug_enabled()
         ):
-            raise ValueError(f"Unknown output: {model_output}")
+            raise UnknownEventError(self.__class__.__name__, str(model_output))
 
         return {
             "role": "assistant",
@@ -336,8 +348,9 @@ class MiniMaxOfficialClient(LLMClient):
         input_list = self.transform_uni_message_to_model_input(messages)
 
         stream = await self._client.responses.create(**minimax_config, input=input_list, stream=True)
-        async for model_event in stream:
-            yield self.transform_model_output_to_uni_event(model_event)
+        async with stream:
+            async for model_event in stream:
+                yield self.transform_model_output_to_uni_event(model_event)
 
     async def list_models(self) -> list[str]:
         """

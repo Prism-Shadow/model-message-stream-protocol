@@ -20,7 +20,12 @@ import type {
 } from "openai/resources/chat/completions";
 import { LLMClient } from "../baseClient";
 import { CLIENT_CREDENTIALS } from "../credentials";
-import { UnsupportedParameterError } from "../errors";
+import {
+  ApiKeyRequiredError,
+  InvalidMessageError,
+  UnsupportedContentError,
+  UnsupportedParameterError,
+} from "../errors";
 import {
   EventContentItem,
   EventType,
@@ -68,7 +73,11 @@ export class ZAIOfficialClient extends LLMClient {
     // The wrapped OpenAI SDK falls back to OPENAI_API_KEY when handed undefined, which would send
     // an OpenAI credential to the Z.AI host, so fail loudly instead.
     if (!key) {
-      throw new Error("ZAI_API_KEY is required for ZAIOfficialClient.");
+      throw new ApiKeyRequiredError({
+        client: this.constructor.name,
+        clientType: "zai-official",
+        baseUrl: null,
+      });
     }
     this._client = new OpenAI({
       apiKey: key,
@@ -237,7 +246,8 @@ export class ZAIOfficialClient extends LLMClient {
     const supportsImage = this._model.toLowerCase().includes("glm-5.3-flash");
     const openaiMessages: ChatCompletionMessageParam[] = [];
 
-    for (const msg of messages) {
+    for (const [messageIndex, msg] of messages.entries()) {
+      const messageStart = openaiMessages.length;
       const contentParts: Array<{
         type: string;
         text?: string;
@@ -253,9 +263,11 @@ export class ZAIOfficialClient extends LLMClient {
           contentParts.push({ type: "text", text: item.text });
         } else if (item.type === "image_url.done") {
           if (!supportsImage) {
-            throw new Error(
-              `GLM ${this._model} does not support image inputs.`,
-            );
+            throw new UnsupportedContentError({
+              client: this.constructor.name,
+              itemType: "image_url",
+              message: `GLM ${this._model} does not support image inputs.`,
+            });
           }
 
           contentParts.push({
@@ -276,7 +288,11 @@ export class ZAIOfficialClient extends LLMClient {
           });
         } else if (item.type === "tool_result.done") {
           if (!item.tool_call_id) {
-            throw new Error("tool_call_id is required for tool result.");
+            throw new InvalidMessageError({
+              client: this.constructor.name,
+              message: "tool_call_id is required for tool result.",
+              itemType: "tool_result",
+            });
           }
 
           // Chat Completions lets a tool message carry text only, and a server that
@@ -285,9 +301,11 @@ export class ZAIOfficialClient extends LLMClient {
           // the one place every OpenAI-compatible server reads them.
           if (item.images && item.images.length > 0) {
             if (!supportsImage) {
-              throw new Error(
-                `GLM ${this._model} does not support images in tool results.`,
-              );
+              throw new UnsupportedContentError({
+                client: this.constructor.name,
+                itemType: "tool_result",
+                message: `GLM ${this._model} does not support images in tool results.`,
+              });
             }
 
             for (const imageUrl of item.images) {
@@ -306,9 +324,11 @@ export class ZAIOfficialClient extends LLMClient {
             content: item.text,
           });
         } else {
-          throw new Error(
-            `Unknown item type: ${(item as { type: string }).type}`,
-          );
+          throw new InvalidMessageError({
+            client: this.constructor.name,
+            message: `Unknown item type: ${(item as { type: string }).type}`,
+            itemType: (item as { type: string }).type,
+          });
         }
       }
 
@@ -339,6 +359,20 @@ export class ZAIOfficialClient extends LLMClient {
           message.reasoning_content = thinking; // vLLM & siliconflow compatibility
           message.reasoning = thinking; // openrouter compatibility
         }
+      }
+
+      // a message of tool results went out as its tool messages; one of thinking alone is an
+      // assistant turn with neither content nor tool calls
+      if (
+        contentParts.length === 0 &&
+        toolCalls.length === 0 &&
+        openaiMessages.length === messageStart
+      ) {
+        throw new InvalidMessageError({
+          client: this.constructor.name,
+          message: `message ${messageIndex} has nothing ${this.constructor.name} can send`,
+          messageIndex,
+        });
       }
 
       if (Object.keys(message).length > 1) {
@@ -437,9 +471,9 @@ export class ZAIOfficialClient extends LLMClient {
       eventType = "stop";
 
       const cachedTokens =
-        modelOutput.usage.prompt_tokens_details?.cached_tokens || null;
+        modelOutput.usage.prompt_tokens_details?.cached_tokens ?? null;
       const reasoningTokens =
-        modelOutput.usage.completion_tokens_details?.reasoning_tokens || null;
+        modelOutput.usage.completion_tokens_details?.reasoning_tokens ?? null;
 
       const promptTokens =
         cachedTokens !== null

@@ -20,7 +20,7 @@ from openai.types.chat import ChatCompletionChunk, ChatCompletionMessageParam
 
 from ..base_client import LLMClient
 from ..credentials import CLIENT_CREDENTIALS
-from ..errors import UnsupportedParameterError
+from ..errors import ApiKeyRequiredError, InvalidMessageError, UnsupportedContentError, UnsupportedParameterError
 from ..types import (
     EventContentItem,
     EventType,
@@ -56,7 +56,7 @@ class ZAIOfficialClient(LLMClient):
         # The wrapped OpenAI SDK falls back to OPENAI_API_KEY when handed None, which would send an
         # OpenAI credential to the Z.AI host, so fail loudly instead.
         if not key:
-            raise ValueError("ZAI_API_KEY is required for ZAIOfficialClient.")
+            raise ApiKeyRequiredError(self.__class__.__name__, "zai-official", None)
         self._client = AsyncOpenAI(
             api_key=key,
             base_url=url or CLIENT_CREDENTIALS["zai-official"].default_base_url,
@@ -179,7 +179,8 @@ class ZAIOfficialClient(LLMClient):
         supports_image = "glm-5.3-flash" in self._model.lower()
         openai_messages = []
 
-        for msg in messages:
+        for message_index, msg in enumerate(messages):
+            message_start = len(openai_messages)
             content_parts = []  # may be empty for tool results
             tool_calls = []  # may be empty for no tool calls
             thinking = ""
@@ -189,7 +190,9 @@ class ZAIOfficialClient(LLMClient):
                     content_parts.append({"type": "text", "text": item["text"]})
                 elif item["type"] == "image_url.done":
                     if not supports_image:
-                        raise ValueError(f"GLM {self._model} does not support image inputs.")
+                        raise UnsupportedContentError(
+                            self.__class__.__name__, "image_url", f"GLM {self._model} does not support image inputs."
+                        )
 
                     content_parts.append({"type": "image_url", "image_url": {"url": item["image_url"]}})
                 elif item["type"] == "thinking.done":
@@ -208,7 +211,11 @@ class ZAIOfficialClient(LLMClient):
                     )
                 elif item["type"] == "tool_result.done":
                     if "tool_call_id" not in item:
-                        raise ValueError("tool_call_id is required for tool result.")
+                        raise InvalidMessageError(
+                            self.__class__.__name__,
+                            "tool_call_id is required for tool result.",
+                            item_type="tool_result",
+                        )
 
                     # Chat Completions lets a tool message carry text only, and a server that
                     # validates the schema rejects the whole request over an image part in one.
@@ -216,7 +223,11 @@ class ZAIOfficialClient(LLMClient):
                     # the one place every OpenAI-compatible server reads them.
                     if "images" in item and item["images"]:
                         if not supports_image:
-                            raise ValueError(f"GLM {self._model} does not support images in tool results.")
+                            raise UnsupportedContentError(
+                                self.__class__.__name__,
+                                "tool_result",
+                                f"GLM {self._model} does not support images in tool results.",
+                            )
 
                         for image_url in item["images"]:
                             content_parts.append({"type": "image_url", "image_url": {"url": image_url}})
@@ -231,7 +242,9 @@ class ZAIOfficialClient(LLMClient):
                         }
                     )
                 else:
-                    raise ValueError(f"Unknown item type: {item['type']}")
+                    raise InvalidMessageError(
+                        self.__class__.__name__, f"Unknown item type: {item['type']}", item_type=item["type"]
+                    )
 
             message = {"role": msg["role"]}
             if content_parts:
@@ -250,6 +263,15 @@ class ZAIOfficialClient(LLMClient):
                 else:
                     message["reasoning_content"] = thinking  # vLLM & siliconflow compatibility
                     message["reasoning"] = thinking  # openrouter compatibility
+
+            # a message of tool results went out as its tool messages; one of thinking alone is an
+            # assistant turn with neither content nor tool calls
+            if not content_parts and not tool_calls and len(openai_messages) == message_start:
+                raise InvalidMessageError(
+                    self.__class__.__name__,
+                    f"message {message_index} has nothing {self.__class__.__name__} can send",
+                    message_index=message_index,
+                )
 
             # message may be empty for tool results
             if len(message.keys()) > 1:
@@ -396,8 +418,9 @@ class ZAIOfficialClient(LLMClient):
         # Stream generate
         stream = await self._client.chat.completions.create(**glm_config, messages=glm_messages)
 
-        async for chunk in stream:
-            yield self.transform_model_output_to_uni_event(chunk)
+        async with stream:
+            async for chunk in stream:
+                yield self.transform_model_output_to_uni_event(chunk)
 
     async def list_models(self) -> list[str]:
         """

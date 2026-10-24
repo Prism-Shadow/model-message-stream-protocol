@@ -23,7 +23,7 @@ from openai.types.chat import ChatCompletionChunk, ChatCompletionMessageParam
 
 from ..base_client import LLMClient
 from ..credentials import CLIENT_CREDENTIALS
-from ..errors import UnsupportedParameterError
+from ..errors import ApiKeyRequiredError, InvalidMessageError, UnsupportedParameterError
 from ..types import (
     EventContentItem,
     EventType,
@@ -40,7 +40,7 @@ from ..utils import fix_openrouter_usage_metadata, openai_client_options, resolv
 
 
 class MoonshotOfficialClient(LLMClient):
-    """Kimi K3-specific LLM client implementation using OpenAI-compatible API (also serves K2.5 and K2.6)."""
+    """Kimi K3-series LLM client (K3, K3.1 Pro) using the OpenAI-compatible API; also serves the K2 generation."""
 
     def __init__(
         self,
@@ -55,7 +55,7 @@ class MoonshotOfficialClient(LLMClient):
         # The wrapped OpenAI SDK falls back to OPENAI_API_KEY when handed None, which would send an
         # OpenAI credential to the Moonshot host, so fail loudly instead.
         if not key:
-            raise ValueError("MOONSHOT_API_KEY is required for MoonshotOfficialClient.")
+            raise ApiKeyRequiredError(self.__class__.__name__, "moonshot-official", None)
         self._client = AsyncOpenAI(
             api_key=key,
             base_url=url or CLIENT_CREDENTIALS["moonshot-official"].default_base_url,
@@ -96,12 +96,10 @@ class MoonshotOfficialClient(LLMClient):
         return mapping.get(thinking_level)
 
     def _convert_thinking_level_to_reasoning_effort(self, thinking_level: ThinkingLevel) -> str:
-        """Convert ThinkingLevel enum to Kimi K3's reasoning_effort.
-
-        K3 cannot disable reasoning, so NONE degrades to the lowest effort instead of raising.
-        """
+        """Convert ThinkingLevel enum to Kimi K3's reasoning_effort."""
         mapping = {
-            ThinkingLevel.NONE: "low",
+            # "none" turns reasoning off on the K3 series (verified live 2026-10-23; the docs list only low/high/max)
+            ThinkingLevel.NONE: "none",
             ThinkingLevel.LOW: "low",
             ThinkingLevel.MEDIUM: "high",
             ThinkingLevel.HIGH: "high",
@@ -119,8 +117,8 @@ class MoonshotOfficialClient(LLMClient):
         elif tool_choice == "required" and "k2." not in self._model.lower():
             return "required"
         else:
-            # the K2 generation rejects "required"; forcing a specific tool is
-            # unsupported family-wide
+            # the K2 generation rejects "required"; the K3 series takes a forced tool only with
+            # reasoning off, so forcing a specific tool stays unsupported family-wide
             raise UnsupportedParameterError(
                 self.__class__.__name__,
                 "tool_choice",
@@ -148,8 +146,7 @@ class MoonshotOfficialClient(LLMClient):
             )
 
         if config.get("thinking_level") is not None:
-            # the K2 generation configures thinking through extra_body and can disable it;
-            # K3 uses reasoning_effort and cannot
+            # the K2 generation configures thinking through extra_body; the K3 series uses reasoning_effort
             if "k2." in self._model.lower():
                 thinking_config = self._convert_thinking_level_to_thinking_config(config["thinking_level"])
                 kimi_config.setdefault("extra_body", {})["thinking"] = thinking_config
@@ -167,9 +164,15 @@ class MoonshotOfficialClient(LLMClient):
         if config.get("fast_mode"):
             raise UnsupportedParameterError(self.__class__.__name__, "fast_mode", "Kimi does not support fast mode.")
 
-        if config.get("prompt_caching") is not None and config["prompt_caching"] != PromptCaching.ENABLE:
+        if config.get("prompt_caching") == PromptCaching.ENHANCE and "k2." not in self._model.lower():
+            # the K3 series writes its automatic prefix cache with a 5m TTL; enhance asks for the 1h cache,
+            # at twice the cache-write price
+            kimi_config.setdefault("extra_body", {})["prompt_cache_options"] = {"mode": "implicit", "ttl": "1h"}
+        elif config.get("prompt_caching") is not None and config["prompt_caching"] != PromptCaching.ENABLE:
             raise UnsupportedParameterError(
-                self.__class__.__name__, "prompt_caching", "prompt_caching must be ENABLE for Kimi."
+                self.__class__.__name__,
+                "prompt_caching",
+                "Kimi does not support this prompt_caching (disable has no equivalent; enhance needs Kimi K3).",
             )
 
         # K3 context caching is automatic; the K2 generation keys its prompt cache on trace_id
@@ -192,7 +195,8 @@ class MoonshotOfficialClient(LLMClient):
         """
         openai_messages = []
 
-        for msg in messages:
+        for message_index, msg in enumerate(messages):
+            message_start = len(openai_messages)
             content_parts = []  # may be empty for tool results
             tool_calls = []  # may be empty for no tool calls
             thinking = ""
@@ -219,7 +223,11 @@ class MoonshotOfficialClient(LLMClient):
                     )
                 elif item["type"] == "tool_result.done":
                     if "tool_call_id" not in item:
-                        raise ValueError("tool_call_id is required for tool result.")
+                        raise InvalidMessageError(
+                            self.__class__.__name__,
+                            "tool_call_id is required for tool result.",
+                            item_type="tool_result",
+                        )
 
                     # Chat Completions lets a tool message carry text only, and a server that
                     # validates the schema rejects the whole request over an image part in one.
@@ -240,7 +248,9 @@ class MoonshotOfficialClient(LLMClient):
                         }
                     )
                 else:
-                    raise ValueError(f"Unknown item type: {item['type']}")
+                    raise InvalidMessageError(
+                        self.__class__.__name__, f"Unknown item type: {item['type']}", item_type=item["type"]
+                    )
 
             message = {"role": msg["role"]}
             if content_parts:
@@ -259,6 +269,15 @@ class MoonshotOfficialClient(LLMClient):
                 else:
                     message["reasoning_content"] = thinking  # vLLM & siliconflow compatibility
                     message["reasoning"] = thinking  # openrouter compatibility
+
+            # a message of tool results went out as its tool messages; one of thinking alone is an
+            # assistant turn with neither content nor tool calls
+            if not content_parts and not tool_calls and len(openai_messages) == message_start:
+                raise InvalidMessageError(
+                    self.__class__.__name__,
+                    f"message {message_index} has nothing {self.__class__.__name__} can send",
+                    message_index=message_index,
+                )
 
             # message may be empty for tool results
             if len(message.keys()) > 1:
@@ -402,8 +421,9 @@ class MoonshotOfficialClient(LLMClient):
         # Stream generate
         stream = await self._client.chat.completions.create(**kimi_config, messages=kimi_messages)
 
-        async for chunk in stream:
-            yield self.transform_model_output_to_uni_event(chunk)
+        async with stream:
+            async for chunk in stream:
+                yield self.transform_model_output_to_uni_event(chunk)
 
     async def list_models(self) -> list[str]:
         """

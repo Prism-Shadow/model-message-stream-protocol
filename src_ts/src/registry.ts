@@ -423,6 +423,27 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(1.4, 4.4, 0.26),
   },
   {
+    // official list price (2026-10-23); the default 5m cache write costs the input price, so
+    // the prompt bucket is exact; only the 1h write of prompt_caching enhance costs 2x
+    model: "kimi-k3.1-pro",
+    base_url: MOONSHOT,
+    client: "moonshot-official",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: cny(13.0, 68.0, 1.3),
+  },
+  {
+    // image input verified live 2026-10-23; the cache-hit price is the standard model's
+    model: "kimi-k3.1-pro-highspeed",
+    base_url: MOONSHOT,
+    client: "moonshot-official",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: cny(26.0, 136.0, 1.3),
+  },
+  {
     model: "kimi-k3",
     base_url: MOONSHOT,
     client: "moonshot-official",
@@ -653,13 +674,25 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(0, 0),
   },
   {
+    // models API 2026-10-23; the slug's `moonshotai/highspeed` endpoint (4/20/0.2) is a
+    // provider route, not a model id
+    model: "moonshotai/kimi-k3.1-pro",
+    base_url: OPENROUTER,
+    client: "moonshot-official",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(2.0, 10.0, 0.2),
+  },
+  {
+    // models API 2026-10-23
     model: "moonshotai/kimi-k3",
     base_url: OPENROUTER,
     client: "moonshot-official",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
     context_window: 1048576,
-    pricing: usd(0.239, 11.936, 0.21),
+    pricing: usd(0.239, 10.8, 0.21),
   },
   {
     model: "moonshotai/kimi-k2.6",
@@ -1101,10 +1134,11 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   // https://tokendance.space/portal/api/models/all, read 2026-10-19; each row's client speaks
   // a protocol the catalog lists for the model, and its price is that protocol's)
   {
-    // weekday peak rates (09:00-12:00, 14:00-18:00 Beijing) are double on this row and the next
+    // this row and the next take the gateway's Chat Completions path; weekday peak rates
+    // (09:00-12:00, 14:00-18:00 Beijing) are double on both
     model: "deepseek-v4.1-flash-1017",
     base_url: TOKENDANCE,
-    client: "deepseek-official",
+    client: "openai-chat",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
     context_window: 1000000,
@@ -1113,7 +1147,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   {
     model: "deepseek-v4.1-flash",
     base_url: TOKENDANCE,
-    client: "deepseek-official",
+    client: "openai-chat",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
     context_window: 1000000,
@@ -1148,6 +1182,16 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Text"],
     context_window: 1000000,
     pricing: cny(1.0, 4.0, 0.1),
+  },
+  {
+    // catalog 2026-10-23, whose context window is 1000000 rather than Moonshot's 1048576
+    model: "kimi-k3.1-pro",
+    base_url: TOKENDANCE,
+    client: "moonshot-official",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(13.0, 68.0, 1.3),
   },
   {
     model: "kimi-k3",

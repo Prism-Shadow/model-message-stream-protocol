@@ -70,9 +70,12 @@ def test_gemini3_thinking_config_carries_clamped_level():
 
 # The 3.7 and 3.8 generations drop "minimal" (3.7 verified live 2026-08-13, see
 # llmsdk_docs/gemini3_8/docs/thinking.md; 3.8 documented at
-# ai.google.dev/gemini-api/docs/latest-model); the 3.6-generation models routed
-# to the same client keep the full four-level set.
+# ai.google.dev/gemini-api/docs/latest-model), and so does gemini-4-argon; the
+# 3.6-generation models routed to the same client keep the full four-level set.
 GEMINI3_7_THINKING_LEVEL_CASES = [
+    ("gemini-4-argon", ThinkingLevel.NONE, "low"),
+    ("gemini-4-argon", ThinkingLevel.MEDIUM, "medium"),
+    ("gemini-4-argon", ThinkingLevel.MAX, "high"),
     ("gemini-3.8-flash", ThinkingLevel.NONE, "low"),
     ("gemini-3.8-flash", ThinkingLevel.MAX, "high"),
     ("gemini-3.7-flash", ThinkingLevel.NONE, "low"),
@@ -159,11 +162,24 @@ def test_glm_thinking_level_maps_per_generation(
 # GLM before 5.3 and the Kimi K2 generation turn thinking on and off with a thinking switch.
 # The Python client carries it in extra_body, which the SDK merges into the body at the top
 # level; the TypeScript client sets the same top-level key, because openai-node posts the body
-# as given.
+# as given. Claude's thinking block is the same switch, a keyword of the Anthropic SDK, so it
+# sits at the top level in both packages: NONE disables it where the model takes "disabled",
+# Sonnet 5.5 runs it between tools, and Opus 5.5 and the Fable models keep adaptive thinking
+# at the lowest effort.
 THINKING_SWITCH_CASES = [
     ("kimi-k2.6", "moonshot-official", ThinkingLevel.NONE, "disabled"),
     ("kimi-k2.6", "moonshot-official", ThinkingLevel.MEDIUM, "enabled"),
     ("glm-5.2", "zai-official", ThinkingLevel.NONE, "disabled"),
+    ("claude-sonnet-4-6", "anthropic-official", ThinkingLevel.NONE, "disabled"),
+    ("claude-opus-4-8", "anthropic-official", ThinkingLevel.NONE, "disabled"),
+    ("claude-sonnet-5", "anthropic-official", ThinkingLevel.NONE, "disabled"),
+    ("claude-opus-5", "anthropic-official", ThinkingLevel.NONE, "disabled"),
+    ("claude-sonnet-5", "anthropic-official", ThinkingLevel.LOW, "adaptive"),
+    ("claude-fable-5", "anthropic-official", ThinkingLevel.NONE, "adaptive"),
+    ("claude-sonnet-5-5", "anthropic-official", ThinkingLevel.NONE, "between_tools"),
+    ("claude-opus-5-5", "anthropic-official", ThinkingLevel.NONE, "adaptive"),
+    ("claude-sonnet-5", "ant-messages", ThinkingLevel.NONE, "disabled"),
+    ("claude-sonnet-5", "ant-messages", ThinkingLevel.LOW, "adaptive"),
 ]
 
 
@@ -171,15 +187,16 @@ THINKING_SWITCH_CASES = [
 def test_thinking_switch_reaches_the_wire(model: str, client_type: str, level: ThinkingLevel, thinking_type: str):
     client = AutoLLMClient(model=model, api_key="test-key", client_type=client_type)
     config = client._client.transform_uni_config_to_model_config({"thinking_level": level})  # noqa: SLF001
-    assert config["extra_body"]["thinking"]["type"] == thinking_type
+    thinking = config["thinking"] if "thinking" in config else config["extra_body"]["thinking"]
+    assert thinking["type"] == thinking_type
 
 
 # What each remaining client puts on the wire for a level, per its vendor's effort
 # vocabulary: OpenAI takes the full set except on GPT-6, which rejects "none" and
-# "minimal" so NONE degrades to low; Claude tops out at max (xhigh only from 4.7),
-# DeepSeek and Kimi accept low/high/max, DeepSeek turns thinking off with none,
-# MiniMax-M3 has no level above high, and MiniMax-M3.1-Flash cannot turn thinking off
-# but takes low through max.
+# "minimal" so NONE degrades to low (GPT-6 Luna takes none); Claude tops out at max (xhigh
+# only from 4.7), DeepSeek and Kimi accept low/high/max, DeepSeek and the Kimi K3 series
+# turn thinking off with none, MiniMax-M3 has no level above high, and MiniMax-M3.1-Flash
+# cannot turn thinking off but takes low through max.
 THINKING_EFFORT_CASES = [
     ("gpt-6-astra", None, ThinkingLevel.NONE, "low"),
     ("gpt-6-astra", None, ThinkingLevel.LOW, "low"),
@@ -191,21 +208,34 @@ THINKING_EFFORT_CASES = [
     ("gpt-6-astra", "openai-responses", ThinkingLevel.MAX, "max"),
     ("gpt-6.1-sol", None, ThinkingLevel.NONE, "low"),
     ("gpt-6.1-sol", None, ThinkingLevel.MAX, "max"),
+    ("gpt-6-luna", None, ThinkingLevel.NONE, "none"),
+    ("gpt-6-luna", "openai-responses", ThinkingLevel.NONE, "none"),
     ("gpt-5.6", None, ThinkingLevel.NONE, "none"),
     ("gpt-5.6", None, ThinkingLevel.XHIGH, "xhigh"),
     ("gpt-5.6", None, ThinkingLevel.MAX, "max"),
     ("gpt-5.6", "openai-responses", ThinkingLevel.MAX, "max"),
+    # the Chat Completions client keeps the request in its original form and sends no effort
+    ("gpt-5.6", "openai-chat", ThinkingLevel.NONE, None),
+    ("gpt-5.6", "openai-chat", ThinkingLevel.MAX, None),
+    ("claude-sonnet-5", None, ThinkingLevel.LOW, "low"),
+    ("claude-sonnet-5", None, ThinkingLevel.MEDIUM, "medium"),
+    ("claude-sonnet-5", None, ThinkingLevel.HIGH, "high"),
     ("claude-sonnet-5", None, ThinkingLevel.XHIGH, "xhigh"),
     ("claude-sonnet-5", None, ThinkingLevel.MAX, "max"),
     # 4.6 has no xhigh but does take max.
     ("claude-sonnet-4-6", None, ThinkingLevel.XHIGH, "high"),
     ("claude-sonnet-4-6", None, ThinkingLevel.MAX, "max"),
+    ("claude-sonnet-5", "ant-messages", ThinkingLevel.LOW, "low"),
+    ("claude-sonnet-5", "ant-messages", ThinkingLevel.MEDIUM, "medium"),
+    ("claude-sonnet-5", "ant-messages", ThinkingLevel.HIGH, "high"),
+    ("claude-sonnet-5", "ant-messages", ThinkingLevel.XHIGH, "xhigh"),
     ("claude-sonnet-5", "ant-messages", ThinkingLevel.MAX, "max"),
-    # Opus 5.5 and Fable 5.1 cannot turn thinking off, so NONE is the lowest effort, and Haiku 5.5
-    # runs NONE the same way; Sonnet 5.5 turns off up-front thinking with between_tools, which
-    # carries no effort.
+    # Opus 5.5, Fable 5 and Fable 5.1 cannot turn thinking off, so NONE is the lowest effort, and
+    # Haiku 5.5 runs NONE the same way; Sonnet 5.5 turns off up-front thinking with between_tools,
+    # which carries no effort.
     ("claude-opus-5-5", None, ThinkingLevel.NONE, "low"),
     ("claude-opus-5-5", None, ThinkingLevel.MAX, "max"),
+    ("claude-fable-5", None, ThinkingLevel.NONE, "low"),
     ("claude-fable-5-1", None, ThinkingLevel.NONE, "low"),
     ("claude-fable-5-1", None, ThinkingLevel.XHIGH, "xhigh"),
     ("claude-haiku-5-5", None, ThinkingLevel.NONE, "low"),
@@ -221,13 +251,27 @@ THINKING_EFFORT_CASES = [
     ("deepseek-v4", None, ThinkingLevel.MAX, "max"),
     ("deepseek-flash", None, ThinkingLevel.NONE, "none"),
     ("deepseek-flash", None, ThinkingLevel.MAX, "max"),
+    ("kimi-k3", None, ThinkingLevel.NONE, "none"),
     ("kimi-k3", None, ThinkingLevel.LOW, "low"),
     ("kimi-k3", None, ThinkingLevel.MEDIUM, "high"),
+    ("kimi-k3", None, ThinkingLevel.HIGH, "high"),
     ("kimi-k3", None, ThinkingLevel.XHIGH, "max"),
     ("kimi-k3", None, ThinkingLevel.MAX, "max"),
+    ("kimi-k3.1-pro", None, ThinkingLevel.NONE, "none"),
+    ("kimi-k3.1-pro", None, ThinkingLevel.LOW, "low"),
+    ("kimi-k3.1-pro", None, ThinkingLevel.MEDIUM, "high"),
+    ("kimi-k3.1-pro", None, ThinkingLevel.XHIGH, "max"),
+    ("kimi-k3.1-pro-highspeed", None, ThinkingLevel.MAX, "max"),
+    ("MiniMax-M3", None, ThinkingLevel.NONE, "none"),
+    ("MiniMax-M3", None, ThinkingLevel.LOW, "low"),
+    ("MiniMax-M3", None, ThinkingLevel.MEDIUM, "medium"),
+    ("MiniMax-M3", None, ThinkingLevel.HIGH, "high"),
     ("MiniMax-M3", None, ThinkingLevel.XHIGH, "high"),
     ("MiniMax-M3", None, ThinkingLevel.MAX, "high"),
     ("MiniMax-M3.1-Flash", None, ThinkingLevel.NONE, "low"),
+    ("MiniMax-M3.1-Flash", None, ThinkingLevel.LOW, "low"),
+    ("MiniMax-M3.1-Flash", None, ThinkingLevel.MEDIUM, "medium"),
+    ("MiniMax-M3.1-Flash", None, ThinkingLevel.HIGH, "high"),
     ("MiniMax-M3.1-Flash", None, ThinkingLevel.XHIGH, "xhigh"),
     ("MiniMax-M3.1-Flash", None, ThinkingLevel.MAX, "max"),
 ]
@@ -258,7 +302,10 @@ def test_thinking_level_maps_to_vendor_effort(
 THINKING_SUMMARY_CASES: list[tuple[str, str | None, dict[str, Any], Any]] = [
     ("claude-sonnet-5", None, {"thinking_summary": True}, "summarized"),
     ("claude-sonnet-5", None, {"thinking_summary": False}, "omitted"),
-    ("claude-sonnet-5", None, {"thinking_summary": True, "thinking_level": ThinkingLevel.NONE}, "summarized"),
+    # NONE disables thinking where the model takes "disabled", and a disabled block takes no
+    # display, so that one combination leaves no thinking to summarize, as on the Messages API below.
+    ("claude-sonnet-5", None, {"thinking_summary": True, "thinking_level": ThinkingLevel.NONE}, None),
+    ("claude-sonnet-4-6", None, {"thinking_summary": True, "thinking_level": ThinkingLevel.NONE}, None),
     ("claude-sonnet-5", None, {"thinking_summary": True, "thinking_level": ThinkingLevel.MAX}, "summarized"),
     ("claude-sonnet-5", "ant-messages", {"thinking_summary": True}, "summarized"),
     ("claude-sonnet-5", "ant-messages", {"thinking_summary": False}, "omitted"),
@@ -269,6 +316,7 @@ THINKING_SUMMARY_CASES: list[tuple[str, str | None, dict[str, Any], Any]] = [
     ("claude-sonnet-5-5", None, {"thinking_summary": True, "thinking_level": ThinkingLevel.NONE}, None),
     ("claude-sonnet-5-5", None, {"thinking_summary": True}, "summarized"),
     ("claude-opus-5-5", None, {"thinking_summary": True, "thinking_level": ThinkingLevel.NONE}, "summarized"),
+    ("claude-fable-5", None, {"thinking_summary": True, "thinking_level": ThinkingLevel.NONE}, "summarized"),
     ("claude-haiku-5-5", None, {"thinking_summary": True, "thinking_level": ThinkingLevel.NONE}, "summarized"),
     ("deepseek-v4", None, {"thinking_summary": True}, "concise"),
     ("deepseek-v4", None, {"thinking_summary": True, "thinking_level": ThinkingLevel.NONE}, "concise"),

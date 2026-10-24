@@ -21,7 +21,7 @@ from urllib.parse import quote
 
 import pytest
 
-from mmsp import AutoLLMClient
+from mmsp import AutoLLMClient, UnsupportedContentError
 from mmsp.utils import exceeds_openai_patch_limit, image_dimensions
 
 
@@ -267,8 +267,10 @@ async def test_image_parts_go_out_at_the_detail_the_client_needs_or_are_refused_
     assert client._client.__class__.__name__ == case.expected_client  # noqa: SLF001
 
     if case.refuses_images:
-        with pytest.raises(ValueError, match="does not support image"):
+        with pytest.raises(UnsupportedContentError, match="does not support image") as exc_info:
             client._client.transform_uni_message_to_model_input(MESSAGES)  # noqa: SLF001
+        assert isinstance(exc_info.value, ValueError)
+        assert (exc_info.value.client, exc_info.value.item_type) == (case.expected_client, "image_url")
         return
 
     model_input = client._client.transform_uni_message_to_model_input(MESSAGES)  # noqa: SLF001

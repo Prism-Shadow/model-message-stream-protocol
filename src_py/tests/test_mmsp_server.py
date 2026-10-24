@@ -26,7 +26,27 @@ from flask import Flask
 from stream_grammar import assert_stream_grammar
 from werkzeug.serving import make_server
 
-from mmsp import AutoLLMClient, UnsupportedParameterError, UpstreamError, base_client
+import mmsp
+from mmsp import (
+    ApiKeyRequiredError,
+    AutoLLMClient,
+    ConcurrentCallError,
+    EmptyResponseError,
+    IncompleteStreamError,
+    InvalidMessageError,
+    MMSPError,
+    ProviderStreamError,
+    RoutingError,
+    StreamProtocolError,
+    ToolCallArgumentParseError,
+    UnknownEventError,
+    UnsupportedContentError,
+    UnsupportedOperationError,
+    UnsupportedParameterError,
+    UpstreamError,
+    base_client,
+    errors,
+)
 from mmsp.abort_signal import AbortSignal
 from mmsp.base_client import LLMClient
 from mmsp.integration import server
@@ -118,12 +138,14 @@ class ScriptedClient(LLMClient):
 
 
 class SlowScriptedClient(ScriptedClient):
-    """Streams a text delta every 50 ms until told to stop, and records that its stream was closed."""
+    """Streams a text delta every `interval` seconds until told to stop, and records when its stream was closed."""
 
-    def __init__(self, model: str = "scripted") -> None:
+    def __init__(self, model: str = "scripted", interval: float = 0.05) -> None:
         super().__init__([], model)
+        self.interval = interval
         self.stop = threading.Event()
         self.cleaned = threading.Event()
+        self.cleaned_at: float | None = None
 
     async def _streaming_response_internal(
         self,
@@ -133,9 +155,23 @@ class SlowScriptedClient(ScriptedClient):
         try:
             while not self.stop.is_set():
                 yield _delta({"type": "text.delta", "text": "tick", "fidelity": {"item_id": "0"}})
-                await asyncio.sleep(0.05)
+                await asyncio.sleep(self.interval)
         finally:
+            self.cleaned_at = time.monotonic()
             self.cleaned.set()
+
+
+class UnfinishedScriptedClient(ScriptedClient):
+    """Hands the server its script as the public stream itself, so a script without a stop event ends in [DONE]."""
+
+    async def streaming_response(
+        self,
+        messages: list[UniMessage],
+        config: UniConfig,
+        signal: AbortSignal | None = None,
+    ) -> AsyncIterator[UniEvent]:
+        for event in self._script:
+            yield event
 
 
 class SilentScriptedClient(ScriptedClient):
@@ -473,6 +509,183 @@ async def test_unsupported_parameter_raises_an_upstream_error_carrying_the_unsup
     assert str(exc_info.value) == "ScriptedClient does not support temperature."
 
 
+@dataclass
+class RelayCase:
+    name: str
+    error: MMSPError
+    fields: dict[str, Any]
+
+
+LONG_EVENT = '{"type":"gateway.cost","note":"' + "x" * 300 + '"}'
+
+RELAY_CASES = [
+    RelayCase(
+        name="UnsupportedParameterError",
+        error=UnsupportedParameterError(
+            "ScriptedClient", "temperature", "ScriptedClient does not support temperature."
+        ),
+        fields={"client": "ScriptedClient", "parameter": "temperature"},
+    ),
+    RelayCase(
+        name="ApiKeyRequiredError_without_a_key",
+        error=ApiKeyRequiredError("ScriptedClient", "deepseek-official", None),
+        fields={
+            "client": "ScriptedClient",
+            "client_type": "deepseek-official",
+            "api_key_env": "DEEPSEEK_API_KEY",
+            "base_url_env": "DEEPSEEK_BASE_URL",
+            "base_url": None,
+        },
+    ),
+    RelayCase(
+        name="ApiKeyRequiredError_at_another_base_url",
+        error=ApiKeyRequiredError("ScriptedClient", "deepseek-official", "https://upstream.example/v1"),
+        fields={
+            "client": "ScriptedClient",
+            "client_type": "deepseek-official",
+            "api_key_env": "DEEPSEEK_API_KEY",
+            "base_url_env": "DEEPSEEK_BASE_URL",
+            "base_url": "https://upstream.example/v1",
+        },
+    ),
+    RelayCase(
+        name="UnsupportedOperationError",
+        error=UnsupportedOperationError("ScriptedClient", "list_models", "ScriptedClient cannot list models."),
+        fields={"client": "ScriptedClient", "operation": "list_models"},
+    ),
+    RelayCase(
+        name="EmptyResponseError",
+        error=EmptyResponseError("ScriptedClient", "stop", USAGE),
+        fields={"client": "ScriptedClient", "finish_reason": "stop", "usage_metadata": USAGE},
+    ),
+    RelayCase(
+        name="IncompleteStreamError",
+        error=IncompleteStreamError("ScriptedClient", ("usage_metadata", "finish_reason"), None, None),
+        fields={
+            "client": "ScriptedClient",
+            "missing": ["usage_metadata", "finish_reason"],
+            "finish_reason": None,
+            "usage_metadata": None,
+        },
+    ),
+    RelayCase(
+        name="StreamProtocolError",
+        error=StreamProtocolError("ScriptedClient", "text.done is not a delta"),
+        fields={"client": "ScriptedClient"},
+    ),
+    RelayCase(
+        name="ToolCallArgumentParseError",
+        error=ToolCallArgumentParseError("ScriptedClient", "f", "call_1", '{"a":', "Unexpected end of JSON input"),
+        fields={
+            "client": "ScriptedClient",
+            "tool_name": "f",
+            "tool_call_id": "call_1",
+            "raw_arguments_length": 5,
+            "raw_arguments_preview": '{"a":',
+        },
+    ),
+    RelayCase(
+        name="UpstreamError",
+        error=UpstreamError(
+            "MmspClient",
+            429,
+            "RateLimitError",
+            "Too many requests.",
+            {"type": "RateLimitError", "message": "Too many requests.", "status": 429},
+        ),
+        fields={
+            "client": "MmspClient",
+            "status": 429,
+            "error_type": "RateLimitError",
+            "error": {"type": "RateLimitError", "message": "Too many requests.", "status": 429},
+        },
+    ),
+    RelayCase(
+        name="RoutingError",
+        error=RoutingError("mistral-large", None, "No client for model 'mistral-large': its family is not known."),
+        fields={"model": "mistral-large", "client_type": None},
+    ),
+    RelayCase(
+        name="InvalidMessageError",
+        error=InvalidMessageError("ScriptedClient", "tool_call_id is required for tool result.", "tool_result", 1),
+        fields={"client": "ScriptedClient", "item_type": "tool_result", "message_index": 1},
+    ),
+    RelayCase(
+        name="InvalidMessageError_of_no_item",
+        error=InvalidMessageError("ScriptedClient", "message 0 has nothing ScriptedClient can send"),
+        fields={"client": "ScriptedClient", "item_type": None, "message_index": None},
+    ),
+    RelayCase(
+        name="UnsupportedContentError",
+        error=UnsupportedContentError("ScriptedClient", "image_url", "ScriptedClient does not support image inputs."),
+        fields={"client": "ScriptedClient", "item_type": "image_url"},
+    ),
+    RelayCase(
+        name="UnknownEventError",
+        error=UnknownEventError("ScriptedClient", LONG_EVENT),
+        fields={"client": "ScriptedClient", "event": f"{LONG_EVENT[:72]}...[truncated]...{LONG_EVENT[-72:]}"},
+    ),
+    RelayCase(
+        name="ProviderStreamError",
+        error=ProviderStreamError("ScriptedClient", 503, "Gemini stream error 503: The model is overloaded."),
+        fields={"client": "ScriptedClient", "code": 503},
+    ),
+    RelayCase(
+        name="ConcurrentCallError",
+        error=ConcurrentCallError("ScriptedClient"),
+        fields={"client": "ScriptedClient"},
+    ),
+]
+
+
+def _mmsp_error_classes() -> list[type[MMSPError]]:
+    """Every error class `mmsp.errors` defines but MMSPError itself."""
+    return [
+        value
+        for value in vars(errors).values()
+        if isinstance(value, type) and issubclass(value, MMSPError) and value is not MMSPError
+    ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", RELAY_CASES, ids=[case.name for case in RELAY_CASES])
+async def test_every_mmsp_error_reaches_the_client_as_an_upstream_error_with_its_fields(
+    case: RelayCase, use_upstream, serve
+):
+    use_upstream(lambda model: ScriptedClient([case.error], model))
+    url = serve(_server_app())
+
+    with pytest.raises(UpstreamError) as exc_info:
+        async for _ in _mmsp_client(url).streaming_response(_messages(), {}):
+            pass
+
+    error_type = type(case.error).__name__
+    assert exc_info.value.client == "MmspClient"
+    assert exc_info.value.status == case.fields.get("status")
+    assert exc_info.value.error_type == error_type
+    assert str(exc_info.value) == str(case.error)
+    assert exc_info.value.error == {"type": error_type, "message": str(case.error), **case.fields}
+
+
+def test_the_relay_cases_cover_every_mmsp_error():
+    assert sorted({type(case.error).__name__ for case in RELAY_CASES}) == sorted(
+        cls.__name__ for cls in _mmsp_error_classes()
+    )
+
+
+def test_every_mmsp_error_is_exported_and_caught_as_the_builtin_it_replaces():
+    for cls in [MMSPError, *_mmsp_error_classes()]:
+        assert cls.__name__ in mmsp.__all__
+        assert getattr(mmsp, cls.__name__) is cls
+        assert issubclass(cls, ValueError)
+    for case in RELAY_CASES:
+        with pytest.raises(ValueError):
+            raise case.error
+    assert issubclass(ProviderStreamError, RuntimeError)
+    with pytest.raises(RuntimeError):
+        raise ProviderStreamError("ScriptedClient", "UNAVAILABLE", "Gemini stream error UNAVAILABLE: overloaded.")
+
+
 @pytest.mark.asyncio
 async def test_unparsable_tool_call_arguments_raise_an_upstream_error_carrying_the_parse_error(use_upstream, serve):
     script = [
@@ -548,6 +761,41 @@ async def test_a_stream_cut_short_raises_an_upstream_error_carrying_the_incomple
         "finish_reason": None,
         "usage_metadata": USAGE,
     }
+
+
+@pytest.mark.asyncio
+async def test_done_before_a_stop_event_raises_incomplete_stream_error_and_records_nothing(use_upstream, serve):
+    script = [_delta({"type": "text.delta", "text": "Hel"})]
+    use_upstream(lambda model: UnfinishedScriptedClient(script, model))
+    client = _mmsp_client(serve(_server_app()))
+
+    events = []
+    with pytest.raises(IncompleteStreamError) as exc_info:
+        async for event in client.streaming_response_stateful(message=_messages()[0], config={}):
+            events.append(event)
+
+    assert [event["content_items"] for event in events] == [[{"type": "text.delta", "text": "Hel"}]]
+    assert exc_info.value.client == "MmspClient"
+    assert exc_info.value.missing == ("usage_metadata", "finish_reason")
+    assert exc_info.value.finish_reason is None
+    assert exc_info.value.usage_metadata is None
+    assert client.get_history() == []
+
+
+@pytest.mark.asyncio
+async def test_a_stateful_turn_through_the_client_records_both_messages_with_their_created_at(use_upstream, serve):
+    script = [_delta({"type": "text.delta", "text": "Hi", "fidelity": {"item_id": "0"}}), _stop()]
+    use_upstream(lambda model: ScriptedClient(script, model))
+    client = _mmsp_client(serve(_server_app()))
+    message = _messages()[0]
+
+    async for _ in client.streaming_response_stateful(message=message, config={}):
+        pass
+
+    history = client.get_history()
+    assert [entry["role"] for entry in history] == ["user", "assistant"]
+    assert history[0]["created_at"] == message["created_at"]
+    assert all(isinstance(entry["created_at"], int) for entry in history)
 
 
 @pytest.mark.parametrize(
@@ -842,8 +1090,12 @@ def test_unknown_route_is_a_json_not_found():
 
 
 @pytest.mark.asyncio
-async def test_aborting_the_client_cancels_the_upstream_through_the_server(use_upstream, serve):
-    upstream = SlowScriptedClient()
+async def test_aborting_the_client_cancels_the_upstream_through_the_server(
+    monkeypatch: pytest.MonkeyPatch, use_upstream, serve
+):
+    monkeypatch.setattr(server, "KEEPALIVE_SECONDS", 0.02)
+    # silent after its first delta, as a model is while it thinks
+    upstream = SlowScriptedClient(interval=60)
     use_upstream(lambda model: upstream)
     url = serve(_server_app())
     signal = AbortSignal()
@@ -853,12 +1105,15 @@ async def test_aborting_the_client_cancels_the_upstream_through_the_server(use_u
         first = await anext(stream)
         assert first["content_items"] == [{"type": "text.delta", "text": "tick"}]
 
+        aborted_at = time.monotonic()
         signal.abort("stop")
         with pytest.raises(asyncio.CancelledError):
             await anext(stream)
 
-        # the server only notices the closed connection when it next writes, at the next delta
+        # the server notices the closed connection when a keep-alive fails to write, and its abort
+        # cancels the upstream read waiting through the silence
         assert upstream.cleaned.wait(5)
+        assert upstream.cleaned_at - aborted_at < 0.2
     finally:
         upstream.stop.set()
 

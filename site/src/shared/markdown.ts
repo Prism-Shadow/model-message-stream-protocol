@@ -1,7 +1,7 @@
 import { designHref, docDescription, type DocFile } from "./docs";
 import type { Locale } from "./i18n";
 import { localePath } from "./i18n";
-import type { DocLink } from "./site";
+import { docPath, type DocLink } from "./site";
 
 /**
  * A documentation page as plain Markdown: its title, its description if it has one, then the body without
@@ -10,7 +10,18 @@ import type { DocLink } from "./site";
  */
 export function docMarkdown(locale: Locale, doc: DocLink, page: DocFile): Response {
   const site = import.meta.env.SITE;
-  const body = doc.source
+  const body = docBody(locale, doc, page);
+  const source = new URL(localePath(locale, docPath(doc)), site);
+  const description = docDescription(locale, doc, page);
+  const lede = description ? `${description}\n\n` : "";
+  const text = `# ${doc.title[locale]}\n\n${lede}Source: ${source}\n\n${body}\n`;
+  return new Response(text, { headers: { "content-type": "text/markdown; charset=utf-8" } });
+}
+
+/** The body of a page's Markdown, under the title: what docMarkdown serves, and what the search index reads. */
+export function docBody(locale: Locale, doc: DocLink, page: DocFile): string {
+  const site = import.meta.env.SITE;
+  return doc.source
     ? designMarkdown(locale, doc.source[locale], page, site)
     : page
         .rawContent()
@@ -22,11 +33,6 @@ export function docMarkdown(locale: Locale, doc: DocLink, page: DocFile): Respon
         .replace(/\n{3,}/g, "\n\n")
         .replace(/\]\(\//g, `](${site.replace(/\/$/, "")}/`)
         .trim();
-  const source = new URL(localePath(locale, `/docs/${doc.slug}/`), site);
-  const description = docDescription(locale, doc, page);
-  const lede = description ? `${description}\n\n` : "";
-  const text = `# ${doc.title[locale]}\n\n${lede}Source: ${source}\n\n${body}\n`;
-  return new Response(text, { headers: { "content-type": "text/markdown; charset=utf-8" } });
 }
 
 /**

@@ -21,7 +21,13 @@ from openai.types.responses import ResponseInputParam, ResponseStreamEvent
 
 from ..base_client import LLMClient
 from ..credentials import CLIENT_CREDENTIALS
-from ..errors import UnsupportedParameterError
+from ..errors import (
+    ApiKeyRequiredError,
+    InvalidMessageError,
+    UnknownEventError,
+    UnsupportedContentError,
+    UnsupportedParameterError,
+)
 from ..types import (
     EventContentItem,
     EventType,
@@ -60,7 +66,7 @@ class DeepSeekOfficialClient(LLMClient):
         # The wrapped OpenAI SDK falls back to OPENAI_API_KEY when handed None, which would send an
         # OpenAI credential to the DeepSeek host, so fail loudly instead.
         if not key:
-            raise ValueError("DEEPSEEK_API_KEY is required for DeepSeekOfficialClient.")
+            raise ApiKeyRequiredError(self.__class__.__name__, "deepseek-official", None)
         self._client = AsyncOpenAI(
             api_key=key,
             base_url=url or CLIENT_CREDENTIALS["deepseek-official"].default_base_url,
@@ -163,7 +169,8 @@ class DeepSeekOfficialClient(LLMClient):
         supports_image = not _TEXT_ONLY_MODELS.fullmatch(self._model.lower().rsplit("/", 1)[-1])
         input_list: list[ResponseInputParam] = []
 
-        for msg in messages:
+        for message_index, msg in enumerate(messages):
+            message_start = len(input_list)
             content_items: list = []
 
             for item in msg["content_items"]:
@@ -189,7 +196,11 @@ class DeepSeekOfficialClient(LLMClient):
                         content_items.append({"type": "output_text", "text": item["text"]})
                 elif item["type"] == "image_url.done":
                     if not supports_image:
-                        raise ValueError(f"DeepSeek {self._model} does not support image inputs.")
+                        raise UnsupportedContentError(
+                            self.__class__.__name__,
+                            "image_url",
+                            f"DeepSeek {self._model} does not support image inputs.",
+                        )
 
                     content_items.append({"type": "input_image", "image_url": item["image_url"]})
                 elif item["type"] == "thinking.done":
@@ -211,13 +222,21 @@ class DeepSeekOfficialClient(LLMClient):
                     )
                 elif item["type"] == "tool_result.done":
                     if "tool_call_id" not in item:
-                        raise ValueError("tool_call_id is required for tool result.")
+                        raise InvalidMessageError(
+                            self.__class__.__name__,
+                            "tool_call_id is required for tool result.",
+                            item_type="tool_result",
+                        )
 
                     # NOTE: tool results are input items
                     image_parts = []
                     if "images" in item:
                         if not supports_image:
-                            raise ValueError(f"DeepSeek {self._model} does not support images in tool results.")
+                            raise UnsupportedContentError(
+                                self.__class__.__name__,
+                                "tool_result",
+                                f"DeepSeek {self._model} does not support images in tool results.",
+                            )
 
                         for image_url in item["images"]:
                             image_parts.append({"type": "input_image", "image_url": image_url})
@@ -233,10 +252,17 @@ class DeepSeekOfficialClient(LLMClient):
                         {"type": "function_call_output", "call_id": item["tool_call_id"], "output": output}
                     )
                 else:
-                    raise ValueError(f"Unknown item: {item}")
+                    raise InvalidMessageError(self.__class__.__name__, f"Unknown item: {item}", item_type=item["type"])
 
             if content_items:
                 input_list.append({"type": "message", "role": msg["role"], "content": content_items})
+
+            if all(entry["type"] == "reasoning" for entry in input_list[message_start:]):
+                raise InvalidMessageError(
+                    self.__class__.__name__,
+                    f"message {message_index} has nothing {self.__class__.__name__} can send",
+                    message_index=message_index,
+                )
 
         return input_list
 
@@ -322,13 +348,13 @@ class DeepSeekOfficialClient(LLMClient):
             if model_output.response.usage:
                 input_details = model_output.response.usage.input_tokens_details
                 output_details = model_output.response.usage.output_tokens_details
-                cached_tokens = input_details.cached_tokens if input_details else 0
-                reasoning_tokens = output_details.reasoning_tokens if output_details else 0
+                cached_tokens = input_details.cached_tokens if input_details else None
+                reasoning_tokens = output_details.reasoning_tokens if output_details else None
                 usage_metadata = {
                     "cached_tokens": cached_tokens,
-                    "prompt_tokens": model_output.response.usage.input_tokens - cached_tokens,
+                    "prompt_tokens": model_output.response.usage.input_tokens - (cached_tokens or 0),
                     "thoughts_tokens": reasoning_tokens,
-                    "response_tokens": model_output.response.usage.output_tokens - reasoning_tokens,
+                    "response_tokens": model_output.response.usage.output_tokens - (reasoning_tokens or 0),
                 }
 
         elif deepseek_event_type in (
@@ -346,7 +372,7 @@ class DeepSeekOfficialClient(LLMClient):
             pass
 
         elif is_debug_enabled():
-            raise ValueError(f"Unknown output: {model_output}")
+            raise UnknownEventError(self.__class__.__name__, str(model_output))
 
         else:
             # a gateway injects its own events (heartbeats, cost tickers) into the stream, and
@@ -375,8 +401,9 @@ class DeepSeekOfficialClient(LLMClient):
 
         # Stream generate
         stream = await self._client.responses.create(**deepseek_config, input=input_list, stream=True)
-        async for model_event in stream:
-            yield self.transform_model_output_to_uni_event(model_event)
+        async with stream:
+            async for model_event in stream:
+                yield self.transform_model_output_to_uni_event(model_event)
 
     async def list_models(self) -> list[str]:
         """

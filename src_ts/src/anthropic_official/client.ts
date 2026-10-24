@@ -21,6 +21,8 @@ import {
 import { Stream } from "@anthropic-ai/sdk/core/streaming";
 import { LLMClient } from "../baseClient";
 import {
+  InvalidMessageError,
+  UnknownEventError,
   UnsupportedOperationError,
   UnsupportedParameterError,
 } from "../errors";
@@ -42,9 +44,11 @@ const REDACTED_THINKING = "_REDACTED_THINKING";
 
 // Generations told apart by explicit version, matched anywhere in the id so Bedrock's
 // anthropic.claude-opus-5-5 counts too. Opus 5.5 and Fable 5.1 always think: "disabled" and
-// "between_tools" return 400. Haiku 5.5 takes "disabled" but runs NONE at the lowest effort
-// like them. Sonnet 5.5 drops only up-front thinking, with "between_tools".
-const LOW_EFFORT_FOR_NONE = ["opus-5-5", "fable-5-1", "haiku-5-5"];
+// "between_tools" return 400, and Fable 5 returns 400 for "disabled" too (verified live
+// 2026-10-23); "fable-5" matches both Fable generations. Haiku 5.5 takes "disabled" but runs
+// NONE at the lowest effort like them. Sonnet 5.5 drops only up-front thinking, with
+// "between_tools".
+const LOW_EFFORT_FOR_NONE = ["opus-5-5", "fable-5", "haiku-5-5"];
 const BETWEEN_TOOLS = ["sonnet-5-5"];
 // The 2026-09 generation returns 400 for tool_choice "any" and "tool". Haiku 5.5 takes them but
 // answers without thinking, so it is rejected with the rest of the 5.5 family.
@@ -138,14 +142,20 @@ export class AnthropicOfficialClient extends LLMClient {
           },
         };
       } else {
-        throw new Error(`Invalid base64 image: ${url}`);
+        throw new InvalidMessageError({
+          client: this.constructor.name,
+          message: `Invalid base64 image: ${url}`,
+          itemType: "image_url",
+        });
       }
     } else if (this._use_bedrock) {
       const response = await fetch(url, { signal });
       if (!response.ok) {
-        throw new Error(
-          `Failed to fetch image: ${response.status} ${response.statusText}`,
-        );
+        throw new InvalidMessageError({
+          client: this.constructor.name,
+          message: `Failed to fetch image: ${response.status} ${response.statusText}`,
+          itemType: "image_url",
+        });
       }
       const arrayBuffer = await response.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
@@ -174,12 +184,14 @@ export class AnthropicOfficialClient extends LLMClient {
     thinking?: { type: string; display?: string };
     output_config?: { effort: string };
   } {
-    // NONE takes the least thinking LOW_EFFORT_FOR_NONE allows
+    // NONE takes the least thinking LOW_EFFORT_FOR_NONE allows; the other generations take
+    // "disabled", and without a thinking block Opus 5 still runs adaptive thinking (verified
+    // live 2026-10-23)
     const none = this._generation(LOW_EFFORT_FOR_NONE)
       ? { thinking: { type: "adaptive" }, output_config: { effort: "low" } }
       : this._generation(BETWEEN_TOOLS)
         ? { thinking: { type: "between_tools" } }
-        : {}; // omit thinking config
+        : { thinking: { type: "disabled" } };
     const mapping: {
       [key: string]: {
         thinking?: { type: string; display?: string };
@@ -288,12 +300,16 @@ export class AnthropicOfficialClient extends LLMClient {
 
     if (config.thinking_summary !== undefined) {
       // display lives on the thinking block, so a summary asked for on its own selects
-      // adaptive thinking, which is what this family runs by default anyway; a block
-      // carrying display but no output_config is accepted on 4.6 through 5 (verified
-      // live 2026-09-03). NONE omits the block, so the request lands on that default.
+      // adaptive thinking; a block carrying display but no output_config is accepted on
+      // 4.6 through 5 (verified live 2026-09-03). A disabled block rejects display
+      // ("thinking.disabled.display: Extra inputs are not permitted", 400, verified live
+      // 2026-10-23) and has no thinking to show, and between_tools takes none: its
+      // updates between tool calls always carry their text.
       claudeConfig.thinking = claudeConfig.thinking ?? { type: "adaptive" };
-      // between_tools takes no display: its updates between tool calls always carry their text
-      if (claudeConfig.thinking.type !== "between_tools") {
+      if (
+        claudeConfig.thinking.type !== "disabled" &&
+        claudeConfig.thinking.type !== "between_tools"
+      ) {
         claudeConfig.thinking.display = config.thinking_summary
           ? "summarized"
           : "omitted";
@@ -361,7 +377,7 @@ export class AnthropicOfficialClient extends LLMClient {
   ): Promise<BetaMessageParam[]> {
     const claudeMessages: BetaMessageParam[] = [];
 
-    for (const msg of messages) {
+    for (const [messageIndex, msg] of messages.entries()) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const contentBlocks: any[] = [];
       for (const item of msg.content_items) {
@@ -398,7 +414,11 @@ export class AnthropicOfficialClient extends LLMClient {
           });
         } else if (item.type === "tool_result.done") {
           if (!item.tool_call_id) {
-            throw new Error("tool_call_id is required for tool result.");
+            throw new InvalidMessageError({
+              client: this.constructor.name,
+              message: "tool_call_id is required for tool result.",
+              itemType: "tool_result",
+            });
           }
 
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -418,8 +438,27 @@ export class AnthropicOfficialClient extends LLMClient {
             tool_use_id: item.tool_call_id,
           });
         } else {
-          throw new Error(`Unknown item: ${JSON.stringify(item)}`);
+          throw new InvalidMessageError({
+            client: this.constructor.name,
+            message: `Unknown item: ${JSON.stringify(item)}`,
+            itemType: (item as { type: string }).type,
+          });
         }
+      }
+
+      if (
+        contentBlocks.every(
+          (block) =>
+            block.type === "thinking" || block.type === "redacted_thinking",
+        )
+      ) {
+        throw new InvalidMessageError({
+          client: this.constructor.name,
+          message:
+            `message ${messageIndex} has nothing ${this.constructor.name} can send ` +
+            "once its unsigned thinking is left out",
+          messageIndex,
+        });
       }
 
       claudeMessages.push({
@@ -499,7 +538,7 @@ export class AnthropicOfficialClient extends LLMClient {
       if (usage) {
         const cacheCreationTokens = usage.cache_creation_input_tokens || 0;
         usageMetadata = {
-          cached_tokens: usage.cache_read_input_tokens || null,
+          cached_tokens: usage.cache_read_input_tokens ?? null,
           prompt_tokens: usage.input_tokens + cacheCreationTokens,
           thoughts_tokens: null,
           response_tokens: null,
@@ -542,7 +581,10 @@ export class AnthropicOfficialClient extends LLMClient {
       // drops the "ping" heartbeat at the SSE layer; it reaches here only from gateways that
       // relabel it onto another event
     } else if (isDebugEnabled()) {
-      throw new Error(`Unknown output: ${JSON.stringify(modelOutput)}`);
+      throw new UnknownEventError({
+        client: this.constructor.name,
+        event: JSON.stringify(modelOutput),
+      });
     } else {
       // a gateway injects its own events (heartbeats, cost tickers) into the stream, and
       // killing a long generation over one costs more than dropping it

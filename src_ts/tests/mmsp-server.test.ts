@@ -27,9 +27,27 @@ import {
   jest,
   test,
 } from "@jest/globals";
+import * as mmspPackage from "../src";
 import { AutoLLMClient } from "../src/autoClient";
 import { LLMClient } from "../src/baseClient";
-import { UnsupportedParameterError, UpstreamError } from "../src/errors";
+import * as errors from "../src/errors";
+import {
+  ApiKeyRequiredError,
+  ConcurrentCallError,
+  EmptyResponseError,
+  IncompleteStreamError,
+  InvalidMessageError,
+  MMSPError,
+  ProviderStreamError,
+  RoutingError,
+  StreamProtocolError,
+  ToolCallArgumentParseError,
+  UnknownEventError,
+  UnsupportedContentError,
+  UnsupportedOperationError,
+  UnsupportedParameterError,
+  UpstreamError,
+} from "../src/errors";
 import {
   ModelRow,
   RETENTION_S,
@@ -172,11 +190,25 @@ class ScriptedClient extends LLMClient {
 
 /**
  * Streams a text delta every 50 ms until its request is aborted or it is told to stop, and
- * records that its stream was closed.
+ * records that its stream was closed and what its public stream threw.
  */
 class SlowScriptedClient extends ScriptedClient {
   stopped = false;
   cleaned = false;
+  thrown: unknown;
+
+  async *streamingResponse(options: {
+    messages: UniMessage[];
+    config: UniConfig;
+    signal?: AbortSignal;
+  }): AsyncGenerator<UniEvent> {
+    try {
+      yield* super.streamingResponse(options);
+    } catch (error) {
+      this.thrown = error;
+      throw error;
+    }
+  }
 
   async *_streamingResponseInternal(options: {
     messages: UniMessage[];
@@ -184,10 +216,9 @@ class SlowScriptedClient extends ScriptedClient {
     signal?: AbortSignal;
   }): AsyncGenerator<UniEvent> {
     try {
-      while (!this.stopped) {
-        // the base class does not cancel a client: each one hands the signal to its request,
-        // which fails once the signal fires
-        options.signal?.throwIfAborted();
+      // the openai and anthropic SDKs end their stream quietly once the signal aborts their
+      // request, and the base class throws the signal's reason
+      while (!this.stopped && !options.signal?.aborted) {
         yield delta({
           type: "text.delta",
           text: "tick",
@@ -198,6 +229,23 @@ class SlowScriptedClient extends ScriptedClient {
     } finally {
       this.cleaned = true;
     }
+  }
+}
+
+/**
+ * Hands the server its script as the public stream itself, so a script without a stop event
+ * ends in [DONE].
+ */
+class UnfinishedScriptedClient extends ScriptedClient {
+  constructor(
+    private readonly events: UniEvent[],
+    model = "scripted",
+  ) {
+    super(events, model);
+  }
+
+  async *streamingResponse(): AsyncGenerator<UniEvent> {
+    yield* this.events;
   }
 }
 
@@ -586,6 +634,217 @@ const FAILING_SCRIPT: (UniEvent | Error)[] = [
   new RuntimeError("connection reset"),
 ];
 
+interface RelayCase {
+  name: string;
+  error: MMSPError;
+  fields: Record<string, unknown>;
+}
+
+const LONG_EVENT = `{"type":"gateway.cost","note":"${"x".repeat(300)}"}`;
+
+const RELAY_CASES: RelayCase[] = [
+  {
+    name: "UnsupportedParameterError",
+    error: new UnsupportedParameterError({
+      client: "ScriptedClient",
+      parameter: "temperature",
+      message: "ScriptedClient does not support temperature.",
+    }),
+    fields: { client: "ScriptedClient", parameter: "temperature" },
+  },
+  {
+    name: "ApiKeyRequiredError_without_a_key",
+    error: new ApiKeyRequiredError({
+      client: "ScriptedClient",
+      clientType: "deepseek-official",
+      baseUrl: null,
+    }),
+    fields: {
+      client: "ScriptedClient",
+      client_type: "deepseek-official",
+      api_key_env: "DEEPSEEK_API_KEY",
+      base_url_env: "DEEPSEEK_BASE_URL",
+      base_url: null,
+    },
+  },
+  {
+    name: "ApiKeyRequiredError_at_another_base_url",
+    error: new ApiKeyRequiredError({
+      client: "ScriptedClient",
+      clientType: "deepseek-official",
+      baseUrl: "https://upstream.example/v1",
+    }),
+    fields: {
+      client: "ScriptedClient",
+      client_type: "deepseek-official",
+      api_key_env: "DEEPSEEK_API_KEY",
+      base_url_env: "DEEPSEEK_BASE_URL",
+      base_url: "https://upstream.example/v1",
+    },
+  },
+  {
+    name: "UnsupportedOperationError",
+    error: new UnsupportedOperationError({
+      client: "ScriptedClient",
+      operation: "list_models",
+      message: "ScriptedClient cannot list models.",
+    }),
+    fields: { client: "ScriptedClient", operation: "list_models" },
+  },
+  {
+    name: "EmptyResponseError",
+    error: new EmptyResponseError({
+      client: "ScriptedClient",
+      finishReason: "stop",
+      usageMetadata: USAGE,
+    }),
+    fields: {
+      client: "ScriptedClient",
+      finish_reason: "stop",
+      usage_metadata: USAGE,
+    },
+  },
+  {
+    name: "IncompleteStreamError",
+    error: new IncompleteStreamError({
+      client: "ScriptedClient",
+      missing: ["usage_metadata", "finish_reason"],
+      finishReason: null,
+      usageMetadata: null,
+    }),
+    fields: {
+      client: "ScriptedClient",
+      missing: ["usage_metadata", "finish_reason"],
+      finish_reason: null,
+      usage_metadata: null,
+    },
+  },
+  {
+    name: "StreamProtocolError",
+    error: new StreamProtocolError({
+      client: "ScriptedClient",
+      message: "text.done is not a delta",
+    }),
+    fields: { client: "ScriptedClient" },
+  },
+  {
+    name: "ToolCallArgumentParseError",
+    error: new ToolCallArgumentParseError({
+      client: "ScriptedClient",
+      toolName: "f",
+      toolCallId: "call_1",
+      rawArguments: '{"a":',
+      reason: "Unexpected end of JSON input",
+    }),
+    fields: {
+      client: "ScriptedClient",
+      tool_name: "f",
+      tool_call_id: "call_1",
+      raw_arguments_length: 5,
+      raw_arguments_preview: '{"a":',
+    },
+  },
+  {
+    name: "UpstreamError",
+    error: new UpstreamError({
+      client: "MmspClient",
+      status: 429,
+      errorType: "RateLimitError",
+      message: "Too many requests.",
+      error: {
+        type: "RateLimitError",
+        message: "Too many requests.",
+        status: 429,
+      },
+    }),
+    fields: {
+      client: "MmspClient",
+      status: 429,
+      error_type: "RateLimitError",
+      error: {
+        type: "RateLimitError",
+        message: "Too many requests.",
+        status: 429,
+      },
+    },
+  },
+  {
+    name: "RoutingError",
+    error: new RoutingError({
+      model: "mistral-large",
+      clientType: null,
+      message: "No client for model 'mistral-large': its family is not known.",
+    }),
+    fields: { model: "mistral-large", client_type: null },
+  },
+  {
+    name: "InvalidMessageError",
+    error: new InvalidMessageError({
+      client: "ScriptedClient",
+      message: "tool_call_id is required for tool result.",
+      itemType: "tool_result",
+      messageIndex: 1,
+    }),
+    fields: {
+      client: "ScriptedClient",
+      item_type: "tool_result",
+      message_index: 1,
+    },
+  },
+  {
+    name: "InvalidMessageError_of_no_item",
+    error: new InvalidMessageError({
+      client: "ScriptedClient",
+      message: "message 0 has nothing ScriptedClient can send",
+    }),
+    fields: { client: "ScriptedClient", item_type: null, message_index: null },
+  },
+  {
+    name: "UnsupportedContentError",
+    error: new UnsupportedContentError({
+      client: "ScriptedClient",
+      itemType: "image_url",
+      message: "ScriptedClient does not support image inputs.",
+    }),
+    fields: { client: "ScriptedClient", item_type: "image_url" },
+  },
+  {
+    name: "UnknownEventError",
+    error: new UnknownEventError({
+      client: "ScriptedClient",
+      event: LONG_EVENT,
+    }),
+    fields: {
+      client: "ScriptedClient",
+      event: `${LONG_EVENT.slice(0, 72)}...[truncated]...${LONG_EVENT.slice(-72)}`,
+    },
+  },
+  {
+    name: "ProviderStreamError",
+    error: new ProviderStreamError({
+      client: "ScriptedClient",
+      code: 503,
+      message: "Gemini stream error 503: The model is overloaded.",
+    }),
+    fields: { client: "ScriptedClient", code: 503 },
+  },
+  {
+    name: "ConcurrentCallError",
+    error: new ConcurrentCallError({ client: "ScriptedClient" }),
+    fields: { client: "ScriptedClient" },
+  },
+];
+
+/**
+ * Every error class `errors` defines but MMSPError itself.
+ */
+function mmspErrorClasses(): (typeof MMSPError)[] {
+  return Object.values(errors).filter(
+    (value): value is typeof MMSPError =>
+      typeof value === "function" && value.prototype instanceof MMSPError,
+  );
+}
+
 describe("MMSP server stream", () => {
   test.each(STREAM_CASES)(
     "through the server equals the upstream stream: $name",
@@ -685,6 +944,51 @@ describe("MMSP server stream", () => {
     });
   });
 
+  test.each(RELAY_CASES)(
+    "every MMSP error reaches the client as an UpstreamError with its fields: $name",
+    async ({ error, fields }) => {
+      useUpstream((model) => new ScriptedClient([error], model));
+      const url = await serve(serverApp());
+
+      const relayed = await raised(mmspClient(url));
+
+      expect(relayed).toBeInstanceOf(UpstreamError);
+      expect(relayed).toMatchObject({
+        client: "MmspClient",
+        status: fields.status ?? null,
+        errorType: error.name,
+        message: error.message,
+      });
+      expect((relayed as UpstreamError).error).toEqual({
+        type: error.name,
+        message: error.message,
+        ...fields,
+      });
+    },
+  );
+
+  test("the relay cases cover every MMSP error", () => {
+    expect(
+      [...new Set(RELAY_CASES.map((testCase) => testCase.error.name))].sort(),
+    ).toEqual(
+      mmspErrorClasses()
+        .map((errorClass) => errorClass.name)
+        .sort(),
+    );
+  });
+
+  test("every MMSP error is exported and is an Error", () => {
+    const exported = mmspPackage as unknown as Record<string, unknown>;
+    for (const errorClass of [MMSPError, ...mmspErrorClasses()]) {
+      expect(exported[errorClass.name]).toBe(errorClass);
+    }
+    for (const { error } of RELAY_CASES) {
+      expect(error).toBeInstanceOf(Error);
+      expect(error).toBeInstanceOf(MMSPError);
+      expect(error.name).toBe(error.constructor.name);
+    }
+  });
+
   test("unparsable tool call arguments raise an UpstreamError carrying the ToolCallArgumentParseError", async () => {
     const script = [
       delta({
@@ -769,6 +1073,64 @@ describe("MMSP server stream", () => {
     });
   });
 
+  test("[DONE] before a stop event raises IncompleteStreamError and records nothing", async () => {
+    useUpstream(
+      (model) =>
+        new UnfinishedScriptedClient(
+          [delta({ type: "text.delta", text: "Hel" })],
+          model,
+        ),
+    );
+    const client = mmspClient(await serve(serverApp()));
+    const events: UniEvent[] = [];
+    const run = async () => {
+      for await (const event of client.streamingResponseStateful({
+        message: messages()[0],
+        config: {},
+      })) {
+        events.push(event);
+      }
+    };
+
+    const error = await run().catch((caught) => caught);
+
+    expect(events.map((event) => event.content_items)).toEqual([
+      [{ type: "text.delta", text: "Hel" }],
+    ]);
+    expect(error).toBeInstanceOf(IncompleteStreamError);
+    expect(error).toMatchObject({
+      client: "MmspClient",
+      missing: ["usage_metadata", "finish_reason"],
+      finishReason: null,
+      usageMetadata: null,
+    });
+    expect(client.getHistory()).toEqual([]);
+  });
+
+  test("a stateful turn through the client records both messages with their created_at", async () => {
+    const script = [
+      delta({ type: "text.delta", text: "Hi", fidelity: { item_id: "0" } }),
+      stop(),
+    ];
+    useUpstream((model) => new ScriptedClient(script, model));
+    const client = mmspClient(await serve(serverApp()));
+    const message = messages()[0];
+
+    for await (const event of client.streamingResponseStateful({
+      message,
+      config: {},
+    })) {
+      void event;
+    }
+
+    const history = client.getHistory();
+    expect(history.map((entry) => entry.role)).toEqual(["user", "assistant"]);
+    expect(history[0].created_at).toBe(message.created_at);
+    for (const entry of history) {
+      expect(typeof entry.created_at).toBe("number");
+    }
+  });
+
   test("aborting the client cancels the upstream through the server", async () => {
     const upstream = new SlowScriptedClient([]);
     useUpstream(() => upstream);
@@ -798,10 +1160,16 @@ describe("MMSP server stream", () => {
       // the server aborts its request when the connection closes, and the upstream stops at
       // its next delta
       const deadline = Date.now() + 5000;
-      while (!upstream.cleaned && Date.now() < deadline) {
+      while (
+        (!upstream.cleaned || upstream.thrown === undefined) &&
+        Date.now() < deadline
+      ) {
         await new Promise((resolve) => setTimeout(resolve, 10));
       }
       expect(upstream.cleaned).toBe(true);
+      // the upstream ended quietly, and its stream still ended as an abort, with no done items
+      // and no stop
+      expect((upstream.thrown as Error).name).toBe("AbortError");
     } finally {
       upstream.stopped = true;
     }

@@ -18,7 +18,11 @@ import type {
   EmbeddingCreateParams,
 } from "openai/resources/embeddings";
 import { LLMClient } from "../baseClient";
-import { UnsupportedParameterError } from "../errors";
+import {
+  InvalidMessageError,
+  UnsupportedContentError,
+  UnsupportedParameterError,
+} from "../errors";
 import { UniConfig, UniEvent, UniMessage } from "../types";
 import { openaiClientOptions, resolveCredentials } from "../utils";
 
@@ -85,15 +89,26 @@ export class OpenaiEmbeddingClient extends LLMClient {
    */
   transformUniMessageToModelInput(messages: UniMessage[]): string[] {
     const texts: string[] = [];
-    for (const msg of messages) {
+    for (const [messageIndex, msg] of messages.entries()) {
       let msgText = "";
       for (const item of msg.content_items) {
         if (item.type !== "text.done") {
-          throw new Error("OpenAI embeddings only support text content items.");
+          throw new UnsupportedContentError({
+            client: this.constructor.name,
+            itemType: item.type,
+            message: "OpenAI embeddings only support text content items.",
+          });
         }
         msgText += item.text;
       }
-      texts.push(msgText || " ");
+      if (!msgText) {
+        throw new InvalidMessageError({
+          client: this.constructor.name,
+          message: `message ${messageIndex} has nothing ${this.constructor.name} can send`,
+          messageIndex,
+        });
+      }
+      texts.push(msgText);
     }
     return texts;
   }
@@ -107,10 +122,13 @@ export class OpenaiEmbeddingClient extends LLMClient {
     return {
       role: "assistant",
       event_type: "stop",
-      content_items: modelOutput.data.map((item) => ({
-        type: "embedding.delta" as const,
-        embedding: item.embedding,
-      })),
+      // the vectors pair with the inputs by index, which an endpoint need not return in order
+      content_items: [...modelOutput.data]
+        .sort((a, b) => a.index - b.index)
+        .map((item) => ({
+          type: "embedding.delta" as const,
+          embedding: item.embedding,
+        })),
       usage_metadata: {
         cached_tokens: null,
         prompt_tokens: modelOutput.usage?.prompt_tokens ?? null,

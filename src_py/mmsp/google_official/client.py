@@ -23,7 +23,14 @@ from google import genai
 from google.genai import interactions, types
 
 from ..base_client import LLMClient
-from ..errors import UnsupportedParameterError
+from ..errors import (
+    InvalidMessageError,
+    ProviderStreamError,
+    RoutingError,
+    UnknownEventError,
+    UnsupportedContentError,
+    UnsupportedParameterError,
+)
 from ..types import (
     EventContentItem,
     EventType,
@@ -69,9 +76,11 @@ class GoogleOfficialClient(LLMClient):
             http_options["headers"] = default_headers
         # a service-account key carries a private key, which must not travel as an API key header
         if api_key and api_key.startswith("{"):
-            raise ValueError(
+            raise RoutingError(
+                model,
+                "google-official",
                 "GoogleOfficialClient does not serve a Vertex AI service-account key; "
-                "pass client_type='google-genai' for Vertex AI."
+                "pass client_type='google-genai' for Vertex AI.",
             )
         self._client = genai.Client(api_key=api_key, http_options=http_options or None)
 
@@ -91,7 +100,9 @@ class GoogleOfficialClient(LLMClient):
                 base64_string = match.group(2)
                 image_bytes = base64.b64decode(base64_string)
             else:
-                raise ValueError(f"Invalid base64 image: {url}")
+                raise InvalidMessageError(
+                    self.__class__.__name__, f"Invalid base64 image: {url}", item_type="image_url"
+                )
         else:
             async with httpx.AsyncClient() as client:
                 response = await client.get(url)
@@ -278,7 +289,7 @@ class GoogleOfficialClient(LLMClient):
         # A function_result must name its function (HTTP 400 without it), but a universal
         # tool_result carries only the call id, so remember each call's name.
         call_names: dict[str, str] = {}
-        for msg in messages:
+        for message_index, msg in enumerate(messages):
             message_start = len(steps)
             # consecutive text and media of a message share one user_input or model_output step
             content: list[interactions.ContentParam] | None = None
@@ -375,7 +386,11 @@ class GoogleOfficialClient(LLMClient):
                 elif item["type"] == "tool_result.done":
                     content = None
                     if "tool_call_id" not in item:
-                        raise ValueError("tool_call_id is required for tool result.")
+                        raise InvalidMessageError(
+                            self.__class__.__name__,
+                            "tool_call_id is required for tool result.",
+                            item_type="tool_result",
+                        )
 
                     result: str | list[dict[str, str]] = item["text"]
                     if "images" in item:
@@ -398,7 +413,14 @@ class GoogleOfficialClient(LLMClient):
 
                     steps.append(function_result)
                 else:
-                    raise ValueError(f"Unknown item: {item}")
+                    raise InvalidMessageError(self.__class__.__name__, f"Unknown item: {item}", item_type=item["type"])
+
+            if all(step["type"] == "thought" for step in steps[message_start:]):
+                raise InvalidMessageError(
+                    self.__class__.__name__,
+                    f"message {message_index} has nothing {self.__class__.__name__} can send",
+                    message_index=message_index,
+                )
 
             # An image generation model (gemini-*-image) sometimes streams its text before its first
             # thought step, but the API takes a turn holding a thought back only when the turn opens
@@ -453,7 +475,7 @@ class GoogleOfficialClient(LLMClient):
                 # their content arrives in the step's deltas
                 pass
             elif is_debug_enabled():
-                raise ValueError(f"Unknown output: {model_output}")
+                raise UnknownEventError(self.__class__.__name__, str(model_output))
 
         elif model_output.event_type == "step.delta":
             item_id = str(model_output.index)
@@ -514,7 +536,7 @@ class GoogleOfficialClient(LLMClient):
                     }
                 )
             elif is_debug_enabled():
-                raise ValueError(f"Unknown output: {model_output}")
+                raise UnknownEventError(self.__class__.__name__, str(model_output))
 
         elif model_output.event_type == "interaction.completed":
             event_type = "stop"
@@ -527,17 +549,25 @@ class GoogleOfficialClient(LLMClient):
             usage = model_output.interaction.usage or interactions.Usage()
             # total_input_tokens includes the cached tokens; total_output_tokens excludes the thoughts
             usage_metadata = {
-                "cached_tokens": usage.total_cached_tokens or None,
-                "prompt_tokens": (usage.total_input_tokens or 0) - (usage.total_cached_tokens or 0),
-                "thoughts_tokens": usage.total_thought_tokens or None,
-                "response_tokens": usage.total_output_tokens or None,
+                "cached_tokens": usage.total_cached_tokens,
+                "prompt_tokens": (
+                    usage.total_input_tokens - (usage.total_cached_tokens or 0)
+                    if usage.total_input_tokens is not None
+                    else None
+                ),
+                "thoughts_tokens": usage.total_thought_tokens,
+                "response_tokens": usage.total_output_tokens,
             }
 
         elif model_output.event_type == "error" and model_output.error is not None:
             # Neither Interactions SDK raises on an error event inside an open stream, so the provider's
             # failure is raised here rather than lost; an error event without an error, which the Python
             # SDK makes of a gateway heartbeat, stays with the unknown-event guard.
-            raise RuntimeError(f"Gemini stream error {model_output.error.code}: {model_output.error.message}")
+            raise ProviderStreamError(
+                self.__class__.__name__,
+                model_output.error.code,
+                f"Gemini stream error {model_output.error.code}: {model_output.error.message}",
+            )
 
         elif model_output.event_type in ("interaction.created", "interaction.status_update", "step.stop"):
             # the interaction's lifecycle carries nothing universal, and a step needs no stop: its
@@ -545,7 +575,7 @@ class GoogleOfficialClient(LLMClient):
             pass
 
         elif is_debug_enabled():
-            raise ValueError(f"Unknown output: {model_output}")
+            raise UnknownEventError(self.__class__.__name__, str(model_output))
 
         # the API adds event, step and delta types over time (the SDK surfaces them as its Unknown*
         # types), and killing a long generation over one costs more than dropping it
@@ -577,7 +607,7 @@ class GoogleOfficialClient(LLMClient):
                 elif item["type"] == "inline_data.done":
                     parts.append(types.Part.from_bytes(data=item["data"], mime_type=item["mime_type"]))
                 else:
-                    raise ValueError(f"Unknown item: {item}")
+                    raise InvalidMessageError(self.__class__.__name__, f"Unknown item: {item}", item_type=item["type"])
 
             contents.append(types.Content(role="user" if msg["role"] == "user" else "model", parts=parts))
 
@@ -632,7 +662,11 @@ class GoogleOfficialClient(LLMClient):
                 None,
             )
             if invalid_item is not None:
-                raise ValueError(f"Gemini TTS only supports text input, got content item type={invalid_item['type']}.")
+                raise UnsupportedContentError(
+                    self.__class__.__name__,
+                    invalid_item["type"],
+                    f"Gemini TTS only supports text input, got content item type={invalid_item['type']}.",
+                )
 
         steps = await self.transform_uni_message_to_model_input(messages)
 
@@ -651,15 +685,16 @@ class GoogleOfficialClient(LLMClient):
                             "text": turn,
                             "annotations": [{"type": "speech_metadata", "speaker": speaker}],
                         }
-                        for speaker, turn in speaker_turns(script, speakers)
+                        for speaker, turn in speaker_turns(script, speakers, self.__class__.__name__)
                     ],
                 }
             ]
 
         stream = await self._client.aio.interactions.create(**gemini_config, input=steps)
 
-        async for event in stream:
-            yield self.transform_model_output_to_uni_event(event)
+        async with stream:
+            async for event in stream:
+                yield self.transform_model_output_to_uni_event(event)
 
     async def list_models(self) -> list[str]:
         """

@@ -38,7 +38,12 @@ import {
 } from "@google/genai";
 import * as path from "path";
 import { LLMClient } from "../baseClient";
-import { UnsupportedParameterError } from "../errors";
+import {
+  InvalidMessageError,
+  UnknownEventError,
+  UnsupportedContentError,
+  UnsupportedParameterError,
+} from "../errors";
 import {
   EventContentItem,
   EventType,
@@ -170,12 +175,20 @@ export class GoogleGenaiClient extends LLMClient {
         const data = Buffer.from(base64Data, "base64");
         return { data, mimeType };
       } else {
-        throw new Error(`Invalid base64 image: ${url}`);
+        throw new InvalidMessageError({
+          client: this.constructor.name,
+          message: `Invalid base64 image: ${url}`,
+          itemType: "image_url",
+        });
       }
     } else {
       const response = await fetch(url, { signal });
       if (!response.ok) {
-        throw new Error(`Failed to fetch image: ${url}`);
+        throw new InvalidMessageError({
+          client: this.constructor.name,
+          message: `Failed to fetch image: ${url}`,
+          itemType: "image_url",
+        });
       }
       const arrayBuffer = await response.arrayBuffer();
       const data = Buffer.from(arrayBuffer);
@@ -462,7 +475,7 @@ export class GoogleGenaiClient extends LLMClient {
     // The generateContent API wants both the call id and the function name on a function
     // response, but a universal tool_result carries only the id, so remember each call's name.
     const callNames = new Map<string, string>();
-    for (const msg of messages) {
+    for (const [messageIndex, msg] of messages.entries()) {
       let parts: Part[] = [];
       for (const item of msg.content_items) {
         const thoughtSignature =
@@ -520,7 +533,11 @@ export class GoogleGenaiClient extends LLMClient {
           parts.push({ functionCall: functionCall, ...thoughtSignature });
         } else if (item.type === "tool_result.done") {
           if (!item.tool_call_id) {
-            throw new Error("tool_call_id is required for tool result.");
+            throw new InvalidMessageError({
+              client: this.constructor.name,
+              message: "tool_call_id is required for tool result.",
+              itemType: "tool_result",
+            });
           }
 
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -555,7 +572,11 @@ export class GoogleGenaiClient extends LLMClient {
             } as FunctionResponse,
           } as Part);
         } else {
-          throw new Error(`Unknown item: ${JSON.stringify(item)}`);
+          throw new InvalidMessageError({
+            client: this.constructor.name,
+            message: `Unknown item: ${JSON.stringify(item)}`,
+            itemType: (item as { type: string }).type,
+          });
         }
       }
 
@@ -617,6 +638,14 @@ export class GoogleGenaiClient extends LLMClient {
               !part.thoughtSignature
             ),
         );
+      }
+
+      if (parts.every((part) => part.thought)) {
+        throw new InvalidMessageError({
+          client: this.constructor.name,
+          message: `message ${messageIndex} has nothing ${this.constructor.name} can send`,
+          messageIndex,
+        });
       }
 
       // Vertex AI rejects a content that mixes functionResponse parts with any other
@@ -700,7 +729,10 @@ export class GoogleGenaiClient extends LLMClient {
             });
           }
         } else if (isDebugEnabled()) {
-          throw new Error(`Unknown output: ${JSON.stringify(part)}`);
+          throw new UnknownEventError({
+            client: this.constructor.name,
+            event: JSON.stringify(part),
+          });
         }
       }
 
@@ -720,11 +752,11 @@ export class GoogleGenaiClient extends LLMClient {
     if (usage?.promptTokenCount != null) {
       eventType = "stop";
       usageMetadata = {
-        cached_tokens: usage.cachedContentTokenCount || null,
+        cached_tokens: usage.cachedContentTokenCount ?? null,
         prompt_tokens:
           (usage.promptTokenCount || 0) - (usage.cachedContentTokenCount || 0),
-        thoughts_tokens: usage.thoughtsTokenCount || null,
-        response_tokens: usage.candidatesTokenCount || null,
+        thoughts_tokens: usage.thoughtsTokenCount ?? null,
+        response_tokens: usage.candidatesTokenCount ?? null,
       };
     }
 
@@ -778,7 +810,11 @@ export class GoogleGenaiClient extends LLMClient {
             },
           });
         } else {
-          throw new Error(`Unknown item: ${JSON.stringify(item)}`);
+          throw new InvalidMessageError({
+            client: this.constructor.name,
+            message: `Unknown item: ${JSON.stringify(item)}`,
+            itemType: (item as { type: string }).type,
+          });
         }
       }
 
@@ -845,16 +881,15 @@ export class GoogleGenaiClient extends LLMClient {
         .flatMap((message) => message.content_items)
         .find((item) => item.type !== "text.done");
       if (invalidItem) {
-        throw new Error(
-          `Gemini TTS only supports text input, got content item type=${JSON.stringify(invalidItem.type)}.`,
-        );
+        throw new UnsupportedContentError({
+          client: this.constructor.name,
+          itemType: invalidItem.type,
+          message: `Gemini TTS only supports text input, got content item type=${JSON.stringify(invalidItem.type)}.`,
+        });
       }
     }
 
-    const geminiConfig = this._withAbortSignal<GenerateContentConfig>(
-      this.transformUniConfigToModelConfig(options.config),
-      options.signal,
-    );
+    const geminiConfig = this.transformUniConfigToModelConfig(options.config);
     let contents = await this.transformUniMessageToModelInput(
       messages,
       options.signal,
@@ -878,32 +913,55 @@ export class GoogleGenaiClient extends LLMClient {
       contents = [
         {
           role: "user",
-          parts: speakerTurns(script, speakers).map(([speaker, turn]) => ({
-            text: turn,
-            speechMetadata: { speaker },
-          })),
+          parts: speakerTurns(script, speakers, this.constructor.name).map(
+            ([speaker, turn]) => ({
+              text: turn,
+              speechMetadata: { speaker },
+            }),
+          ),
         },
       ];
     }
 
-    const responseStream = await this._client.models.generateContentStream({
-      model: this._model,
-      contents: contents,
-      config: geminiConfig,
-    });
+    // closing the SDK's stream only releases its reader and leaves the connection open, so the
+    // request is bound to a controller this generator aborts on its way out, as the caller's
+    // signal does
+    const controller = new AbortController();
+    const forwardAbort = () => controller.abort(options.signal?.reason);
+    if (options.signal?.aborted) {
+      forwardAbort();
+    } else {
+      options.signal?.addEventListener("abort", forwardAbort, { once: true });
+    }
+    try {
+      const responseStream = await this._client.models.generateContentStream({
+        model: this._model,
+        contents: contents,
+        config: this._withAbortSignal(geminiConfig, controller.signal),
+      });
 
-    let sawFunctionCall = false;
-    for await (const chunk of responseStream) {
-      const event = this.transformModelOutputToUniEvent(chunk);
-      if (event.content_items.some((item) => item.type === "tool_call.delta")) {
-        sawFunctionCall = true;
+      let sawFunctionCall = false;
+      for await (const chunk of responseStream) {
+        const event = this.transformModelOutputToUniEvent(chunk);
+        if (
+          event.content_items.some((item) => item.type === "tool_call.delta")
+        ) {
+          sawFunctionCall = true;
+        }
+        // generateContent reports STOP for a turn that stopped to call tools
+        const finishReason =
+          event.finish_reason === "stop" && sawFunctionCall
+            ? "tool_call"
+            : event.finish_reason;
+        yield { ...event, finish_reason: finishReason };
       }
-      // generateContent reports STOP for a turn that stopped to call tools
-      const finishReason =
-        event.finish_reason === "stop" && sawFunctionCall
-          ? "tool_call"
-          : event.finish_reason;
-      yield { ...event, finish_reason: finishReason };
+    } catch (error) {
+      // the SDK fails an aborted request with an AbortError of its own, whatever the reason
+      options.signal?.throwIfAborted();
+      throw error;
+    } finally {
+      options.signal?.removeEventListener("abort", forwardAbort);
+      controller.abort();
     }
   }
 

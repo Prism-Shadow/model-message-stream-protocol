@@ -20,7 +20,7 @@ from types import SimpleNamespace
 import pytest
 from stream_grammar import assert_stream_grammar
 
-from mmsp import AutoLLMClient, IncompleteStreamError
+from mmsp import AutoLLMClient, IncompleteStreamError, ProviderStreamError, UnknownEventError
 
 
 @dataclass
@@ -81,9 +81,29 @@ def _create_auto_client(case: StreamCase) -> AutoLLMClient:
     return AutoLLMClient(model=case.model, api_key="test-key", client_type=case.client_type)
 
 
-async def _stream_from_events(events: list[object]) -> AsyncIterator[object]:
-    for event in events:
-        yield event
+class _FakeStream:
+    """Stands in for an SDK stream, which a client iterates inside `async with` so that it is closed."""
+
+    def __init__(self, chunks: list[object]) -> None:
+        self._chunks = iter(chunks)
+
+    async def __aenter__(self) -> "_FakeStream":
+        return self
+
+    async def __aexit__(self, *_exc_info: object) -> None:
+        await self.aclose()
+
+    def __aiter__(self) -> "_FakeStream":
+        return self
+
+    async def __anext__(self) -> object:
+        try:
+            return next(self._chunks)
+        except StopIteration:
+            raise StopAsyncIteration from None
+
+    async def aclose(self) -> None:
+        self._chunks = iter(())
 
 
 class _FakeCreateEndpoint:
@@ -93,7 +113,7 @@ class _FakeCreateEndpoint:
         self._events = events
 
     async def create(self, **_kwargs: object) -> AsyncIterator[object]:
-        return _stream_from_events(self._events)
+        return _FakeStream(self._events)
 
 
 class _FakeGenerateContentModels:
@@ -103,7 +123,7 @@ class _FakeGenerateContentModels:
         self._events = events
 
     async def generate_content_stream(self, **_kwargs: object) -> AsyncIterator[object]:
-        return _stream_from_events(self._events)
+        return _FakeStream(self._events)
 
 
 def _install_fake_responses_stream(client: AutoLLMClient, events: list[object]) -> None:
@@ -419,9 +439,12 @@ async def test_responses_clients_reject_unknown_events_in_debug_mode(
         client, [event_factory(), *[_responses_text_delta_event("Here is"), _responses_completed_event()]]
     )
 
-    with pytest.raises(ValueError, match="Unknown output"):
+    with pytest.raises(UnknownEventError, match="does not recognize the event") as exc_info:
         async for _event in client.streaming_response(MESSAGES, {}):
             pass
+
+    assert isinstance(exc_info.value, ValueError)
+    assert exc_info.value.client == case.expected_client
 
 
 @pytest.mark.asyncio
@@ -566,9 +589,12 @@ async def test_messages_clients_reject_unknown_events_in_debug_mode(
         [event_factory(), *[_messages_start_event(), _messages_text_delta_event("Here is"), _messages_stop_event()]],
     )
 
-    with pytest.raises(ValueError, match="Unknown output"):
+    with pytest.raises(UnknownEventError, match="does not recognize the event") as exc_info:
         async for _event in client.streaming_response(MESSAGES, {}):
             pass
+
+    assert isinstance(exc_info.value, ValueError)
+    assert exc_info.value.client == case.expected_client
 
 
 @pytest.mark.asyncio
@@ -619,9 +645,12 @@ async def test_gemini_client_rejects_unknown_deltas_in_debug_mode(case: StreamCa
     client = _create_auto_client(case)
     _install_fake_gemini_stream(client, [_gemini_unknown_delta_event(), _gemini_completed_event()])
 
-    with pytest.raises(ValueError, match="Unknown output"):
+    with pytest.raises(UnknownEventError, match="does not recognize the event") as exc_info:
         async for _event in client.streaming_response(MESSAGES, {}):
             pass
+
+    assert isinstance(exc_info.value, ValueError)
+    assert exc_info.value.client == case.expected_client
 
 
 @pytest.mark.asyncio
@@ -633,10 +662,14 @@ async def test_gemini_client_raises_provider_error_events(case: StreamCase):
     )
 
     with pytest.raises(
-        RuntimeError, match="Gemini stream error gateway_timeout: Deadline expired before operation could complete."
-    ):
+        ProviderStreamError,
+        match="Gemini stream error gateway_timeout: Deadline expired before operation could complete.",
+    ) as exc_info:
         async for _event in client.streaming_response(MESSAGES, {}):
             pass
+
+    assert isinstance(exc_info.value, RuntimeError)
+    assert exc_info.value.code == "gateway_timeout"
 
 
 @pytest.mark.asyncio
@@ -764,9 +797,12 @@ async def test_generate_content_client_rejects_unknown_parts_in_debug_mode(case:
         client, [_generate_content_unknown_part_chunk(), _generate_content_stop_chunk()]
     )
 
-    with pytest.raises(ValueError, match="Unknown output"):
+    with pytest.raises(UnknownEventError, match="does not recognize the event") as exc_info:
         async for _event in client.streaming_response(MESSAGES, {}):
             pass
+
+    assert isinstance(exc_info.value, ValueError)
+    assert exc_info.value.client == case.expected_client
 
 
 # Every client, driven over a stream opening with an ignorable event of its own protocol.
@@ -837,3 +873,225 @@ async def test_clients_turn_ignorable_events_into_empty_events(
     events = [event async for event in client.streaming_response(MESSAGES, {})]
     assert_stream_grammar(events)
     assert _collected_texts(events) == ["Here is"]
+
+
+def _responses_stream_reporting(usage: object) -> list[object]:
+    completed = _responses_completed_event()
+    completed.response.usage = usage
+    return [_responses_text_delta_event("Here is"), completed]
+
+
+def _chat_stream_reporting(usage: object) -> list[object]:
+    stop = _chat_stop_chunk()
+    stop.usage = usage
+    return [_chat_text_chunk("Here is"), stop]
+
+
+def _messages_stream_reporting(start_usage: object, stop_usage: object) -> list[object]:
+    start = _messages_start_event()
+    start.message.usage = start_usage
+    stop = _messages_stop_event()
+    stop.usage = stop_usage
+    return [start, _messages_text_delta_event("Here is"), stop]
+
+
+def _gemini_stream_reporting(usage: object) -> list[object]:
+    completed = _gemini_completed_event()
+    completed.interaction.usage = usage
+    return [_gemini_text_delta_event("Here is"), completed]
+
+
+def _generate_content_stream_reporting(usage: object) -> list[object]:
+    stop = _generate_content_stop_chunk()
+    stop.usage_metadata = usage
+    return [_generate_content_text_chunk("Here is"), stop]
+
+
+ZERO_USAGE = {"cached_tokens": 0, "prompt_tokens": 0, "thoughts_tokens": 0, "response_tokens": 0}
+
+# Every client over a stream whose usage sends each count as 0, then over one leaving out each count the
+# provider may leave out: a count is reported as sent, 0 included, and a count not sent is None.
+USAGE_CASES = [
+    *[
+        pytest.param(
+            case,
+            _install_fake_responses_stream,
+            _responses_stream_reporting(
+                SimpleNamespace(
+                    input_tokens=0,
+                    output_tokens=0,
+                    input_tokens_details=SimpleNamespace(cached_tokens=0),
+                    output_tokens_details=SimpleNamespace(reasoning_tokens=0),
+                )
+            ),
+            ZERO_USAGE,
+            id=f"{case.client_type}-zero",
+        )
+        for case in RESPONSES_STREAM_CASES
+    ],
+    *[
+        pytest.param(
+            case,
+            _install_fake_responses_stream,
+            _responses_stream_reporting(
+                SimpleNamespace(input_tokens=2, output_tokens=3, input_tokens_details=None, output_tokens_details=None)
+            ),
+            {"cached_tokens": None, "prompt_tokens": 2, "thoughts_tokens": None, "response_tokens": 3},
+            id=f"{case.client_type}-absent",
+        )
+        # OpenAI always sends the detail blocks, and OpenAIOfficialClient reads them as sent
+        for case in RESPONSES_STREAM_CASES
+        if case.client_type != "openai-official"
+    ],
+    *[
+        pytest.param(
+            case,
+            _install_fake_chat_stream,
+            _chat_stream_reporting(
+                SimpleNamespace(
+                    prompt_tokens=0,
+                    completion_tokens=0,
+                    prompt_tokens_details=SimpleNamespace(cached_tokens=0),
+                    completion_tokens_details=SimpleNamespace(reasoning_tokens=0),
+                )
+            ),
+            ZERO_USAGE,
+            id=f"{case.client_type}-zero",
+        )
+        for case in CHAT_STREAM_CASES
+    ],
+    *[
+        pytest.param(
+            case,
+            _install_fake_chat_stream,
+            _chat_stream_reporting(
+                SimpleNamespace(
+                    prompt_tokens=2, completion_tokens=3, prompt_tokens_details=None, completion_tokens_details=None
+                )
+            ),
+            {"cached_tokens": None, "prompt_tokens": 2, "thoughts_tokens": None, "response_tokens": 3},
+            id=f"{case.client_type}-absent",
+        )
+        for case in CHAT_STREAM_CASES
+    ],
+    *[
+        pytest.param(
+            case,
+            _install_fake_messages_stream,
+            _messages_stream_reporting(
+                SimpleNamespace(input_tokens=0, cache_creation_input_tokens=0, cache_read_input_tokens=0),
+                SimpleNamespace(
+                    input_tokens=0,
+                    cache_creation_input_tokens=0,
+                    cache_read_input_tokens=0,
+                    output_tokens=0,
+                    output_tokens_details=None,
+                ),
+            ),
+            # the Messages usage carries no thinking count
+            {"cached_tokens": 0, "prompt_tokens": 0, "thoughts_tokens": None, "response_tokens": 0},
+            id=f"{case.client_type}-zero",
+        )
+        for case in MESSAGES_STREAM_CASES
+    ],
+    *[
+        pytest.param(
+            case,
+            _install_fake_messages_stream,
+            _messages_stream_reporting(
+                SimpleNamespace(input_tokens=2, cache_creation_input_tokens=None, cache_read_input_tokens=None),
+                SimpleNamespace(
+                    input_tokens=2,
+                    cache_creation_input_tokens=None,
+                    cache_read_input_tokens=None,
+                    output_tokens=3,
+                    output_tokens_details=None,
+                ),
+            ),
+            {"cached_tokens": None, "prompt_tokens": 2, "thoughts_tokens": None, "response_tokens": 3},
+            id=f"{case.client_type}-absent",
+        )
+        for case in MESSAGES_STREAM_CASES
+    ],
+    *[
+        pytest.param(
+            case,
+            _install_fake_gemini_stream,
+            _gemini_stream_reporting(
+                SimpleNamespace(
+                    total_input_tokens=0, total_cached_tokens=0, total_thought_tokens=0, total_output_tokens=0
+                )
+            ),
+            ZERO_USAGE,
+            id=f"{case.client_type}-zero",
+        )
+        for case in GEMINI_STREAM_CASES
+    ],
+    *[
+        pytest.param(
+            case,
+            _install_fake_gemini_stream,
+            _gemini_stream_reporting(
+                SimpleNamespace(
+                    total_input_tokens=None,
+                    total_cached_tokens=None,
+                    total_thought_tokens=None,
+                    total_output_tokens=None,
+                )
+            ),
+            {"cached_tokens": None, "prompt_tokens": None, "thoughts_tokens": None, "response_tokens": None},
+            id=f"{case.client_type}-absent",
+        )
+        for case in GEMINI_STREAM_CASES
+    ],
+    *[
+        pytest.param(
+            case,
+            _install_fake_generate_content_stream,
+            _generate_content_stream_reporting(
+                SimpleNamespace(
+                    prompt_token_count=0,
+                    cached_content_token_count=0,
+                    thoughts_token_count=0,
+                    candidates_token_count=0,
+                )
+            ),
+            ZERO_USAGE,
+            id=f"{case.client_type}-zero",
+        )
+        for case in GENERATE_CONTENT_STREAM_CASES
+    ],
+    *[
+        pytest.param(
+            case,
+            _install_fake_generate_content_stream,
+            _generate_content_stream_reporting(
+                SimpleNamespace(
+                    prompt_token_count=2,
+                    cached_content_token_count=None,
+                    thoughts_token_count=None,
+                    candidates_token_count=None,
+                )
+            ),
+            {"cached_tokens": None, "prompt_tokens": 2, "thoughts_tokens": None, "response_tokens": None},
+            id=f"{case.client_type}-absent",
+        )
+        for case in GENERATE_CONTENT_STREAM_CASES
+    ],
+]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("case", "installer", "stream", "usage_metadata"), USAGE_CASES)
+async def test_clients_report_each_count_as_sent_and_a_count_not_sent_as_none(
+    case: StreamCase,
+    installer: Callable[[AutoLLMClient, list[object]], None],
+    stream: list[object],
+    usage_metadata: dict[str, int | None],
+):
+    client = _create_auto_client(case)
+    installer(client, stream)
+
+    events = [event async for event in client.streaming_response(MESSAGES, {})]
+    assert_stream_grammar(events)
+    assert events[-1]["usage_metadata"] == usage_metadata

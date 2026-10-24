@@ -27,7 +27,7 @@ client = AutoLLMClient(
 )
 ```
 
-`client_type` is one of the official clients (`openai-official`, `anthropic-official`, `google-official`, `zai-official`, `moonshot-official`, `deepseek-official`, `minimax-official`) or one of the compatible clients (`openai-responses`, `openai-chat`, `openai-chat-vllm-adapter`, `openai-embedding`, `ant-messages`, `google-genai`, `mmsp`). It may be omitted for a model id that begins with a known family (`gpt-`, `text-embedding-`, `claude-`, `gemini-`, `glm-`, `kimi-`, `deepseek-`, `minimax-`); any other id raises `ValueError` and asks for one. See [Model selection](models.md).
+`client_type` is one of the official clients (`openai-official`, `anthropic-official`, `google-official`, `zai-official`, `moonshot-official`, `deepseek-official`, `minimax-official`) or one of the compatible clients (`openai-responses`, `openai-chat`, `openai-chat-vllm-adapter`, `openai-embedding`, `ant-messages`, `google-genai`, `mmsp`). It may be omitted for a model id that begins with a known family (`gpt-`, `text-embedding-`, `claude-`, `gemini-`, `glm-`, `kimi-`, `deepseek-`, `minimax-`); any other id raises `RoutingError` and asks for one. See [Model selection](models.md).
 
 A key goes only where it was given for. A key passed in is used, with the `base_url` passed in, else the client's `<P>_BASE_URL`, else its default endpoint. Without a key, a client reads its `<P>_API_KEY` only when it is given no `base_url` or its own default endpoint (`deepseek-official` with `https://api.deepseek.com` uses `DEEPSEEK_API_KEY`); any other `base_url` raises `ApiKeyRequiredError` at construction, so pass `api_key` with it, or drop it and set `<P>_API_KEY` (plus `<P>_BASE_URL` for another endpoint). The `mmsp` and `openai-chat-vllm-adapter` clients call a `base_url` given without a key keyless, as an open server, and their default endpoint too when `<P>_API_KEY` is unset. `mmsp.credentials.environment_credential(client_type, base_url)` says what a client will do.
 
@@ -67,9 +67,21 @@ def normalize_legacy_messages(messages: list[UniMessage]) -> list[UniMessage]:
 
 ## Errors
 
-All MMSP errors subclass `MMSPError` (a `ValueError`). Unsupported `UniConfig`
+All MMSP errors subclass `MMSPError` (a `ValueError`; `ProviderStreamError` is also a
+`RuntimeError`). Unsupported `UniConfig`
 values (e.g. `temperature` or `tool_choice` on models that reject them) raise
 `UnsupportedParameterError`, which carries `client` and `parameter` attributes. Thinking
 levels never raise: every client maps each `ThinkingLevel` to the closest supported level.
 Errors raised while streaming (`ToolCallArgumentParseError`, `EmptyResponseError`,
 `IncompleteStreamError`, `StreamProtocolError`) are listed in [Data models](data-models.md#errors).
+The others, with their attributes:
+
+- `UnsupportedContentError` (`client`, `item_type`): an item the model cannot take, such as an image on a text-only model.
+- `InvalidMessageError` (`client`, `item_type`, `message_index`): a message that cannot be sent as it is, such as a tool result without `tool_call_id`, an unknown item, an invalid image, or a message with nothing to send.
+- `RoutingError` (`model`, `client_type`): neither `client_type` nor the model id names a client.
+- `ApiKeyRequiredError` (`client`, `client_type`, `api_key_env`, `base_url_env`, `base_url`): the client has no key it may use; `base_url` is `None` when no key was passed or set at all.
+- `UnsupportedOperationError` (`client`, `operation`): a call the client cannot make at all, such as listing models on Amazon Bedrock.
+- `ConcurrentCallError` (`client`): `streaming_response_stateful` called while another stateful call on the same client is in flight.
+- `ProviderStreamError` (`client`, `code`): the provider reported an error inside an open stream.
+- `UnknownEventError` (`client`, `event`): a wire event the client does not recognize, raised only with `MMSP_DEBUG` set.
+- `UpstreamError` (`client`, `status`, `error_type`, `error`): anything the `mmsp` client's server reported; `error_type` names the server-side class and `error` carries its fields.

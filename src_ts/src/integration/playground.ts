@@ -2158,7 +2158,7 @@ export function createChatApp(): Express {
                                   <button type="button" role="option" aria-selected="false" class="combo-option" data-combobox-option data-value="claude-opus-5-5" data-label="Claude Opus 5.5" data-description="claude-opus-5-5" onclick="selectComboboxOption('modelCombobox', this)"><span>Claude Opus 5.5</span></button>
                                   <button type="button" role="option" aria-selected="false" class="combo-option" data-combobox-option data-value="claude-fable-5-1" data-label="Claude Fable 5.1" data-description="claude-fable-5-1" onclick="selectComboboxOption('modelCombobox', this)"><span>Claude Fable 5.1</span></button>
                                   <button type="button" role="option" aria-selected="false" class="combo-option" data-combobox-option data-value="glm-5.3-flash" data-label="GLM 5.3 Flash" data-description="glm-5.3-flash" onclick="selectComboboxOption('modelCombobox', this)"><span>GLM 5.3 Flash</span></button>
-                                  <button type="button" role="option" aria-selected="false" class="combo-option" data-combobox-option data-value="kimi-k3" data-label="Kimi K3" data-description="kimi-k3" onclick="selectComboboxOption('modelCombobox', this)"><span>Kimi K3</span></button>
+                                  <button type="button" role="option" aria-selected="false" class="combo-option" data-combobox-option data-value="kimi-k3.1-pro" data-label="Kimi K3.1 Pro" data-description="kimi-k3.1-pro" onclick="selectComboboxOption('modelCombobox', this)"><span>Kimi K3.1 Pro</span></button>
                                   <button type="button" role="option" aria-selected="false" class="combo-option" data-combobox-option data-value="MiniMax-M3" data-label="MiniMax M3" data-description="MiniMax-M3" onclick="selectComboboxOption('modelCombobox', this)"><span>MiniMax M3</span></button>
                                   <button type="button" role="option" aria-selected="false" class="combo-option" data-combobox-option data-value="deepseek-flash" data-label="DeepSeek Flash" data-description="deepseek-flash" onclick="selectComboboxOption('modelCombobox', this)"><span>DeepSeek Flash</span></button>
                                   <button type="button" role="option" aria-selected="false" class="combo-option" data-combobox-option data-value="__custom__" data-label="Custom model" data-description="Type any model id" onclick="selectComboboxOption('modelCombobox', this)"><span>Custom model</span></button>
@@ -3362,7 +3362,7 @@ export function createChatApp(): Express {
               document.getElementById('thread').classList.remove('hidden');
           }
 
-          function addMessageCard(role, content, metadata = null, images = [], timestamp = null, tookMs = null) {
+          function addMessageCard(role, content, metadata = null, images = [], timestamp = null) {
               const thread = document.getElementById('thread');
               showThread();
 
@@ -3383,7 +3383,7 @@ export function createChatApp(): Express {
                   }
                   html += \`<div class="message-content">\${escapeHtml(content || '')}</div></div>\`;
               } else {
-                  html += \`<div class="msg-head"><span class="msg-model">\${escapeHtml(getSelectedModel())}</span><span class="msg-took">\${tookMs !== null ? formatDuration(tookMs) : ''}</span><span class="msg-timestamp">\${timestamp ? formatClock(timestamp) : ''}</span></div>\`;
+                  html += \`<div class="msg-head"><span class="msg-model">\${escapeHtml(getSelectedModel())}</span><span class="msg-timestamp">\${timestamp ? formatClock(timestamp) : ''}</span></div>\`;
                   html += \`<div class="message-content">\${escapeHtml(content || '')}</div>\`;
               }
 
@@ -3693,10 +3693,6 @@ export function createChatApp(): Express {
                   const endTime = Date.now();
                   const responseTimeMs = endTime - userSendTime;
                   lastMessageTimestamp = endTime;
-                  const tookEl = assistantCard.querySelector('.msg-took');
-                  if (tookEl) {
-                      tookEl.textContent = formatDuration(responseTimeMs);
-                  }
 
                   if (metadata) {
                       const metadataHtml = renderMetadata(metadata, responseTimeMs, Boolean(contentDiv.querySelector('.text-content')));

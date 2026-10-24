@@ -13,8 +13,10 @@
 // limitations under the License.
 
 import {
+  ConcurrentCallError,
   EmptyResponseError,
   IncompleteStreamError,
+  InvalidMessageError,
   StreamProtocolError,
 } from "./errors";
 import { normalizeLegacyMessages } from "./legacy";
@@ -29,6 +31,36 @@ import {
   UniMessage,
   UsageMetadata,
 } from "./types";
+
+/**
+ * Stamp each message that has no created_at with the time it is sent, on the caller's own object.
+ */
+export function stampCreatedAt(messages: UniMessage[]): void {
+  for (const message of messages) {
+    if (message.created_at == null) {
+      message.created_at = Date.now();
+    }
+  }
+}
+
+/**
+ * A deep copy of a message or a list of them. A Buffer stays a Buffer: structuredClone would
+ * return a bare Uint8Array, whose toString("base64") the clients call is a list of numbers.
+ */
+function deepCopy(value: unknown): unknown {
+  if (value instanceof Uint8Array) {
+    return Buffer.isBuffer(value) ? Buffer.from(value) : value.slice();
+  }
+  if (Array.isArray(value)) {
+    return value.map(deepCopy);
+  }
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, field]) => [key, deepCopy(field)]),
+    );
+  }
+  return value;
+}
 
 function deltaEvent(item: EventContentItem): UniEvent {
   return {
@@ -165,10 +197,13 @@ class PublicStream {
 export abstract class LLMClient {
   protected _model: string;
   private _history: UniMessage[];
+  // the stateful call that holds the history until its stop event, its end or its abort, if any
+  private _inFlight: { signal?: AbortSignal } | null;
 
   constructor() {
     this._model = "";
     this._history = [];
+    this._inFlight = null;
   }
 
   /**
@@ -268,6 +303,7 @@ export abstract class LLMClient {
    * @param options - Object containing messages and config
    * @yields Delta events, each carrying one delta or done item, then exactly one stop event
    *   carrying the usage and the finish reason
+   * @throws InvalidMessageError A message has no content items, before anything is sent.
    */
   async *streamingResponse(options: {
     messages: UniMessage[];
@@ -276,13 +312,17 @@ export abstract class LLMClient {
   }): AsyncGenerator<UniEvent> {
     const { messages, config } = options;
 
-    // Stamp any messages that don't yet have a created_at timestamp
-    for (const msg of messages) {
-      if (msg.created_at == null) {
-        msg.created_at = Date.now();
+    stampCreatedAt(messages);
+    const requestMessages = normalizeLegacyMessages(messages);
+    for (const [index, message] of requestMessages.entries()) {
+      if (message.content_items.length === 0) {
+        throw new InvalidMessageError({
+          client: this.constructor.name,
+          message: `message ${index} has nothing ${this.constructor.name} can send`,
+          messageIndex: index,
+        });
       }
     }
-    const requestMessages = normalizeLegacyMessages(messages);
 
     const output = new PublicStream(this.constructor.name);
     for await (const event of this._streamingResponseInternal({
@@ -292,6 +332,9 @@ export abstract class LLMClient {
     })) {
       yield* output.push(event);
     }
+    // the openai and anthropic SDKs end their stream quietly when the signal aborts their request,
+    // so an abort is thrown here: no done items, no stop, nothing recorded
+    options.signal?.throwIfAborted();
     yield* output.end();
     const stopEvent = output.stop();
 
@@ -323,28 +366,53 @@ export abstract class LLMClient {
    * @param message - Latest universal message object to add to conversation
    * @param config - Universal configuration object
    * @yields Universal events from the streaming response
+   * @throws ConcurrentCallError Another stateful call on this client has not ended.
    */
   async *streamingResponseStateful(options: {
     message: UniMessage;
     config: UniConfig;
     signal?: AbortSignal;
   }): AsyncGenerator<UniEvent> {
-    const { config } = options;
-    const [message] = normalizeLegacyMessages([options.message]);
+    // two calls each sending the history as it was when they began would record their turns in
+    // the order they finished, the later one generated without the earlier; an aborted call
+    // records nothing, so it holds the client no longer
+    if (this._inFlight !== null && !this._inFlight.signal?.aborted) {
+      throw new ConcurrentCallError({ client: this.constructor.name });
+    }
 
-    const events: UniEvent[] = [];
-    for await (const event of this.streamingResponse({
-      messages: [...this._history, message],
-      config,
-      signal: options.signal,
-    })) {
-      events.push(event);
-      if (event.event_type === "stop") {
-        // recorded before the stop is yielded: a caller may stop iterating as soon as it sees it
-        this._history.push(message);
-        this._history.push(this.concatUniEventsToUniMessage(events));
+    const call = { signal: options.signal };
+    this._inFlight = call;
+    try {
+      const { config } = options;
+      const [message] = normalizeLegacyMessages([options.message]);
+
+      const events: UniEvent[] = [];
+      for await (const event of this.streamingResponse({
+        messages: [...this._history, message],
+        config,
+        signal: options.signal,
+      })) {
+        events.push(event);
+        if (event.event_type === "stop") {
+          // an abort that lands as the stop arrives still records nothing: a newer call may hold
+          // the client by now
+          options.signal?.throwIfAborted();
+
+          // recorded before the stop is yielded: a caller may stop iterating as soon as it sees
+          // it, and the turn has ended then, so the next one may begin before this generator is
+          // closed
+          this._history.push(deepCopy(message) as UniMessage);
+          this._history.push(
+            deepCopy(this.concatUniEventsToUniMessage(events)) as UniMessage,
+          );
+          this._inFlight = null;
+        }
+        yield event;
       }
-      yield event;
+    } finally {
+      if (this._inFlight === call) {
+        this._inFlight = null;
+      }
     }
   }
 
@@ -358,18 +426,18 @@ export abstract class LLMClient {
   /**
    * Get the current message history.
    *
-   * @returns Copy of the current message history
+   * @returns Deep copy of the current message history
    */
   getHistory(): UniMessage[] {
-    return [...this._history];
+    return deepCopy(this._history) as UniMessage[];
   }
 
   /**
-   * Replace the message history with a copy of the provided history.
+   * Replace the message history with a deep copy of the provided history.
    *
    * @param history - List of universal message objects to set as the new history
    */
   setHistory(history: UniMessage[]): void {
-    this._history = normalizeLegacyMessages(history);
+    this._history = deepCopy(normalizeLegacyMessages(history)) as UniMessage[];
   }
 }

@@ -6,6 +6,6 @@
   "targets": [
     {"model": "deepseek-flash", "client": "deepseek-official", "base_url": "https://api.deepseek.com", "api_key_env": "DEEPSEEK_API_KEY"},
     {"model": "gemini-3.8-flash", "client": "google-genai", "base_url": "https://aiplatform.googleapis.com", "api_key_env": "VERTEX_API_KEY"},
-    {"model": "deepseek-v4.1-flash", "client": "deepseek-official", "base_url": "https://tokendance.space/gateway/v1", "api_key_env": "TOKENDANCE_API_KEY"}
+    {"model": "deepseek-v4.1-flash", "client": "openai-chat", "base_url": "https://tokendance.space/gateway/v1", "api_key_env": "TOKENDANCE_API_KEY"}
   ]
 }

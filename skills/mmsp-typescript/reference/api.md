@@ -27,7 +27,7 @@ const clientWithType = new AutoLLMClient({
 });
 ```
 
-`clientType` is one of the official clients (`openai-official`, `anthropic-official`, `google-official`, `zai-official`, `moonshot-official`, `deepseek-official`, `minimax-official`) or one of the compatible clients (`openai-responses`, `openai-chat`, `openai-chat-vllm-adapter`, `openai-embedding`, `ant-messages`, `google-genai`, `mmsp`). It may be omitted for a model id that begins with a known family (`gpt-`, `text-embedding-`, `claude-`, `gemini-`, `glm-`, `kimi-`, `deepseek-`, `minimax-`); any other id throws and asks for one. See [Model selection](models.md).
+`clientType` is one of the official clients (`openai-official`, `anthropic-official`, `google-official`, `zai-official`, `moonshot-official`, `deepseek-official`, `minimax-official`) or one of the compatible clients (`openai-responses`, `openai-chat`, `openai-chat-vllm-adapter`, `openai-embedding`, `ant-messages`, `google-genai`, `mmsp`). It may be omitted for a model id that begins with a known family (`gpt-`, `text-embedding-`, `claude-`, `gemini-`, `glm-`, `kimi-`, `deepseek-`, `minimax-`); any other id throws `RoutingError` and asks for one. See [Model selection](models.md).
 
 A key goes only where it was given for. A key passed in is used, with the `baseUrl` passed in, else the client's `<P>_BASE_URL`, else its default endpoint. Without a key, a client reads its `<P>_API_KEY` only when it is given no `baseUrl` or its own default endpoint (`deepseek-official` with `https://api.deepseek.com` uses `DEEPSEEK_API_KEY`); any other `baseUrl` throws `ApiKeyRequiredError` at construction, so pass `apiKey` with it, or drop it and set `<P>_API_KEY` (plus `<P>_BASE_URL` for another endpoint). The `mmsp` and `openai-chat-vllm-adapter` clients call a `baseUrl` given without a key keyless, as an open server, and their default endpoint too when `<P>_API_KEY` is unset. `environmentCredential(clientType, baseUrl)` from `@prismshadow/mmsp/credentials`, which imports nothing and fits a browser bundle, says what a client will do.
 
@@ -72,9 +72,20 @@ function normalizeLegacyMessages(messages: UniMessage[]): UniMessage[];
 
 ## Errors
 
-All MMSP errors subclass `MMSPError`. Unsupported `UniConfig` values (e.g.
+All MMSP errors subclass `MMSPError`, an `Error`. Unsupported `UniConfig` values (e.g.
 `temperature` or `tool_choice` on models that reject them) throw
 `UnsupportedParameterError`, which carries `client` and `parameter` fields. Thinking
 levels never throw: every client maps each `ThinkingLevel` to the closest supported level.
 Errors thrown while streaming (`ToolCallArgumentParseError`, `EmptyResponseError`,
 `IncompleteStreamError`, `StreamProtocolError`) are listed in [Data models](data-models.md#errors).
+The others, with their fields:
+
+- `UnsupportedContentError` (`client`, `itemType`): an item the model cannot take, such as an image on a text-only model.
+- `InvalidMessageError` (`client`, `itemType`, `messageIndex`): a message that cannot be sent as it is, such as a tool result without `tool_call_id`, an unknown item, an invalid image, or a message with nothing to send.
+- `RoutingError` (`model`, `clientType`): neither `clientType` nor the model id names a client.
+- `ApiKeyRequiredError` (`client`, `clientType`, `apiKeyEnv`, `baseUrlEnv`, `baseUrl`): the client has no key it may use; `baseUrl` is `null` when no key was passed or set at all.
+- `UnsupportedOperationError` (`client`, `operation`): a call the client cannot make at all, such as listing models on Amazon Bedrock.
+- `ConcurrentCallError` (`client`): `streamingResponseStateful` called while another stateful call on the same client is in flight.
+- `ProviderStreamError` (`client`, `code`): the provider reported an error inside an open stream.
+- `UnknownEventError` (`client`, `event`): a wire event the client does not recognize, thrown only with `MMSP_DEBUG` set.
+- `UpstreamError` (`client`, `status`, `errorType`, `error`): anything the `mmsp` client's server reported; `errorType` names the server-side class and `error` carries its fields.

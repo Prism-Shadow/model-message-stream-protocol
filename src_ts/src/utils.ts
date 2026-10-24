@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { CLIENT_CREDENTIALS, environmentCredential } from "./credentials";
-import { ApiKeyRequiredError } from "./errors";
+import { ApiKeyRequiredError, InvalidMessageError } from "./errors";
 import { UsageMetadata } from "./types";
 
 /**
@@ -410,12 +410,14 @@ export function openaiImageDetail(
  *
  * @param text - The script, one "Name: line" per turn
  * @param speakers - The speaker names the request configures
+ * @param client - The client the script is sent through, named in the error
  * @returns [speaker, text] per turn, in order
- * @throws Error when the script does not begin with a speaker's label
+ * @throws InvalidMessageError when the script does not begin with a speaker's label
  */
 export function speakerTurns(
   text: string,
   speakers: string[],
+  client: string,
 ): [string, string][] {
   const turns: [string, string[]][] = [];
   for (const line of text.split(/\r?\n/)) {
@@ -426,9 +428,11 @@ export function speakerTurns(
     } else if (turns.length > 0) {
       turns[turns.length - 1][1].push(line);
     } else if (line.trim()) {
-      throw new Error(
-        `A two-speaker script must start each turn with a speaker's name and a colon, one of ${JSON.stringify(speakers)}.`,
-      );
+      throw new InvalidMessageError({
+        client,
+        message: `A two-speaker script must start each turn with a speaker's name and a colon, one of ${JSON.stringify(speakers)}.`,
+        itemType: "text",
+      });
     }
   }
   return turns.map(([speaker, lines]) => [speaker, lines.join("\n").trim()]);

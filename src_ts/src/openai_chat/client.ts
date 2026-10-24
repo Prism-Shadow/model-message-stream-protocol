@@ -21,10 +21,11 @@ import type {
 } from "openai/resources/chat/completions";
 import { LLMClient } from "../baseClient";
 import { CLIENT_CREDENTIALS } from "../credentials";
-import { UnsupportedParameterError } from "../errors";
+import { InvalidMessageError, UnsupportedParameterError } from "../errors";
 import {
   EventContentItem,
   EventType,
+  Fidelity,
   FinishReason,
   PromptCaching,
   ToolChoice,
@@ -114,9 +115,11 @@ export class OpenaiChatClient extends LLMClient {
 
     const response = await fetch(url, { signal });
     if (!response.ok) {
-      throw new Error(
-        `Failed to fetch image: ${response.status} ${response.statusText}`,
-      );
+      throw new InvalidMessageError({
+        client: this.constructor.name,
+        message: `Failed to fetch image: ${response.status} ${response.statusText}`,
+        itemType: "image_url",
+      });
     }
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
@@ -225,7 +228,8 @@ export class OpenaiChatClient extends LLMClient {
     // takes away. A conversation that never produced a reasoning field never receives one.
     const replayFields = new Set<string | undefined>();
 
-    for (const msg of messages) {
+    for (const [messageIndex, msg] of messages.entries()) {
+      const messageStart = openaiMessages.length;
       const contentParts: Array<{
         type: string;
         text?: string;
@@ -248,9 +252,26 @@ export class OpenaiChatClient extends LLMClient {
           contentParts.push(this._convertImageUrl(base64Image));
         } else if (item.type === "thinking.done") {
           thinking += item.thinking;
-          thinkingFields.add(item.fidelity?.reasoning_field);
-          if (item.thinking) replayFields.add(item.fidelity?.reasoning_field);
-          reasoningDetails.push(...(item.fidelity?.reasoning_details ?? []));
+          const fidelity = item.fidelity ?? {};
+          thinkingFields.add(fidelity.reasoning_field);
+          if (item.thinking) replayFields.add(fidelity.reasoning_field);
+
+          // a gateway's encrypted reasoning block, rebuilt from the recorded
+          // keys; the format marks the data as a block of this protocol, so
+          // encrypted reasoning a Responses client recorded off its own server
+          // is not sent as one
+          if (fidelity.encrypted_content != null && fidelity.format != null) {
+            const block: Record<string, unknown> = {
+              type: "reasoning.encrypted",
+              data: fidelity.encrypted_content,
+              format: fidelity.format,
+            };
+            if (fidelity.reasoning_id != null) block.id = fidelity.reasoning_id;
+            reasoningDetails.push(block);
+          }
+
+          // 0.5.5 recorded the block as received; read until 0.6.0
+          reasoningDetails.push(...(fidelity.reasoning_details ?? []));
         } else if (item.type === "tool_call.done") {
           toolCalls.push({
             id: item.tool_call_id,
@@ -262,7 +283,11 @@ export class OpenaiChatClient extends LLMClient {
           });
         } else if (item.type === "tool_result.done") {
           if (!item.tool_call_id) {
-            throw new Error("tool_call_id is required for tool result.");
+            throw new InvalidMessageError({
+              client: this.constructor.name,
+              message: "tool_call_id is required for tool result.",
+              itemType: "tool_result",
+            });
           }
 
           // Chat Completions lets a tool message carry text only, and a server that
@@ -286,9 +311,11 @@ export class OpenaiChatClient extends LLMClient {
             content: item.text,
           });
         } else {
-          throw new Error(
-            `Unknown item type: ${(item as { type: string }).type}`,
-          );
+          throw new InvalidMessageError({
+            client: this.constructor.name,
+            message: `Unknown item type: ${(item as { type: string }).type}`,
+            itemType: (item as { type: string }).type,
+          });
         }
       }
 
@@ -313,16 +340,31 @@ export class OpenaiChatClient extends LLMClient {
         } else if (fields.size === 1 && fields.has("reasoning")) {
           message.reasoning = thinking;
         } else {
-          message.reasoning_content = thinking; // vLLM & siliconflow compatibility
-          message.reasoning = thinking; // openrouter compatibility
+          // the field is unknown, so both spellings go out; a server reads the one it knows
+          message.reasoning_content = thinking;
+          message.reasoning = thinking;
         }
       }
 
-      // OpenRouter hands the model its encrypted reasoning or thought signature
-      // only from the fragments it sent; without them it accepts the turn and
-      // drops the reasoning
+      // a gateway hands the model its encrypted reasoning or thought signature
+      // only from the blocks it sent; without them it accepts the turn and the
+      // reasoning is lost
       if (reasoningDetails.length > 0) {
         message.reasoning_details = reasoningDetails;
+      }
+
+      // a message of tool results went out as its tool messages; one of thinking alone is an
+      // assistant turn with neither content nor tool calls
+      if (
+        contentParts.length === 0 &&
+        toolCalls.length === 0 &&
+        openaiMessages.length === messageStart
+      ) {
+        throw new InvalidMessageError({
+          client: this.constructor.name,
+          message: `message ${messageIndex} has nothing ${this.constructor.name} can send`,
+          messageIndex,
+        });
       }
 
       if (Object.keys(message).length > 1) {
@@ -352,40 +394,37 @@ export class OpenaiChatClient extends LLMClient {
       const choice = modelOutput.choices[0];
       const delta = choice?.delta;
 
-      // the thinking field name differs by server: vLLM & siliconflow use
-      // reasoning_content while openrouter uses reasoning; record the wire
-      // field that carried each delta so a replay can reproduce exactly the
-      // field the upstream produced. The reasoning goes before the content
-      // because a chunk may end the reasoning and begin the answer.
+      // the thinking field name differs by server (reasoning_content or
+      // reasoning); record the wire field that carried each delta so a replay
+      // reproduces the field the upstream produced. The reasoning goes before
+      // the content because a chunk may end the reasoning and begin the answer.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const reasoningContent = (delta as any)?.reasoning_content;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const reasoning = (delta as any)?.reasoning;
-      // OpenRouter streams the reasoning as reasoning_details fragments and
-      // mirrors their text in `reasoning`. A summary or text fragment is the
-      // thinking text; the one reasoning.encrypted fragment, GPT's encrypted
-      // reasoning or Gemini's thought signature, arrives whole and is taken
-      // back only as received, so it is the item's fidelity.
+      // A gateway may stream the reasoning as reasoning_details blocks and
+      // mirror their text in `reasoning`. A reasoning.summary or reasoning.text
+      // block is the thinking text. A reasoning.encrypted block is opaque data
+      // the gateway takes back only as it sent it: its data is the item's
+      // encrypted_content, with the block's format and the id by which a
+      // gateway binds a thought signature to the call it signs. The block
+      // arrives whole, so its delta carries the item's one fidelity.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const reasoningDetails = (delta as any)?.reasoning_details;
       if (reasoningDetails?.length) {
-        for (const fragment of reasoningDetails) {
-          if (fragment.type === "reasoning.encrypted") {
-            contentItems.push({
-              type: "thinking.delta",
-              thinking: "",
-              fidelity: {
-                item_id: "reasoning_details",
-                reasoning_details: [fragment],
-              },
-            });
-          } else {
-            contentItems.push({
-              type: "thinking.delta",
-              thinking: fragment.summary || fragment.text || "",
-              fidelity: { item_id: "reasoning_details" },
-            });
+        for (const block of reasoningDetails) {
+          const fidelity: Fidelity = { item_id: "reasoning_details" };
+          if (block.type === "reasoning.encrypted") {
+            fidelity.encrypted_content = block.data;
+            if (block.format != null) fidelity.format = block.format;
+            if (block.id != null) fidelity.reasoning_id = block.id;
           }
+
+          contentItems.push({
+            type: "thinking.delta",
+            thinking: block.summary || block.text || "",
+            fidelity,
+          });
         }
       } else if (reasoningContent && reasoning) {
         // ambiguous origin: record no reasoning_field so a replay sends both fields back
@@ -447,9 +486,9 @@ export class OpenaiChatClient extends LLMClient {
       eventType = "stop";
 
       const cachedTokens =
-        modelOutput.usage.prompt_tokens_details?.cached_tokens || null;
+        modelOutput.usage.prompt_tokens_details?.cached_tokens ?? null;
       const reasoningTokens =
-        modelOutput.usage.completion_tokens_details?.reasoning_tokens || null;
+        modelOutput.usage.completion_tokens_details?.reasoning_tokens ?? null;
 
       const promptTokens =
         cachedTokens !== null

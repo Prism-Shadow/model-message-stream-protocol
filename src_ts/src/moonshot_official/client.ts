@@ -21,7 +21,11 @@ import type {
 } from "openai/resources/chat/completions";
 import { LLMClient } from "../baseClient";
 import { CLIENT_CREDENTIALS } from "../credentials";
-import { UnsupportedParameterError } from "../errors";
+import {
+  ApiKeyRequiredError,
+  InvalidMessageError,
+  UnsupportedParameterError,
+} from "../errors";
 import {
   EventContentItem,
   EventType,
@@ -41,7 +45,7 @@ import {
 } from "../utils";
 
 /**
- * Kimi K3-specific LLM client implementation using OpenAI-compatible API (also serves K2.5 and K2.6).
+ * Kimi K3-series LLM client (K3, K3.1 Pro) using the OpenAI-compatible API; also serves the K2 generation.
  */
 export class MoonshotOfficialClient extends LLMClient {
   protected _model: string;
@@ -66,9 +70,11 @@ export class MoonshotOfficialClient extends LLMClient {
     // The wrapped OpenAI SDK falls back to OPENAI_API_KEY when handed undefined, which would send
     // an OpenAI credential to the Moonshot host, so fail loudly instead.
     if (!key) {
-      throw new Error(
-        "MOONSHOT_API_KEY is required for MoonshotOfficialClient.",
-      );
+      throw new ApiKeyRequiredError({
+        client: this.constructor.name,
+        clientType: "moonshot-official",
+        baseUrl: null,
+      });
     }
     this._client = new OpenAI({
       apiKey: key,
@@ -112,9 +118,11 @@ export class MoonshotOfficialClient extends LLMClient {
 
     const response = await fetch(url, { signal });
     if (!response.ok) {
-      throw new Error(
-        `Failed to fetch image: ${response.status} ${response.statusText}`,
-      );
+      throw new InvalidMessageError({
+        client: this.constructor.name,
+        message: `Failed to fetch image: ${response.status} ${response.statusText}`,
+        itemType: "image_url",
+      });
     }
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
@@ -142,15 +150,14 @@ export class MoonshotOfficialClient extends LLMClient {
 
   /**
    * Convert ThinkingLevel enum to Kimi K3's reasoning_effort.
-   *
-   * K3 cannot disable reasoning, so NONE degrades to the lowest effort
-   * instead of throwing.
    */
   private _convertThinkingLevelToReasoningEffort(
     thinkingLevel: ThinkingLevel,
   ): string {
     const mapping: { [key: string]: string } = {
-      [ThinkingLevel.NONE]: "low",
+      // "none" turns reasoning off on the K3 series (verified live 2026-10-23; the docs list
+      // only low/high/max)
+      [ThinkingLevel.NONE]: "none",
       [ThinkingLevel.LOW]: "low",
       [ThinkingLevel.MEDIUM]: "high",
       [ThinkingLevel.HIGH]: "high",
@@ -174,8 +181,8 @@ export class MoonshotOfficialClient extends LLMClient {
     ) {
       return "required";
     } else {
-      // the K2 generation rejects "required"; forcing a specific tool is
-      // unsupported family-wide
+      // the K2 generation rejects "required"; the K3 series takes a forced tool only with
+      // reasoning off, so forcing a specific tool stays unsupported family-wide
       throw new UnsupportedParameterError({
         client: this.constructor.name,
         parameter: "tool_choice",
@@ -210,8 +217,8 @@ export class MoonshotOfficialClient extends LLMClient {
     }
 
     if (config.thinking_level !== undefined) {
-      // the K2 generation configures thinking through a top-level thinking key and
-      // can disable it; K3 uses reasoning_effort and cannot
+      // the K2 generation configures thinking through a top-level thinking key; the K3
+      // series uses reasoning_effort
       if (this._model.toLowerCase().includes("k2.")) {
         kimiConfig.thinking = this._convertThinkingLevelToThinkingConfig(
           config.thinking_level,
@@ -242,13 +249,21 @@ export class MoonshotOfficialClient extends LLMClient {
     }
 
     if (
+      config.prompt_caching === PromptCaching.ENHANCE &&
+      !this._model.toLowerCase().includes("k2.")
+    ) {
+      // the K3 series writes its automatic prefix cache with a 5m TTL; enhance asks for the
+      // 1h cache, at twice the cache-write price
+      kimiConfig.prompt_cache_options = { mode: "implicit", ttl: "1h" };
+    } else if (
       config.prompt_caching !== undefined &&
       config.prompt_caching !== PromptCaching.ENABLE
     ) {
       throw new UnsupportedParameterError({
         client: this.constructor.name,
         parameter: "prompt_caching",
-        message: "prompt_caching must be ENABLE for Kimi.",
+        message:
+          "Kimi does not support this prompt_caching (disable has no equivalent; enhance needs Kimi K3).",
       });
     }
 
@@ -273,7 +288,8 @@ export class MoonshotOfficialClient extends LLMClient {
   ): Promise<ChatCompletionMessageParam[]> {
     const openaiMessages: ChatCompletionMessageParam[] = [];
 
-    for (const msg of messages) {
+    for (const [messageIndex, msg] of messages.entries()) {
+      const messageStart = openaiMessages.length;
       const contentParts: Array<{
         type: string;
         text?: string;
@@ -310,7 +326,11 @@ export class MoonshotOfficialClient extends LLMClient {
           });
         } else if (item.type === "tool_result.done") {
           if (!item.tool_call_id) {
-            throw new Error("tool_call_id is required for tool result.");
+            throw new InvalidMessageError({
+              client: this.constructor.name,
+              message: "tool_call_id is required for tool result.",
+              itemType: "tool_result",
+            });
           }
 
           // Chat Completions lets a tool message carry text only, and a server that
@@ -338,9 +358,11 @@ export class MoonshotOfficialClient extends LLMClient {
             content: item.text,
           });
         } else {
-          throw new Error(
-            `Unknown item type: ${(item as { type: string }).type}`,
-          );
+          throw new InvalidMessageError({
+            client: this.constructor.name,
+            message: `Unknown item type: ${(item as { type: string }).type}`,
+            itemType: (item as { type: string }).type,
+          });
         }
       }
 
@@ -371,6 +393,20 @@ export class MoonshotOfficialClient extends LLMClient {
           message.reasoning_content = thinking; // vLLM & siliconflow compatibility
           message.reasoning = thinking; // openrouter compatibility
         }
+      }
+
+      // a message of tool results went out as its tool messages; one of thinking alone is an
+      // assistant turn with neither content nor tool calls
+      if (
+        contentParts.length === 0 &&
+        toolCalls.length === 0 &&
+        openaiMessages.length === messageStart
+      ) {
+        throw new InvalidMessageError({
+          client: this.constructor.name,
+          message: `message ${messageIndex} has nothing ${this.constructor.name} can send`,
+          messageIndex,
+        });
       }
 
       if (Object.keys(message).length > 1) {
@@ -469,9 +505,9 @@ export class MoonshotOfficialClient extends LLMClient {
       eventType = "stop";
 
       const cachedTokens =
-        modelOutput.usage.prompt_tokens_details?.cached_tokens || null;
+        modelOutput.usage.prompt_tokens_details?.cached_tokens ?? null;
       const reasoningTokens =
-        modelOutput.usage.completion_tokens_details?.reasoning_tokens || null;
+        modelOutput.usage.completion_tokens_details?.reasoning_tokens ?? null;
 
       const promptTokens =
         cachedTokens !== null

@@ -4,6 +4,8 @@
 
 在这里，我们记录模型的新增与移除时间、主要功能更新、缺陷修复，以及关键版本的发布时间。每个发布版本在此保留一行简述；逐条目的摘要位于 `changelog/<version>/README.md`，且每个条目都会链接到自己的详情文件。
 
+- [2026-10-24] [版本 0.5.6](changelog/0.5.6/README.zh.md)：支持 Kimi K3.1 Pro，Kimi K3 系列上 `ThinkingLevel.NONE` 关闭思考、`PromptCaching.ENHANCE` 请求 1 小时缓存；`ThinkingLevel.NONE` 在 Claude Sonnet 4.6、Opus 4.8、Sonnet 5 与 Opus 5 上同样关闭思考；MMSP 抛出的每个错误都有类型（`RoutingError`、`InvalidMessageError`、`UnsupportedContentError`、`UnknownEventError`、`ProviderStreamError`、`ConcurrentCallError`），各自继承所替代的内置错误，MMSP 服务器连同字段一起转发；历史记录保存深拷贝，一次有状态调用未结束时再发起第二次会抛出 `ConcurrentCallError`，客户端无内容可发的消息抛出 `InvalidMessageError`；中断或关闭流会立即关闭对上游的请求；为 0 的 token 计数保持为 0；Chat Completions 客户端把网关的加密推理记录在共享的 fidelity 字段下；TokenDance 的 DeepSeek V4.1 Flash 改走 `openai-chat`；配置页写明每个客户端对每个 `UniConfig` 键发送什么，网站新增模型索引与模型状态页、位于 `/rfcs/` 的 RFC 页面和搜索。
+
 - [2026-10-23] [版本 0.5.5](changelog/0.5.5/README.zh.md)：支持 MiniMax-M3.1-Flash，模型注册表新增 Google Vertex AI、Amazon Bedrock 与 TokenDance 条目并更新 OpenRouter 与 SiliconFlow 条目；网站新增实时模型目录（每个条目附接入代码）和由每日探测驱动的状态页；MMSP 坚持的规则以 RFC 形式写下（MMSP-RFC-0001 至 MMSP-RFC-0012）；Anthropic 客户端支持 `anthropic` SDK 2.x；vLLM 适配器改读 `VLLM_API_KEY` 与 `VLLM_BASE_URL`，不再读取 OpenAI 的变量，OpenAI 的其他环境变量只随 `OPENAI_API_KEY` 发往同一端点；流在没有用量或结束原因时结束会抛出 `IncompleteStreamError`；OpenRouter 的加密推理在回放中得以保留，Claude 回放省略无签名的思考，TypeScript 中 GLM 与 Kimi K2 的扩展参数能送达 API，Python 中 vLLM 适配器能发送 `chat_template_kwargs`，`tts_config` 被拒时抛出 `UnsupportedParameterError`。
 
 - [2026-10-19] [版本 0.5.4](changelog/0.5.4/README.zh.md)：所有客户端只在未传入 base URL 或传入自己的默认端点时读取环境变量密钥，未带密钥的其他 base URL 以 `ApiKeyRequiredError` 拒绝，这条规则以 `@prismshadow/mmsp/credentials` 与 `mmsp.credentials` 导出；支持 GPT-6 Luna，并保留关闭思考设置；模型 CI 按受影响客户端选择，发布前须通过完整测试；README 补充 Gemini 4 Argon 对 Google Vertex AI 的支持。

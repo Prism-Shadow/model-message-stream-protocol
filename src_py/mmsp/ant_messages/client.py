@@ -19,7 +19,7 @@ from anthropic import AsyncAnthropic
 from anthropic.types.beta import BetaMessageParam, BetaRawMessageStreamEvent
 
 from ..base_client import LLMClient
-from ..errors import UnsupportedParameterError
+from ..errors import InvalidMessageError, UnknownEventError, UnsupportedParameterError
 from ..types import (
     EventContentItem,
     EventType,
@@ -68,7 +68,9 @@ class AntMessagesClient(LLMClient):
         if url.startswith("data:"):
             match = re.match(r"data:([^;]+);base64,(.+)", url)
             if not match:
-                raise ValueError(f"Invalid base64 image: {url}")
+                raise InvalidMessageError(
+                    self.__class__.__name__, f"Invalid base64 image: {url}", item_type="image_url"
+                )
 
             return {
                 "type": "image",
@@ -182,7 +184,7 @@ class AntMessagesClient(LLMClient):
         """
         ant_messages: list[BetaMessageParam] = []
 
-        for msg in messages:
+        for message_index, msg in enumerate(messages):
             content_blocks = []
             for item in msg["content_items"]:
                 if item["type"] == "text.done":
@@ -212,7 +214,11 @@ class AntMessagesClient(LLMClient):
                     )
                 elif item["type"] == "tool_result.done":
                     if "tool_call_id" not in item:
-                        raise ValueError("tool_call_id is required for tool result.")
+                        raise InvalidMessageError(
+                            self.__class__.__name__,
+                            "tool_call_id is required for tool result.",
+                            item_type="tool_result",
+                        )
 
                     tool_result = [{"type": "text", "text": item["text"]}]
                     if "images" in item:
@@ -223,7 +229,14 @@ class AntMessagesClient(LLMClient):
                         {"type": "tool_result", "content": tool_result, "tool_use_id": item["tool_call_id"]}
                     )
                 else:
-                    raise ValueError(f"Unknown item: {item}")
+                    raise InvalidMessageError(self.__class__.__name__, f"Unknown item: {item}", item_type=item["type"])
+
+            if all(block["type"] in ("thinking", "redacted_thinking") for block in content_blocks):
+                raise InvalidMessageError(
+                    self.__class__.__name__,
+                    f"message {message_index} has nothing {self.__class__.__name__} can send",
+                    message_index=message_index,
+                )
 
             ant_messages.append({"role": msg["role"], "content": content_blocks})
 
@@ -356,7 +369,7 @@ class AntMessagesClient(LLMClient):
             pass
 
         elif is_debug_enabled():
-            raise ValueError(f"Unknown output: {model_output}")
+            raise UnknownEventError(self.__class__.__name__, str(model_output))
 
         else:
             # a gateway injects its own events (heartbeats, cost tickers) into the stream, and
@@ -384,8 +397,9 @@ class AntMessagesClient(LLMClient):
         ant_messages = self.transform_uni_message_to_model_input(messages)
 
         stream = await self._client.beta.messages.create(**ant_config, messages=ant_messages)
-        async for event in stream:
-            yield self.transform_model_output_to_uni_event(event)
+        async with stream:
+            async for event in stream:
+                yield self.transform_model_output_to_uni_event(event)
 
     async def list_models(self) -> list[str]:
         """

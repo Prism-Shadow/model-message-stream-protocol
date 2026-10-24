@@ -66,13 +66,6 @@
       {
         "api_key_env": "DEEPSEEK_API_KEY",
         "name": "deepseek-flash"
-      },
-      {
-        "api_key_env": "TOKENDANCE_API_KEY",
-        "name": "deepseek-v4.1-flash",
-        "provider": "tokendance",
-        "client_type": "deepseek-official",
-        "slow": true
       }
     ]
   },
@@ -162,11 +155,11 @@
     "models": [
       {
         "api_key_env": "MOONSHOT_API_KEY",
-        "name": "kimi-k3"
+        "name": "kimi-k3.1-pro"
       },
       {
         "api_key_env": "OPENROUTER_API_KEY",
-        "name": "moonshotai/kimi-k3",
+        "name": "moonshotai/kimi-k3.1-pro",
         "provider": "openrouter",
         "client_type": "moonshot-official",
         "slow": true
@@ -219,6 +212,13 @@
         "api_key_env": "SILICONFLOW_API_KEY",
         "name": "Qwen/Qwen3.8-27B",
         "provider": "siliconflow",
+        "client_type": "openai-chat",
+        "slow": true
+      },
+      {
+        "api_key_env": "TOKENDANCE_API_KEY",
+        "name": "deepseek-v4.1-flash",
+        "provider": "tokendance",
         "client_type": "openai-chat",
         "slow": true
       }

@@ -26,6 +26,7 @@ To use a specific model, please refer to its dedicated README:
 - **[GPT-5.6](./gpt5_6/README.md)** - OpenAI's GPT-5.6 generation (sol/terra/luna): reasoning modes, fast mode, and Responses migration
 - **[GPT-6](./gpt6/README.md)** - OpenAI's GPT-6 generation (gpt-6-astra, gpt-6.1-sol, gpt-6-luna): Responses API, Luna supports `none`, cache-write billing
 - **[Kimi K3](./kimi_k3/README.md)** - Moonshot's Kimi K3 API documentation (reasoning_effort, tool calling, vision, caching)
+- **[Kimi K3.1 Pro](./kimi_k3_1/README.md)** - Moonshot's Kimi K3.1 Pro (`kimi-k3.1-pro`, `kimi-k3.1-pro-highspeed`): K3's request contract, new prices, `prompt_cache_options` TTLs and cache-write usage
 - **[MiniMax M-series](./minimax_m3/README.md)** - Responses API-compatible documentation for MiniMax M3.1-Flash (always-on thinking, `effort` low to max, no priority tier) and M3, plus Subscription Key integration
 - **[openai-chat-vllm-adapter model artifacts](./openai_chat_vllm_adapter/README.md)** - Upstream chat templates for the Qwen models served through vLLM, and the encoding module that stands in for one on DeepSeek V4; the source behind the adapter's per-model thinking switch
 - **[OpenAI Responses protocol](./openai_responses/README.md)** - The OpenAI Responses-compatible protocol across OpenAI, OpenRouter, DeepSeek, Z.AI, and MiniMax (generic `openai_responses` client)

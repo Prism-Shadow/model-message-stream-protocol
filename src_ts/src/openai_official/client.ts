@@ -19,7 +19,11 @@ import type {
   ResponseCreateParamsStreaming,
 } from "openai/resources/responses/responses";
 import { LLMClient } from "../baseClient";
-import { UnsupportedParameterError } from "../errors";
+import {
+  InvalidMessageError,
+  UnknownEventError,
+  UnsupportedParameterError,
+} from "../errors";
 import {
   EventContentItem,
   EventType,
@@ -213,7 +217,8 @@ export class OpenAIOfficialClient extends LLMClient {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const inputList: any[] = [];
 
-    for (const msg of messages) {
+    for (const [messageIndex, msg] of messages.entries()) {
+      const messageStart = inputList.length;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let contentItems: any[] = [];
       let lastPhase: string | null = null;
@@ -308,7 +313,11 @@ export class OpenAIOfficialClient extends LLMClient {
           });
         } else if (item.type === "tool_result.done") {
           if (!item.tool_call_id) {
-            throw new Error("tool_call_id is required for tool result.");
+            throw new InvalidMessageError({
+              client: this.constructor.name,
+              message: "tool_call_id is required for tool result.",
+              itemType: "tool_result",
+            });
           }
 
           // Tool results are input items
@@ -335,7 +344,11 @@ export class OpenAIOfficialClient extends LLMClient {
             output,
           });
         } else {
-          throw new Error(`Unknown item: ${JSON.stringify(item)}`);
+          throw new InvalidMessageError({
+            client: this.constructor.name,
+            message: `Unknown item: ${JSON.stringify(item)}`,
+            itemType: (item as { type: string }).type,
+          });
         }
       }
 
@@ -349,6 +362,18 @@ export class OpenAIOfficialClient extends LLMClient {
           entry.phase = lastPhase;
         }
         inputList.push(entry);
+      }
+
+      if (
+        inputList
+          .slice(messageStart)
+          .every((entry) => entry.type === "reasoning")
+      ) {
+        throw new InvalidMessageError({
+          client: this.constructor.name,
+          message: `message ${messageIndex} has nothing ${this.constructor.name} can send`,
+          messageIndex,
+        });
       }
     }
 
@@ -492,7 +517,10 @@ export class OpenAIOfficialClient extends LLMClient {
     ) {
       // lifecycle events, and repeats of what the deltas carry
     } else if (isDebugEnabled()) {
-      throw new Error(`Unknown output: ${JSON.stringify(modelOutput)}`);
+      throw new UnknownEventError({
+        client: this.constructor.name,
+        event: JSON.stringify(modelOutput),
+      });
     } else {
       // a gateway injects its own events (heartbeats, cost tickers) into the stream, and
       // killing a long generation over one costs more than dropping it

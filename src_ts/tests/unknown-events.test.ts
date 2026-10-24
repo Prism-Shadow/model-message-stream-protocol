@@ -18,10 +18,12 @@ import {
   EventContentItem,
   FinishReason,
   IncompleteStreamError,
+  ProviderStreamError,
   TextDeltaItem,
   UniConfig,
   UniEvent,
   UniMessage,
+  UnknownEventError,
   UsageMetadata,
 } from "../src";
 import { assertStreamGrammar } from "./streamGrammar";
@@ -519,9 +521,16 @@ describe.each(RESPONSES_STREAM_CASES)(
           responsesCompletedEvent(),
         ]);
 
-        await expect(
-          collectEvents(client.streamingResponse({ messages, config: {} })),
-        ).rejects.toThrow("Unknown output");
+        const rejection = collectEvents(
+          client.streamingResponse({ messages, config: {} }),
+        );
+        await expect(rejection).rejects.toBeInstanceOf(UnknownEventError);
+        await expect(rejection).rejects.toBeInstanceOf(Error);
+        await expect(rejection).rejects.toThrow("does not recognize the event");
+        await expect(rejection).rejects.toHaveProperty(
+          "client",
+          testCase.expectedClient,
+        );
       },
     );
 
@@ -674,9 +683,16 @@ describe.each(MESSAGES_STREAM_CASES)(
           messagesStopEvent(),
         ]);
 
-        await expect(
-          collectEvents(client.streamingResponse({ messages, config: {} })),
-        ).rejects.toThrow("Unknown output");
+        const rejection = collectEvents(
+          client.streamingResponse({ messages, config: {} }),
+        );
+        await expect(rejection).rejects.toBeInstanceOf(UnknownEventError);
+        await expect(rejection).rejects.toBeInstanceOf(Error);
+        await expect(rejection).rejects.toThrow("does not recognize the event");
+        await expect(rejection).rejects.toHaveProperty(
+          "client",
+          testCase.expectedClient,
+        );
       },
     );
   },
@@ -712,9 +728,16 @@ describe.each(GEMINI_STREAM_CASES)(
         geminiCompletedEvent(),
       ]);
 
-      await expect(
-        collectEvents(client.streamingResponse({ messages, config: {} })),
-      ).rejects.toThrow("Unknown output");
+      const rejection = collectEvents(
+        client.streamingResponse({ messages, config: {} }),
+      );
+      await expect(rejection).rejects.toBeInstanceOf(UnknownEventError);
+      await expect(rejection).rejects.toBeInstanceOf(Error);
+      await expect(rejection).rejects.toThrow("does not recognize the event");
+      await expect(rejection).rejects.toHaveProperty(
+        "client",
+        testCase.expectedClient,
+      );
     });
 
     test("skips gateway keepalive heartbeats between stream events", async () => {
@@ -748,11 +771,15 @@ describe.each(GEMINI_STREAM_CASES)(
         geminiCompletedEvent("failed"),
       ]);
 
-      await expect(
-        collectEvents(client.streamingResponse({ messages, config: {} })),
-      ).rejects.toThrow(
+      const rejection = collectEvents(
+        client.streamingResponse({ messages, config: {} }),
+      );
+      await expect(rejection).rejects.toBeInstanceOf(ProviderStreamError);
+      await expect(rejection).rejects.toBeInstanceOf(Error);
+      await expect(rejection).rejects.toThrow(
         "Gemini stream error gateway_timeout: Deadline expired before operation could complete.",
       );
+      await expect(rejection).rejects.toHaveProperty("code", "gateway_timeout");
     });
 
     test("streams every image of a step as an item of its own and audio chunks as one item", async () => {
@@ -880,9 +907,16 @@ describe.each(GENERATE_CONTENT_STREAM_CASES)(
         generateContentStopChunk(),
       ]);
 
-      await expect(
-        collectEvents(client.streamingResponse({ messages, config: {} })),
-      ).rejects.toThrow("Unknown output");
+      const rejection = collectEvents(
+        client.streamingResponse({ messages, config: {} }),
+      );
+      await expect(rejection).rejects.toBeInstanceOf(UnknownEventError);
+      await expect(rejection).rejects.toBeInstanceOf(Error);
+      await expect(rejection).rejects.toThrow("does not recognize the event");
+      await expect(rejection).rejects.toHaveProperty(
+        "client",
+        testCase.expectedClient,
+      );
     });
 
     test("skips gateway keepalive heartbeats between stream chunks", async () => {
@@ -982,6 +1016,227 @@ describe.each(IGNORABLE_EVENT_CASES)(
       );
       assertStreamGrammar(events);
       expect(collectedTexts(events)).toEqual(["Here is"]);
+    });
+  },
+);
+
+function responsesStreamReporting(usage: unknown): unknown[] {
+  const completed = responsesCompletedEvent() as {
+    response: { usage: unknown };
+  };
+  completed.response.usage = usage;
+  return [responsesTextDeltaEvent("Here is"), completed];
+}
+
+function chatStreamReporting(usage: unknown): unknown[] {
+  const stop = chatStopChunk() as { usage: unknown };
+  stop.usage = usage;
+  return [chatTextChunk("Here is"), stop];
+}
+
+function messagesStreamReporting(
+  startUsage: unknown,
+  stopUsage: unknown,
+): unknown[] {
+  const start = messagesStartEvent() as { message: { usage: unknown } };
+  start.message.usage = startUsage;
+  const stop = messagesStopEvent() as { usage: unknown };
+  stop.usage = stopUsage;
+  return [start, messagesTextDeltaEvent("Here is"), stop];
+}
+
+function geminiStreamReporting(usage: unknown): unknown[] {
+  const completed = geminiCompletedEvent() as {
+    interaction: { usage: unknown };
+  };
+  completed.interaction.usage = usage;
+  return [geminiTextDeltaEvent("Here is"), completed];
+}
+
+function generateContentStreamReporting(usage: unknown): unknown[] {
+  const stop = generateContentStopChunk() as { usageMetadata: unknown };
+  stop.usageMetadata = usage;
+  return [generateContentTextChunk("Here is"), stop];
+}
+
+const ZERO_USAGE: UsageMetadata = {
+  cached_tokens: 0,
+  prompt_tokens: 0,
+  thoughts_tokens: 0,
+  response_tokens: 0,
+};
+
+// Every client over a stream whose usage sends each count as 0, then over one leaving out
+// each count the provider may leave out: a count is reported as sent, 0 included, and a
+// count not sent is null.
+const USAGE_CASES: Array<{
+  testCase: StreamCase;
+  sent: string;
+  install: (client: StreamClient, events: unknown[]) => void;
+  stream: () => unknown[];
+  usageMetadata: UsageMetadata;
+}> = [
+  ...RESPONSES_STREAM_CASES.map((testCase) => ({
+    testCase,
+    sent: "zero",
+    install: installFakeResponsesStream,
+    stream: () =>
+      responsesStreamReporting({
+        input_tokens: 0,
+        output_tokens: 0,
+        input_tokens_details: { cached_tokens: 0 },
+        output_tokens_details: { reasoning_tokens: 0 },
+      }),
+    usageMetadata: ZERO_USAGE,
+  })),
+  ...RESPONSES_STREAM_CASES
+    // OpenAI always sends the detail blocks, and OpenAIOfficialClient reads them as sent
+    .filter((testCase) => testCase.clientType !== "openai-official")
+    .map((testCase) => ({
+      testCase,
+      sent: "absent",
+      install: installFakeResponsesStream,
+      stream: () =>
+        responsesStreamReporting({ input_tokens: 2, output_tokens: 3 }),
+      usageMetadata: {
+        cached_tokens: null,
+        prompt_tokens: 2,
+        thoughts_tokens: null,
+        response_tokens: 3,
+      },
+    })),
+  ...CHAT_STREAM_CASES.map((testCase) => ({
+    testCase,
+    sent: "zero",
+    install: installFakeChatStream,
+    stream: () =>
+      chatStreamReporting({
+        prompt_tokens: 0,
+        completion_tokens: 0,
+        prompt_tokens_details: { cached_tokens: 0 },
+        completion_tokens_details: { reasoning_tokens: 0 },
+      }),
+    usageMetadata: ZERO_USAGE,
+  })),
+  ...CHAT_STREAM_CASES.map((testCase) => ({
+    testCase,
+    sent: "absent",
+    install: installFakeChatStream,
+    stream: () =>
+      chatStreamReporting({ prompt_tokens: 2, completion_tokens: 3 }),
+    usageMetadata: {
+      cached_tokens: null,
+      prompt_tokens: 2,
+      thoughts_tokens: null,
+      response_tokens: 3,
+    },
+  })),
+  ...MESSAGES_STREAM_CASES.map((testCase) => ({
+    testCase,
+    sent: "zero",
+    install: installFakeMessagesStream,
+    stream: () =>
+      messagesStreamReporting(
+        {
+          input_tokens: 0,
+          cache_creation_input_tokens: 0,
+          cache_read_input_tokens: 0,
+        },
+        {
+          input_tokens: 0,
+          cache_creation_input_tokens: 0,
+          cache_read_input_tokens: 0,
+          output_tokens: 0,
+        },
+      ),
+    // the Messages usage carries no thinking count
+    usageMetadata: {
+      cached_tokens: 0,
+      prompt_tokens: 0,
+      thoughts_tokens: null,
+      response_tokens: 0,
+    },
+  })),
+  ...MESSAGES_STREAM_CASES.map((testCase) => ({
+    testCase,
+    sent: "absent",
+    install: installFakeMessagesStream,
+    stream: () =>
+      messagesStreamReporting(
+        { input_tokens: 2 },
+        { input_tokens: 2, output_tokens: 3 },
+      ),
+    usageMetadata: {
+      cached_tokens: null,
+      prompt_tokens: 2,
+      thoughts_tokens: null,
+      response_tokens: 3,
+    },
+  })),
+  ...GEMINI_STREAM_CASES.map((testCase) => ({
+    testCase,
+    sent: "zero",
+    install: installFakeGeminiStream,
+    stream: () =>
+      geminiStreamReporting({
+        total_input_tokens: 0,
+        total_cached_tokens: 0,
+        total_thought_tokens: 0,
+        total_output_tokens: 0,
+      }),
+    usageMetadata: ZERO_USAGE,
+  })),
+  ...GEMINI_STREAM_CASES.map((testCase) => ({
+    testCase,
+    sent: "absent",
+    install: installFakeGeminiStream,
+    stream: () => geminiStreamReporting({}),
+    usageMetadata: {
+      cached_tokens: null,
+      prompt_tokens: null,
+      thoughts_tokens: null,
+      response_tokens: null,
+    },
+  })),
+  ...GENERATE_CONTENT_STREAM_CASES.map((testCase) => ({
+    testCase,
+    sent: "zero",
+    install: installFakeGenerateContentStream,
+    stream: () =>
+      generateContentStreamReporting({
+        promptTokenCount: 0,
+        cachedContentTokenCount: 0,
+        thoughtsTokenCount: 0,
+        candidatesTokenCount: 0,
+      }),
+    usageMetadata: ZERO_USAGE,
+  })),
+  ...GENERATE_CONTENT_STREAM_CASES.map((testCase) => ({
+    testCase,
+    sent: "absent",
+    install: installFakeGenerateContentStream,
+    stream: () => generateContentStreamReporting({ promptTokenCount: 2 }),
+    usageMetadata: {
+      cached_tokens: null,
+      prompt_tokens: 2,
+      thoughts_tokens: null,
+      response_tokens: null,
+    },
+  })),
+];
+
+describe.each(USAGE_CASES)(
+  "Usage counts for $testCase.clientType ($sent)",
+  ({ testCase, install, stream, usageMetadata }) => {
+    test("reports each count as sent and a count not sent as null", async () => {
+      const client = createAutoClient(testCase);
+      install(client, stream());
+
+      const events = await collectEvents(
+        client.streamingResponse({ messages, config: {} }),
+      );
+      assertStreamGrammar(events);
+      expect(events[events.length - 1].usage_metadata).toEqual(usageMetadata);
     });
   },
 );

@@ -36,11 +36,13 @@ Use exact model IDs, and pass the model's client type as `clientType`. If a mode
 | Kimi-K3 | Official | `kimi-k3` | `moonshot-official` | `MOONSHOT_API_KEY` | `MOONSHOT_BASE_URL` |
 | Kimi-K3 | OpenRouter | `moonshotai/kimi-k3` | `moonshot-official` | `MOONSHOT_API_KEY` | `MOONSHOT_BASE_URL` |
 | Kimi-K3 | TokenDance | `kimi-k3` | `moonshot-official` | `MOONSHOT_API_KEY` | `MOONSHOT_BASE_URL` (`https://tokendance.space/gateway/v1`) |
+| Kimi-K3.1 Pro | Official | `kimi-k3.1-pro`, `kimi-k3.1-pro-highspeed` | `moonshot-official` | `MOONSHOT_API_KEY` | `MOONSHOT_BASE_URL` |
+| Kimi-K3.1 Pro | OpenRouter | `moonshotai/kimi-k3.1-pro` | `moonshot-official` | `MOONSHOT_API_KEY` | `MOONSHOT_BASE_URL` |
+| Kimi-K3.1 Pro | TokenDance | `kimi-k3.1-pro` | `moonshot-official` | `MOONSHOT_API_KEY` | `MOONSHOT_BASE_URL` (`https://tokendance.space/gateway/v1`) |
 | DeepSeek V4 | Official | `deepseek-flash`, `deepseek-v4-pro` | `deepseek-official` | `DEEPSEEK_API_KEY` | `DEEPSEEK_BASE_URL` |
 | DeepSeek V4 | OpenRouter | `deepseek/deepseek-v4.1-flash`, `deepseek/deepseek-v4.1-flash-1017`, `deepseek/deepseek-v4-pro`, `deepseek/deepseek-v4-flash` | `deepseek-official` | `DEEPSEEK_API_KEY` | `DEEPSEEK_BASE_URL` |
 | DeepSeek V4 | SiliconFlow | `deepseek-ai/DeepSeek-V4.1-Flash`, `deepseek-ai/DeepSeek-V4-Pro`, `deepseek-ai/DeepSeek-V4-Flash` | `openai-chat` | `DEEPSEEK_API_KEY` | `DEEPSEEK_BASE_URL` |
-| DeepSeek V4 | TokenDance | `deepseek-v4.1-flash`, `deepseek-v4.1-flash-1017` | `deepseek-official` | `DEEPSEEK_API_KEY` | `DEEPSEEK_BASE_URL` (`https://tokendance.space/gateway/v1`) |
-| DeepSeek V4 | TokenDance | `deepseek-v4-pro` | `openai-chat` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` (`https://tokendance.space/gateway/v1`) |
+| DeepSeek V4 | TokenDance | `deepseek-v4.1-flash`, `deepseek-v4.1-flash-1017`, `deepseek-v4-pro` | `openai-chat` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` (`https://tokendance.space/gateway/v1`) |
 | GLM-5.1 | Official | `glm-5.1` | `zai-official` | `ZAI_API_KEY` | `ZAI_BASE_URL` |
 | GLM-5.1 | OpenRouter | `z-ai/glm-5.1` | `zai-official` | `ZAI_API_KEY` | `ZAI_BASE_URL` |
 | GLM-5.1 | SiliconFlow | `Pro/zai-org/GLM-5.1` | `zai-official` | `ZAI_API_KEY` | `ZAI_BASE_URL` |

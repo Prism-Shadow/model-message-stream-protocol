@@ -19,7 +19,12 @@ import type {
 } from "openai/resources/responses/responses";
 import { LLMClient } from "../baseClient";
 import { CLIENT_CREDENTIALS } from "../credentials";
-import { UnsupportedParameterError } from "../errors";
+import {
+  ApiKeyRequiredError,
+  InvalidMessageError,
+  UnknownEventError,
+  UnsupportedParameterError,
+} from "../errors";
 import {
   EventContentItem,
   EventType,
@@ -67,7 +72,11 @@ export class MiniMaxOfficialClient extends LLMClient {
     // The wrapped OpenAI SDK falls back to OPENAI_API_KEY when handed undefined, which would send
     // an OpenAI credential to the MiniMax host, so fail loudly instead.
     if (!apiKey) {
-      throw new Error("MINIMAX_API_KEY is required for MiniMaxOfficialClient.");
+      throw new ApiKeyRequiredError({
+        client: this.constructor.name,
+        clientType: "minimax-official",
+        baseUrl: null,
+      });
     }
     this._client = new OpenAI({
       apiKey,
@@ -212,7 +221,8 @@ export class MiniMaxOfficialClient extends LLMClient {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const inputList: any[] = [];
 
-    for (const message of messages) {
+    for (const [messageIndex, message] of messages.entries()) {
+      const messageStart = inputList.length;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let contentItems: any[] = [];
 
@@ -263,7 +273,11 @@ export class MiniMaxOfficialClient extends LLMClient {
           });
         } else if (item.type === "tool_result.done") {
           if (item.tool_call_id === undefined) {
-            throw new Error("tool_call_id is required for tool result.");
+            throw new InvalidMessageError({
+              client: this.constructor.name,
+              message: "tool_call_id is required for tool result.",
+              itemType: "tool_result",
+            });
           }
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           let output: any = item.text;
@@ -279,7 +293,11 @@ export class MiniMaxOfficialClient extends LLMClient {
             output,
           });
         } else {
-          throw new Error(`Unknown item: ${JSON.stringify(item)}`);
+          throw new InvalidMessageError({
+            client: this.constructor.name,
+            message: `Unknown item: ${JSON.stringify(item)}`,
+            itemType: (item as { type: string }).type,
+          });
         }
       }
 
@@ -288,6 +306,18 @@ export class MiniMaxOfficialClient extends LLMClient {
           type: "message",
           role: message.role,
           content: contentItems,
+        });
+      }
+
+      if (
+        inputList
+          .slice(messageStart)
+          .every((entry) => entry.type === "reasoning")
+      ) {
+        throw new InvalidMessageError({
+          client: this.constructor.name,
+          message: `message ${messageIndex} has nothing ${this.constructor.name} can send`,
+          messageIndex,
         });
       }
     }
@@ -364,16 +394,17 @@ export class MiniMaxOfficialClient extends LLMClient {
       }
 
       if (response.usage) {
-        // MiniMax drops the detail blocks on truncated responses, so default them to zero.
+        // MiniMax drops the detail blocks on truncated responses, so their counts stay null.
         const cachedTokens =
-          response.usage.input_tokens_details?.cached_tokens ?? 0;
+          response.usage.input_tokens_details?.cached_tokens ?? null;
         const reasoningTokens =
-          response.usage.output_tokens_details?.reasoning_tokens ?? 0;
+          response.usage.output_tokens_details?.reasoning_tokens ?? null;
         usageMetadata = {
           cached_tokens: cachedTokens,
-          prompt_tokens: response.usage.input_tokens - cachedTokens,
+          prompt_tokens: response.usage.input_tokens - (cachedTokens ?? 0),
           thoughts_tokens: reasoningTokens,
-          response_tokens: response.usage.output_tokens - reasoningTokens,
+          response_tokens:
+            response.usage.output_tokens - (reasoningTokens ?? 0),
         };
       }
     } else if (
@@ -391,7 +422,10 @@ export class MiniMaxOfficialClient extends LLMClient {
       ].includes(minimaxEventType) &&
       isDebugEnabled()
     ) {
-      throw new Error(`Unknown output: ${JSON.stringify(modelOutput)}`);
+      throw new UnknownEventError({
+        client: this.constructor.name,
+        event: JSON.stringify(modelOutput),
+      });
     }
 
     return {
