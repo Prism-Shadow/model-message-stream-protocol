@@ -1,7 +1,6 @@
 import type { MarkdownInstance } from "astro";
 import type { Locale } from "./i18n";
-import { localePath } from "./i18n";
-import { ALL_DOCS, REPO_URL, type DocLink } from "./site";
+import { ALL_DOCS, ALL_RFCS, REPO_URL, docHref, type DocLink } from "./site";
 
 export type DocFile = MarkdownInstance<{ description?: string }>;
 
@@ -49,11 +48,11 @@ export function designHref(locale: Locale, source: string, href: string): string
   if (/^(?:[a-z][a-z0-9+.-]*:|#|\/)/i.test(href)) return href;
   const url = new URL(href, `file:///${source}`);
   const path = decodeURIComponent(url.pathname.slice(1));
-  const target = ALL_DOCS.find((doc) => doc.source?.en === path || doc.source?.zh === path);
+  const target = [...ALL_DOCS, ...ALL_RFCS].find((doc) => doc.source?.en === path || doc.source?.zh === path);
   if (target?.source) {
     const { en, zh } = target.source;
     const language = en === zh ? locale : path === zh ? "zh" : "en";
-    return localePath(language, `/docs/${target.slug}/`) + url.hash;
+    return docHref(language, target) + url.hash;
   }
   const kind = /\.[^/]+$/.test(path) ? "blob" : "tree";
   return `${REPO_URL}/${kind}/main/${path}${url.hash}`;
