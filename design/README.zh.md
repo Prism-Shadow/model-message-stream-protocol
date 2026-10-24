@@ -9,19 +9,22 @@ MMSP 遵守的规则，以及改变过它的决定，每一项都是一篇 RFC�
 | RFC | 标题 | 类别 | 状态 |
 | --- | --- | --- | --- |
 | [MMSP-RFC-0001](rfcs/MMSP-RFC-0001-rfc-process.zh.md) | RFC 流程 | process | 已采纳 |
-| [MMSP-RFC-0002](rfcs/MMSP-RFC-0002-one-protocol.zh.md) | 所有模型共用一套协议 | rule | 已采纳 |
-| [MMSP-RFC-0003](rfcs/MMSP-RFC-0003-stream-grammar.zh.md) | 同一套流语法，由基类收尾 | rule | 已采纳 |
-| [MMSP-RFC-0004](rfcs/MMSP-RFC-0004-explicit-routing.zh.md) | 路由是显式的 | rule | 已采纳 |
-| [MMSP-RFC-0005](rfcs/MMSP-RFC-0005-credential-scope.zh.md) | 凭据只发往它被指定的地方 | rule | 已采纳 |
-| [MMSP-RFC-0006](rfcs/MMSP-RFC-0006-thinking-levels-usable.zh.md) | 每个思考级别在每个客户端上都可用 | rule | 已采纳 |
-| [MMSP-RFC-0007](rfcs/MMSP-RFC-0007-typed-rejection.zh.md) | 被拒绝的值抛出有类型的错误 | rule | 已采纳 |
-| [MMSP-RFC-0008](rfcs/MMSP-RFC-0008-minimal-replay.zh.md) | 回传最小化，fidelity 是例外通道 | rule | 已采纳 |
-| [MMSP-RFC-0009](rfcs/MMSP-RFC-0009-two-packages-one-contract.zh.md) | 两个包，一份契约 | rule | 已采纳 |
-| [MMSP-RFC-0010](rfcs/MMSP-RFC-0010-stop-metadata.zh.md) | 每条流都以用量和结束原因收尾 | rule | 已采纳 |
-| [MMSP-RFC-0011](rfcs/MMSP-RFC-0011-thinking-round-trip.zh.md) | 思考经往返转换不丢失 | rule | 已采纳 |
-| [MMSP-RFC-0012](rfcs/MMSP-RFC-0012-direct-conversion.zh.md) | 转换直白，不带冗余 | rule | 已采纳 |
+| [MMSP-RFC-0002](rfcs/MMSP-RFC-0002-one-protocol.zh.md) | 消息协议须统一 | rule | 已采纳 |
+| [MMSP-RFC-0003](rfcs/MMSP-RFC-0003-async-streaming.zh.md) | 请求须异步流式 | rule | 已采纳 |
+| [MMSP-RFC-0004](rfcs/MMSP-RFC-0004-lean-messages.zh.md) | 消息结构保持精简 | rule | 已采纳 |
+| [MMSP-RFC-0005](rfcs/MMSP-RFC-0005-essential-fields.zh.md) | 重要字段不能丢弃 | rule | 已采纳 |
+| [MMSP-RFC-0006](rfcs/MMSP-RFC-0006-explicit-routing.zh.md) | 客户端路由须显式 | rule | 已采纳 |
+| [MMSP-RFC-0007](rfcs/MMSP-RFC-0007-credential-scope.zh.md) | 保护密钥安全 | rule | 已采纳 |
+| [MMSP-RFC-0008](rfcs/MMSP-RFC-0008-immutable-history.zh.md) | 历史消息不改变 | rule | 已采纳 |
+| [MMSP-RFC-0009](rfcs/MMSP-RFC-0009-typed-errors.zh.md) | 异常要有类型 | rule | 已采纳 |
+| [MMSP-RFC-0010](rfcs/MMSP-RFC-0010-thinking-levels-usable.zh.md) | 支持全部思考等级 | rule | 已采纳 |
+| [MMSP-RFC-0011](rfcs/MMSP-RFC-0011-explicit-parameters.zh.md) | 模型请求参数不模糊匹配 | rule | 已采纳 |
+| [MMSP-RFC-0012](rfcs/MMSP-RFC-0012-interruptible-requests.zh.md) | 允许中断请求 | rule | 已采纳 |
+| [MMSP-RFC-0013](rfcs/MMSP-RFC-0013-direct-implementation.zh.md) | 实现代码须直观 | rule | 已采纳 |
 
 `rule` 是代码遵守的不变量；`change` 修改协议或公开 API；`process` 是这个目录的运作方式。状态为「已采纳」或「被 MMSP-RFC-NNNN 取代」，因此现行的规则就是状态为「已采纳」的 `rule` 行。提议中的 RFC 是一个未关闭的 PR（`gh pr list --search "MMSP-RFC-"`），撤回的 RFC 是一个已关闭的 PR；两者在表中都没有行。
+
+规则 RFC 曾于 2026-10-24 按项目负责人的要求重编号一次；[MMSP-RFC-0001](rfcs/MMSP-RFC-0001-rfc-process.zh.md) 列出 0.5.5 的编号与现在编号的对应关系。
 
 | 文件 | 内容 |
 | --- | --- |
