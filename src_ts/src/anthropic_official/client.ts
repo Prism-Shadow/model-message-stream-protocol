@@ -43,9 +43,11 @@ const REDACTED_THINKING = "_REDACTED_THINKING";
 
 // Generations told apart by explicit version, matched anywhere in the id so Bedrock's
 // anthropic.claude-opus-5-5 counts too. Opus 5.5 and Fable 5.1 always think: "disabled" and
-// "between_tools" return 400. Haiku 5.5 takes "disabled" but runs NONE at the lowest effort
-// like them. Sonnet 5.5 drops only up-front thinking, with "between_tools".
-const LOW_EFFORT_FOR_NONE = ["opus-5-5", "fable-5-1", "haiku-5-5"];
+// "between_tools" return 400, and Fable 5 returns 400 for "disabled" too (verified live
+// 2026-10-23); "fable-5" matches both Fable generations. Haiku 5.5 takes "disabled" but runs
+// NONE at the lowest effort like them. Sonnet 5.5 drops only up-front thinking, with
+// "between_tools".
+const LOW_EFFORT_FOR_NONE = ["opus-5-5", "fable-5", "haiku-5-5"];
 const BETWEEN_TOOLS = ["sonnet-5-5"];
 // The 2026-09 generation returns 400 for tool_choice "any" and "tool". Haiku 5.5 takes them but
 // answers without thinking, so it is rejected with the rest of the 5.5 family.
@@ -175,12 +177,14 @@ export class AnthropicOfficialClient extends LLMClient {
     thinking?: { type: string; display?: string };
     output_config?: { effort: string };
   } {
-    // NONE takes the least thinking LOW_EFFORT_FOR_NONE allows
+    // NONE takes the least thinking LOW_EFFORT_FOR_NONE allows; the other generations take
+    // "disabled", and without a thinking block Opus 5 still runs adaptive thinking (verified
+    // live 2026-10-23)
     const none = this._generation(LOW_EFFORT_FOR_NONE)
       ? { thinking: { type: "adaptive" }, output_config: { effort: "low" } }
       : this._generation(BETWEEN_TOOLS)
         ? { thinking: { type: "between_tools" } }
-        : {}; // omit thinking config
+        : { thinking: { type: "disabled" } };
     const mapping: {
       [key: string]: {
         thinking?: { type: string; display?: string };
@@ -289,12 +293,16 @@ export class AnthropicOfficialClient extends LLMClient {
 
     if (config.thinking_summary !== undefined) {
       // display lives on the thinking block, so a summary asked for on its own selects
-      // adaptive thinking, which is what this family runs by default anyway; a block
-      // carrying display but no output_config is accepted on 4.6 through 5 (verified
-      // live 2026-09-03). NONE omits the block, so the request lands on that default.
+      // adaptive thinking; a block carrying display but no output_config is accepted on
+      // 4.6 through 5 (verified live 2026-09-03). A disabled block rejects display
+      // ("thinking.disabled.display: Extra inputs are not permitted", 400, verified live
+      // 2026-10-23) and has no thinking to show, and between_tools takes none: its
+      // updates between tool calls always carry their text.
       claudeConfig.thinking = claudeConfig.thinking ?? { type: "adaptive" };
-      // between_tools takes no display: its updates between tool calls always carry their text
-      if (claudeConfig.thinking.type !== "between_tools") {
+      if (
+        claudeConfig.thinking.type !== "disabled" &&
+        claudeConfig.thinking.type !== "between_tools"
+      ) {
         claudeConfig.thinking.display = config.thinking_summary
           ? "summarized"
           : "omitted";

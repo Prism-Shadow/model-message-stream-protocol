@@ -273,27 +273,27 @@ describe.each(REASONING_REPLAY_CASES)(
   },
 );
 
-// The clients that share the Chat Completions transforms. OpenRouter streams
-// their reasoning as reasoning_details fragments, shaped here as captured on
-// 2026-10-22: GPT's summary fragments, mirrored in `reasoning`, then one
-// reasoning.encrypted fragment holding its encrypted reasoning; Gemini's one
-// reasoning.encrypted fragment, on the first chunk, holding the thought
-// signature under the id of the call it signs. On replay only that fragment
-// reaches the model, and only as received: OpenRouter drops Gemini's signature
-// from a fragment without its id.
+// The clients that share the Chat Completions transforms. A gateway streams
+// their reasoning as reasoning_details blocks, shaped here as captured on
+// 2026-10-22: GPT's summary blocks, mirrored in `reasoning`, then one
+// reasoning.encrypted block holding its encrypted reasoning; Gemini's one
+// reasoning.encrypted block, on the first chunk, holding the thought signature
+// under the id of the call it signs. The encrypted block is recorded under the
+// shared keys and rebuilt on replay without its index; a gateway drops
+// Gemini's signature from a block without its id, so the id is kept.
 const CHAT_TRANSFORM_CASES: ReasoningReplayCase[] = [
   { model: "openai/gpt-5.6-luna", clientType: "openai-chat" },
   { model: "Qwen/Qwen3.6-35B-A3B", clientType: "openai-chat-vllm-adapter" },
 ];
 
-const OPENAI_ENCRYPTED_FRAGMENT = {
+const OPENAI_ENCRYPTED_BLOCK = {
   type: "reasoning.encrypted",
   data: "gAAAAABq2oFY-encrypted-reasoning",
   format: "openai-responses-v1",
   id: "rs_0158635049d48323016ada8157556487d1bc52572a9851c225",
   index: 1,
 };
-const GEMINI_ENCRYPTED_FRAGMENT = {
+const GEMINI_ENCRYPTED_BLOCK = {
   type: "reasoning.encrypted",
   data: "AY89a1+Ob5tq-thought-signature",
   format: "google-gemini-v1",
@@ -301,14 +301,22 @@ const GEMINI_ENCRYPTED_FRAGMENT = {
   index: 0,
 };
 
+function replayedBlock(
+  block: Record<string, unknown>,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(block).filter(([key]) => key !== "index"),
+  );
+}
+
 function summaryChunk(text: string): unknown {
-  const fragment = {
+  const block = {
     type: "reasoning.summary",
     summary: text,
     format: "openai-responses-v1",
     index: 0,
   };
-  return deltaChunk({ reasoning: text, reasoning_details: [fragment] });
+  return deltaChunk({ reasoning: text, reasoning_details: [block] });
 }
 
 function toolCallChunk(toolCallId: string): unknown {
@@ -334,49 +342,60 @@ function replayedToolCalls(toolCallId: string): unknown[] {
 }
 
 describe.each(CHAT_TRANSFORM_CASES)(
-  "OpenRouter reasoning_details for $clientType",
+  "gateway reasoning_details for $clientType",
   (testCase) => {
-    test("records the encrypted reasoning fragment and replays it as received", async () => {
+    test("records an encrypted block as encrypted_content and rebuilds it", async () => {
       const client = createAutoClient(testCase);
       installFakeOpenAICompatibleStream(client, [
         summaryChunk("**Checking the parity"),
         summaryChunk(" of 17*3**"),
         deltaChunk({
           reasoning: null,
-          reasoning_details: [OPENAI_ENCRYPTED_FRAGMENT],
+          reasoning_details: [OPENAI_ENCRYPTED_BLOCK],
         }),
         toolCallChunk("call_OTl4knsttXTxmrXjFY5DPCSM"),
         stopChunk("tool_calls"),
       ]);
 
-      const { historyMessage, replayedMessage } =
+      const { events, historyMessage, replayedMessage } =
         await runTurnAndReplay(client);
-      // one thinking item: the summary text, with the encrypted fragment as
-      // its one fidelity
+      const fidelity = {
+        encrypted_content: OPENAI_ENCRYPTED_BLOCK.data,
+        format: "openai-responses-v1",
+        reasoning_id: "rs_0158635049d48323016ada8157556487d1bc52572a9851c225",
+      };
+      // the encrypted block's delta carries the item's one fidelity, the
+      // block's fields under the shared keys
+      expect(
+        streamedItems(events).filter(
+          (item) => item.type === "thinking.delta" && item.fidelity,
+        ),
+      ).toEqual([{ type: "thinking.delta", thinking: "", fidelity }]);
+      // one thinking item: the summary text, with that fidelity
       expect(thinkingItems(historyMessage)).toEqual([
         {
           type: "thinking.done",
           thinking: "**Checking the parity of 17*3**",
-          fidelity: { reasoning_details: [OPENAI_ENCRYPTED_FRAGMENT] },
+          fidelity,
         },
       ]);
-      // the fragment goes back as received and alone; the summary fragments
-      // never reach the model
+      // the block is rebuilt without its index; the summary blocks never
+      // reach the model
       expect(replayedMessage).toEqual({
         role: "assistant",
         tool_calls: replayedToolCalls("call_OTl4knsttXTxmrXjFY5DPCSM"),
         reasoning_content: "**Checking the parity of 17*3**",
         reasoning: "**Checking the parity of 17*3**",
-        reasoning_details: [OPENAI_ENCRYPTED_FRAGMENT],
+        reasoning_details: [replayedBlock(OPENAI_ENCRYPTED_BLOCK)],
       });
     });
 
-    test("records a thought signature fragment without text and replays it as received", async () => {
+    test("records an encrypted block without text and rebuilds it with its id", async () => {
       const client = createAutoClient(testCase);
       installFakeOpenAICompatibleStream(client, [
         deltaChunk({
           reasoning: null,
-          reasoning_details: [GEMINI_ENCRYPTED_FRAGMENT],
+          reasoning_details: [GEMINI_ENCRYPTED_BLOCK],
         }),
         toolCallChunk("call_1191618"),
         stopChunk("tool_calls"),
@@ -388,31 +407,35 @@ describe.each(CHAT_TRANSFORM_CASES)(
         {
           type: "thinking.done",
           thinking: "",
-          fidelity: { reasoning_details: [GEMINI_ENCRYPTED_FRAGMENT] },
+          fidelity: {
+            encrypted_content: GEMINI_ENCRYPTED_BLOCK.data,
+            format: "google-gemini-v1",
+            reasoning_id: "call_1191618",
+          },
         },
       ]);
       expect(replayedMessage).toEqual({
         role: "assistant",
         tool_calls: replayedToolCalls("call_1191618"),
-        reasoning_details: [GEMINI_ENCRYPTED_FRAGMENT],
+        reasoning_details: [replayedBlock(GEMINI_ENCRYPTED_BLOCK)],
       });
     });
 
-    // A model that reasons in plain text gets reasoning.text fragments that
+    // A model that reasons in plain text gets reasoning.text blocks that
     // repeat `reasoning`; they carry nothing the text does not, so the item
     // records no fidelity and the text goes back through both fields, which
-    // OpenRouter reads as one.
-    test("replays reasoning.text fragments as the text", async () => {
+    // the gateway reads as one.
+    test("replays reasoning.text blocks as the text", async () => {
       const client = createAutoClient(testCase);
-      const fragment = { type: "reasoning.text", format: "unknown", index: 0 };
+      const block = { type: "reasoning.text", format: "unknown", index: 0 };
       installFakeOpenAICompatibleStream(client, [
         deltaChunk({
           reasoning: "Let me think",
-          reasoning_details: [{ ...fragment, text: "Let me think" }],
+          reasoning_details: [{ ...block, text: "Let me think" }],
         }),
         deltaChunk({
           reasoning: " about the memo.",
-          reasoning_details: [{ ...fragment, text: " about the memo." }],
+          reasoning_details: [{ ...block, text: " about the memo." }],
         }),
         deltaChunk({ content: "Here is the memo." }),
         stopChunk(),
@@ -428,6 +451,66 @@ describe.each(CHAT_TRANSFORM_CASES)(
       );
       expect(replayedMessage.reasoning).toBe("Let me think about the memo.");
       expect(replayedMessage).not.toHaveProperty("reasoning_details");
+    });
+
+    // 0.5.5 kept the encrypted block whole as fidelity.reasoning_details; it
+    // is read until 0.6.0.
+    test("replays a block recorded by 0.5.5 as received", async () => {
+      const client = createAutoClient(testCase);
+      const history: UniMessage[] = [
+        userMessage(),
+        {
+          role: "assistant",
+          content_items: [
+            {
+              type: "thinking.done",
+              thinking: "",
+              fidelity: { reasoning_details: [GEMINI_ENCRYPTED_BLOCK] },
+            },
+            {
+              type: "tool_call.done",
+              name: "get_weather",
+              arguments: { city: "Paris" },
+              tool_call_id: "call_1191618",
+            },
+          ],
+        },
+      ];
+
+      const modelInput = await transformHistory(client, history);
+      expect(modelInput[modelInput.length - 1]?.reasoning_details).toEqual([
+        GEMINI_ENCRYPTED_BLOCK,
+      ]);
+    });
+
+    // A Responses client records encrypted reasoning off its own server with
+    // no format; that data is not a block of this protocol, so only its text
+    // goes back.
+    test("sends no block for encrypted_content without a format", async () => {
+      const client = createAutoClient(testCase);
+      const history: UniMessage[] = [
+        userMessage(),
+        {
+          role: "assistant",
+          content_items: [
+            {
+              type: "thinking.done",
+              thinking: "Let me think.",
+              fidelity: {
+                channel: "summary",
+                encrypted_content: FULL_ENCRYPTED_CONTENT,
+              },
+            },
+            { type: "text.done", text: "Here is the memo." },
+          ],
+        },
+      ];
+
+      const modelInput = await transformHistory(client, history);
+      const replayedMessage = modelInput[modelInput.length - 1];
+      expect(replayedMessage).not.toHaveProperty("reasoning_details");
+      expect(replayedMessage?.reasoning_content).toBe("Let me think.");
+      expect(replayedMessage?.reasoning).toBe("Let me think.");
     });
   },
 );

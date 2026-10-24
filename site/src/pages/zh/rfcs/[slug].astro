@@ -1,0 +1,16 @@
+---
+import DocPage from "../../../layouts/DocPage.astro";
+import { docFile } from "../../../shared/docs";
+import { ALL_RFCS, RFC_INDEX } from "../../../shared/site";
+
+export function getStaticPaths() {
+  return ALL_RFCS.filter((doc) => doc !== RFC_INDEX).map((doc) => ({
+    params: { slug: doc.slug },
+    props: { doc, page: docFile("zh", doc) },
+  }));
+}
+
+const { doc, page } = Astro.props;
+---
+
+<DocPage locale="zh" doc={doc} page={page} />
