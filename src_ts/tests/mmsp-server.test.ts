@@ -27,9 +27,27 @@ import {
   jest,
   test,
 } from "@jest/globals";
+import * as mmspPackage from "../src";
 import { AutoLLMClient } from "../src/autoClient";
 import { LLMClient } from "../src/baseClient";
-import { UnsupportedParameterError, UpstreamError } from "../src/errors";
+import * as errors from "../src/errors";
+import {
+  ApiKeyRequiredError,
+  ConcurrentCallError,
+  EmptyResponseError,
+  IncompleteStreamError,
+  InvalidMessageError,
+  MMSPError,
+  ProviderStreamError,
+  RoutingError,
+  StreamProtocolError,
+  ToolCallArgumentParseError,
+  UnknownEventError,
+  UnsupportedContentError,
+  UnsupportedOperationError,
+  UnsupportedParameterError,
+  UpstreamError,
+} from "../src/errors";
 import {
   ModelRow,
   RETENTION_S,
@@ -586,6 +604,217 @@ const FAILING_SCRIPT: (UniEvent | Error)[] = [
   new RuntimeError("connection reset"),
 ];
 
+interface RelayCase {
+  name: string;
+  error: MMSPError;
+  fields: Record<string, unknown>;
+}
+
+const LONG_EVENT = `{"type":"gateway.cost","note":"${"x".repeat(300)}"}`;
+
+const RELAY_CASES: RelayCase[] = [
+  {
+    name: "UnsupportedParameterError",
+    error: new UnsupportedParameterError({
+      client: "ScriptedClient",
+      parameter: "temperature",
+      message: "ScriptedClient does not support temperature.",
+    }),
+    fields: { client: "ScriptedClient", parameter: "temperature" },
+  },
+  {
+    name: "ApiKeyRequiredError_without_a_key",
+    error: new ApiKeyRequiredError({
+      client: "ScriptedClient",
+      clientType: "deepseek-official",
+      baseUrl: null,
+    }),
+    fields: {
+      client: "ScriptedClient",
+      client_type: "deepseek-official",
+      api_key_env: "DEEPSEEK_API_KEY",
+      base_url_env: "DEEPSEEK_BASE_URL",
+      base_url: null,
+    },
+  },
+  {
+    name: "ApiKeyRequiredError_at_another_base_url",
+    error: new ApiKeyRequiredError({
+      client: "ScriptedClient",
+      clientType: "deepseek-official",
+      baseUrl: "https://upstream.example/v1",
+    }),
+    fields: {
+      client: "ScriptedClient",
+      client_type: "deepseek-official",
+      api_key_env: "DEEPSEEK_API_KEY",
+      base_url_env: "DEEPSEEK_BASE_URL",
+      base_url: "https://upstream.example/v1",
+    },
+  },
+  {
+    name: "UnsupportedOperationError",
+    error: new UnsupportedOperationError({
+      client: "ScriptedClient",
+      operation: "list_models",
+      message: "ScriptedClient cannot list models.",
+    }),
+    fields: { client: "ScriptedClient", operation: "list_models" },
+  },
+  {
+    name: "EmptyResponseError",
+    error: new EmptyResponseError({
+      client: "ScriptedClient",
+      finishReason: "stop",
+      usageMetadata: USAGE,
+    }),
+    fields: {
+      client: "ScriptedClient",
+      finish_reason: "stop",
+      usage_metadata: USAGE,
+    },
+  },
+  {
+    name: "IncompleteStreamError",
+    error: new IncompleteStreamError({
+      client: "ScriptedClient",
+      missing: ["usage_metadata", "finish_reason"],
+      finishReason: null,
+      usageMetadata: null,
+    }),
+    fields: {
+      client: "ScriptedClient",
+      missing: ["usage_metadata", "finish_reason"],
+      finish_reason: null,
+      usage_metadata: null,
+    },
+  },
+  {
+    name: "StreamProtocolError",
+    error: new StreamProtocolError({
+      client: "ScriptedClient",
+      message: "text.done is not a delta",
+    }),
+    fields: { client: "ScriptedClient" },
+  },
+  {
+    name: "ToolCallArgumentParseError",
+    error: new ToolCallArgumentParseError({
+      client: "ScriptedClient",
+      toolName: "f",
+      toolCallId: "call_1",
+      rawArguments: '{"a":',
+      reason: "Unexpected end of JSON input",
+    }),
+    fields: {
+      client: "ScriptedClient",
+      tool_name: "f",
+      tool_call_id: "call_1",
+      raw_arguments_length: 5,
+      raw_arguments_preview: '{"a":',
+    },
+  },
+  {
+    name: "UpstreamError",
+    error: new UpstreamError({
+      client: "MmspClient",
+      status: 429,
+      errorType: "RateLimitError",
+      message: "Too many requests.",
+      error: {
+        type: "RateLimitError",
+        message: "Too many requests.",
+        status: 429,
+      },
+    }),
+    fields: {
+      client: "MmspClient",
+      status: 429,
+      error_type: "RateLimitError",
+      error: {
+        type: "RateLimitError",
+        message: "Too many requests.",
+        status: 429,
+      },
+    },
+  },
+  {
+    name: "RoutingError",
+    error: new RoutingError({
+      model: "mistral-large",
+      clientType: null,
+      message: "No client for model 'mistral-large': its family is not known.",
+    }),
+    fields: { model: "mistral-large", client_type: null },
+  },
+  {
+    name: "InvalidMessageError",
+    error: new InvalidMessageError({
+      client: "ScriptedClient",
+      message: "tool_call_id is required for tool result.",
+      itemType: "tool_result",
+      messageIndex: 1,
+    }),
+    fields: {
+      client: "ScriptedClient",
+      item_type: "tool_result",
+      message_index: 1,
+    },
+  },
+  {
+    name: "InvalidMessageError_of_no_item",
+    error: new InvalidMessageError({
+      client: "ScriptedClient",
+      message: "message 0 has nothing ScriptedClient can send",
+    }),
+    fields: { client: "ScriptedClient", item_type: null, message_index: null },
+  },
+  {
+    name: "UnsupportedContentError",
+    error: new UnsupportedContentError({
+      client: "ScriptedClient",
+      itemType: "image_url",
+      message: "ScriptedClient does not support image inputs.",
+    }),
+    fields: { client: "ScriptedClient", item_type: "image_url" },
+  },
+  {
+    name: "UnknownEventError",
+    error: new UnknownEventError({
+      client: "ScriptedClient",
+      event: LONG_EVENT,
+    }),
+    fields: {
+      client: "ScriptedClient",
+      event: `${LONG_EVENT.slice(0, 72)}...[truncated]...${LONG_EVENT.slice(-72)}`,
+    },
+  },
+  {
+    name: "ProviderStreamError",
+    error: new ProviderStreamError({
+      client: "ScriptedClient",
+      code: 503,
+      message: "Gemini stream error 503: The model is overloaded.",
+    }),
+    fields: { client: "ScriptedClient", code: 503 },
+  },
+  {
+    name: "ConcurrentCallError",
+    error: new ConcurrentCallError({ client: "ScriptedClient" }),
+    fields: { client: "ScriptedClient" },
+  },
+];
+
+/**
+ * Every error class `errors` defines but MMSPError itself.
+ */
+function mmspErrorClasses(): (typeof MMSPError)[] {
+  return Object.values(errors).filter(
+    (value): value is typeof MMSPError =>
+      typeof value === "function" && value.prototype instanceof MMSPError,
+  );
+}
+
 describe("MMSP server stream", () => {
   test.each(STREAM_CASES)(
     "through the server equals the upstream stream: $name",
@@ -683,6 +912,51 @@ describe("MMSP server stream", () => {
       parameter: "temperature",
       client: "ScriptedClient",
     });
+  });
+
+  test.each(RELAY_CASES)(
+    "every MMSP error reaches the client as an UpstreamError with its fields: $name",
+    async ({ error, fields }) => {
+      useUpstream((model) => new ScriptedClient([error], model));
+      const url = await serve(serverApp());
+
+      const relayed = await raised(mmspClient(url));
+
+      expect(relayed).toBeInstanceOf(UpstreamError);
+      expect(relayed).toMatchObject({
+        client: "MmspClient",
+        status: fields.status ?? null,
+        errorType: error.name,
+        message: error.message,
+      });
+      expect((relayed as UpstreamError).error).toEqual({
+        type: error.name,
+        message: error.message,
+        ...fields,
+      });
+    },
+  );
+
+  test("the relay cases cover every MMSP error", () => {
+    expect(
+      [...new Set(RELAY_CASES.map((testCase) => testCase.error.name))].sort(),
+    ).toEqual(
+      mmspErrorClasses()
+        .map((errorClass) => errorClass.name)
+        .sort(),
+    );
+  });
+
+  test("every MMSP error is exported and is an Error", () => {
+    const exported = mmspPackage as unknown as Record<string, unknown>;
+    for (const errorClass of [MMSPError, ...mmspErrorClasses()]) {
+      expect(exported[errorClass.name]).toBe(errorClass);
+    }
+    for (const { error } of RELAY_CASES) {
+      expect(error).toBeInstanceOf(Error);
+      expect(error).toBeInstanceOf(MMSPError);
+      expect(error.name).toBe(error.constructor.name);
+    }
   });
 
   test("unparsable tool call arguments raise an UpstreamError carrying the ToolCallArgumentParseError", async () => {

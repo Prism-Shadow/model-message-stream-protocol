@@ -67,9 +67,21 @@ def normalize_legacy_messages(messages: list[UniMessage]) -> list[UniMessage]:
 
 ## Errors
 
-All MMSP errors subclass `MMSPError` (a `ValueError`). Unsupported `UniConfig`
+All MMSP errors subclass `MMSPError` (a `ValueError`; `ProviderStreamError` is also a
+`RuntimeError`). Unsupported `UniConfig`
 values (e.g. `temperature` or `tool_choice` on models that reject them) raise
 `UnsupportedParameterError`, which carries `client` and `parameter` attributes. Thinking
 levels never raise: every client maps each `ThinkingLevel` to the closest supported level.
 Errors raised while streaming (`ToolCallArgumentParseError`, `EmptyResponseError`,
 `IncompleteStreamError`, `StreamProtocolError`) are listed in [Data models](data-models.md#errors).
+The others, with their attributes:
+
+- `UnsupportedContentError` (`client`, `item_type`): an item the model cannot take, such as an image on a text-only model.
+- `InvalidMessageError` (`client`, `item_type`, `message_index`): a message that cannot be sent as it is, such as a tool result without `tool_call_id`, an unknown item, an invalid image, or a message with nothing to send.
+- `RoutingError` (`model`, `client_type`): neither `client_type` nor the model id names a client.
+- `ApiKeyRequiredError` (`client`, `client_type`, `api_key_env`, `base_url_env`, `base_url`): the client has no key it may use; `base_url` is `None` when no key was passed or set at all.
+- `UnsupportedOperationError` (`client`, `operation`): a call the client cannot make at all, such as listing models on Amazon Bedrock.
+- `ConcurrentCallError` (`client`): `streaming_response_stateful` called while another stateful call on the same client is in flight.
+- `ProviderStreamError` (`client`, `code`): the provider reported an error inside an open stream.
+- `UnknownEventError` (`client`, `event`): a wire event the client does not recognize, raised only with `MMSP_DEBUG` set.
+- `UpstreamError` (`client`, `status`, `error_type`, `error`): anything the `mmsp` client's server reported; `error_type` names the server-side class and `error` carries its fields.

@@ -2,6 +2,7 @@
 
 [English](README.md)
 
+- [2026-10-23] 新增 `RoutingError`、`InvalidMessageError`、`UnsupportedContentError`、`UnknownEventError`、`ProviderStreamError` 与 `ConcurrentCallError`，每个都是它所取代的内置错误的子类；每个 MMSP 错误都连同字段经 MMSP 服务端转发。([详情](2026-10-23-typed-error-classes.zh.md), [#288](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/288))
 - [2026-10-23] 配置页按每个 `UniConfig` 字段给出每个客户端发送、忽略或抛错的情况。([详情](2026-10-23-configuration-docs.zh.md), [#289](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/289))
 - [2026-10-23] `anthropic-official` 在 Claude Sonnet 4.6、Opus 4.8、Sonnet 5 与 Opus 5 上为 `ThinkingLevel.NONE` 关闭思考，无论是否设置思考摘要；在 Fable 5 上以最低 effort 运行。([详情](2026-10-23-thinking-level-gaps.zh.md), [#293](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/293))
 - [2026-10-23] 模型索引显示各条目的延迟与吞吐（构建时由状态探测数据写入页面，单位在列标题中），改由每行末尾的按钮打开集成代码（可复制代码或复制给 Agent），并显示了小米标志。([详情](2026-10-23-site-model-index.zh.md), [#284](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/284))

@@ -47,25 +47,31 @@ class UnsupportedParameterError(MMSPError):
 
 
 class ApiKeyRequiredError(MMSPError):
-    """Raised at construction when a client is given a base URL without a key and the environment's key may not go there.
+    """Raised at construction when a client has no key it may use.
 
-    Only the client's default endpoint and the endpoint `base_url_env` names take `api_key_env` (see
-    environment_credential in `credentials`).
+    Either the client is given a base URL without a key and the environment's key may not go there
+    (only the client's default endpoint and the endpoint `base_url_env` names take `api_key_env`, see
+    environment_credential in `credentials`), or, with `base_url` None, the client cannot call its
+    endpoint without a key and is given none, neither passed nor in `api_key_env`.
     """
 
-    def __init__(self, client: str, client_type: str, base_url: str) -> None:
+    def __init__(self, client: str, client_type: str, base_url: str | None) -> None:
         credentials = CLIENT_CREDENTIALS[client_type]
         self.client = client
         self.client_type = client_type
         self.api_key_env = credentials.api_key_env
         self.base_url_env = credentials.base_url_env
         self.base_url = base_url
-        super().__init__(
-            f"api_key is required for {client} with base_url {base_url}: "
-            f"{self.api_key_env} is sent only to {credentials.default_base_url} or to the endpoint "
-            f"{self.base_url_env} names. Pass api_key, or drop base_url and set {self.api_key_env}, plus "
-            f"{self.base_url_env} for an endpoint other than {credentials.default_base_url}."
-        )
+        if base_url is None:
+            message = f"{self.api_key_env} is required for {client}: pass api_key or set {self.api_key_env}."
+        else:
+            message = (
+                f"api_key is required for {client} with base_url {base_url}: "
+                f"{self.api_key_env} is sent only to {credentials.default_base_url} or to the endpoint "
+                f"{self.base_url_env} names. Pass api_key, or drop base_url and set {self.api_key_env}, plus "
+                f"{self.base_url_env} for an endpoint other than {credentials.default_base_url}."
+            )
+        super().__init__(message)
 
 
 class UnsupportedOperationError(MMSPError):
@@ -171,6 +177,85 @@ class UpstreamError(MMSPError):
         self.error_type = error_type
         self.error = dict(error) if error else {}
         super().__init__(message)
+
+
+class RoutingError(MMSPError):
+    """Raised by AutoLLMClient when neither the client type nor the model id names a client."""
+
+    def __init__(self, model: str, client_type: str | None, message: str) -> None:
+        self.model = model
+        self.client_type = client_type
+        super().__init__(message)
+
+
+class InvalidMessageError(MMSPError):
+    """Raised when a message cannot be sent as it is.
+
+    An item of an unknown kind, a tool result without tool_call_id, an image that is not valid base64
+    or cannot be fetched, a TTS script without its speaker labels, or a message with nothing the wire
+    can carry.
+    """
+
+    def __init__(
+        self,
+        client: str,
+        message: str,
+        item_type: str | None = None,
+        message_index: int | None = None,
+    ) -> None:
+        self.client = client
+        self.item_type = item_type
+        self.message_index = message_index
+        super().__init__(message)
+
+
+class UnsupportedContentError(MMSPError):
+    """Raised when a well-formed item is one the model cannot take.
+
+    An image on a text-only model, a non-text item for embeddings or speech. Distinct from
+    UnsupportedParameterError, which rejects a UniConfig value.
+    """
+
+    def __init__(self, client: str, item_type: str, message: str) -> None:
+        self.client = client
+        self.item_type = item_type
+        super().__init__(message)
+
+
+class UnknownEventError(MMSPError):
+    """Raised with MMSP_DEBUG set when a client does not recognize a wire event.
+
+    Without MMSP_DEBUG the event is skipped (MMSP-RFC-0003).
+    """
+
+    def __init__(self, client: str, event: str) -> None:
+        self.client = client
+        # a preview, cut as tool call arguments are: an unknown frame may carry a whole image
+        self.event = _preview_tool_call_arguments(event)
+        super().__init__(f"{client} does not recognize the event {self.event}")
+
+
+class ProviderStreamError(MMSPError, RuntimeError):
+    """Raised when a provider reports an error inside an open stream.
+
+    Gemini Interactions' `error` event is one; the error carries the provider's code and message.
+    """
+
+    def __init__(self, client: str, code: int | str | None, message: str) -> None:
+        self.client = client
+        self.code = code
+        super().__init__(message)
+
+
+class ConcurrentCallError(MMSPError):
+    """Raised when streaming_response_stateful is called while another stateful call on the same client has not ended.
+
+    Two turns cannot be recorded in one history at once.
+    """
+
+    def __init__(self, client: str) -> None:
+        self.client = client
+        super().__init__(f"{client} has a stateful call in flight; wait for its stop event or its error.")
 
 
 def parse_tool_call_arguments(

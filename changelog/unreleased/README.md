@@ -2,6 +2,7 @@
 
 [中文版](README.zh.md)
 
+- [2026-10-23] Added `RoutingError`, `InvalidMessageError`, `UnsupportedContentError`, `UnknownEventError`, `ProviderStreamError` and `ConcurrentCallError`, each a subclass of the built-in error it replaces, and relayed every MMSP error through the MMSP server with its fields. ([details](2026-10-23-typed-error-classes.md), [#288](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/288))
 - [2026-10-23] The configuration page gives, for each `UniConfig` key, what each client sends, ignores or raises on. ([details](2026-10-23-configuration-docs.md), [#289](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/289))
 - [2026-10-23] `anthropic-official` turned thinking off for `ThinkingLevel.NONE` on Claude Sonnet 4.6, Opus 4.8, Sonnet 5 and Opus 5, with or without a thinking summary, and ran it on Fable 5 at the lowest effort. ([details](2026-10-23-thinking-level-gaps.md), [#293](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/293))
 - [2026-10-23] The Model Index showed each entry's latency and throughput, built into the page from the status probe, with the units in the column headers; opened the integration kit from a button at the end of each row, with Copy code and Copy for agent; and showed the Xiaomi mark. ([details](2026-10-23-site-model-index.md), [#284](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/284))
