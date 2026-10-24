@@ -2,7 +2,7 @@
 
 - Feature Name: `lean_messages`
 - Start Date: 2026-10-24
-- RFC PR: TBD
+- RFC PR: [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298)
 - Kind: rule
 
 [中文版](MMSP-RFC-0004-lean-messages.zh.md)

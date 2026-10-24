@@ -35,7 +35,7 @@ MMSP 要遵守的规则原先写在 mmsp-dev skill 里，写法是操作指南�
 
 - 目录结构：`design/README.md`（索引与流程）、`design/0000-template.md`（只有英文）与 `design/rfcs/MMSP-RFC-NNNN-<slug>.md`；除模板外，每个文件都有 `.zh.md` 对照版本。目录中只放 Markdown，因此 CI 把对它的改动归为文档改动，不运行模型测试。
 - 类别：`rule`，代码遵守的不变量；`change`，对协议或公开 API 的修改；`process`，这个目录的运作方式。规则 RFC 包含 Summary、Motivation、Rule 与 Enforced by 四节；`change` 与 `process` 类 RFC 采用 Rust RFC 的节次，从 Summary 到 Future possibilities。无话可说的小节直接省略。
-- 编号：RFC 取目录与未关闭的 PR 都没有用过的下一个 `MMSP-RFC-NNNN`，编号永不复用。唯一的例外是 2026-10-24 按项目负责人的要求所做的那次重编号（TBD）：十二条规则按项目负责人给出的标题顺序，依次取 MMSP-RFC-0002 到 MMSP-RFC-0013；0.5.5 的十一条规则，其内容按下表迁移。
+- 编号：RFC 取目录与未关闭的 PR 都没有用过的下一个 `MMSP-RFC-NNNN`，编号永不复用。唯一的例外是 2026-10-24 按项目负责人的要求所做的那次重编号（[#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298)）：十二条规则按项目负责人给出的标题顺序，依次取 MMSP-RFC-0002 到 MMSP-RFC-0013；0.5.5 的十一条规则，其内容按下表迁移。
 
   | 0.5.5 的编号 | 内容现在所在 |
   | --- | --- |

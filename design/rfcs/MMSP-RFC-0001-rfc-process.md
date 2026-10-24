@@ -35,7 +35,7 @@ When the code and an accepted RFC disagree, the RFC wins: the code is fixed, or 
 
 - Layout: `design/README.md` (the index and the process), `design/0000-template.md` (English only) and `design/rfcs/MMSP-RFC-NNNN-<slug>.md`, each file but the template with a `.zh.md` twin. The folder holds only Markdown, so CI classifies a change to it as documentation and runs no model tests.
 - Kinds: `rule`, an invariant the code keeps; `change`, a change to the protocol or the public API; `process`, how this folder works. A rule RFC has the sections Summary, Motivation, Rule and Enforced by; a change or process RFC has the Rust RFC sections, Summary through Future possibilities. A section with nothing to say is omitted.
-- Numbering: an RFC takes the next `MMSP-RFC-NNNN` that neither the folder nor an open PR uses, and a number is never reused. The one exception is the renumbering of 2026-10-24, by the owner's order (TBD): the twelve rules took MMSP-RFC-0002 to MMSP-RFC-0013 in the order of the owner's titles, and the content of the eleven rules of 0.5.5 moved as this table says.
+- Numbering: an RFC takes the next `MMSP-RFC-NNNN` that neither the folder nor an open PR uses, and a number is never reused. The one exception is the renumbering of 2026-10-24, by the owner's order ([#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298)): the twelve rules took MMSP-RFC-0002 to MMSP-RFC-0013 in the order of the owner's titles, and the content of the eleven rules of 0.5.5 moved as this table says.
 
   | 0.5.5 number | Content now in |
   | --- | --- |

@@ -3,6 +3,7 @@
 - **Date:** 2026-10-24
 - **Type:** process
 - **Scope:** `design`, `site`, `skills`, `docs`
+- **PR:** [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298)
 
 [中文版](2026-10-24-rfc-renumbering.zh.md)
 
