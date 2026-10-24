@@ -51,7 +51,7 @@ Audit LLM executions by adding **a single `trace_id` parameter**, no database re
 | Gemini 3-3.8   | Official/Google Vertex AI           | `gemini-3.8-flash`     | Text, Image      | Text, Image, Speech, Embedding |
 | Claude 4.6-5.5 | Official/Amazon Bedrock/UModelVerse | `claude-opus-5-5`      | Text, Image      | Text                           |
 | GPT-5.4-6.1    | Official/OpenRouter/UModelVerse     | `gpt-6.1-sol`          | Text, Image      | Text, Embedding                |
-| Kimi-K2.5/K2.6/K3 | Official/OpenRouter/SiliconFlow/TokenDance | `kimi-k3`       | Text, Image      | Text                           |
+| Kimi-K2.5/K2.6/K3/K3.1 Pro | Official/OpenRouter/SiliconFlow/TokenDance | `kimi-k3.1-pro` | Text, Image      | Text                           |
 | DeepSeek V4    | Official/OpenRouter/SiliconFlow/TokenDance | `deepseek-flash` | Text, Image      | Text                           |
 | GLM-5.1-5.3    | Official/OpenRouter/SiliconFlow/TokenDance | `glm-5.3`       | Text, Image      | Text                           |
 | MiniMax-M3/M3.1 | Official/OpenRouter/TokenDance     | `MiniMax-M3.1-Flash`   | Text, Image      | Text                           |

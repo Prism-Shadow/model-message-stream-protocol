@@ -54,7 +54,7 @@ description: UniConfig, the options of a request, and what each client sends for
 
 A value a client cannot send raises `UnsupportedParameterError` before the request goes out, naming the client and the parameter. A key a client has no use for is ignored. The tables below give both, per client.
 
-`thinking_level` never raises. Where a model cannot turn thinking off, `"none"` asks for the least of it: the lowest effort on Claude Opus 5.5, Haiku 5.5, Fable 5 and Fable 5.1, GPT-6 Astra and GPT-6.1 Sol, Kimi K3, MiniMax-M3.1-Flash and GLM-5.3; no up-front thinking on Claude Sonnet 5.5; `minimal` or `low` on Gemini, whichever the model takes. GPT-6 Luna takes `"none"` as it is.
+`thinking_level` never raises. Where a model cannot turn thinking off, `"none"` asks for the least of it: the lowest effort on Claude Opus 5.5, Haiku 5.5, Fable 5 and Fable 5.1, GPT-6 Astra and GPT-6.1 Sol, MiniMax-M3.1-Flash and GLM-5.3; no up-front thinking on Claude Sonnet 5.5; `minimal` or `low` on Gemini, whichever the model takes. GPT-6 Luna, Kimi K3 and Kimi K3.1 Pro take `"none"` as it is.
 
 ## What each client sends
 
@@ -121,7 +121,7 @@ Claude Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.1 cannot be forced to call a 
 
 ### `thinking_level`
 
-Each client sends the level as its protocol's effort: `output_config.effort` with adaptive thinking on the Anthropic clients, `reasoning.effort` on the Responses clients, `reasoning_effort` on Kimi K3 and GLM (with thinking enabled), `thinking_level` on Gemini. Kimi K2 gets a thinking type instead; `disabled` and `between_tools` are thinking types too. `openai-chat` sends no level, so the endpoint runs its default. The first row that matches applies.
+Each client sends the level as its protocol's effort: `output_config.effort` with adaptive thinking on the Anthropic clients, `reasoning.effort` on the Responses clients, `reasoning_effort` on Kimi K3 and K3.1 Pro and on GLM (with thinking enabled), `thinking_level` on Gemini. Kimi K2 gets a thinking type instead; `disabled` and `between_tools` are thinking types too. `openai-chat` sends no level, so the endpoint runs its default. The first row that matches applies.
 
 | Client and model | `none` | `low` | `medium` | `high` | `xhigh` | `max` |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -136,7 +136,7 @@ Each client sends the level as its protocol's effort: `output_config.effort` wit
 | `minimax-official`: MiniMax-M3.1-Flash | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `minimax-official`: MiniMax-M3 | `none` | `low` | `medium` | `high` | `high` | `high` |
 | `moonshot-official`: Kimi K2 | `disabled` | `enabled` | `enabled` | `enabled` | `enabled` | `enabled` |
-| `moonshot-official`: Kimi K3 | `low` | `low` | `high` | `high` | `max` | `max` |
+| `moonshot-official`: Kimi K3, Kimi K3.1 Pro | `none` | `low` | `high` | `high` | `max` | `max` |
 | `zai-official`: GLM-5.3, GLM-5.3-Flash | `low` | `low` | `high` | `high` | `max` | `max` |
 | `zai-official`: other GLM models | `disabled` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `google-official`, `google-genai`: image models | `minimal` | `minimal` | `high` | `high` | `high` | `high` |
@@ -174,7 +174,8 @@ On the Anthropic clients, a summary asked for without a `thinking_level` turns a
 | --- | --- | --- | --- |
 | `anthropic-official` | `cache_control: {"type": "ephemeral"}`, also when not set | the same with `ttl: "1h"` | nothing |
 | `anthropic-official` on Bedrock | the same marker with `ttl: "5m"` on the last block of the last user message, also when not set | the same with `ttl: "1h"` | nothing |
-| Every other client | nothing | raises | raises |
+| `moonshot-official` on Kimi K3 and K3.1 Pro | nothing | `prompt_cache_options: {"mode": "implicit", "ttl": "1h"}` | raises |
+| Every other client; `moonshot-official` on Kimi K2 | nothing | raises | raises |
 | `openai-embedding`, Gemini embedding models | ignored | ignored | ignored |
 
 ### `fast_mode`

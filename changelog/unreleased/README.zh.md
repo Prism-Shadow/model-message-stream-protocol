@@ -2,6 +2,7 @@
 
 [English](README.md)
 
+- [2026-10-23] `moonshot-official` 支持 Kimi K3.1 Pro（`kimi-k3.1-pro`、`kimi-k3.1-pro-highspeed`），并在 K3 系列上为 `ThinkingLevel.NONE` 发送 `reasoning_effort: "none"`、为 `PromptCaching.ENHANCE` 发送 TTL 为 1 小时的 `prompt_cache_options`；注册表、CI 用例目录、文档与 Playground 加入 K3.1 Pro。([详情](2026-10-23-kimi-k3-1-pro.zh.md))
 - [2026-10-23] 客户端、`AutoLLMClient` 与 `utils` 抛出的每一个裸 `ValueError`、`RuntimeError` 与 `Error` 都改为对应的 MMSP 错误类，且每个类仍是它所取代的内置错误。([详情](2026-10-23-typed-error-sites.zh.md), [#290](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/290))
 - [2026-10-23] 两个包的每个客户端在中止、关闭生成器或离开循环时都会关闭发往服务商的请求；被中止的 TypeScript 流以信号的 reason 结束，不再是若干 `.done` 项加 `IncompleteStreamError`。([详情](2026-10-23-interruption.zh.md), [#292](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/292))
 - [2026-10-23] 历史记录保存深拷贝；一个有状态调用尚未结束时再发起有状态调用会抛出 `ConcurrentCallError`；客户端没有任何可发送内容的消息抛出 `InvalidMessageError`，不再被丢弃或以空内容发送；嵌入向量按 `index` 与输入配对；`mmsp` 客户端补上 `created_at`，并在流于 `stop` 事件之前结束时抛出 `IncompleteStreamError`。([详情](2026-10-23-history-copies-and-empty-messages.zh.md), [#291](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/291))
