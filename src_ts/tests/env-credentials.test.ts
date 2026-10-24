@@ -160,16 +160,32 @@ const VENDOR_CASES: VendorCase[] = [
 ];
 
 describe.each(VENDOR_CASES)("$expectedClient credentials", (testCase) => {
-  const missing = `${testCase.keyEnv} is required for ${testCase.expectedClient}.`;
+  const missing = `${testCase.keyEnv} is required for ${testCase.expectedClient}: pass apiKey or set ${testCase.keyEnv}.`;
 
   test("with only OPENAI_API_KEY set, refuses to build rather than send it", () => {
     process.env.OPENAI_API_KEY = "sk-openai-PROBE";
 
+    expect(() => new AutoLLMClient({ model: testCase.model })).toThrow(
+      ApiKeyRequiredError,
+    );
     expect(() => new AutoLLMClient({ model: testCase.model })).toThrow(missing);
   });
 
   test("with no key at all, names its own variable", () => {
-    expect(() => new AutoLLMClient({ model: testCase.model })).toThrow(missing);
+    let refusal: unknown;
+    try {
+      new AutoLLMClient({ model: testCase.model });
+    } catch (error) {
+      refusal = error;
+    }
+    expect(refusal).toBeInstanceOf(ApiKeyRequiredError);
+    expect(refusal).toBeInstanceOf(Error);
+    expect((refusal as Error).message).toBe(missing);
+    expect(refusal).toMatchObject({
+      client: testCase.expectedClient,
+      apiKeyEnv: testCase.keyEnv,
+      baseUrl: null,
+    });
   });
 
   test("uses its own variable, not OPENAI_API_KEY", () => {

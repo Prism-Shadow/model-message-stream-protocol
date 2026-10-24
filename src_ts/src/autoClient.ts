@@ -33,6 +33,7 @@ import {
   clientTypeForModel,
   routedClientType,
 } from "./credentials";
+import { RoutingError, UnsupportedOperationError } from "./errors";
 import { UniConfig, UniEvent, UniMessage } from "./types";
 
 type LLMClientConstructor = new (options: {
@@ -53,8 +54,9 @@ function clientTypes(): string {
  * The client class of a client type routedClientType returns.
  *
  * @param clientType - A canonical client type
+ * @param model - The model id the client is created for, carried by the error
  */
-function clientClass(clientType: string): LLMClientConstructor {
+function clientClass(clientType: string, model: string): LLMClientConstructor {
   switch (clientType) {
     case "openai-official":
       return OpenAIOfficialClient;
@@ -85,7 +87,11 @@ function clientClass(clientType: string): LLMClientConstructor {
     case "mmsp":
       return MmspClient;
     default:
-      throw new Error(`No client class for client type ${clientType}.`);
+      throw new RoutingError({
+        model,
+        clientType,
+        message: `No client class for client type ${clientType}.`,
+      });
   }
 }
 
@@ -124,16 +130,18 @@ export class AutoLLMClient extends LLMClient {
     const named = options.clientType || process.env.CLIENT_TYPE;
     const clientType = routedClientType(options.model, named);
     if (clientType === null) {
-      throw new Error(
-        named
+      throw new RoutingError({
+        model: options.model,
+        clientType: named || null,
+        message: named
           ? `Unknown client type ${JSON.stringify(named)}. Pass one of the ${clientTypes()}.`
           : `No client for model ${JSON.stringify(options.model)}: its family is not known. ` +
-              `Pass clientType, one of the ${clientTypes()}.`,
-      );
+            `Pass clientType, one of the ${clientTypes()}.`,
+      });
     }
     this._family = clientTypeForModel(options.model);
     this._named = Boolean(named);
-    const ClientClass = clientClass(clientType);
+    const ClientClass = clientClass(clientType, options.model);
     this._client = new ClientClass({
       model: options.model,
       apiKey: options.apiKey,
@@ -175,7 +183,11 @@ export class AutoLLMClient extends LLMClient {
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any, require-yield
   async *_streamingResponseInternal(_options: any): AsyncGenerator<UniEvent> {
-    throw new Error("Please use streamingResponse instead.");
+    throw new UnsupportedOperationError({
+      client: "AutoLLMClient",
+      operation: "_streamingResponseInternal",
+      message: "Please use streamingResponse instead.",
+    });
   }
 
   /**

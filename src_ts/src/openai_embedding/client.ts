@@ -18,7 +18,11 @@ import type {
   EmbeddingCreateParams,
 } from "openai/resources/embeddings";
 import { LLMClient } from "../baseClient";
-import { InvalidMessageError, UnsupportedParameterError } from "../errors";
+import {
+  InvalidMessageError,
+  UnsupportedContentError,
+  UnsupportedParameterError,
+} from "../errors";
 import { UniConfig, UniEvent, UniMessage } from "../types";
 import { openaiClientOptions, resolveCredentials } from "../utils";
 
@@ -89,7 +93,11 @@ export class OpenaiEmbeddingClient extends LLMClient {
       let msgText = "";
       for (const item of msg.content_items) {
         if (item.type !== "text.done") {
-          throw new Error("OpenAI embeddings only support text content items.");
+          throw new UnsupportedContentError({
+            client: this.constructor.name,
+            itemType: item.type,
+            message: "OpenAI embeddings only support text content items.",
+          });
         }
         msgText += item.text;
       }

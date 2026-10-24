@@ -22,6 +22,7 @@ import { Stream } from "@anthropic-ai/sdk/core/streaming";
 import { LLMClient } from "../baseClient";
 import {
   InvalidMessageError,
+  UnknownEventError,
   UnsupportedOperationError,
   UnsupportedParameterError,
 } from "../errors";
@@ -141,14 +142,20 @@ export class AnthropicOfficialClient extends LLMClient {
           },
         };
       } else {
-        throw new Error(`Invalid base64 image: ${url}`);
+        throw new InvalidMessageError({
+          client: this.constructor.name,
+          message: `Invalid base64 image: ${url}`,
+          itemType: "image_url",
+        });
       }
     } else if (this._use_bedrock) {
       const response = await fetch(url, { signal });
       if (!response.ok) {
-        throw new Error(
-          `Failed to fetch image: ${response.status} ${response.statusText}`,
-        );
+        throw new InvalidMessageError({
+          client: this.constructor.name,
+          message: `Failed to fetch image: ${response.status} ${response.statusText}`,
+          itemType: "image_url",
+        });
       }
       const arrayBuffer = await response.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
@@ -407,7 +414,11 @@ export class AnthropicOfficialClient extends LLMClient {
           });
         } else if (item.type === "tool_result.done") {
           if (!item.tool_call_id) {
-            throw new Error("tool_call_id is required for tool result.");
+            throw new InvalidMessageError({
+              client: this.constructor.name,
+              message: "tool_call_id is required for tool result.",
+              itemType: "tool_result",
+            });
           }
 
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -427,7 +438,11 @@ export class AnthropicOfficialClient extends LLMClient {
             tool_use_id: item.tool_call_id,
           });
         } else {
-          throw new Error(`Unknown item: ${JSON.stringify(item)}`);
+          throw new InvalidMessageError({
+            client: this.constructor.name,
+            message: `Unknown item: ${JSON.stringify(item)}`,
+            itemType: (item as { type: string }).type,
+          });
         }
       }
 
@@ -566,7 +581,10 @@ export class AnthropicOfficialClient extends LLMClient {
       // drops the "ping" heartbeat at the SSE layer; it reaches here only from gateways that
       // relabel it onto another event
     } else if (isDebugEnabled()) {
-      throw new Error(`Unknown output: ${JSON.stringify(modelOutput)}`);
+      throw new UnknownEventError({
+        client: this.constructor.name,
+        event: JSON.stringify(modelOutput),
+      });
     } else {
       // a gateway injects its own events (heartbeats, cost tickers) into the stream, and
       // killing a long generation over one costs more than dropping it

@@ -38,7 +38,12 @@ import {
 } from "@google/genai";
 import * as path from "path";
 import { LLMClient } from "../baseClient";
-import { InvalidMessageError, UnsupportedParameterError } from "../errors";
+import {
+  InvalidMessageError,
+  UnknownEventError,
+  UnsupportedContentError,
+  UnsupportedParameterError,
+} from "../errors";
 import {
   EventContentItem,
   EventType,
@@ -170,12 +175,20 @@ export class GoogleGenaiClient extends LLMClient {
         const data = Buffer.from(base64Data, "base64");
         return { data, mimeType };
       } else {
-        throw new Error(`Invalid base64 image: ${url}`);
+        throw new InvalidMessageError({
+          client: this.constructor.name,
+          message: `Invalid base64 image: ${url}`,
+          itemType: "image_url",
+        });
       }
     } else {
       const response = await fetch(url, { signal });
       if (!response.ok) {
-        throw new Error(`Failed to fetch image: ${url}`);
+        throw new InvalidMessageError({
+          client: this.constructor.name,
+          message: `Failed to fetch image: ${url}`,
+          itemType: "image_url",
+        });
       }
       const arrayBuffer = await response.arrayBuffer();
       const data = Buffer.from(arrayBuffer);
@@ -520,7 +533,11 @@ export class GoogleGenaiClient extends LLMClient {
           parts.push({ functionCall: functionCall, ...thoughtSignature });
         } else if (item.type === "tool_result.done") {
           if (!item.tool_call_id) {
-            throw new Error("tool_call_id is required for tool result.");
+            throw new InvalidMessageError({
+              client: this.constructor.name,
+              message: "tool_call_id is required for tool result.",
+              itemType: "tool_result",
+            });
           }
 
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -555,7 +572,11 @@ export class GoogleGenaiClient extends LLMClient {
             } as FunctionResponse,
           } as Part);
         } else {
-          throw new Error(`Unknown item: ${JSON.stringify(item)}`);
+          throw new InvalidMessageError({
+            client: this.constructor.name,
+            message: `Unknown item: ${JSON.stringify(item)}`,
+            itemType: (item as { type: string }).type,
+          });
         }
       }
 
@@ -708,7 +729,10 @@ export class GoogleGenaiClient extends LLMClient {
             });
           }
         } else if (isDebugEnabled()) {
-          throw new Error(`Unknown output: ${JSON.stringify(part)}`);
+          throw new UnknownEventError({
+            client: this.constructor.name,
+            event: JSON.stringify(part),
+          });
         }
       }
 
@@ -786,7 +810,11 @@ export class GoogleGenaiClient extends LLMClient {
             },
           });
         } else {
-          throw new Error(`Unknown item: ${JSON.stringify(item)}`);
+          throw new InvalidMessageError({
+            client: this.constructor.name,
+            message: `Unknown item: ${JSON.stringify(item)}`,
+            itemType: (item as { type: string }).type,
+          });
         }
       }
 
@@ -853,9 +881,11 @@ export class GoogleGenaiClient extends LLMClient {
         .flatMap((message) => message.content_items)
         .find((item) => item.type !== "text.done");
       if (invalidItem) {
-        throw new Error(
-          `Gemini TTS only supports text input, got content item type=${JSON.stringify(invalidItem.type)}.`,
-        );
+        throw new UnsupportedContentError({
+          client: this.constructor.name,
+          itemType: invalidItem.type,
+          message: `Gemini TTS only supports text input, got content item type=${JSON.stringify(invalidItem.type)}.`,
+        });
       }
     }
 
@@ -883,10 +913,12 @@ export class GoogleGenaiClient extends LLMClient {
       contents = [
         {
           role: "user",
-          parts: speakerTurns(script, speakers).map(([speaker, turn]) => ({
-            text: turn,
-            speechMetadata: { speaker },
-          })),
+          parts: speakerTurns(script, speakers, this.constructor.name).map(
+            ([speaker, turn]) => ({
+              text: turn,
+              speechMetadata: { speaker },
+            }),
+          ),
         },
       ];
     }

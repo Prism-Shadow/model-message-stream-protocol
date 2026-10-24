@@ -19,7 +19,11 @@ import type {
   ResponseCreateParamsStreaming,
 } from "openai/resources/responses/responses";
 import { LLMClient } from "../baseClient";
-import { InvalidMessageError, UnsupportedParameterError } from "../errors";
+import {
+  InvalidMessageError,
+  UnknownEventError,
+  UnsupportedParameterError,
+} from "../errors";
 import {
   EventContentItem,
   EventType,
@@ -303,7 +307,11 @@ export class OpenaiResponsesClient extends LLMClient {
           });
         } else if (item.type === "tool_result.done") {
           if (!item.tool_call_id) {
-            throw new Error("tool_call_id is required for tool result.");
+            throw new InvalidMessageError({
+              client: this.constructor.name,
+              message: "tool_call_id is required for tool result.",
+              itemType: "tool_result",
+            });
           }
 
           // NOTE: tool results are input items
@@ -330,7 +338,11 @@ export class OpenaiResponsesClient extends LLMClient {
             output,
           });
         } else {
-          throw new Error(`Unknown item: ${JSON.stringify(item)}`);
+          throw new InvalidMessageError({
+            client: this.constructor.name,
+            message: `Unknown item: ${JSON.stringify(item)}`,
+            itemType: (item as { type: string }).type,
+          });
         }
       }
 
@@ -491,7 +503,10 @@ export class OpenaiResponsesClient extends LLMClient {
     ) {
       // lifecycle events, and repeats of what the deltas carry
     } else if (isDebugEnabled()) {
-      throw new Error(`Unknown output: ${JSON.stringify(modelOutput)}`);
+      throw new UnknownEventError({
+        client: this.constructor.name,
+        event: JSON.stringify(modelOutput),
+      });
     } else {
       // a gateway injects its own events (heartbeats, cost tickers) into the stream, and
       // killing a long generation over one costs more than dropping it

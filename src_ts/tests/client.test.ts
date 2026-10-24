@@ -16,6 +16,7 @@ import { AutoLLMClient } from "../src/autoClient";
 import { listSupportedModels } from "../src/registry";
 import {
   IncompleteStreamError,
+  RoutingError,
   UnsupportedParameterError,
 } from "../src/errors";
 import {
@@ -1146,14 +1147,23 @@ test.each(ROUTING_CASES)(
 test.each([undefined, "google-official"])(
   "google-official refuses a Vertex AI service-account key (%s)",
   (clientType) => {
-    expect(
-      () =>
-        new AutoLLMClient({
-          model: "gemini-3.8-flash",
-          apiKey: '{"project_id": "test-project"}',
-          clientType,
-        }),
-    ).toThrow(/google-genai/);
+    let refusal: unknown;
+    try {
+      new AutoLLMClient({
+        model: "gemini-3.8-flash",
+        apiKey: '{"project_id": "test-project"}',
+        clientType,
+      });
+    } catch (error) {
+      refusal = error;
+    }
+    expect(refusal).toBeInstanceOf(RoutingError);
+    expect(refusal).toBeInstanceOf(Error);
+    expect((refusal as Error).message).toMatch(/google-genai/);
+    expect(refusal).toMatchObject({
+      model: "gemini-3.8-flash",
+      clientType: "google-official",
+    });
   },
 );
 
@@ -1201,21 +1211,28 @@ describe.each(["google-official", "google-genai"])(
 );
 
 test("a model of no known family asks for a client type", () => {
-  expect(
-    () => new AutoLLMClient({ model: "qwen3.6", apiKey: "test-key" }),
-  ).toThrow(/Pass clientType.*openai-official.*openai-responses/);
+  const build = () =>
+    new AutoLLMClient({ model: "qwen3.6", apiKey: "test-key" });
+  expect(build).toThrow(RoutingError);
+  expect(build).toThrow(/Pass clientType.*openai-official.*openai-responses/);
+  expect(build).toThrow(
+    expect.objectContaining({ model: "qwen3.6", clientType: null }),
+  );
 });
 
 test("an unknown client type is refused whatever the model", () => {
   // a model id is not a client type, and neither are the names of the clients before 0.5.0
-  expect(
-    () =>
-      new AutoLLMClient({
-        model: "gpt-5.5",
-        apiKey: "test-key",
-        clientType: "gpt-5.5",
-      }),
-  ).toThrow('Unknown client type "gpt-5.5"');
+  const build = () =>
+    new AutoLLMClient({
+      model: "gpt-5.5",
+      apiKey: "test-key",
+      clientType: "gpt-5.5",
+    });
+  expect(build).toThrow(RoutingError);
+  expect(build).toThrow('Unknown client type "gpt-5.5"');
+  expect(build).toThrow(
+    expect.objectContaining({ model: "gpt-5.5", clientType: "gpt-5.5" }),
+  );
 });
 
 test("the environment names the client when the code does not", () => {

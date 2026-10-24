@@ -22,7 +22,7 @@ from anthropic import AsyncAnthropic, AsyncAnthropicBedrock
 from anthropic.types.beta import BetaMessageParam, BetaRawMessageStreamEvent
 
 from ..base_client import LLMClient
-from ..errors import InvalidMessageError, UnsupportedOperationError, UnsupportedParameterError
+from ..errors import InvalidMessageError, UnknownEventError, UnsupportedOperationError, UnsupportedParameterError
 from ..types import (
     EventContentItem,
     EventType,
@@ -116,7 +116,9 @@ class AnthropicOfficialClient(LLMClient):
                     "source": {"type": "base64", "media_type": media_type, "data": base64_data},
                 }
             else:
-                raise ValueError(f"Invalid base64 image: {url}")
+                raise InvalidMessageError(
+                    self.__class__.__name__, f"Invalid base64 image: {url}", item_type="image_url"
+                )
         elif self._use_bedrock:
             async with httpx.AsyncClient() as client:
                 response = await client.get(url)
@@ -315,7 +317,11 @@ class AnthropicOfficialClient(LLMClient):
                     )
                 elif item["type"] == "tool_result.done":
                     if "tool_call_id" not in item:
-                        raise ValueError("tool_call_id is required for tool result.")
+                        raise InvalidMessageError(
+                            self.__class__.__name__,
+                            "tool_call_id is required for tool result.",
+                            item_type="tool_result",
+                        )
 
                     tool_result = [{"type": "text", "text": item["text"]}]
                     if "images" in item:
@@ -326,7 +332,7 @@ class AnthropicOfficialClient(LLMClient):
                         {"type": "tool_result", "content": tool_result, "tool_use_id": item["tool_call_id"]}
                     )
                 else:
-                    raise ValueError(f"Unknown item: {item}")
+                    raise InvalidMessageError(self.__class__.__name__, f"Unknown item: {item}", item_type=item["type"])
 
             if all(block["type"] in ("thinking", "redacted_thinking") for block in content_blocks):
                 raise InvalidMessageError(
@@ -455,7 +461,7 @@ class AnthropicOfficialClient(LLMClient):
             pass
 
         elif is_debug_enabled():
-            raise ValueError(f"Unknown output: {model_output}")
+            raise UnknownEventError(self.__class__.__name__, str(model_output))
 
         else:
             # a gateway injects its own events (heartbeats, cost tickers) into the stream, and

@@ -214,7 +214,11 @@ class OpenaiChatClient(LLMClient):
                     )
                 elif item["type"] == "tool_result.done":
                     if "tool_call_id" not in item:
-                        raise ValueError("tool_call_id is required for tool result.")
+                        raise InvalidMessageError(
+                            self.__class__.__name__,
+                            "tool_call_id is required for tool result.",
+                            item_type="tool_result",
+                        )
 
                     # Chat Completions lets a tool message carry text only, and a server that
                     # validates the schema rejects the whole request over an image part in one.
@@ -235,7 +239,9 @@ class OpenaiChatClient(LLMClient):
                         }
                     )
                 else:
-                    raise ValueError(f"Unknown item type: {item['type']}")
+                    raise InvalidMessageError(
+                        self.__class__.__name__, f"Unknown item type: {item['type']}", item_type=item["type"]
+                    )
 
             message = {"role": msg["role"]}
             if content_parts:
