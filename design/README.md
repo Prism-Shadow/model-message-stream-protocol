@@ -10,18 +10,21 @@ The rules MMSP keeps and the decisions that changed it, each an RFC. When the co
 | --- | --- | --- | --- |
 | [MMSP-RFC-0001](rfcs/MMSP-RFC-0001-rfc-process.md) | The RFC process | process | Accepted |
 | [MMSP-RFC-0002](rfcs/MMSP-RFC-0002-one-protocol.md) | One protocol for every model | rule | Accepted |
-| [MMSP-RFC-0003](rfcs/MMSP-RFC-0003-stream-grammar.md) | One stream grammar, closed by the base class | rule | Accepted |
-| [MMSP-RFC-0004](rfcs/MMSP-RFC-0004-explicit-routing.md) | Routing is explicit | rule | Accepted |
-| [MMSP-RFC-0005](rfcs/MMSP-RFC-0005-credential-scope.md) | A credential goes only where it was given for | rule | Accepted |
-| [MMSP-RFC-0006](rfcs/MMSP-RFC-0006-thinking-levels-usable.md) | Every thinking level is usable on every client | rule | Accepted |
-| [MMSP-RFC-0007](rfcs/MMSP-RFC-0007-typed-rejection.md) | A rejected value raises a typed error | rule | Accepted |
-| [MMSP-RFC-0008](rfcs/MMSP-RFC-0008-minimal-replay.md) | Replay is minimal; fidelity is the exception channel | rule | Accepted |
-| [MMSP-RFC-0009](rfcs/MMSP-RFC-0009-two-packages-one-contract.md) | Two packages, one contract | rule | Accepted |
-| [MMSP-RFC-0010](rfcs/MMSP-RFC-0010-stop-metadata.md) | Every stream ends with its usage and finish reason | rule | Accepted |
-| [MMSP-RFC-0011](rfcs/MMSP-RFC-0011-thinking-round-trip.md) | Thinking survives the round trip | rule | Accepted |
-| [MMSP-RFC-0012](rfcs/MMSP-RFC-0012-direct-conversion.md) | Conversion is direct and carries nothing redundant | rule | Accepted |
+| [MMSP-RFC-0003](rfcs/MMSP-RFC-0003-async-streaming.md) | Every request is an async stream | rule | Accepted |
+| [MMSP-RFC-0004](rfcs/MMSP-RFC-0004-lean-messages.md) | Messages stay lean | rule | Accepted |
+| [MMSP-RFC-0005](rfcs/MMSP-RFC-0005-essential-fields.md) | Essential fields are never dropped | rule | Accepted |
+| [MMSP-RFC-0006](rfcs/MMSP-RFC-0006-explicit-routing.md) | Client routing is explicit | rule | Accepted |
+| [MMSP-RFC-0007](rfcs/MMSP-RFC-0007-credential-scope.md) | Keys stay safe | rule | Accepted |
+| [MMSP-RFC-0008](rfcs/MMSP-RFC-0008-immutable-history.md) | History does not change | rule | Accepted |
+| [MMSP-RFC-0009](rfcs/MMSP-RFC-0009-typed-errors.md) | Every error is typed | rule | Accepted |
+| [MMSP-RFC-0010](rfcs/MMSP-RFC-0010-thinking-levels-usable.md) | Every thinking level is supported | rule | Accepted |
+| [MMSP-RFC-0011](rfcs/MMSP-RFC-0011-explicit-parameters.md) | Request parameters are never fuzzy-matched | rule | Accepted |
+| [MMSP-RFC-0012](rfcs/MMSP-RFC-0012-interruptible-requests.md) | A request can be interrupted | rule | Accepted |
+| [MMSP-RFC-0013](rfcs/MMSP-RFC-0013-direct-implementation.md) | Implementation code is straightforward | rule | Accepted |
 
 A `rule` is an invariant the code keeps; a `change` changes the protocol or the public API; `process` is how this folder works. The status is `Accepted` or `Superseded by MMSP-RFC-NNNN`, so the rules in force are the `rule` rows that are Accepted. A proposed RFC is an open PR (`gh pr list --search "MMSP-RFC-"`) and a withdrawn one a closed PR; neither has a row.
+
+The rule RFCs were renumbered once, on 2026-10-24, by the owner's order; [MMSP-RFC-0001](rfcs/MMSP-RFC-0001-rfc-process.md) maps the numbers of 0.5.5 to today's.
 
 | File | Holds |
 | --- | --- |
