@@ -1,28 +1,57 @@
 {
-  "days": 90,
+  "days": 365,
   "targets": {
-    "deepseek-official|https://api.deepseek.com|deepseek-flash": {
+    "deepseek-official+https://api.deepseek.com+deepseek-flash": {
       "2026-10-23": {
         "status": "up",
         "ttft_ms": 835,
         "tps": 100.8,
         "cost_usd": 0.000692
+      },
+      "2026-10-24": {
+        "status": "up",
+        "ok": 3,
+        "ttft_ms": 1075,
+        "tps": 112.7,
+        "cost_usd": 0.00091771,
+        "error": null,
+        "samples": 3
       }
     },
-    "google-genai|https://aiplatform.googleapis.com|gemini-3.8-flash": {
+    "google-genai+https://aiplatform.googleapis.com+gemini-3.8-flash": {
       "2026-10-23": {
         "status": "up",
         "ttft_ms": 28041,
         "tps": 87.2,
         "cost_usd": 0.0087885
+      },
+      "2026-10-24": {
+        "status": "up",
+        "ok": 3,
+        "ttft_ms": 2087,
+        "tps": 82.2,
+        "cost_usd": 0.008631,
+        "error": null,
+        "samples": 3
       }
     },
-    "deepseek-official|https://tokendance.space/gateway/v1|deepseek-v4.1-flash": {
+    "deepseek-official+https://tokendance.space/gateway/v1+deepseek-v4.1-flash": {
       "2026-10-23": {
         "status": "up",
         "ttft_ms": 3107,
         "tps": 135.3,
         "cost_usd": 0.0007424
+      }
+    },
+    "openai-chat+https://tokendance.space/gateway/v1+deepseek-v4.1-flash": {
+      "2026-10-24": {
+        "status": "up",
+        "ok": 3,
+        "ttft_ms": 1070,
+        "tps": 90.8,
+        "cost_usd": 0.0008,
+        "error": null,
+        "samples": 3
       }
     }
   }
