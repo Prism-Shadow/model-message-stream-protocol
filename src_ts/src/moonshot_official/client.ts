@@ -45,7 +45,7 @@ import {
 } from "../utils";
 
 /**
- * Kimi K3-specific LLM client implementation using OpenAI-compatible API (also serves K2.5 and K2.6).
+ * Kimi K3-series LLM client (K3, K3.1 Pro) using the OpenAI-compatible API; also serves the K2 generation.
  */
 export class MoonshotOfficialClient extends LLMClient {
   protected _model: string;
@@ -150,15 +150,14 @@ export class MoonshotOfficialClient extends LLMClient {
 
   /**
    * Convert ThinkingLevel enum to Kimi K3's reasoning_effort.
-   *
-   * K3 cannot disable reasoning, so NONE degrades to the lowest effort
-   * instead of throwing.
    */
   private _convertThinkingLevelToReasoningEffort(
     thinkingLevel: ThinkingLevel,
   ): string {
     const mapping: { [key: string]: string } = {
-      [ThinkingLevel.NONE]: "low",
+      // "none" turns reasoning off on the K3 series (verified live 2026-10-23; the docs list
+      // only low/high/max)
+      [ThinkingLevel.NONE]: "none",
       [ThinkingLevel.LOW]: "low",
       [ThinkingLevel.MEDIUM]: "high",
       [ThinkingLevel.HIGH]: "high",
@@ -182,8 +181,8 @@ export class MoonshotOfficialClient extends LLMClient {
     ) {
       return "required";
     } else {
-      // the K2 generation rejects "required"; forcing a specific tool is
-      // unsupported family-wide
+      // the K2 generation rejects "required"; the K3 series takes a forced tool only with
+      // reasoning off, so forcing a specific tool stays unsupported family-wide
       throw new UnsupportedParameterError({
         client: this.constructor.name,
         parameter: "tool_choice",
@@ -218,8 +217,8 @@ export class MoonshotOfficialClient extends LLMClient {
     }
 
     if (config.thinking_level !== undefined) {
-      // the K2 generation configures thinking through a top-level thinking key and
-      // can disable it; K3 uses reasoning_effort and cannot
+      // the K2 generation configures thinking through a top-level thinking key; the K3
+      // series uses reasoning_effort
       if (this._model.toLowerCase().includes("k2.")) {
         kimiConfig.thinking = this._convertThinkingLevelToThinkingConfig(
           config.thinking_level,
@@ -250,13 +249,21 @@ export class MoonshotOfficialClient extends LLMClient {
     }
 
     if (
+      config.prompt_caching === PromptCaching.ENHANCE &&
+      !this._model.toLowerCase().includes("k2.")
+    ) {
+      // the K3 series writes its automatic prefix cache with a 5m TTL; enhance asks for the
+      // 1h cache, at twice the cache-write price
+      kimiConfig.prompt_cache_options = { mode: "implicit", ttl: "1h" };
+    } else if (
       config.prompt_caching !== undefined &&
       config.prompt_caching !== PromptCaching.ENABLE
     ) {
       throw new UnsupportedParameterError({
         client: this.constructor.name,
         parameter: "prompt_caching",
-        message: "prompt_caching must be ENABLE for Kimi.",
+        message:
+          "Kimi does not support this prompt_caching (disable has no equivalent; enhance needs Kimi K3).",
       });
     }
 

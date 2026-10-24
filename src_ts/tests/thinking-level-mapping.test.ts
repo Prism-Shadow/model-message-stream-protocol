@@ -248,8 +248,8 @@ describe("thinking switch reaches the wire", () => {
 // What each remaining client puts on the wire for a level, per its vendor's effort
 // vocabulary: OpenAI takes the full set except on GPT-6, which rejects "none" and
 // "minimal" so NONE degrades to low (GPT-6 Luna takes none); Claude tops out at max (xhigh
-// only from 4.7), DeepSeek and Kimi accept low/high/max, DeepSeek turns thinking off with
-// none, Kimi K3 cannot and runs NONE at low, MiniMax-M3 has no level above high, and
+// only from 4.7), DeepSeek and Kimi accept low/high/max, DeepSeek and the Kimi K3 series
+// turn thinking off with none, MiniMax-M3 has no level above high, and
 // MiniMax-M3.1-Flash cannot turn thinking off but takes low through max.
 const THINKING_EFFORT_CASES: Array<
   [string, string | undefined, ThinkingLevel, string | undefined]
@@ -307,12 +307,17 @@ const THINKING_EFFORT_CASES: Array<
   // DeepSeek maps xhigh onto high server-side, so the client sends high.
   ["deepseek-v4", undefined, ThinkingLevel.XHIGH, "high"],
   ["deepseek-v4", undefined, ThinkingLevel.MAX, "max"],
-  ["kimi-k3", undefined, ThinkingLevel.NONE, "low"],
+  ["kimi-k3", undefined, ThinkingLevel.NONE, "none"],
   ["kimi-k3", undefined, ThinkingLevel.LOW, "low"],
   ["kimi-k3", undefined, ThinkingLevel.MEDIUM, "high"],
   ["kimi-k3", undefined, ThinkingLevel.HIGH, "high"],
   ["kimi-k3", undefined, ThinkingLevel.XHIGH, "max"],
   ["kimi-k3", undefined, ThinkingLevel.MAX, "max"],
+  ["kimi-k3.1-pro", undefined, ThinkingLevel.NONE, "none"],
+  ["kimi-k3.1-pro", undefined, ThinkingLevel.LOW, "low"],
+  ["kimi-k3.1-pro", undefined, ThinkingLevel.MEDIUM, "high"],
+  ["kimi-k3.1-pro", undefined, ThinkingLevel.XHIGH, "max"],
+  ["kimi-k3.1-pro-highspeed", undefined, ThinkingLevel.MAX, "max"],
   ["MiniMax-M3", undefined, ThinkingLevel.NONE, "none"],
   ["MiniMax-M3", undefined, ThinkingLevel.LOW, "low"],
   ["MiniMax-M3", undefined, ThinkingLevel.MEDIUM, "medium"],
