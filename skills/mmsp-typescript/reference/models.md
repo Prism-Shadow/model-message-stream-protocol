@@ -55,7 +55,7 @@ Use exact model IDs, and pass the model's client type as `clientType`. If a mode
 | GLM-5.3 | SiliconFlow | `zai-org/GLM-5.3`, `zai-org/GLM-5.3-Flash` | `zai-official` | `ZAI_API_KEY` | `ZAI_BASE_URL` |
 | GLM-5.3 | TokenDance | `glm-5.3`, `glm-5.3-flash` | `zai-official` | `ZAI_API_KEY` | `ZAI_BASE_URL` (`https://tokendance.space/gateway/v1`) |
 | MiniMax-M3.1 | Official | `MiniMax-M3.1-Flash` | `minimax-official` | `MINIMAX_API_KEY` | `MINIMAX_BASE_URL` |
-| MiniMax-M3.1 | OpenRouter | `minimax/minimax-m3.1-flash:free` | `openai-responses` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
+| MiniMax-M3.1 | OpenRouter | `minimax/minimax-m3.1-flash` | `openai-responses` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
 | MiniMax-M3 | Official | `MiniMax-M3` | `minimax-official` | `MINIMAX_API_KEY` | `MINIMAX_BASE_URL` |
 
 `google-official` serves Gemini models through the Interactions API with a Gemini API key. On Vertex AI, pass `clientType: "google-genai"`, which speaks generateContent, with the service-account JSON key; Vertex AI serves no Gemini model through Interactions, and `google-official` refuses a service-account key. Embedding models use `embedContent` on either client. Thought signatures only replay on the endpoint that issued them, so a history recorded with an API key cannot move to a Vertex AI key with its signatures, or the reverse.
@@ -68,7 +68,14 @@ Common gateway base URLs:
 - Google Vertex AI: `https://aiplatform.googleapis.com` (`google-genai`, the service-account JSON as the key)
 - Amazon Bedrock: `bedrock://<region>`, such as `bedrock://us-east-1` (`anthropic-official`, `ACCESS_KEY,SECRET_KEY` as the key)
 - ModelVerse: `https://api.modelverse.cn/v1` (`https://api.modelverse.cn/` for Claude)
-- vLLM: `http://127.0.0.1:8000/v1/`
+- OpenCode Go, one key `OPENCODE_API_KEY` for three bases: `https://opencode.ai/inference/go/openai/v1` (`openai-responses` for `gpt-6-luna`, `gpt-5.6-luna`, `grok-4.7` and the Muse Spark models, `openai-chat` for the rest), `https://opencode.ai/inference/go/anthropic` (`ant-messages` for `claude-haiku-5-5`, `minimax-m3` and the Qwen models), and `https://opencode.ai/inference/go/google` (`google-genai` for `gemini-4-argon`)
+- Fireworks AI: `https://api.fireworks.ai/inference/v1` (`openai-chat`, ids such as `accounts/fireworks/models/glm-5p3`; `FIREWORKS_API_KEY`)
+- DashScope: `https://dashscope.aliyuncs.com/compatible-mode/v1` (`openai-chat`; `DASHSCOPE_API_KEY`)
+- Qwen Token Plan: `https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1` (`openai-chat`; `QWEN_TOKEN_PLAN_API_KEY`, a Token Plan key, which works only at this endpoint)
+- Atlas Cloud: `https://api.atlascloud.ai/v1` (`openai-chat`; `ATLASCLOUD_API_KEY`)
+- Penguin Go: `https://go.penguin.ooo/api/v1` (`mmsp`, an MMSP server; `PENGUIN_GO_API_KEY`)
+- ModelScope: `https://api-inference.modelscope.cn/v1` (`openai-responses`; `MODELSCOPE_API_KEY`, the account's access token)
+- vLLM: `http://127.0.0.1:8000/v1/` (`openai-chat-vllm-adapter`; `VLLM_API_KEY` only when the server is started with one)
 
 Every client type, and what it speaks:
 

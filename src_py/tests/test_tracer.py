@@ -14,14 +14,17 @@
 
 import json
 import os
+import re
 import shutil
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 from flask import Flask
 
 from mmsp.base_client import LLMClient
+from mmsp.errors import UnsupportedParameterError
 from mmsp.integration.tracer import Tracer
 
 
@@ -123,6 +126,101 @@ def test_save_history_overwrites_existing(temp_cache_dir):
     assert "First message" in content2
     assert "Second message" in content2
     assert "Response" in content2
+
+
+def test_save_history_appends_the_suffixes_to_a_trace_id_with_a_dot(temp_cache_dir):
+    """Test that a trace id keeps what follows its dot, and the viewer opens the files."""
+    tracer = Tracer(cache_dir=temp_cache_dir)
+    history = [{"role": "user", "content_items": [{"type": "text.done", "text": "Test"}]}]
+    tracer.save_history("fake-model", history, "agent/v1.2", {})
+
+    assert sorted(os.listdir(Path(temp_cache_dir) / "agent")) == ["v1.2.json", "v1.2.txt"]
+    with tracer.create_web_app().test_client() as client:
+        assert client.get("/agent/v1.2.json").status_code == 200
+        assert client.get("/agent/v1.2.txt").status_code == 200
+
+
+def test_save_history_writes_the_timestamp_in_utc_as_javascript_does(temp_cache_dir):
+    """Test that the saved timestamp is UTC with milliseconds and a Z, as new Date().toISOString() writes it."""
+    tracer = Tracer(cache_dir=temp_cache_dir)
+    tracer.save_history("fake-model", [], "test/timestamp", {})
+
+    with open(Path(temp_cache_dir) / "test" / "timestamp.json", encoding="utf-8") as f:
+        timestamp = json.load(f)["timestamp"]
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z", timestamp)
+    assert abs((datetime.now(timezone.utc) - datetime.fromisoformat(timestamp)).total_seconds()) < 60
+
+
+@pytest.mark.parametrize(
+    "trace_id",
+    ["", ".", "..", "agent/..", "../outside", "agent/../../outside", "{tmp_path}/outside", "{tmp_path}/cache/inside"],
+)
+def test_save_history_refuses_a_trace_id_outside_the_cache_directory(tmp_path, trace_id):
+    """Test that an empty, absolute or escaping trace id raises UnsupportedParameterError and writes nothing."""
+    tracer = Tracer(cache_dir=str(tmp_path / "cache"))
+    trace_id = trace_id.format(tmp_path=tmp_path)
+
+    with pytest.raises(UnsupportedParameterError) as exc_info:
+        tracer.save_history("fake-model", [], trace_id, {})
+
+    assert exc_info.value.client == "Tracer"
+    assert exc_info.value.parameter == "trace_id"
+    assert str(exc_info.value) == (
+        f"Tracer does not support trace_id '{trace_id}': "
+        "it must be a relative path that stays inside the cache directory."
+    )
+    assert [path.name for path in tmp_path.rglob("*")] == ["cache"]
+
+
+@pytest.mark.parametrize(
+    ("trace_id", "files"),
+    [
+        ("agent/../kept", ["kept.json", "kept.txt"]),
+        ("agent/run/..", ["agent.json", "agent.txt"]),
+        ("trailing/", ["trailing.json", "trailing.txt"]),
+    ],
+)
+def test_save_history_keeps_a_trace_id_that_stays_inside_the_cache_directory(temp_cache_dir, trace_id, files):
+    """Test that a trace id with a .. that stays inside, or a trailing slash, saves under its normalized path."""
+    tracer = Tracer(cache_dir=temp_cache_dir)
+    tracer.save_history("fake-model", [], trace_id, {})
+
+    assert sorted(os.listdir(temp_cache_dir)) == files
+
+
+def test_a_symlink_leading_outside_the_cache_directory_is_refused_and_one_inside_is_followed(tmp_path):
+    """Test that the writer and the viewer resolve symlinks before they check that a path stays inside."""
+    cache_dir = tmp_path / "cache"
+    (tmp_path / "outside").mkdir()
+    (tmp_path / "outside" / "secret.txt").write_text("secret", encoding="utf-8")
+    (cache_dir / "real").mkdir(parents=True)
+    (cache_dir / "out").symlink_to(tmp_path / "outside")
+    (cache_dir / "alias").symlink_to(cache_dir / "real")
+    tracer = Tracer(cache_dir=str(cache_dir))
+    history = [{"role": "user", "content_items": [{"type": "text.done", "text": "Test"}]}]
+
+    with pytest.raises(UnsupportedParameterError):
+        tracer.save_history("fake-model", history, "out/conv", {})
+    tracer.save_history("fake-model", history, "alias/conv", {})
+
+    assert sorted(os.listdir(tmp_path / "outside")) == ["secret.txt"]
+    assert sorted(os.listdir(cache_dir / "real")) == ["conv.json", "conv.txt"]
+    with tracer.create_web_app().test_client() as client:
+        assert client.get("/out/secret.txt").status_code == 403
+        assert client.get("/alias/conv.json").status_code == 200
+        listing = client.get("/").data.decode()
+        assert 'href="/alias"' in listing
+        assert 'href="/out"' not in listing
+
+
+def test_an_empty_mmsp_cache_dir_means_the_default_directory(tmp_path, monkeypatch):
+    """Test that an empty MMSP_CACHE_DIR is taken as unset: the cache directory under the working directory."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("MMSP_CACHE_DIR", "")
+    Tracer().save_history("fake-model", [], "conv", {})
+
+    assert sorted(os.listdir(tmp_path)) == ["cache"]
+    assert sorted(os.listdir(tmp_path / "cache")) == ["conv.json", "conv.txt"]
 
 
 def test_format_history_with_different_content_types(temp_cache_dir):
@@ -242,6 +340,35 @@ def test_web_app_security_check(temp_cache_dir):
         assert response.status_code == 403
 
 
+def test_web_app_refuses_a_sibling_whose_name_begins_with_the_cache_directory_name(tmp_path):
+    """Test that a directory beside the cache directory stays out of reach though its name begins the same."""
+    (tmp_path / "cache2").mkdir()
+    (tmp_path / "cache2" / "secret.txt").write_text("secret", encoding="utf-8")
+    tracer = Tracer(cache_dir=str(tmp_path / "cache"))
+
+    with tracer.create_web_app().test_client() as client:
+        for url in ["/../cache2/secret.txt", "/..%2Fcache2/secret.txt"]:
+            assert client.get(url).status_code == 403
+
+
+def test_web_app_opens_traces_whose_names_need_encoding(temp_cache_dir):
+    """Test that the viewer links a trace named with a space, a #, a % or CJK so that the link opens it."""
+    tracer = Tracer(cache_dir=temp_cache_dir)
+    history = [{"role": "user", "content_items": [{"type": "text.done", "text": "Test"}]}]
+    for trace_id in ["run #1", "100%", "会话/001"]:
+        tracer.save_history("fake-model", history, trace_id, {})
+
+    with tracer.create_web_app().test_client() as client:
+        listing = client.get("/").data.decode()
+        for href in ["/run%20%231.json", "/100%25.txt", "/%E4%BC%9A%E8%AF%9D"]:
+            assert f'href="{href}"' in listing
+        assert 'href="/%E4%BC%9A%E8%AF%9D/001.json"' in client.get("/%E4%BC%9A%E8%AF%9D").data.decode()
+        for url in ["/run%20%231.json", "/100%25.txt", "/%E4%BC%9A%E8%AF%9D/001.json"]:
+            response = client.get(url)
+            assert response.status_code == 200
+            assert "Test" in response.data.decode()
+
+
 def test_web_app_nonexistent_path(temp_cache_dir):
     """Test accessing a nonexistent path."""
     tracer = Tracer(cache_dir=temp_cache_dir)
@@ -317,7 +444,7 @@ async def test_monitoring_integration(temp_cache_dir):
 
     os.environ["MMSP_CACHE_DIR"] = temp_cache_dir
     client = _fake_llm_client()
-    config = {"trace_id": "integration_test/conversation.txt"}
+    config = {"trace_id": "integration_test/conversation"}
 
     message = {"role": "user", "content_items": [{"type": "text.done", "text": "Say hello"}]}
     async for _ in client.streaming_response_stateful(message=message, config=config):
@@ -340,7 +467,7 @@ async def test_monitoring_updates_on_multiple_messages(temp_cache_dir):
 
     os.environ["MMSP_CACHE_DIR"] = temp_cache_dir
     client = _fake_llm_client()
-    config = {"trace_id": "multi_message_test/conversation.txt"}
+    config = {"trace_id": "multi_message_test/conversation"}
 
     # First message
     message1 = {"role": "user", "content_items": [{"type": "text.done", "text": "First question"}]}

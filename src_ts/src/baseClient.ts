@@ -19,6 +19,7 @@ import {
   InvalidMessageError,
   StreamProtocolError,
 } from "./errors";
+import type { Tracer } from "./integration/tracer";
 import { normalizeLegacyMessages } from "./legacy";
 import { StreamItems } from "./streamItems";
 import {
@@ -164,6 +165,8 @@ export abstract class LLMClient {
    * @yields Delta events, each carrying one delta or done item, then exactly one stop event
    *   carrying the usage and the finish reason
    * @throws InvalidMessageError A message has no content items, before anything is sent.
+   * @throws UnsupportedParameterError The trace_id leads outside the tracer's cache directory,
+   *   before anything is sent.
    */
   async *streamingResponse(options: {
     messages: UniMessage[];
@@ -183,6 +186,13 @@ export abstract class LLMClient {
           messageIndex: index,
         });
       }
+    }
+
+    let tracer: Tracer | null = null;
+    if (config.trace_id) {
+      // refused before the request, so that a trace the tracer would not save spends no tokens
+      tracer = new (await import("./integration/tracer")).Tracer();
+      tracer.resolveTracePath(config.trace_id, clientName);
     }
 
     // a client yields deltas only: every one goes out as it arrives, in an event of its own, and
@@ -302,8 +312,7 @@ export abstract class LLMClient {
     };
 
     // saved before the stop is yielded: a caller may stop iterating as soon as it sees it
-    if (config.trace_id) {
-      const { Tracer } = await import("./integration/tracer");
+    if (tracer && config.trace_id) {
       const assistantMessage: UniMessage = {
         role: "assistant",
         content_items: doneItems,
@@ -311,7 +320,6 @@ export abstract class LLMClient {
         finish_reason: stopEvent.finish_reason,
         created_at: stopEvent.created_at,
       };
-      const tracer = new Tracer();
       tracer.saveHistory(
         this._model,
         [...requestMessages, assistantMessage],

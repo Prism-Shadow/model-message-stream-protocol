@@ -21,15 +21,15 @@ export function docFile(locale: Locale, doc: DocLink): DocFile {
     : SITE_FILES[locale][`../docs/${doc.slug}.${locale}.md`];
 }
 
-/** The lede under the title; an RFC has none, since its Summary opens it. */
+/** The lede under the title; an RFC has none, since its Abstract opens it. */
 export function docDescription(locale: Locale, doc: DocLink, file: DocFile): string | undefined {
   return doc.description?.[locale] ?? file.frontmatter.description;
 }
 
-/** The meta description of a page without a lede: the first paragraph of its Summary, as text. */
+/** The meta description of a page without a lede: the first paragraph of its Abstract, as text. */
 export function docSummary(file: DocFile): string {
   const raw = file.rawContent();
-  const start = raw.search(/^## Summary$/m);
+  const start = raw.search(/^## Abstract$/m);
   if (start < 0) return "";
   const blocks = raw.slice(start).split(/\n\s*\n/);
   const paragraph = blocks.find((block) => block.trim() && !block.startsWith("#") && !/^\[[^\]]+\]: /.test(block)) ?? "";

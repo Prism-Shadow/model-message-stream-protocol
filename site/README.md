@@ -30,6 +30,7 @@ Node 22.12 or newer.
 | `src/layouts/DocPage.astro` | A documentation page: sidebar, table of contents that follows the reader, Copy Markdown, previous and next |
 | `src/shared/stream-demo.ts` | The input and the streams the overview page replays, and how the stop event is drawn |
 | `src/shared/catalog.ts`, `src/components/ModelCatalog.astro`, `src/pages/models.json.ts` | The model catalog at `/models/` and `/models.json`: every entry of `src_ts/src/registry.ts` with its provider, key variable, price and integration kit, opened in a dialog |
+| `src/pages/models/kits.json.ts`, `src/pages/zh/models/kits.json.ts` | The dialog's kits in each language (`catalogKits`), which the page fetches when a reader first reaches for a code button, so the page carries only the rows |
 | `src/shared/providers.ts` | The providers by base URL (name, mark, key variable) and the vendors by model id; an endpoint not listed is named by its host |
 | `src/shared/status.ts`, `src/components/StatusBoard.astro` | The status page at `/status/`, drawn in the browser from the status probe's files, and its Run a check now button |
 | `src/shared/status-build.ts` | The probe's files as the site is built: `MMSP_STATUS_DIR`, else the `status-data` branch |

@@ -34,6 +34,8 @@ Traces are written under `cache`, or under the directory named by the environmen
 | `cache/agent1/conversation_001.json` | The full history and the config, as data |
 | `cache/agent1/conversation_001.txt` | The conversation as a readable transcript |
 
+`.json` and `.txt` are appended to the id as it is, so `v1.2` writes `v1.2.json`. An id that is empty, absolute, or leads outside the cache directory, through `..` or a symlink, raises `UnsupportedParameterError` before the request is sent.
+
 There is no database and nothing to set up.
 
 ## Read the traces

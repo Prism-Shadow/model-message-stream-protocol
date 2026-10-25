@@ -40,7 +40,7 @@ MiniMax-M3.1-Flash（`MiniMax-M3.1-Flash`）始终思考，支持 `low` 到 `max
 
 匹配不区分大小写，因此 `MiniMax-M3` 也能正确路由。网关的模型 id（如 `moonshotai/kimi-k3`）或 Amazon Bedrock 的 id（如 `global.anthropic.claude-fable-5`）不以已知系列开头，必须显式指定 `client_type`。环境变量 `CLIENT_TYPE` 可为代码中未指定的客户端设置默认值。
 
-代码中的支持模型列表始终保持最新，包含每个模型的 base URL、客户端类型、模态、上下文窗口和标价：
+代码中的支持模型列表始终保持最新，包含每个模型的 base URL、客户端类型、模态、上下文窗口和价格：
 
 <div class="code-group">
 
@@ -106,9 +106,18 @@ client = AutoLLMClient(
 | Google Vertex AI | `https://aiplatform.googleapis.com` | `VERTEX_API_KEY`：服务账号 JSON |
 | Amazon Bedrock | `bedrock://<region>`，例如 `bedrock://us-east-1` | `BEDROCK_API_KEY`：`ACCESS_KEY,SECRET_KEY` |
 | ModelVerse | `https://api.modelverse.cn/v1`，Claude 模型使用 `https://api.modelverse.cn/` | `MODELVERSE_API_KEY` |
-| vLLM | `http://127.0.0.1:8000/v1/` | |
+| OpenCode Go | `https://opencode.ai/inference/go/openai/v1`，Anthropic Messages 使用 `https://opencode.ai/inference/go/anthropic`，Gemini 使用 `https://opencode.ai/inference/go/google` | `OPENCODE_API_KEY` |
+| Fireworks AI | `https://api.fireworks.ai/inference/v1` | `FIREWORKS_API_KEY` |
+| DashScope（阿里云百炼） | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `DASHSCOPE_API_KEY` |
+| Qwen Token Plan | `https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1` | `QWEN_TOKEN_PLAN_API_KEY`：Token Plan 的 key，只能用于这个端点 |
+| Atlas Cloud | `https://api.atlascloud.ai/v1` | `ATLASCLOUD_API_KEY` |
+| Penguin Go | `https://go.penguin.ooo/api/v1` | `PENGUIN_GO_API_KEY` |
+| ModelScope（魔搭） | `https://api-inference.modelscope.cn/v1` | `MODELSCOPE_API_KEY`：账号的访问令牌 |
+| vLLM | `http://127.0.0.1:8000/v1/` | `VLLM_API_KEY`，仅在服务端启动时设置了 key 才需要 |
 
 TokenDance 用一个 key 提供多种协议。它的模型列表写明了每个模型支持的协议；选择支持其中一种协议的客户端，例如 `deepseek-v4.1-flash` 用 `openai-chat`；TokenDance 支持厂商自有 API 时选用厂商的官方客户端：`kimi-k3` 用 `moonshot-official`，`glm-5.3` 用 `zai-official`。
+
+OpenCode Go 也用一个 key 提供多种协议，每种协议各有自己的 base URL，它的文档写明了每个模型用哪种协议：`gpt-6-luna`、`gpt-5.6-luna`、`grok-4.7` 和 Muse Spark 系列用 `openai-responses`；`claude-haiku-5-5`、`minimax-m3` 和 Qwen 系列在 Anthropic 地址上用 `ant-messages`；`gemini-4-argon` 在 Google 地址上用 `google-genai`；其余模型用 `openai-chat`。Fireworks AI、DashScope、Qwen Token Plan 和 Atlas Cloud 上的所有模型都用 `openai-chat`，ModelScope 上的用 `openai-responses`。Penguin Go 是一个 MMSP 服务端，它的模型用 `mmsp`；vLLM 服务端的模型用 `openai-chat-vllm-adapter`。
 
 ## Vertex AI 上的 Gemini
 

@@ -145,6 +145,8 @@ class LLMClient(ABC):
 
         Raises:
             InvalidMessageError: A message has no content items, before anything is sent.
+            UnsupportedParameterError: The trace_id leads outside the tracer's cache directory, before
+                anything is sent.
         """
         client_name = self.__class__.__name__
         _stamp_created_at(messages)
@@ -154,6 +156,14 @@ class LLMClient(ABC):
                 raise InvalidMessageError(
                     client_name, f"message {index} has nothing {client_name} can send", message_index=index
                 )
+
+        tracer = None
+        if config.get("trace_id"):
+            from .integration.tracer import Tracer
+
+            # refused before the request, so that a trace the tracer would not save spends no tokens
+            tracer = Tracer()
+            tracer.resolve_trace_path(config["trace_id"], client_name)
 
         if signal is not None:
             signal.throw_if_aborted()
@@ -295,9 +305,7 @@ class LLMClient(ABC):
         }
 
         # saved before the stop is yielded: a caller may stop iterating as soon as it sees it
-        if config.get("trace_id"):
-            from .integration.tracer import Tracer
-
+        if tracer is not None:
             assistant_message: UniMessage = {
                 "role": "assistant",
                 "content_items": done_items,
@@ -305,7 +313,6 @@ class LLMClient(ABC):
                 "finish_reason": stop_event["finish_reason"],
                 "created_at": stop_event["created_at"],
             }
-            tracer = Tracer()
             tracer.save_history(self._model, request_messages + [assistant_message], config["trace_id"], config)
 
         yield stop_event

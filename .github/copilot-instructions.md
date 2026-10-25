@@ -23,7 +23,7 @@ MMSP, the Model Message Stream Protocol: one message format and one streaming gr
 
 - `site/` - The site at mmsp.penguin.ooo (Astro): the overview page, the documentation, and the sources of the artwork in `.github/images/`
 
-- `design/` - The design: `rfcs/` holds the rules MMSP keeps and the decisions that changed it, one RFC per file; `design/README.md` indexes them and says when a change needs an RFC
+- `design/` - The design: `rfcs/` holds the specifications MMSP conforms to and the decisions that changed it, one RFC per file; `design/README.md` indexes them and says when a change needs an RFC
 
 - `llmsdk_docs/` - **Reference documentation for AI model SDKs**
   - See this directory for detailed development guidelines and code conventions
@@ -50,20 +50,20 @@ MMSP, the Model Message Stream Protocol: one message format and one streaming gr
 - Follow TypeScript strict mode conventions
 - Run `make lint` and `make test` from `src_ts/` before committing
 
-## Rules and RFCs
+## Specifications and RFCs
 
-- The rules every change keeps are the accepted rule RFCs in the index of `design/README.md`. When the code and a rule disagree, the rule wins: fix the code, or supersede the rule first through an RFC.
-- A change to a rule, to the message or stream shapes, to the public API, to what routing or the credential rule means, or anything breaking, starts as an RFC: copy `design/0000-template.md` to `design/rfcs/MMSP-RFC-NNNN-<slug>.md` and open a PR to `dev`. `design/README.md` has the process.
-- A client's transforms are direct (MMSP-RFC-0013) and keep nothing redundant (MMSP-RFC-0004); what a replay must keep, and the usage and finish reason every stream ends with, are MMSP-RFC-0005.
-- A request can be interrupted: an abort or a closed generator closes the provider's request (MMSP-RFC-0012). The history does not change, and nothing but `created_at` is written to a caller's message (MMSP-RFC-0008).
+- The specifications every change conforms to are the accepted spec RFCs in the index of `design/README.md`. When the code and a specification disagree, the specification wins: fix the code, or supersede the specification first through an RFC.
+- A change to a specification, to the message or stream shapes, to the public API, to what routing or the credential rule means, or anything breaking, starts as an RFC: copy `design/0000-template.md` to `design/rfcs/MMSP-RFC-NNNN-<slug>.md` and open a PR to `dev`. `design/README.md` has the process.
+- A client's transforms are direct (MMSP-RFC-0009) and keep nothing redundant (MMSP-RFC-0002); what a replay must keep is MMSP-RFC-0004, and the usage and finish reason every stream ends with are MMSP-RFC-0003.
+- A request can be interrupted: an abort or a closed generator closes the provider's request (MMSP-RFC-0008). The history does not change, and nothing but `created_at` is written to a caller's message (MMSP-RFC-0004).
 
 ## Implementation Rules
 
 When adding support for new AI models, follow these rules:
 
-1. A client is named by its `client_type`, and `auto_client.py` / `autoClient.ts` create the client that type names from one table. An **official client** per vendor (`openai-official`, `anthropic-official`, `google-official`, `zai-official`, `moonshot-official`, `deepseek-official`, `minimax-official`) lives in a folder named after it (`openai_official/`) and serves every generation of that vendor's models; a **compatible client** per wire protocol (`openai-chat`, `openai-responses`, `ant-messages`, ...) serves any endpoint that speaks it. (MMSP-RFC-0006)
-2. A new generation of a vendor's models goes into the vendor's official client. Inside it, tell generations apart by explicit version (e.g. `"4-6" in self._model`), never by a bare substring like `if "claude" in model.lower()`, and keep the older generations working. (MMSP-RFC-0011)
-3. Without a `client_type`, the family a model id begins with (`gpt-`, `claude-`, `gemini-`, `glm-`, `kimi-`, `deepseek-`, `minimax-`) names its official client; an id of no known family raises and asks for a `client_type`. A new vendor adds its family to that table. **DO NOT** add any other routing rule on model ids. (MMSP-RFC-0006)
+1. A client is named by its `client_type`, and `auto_client.py` / `autoClient.ts` create the client that type names from one table. An **official client** per vendor (`openai-official`, `anthropic-official`, `google-official`, `zai-official`, `moonshot-official`, `deepseek-official`, `minimax-official`) lives in a folder named after it (`openai_official/`) and serves every generation of that vendor's models; a **compatible client** per wire protocol (`openai-chat`, `openai-responses`, `ant-messages`, ...) serves any endpoint that speaks it. (MMSP-RFC-0005)
+2. A new generation of a vendor's models goes into the vendor's official client. Inside it, tell generations apart by explicit version (e.g. `"4-6" in self._model`), never by a bare substring like `if "claude" in model.lower()`, and keep the older generations working. (MMSP-RFC-0003)
+3. Without a `client_type`, the family a model id begins with (`gpt-`, `claude-`, `gemini-`, `glm-`, `kimi-`, `deepseek-`, `minimax-`) names its official client; an id of no known family raises and asks for a `client_type`. A new vendor adds its family to that table. **DO NOT** add any other routing rule on model ids. (MMSP-RFC-0005)
 4. **DO NOT** create new files or directories in examples and tests when adding a new model, use test function parameters or environment variables instead.
 5. **Always** consult the [llmsdk_docs/README.md](../llmsdk_docs/README.md) for AI model SDK usage details.
 

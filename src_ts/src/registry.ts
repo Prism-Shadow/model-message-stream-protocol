@@ -16,12 +16,12 @@ export type Modality = "Text" | "Image" | "Video" | "Audio" | "Embed";
 export type Currency = "USD" | "CNY";
 
 /**
- * List prices per million tokens for MMSP's usage buckets.
+ * Prices per million tokens for MMSP's usage buckets.
  *
  * Keys mirror `usage_metadata`: `cached_tokens` (cache-hit price, absent when
  * the platform publishes none), `prompt_tokens` (non-cached input), and
- * `thoughts_tokens`/`response_tokens`, which both carry the vendor's output
- * price. Values are in the currency requested from listSupportedModels.
+ * `thoughts_tokens`/`response_tokens`, which both carry the output price.
+ * Values are in the currency requested from listSupportedModels.
  */
 export interface ModelPricing {
   currency: Currency;
@@ -39,8 +39,13 @@ export interface ModelPricing {
  * Modalities describe what is usable through that client; `context_window` and
  * `pricing` are omitted where the platform publishes no authoritative value.
  *
- * `pricing` is always the LIST price. A running promotion is deliberately not recorded: the
- * registry's job is the catalog price, and applying a promotion is the consumer's.
+ * `pricing` is the standing price the row's platform publishes, which is not always the model
+ * vendor's list price. A vendor's own endpoint stores its list price. A gateway stores the rate it
+ * bills, which can be lower: the TokenDance rows store the catalog's `items` rate, below the
+ * `reference` price it shows beside some models. A subscription gateway stores what a request
+ * draws from the plan's allowance, and a self-hosted server zero. A price tiered by prompt length
+ * stores its first tier, and a price by time of day its off-peak rate. A running promotion is not
+ * recorded: applying one is the consumer's job.
  */
 export interface SupportedModel {
   model: string;
@@ -65,10 +70,21 @@ const VERTEX = "https://aiplatform.googleapis.com";
 const BEDROCK = "bedrock://us-east-1";
 const TOKENDANCE = "https://tokendance.space/gateway/v1";
 const TOKENDANCE_ANTHROPIC = "https://tokendance.space/gateway";
+const OPENCODE_GO = "https://opencode.ai/inference/go/openai/v1";
+const OPENCODE_GO_ANTHROPIC = "https://opencode.ai/inference/go/anthropic";
+const OPENCODE_GO_GOOGLE = "https://opencode.ai/inference/go/google";
+const FIREWORKS = "https://api.fireworks.ai/inference/v1";
+const DASHSCOPE = "https://dashscope.aliyuncs.com/compatible-mode/v1";
+const QWEN_TOKEN_PLAN =
+  "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1";
+const ATLASCLOUD = "https://api.atlascloud.ai/v1";
+const PENGUIN_GO = "https://go.penguin.ooo/api/v1";
+const MODELSCOPE = "https://api-inference.modelscope.cn/v1";
+const VLLM_LOCAL = "http://127.0.0.1:8000/v1";
 
 // Display convention shared with the MMSP apps: prices are stored in USD
-// (official CNY list prices pre-converted at 7 CNY/USD), so requesting CNY
-// shows the vendor's numbers.
+// (CNY prices pre-converted at 7 CNY/USD), so requesting CNY shows the
+// platform's numbers.
 const CNY_PER_USD = 7.0;
 
 function usd(prompt: number, output: number, cached?: number): ModelPricing {
@@ -83,8 +99,7 @@ function usd(prompt: number, output: number, cached?: number): ModelPricing {
 }
 
 /**
- * Declare a CNY-denominated official list price; storage stays USD (converted
- * at 7 CNY/USD).
+ * Declare a CNY-denominated price; storage stays USD (converted at 7 CNY/USD).
  */
 function cny(prompt: number, output: number, cached?: number): ModelPricing {
   const rate = (v: number): number => Math.round((v / CNY_PER_USD) * 1e6) / 1e6;
@@ -95,12 +110,14 @@ function cny(prompt: number, output: number, cached?: number): ModelPricing {
   );
 }
 
-// Prices in USD per million tokens (CNY list prices pre-converted at 7 CNY/USD).
-// Each platform section names where its data was read and when. Gateway rows
-// list only the input modalities their client can send: the OpenAI-protocol
-// clients carry text and images, not video or audio.
+// Prices in USD per million tokens (CNY prices pre-converted at 7 CNY/USD).
+// Each platform's section opens with one header,
+// `--- <platform> (<rows>; <key>; <sources>, read <date>)`, then its notes.
+// Gateway rows list only the input modalities their client can send: the
+// OpenAI-protocol clients carry text and images, not video or audio.
 const SUPPORTED_MODELS: SupportedModel[] = [
-  // official vendor endpoints
+  // --- Official vendor endpoints (55 rows; each vendor's own key variable; list prices from each
+  // vendor's pricing page, the rows added 2026-10-24 naming their page and read date)
   {
     model: "gemini-4-argon",
     base_url: GOOGLE,
@@ -157,6 +174,39 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Text"],
     context_window: 1048576,
     pricing: usd(1.5, 9.0, 0.15),
+  },
+  {
+    // ai.google.dev/gemini-api/docs/pricing (read 2026-10-24), the tier for prompts up to 200K
+    // tokens; above, $4 input, $18 output, $0.40 cache read
+    model: "gemini-3.1-pro-preview",
+    base_url: GOOGLE,
+    client: "google-official",
+    input_modalities: ["Text", "Image", "Video", "Audio"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(2.0, 12.0, 0.2),
+  },
+  {
+    // ai.google.dev/gemini-api/docs/pricing (read 2026-10-24); audio input costs $0.50 and its
+    // cache read $0.05
+    model: "gemini-3.1-flash-lite",
+    base_url: GOOGLE,
+    client: "google-official",
+    input_modalities: ["Text", "Image", "Video", "Audio"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.25, 1.5, 0.025),
+  },
+  {
+    // ai.google.dev/gemini-api/docs/pricing (read 2026-10-24); audio input costs $1 and its cache
+    // read $0.10
+    model: "gemini-3-flash-preview",
+    base_url: GOOGLE,
+    client: "google-official",
+    input_modalities: ["Text", "Image", "Video", "Audio"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.5, 3.0, 0.05),
   },
   {
     model: "gemini-3.1-flash-lite-image",
@@ -276,6 +326,17 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(5.0, 25.0, 0.5),
   },
   {
+    // platform.claude.com/docs/en/about-claude/pricing (read 2026-10-24); the 1M window as the
+    // penguin-harness catalog and OpenRouter's Anthropic endpoint list it
+    model: "claude-opus-4-7",
+    base_url: ANTHROPIC,
+    client: "anthropic-official",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(5.0, 25.0, 0.5),
+  },
+  {
     model: "claude-sonnet-4-6",
     base_url: ANTHROPIC,
     client: "anthropic-official",
@@ -330,6 +391,18 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(5.0, 30.0, 0.5),
   },
   {
+    // the bare alias of gpt-5.6-sol, at that row's list price;
+    // developers.openai.com/api/docs/pricing (read 2026-10-24) shows Sol's promotional $4 input,
+    // $20 output, $0.40 cache read through at least 2026-11-21
+    model: "gpt-5.6",
+    base_url: OPENAI,
+    client: "openai-official",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1050000,
+    pricing: usd(5.0, 30.0, 0.5),
+  },
+  {
     model: "gpt-5.6-terra",
     base_url: OPENAI,
     client: "openai-official",
@@ -355,6 +428,59 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Text"],
     context_window: 1050000,
     pricing: usd(5.0, 30.0, 0.5),
+  },
+  {
+    // developers.openai.com/api/docs/pricing (read 2026-10-24), the tier under 272K context ($60
+    // input, $270 output above); no cache price
+    model: "gpt-5.5-pro",
+    base_url: OPENAI,
+    client: "openai-official",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1050000,
+    pricing: usd(30.0, 180.0),
+  },
+  {
+    // developers.openai.com/api/docs/pricing (read 2026-10-24), the tier under 272K context ($5
+    // input, $22.50 output, $0.50 cache read above)
+    model: "gpt-5.4",
+    base_url: OPENAI,
+    client: "openai-official",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1050000,
+    pricing: usd(2.5, 15.0, 0.25),
+  },
+  {
+    // developers.openai.com/api/docs/pricing (read 2026-10-24), the tier under 272K context ($60
+    // input, $270 output above); no cache price
+    model: "gpt-5.4-pro",
+    base_url: OPENAI,
+    client: "openai-official",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1050000,
+    pricing: usd(30.0, 180.0),
+  },
+  {
+    // developers.openai.com/api/docs/pricing (read 2026-10-24)
+    model: "gpt-5.4-mini",
+    base_url: OPENAI,
+    client: "openai-official",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 400000,
+    pricing: usd(0.75, 4.5, 0.075),
+  },
+  {
+    // developers.openai.com/api/docs/pricing (read 2026-10-24)
+    model: "gpt-5.4-nano",
+    base_url: OPENAI,
+    client: "openai-official",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 400000,
+    pricing: usd(0.2, 1.25, 0.02),
   },
   {
     model: "MiniMax-M3",
@@ -400,8 +526,8 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
     context_window: 1000000,
-    // official list price (verified 2026-08-26); a launch discount halves all three
-    // rates through 2026-09-09 (UTC+8)
+    // official list price (verified 2026-08-26); a launch discount halves all three rates
+    // through 2026-09-09 (UTC+8)
     pricing: usd(0.15, 0.5, 0.03),
   },
   {
@@ -421,6 +547,17 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Text"],
     context_window: 200000,
     pricing: usd(1.4, 4.4, 0.26),
+  },
+  {
+    // docs.z.ai/guides/overview/pricing (read 2026-10-24); the 200K window from the
+    // penguin-harness catalog
+    model: "glm-5",
+    base_url: ZAI,
+    client: "zai-official",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 200000,
+    pricing: usd(1.0, 3.2, 0.2),
   },
   {
     // official list price (2026-10-23); the default 5m cache write costs the input price, so
@@ -460,6 +597,17 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Text"],
     context_window: 262144,
     pricing: cny(6.5, 27.0, 1.1),
+  },
+  {
+    // Moonshot's pricing page (read 2026-10-24) no longer lists K2.5 and closes the K2 series to
+    // new users from 2026-10-31; the price and window are the penguin-harness catalog's
+    model: "kimi-k2.5",
+    base_url: MOONSHOT,
+    client: "moonshot-official",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: cny(4.0, 21.0, 0.7),
   },
   {
     // DeepSeek-V4.1-Flash; DeepSeek also serves deepseek-v4-flash and
@@ -509,11 +657,33 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     // (Beijing 9:00-12:00, 14:00-18:00) are double
     pricing: cny(4.5, 13.5, 0.15),
   },
-  // OpenRouter (USD prices, context windows and modalities from the live models API,
-  // https://openrouter.ai/api/v1/models, read 2026-10-19). The API quotes one endpoint per
-  // model; where that endpoint runs a promotion (a nonzero `discount` in the model's
-  // /endpoints list), the row stores the model vendor's own endpoint at its undiscounted
-  // rate, or the quoted endpoint's undiscounted rate when the vendor serves none there.
+  // --- OpenRouter (123 rows; key OPENROUTER_API_KEY; USD prices, context windows and modalities
+  // from the live models API https://openrouter.ai/api/v1/models and each model's
+  // /api/v1/models/{slug}/endpoints list, read 2026-10-24). The API quotes one endpoint per model;
+  // where that endpoint runs a promotion (a nonzero `discount` in its /endpoints entry), the row
+  // stores the model vendor's own endpoint at its undiscounted rate, or the quoted endpoint's
+  // undiscounted rate when the vendor serves none there. A vendor's own promotion that the API
+  // quotes as the plain price is not recorded either: the vendor's list price is stored. Rows
+  // whose model id names a family with an official client (deepseek/, moonshotai/, z-ai/) use
+  // that client; the rest use openai-responses.
+  {
+    model: "amazon/nova-premier-v1",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(2.5, 12.5, 0.625),
+  },
+  {
+    model: "amazon/nova-2-lite-v1",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.3, 2.5),
+  },
   {
     model: "anthropic/claude-fable-5.1",
     base_url: OPENROUTER,
@@ -542,6 +712,8 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(2.0, 10.0, 0.1),
   },
   {
+    // rates for prompts up to 100K tokens; the listing bills every rate 5x from 100,000 prompt
+    // tokens
     model: "anthropic/claude-haiku-5.5",
     base_url: OPENROUTER,
     client: "openai-responses",
@@ -587,6 +759,15 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(5.0, 25.0, 0.5),
   },
   {
+    model: "anthropic/claude-opus-4.6",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(5.0, 25.0, 0.5),
+  },
+  {
     model: "anthropic/claude-sonnet-5",
     base_url: OPENROUTER,
     client: "openai-responses",
@@ -596,13 +777,81 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(2.0, 10.0, 0.2),
   },
   {
+    model: "anthropic/claude-haiku-4.5",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 200000,
+    pricing: usd(1.0, 5.0, 0.1),
+  },
+  {
+    model: "bytedance-seed/seed-2-1-turbo",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.5, 2.5),
+  },
+  {
+    // rates for prompts up to 128K tokens ($1 input, $6 output above); the listing's
+    // expiration_date is 2026-11-11
+    model: "bytedance-seed/seed-2.0-code",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.5, 3.0),
+  },
+  {
+    // rates for prompts up to 128K tokens ($0.50 input, $4 output above)
+    model: "bytedance-seed/seed-2.0-lite",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.25, 2.0),
+  },
+  {
+    // rates for prompts up to 128K tokens ($0.20 input, $0.80 output above)
+    model: "bytedance-seed/seed-2.0-mini",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.1, 0.4),
+  },
+  {
+    model: "cohere/command-a-plus",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 192000,
+    pricing: usd(0.3, 1.5, 0.15),
+  },
+  {
+    model: "cohere/command-a",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 256000,
+    pricing: usd(2.5, 10.0),
+  },
+  {
+    // the quoted OpenInference endpoint (fp4), no discount; DeepSeek serves none for this id
     model: "deepseek/deepseek-v4.1-flash",
     base_url: OPENROUTER,
     client: "deepseek-official",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
     context_window: 1048576,
-    pricing: usd(0.028, 0.08, 0.0016),
+    pricing: usd(0.02, 1.0, 0.015),
   },
   {
     // DeepSeek's own endpoint; its weekday peak hours (UTC 01:00-04:00, 06:00-10:00) cost double
@@ -615,6 +864,37 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(0.15, 0.6, 0.003),
   },
   {
+    // DeepSeek's own endpoint; its weekday peak hours (UTC 01:00-04:00, 06:00-10:00) cost double
+    model: "deepseek/deepseek-v4-pro-0813",
+    base_url: OPENROUTER,
+    client: "deepseek-official",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.66, 1.98, 0.022),
+  },
+  {
+    // the quoted Relace endpoint (fp4), no discount; DeepSeek serves none for this id
+    model: "deepseek/deepseek-v4-flash-0731",
+    base_url: OPENROUTER,
+    client: "deepseek-official",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.0422, 0.1694, 0.028),
+  },
+  {
+    // the quoted DeepInfra endpoint runs a 51% discount ($0.2156 input, $0.6468 output); DeepSeek
+    // serves none for this id
+    model: "deepseek/deepseek-v4-flash-vision-exp",
+    base_url: OPENROUTER,
+    client: "deepseek-official",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.44, 1.32, 0.014),
+  },
+  {
     // the quoted GMICloud endpoint runs a 35% discount ($0.091 input, $0.182 output)
     model: "deepseek/deepseek-v4-flash",
     base_url: OPENROUTER,
@@ -625,7 +905,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(0.14, 0.28, 0.028),
   },
   {
-    // the quoted StreamLake endpoint runs a 78.34% discount ($0.376884 input, $0.753768 output)
+    // the quoted StreamLake endpoint runs an 88% discount ($0.2088 input, $0.4176 output)
     model: "deepseek/deepseek-v4-pro",
     base_url: OPENROUTER,
     client: "deepseek-official",
@@ -635,9 +915,54 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(1.74, 3.48, 0.145),
   },
   {
-    // Google's launch discount halves every endpoint through 2026-12-31 (the API quotes the
-    // Vertex us endpoint at $0.825 input, $4.125 output); the Google AI Studio list rate is stored
+    // deepseek-official sends DeepSeek V4's request shape to every id, so this V3.2 row takes the
+    // generic Responses client
+    model: "deepseek/deepseek-v3.2",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 163840,
+    pricing: usd(0.28, 0.42, 0.028),
+  },
+  {
+    // Google's introductory 50% off runs on every endpoint through 2026-11-30 (the API quotes $2
+    // input, $10 output); the Google AI Studio list rate is stored
+    model: "google/gemini-4-argon",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(4.0, 20.0, 0.2),
+  },
+  {
+    // Google's launch discount halves every endpoint through 2026-12-31 (the API quotes the Vertex
+    // us endpoint at $0.825 input, $4.125 output); the Google AI Studio list rate is stored
     model: "google/gemini-3.8-flash",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(1.5, 7.5, 0.15),
+  },
+  {
+    // a 50% discount runs on every endpoint (the API quotes $0.75 input, $3.75 output); the Google
+    // AI Studio list rate is stored. Google's own pricing page no longer lists 3.7 Flash
+    model: "google/gemini-3.7-flash",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(1.5, 7.5, 0.15),
+  },
+  {
+    // the API quotes Google's launch price ($0.75 input, $3.75 output, $0.075 cache read) with no
+    // discount flag; ai.google.dev/gemini-api/docs/pricing runs it through 2026-12-31 and lists
+    // the stored price from 2027-01-01
+    model: "google/gemini-3.6-flash",
     base_url: OPENROUTER,
     client: "openai-responses",
     input_modalities: ["Text", "Image"],
@@ -655,6 +980,157 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(1.5, 9.0, 0.15),
   },
   {
+    model: "google/gemini-3.5-flash-lite",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.3, 2.5, 0.03),
+  },
+  {
+    // rates for prompts up to 200K tokens; above, $4 input, $18 output, $0.40 cache read
+    model: "google/gemini-3.1-pro-preview",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(2.0, 12.0, 0.2),
+  },
+  {
+    model: "google/gemma-4-31b-it",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.2, 0.4),
+  },
+  {
+    model: "google/gemma-4-26b-a4b-it:free",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.0, 0.0),
+  },
+  {
+    // Inception's endpoint, the only one, runs a 50% discount ($0.10 input, $0.35 output)
+    model: "inception/mercury-3",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.2, 0.7, 0.02),
+  },
+  {
+    // Inception's endpoint, the only one, runs an 80% discount ($0.04 input, $0.15 output)
+    model: "inception/mercury-2.5",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 260000,
+    pricing: usd(0.2, 0.75, 0.02),
+  },
+  {
+    // the quoted DeepInfra and Novita endpoints run a 75% discount ($0.075 input, $0.225 output);
+    // inclusionAI serves none
+    model: "inclusionai/ling-3.1-flash",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.3, 0.9, 0.06),
+  },
+  {
+    model: "inclusionai/ling-3.0-flash-vl",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 131072,
+    pricing: usd(0.06, 0.18, 0.012),
+  },
+  {
+    // AtlasCloud's endpoint, the only one, runs a 60% discount ($0.30 input, $1.20 output)
+    model: "meituan/longcat-2.0",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1048756,
+    pricing: usd(0.75, 3.0, 0.015),
+  },
+  {
+    model: "meta/muse-wonder",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(4.0, 20.0, 0.2),
+  },
+  {
+    model: "meta/muse-spark-1.3",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(1.25, 4.25, 0.15),
+  },
+  {
+    model: "meta/muse-spark-open",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(1.25, 4.25, 0.15),
+  },
+  {
+    model: "meta/muse-glimmer-30b",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 131072,
+    pricing: usd(0.3, 1.2, 0.04),
+  },
+  {
+    model: "meta-llama/llama-4-maverick",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 524288,
+    pricing: usd(0.1875, 0.6525, 0.05),
+  },
+  {
+    model: "meta-llama/llama-4-scout",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1310720,
+    pricing: usd(0.1, 0.3),
+  },
+  {
+    // the paid listing; the minimax-m3.1-flash:free slug has no endpoint left
+    model: "minimax/minimax-m3.1-flash",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.15, 0.6, 0.015),
+  },
+  {
     model: "minimax/minimax-m3",
     base_url: OPENROUTER,
     client: "openai-responses",
@@ -664,18 +1140,79 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(0.3, 1.2, 0.06),
   },
   {
-    // models API 2026-10-19: the free variant is the only OpenRouter listing of MiniMax-M3.1-Flash
-    model: "minimax/minimax-m3.1-flash:free",
+    model: "minimax/minimax-m2.7",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 204800,
+    pricing: usd(0.3, 1.2, 0.06),
+  },
+  {
+    model: "minimax/minimax-m2.5",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 204800,
+    pricing: usd(0.3, 1.2, 0.03),
+  },
+  {
+    model: "mistralai/mistral-large-4-0",
     base_url: OPENROUTER,
     client: "openai-responses",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
-    context_window: 1000000,
-    pricing: usd(0, 0),
+    context_window: 1048576,
+    pricing: usd(1.36, 4.18, 0.14),
   },
   {
-    // models API 2026-10-23; the slug's `moonshotai/highspeed` endpoint (4/20/0.2) is a
-    // provider route, not a model id
+    model: "mistralai/mistral-medium-3-5",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(1.5, 7.5),
+  },
+  {
+    model: "mistralai/mistral-small-2603",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.15, 0.6, 0.015),
+  },
+  {
+    model: "mistralai/devstral-2512",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.4, 2.0, 0.04),
+  },
+  {
+    model: "mistralai/codestral-2508",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 256000,
+    pricing: usd(0.3, 0.9, 0.03),
+  },
+  {
+    model: "mistralai/ministral-14b-2512",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.2, 0.2, 0.02),
+  },
+  {
+    // the slug's `moonshotai/highspeed` endpoint (4/20/0.2) is a provider route, not a model id
     model: "moonshotai/kimi-k3.1-pro",
     base_url: OPENROUTER,
     client: "moonshot-official",
@@ -685,7 +1222,8 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(2.0, 10.0, 0.2),
   },
   {
-    // models API 2026-10-23
+    // the quoted InferenceNet endpoint (fp4), no discount; Moonshot AI's own bills $3 input, $15
+    // output, $0.30 cache read
     model: "moonshotai/kimi-k3",
     base_url: OPENROUTER,
     client: "moonshot-official",
@@ -693,6 +1231,17 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Text"],
     context_window: 1048576,
     pricing: usd(0.239, 10.8, 0.21),
+  },
+  {
+    // the quoted Inceptron endpoint (int4), no discount; Moonshot AI's own bills $0.95 input, $4
+    // output, $0.19 cache read
+    model: "moonshotai/kimi-k2.7-code",
+    base_url: OPENROUTER,
+    client: "moonshot-official",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.6712, 3.35, 0.15),
   },
   {
     model: "moonshotai/kimi-k2.6",
@@ -704,6 +1253,52 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(0.65, 3.41, 0.15),
   },
   {
+    // the quoted SiliconFlow endpoint (int4), no discount; Moonshot AI serves none
+    model: "moonshotai/kimi-k2.5",
+    base_url: OPENROUTER,
+    client: "moonshot-official",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.5, 2.5, 0.15),
+  },
+  {
+    model: "nvidia/nemotron-3.5-super-vl",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.15, 0.5, 0.02),
+  },
+  {
+    model: "nvidia/nemotron-3.5-super-vl:free",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.0, 0.0),
+  },
+  {
+    model: "nvidia/nemotron-3.5-lightning",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.07, 0.2, 0.04),
+  },
+  {
+    model: "nvidia/nemotron-3.5-lightning:free",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.0, 0.0),
+  },
+  {
     model: "nvidia/nemotron-3-ultra-550b-a55b:free",
     base_url: OPENROUTER,
     client: "openai-responses",
@@ -713,7 +1308,17 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(0.0, 0.0),
   },
   {
-    // models API 2026-10-19: $2 input, $10 output, $0.1 cache read, $2.5 cache write
+    model: "nvidia/nemotron-3-super-120b-a12b",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.3, 2.4, 0.15),
+  },
+  {
+    // $2 input, $10 output, $0.1 cache read, $2.5 cache write; the prompt bucket carries the
+    // cache-write rate
     model: "openai/gpt-6.1-sol",
     base_url: OPENROUTER,
     client: "openai-responses",
@@ -723,8 +1328,8 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(2.5, 10.0, 0.1),
   },
   {
-    // models API 2026-10-19, default OpenAI endpoint, no discount: $10 input, $50 output,
-    // $1 cache read, $12.5 cache write per 1M tokens
+    // default OpenAI endpoint, no discount: $10 input, $50 output, $1 cache read, $12.5 cache
+    // write per 1M tokens; the prompt bucket carries the cache-write rate
     model: "openai/gpt-6-astra",
     base_url: OPENROUTER,
     client: "openai-responses",
@@ -734,7 +1339,8 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(12.5, 50.0, 1.0),
   },
   {
-    // Official/OpenRouter base tier, 2026-10-14; prompt includes the cache-write premium.
+    // $0.1 input, $0.5 output, $0.01 cache read, $0.125 cache write; the prompt bucket carries the
+    // cache-write rate
     model: "openai/gpt-6-luna",
     base_url: OPENROUTER,
     client: "openai-responses",
@@ -744,13 +1350,16 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(0.125, 0.5, 0.01),
   },
   {
+    // the API quotes OpenAI's promotional $4 input, $20 output, $0.40 cache read with no discount
+    // flag (developers.openai.com/api/docs/pricing runs it through at least 2026-11-21); the list
+    // price of the official row is stored
     model: "openai/gpt-5.6-sol",
     base_url: OPENROUTER,
     client: "openai-responses",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
     context_window: 1050000,
-    pricing: usd(4.0, 20.0, 0.4),
+    pricing: usd(5.0, 30.0, 0.5),
   },
   {
     model: "openai/gpt-5.6-terra",
@@ -780,15 +1389,220 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(5.0, 30.0, 0.5),
   },
   {
+    // rates for prompts under 272K tokens ($60 input, $270 output above); no cache price
+    model: "openai/gpt-5.5-pro",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1050000,
+    pricing: usd(30.0, 180.0),
+  },
+  {
+    // rates for prompts under 272K tokens ($5 input, $22.50 output, $0.50 cache read above)
+    model: "openai/gpt-5.4",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1050000,
+    pricing: usd(2.5, 15.0, 0.25),
+  },
+  {
+    // rates for prompts under 272K tokens ($60 input, $270 output above); no cache price
+    model: "openai/gpt-5.4-pro",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1050000,
+    pricing: usd(30.0, 180.0),
+  },
+  {
+    model: "openai/gpt-5.4-mini",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 400000,
+    pricing: usd(0.75, 4.5, 0.075),
+  },
+  {
+    model: "openai/gpt-5.4-nano",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 400000,
+    pricing: usd(0.2, 1.25, 0.02),
+  },
+  {
+    model: "openai/gpt-5.3-codex",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 400000,
+    pricing: usd(1.75, 14.0, 0.175),
+  },
+  {
+    model: "openai/gpt-oss-120b",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 131072,
+    pricing: usd(0.15, 0.6, 0.075),
+  },
+  {
+    // the Free Models Router: each request goes to a free model with the features it needs; window
+    // and modalities as the models API lists them
+    model: "openrouter/free",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 200000,
+    pricing: usd(0.0, 0.0),
+  },
+  {
+    // web search is billed on top, at $5 per 1,000 requests
+    model: "perplexity/sonar-pro",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 200000,
+    pricing: usd(3.0, 15.0),
+  },
+  {
+    // web search is billed on top, at $5 per 1,000 requests
+    model: "perplexity/sonar-reasoning-pro",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 128000,
+    pricing: usd(2.0, 8.0),
+  },
+  {
+    // web search is billed on top, at $5 per 1,000 requests
+    model: "perplexity/sonar",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 127072,
+    pricing: usd(1.0, 1.0),
+  },
+  {
+    model: "qwen/qwen3.8-max-prime",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(4.0, 12.0, 0.5),
+  },
+  {
+    model: "qwen/qwen3.8-max-0902",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(2.0, 6.0, 0.25),
+  },
+  {
+    // not in the models list: OpenRouter resolves the id to qwen/qwen3.8-max-0902, and the window,
+    // modalities and price are that model's Alibaba endpoints'
+    model: "qwen/qwen3.8-max",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(2.0, 6.0, 0.25),
+  },
+  {
+    model: "qwen/qwen3.8-2.4t-a95b",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(2.0, 6.0, 0.25),
+  },
+  {
+    model: "qwen/qwen3.8-flash",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.15, 0.47, 0.016),
+  },
+  {
+    model: "qwen/qwen3.8-omni-flash",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.15, 0.47, 0.016),
+  },
+  {
+    // the quoted ModelRun endpoint (fp4), no discount; Alibaba's own bills $0.425 input, $2.55
+    // output, $0.085 cache read
     model: "qwen/qwen3.8-27b",
     base_url: OPENROUTER,
     client: "openai-responses",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
     context_window: 1000000,
-    pricing: usd(0.24, 2.2, 0.05),
+    pricing: usd(0.2, 2.5, 0.09),
   },
   {
+    // rates for prompts up to 256K tokens ($0.96 input, $3.84 output, $0.192 cache read above)
+    model: "qwen/qwen3.7-plus",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.32, 1.28, 0.064),
+  },
+  {
+    // rates for prompts up to 32K tokens; $0.10 / $0.40 / $0.02 to 256K, then $0.20 / $0.80 /
+    // $0.04
+    model: "qwen/qwen3.7-flash",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.03, 0.13, 0.006),
+  },
+  {
+    model: "qwen/qwen3.6-35b-a3b",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.1, 0.95, 0.05),
+  },
+  {
+    model: "qwen/qwen3-coder-next",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.12, 0.8, 0.07),
+  },
+  {
+    // absent from the chat-only models API; window and price from its /endpoints list (DeepInfra)
     model: "qwen/qwen3-embedding-4b",
     base_url: OPENROUTER,
     client: "openai-embedding",
@@ -796,6 +1610,24 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Embed"],
     context_window: 32768,
     pricing: usd(0.02, 0.0),
+  },
+  {
+    model: "recursive/flint-v1.0:free",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.0, 0.0),
+  },
+  {
+    model: "stepfun/step-5-preview",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(1.0, 2.7, 0.1),
   },
   {
     model: "stepfun/step-3.7-flash",
@@ -807,6 +1639,28 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(0.2, 1.15, 0.04),
   },
   {
+    model: "stepfun/step-3.5-flash",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.1, 0.3),
+  },
+  {
+    // Tencent's endpoint at its UTC 16:00-24:00 rate; UTC 00:00-16:00 costs $0.834 input, $2.501
+    // output, $0.042 cache read
+    model: "tencent/hy4-preview",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.7506, 2.2509, 0.0378),
+  },
+  {
+    // Tencent's endpoint at its UTC 16:00-24:00 rate; UTC 00:00-16:00 costs $0.132 input, $0.528
+    // output, $0.033 cache read
     model: "tencent/hy3",
     base_url: OPENROUTER,
     client: "openai-responses",
@@ -814,6 +1668,36 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Text"],
     context_window: 262144,
     pricing: usd(0.0825, 0.33, 0.020625),
+  },
+  {
+    // Together's endpoint, the only one
+    model: "thinkingmachines/inkling",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 524288,
+    pricing: usd(1.0, 4.05, 0.17),
+  },
+  {
+    // rates for prompts under 200K tokens; every rate doubles above
+    model: "x-ai/grok-4.7",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 500000,
+    pricing: usd(2.0, 6.0, 0.5),
+  },
+  {
+    // rates for prompts under 200K tokens; every rate doubles above
+    model: "x-ai/grok-4.6",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 500000,
+    pricing: usd(2.0, 6.0, 0.5),
   },
   {
     model: "x-ai/grok-4.5",
@@ -825,7 +1709,45 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(2.0, 6.0, 0.3),
   },
   {
-    model: "xiaomi/mimo-v2.5",
+    // rates for prompts under 200K tokens; every rate doubles above
+    model: "x-ai/grok-4.3",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(1.25, 2.5, 0.2),
+  },
+  {
+    // rates for prompts under 200K tokens; every rate doubles above
+    model: "x-ai/grok-build-0.1",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 256000,
+    pricing: usd(1.0, 2.0, 0.2),
+  },
+  {
+    model: "xiaomi/mimo-v2.6-pro",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1050000,
+    pricing: usd(0.435, 0.87, 0.0036),
+  },
+  {
+    model: "xiaomi/mimo-v2.6-pro-ultraspeed",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(4.35, 8.7, 0.036),
+  },
+  {
+    model: "xiaomi/mimo-v2.6-flash",
     base_url: OPENROUTER,
     client: "openai-responses",
     input_modalities: ["Text", "Image"],
@@ -834,6 +1756,40 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(0.14, 0.28, 0.0028),
   },
   {
+    // the quoted GMICloud endpoint runs a 30% discount ($0.3045 input, $0.609 output); Xiaomi
+    // serves none
+    model: "xiaomi/mimo-v2.5-pro",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1050000,
+    pricing: usd(0.435, 0.87, 0.004),
+  },
+  {
+    // the quoted GMICloud endpoint runs a 15% discount ($0.119 input, $0.238 output); Xiaomi
+    // serves none
+    model: "xiaomi/mimo-v2.5",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1050000,
+    pricing: usd(0.14, 0.28, 0.003),
+  },
+  {
+    // Alibaba's endpoint, the only one
+    model: "z-ai/glm-5.3-prime",
+    base_url: OPENROUTER,
+    client: "zai-official",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(2.8, 8.8, 0.56),
+  },
+  {
+    // the quoted Wafer endpoint, no discount; Z.AI's own bills $1.4 input, $4.4 output, $0.26
+    // cache read
     model: "z-ai/glm-5.3",
     base_url: OPENROUTER,
     client: "zai-official",
@@ -843,16 +1799,35 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(0.079, 1.4, 0.078),
   },
   {
+    model: "z-ai/glm-5.3-flashx",
+    base_url: OPENROUTER,
+    client: "zai-official",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.37, 1.25, 0.09),
+  },
+  {
+    model: "z-ai/glm-5.3-flash",
+    base_url: OPENROUTER,
+    client: "zai-official",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.15, 0.5, 0.03),
+  },
+  {
+    // the quoted Wafer endpoint, no discount; Z.AI's own bills $1.4 input, $4.4 output, $0.26
+    // cache read
     model: "z-ai/glm-5.2",
     base_url: OPENROUTER,
     client: "zai-official",
     input_modalities: ["Text"],
     output_modalities: ["Text"],
     context_window: 1048576,
-    pricing: usd(0.62, 2.42, 0.14),
+    pricing: usd(0.0341, 7.0, 0.033),
   },
   {
-    // the quoted StreamLake endpoint runs a 31% discount; Z.AI's own endpoint is stored
     model: "z-ai/glm-5.1",
     base_url: OPENROUTER,
     client: "zai-official",
@@ -861,10 +1836,30 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     context_window: 204800,
     pricing: usd(1.4, 4.4, 0.26),
   },
-  // SiliconFlow (CNY list prices from https://siliconflow.cn/pricing, context windows and image
-  // input from the model records that page embeds, read 2026-10-19; no public pricing API).
-  // Its DeepSeek Flash rows store the 02:00-08:00 (Beijing) rate, as the DeepSeek rows store
-  // their off-peak rate.
+  {
+    model: "z-ai/glm-5",
+    base_url: OPENROUTER,
+    client: "zai-official",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 204800,
+    pricing: usd(1.0, 3.2, 0.2),
+  },
+  {
+    // the quoted Cloudflare endpoint, no discount; no cache price
+    model: "z-ai/glm-4.7-flash",
+    base_url: OPENROUTER,
+    client: "zai-official",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 200000,
+    pricing: usd(0.0605, 0.4),
+  },
+  // --- SiliconFlow (14 rows; key SILICONFLOW_API_KEY; CNY list prices from
+  // https://siliconflow.cn/pricing, and context windows and image input from the model records
+  // that page embeds, read 2026-10-19, the row added 2026-10-24 naming its read date). There is
+  // no public pricing API. Its DeepSeek Flash rows store the 02:00-08:00 (Beijing) rate, as the
+  // DeepSeek rows store their off-peak rate.
   {
     // the other 18 hours cost double: 2/8/0.04 CNY
     model: "deepseek-ai/DeepSeek-V4.1-Flash",
@@ -977,6 +1972,18 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: cny(6.0, 18.0, 0.3),
   },
   {
+    // added from the penguin-harness catalog: price, window and image input from
+    // https://siliconflow.cn/pricing and the record it embeds, read 2026-10-24, which lists no
+    // cache-hit price
+    model: "Qwen/Qwen3.6-35B-A3B",
+    base_url: SILICONFLOW,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: cny(1.8, 10.8),
+  },
+  {
     // the pricing page's chat table does not list embedding models
     model: "Qwen/Qwen3-Embedding-8B",
     base_url: SILICONFLOW,
@@ -985,9 +1992,10 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Embed"],
     context_window: 32768,
   },
-  // Google Vertex AI (google-genai with a service-account JSON key, which pins location
-  // "global"; list prices of the global endpoint from
-  // https://cloud.google.com/vertex-ai/generative-ai/pricing, read 2026-10-19)
+  // --- Google Vertex AI (6 rows; key VERTEX_API_KEY, the service-account JSON; list prices of the
+  // global endpoint from https://cloud.google.com/vertex-ai/generative-ai/pricing, read
+  // 2026-10-19). The rows use google-genai, which a service-account key pins to location
+  // "global".
   {
     // a promotion runs through 2026-11-30: $2 input, $10 output, $0.1 cache read
     model: "gemini-4-argon",
@@ -1044,10 +2052,10 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Embed"],
     pricing: usd(0.2, 0.0),
   },
-  // Amazon Bedrock (anthropic-official with "ACCESS_KEY,SECRET_KEY" as the key; Global
-  // cross-Region inference profiles, ids and context windows from each model card, prices of
-  // the Global table for US East (N. Virginia) at https://aws.amazon.com/bedrock/pricing/, read
-  // 2026-10-19; the geo profiles us./eu./jp./au. cost 10% more)
+  // --- Amazon Bedrock (9 rows; key BEDROCK_API_KEY, "ACCESS_KEY,SECRET_KEY"; ids and context
+  // windows of the Global cross-Region inference profiles from each model card, and prices of the
+  // Global table for US East (N. Virginia) at https://aws.amazon.com/bedrock/pricing/, read
+  // 2026-10-19). The rows use anthropic-official. The geo profiles us./eu./jp./au. cost 10% more.
   {
     model: "global.anthropic.claude-fable-5-1",
     base_url: BEDROCK,
@@ -1130,9 +2138,11 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     context_window: 1000000,
     pricing: usd(3.0, 15.0, 0.3),
   },
-  // TokenDance (CNY prices at the `items` rate of the public catalog
-  // https://tokendance.space/portal/api/models/all, read 2026-10-19; each row's client speaks
-  // a protocol the catalog lists for the model, and its price is that protocol's)
+  // --- TokenDance (61 rows; key TOKENDANCE_API_KEY; CNY prices at the `items` rate of the public
+  // catalog https://tokendance.space/portal/api/models/all, read 2026-10-24). The `items` rate is
+  // what TokenDance bills, below the `reference` price the catalog shows beside some models. Each
+  // row's client speaks a protocol the catalog lists for the model, and its price is that
+  // protocol's, at the lowest tier where the catalog tiers it by prompt length.
   {
     // this row and the next take the gateway's Chat Completions path; weekday peak rates
     // (09:00-12:00, 14:00-18:00 Beijing) are double on both
@@ -1164,6 +2174,37 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: cny(8.1, 24.3, 0.27),
   },
   {
+    // weekday peak rates (09:00-12:00, 14:00-18:00 Beijing) are 7.2/21.6/0.24 CNY
+    model: "deepseek-v4-pro-0813",
+    base_url: TOKENDANCE,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(4.5, 13.5, 0.15),
+  },
+  {
+    // weekday peak rates (09:00-12:00, 14:00-18:00 Beijing) are 2.4/7.2/0.08 CNY
+    model: "deepseek-v4-flash-0731",
+    base_url: TOKENDANCE,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: cny(1.5, 4.5, 0.05),
+  },
+  {
+    // the Chat Completions price names its output rate `output_tokens`; the Messages price is
+    // the same 1/2/0.2 CNY
+    model: "deepseek-v4-flash",
+    base_url: TOKENDANCE,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: cny(1.0, 2.0, 0.2),
+  },
+  {
     // the catalog prices this model on Chat Completions and Messages (2.1/8.4 CNY below 512K
     // input tokens) but not on the Responses protocol minimax-official speaks
     model: "minimax-m3",
@@ -1182,6 +2223,26 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Text"],
     context_window: 1000000,
     pricing: cny(1.0, 4.0, 0.1),
+  },
+  {
+    // this row and the next follow minimax-m3.1-flash onto Messages, assuming the gateway's
+    // Chat Completions stream ends without `delta` for them too
+    model: "minimax-m2.7",
+    base_url: TOKENDANCE_ANTHROPIC,
+    client: "ant-messages",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 200000,
+    pricing: cny(1.68, 6.72, 0.336),
+  },
+  {
+    model: "minimax-m2.5",
+    base_url: TOKENDANCE_ANTHROPIC,
+    client: "ant-messages",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 200000,
+    pricing: cny(1.89, 7.56, 0.189),
   },
   {
     // catalog 2026-10-23, whose context window is 1000000 rather than Moonshot's 1048576
@@ -1203,6 +2264,15 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: cny(20.0, 100.0, 2.0),
   },
   {
+    model: "kimi-k2.7-code",
+    base_url: TOKENDANCE,
+    client: "moonshot-official",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: cny(5.2, 21.6, 1.04),
+  },
+  {
     model: "kimi-k2.6",
     base_url: TOKENDANCE,
     client: "moonshot-official",
@@ -1210,6 +2280,15 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Text"],
     context_window: 262144,
     pricing: cny(5.2, 21.6, 1.04),
+  },
+  {
+    model: "kimi-k2.5",
+    base_url: TOKENDANCE,
+    client: "moonshot-official",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 256000,
+    pricing: cny(4.0, 21.0, 0.8),
   },
   {
     model: "glm-5.3",
@@ -1230,6 +2309,16 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: cny(0.72, 2.52, 0.207),
   },
   {
+    // zai-official sends images for every glm-5.3-flash id, this one included
+    model: "glm-5.3-flashx",
+    base_url: TOKENDANCE,
+    client: "zai-official",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(2.0, 7.0, 0.57),
+  },
+  {
     model: "glm-5.2",
     base_url: TOKENDANCE,
     client: "zai-official",
@@ -1237,6 +2326,66 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Text"],
     context_window: 1000000,
     pricing: cny(6.4, 22.4, 1.6),
+  },
+  {
+    model: "glm-5.1",
+    base_url: TOKENDANCE,
+    client: "zai-official",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 202752,
+    pricing: cny(7.2, 25.2, 1.8),
+  },
+  {
+    // prompts up to 32K tokens; 6/22/1.2 CNY above
+    model: "glm-5",
+    base_url: TOKENDANCE,
+    client: "zai-official",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 200000,
+    pricing: cny(4.0, 18.0, 0.8),
+  },
+  {
+    // openai-chat, which forwards images, as zai-official does only for glm-5.3-flash ids;
+    // prompts up to 32K tokens, 7/26/1.8 CNY above
+    model: "glm-5v-turbo",
+    base_url: TOKENDANCE,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 202752,
+    pricing: cny(5.0, 22.0, 1.2),
+  },
+  {
+    // prompts up to 32K tokens; 4/16/0.8 CNY above
+    model: "glm-4.7",
+    base_url: TOKENDANCE,
+    client: "zai-official",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 200000,
+    pricing: cny(3.0, 14.0, 0.6),
+  },
+  {
+    // openai-chat for its images, as glm-5v-turbo; prompts up to 32K tokens, 2/6/0.4 CNY above
+    model: "glm-4.6v",
+    base_url: TOKENDANCE,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 128000,
+    pricing: cny(1.0, 3.0, 0.2),
+  },
+  {
+    // prompts up to 32K tokens; 1.2/8/0.24 CNY above
+    model: "glm-4.5-air",
+    base_url: TOKENDANCE,
+    client: "zai-official",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 128000,
+    pricing: cny(0.8, 6.0, 0.16),
   },
   {
     model: "qwen3.8-flash",
@@ -1257,12 +2406,130 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: cny(10.8, 32.4, 1.35),
   },
   {
+    model: "qwen3.8-max-0902",
+    base_url: TOKENDANCE,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(12.0, 36.0, 1.5),
+  },
+  {
+    model: "qwen3.7-max",
+    base_url: TOKENDANCE,
+    client: "openai-responses",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(9.6, 28.8, 1.92),
+  },
+  {
+    // prompts up to 256K tokens; 4.8/19.2/0.96 CNY above
+    model: "qwen3.7-plus",
+    base_url: TOKENDANCE,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(1.6, 6.4, 0.32),
+  },
+  {
+    // prompts up to 256K tokens, 6.4/38.4/0.64 CNY above; the catalog names the output rate
+    // `output_tokens`
+    model: "qwen3.6-plus",
+    base_url: TOKENDANCE,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(1.6, 9.6, 0.16),
+  },
+  {
+    // prompts up to 128K tokens; 2/12/0.2 CNY to 256K and 4/24/0.4 above, and cache writes
+    // cost 1, 2.5 and 5 CNY by the same tiers
+    model: "qwen3.5-plus",
+    base_url: TOKENDANCE,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(0.8, 4.8, 0.08),
+  },
+  {
+    // prompts up to 128K tokens; 0.8/8/0.08 CNY to 256K and 1.2/12/0.12 above
+    model: "qwen3.5-flash",
+    base_url: TOKENDANCE,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(0.2, 2.0, 0.02),
+  },
+  {
+    // prompts up to 128K tokens; 1.6/12.8 CNY above
+    model: "qwen3.5-35b-a3b",
+    base_url: TOKENDANCE,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 256000,
+    pricing: cny(0.4, 3.2),
+  },
+  {
+    // prompts up to 32K tokens; 1.5/15/0.3 CNY to 128K and 3/30/0.6 above
+    model: "qwen3-vl-plus",
+    base_url: TOKENDANCE,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 256000,
+    pricing: cny(1.0, 10.0, 0.2),
+  },
+  {
     model: "mimo-v2.6-flash",
     base_url: TOKENDANCE,
     client: "openai-responses",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
     context_window: 1000000,
+    pricing: cny(1.0, 2.0, 0.02),
+  },
+  {
+    model: "mimo-v2.6-pro",
+    base_url: TOKENDANCE,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(3.0, 6.0, 0.025),
+  },
+  {
+    model: "mimo-v2.6-ultraspeed",
+    base_url: TOKENDANCE,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(30.0, 60.0, 0.25),
+  },
+  {
+    model: "mimo-v2.5-pro",
+    base_url: TOKENDANCE,
+    client: "openai-responses",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: cny(3.0, 6.0, 0.025),
+  },
+  {
+    // the Responses price names its output rate `text_output_tokens`; Chat Completions lists
+    // the same 1/2/0.02 CNY
+    model: "mimo-v2.5",
+    base_url: TOKENDANCE,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
     pricing: cny(1.0, 2.0, 0.02),
   },
   {
@@ -1275,6 +2542,26 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: cny(7.0, 20.0, 0.35),
   },
   {
+    // openai-chat: the catalog prices Chat Completions only, though it also lists Responses
+    // and Messages
+    model: "step-3.7-flash",
+    base_url: TOKENDANCE,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 256000,
+    pricing: cny(1.08, 6.48, 0.216),
+  },
+  {
+    model: "step-3.5-flash",
+    base_url: TOKENDANCE,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 256000,
+    pricing: cny(0.7, 2.1, 0.14),
+  },
+  {
     model: "hy4-preview",
     base_url: TOKENDANCE,
     client: "openai-responses",
@@ -1284,6 +2571,146 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: cny(6.0, 18.0, 0.3),
   },
   {
+    model: "hy3",
+    base_url: TOKENDANCE,
+    client: "openai-responses",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 256000,
+    pricing: cny(1.0, 4.0, 0.25),
+  },
+  {
+    // prompts up to 16K tokens; 1.6/6.4/0.6 CNY to 32K and 2/8/0.8 above
+    model: "hy3-preview",
+    base_url: TOKENDANCE,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 256000,
+    pricing: cny(1.2, 4.0, 0.4),
+  },
+  {
+    model: "seed-2.1-pro",
+    base_url: TOKENDANCE,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 256000,
+    pricing: cny(3.0, 15.0, 0.6),
+  },
+  {
+    model: "seed-2.1-turbo",
+    base_url: TOKENDANCE,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 256000,
+    pricing: cny(1.5, 7.5, 0.3),
+  },
+  {
+    // prompts up to 32K tokens on this row and the next; 2.4/12/0.48 CNY to 128K and
+    // 4.8/24/0.96 above
+    model: "seed-2.0-pro",
+    base_url: TOKENDANCE,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 256000,
+    pricing: cny(1.6, 8.0, 0.32),
+  },
+  {
+    model: "seed-2.0-code",
+    base_url: TOKENDANCE,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 256000,
+    pricing: cny(1.6, 8.0, 0.32),
+  },
+  {
+    // prompts up to 32K tokens; 0.45/2.7/0.09 CNY to 128K and 0.9/5.4/0.18 above
+    model: "seed-2.0-lite",
+    base_url: TOKENDANCE,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 256000,
+    pricing: cny(0.3, 1.8, 0.06),
+  },
+  {
+    // prompts up to 32K tokens; 0.2/2/0.04 CNY to 128K and 0.4/4/0.08 above
+    model: "seed-2.0-mini",
+    base_url: TOKENDANCE,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 256000,
+    pricing: cny(0.1, 1.0, 0.02),
+  },
+  {
+    model: "seed-evolving",
+    base_url: TOKENDANCE,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(3.0, 15.0, 0.6),
+  },
+  {
+    model: "longcat-2.0",
+    base_url: TOKENDANCE,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(2.0, 8.0, 0.04),
+  },
+  {
+    model: "ling-3.1-flash",
+    base_url: TOKENDANCE,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(0.5, 1.5, 0.1),
+  },
+  {
+    model: "ling-3.0-flash",
+    base_url: TOKENDANCE,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 256000,
+    pricing: cny(0.14, 0.42, 0.028),
+  },
+  {
+    model: "spark-x2.5-4b",
+    base_url: TOKENDANCE,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(0.0, 0.0, 0.0),
+  },
+  {
+    model: "spark-x2.5-1.7b",
+    base_url: TOKENDANCE,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(0.0, 0.0, 0.0),
+  },
+  {
+    model: "dots-3-note-preview",
+    base_url: TOKENDANCE,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 512000,
+    pricing: cny(0.0, 0.0, 0.0),
+  },
+  {
     model: "qwen3.7-text-embedding",
     base_url: TOKENDANCE,
     client: "openai-embedding",
@@ -1291,6 +2718,797 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Embed"],
     context_window: 128000,
     pricing: cny(0.5, 0.0),
+  },
+  {
+    model: "qwen-text-embedding-v4",
+    base_url: TOKENDANCE,
+    client: "openai-embedding",
+    input_modalities: ["Text"],
+    output_modalities: ["Embed"],
+    context_window: 8000,
+    pricing: cny(0.5, 0.0),
+  },
+  // --- OpenCode Go (28 rows; key OPENCODE_API_KEY; ids and each row's protocol from the endpoints
+  // table of https://opencode.ai/v2/docs/console/go/, USD per-token rates from its usage-limits
+  // table, and context windows and input modalities from models.dev's `opencode-go` provider
+  // (https://models.dev/api.json), all read 2026-10-24; unverified: no live call was made, for
+  // want of a key). A subscription gateway: a rate is what a request draws from the Go ($10) or
+  // Go Plus ($40) monthly allowance, the same on both plans. Rows on the Messages protocol, like
+  // the vendors' own rows, keep the input rate in the prompt bucket; the docs price their cache
+  // writes apart.
+  {
+    // base tier for prompts up to 200K tokens; every rate doubles above it
+    model: "grok-4.7",
+    base_url: OPENCODE_GO,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 500000,
+    pricing: usd(2.0, 6.0, 0.5),
+  },
+  {
+    model: "glm-5.3-flash",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.15, 0.5, 0.03),
+  },
+  {
+    model: "glm-5.3",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(1.4, 4.4, 0.26),
+  },
+  {
+    model: "glm-5.2",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(1.4, 4.4, 0.26),
+  },
+  {
+    // base tier up to 272K input tokens (0.2/0.75/0.02 above it); as on the official row, the
+    // prompt bucket carries the $0.125 cache-write rate rather than the $0.10 input rate
+    model: "gpt-6-luna",
+    base_url: OPENCODE_GO,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1050000,
+    pricing: usd(0.125, 0.5, 0.01),
+  },
+  {
+    // base tier up to 272K input tokens (0.4/1.8/0.04 above it); as on the official row, the
+    // prompt bucket carries the input rate, not the $0.25 cache write
+    model: "gpt-5.6-luna",
+    base_url: OPENCODE_GO,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1050000,
+    pricing: usd(0.2, 1.2, 0.02),
+  },
+  {
+    // base tier for prompts up to 100K tokens; every rate is 5x above it
+    model: "claude-haiku-5-5",
+    base_url: OPENCODE_GO_ANTHROPIC,
+    client: "ant-messages",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.1, 0.5, 0.01),
+  },
+  {
+    // list price; the docs' 50% discount through 2026-11-30 is not recorded
+    model: "gemini-4-argon",
+    base_url: OPENCODE_GO_GOOGLE,
+    client: "google-genai",
+    input_modalities: ["Text", "Image", "Video", "Audio"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(4.0, 20.0, 0.2),
+  },
+  {
+    model: "kimi-k3.1-pro",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(2.0, 10.0, 0.2),
+  },
+  {
+    model: "kimi-k3",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(3.0, 15.0, 0.3),
+  },
+  {
+    model: "kimi-k2.7-code",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.95, 4.0, 0.19),
+  },
+  {
+    model: "longcat-2.0",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.3, 1.2, 0.006),
+  },
+  {
+    model: "step-5-preview",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(1.0, 2.7, 0.1),
+  },
+  {
+    model: "mimo-v2.6-flash",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.14, 0.28, 0.0028),
+  },
+  {
+    model: "mimo-v2.6-pro",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.435, 0.87, 0.003625),
+  },
+  {
+    model: "mimo-v2.5",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.14, 0.28, 0.0028),
+  },
+  {
+    model: "mimo-v2.5-pro",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.435, 0.87, 0.003625),
+  },
+  {
+    model: "minimax-m3.1-flash",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.15, 0.6, 0.015),
+  },
+  {
+    // the docs list one rate; models.dev adds a 2x tier above 512K input tokens
+    model: "minimax-m3",
+    base_url: OPENCODE_GO_ANTHROPIC,
+    client: "ant-messages",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.3, 1.2, 0.06),
+  },
+  {
+    // this row and the next need the workspace privacy setting that allows paid endpoints
+    // which train on request data
+    model: "muse-spark-1.3-contributor",
+    base_url: OPENCODE_GO,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.1, 0.2, 0.002),
+  },
+  {
+    model: "muse-spark-1.2-contributor",
+    base_url: OPENCODE_GO,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.1, 0.2, 0.002),
+  },
+  {
+    model: "qwen3.8-max",
+    base_url: OPENCODE_GO_ANTHROPIC,
+    client: "ant-messages",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(2.0, 6.0, 0.25),
+  },
+  {
+    model: "qwen3.8-flash",
+    base_url: OPENCODE_GO_ANTHROPIC,
+    client: "ant-messages",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.15, 0.47, 0.016),
+  },
+  {
+    // base tier for prompts up to 256K tokens; every rate is 3x above it
+    model: "qwen3.7-plus",
+    base_url: OPENCODE_GO_ANTHROPIC,
+    client: "ant-messages",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.4, 1.6, 0.04),
+  },
+  {
+    // off-peak rate for this row and the next; weekday peak hours (UTC 01:00-04:00,
+    // 06:00-10:00) cost double, and both need the Global region in the workspace's privacy
+    // settings
+    model: "deepseek-v4.1-flash",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.15, 0.6, 0.003),
+  },
+  {
+    model: "deepseek-v4-pro",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.66, 1.98, 0.022),
+  },
+  {
+    model: "hy4-preview",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1024000,
+    pricing: usd(0.834, 2.501, 0.042),
+  },
+  {
+    // models.dev caps its input at 192,000 tokens of the 256,000-token window
+    model: "hy3",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 256000,
+    pricing: usd(0.14, 0.58, 0.035),
+  },
+  // --- Fireworks AI (13 rows; key FIREWORKS_API_KEY; ids, client and base URL from the
+  // penguin-harness catalog, and USD serverless prices, context windows and image input from each
+  // model's page at https://fireworks.ai/models/<owner>/<slug>, read 2026-10-24; unverified: no
+  // live call was made, for want of a key). The pages show a 1,048,576-token window as "1040k"
+  // beside the exact figure in their FAQ, so a bare "1040k" is recorded as 1048576. Six of the
+  // models are on-demand only on the read date and their pages list no serverless price; those
+  // rows carry the harness catalog's price.
+  {
+    model: "accounts/fireworks/models/deepseek-v4p1-flash",
+    base_url: FIREWORKS,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.3, 1.2, 0.006),
+  },
+  {
+    // on-demand only; the harness catalog's price
+    model: "accounts/fireworks/models/deepseek-v4-flash-0731",
+    base_url: FIREWORKS,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.14, 0.28, 0.028),
+  },
+  {
+    // on-demand only; the harness catalog's price
+    model: "accounts/fireworks/models/deepseek-v4-flash",
+    base_url: FIREWORKS,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.14, 0.28, 0.03),
+  },
+  {
+    // on-demand only; the harness catalog's price
+    model: "accounts/fireworks/models/deepseek-v4-pro-0813",
+    base_url: FIREWORKS,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(1.32, 3.96, 0.044),
+  },
+  {
+    // on-demand only; the harness catalog's price
+    model: "accounts/fireworks/models/deepseek-v4-pro",
+    base_url: FIREWORKS,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(1.74, 3.48, 0.15),
+  },
+  {
+    model: "accounts/fireworks/models/glm-5p3",
+    base_url: FIREWORKS,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(1.4, 4.4, 0.26),
+  },
+  {
+    model: "accounts/fireworks/models/glm-5p3-flash",
+    base_url: FIREWORKS,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.15, 0.5, 0.03),
+  },
+  {
+    // on-demand only; the harness catalog's price
+    model: "accounts/fireworks/models/glm-5p2",
+    base_url: FIREWORKS,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(1.4, 4.4, 0.14),
+  },
+  {
+    // the page also lists audio input, which openai-chat does not send
+    model: "accounts/fireworks/models/inkling",
+    base_url: FIREWORKS,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(1.0, 4.05, 0.17),
+  },
+  {
+    model: "accounts/fireworks/models/kimi-k3",
+    base_url: FIREWORKS,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(3.0, 15.0, 0.3),
+  },
+  {
+    // on-demand only; the harness catalog's price, and its 262,144-token window for the
+    // page's "262k"
+    model: "accounts/fireworks/models/kimi-k2p7-code",
+    base_url: FIREWORKS,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.95, 4.0, 0.19),
+  },
+  {
+    // the page serves a 512K window, below the model's native 1,048,576 (512,000 on
+    // models.dev; the harness has 524,288), and takes no image input
+    model: "accounts/fireworks/models/minimax-m3",
+    base_url: FIREWORKS,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 512000,
+    pricing: usd(0.3, 1.2, 0.06),
+  },
+  {
+    // the page gives no context length; the window is the harness catalog's, the vendor's
+    // 1M (models.dev lists 262,144)
+    model: "accounts/fireworks/models/qwen3p8-max",
+    base_url: FIREWORKS,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(2.0, 6.0, 0.25),
+  },
+  // --- DashScope (7 rows; key DASHSCOPE_API_KEY; ids, client and base URL from the
+  // penguin-harness catalog, and CNY list prices and input modalities from each model's page at
+  // https://www.qianwenai.com/models/<id>, read 2026-10-24; unverified: no live call was made, for
+  // want of a key). Alibaba Cloud Model Studio's pay-as-you-go OpenAI-compatible endpoint. The
+  // pages round every window to "1M", so the rows keep the harness catalog's exact figures.
+  {
+    // off-peak rate (22:00-08:00 Beijing, every day); the other hours cost double:
+    // 2/8/0.2 CNY
+    model: "deepseek-v4.1-flash",
+    base_url: DASHSCOPE,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(1.0, 4.0, 0.1),
+  },
+  {
+    model: "kimi/kimi-k3",
+    base_url: DASHSCOPE,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: cny(20.0, 100.0, 2.0),
+  },
+  {
+    model: "kimi/kimi-k2.8-preview",
+    base_url: DASHSCOPE,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: cny(6.5, 27.0, 1.7),
+  },
+  {
+    model: "qwen3.8-flash",
+    base_url: DASHSCOPE,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(0.8, 2.7, 0.1),
+  },
+  {
+    model: "qwen3.8-max",
+    base_url: DASHSCOPE,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(12.0, 36.0, 1.5),
+  },
+  {
+    // list price for prompts up to 256K tokens; a limited-time 20% discount is not
+    // recorded
+    model: "qwen3.7-plus",
+    base_url: DASHSCOPE,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(2.0, 8.0, 0.4),
+  },
+  {
+    model: "ZHIPU/GLM-5.3-Flash",
+    base_url: DASHSCOPE,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(0.8, 2.8, 0.23),
+  },
+  // --- Qwen Token Plan (6 rows; key QWEN_TOKEN_PLAN_API_KEY; ids, client and base URL from the
+  // penguin-harness catalog, all six on the plan's model list at
+  // https://platform.qianwenai.com/docs/token-plan/personal/token-plan-personal-overview, and CNY
+  // pay-as-you-go list prices and input modalities from https://www.qianwenai.com/models/<id>,
+  // read 2026-10-24; unverified: no live call was made, for want of a key). A subscription
+  // gateway billed in Credits that publishes no per-token rate, so, as in the harness catalog, the
+  // rows carry each model's pay-as-you-go list price, with the harness's exact windows where the
+  // pages round to "1M". The plan's limited-time night discount on Qwen 3.8 Max and Flash is not
+  // recorded.
+  {
+    // off-peak rate (22:00-08:00 Beijing, every day) for this row and the next; the other
+    // hours cost double: 2/8/0.2 CNY here, 9/27/0.9 CNY below
+    model: "deepseek-v4.1-flash",
+    base_url: QWEN_TOKEN_PLAN,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(1.0, 4.0, 0.1),
+  },
+  {
+    model: "deepseek-v4-pro-0813",
+    base_url: QWEN_TOKEN_PLAN,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(4.5, 13.5, 0.45),
+  },
+  {
+    model: "glm-5.3",
+    base_url: QWEN_TOKEN_PLAN,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: cny(8.0, 28.0, 2.0),
+  },
+  {
+    model: "qwen3.8-flash",
+    base_url: QWEN_TOKEN_PLAN,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(0.8, 2.7, 0.1),
+  },
+  {
+    model: "qwen3.8-max",
+    base_url: QWEN_TOKEN_PLAN,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(12.0, 36.0, 1.5),
+  },
+  {
+    // list price for prompts up to 256K tokens; a limited-time 20% discount is not
+    // recorded
+    model: "qwen3.7-plus",
+    base_url: QWEN_TOKEN_PLAN,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(2.0, 8.0, 0.4),
+  },
+  // --- Atlas Cloud (3 rows; key ATLASCLOUD_API_KEY; ids, client and base URL from the
+  // penguin-harness catalog, USD prices, context windows and input modalities from the public
+  // catalog API, https://api.atlascloud.ai/v1/models, and list prices from
+  // https://www.atlascloud.ai/pricing/models, read 2026-10-24; unverified: no live call was made,
+  // for want of a key)
+  {
+    model: "deepseek-ai/deepseek-v4.1-flash",
+    base_url: ATLASCLOUD,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.3, 1.2, 0.03),
+  },
+  {
+    model: "deepseek-ai/deepseek-v4-pro-0813",
+    base_url: ATLASCLOUD,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(1.32, 3.96, 0.132),
+  },
+  {
+    // list price; a 25% model discount bills 0.186/1.11375, and no cache-read price is
+    // published
+    model: "qwen/qwen3.6-35b-a3b",
+    base_url: ATLASCLOUD,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.248, 1.485),
+  },
+  // --- Penguin Go (9 rows; key PENGUIN_GO_API_KEY; ids, context windows, image input and the
+  // relay's list prices from the penguin-harness catalog, which carries the owner-confirmed relay
+  // prices of 2026-10-14, read 2026-10-24; unverified: no live call was made, for want of a key).
+  // Prism Shadow's MMSP relay, reached through the mmsp client; it lists its models only to a key
+  // holder. The DeepSeek rows store the off-peak rate, half the peak price billed in DeepSeek's
+  // weekday windows (Beijing 9:00-12:00, 14:00-18:00).
+  {
+    // the relay's list price for this row and the next two is Google's introductory rate
+    model: "gemini-4-argon",
+    base_url: PENGUIN_GO,
+    client: "mmsp",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(2.0, 10.0, 0.1),
+  },
+  {
+    model: "gemini-3.8-flash",
+    base_url: PENGUIN_GO,
+    client: "mmsp",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.75, 3.75, 0.075),
+  },
+  {
+    model: "gemini-3.6-flash",
+    base_url: PENGUIN_GO,
+    client: "mmsp",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.75, 3.75, 0.075),
+  },
+  {
+    model: "gemini-3.5-flash",
+    base_url: PENGUIN_GO,
+    client: "mmsp",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(1.5, 9.0, 0.15),
+  },
+  {
+    model: "gemini-3.5-flash-lite",
+    base_url: PENGUIN_GO,
+    client: "mmsp",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.3, 2.5, 0.03),
+  },
+  {
+    model: "gemini-3.1-flash-lite",
+    base_url: PENGUIN_GO,
+    client: "mmsp",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.25, 1.5, 0.025),
+  },
+  {
+    model: "gemini-3.1-pro-preview",
+    base_url: PENGUIN_GO,
+    client: "mmsp",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(2.0, 12.0, 0.2),
+  },
+  {
+    model: "deepseek-flash",
+    base_url: PENGUIN_GO,
+    client: "mmsp",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(1.0, 4.0, 0.02),
+  },
+  {
+    model: "deepseek-v4-pro",
+    base_url: PENGUIN_GO,
+    client: "mmsp",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(4.5, 13.5, 0.15),
+  },
+  // --- ModelScope API-Inference (3 rows; key MODELSCOPE_API_KEY, the account's access token; ids,
+  // client and base URL from the penguin-harness catalog, all three listed by the public
+  // https://api-inference.modelscope.cn/v1/models, and context windows and image input from each
+  // model's card through the public model API, https://www.modelscope.cn/api/v1/models/<id>, read
+  // 2026-10-24; unverified: no live call was made, for want of a key). The windows are the cards'
+  // native lengths. ModelScope publishes no per-token price for API-Inference, so the rows carry
+  // none.
+  {
+    // the card states contexts of up to one million tokens
+    model: "deepseek-ai/DeepSeek-V4.1-Flash",
+    base_url: MODELSCOPE,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+  },
+  {
+    model: "Qwen/Qwen3.8-27B",
+    base_url: MODELSCOPE,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+  },
+  {
+    model: "Qwen/Qwen3.8-Flash-Next",
+    base_url: MODELSCOPE,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+  },
+  // --- vLLM (8 rows; key VLLM_API_KEY, only when the server is started with one; ids, native
+  // context windows and image input from the penguin-harness catalog, which reads them from
+  // https://recipes.vllm.ai/, read 2026-10-24; unverified: no server was called). Self-hosted: the
+  // rows use the openai-chat-vllm-adapter client at http://127.0.0.1:8000/v1, where `vllm serve`
+  // answers by default and the client's own default endpoint. A local server bills no one per
+  // token, so every row is priced at zero.
+  {
+    model: "deepseek-ai/DeepSeek-V4-Flash",
+    base_url: VLLM_LOCAL,
+    client: "openai-chat-vllm-adapter",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.0, 0.0),
+  },
+  {
+    model: "deepseek-ai/DeepSeek-V4-Flash-Vision-Exp",
+    base_url: VLLM_LOCAL,
+    client: "openai-chat-vllm-adapter",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.0, 0.0),
+  },
+  {
+    model: "deepseek-ai/DeepSeek-V4-Pro",
+    base_url: VLLM_LOCAL,
+    client: "openai-chat-vllm-adapter",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.0, 0.0),
+  },
+  {
+    model: "Qwen/Qwen3.5-0.8B",
+    base_url: VLLM_LOCAL,
+    client: "openai-chat-vllm-adapter",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.0, 0.0),
+  },
+  {
+    model: "Qwen/Qwen3.5-9B",
+    base_url: VLLM_LOCAL,
+    client: "openai-chat-vllm-adapter",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.0, 0.0),
+  },
+  {
+    model: "Qwen/Qwen3.6-35B-A3B",
+    base_url: VLLM_LOCAL,
+    client: "openai-chat-vllm-adapter",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.0, 0.0),
+  },
+  {
+    model: "Qwen/Qwen3.8-27B",
+    base_url: VLLM_LOCAL,
+    client: "openai-chat-vllm-adapter",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.0, 0.0),
+  },
+  {
+    model: "Qwen/Qwen3.8-Flash-Next",
+    base_url: VLLM_LOCAL,
+    client: "openai-chat-vllm-adapter",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.0, 0.0),
   },
 ];
 
@@ -1319,10 +3537,13 @@ function convertPricing(
  * pricing.
  *
  * Covers the official vendor endpoints plus OpenRouter, SiliconFlow, Google
- * Vertex AI, Amazon Bedrock and TokenDance; `client` is the `clientType` token
- * that routes the model to its protocol client. Prices are per million tokens for MMSP's usage buckets
+ * Vertex AI, Amazon Bedrock, TokenDance, OpenCode Go, Fireworks AI, DashScope,
+ * Qwen Token Plan, Atlas Cloud, Penguin Go, ModelScope and a local vLLM server;
+ * `client` is the `clientType` token that routes the model to its protocol
+ * client. Prices are per million tokens for MMSP's usage buckets
  * (cached_tokens, prompt_tokens, thoughts_tokens, response_tokens), stored in
- * USD and converted to `currency` at 7 CNY/USD on request.
+ * USD and converted to `currency` at 7 CNY/USD on request; `SupportedModel`
+ * says which price each platform's rows store.
  */
 export function listSupportedModels(
   currency: Currency = "USD",

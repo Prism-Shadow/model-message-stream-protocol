@@ -303,7 +303,7 @@ const kbd =
               marked(record.heading || record.title, query),
             ),
           ]);
-          // a section's heading is named with its page, since many pages share headings (Summary, Rule)
+          // a section's heading is named with its page, since many pages share headings (Abstract, Introduction, Conformance)
           if (record.heading) head.append(span(`min-w-0 flex-1 truncate ${quiet}`, marked(record.title, query)));
           head.append(span(`ml-auto shrink-0 pl-2 ${quiet}`, [record.section]));
           option.append(head);
