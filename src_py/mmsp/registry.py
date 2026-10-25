@@ -1131,9 +1131,10 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "context_window": 1000000,
         "pricing": _usd(3.0, 15.0, cached=0.3),
     },
-    # TokenDance (CNY prices at the `items` rate of the public catalog
-    # https://tokendance.space/portal/api/models/all, read 2026-10-19; each row's client speaks
-    # a protocol the catalog lists for the model, and its price is that protocol's)
+    # --- TokenDance (61 rows; CNY prices at the `items` rate of the public catalog
+    # https://tokendance.space/portal/api/models/all, read 2026-10-24; each row's client speaks
+    # a protocol the catalog lists for the model, and its price is that protocol's, at the lowest
+    # tier where the catalog tiers it by prompt length)
     {
         # this row and the next take the gateway's Chat Completions path; weekday peak rates
         # (09:00-12:00, 14:00-18:00 Beijing) are double on both
@@ -1165,6 +1166,37 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "pricing": _cny(8.1, 24.3, cached=0.27),
     },
     {
+        # weekday peak rates (09:00-12:00, 14:00-18:00 Beijing) are 7.2/21.6/0.24 CNY
+        "model": "deepseek-v4-pro-0813",
+        "base_url": _TOKENDANCE,
+        "client": "openai-chat",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Text"],
+        "context_window": 1000000,
+        "pricing": _cny(4.5, 13.5, cached=0.15),
+    },
+    {
+        # weekday peak rates (09:00-12:00, 14:00-18:00 Beijing) are 2.4/7.2/0.08 CNY
+        "model": "deepseek-v4-flash-0731",
+        "base_url": _TOKENDANCE,
+        "client": "openai-chat",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Text"],
+        "context_window": 1048576,
+        "pricing": _cny(1.5, 4.5, cached=0.05),
+    },
+    {
+        # the Chat Completions price names its output rate `output_tokens`; the Messages price is
+        # the same 1/2/0.2 CNY
+        "model": "deepseek-v4-flash",
+        "base_url": _TOKENDANCE,
+        "client": "openai-chat",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Text"],
+        "context_window": 1048576,
+        "pricing": _cny(1.0, 2.0, cached=0.2),
+    },
+    {
         # the catalog prices this model on Chat Completions and Messages (2.1/8.4 CNY below 512K
         # input tokens) but not on the Responses protocol minimax-official speaks
         "model": "minimax-m3",
@@ -1183,6 +1215,26 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "output_modalities": ["Text"],
         "context_window": 1000000,
         "pricing": _cny(1.0, 4.0, cached=0.1),
+    },
+    {
+        # this row and the next follow minimax-m3.1-flash onto Messages, assuming the gateway's
+        # Chat Completions stream ends without `delta` for them too
+        "model": "minimax-m2.7",
+        "base_url": _TOKENDANCE_ANTHROPIC,
+        "client": "ant-messages",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Text"],
+        "context_window": 200000,
+        "pricing": _cny(1.68, 6.72, cached=0.336),
+    },
+    {
+        "model": "minimax-m2.5",
+        "base_url": _TOKENDANCE_ANTHROPIC,
+        "client": "ant-messages",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Text"],
+        "context_window": 200000,
+        "pricing": _cny(1.89, 7.56, cached=0.189),
     },
     {
         # catalog 2026-10-23, whose context window is 1000000 rather than Moonshot's 1048576
@@ -1204,6 +1256,15 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "pricing": _cny(20.0, 100.0, cached=2.0),
     },
     {
+        "model": "kimi-k2.7-code",
+        "base_url": _TOKENDANCE,
+        "client": "moonshot-official",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 262144,
+        "pricing": _cny(5.2, 21.6, cached=1.04),
+    },
+    {
         "model": "kimi-k2.6",
         "base_url": _TOKENDANCE,
         "client": "moonshot-official",
@@ -1211,6 +1272,15 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "output_modalities": ["Text"],
         "context_window": 262144,
         "pricing": _cny(5.2, 21.6, cached=1.04),
+    },
+    {
+        "model": "kimi-k2.5",
+        "base_url": _TOKENDANCE,
+        "client": "moonshot-official",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 256000,
+        "pricing": _cny(4.0, 21.0, cached=0.8),
     },
     {
         "model": "glm-5.3",
@@ -1231,6 +1301,16 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "pricing": _cny(0.72, 2.52, cached=0.207),
     },
     {
+        # zai-official sends images for every glm-5.3-flash id, this one included
+        "model": "glm-5.3-flashx",
+        "base_url": _TOKENDANCE,
+        "client": "zai-official",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1000000,
+        "pricing": _cny(2.0, 7.0, cached=0.57),
+    },
+    {
         "model": "glm-5.2",
         "base_url": _TOKENDANCE,
         "client": "zai-official",
@@ -1238,6 +1318,66 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "output_modalities": ["Text"],
         "context_window": 1000000,
         "pricing": _cny(6.4, 22.4, cached=1.6),
+    },
+    {
+        "model": "glm-5.1",
+        "base_url": _TOKENDANCE,
+        "client": "zai-official",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Text"],
+        "context_window": 202752,
+        "pricing": _cny(7.2, 25.2, cached=1.8),
+    },
+    {
+        # prompts up to 32K tokens; 6/22/1.2 CNY above
+        "model": "glm-5",
+        "base_url": _TOKENDANCE,
+        "client": "zai-official",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Text"],
+        "context_window": 200000,
+        "pricing": _cny(4.0, 18.0, cached=0.8),
+    },
+    {
+        # openai-chat, which forwards images, as zai-official does only for glm-5.3-flash ids;
+        # prompts up to 32K tokens, 7/26/1.8 CNY above
+        "model": "glm-5v-turbo",
+        "base_url": _TOKENDANCE,
+        "client": "openai-chat",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 202752,
+        "pricing": _cny(5.0, 22.0, cached=1.2),
+    },
+    {
+        # prompts up to 32K tokens; 4/16/0.8 CNY above
+        "model": "glm-4.7",
+        "base_url": _TOKENDANCE,
+        "client": "zai-official",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Text"],
+        "context_window": 200000,
+        "pricing": _cny(3.0, 14.0, cached=0.6),
+    },
+    {
+        # openai-chat for its images, as glm-5v-turbo; prompts up to 32K tokens, 2/6/0.4 CNY above
+        "model": "glm-4.6v",
+        "base_url": _TOKENDANCE,
+        "client": "openai-chat",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 128000,
+        "pricing": _cny(1.0, 3.0, cached=0.2),
+    },
+    {
+        # prompts up to 32K tokens; 1.2/8/0.24 CNY above
+        "model": "glm-4.5-air",
+        "base_url": _TOKENDANCE,
+        "client": "zai-official",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Text"],
+        "context_window": 128000,
+        "pricing": _cny(0.8, 6.0, cached=0.16),
     },
     {
         "model": "qwen3.8-flash",
@@ -1258,12 +1398,130 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "pricing": _cny(10.8, 32.4, cached=1.35),
     },
     {
+        "model": "qwen3.8-max-0902",
+        "base_url": _TOKENDANCE,
+        "client": "openai-responses",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1000000,
+        "pricing": _cny(12.0, 36.0, cached=1.5),
+    },
+    {
+        "model": "qwen3.7-max",
+        "base_url": _TOKENDANCE,
+        "client": "openai-responses",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Text"],
+        "context_window": 1000000,
+        "pricing": _cny(9.6, 28.8, cached=1.92),
+    },
+    {
+        # prompts up to 256K tokens; 4.8/19.2/0.96 CNY above
+        "model": "qwen3.7-plus",
+        "base_url": _TOKENDANCE,
+        "client": "openai-responses",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1000000,
+        "pricing": _cny(1.6, 6.4, cached=0.32),
+    },
+    {
+        # prompts up to 256K tokens, 6.4/38.4/0.64 CNY above; the catalog names the output rate
+        # `output_tokens`
+        "model": "qwen3.6-plus",
+        "base_url": _TOKENDANCE,
+        "client": "openai-chat",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Text"],
+        "context_window": 1000000,
+        "pricing": _cny(1.6, 9.6, cached=0.16),
+    },
+    {
+        # prompts up to 128K tokens; 2/12/0.2 CNY to 256K and 4/24/0.4 above, and cache writes
+        # cost 1, 2.5 and 5 CNY by the same tiers
+        "model": "qwen3.5-plus",
+        "base_url": _TOKENDANCE,
+        "client": "openai-chat",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1000000,
+        "pricing": _cny(0.8, 4.8, cached=0.08),
+    },
+    {
+        # prompts up to 128K tokens; 0.8/8/0.08 CNY to 256K and 1.2/12/0.12 above
+        "model": "qwen3.5-flash",
+        "base_url": _TOKENDANCE,
+        "client": "openai-chat",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1000000,
+        "pricing": _cny(0.2, 2.0, cached=0.02),
+    },
+    {
+        # prompts up to 128K tokens; 1.6/12.8 CNY above
+        "model": "qwen3.5-35b-a3b",
+        "base_url": _TOKENDANCE,
+        "client": "openai-chat",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 256000,
+        "pricing": _cny(0.4, 3.2),
+    },
+    {
+        # prompts up to 32K tokens; 1.5/15/0.3 CNY to 128K and 3/30/0.6 above
+        "model": "qwen3-vl-plus",
+        "base_url": _TOKENDANCE,
+        "client": "openai-chat",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 256000,
+        "pricing": _cny(1.0, 10.0, cached=0.2),
+    },
+    {
         "model": "mimo-v2.6-flash",
         "base_url": _TOKENDANCE,
         "client": "openai-responses",
         "input_modalities": ["Text", "Image"],
         "output_modalities": ["Text"],
         "context_window": 1000000,
+        "pricing": _cny(1.0, 2.0, cached=0.02),
+    },
+    {
+        "model": "mimo-v2.6-pro",
+        "base_url": _TOKENDANCE,
+        "client": "openai-responses",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1000000,
+        "pricing": _cny(3.0, 6.0, cached=0.025),
+    },
+    {
+        "model": "mimo-v2.6-ultraspeed",
+        "base_url": _TOKENDANCE,
+        "client": "openai-responses",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1000000,
+        "pricing": _cny(30.0, 60.0, cached=0.25),
+    },
+    {
+        "model": "mimo-v2.5-pro",
+        "base_url": _TOKENDANCE,
+        "client": "openai-responses",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Text"],
+        "context_window": 1048576,
+        "pricing": _cny(3.0, 6.0, cached=0.025),
+    },
+    {
+        # the Responses price names its output rate `text_output_tokens`; Chat Completions lists
+        # the same 1/2/0.02 CNY
+        "model": "mimo-v2.5",
+        "base_url": _TOKENDANCE,
+        "client": "openai-responses",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1048576,
         "pricing": _cny(1.0, 2.0, cached=0.02),
     },
     {
@@ -1276,6 +1534,26 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "pricing": _cny(7.0, 20.0, cached=0.35),
     },
     {
+        # openai-chat: the catalog prices Chat Completions only, though it also lists Responses
+        # and Messages
+        "model": "step-3.7-flash",
+        "base_url": _TOKENDANCE,
+        "client": "openai-chat",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 256000,
+        "pricing": _cny(1.08, 6.48, cached=0.216),
+    },
+    {
+        "model": "step-3.5-flash",
+        "base_url": _TOKENDANCE,
+        "client": "openai-chat",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Text"],
+        "context_window": 256000,
+        "pricing": _cny(0.7, 2.1, cached=0.14),
+    },
+    {
         "model": "hy4-preview",
         "base_url": _TOKENDANCE,
         "client": "openai-responses",
@@ -1285,12 +1563,161 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "pricing": _cny(6.0, 18.0, cached=0.3),
     },
     {
+        "model": "hy3",
+        "base_url": _TOKENDANCE,
+        "client": "openai-responses",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Text"],
+        "context_window": 256000,
+        "pricing": _cny(1.0, 4.0, cached=0.25),
+    },
+    {
+        # prompts up to 16K tokens; 1.6/6.4/0.6 CNY to 32K and 2/8/0.8 above
+        "model": "hy3-preview",
+        "base_url": _TOKENDANCE,
+        "client": "openai-chat",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Text"],
+        "context_window": 256000,
+        "pricing": _cny(1.2, 4.0, cached=0.4),
+    },
+    {
+        "model": "seed-2.1-pro",
+        "base_url": _TOKENDANCE,
+        "client": "openai-responses",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 256000,
+        "pricing": _cny(3.0, 15.0, cached=0.6),
+    },
+    {
+        "model": "seed-2.1-turbo",
+        "base_url": _TOKENDANCE,
+        "client": "openai-responses",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 256000,
+        "pricing": _cny(1.5, 7.5, cached=0.3),
+    },
+    {
+        # prompts up to 32K tokens on this row and the next; 2.4/12/0.48 CNY to 128K and
+        # 4.8/24/0.96 above
+        "model": "seed-2.0-pro",
+        "base_url": _TOKENDANCE,
+        "client": "openai-chat",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 256000,
+        "pricing": _cny(1.6, 8.0, cached=0.32),
+    },
+    {
+        "model": "seed-2.0-code",
+        "base_url": _TOKENDANCE,
+        "client": "openai-responses",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 256000,
+        "pricing": _cny(1.6, 8.0, cached=0.32),
+    },
+    {
+        # prompts up to 32K tokens; 0.45/2.7/0.09 CNY to 128K and 0.9/5.4/0.18 above
+        "model": "seed-2.0-lite",
+        "base_url": _TOKENDANCE,
+        "client": "openai-chat",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 256000,
+        "pricing": _cny(0.3, 1.8, cached=0.06),
+    },
+    {
+        # prompts up to 32K tokens; 0.2/2/0.04 CNY to 128K and 0.4/4/0.08 above
+        "model": "seed-2.0-mini",
+        "base_url": _TOKENDANCE,
+        "client": "openai-chat",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 256000,
+        "pricing": _cny(0.1, 1.0, cached=0.02),
+    },
+    {
+        "model": "seed-evolving",
+        "base_url": _TOKENDANCE,
+        "client": "openai-chat",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1000000,
+        "pricing": _cny(3.0, 15.0, cached=0.6),
+    },
+    {
+        "model": "longcat-2.0",
+        "base_url": _TOKENDANCE,
+        "client": "openai-chat",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Text"],
+        "context_window": 1000000,
+        "pricing": _cny(2.0, 8.0, cached=0.04),
+    },
+    {
+        "model": "ling-3.1-flash",
+        "base_url": _TOKENDANCE,
+        "client": "openai-chat",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Text"],
+        "context_window": 1000000,
+        "pricing": _cny(0.5, 1.5, cached=0.1),
+    },
+    {
+        "model": "ling-3.0-flash",
+        "base_url": _TOKENDANCE,
+        "client": "openai-chat",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Text"],
+        "context_window": 256000,
+        "pricing": _cny(0.14, 0.42, cached=0.028),
+    },
+    {
+        "model": "spark-x2.5-4b",
+        "base_url": _TOKENDANCE,
+        "client": "openai-chat",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Text"],
+        "context_window": 1000000,
+        "pricing": _cny(0.0, 0.0, cached=0.0),
+    },
+    {
+        "model": "spark-x2.5-1.7b",
+        "base_url": _TOKENDANCE,
+        "client": "openai-chat",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Text"],
+        "context_window": 1000000,
+        "pricing": _cny(0.0, 0.0, cached=0.0),
+    },
+    {
+        "model": "dots-3-note-preview",
+        "base_url": _TOKENDANCE,
+        "client": "openai-chat",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 512000,
+        "pricing": _cny(0.0, 0.0, cached=0.0),
+    },
+    {
         "model": "qwen3.7-text-embedding",
         "base_url": _TOKENDANCE,
         "client": "openai-embedding",
         "input_modalities": ["Text"],
         "output_modalities": ["Embed"],
         "context_window": 128000,
+        "pricing": _cny(0.5, 0.0),
+    },
+    {
+        "model": "qwen-text-embedding-v4",
+        "base_url": _TOKENDANCE,
+        "client": "openai-embedding",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Embed"],
+        "context_window": 8000,
         "pricing": _cny(0.5, 0.0),
     },
 ]
