@@ -53,18 +53,18 @@ An RFC takes the next `MMSP-RFC-NNNN` that neither the folder nor an open PR use
 
 | 0.5.5 number | First renumbering (#298) | Content now in |
 | --- | --- | --- |
-| MMSP-RFC-0002 One protocol for every model | MMSP-RFC-0002 One protocol for every model | [MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.md); [MMSP-RFC-0009 §6](MMSP-RFC-0009-protocol-conversion.md#6-order) (order) |
+| MMSP-RFC-0002 One protocol for every model | MMSP-RFC-0002 One protocol for every model | [MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.md); [MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.md#6-order) §6 (order) |
 | MMSP-RFC-0003 One stream grammar, closed by the base class | MMSP-RFC-0003 Every request is an async stream (grammar); MMSP-RFC-0005 (`IncompleteStreamError`) | [MMSP-RFC-0003](MMSP-RFC-0003-message-requests.md) |
-| MMSP-RFC-0004 Routing is explicit | MMSP-RFC-0006 Client routing is explicit; MMSP-RFC-0011 (version matching) | [MMSP-RFC-0005](MMSP-RFC-0005-client-routing.md); [MMSP-RFC-0003 §6](MMSP-RFC-0003-message-requests.md#6-request-parameters) |
+| MMSP-RFC-0004 Routing is explicit | MMSP-RFC-0006 Client routing is explicit; MMSP-RFC-0011 (version matching) | [MMSP-RFC-0005](MMSP-RFC-0005-client-routing.md); [MMSP-RFC-0003](MMSP-RFC-0003-message-requests.md#6-request-parameters) §6 |
 | MMSP-RFC-0005 A credential goes only where it was given for | MMSP-RFC-0007 Keys stay safe | [MMSP-RFC-0006](MMSP-RFC-0006-upstream-credentials.md) |
-| MMSP-RFC-0006 Every thinking level is usable on every client | MMSP-RFC-0010 Every thinking level is supported | [MMSP-RFC-0003 §6](MMSP-RFC-0003-message-requests.md#6-request-parameters) |
+| MMSP-RFC-0006 Every thinking level is usable on every client | MMSP-RFC-0010 Every thinking level is supported | [MMSP-RFC-0003](MMSP-RFC-0003-message-requests.md#6-request-parameters) §6 |
 | MMSP-RFC-0007 A rejected value raises a typed error | MMSP-RFC-0009 Every error is typed | [MMSP-RFC-0007](MMSP-RFC-0007-error-types.md) |
-| MMSP-RFC-0008 Replay is minimal; fidelity is the exception channel | MMSP-RFC-0004 Messages stay lean; MMSP-RFC-0005 (`tool_call_id`, unsigned thinking) | [MMSP-RFC-0002 §5](MMSP-RFC-0002-message-protocol.md#5-what-a-message-carries); [MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.md) |
-| MMSP-RFC-0009 Two packages, one contract | MMSP-RFC-0002 One protocol for every model | [MMSP-RFC-0002 §6](MMSP-RFC-0002-message-protocol.md#6-one-protocol-in-two-packages) |
-| MMSP-RFC-0010 Every stream ends with its usage and finish reason | MMSP-RFC-0005 Essential fields are never dropped | [MMSP-RFC-0003 §5](MMSP-RFC-0003-message-requests.md#5-how-a-stream-ends) |
+| MMSP-RFC-0008 Replay is minimal; fidelity is the exception channel | MMSP-RFC-0004 Messages stay lean; MMSP-RFC-0005 (`tool_call_id`, unsigned thinking) | [MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.md#5-what-a-message-carries) §5; [MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.md) |
+| MMSP-RFC-0009 Two packages, one contract | MMSP-RFC-0002 One protocol for every model | [MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.md#6-one-protocol-in-two-packages) §6 |
+| MMSP-RFC-0010 Every stream ends with its usage and finish reason | MMSP-RFC-0005 Essential fields are never dropped | [MMSP-RFC-0003](MMSP-RFC-0003-message-requests.md#5-how-a-stream-ends) §5 |
 | MMSP-RFC-0011 Thinking survives the round trip | MMSP-RFC-0005 Essential fields are never dropped | [MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.md) |
-| MMSP-RFC-0012 Conversion is direct and carries nothing redundant | MMSP-RFC-0013 Implementation code is straightforward; MMSP-RFC-0004 (nothing redundant) | [MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.md); [MMSP-RFC-0002 §5](MMSP-RFC-0002-message-protocol.md#5-what-a-message-carries) |
-| — | MMSP-RFC-0008 History does not change | [MMSP-RFC-0004 §6](MMSP-RFC-0004-message-fidelity.md#6-the-identical-prefix) |
+| MMSP-RFC-0012 Conversion is direct and carries nothing redundant | MMSP-RFC-0013 Implementation code is straightforward; MMSP-RFC-0004 (nothing redundant) | [MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.md); [MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.md#5-what-a-message-carries) §5 |
+| — | MMSP-RFC-0008 History does not change | [MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.md#6-the-identical-prefix) §6 |
 | — | MMSP-RFC-0012 A request can be interrupted | [MMSP-RFC-0008](MMSP-RFC-0008-request-interruption.md) |
 | — | — | [MMSP-RFC-0010](MMSP-RFC-0010-trace-recording.md), new |
 

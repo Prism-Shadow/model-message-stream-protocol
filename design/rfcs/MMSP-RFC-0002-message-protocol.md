@@ -17,7 +17,7 @@ MMSP exists so that a caller writes to one message format and one stream grammar
 
 A replayed turn has to be accepted by the API with the model's behavior intact; it does not have to reproduce the wire item field for field, and every field mirrored into `fidelity` is one more provider shape that consumers, traces and histories carry. [#159](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/159) added `fidelity` for the exact reasoning field a strict upstream demands back; [#287](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/287) replaced a gateway's reasoning block, which had been kept whole, with the three keys that rebuild it. The owner's words: 转换只保留必要的部分，冗余字段不需要保留.
 
-Stated in [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265) as MMSP-RFC-0002, MMSP-RFC-0009, part of MMSP-RFC-0008 and the second half of MMSP-RFC-0012, and in [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) as MMSP-RFC-0002 and MMSP-RFC-0004. The order rule of the earlier MMSP-RFC-0002 is now [MMSP-RFC-0009 §6](MMSP-RFC-0009-protocol-conversion.md#6-order).
+Stated in [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265) as MMSP-RFC-0002, MMSP-RFC-0009, part of MMSP-RFC-0008 and the second half of MMSP-RFC-0012, and in [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) as MMSP-RFC-0002 and MMSP-RFC-0004. The order rule of the earlier MMSP-RFC-0002 is now [MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.md#6-order) §6.
 
 ## 2. Conventions and Terminology
 
@@ -26,21 +26,21 @@ The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY in this document are to
 - *Item*: one entry of a message's or an event's `content_items`. A *complete item* has a `.done` type; a *fragment* has a `.delta` type.
 - *Universal field*: a field other than `fidelity` that `types.py` / `types.ts` define on an item, such as `text`, `thinking`, `arguments` or `tool_call_id`.
 - *Fidelity*: the `fidelity` object of an item, the wire data no universal field carries (§5).
-- *Public stream*: as [MMSP-RFC-0003 §2](MMSP-RFC-0003-message-requests.md#2-conventions-and-terminology) defines it. *Replay*: as [MMSP-RFC-0004 §2](MMSP-RFC-0004-message-fidelity.md#2-conventions-and-terminology) defines it.
+- *Public stream*: as [MMSP-RFC-0003](MMSP-RFC-0003-message-requests.md#2-conventions-and-terminology) §2 defines it. *Replay*: as [MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.md#2-conventions-and-terminology) §2 defines it.
 
 ## 3. The Three Shapes
 
 ### 3.1 `UniConfig`
 
-A request's configuration is a `UniConfig`: the keys `types.py` / `types.ts` define, every one optional. A key MUST mean the same thing on every client; how a client sends, ignores or refuses a key is [MMSP-RFC-0003 §6](MMSP-RFC-0003-message-requests.md#6-request-parameters).
+A request's configuration is a `UniConfig`: the keys `types.py` / `types.ts` define, every one optional. A key MUST mean the same thing on every client; how a client sends, ignores or refuses a key is [MMSP-RFC-0003](MMSP-RFC-0003-message-requests.md#6-request-parameters) §6.
 
 ### 3.2 `UniMessage`
 
-A message has a `role` (`user` or `assistant`), `content_items`, and optionally `usage_metadata`, `finish_reason` and `created_at` (milliseconds since the epoch). A message MUST hold complete items only: the base class builds an assistant message from the complete items of its stream, and any other item a caller sends is refused ([MMSP-RFC-0007 §3.1](MMSP-RFC-0007-error-types.md#31-before-the-request)), apart from the item types of histories recorded before 0.5.0, which are converted ([MMSP-RFC-0009 §7](MMSP-RFC-0009-protocol-conversion.md#7-one-shape-per-input)). The order of the items is part of the message ([MMSP-RFC-0009 §6](MMSP-RFC-0009-protocol-conversion.md#6-order)). An assistant message built from a stream carries the stream's `usage_metadata` and `finish_reason` ([MMSP-RFC-0003 §4.4](MMSP-RFC-0003-message-requests.md#44-the-assistant-message)); a message a caller builds by hand MAY carry neither.
+A message has a `role` (`user` or `assistant`), `content_items`, and optionally `usage_metadata`, `finish_reason` and `created_at` (milliseconds since the epoch). A message MUST hold complete items only: the base class builds an assistant message from the complete items of its stream, and any other item a caller sends is refused ([MMSP-RFC-0007](MMSP-RFC-0007-error-types.md#31-before-the-request) §3.1), apart from the item types of histories recorded before 0.5.0, which are converted ([MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.md#7-one-shape-per-input) §7). The order of the items is part of the message ([MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.md#6-order) §6). An assistant message built from a stream carries the stream's `usage_metadata` and `finish_reason` ([MMSP-RFC-0003](MMSP-RFC-0003-message-requests.md#44-the-assistant-message) §4.4); a message a caller builds by hand MAY carry neither.
 
 ### 3.3 `UniEvent`
 
-An event has `role`, `event_type` (`delta` or `stop`), `content_items`, `usage_metadata`, `finish_reason` and `created_at`. In the public stream a `delta` event MUST carry exactly one item, a fragment or a complete item, and neither usage nor finish reason; the one `stop` event MUST carry no items and both ([MMSP-RFC-0003 §4](MMSP-RFC-0003-message-requests.md#4-the-stream-grammar)). What a client yields to the base class is [MMSP-RFC-0003 §4.1](MMSP-RFC-0003-message-requests.md#41-what-a-client-yields).
+An event has `role`, `event_type` (`delta` or `stop`), `content_items`, `usage_metadata`, `finish_reason` and `created_at`. In the public stream a `delta` event MUST carry exactly one item, a fragment or a complete item, and neither usage nor finish reason; the one `stop` event MUST carry no items and both ([MMSP-RFC-0003](MMSP-RFC-0003-message-requests.md#4-the-stream-grammar) §4). What a client yields to the base class is [MMSP-RFC-0003](MMSP-RFC-0003-message-requests.md#41-what-a-client-yields) §4.1.
 
 ### 3.4 Content Items
 
@@ -53,12 +53,12 @@ The complete kinds are `text.done`, `image_url.done`, `inline_data.done`, `think
 
 ## 5. What a Message Carries
 
-- A message holds its items' universal fields and, per item, only the `fidelity` a replay needs: wire data no universal field carries, such as a thinking signature, encrypted reasoning, a phase, or the reasoning field name a strict upstream demands. What each wire needs back, and what a field needs to join it, is [MMSP-RFC-0004 §4](MMSP-RFC-0004-message-fidelity.md#4-what-each-wire-needs-back).
+- A message holds its items' universal fields and, per item, only the `fidelity` a replay needs: wire data no universal field carries, such as a thinking signature, encrypted reasoning, a phase, or the reasoning field name a strict upstream demands. What each wire needs back, and what a field needs to join it, is [MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.md#4-what-each-wire-needs-back) §4.
 - `fidelity` MUST NOT hold a copy of a universal field, an id the provider regenerates or ignores, or a field no replay uses.
 - `fidelity` MUST give a kind of data the same name in every client: `signature`, `encrypted_content`, `format`, `channel`, `phase`, `reasoning_field`, `reasoning_id`. A client MUST NOT keep a wire item, or a list of them, whole under the wire's own name. `reasoning_id` is kept only for a gateway's encrypted reasoning block, whose id the gateway needs back.
 - `fidelity.item_id` is the id a client identifies its items with while streaming. `StreamItems` MUST strip it before an item goes out, so it reaches no consumer, trace or history.
 - A consumer SHOULD treat `fidelity` as opaque and pass it back unchanged.
-- The shapes earlier releases recorded inside an item are read until 0.6.0 ([MMSP-RFC-0009 §7](MMSP-RFC-0009-protocol-conversion.md#7-one-shape-per-input)).
+- The shapes earlier releases recorded inside an item are read until 0.6.0 ([MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.md#7-one-shape-per-input) §7).
 
 ## 6. One Protocol in Two Packages
 
@@ -76,5 +76,5 @@ The complete kinds are `text.done`, `image_url.done`, `inline_data.done`, `think
   - no shared test branches on a model name, and no model gets a test file of its own;
   - a failing shared test means the client is wrong until proven otherwise;
   - any broader test edit needs the owner's explicit approval, per change.
-- `.github/ci/models.json`, the one catalog both suites load, with `.github/ci/plan.py`, `.github/ci/README.md` and `.github/workflows/ci.yml`. The catalog keeps the newest generation of a family; a generation that leaves it stays supported and routed ([MMSP-RFC-0005 §3](MMSP-RFC-0005-client-routing.md#3-client-types)).
+- `.github/ci/models.json`, the one catalog both suites load, with `.github/ci/plan.py`, `.github/ci/README.md` and `.github/workflows/ci.yml`. The catalog keeps the newest generation of a family; a generation that leaves it stays supported and routed ([MMSP-RFC-0005](MMSP-RFC-0005-client-routing.md#3-client-types) §3).
 - The routing case of `test_client.py` / `client.test.ts` that checks every catalog entry reaches its client group.

@@ -26,13 +26,13 @@ The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY in this document are to
 - *Replay*: sending a recorded message back to a model as part of a later request.
 - *Prefix*: the messages of a request before the newest one, in the wire form the client sends.
 - *Stand-in*: what a client puts in a replayed turn for something the turn lacks and the provider requires (a placeholder thought signature, an empty reasoning field).
-- *Fidelity*: as [MMSP-RFC-0002 §5](MMSP-RFC-0002-message-protocol.md#5-what-a-message-carries) defines it. *Stateful history*: the messages `streaming_response_stateful` keeps.
+- *Fidelity*: as [MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.md#5-what-a-message-carries) §5 defines it. *Stateful history*: the messages `streaming_response_stateful` keeps.
 
 ## 3. What a Message Keeps
 
 - A recorded message keeps its items and their `fidelity`, and every later call MUST replay it from them. MMSP writes nothing onto a message it is given except `created_at` (§6.3).
 - `tool_call_id` MUST hold the provider's call id where the wire carries one, and a replay MUST send it back. Where the wire carries both an item id and a call id, it holds the call id, which correlates a result to its call. A tool result without one raises `InvalidMessageError`.
-- An assistant message built from a stream keeps the stream's `usage_metadata` and `finish_reason` ([MMSP-RFC-0003 §4.4](MMSP-RFC-0003-message-requests.md#44-the-assistant-message)).
+- An assistant message built from a stream keeps the stream's `usage_metadata` and `finish_reason` ([MMSP-RFC-0003](MMSP-RFC-0003-message-requests.md#44-the-assistant-message) §4.4).
 
 ## 4. What Each Wire Needs Back
 
@@ -57,17 +57,17 @@ The scope of §4 is the same model on the same endpoint. Thinking another model 
 - a Responses replay rebuilds a reasoning item with the text as `reasoning_text`;
 - through `ant-messages` an unsigned thinking item goes back unsigned, the form third-party Messages servers take; Anthropic's own API refuses it.
 
-A response that is thinking and nothing else is not recorded, because no provider takes it back: it raises `EmptyResponseError`, and a replayed message that is thinking alone is refused ([MMSP-RFC-0003 §3.3](MMSP-RFC-0003-message-requests.md#33-before-the-request), [§5](MMSP-RFC-0003-message-requests.md#5-how-a-stream-ends)).
+A response that is thinking and nothing else is not recorded, because no provider takes it back: it raises `EmptyResponseError`, and a replayed message that is thinking alone is refused ([MMSP-RFC-0003](MMSP-RFC-0003-message-requests.md#33-before-the-request) §3.3, §5).
 
 ## 6. The Identical Prefix
 
 ### 6.1 The history holds copies
 
-The stateful history MUST share no object with the caller or the yielded events: `streaming_response_stateful` records a deep copy of the message sent and a deep copy of the assistant message when the `stop` event arrives; `get_history` returns a copy and `set_history` stores one. The turn is recorded before the `stop` is yielded, so a caller may stop iterating at the `stop` and the next call may begin from then. A stream that ends without its `stop` appends nothing and saves no trace ([MMSP-RFC-0010 §3](MMSP-RFC-0010-trace-recording.md#3-when-a-trace-is-saved)).
+The stateful history MUST share no object with the caller or the yielded events: `streaming_response_stateful` records a deep copy of the message sent and a deep copy of the assistant message when the `stop` event arrives; `get_history` returns a copy and `set_history` stores one. The turn is recorded before the `stop` is yielded, so a caller may stop iterating at the `stop` and the next call may begin from then. A stream that ends without its `stop` appends nothing and saves no trace ([MMSP-RFC-0010](MMSP-RFC-0010-trace-recording.md#3-when-a-trace-is-saved) §3).
 
 ### 6.2 One stateful call at a time
 
-A second `streaming_response_stateful` on a client while one is in flight MUST raise `ConcurrentCallError` before anything is sent. A call holds the client until its `stop`, its error, the abort of its signal or the close of its generator; an aborted call releases the client at once and records nothing, even when the abort lands as its `stop` arrives ([MMSP-RFC-0008 §6](MMSP-RFC-0008-request-interruption.md#6-stateful-calls)). `streaming_response` keeps no history and runs beside a stateful call. `AutoLLMClient` forwards to the wrapped client, which holds the claim.
+A second `streaming_response_stateful` on a client while one is in flight MUST raise `ConcurrentCallError` before anything is sent. A call holds the client until its `stop`, its error, the abort of its signal or the close of its generator; an aborted call releases the client at once and records nothing, even when the abort lands as its `stop` arrives ([MMSP-RFC-0008](MMSP-RFC-0008-request-interruption.md#6-stateful-calls) §6). `streaming_response` keeps no history and runs beside a stateful call. `AutoLLMClient` forwards to the wrapped client, which holds the claim.
 
 ### 6.3 `created_at`
 
@@ -75,14 +75,14 @@ A message sent without `created_at` is stamped with the time it is sent, on the 
 
 ### 6.4 The wire form of a past turn
 
-- A message transform MUST write each message from that message and the messages before it, and MUST NOT read a message after it. What it carries forward is what a later message needs from an earlier one: the reasoning field an earlier turn of an `openai-chat` conversation produced (§4), and, in the Google clients, the name of each call, which the function response that answers it repeats. A stand-in (§4, §5) is decided from the turn and the turns before it. Legacy conversion ([MMSP-RFC-0009 §7](MMSP-RFC-0009-protocol-conversion.md#7-one-shape-per-input)) converts a message the same way on every call and never in place. So a replayed turn goes out in the same wire form on every call, and the provider's prefix cache sees the same prefix.
+- A message transform MUST write each message from that message and the messages before it, and MUST NOT read a message after it. What it carries forward is what a later message needs from an earlier one: the reasoning field an earlier turn of an `openai-chat` conversation produced (§4), and, in the Google clients, the name of each call, which the function response that answers it repeats. A stand-in (§4, §5) is decided from the turn and the turns before it. Legacy conversion ([MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.md#7-one-shape-per-input) §7) converts a message the same way on every call and never modifies the caller's messages. So a replayed turn goes out in the same wire form on every call, and the provider's prefix cache sees the same prefix.
 - An image given by URL is read again for every request by a client that inlines it (`openai-chat`, `moonshot-official`, the Google clients, `anthropic-official` on Bedrock), so it goes out the same only while the URL serves the same bytes.
 - What a request carries outside its messages (the system prompt, the tools, the config) is the caller's and is sent as given; what MMSP adds to the request body depends only on the client, the model and the config. The one marker that moves is the cache breakpoint `anthropic-official` sets on Bedrock: it goes on the last content item of the last user message of each request, so a turn that carried it on one call goes out without it on the next. That is the pattern Anthropic documents for a growing conversation, in which a request reads the entry the previous request's breakpoint wrote, up to 20 blocks back (`llmsdk_docs/claude4_6/docs/prompt-caching.md`, "How automatic prefix checking works"). On the Anthropic API the client sets the top-level `cache_control` instead, and no turn carries a marker.
 - A Gemini TTS request has no prefix: both Google clients send only the newest message, because the model refuses a conversation.
 
 ### 6.5 Nothing is dropped silently
 
-A message with nothing a client can send is refused before the request goes out ([MMSP-RFC-0003 §3.3](MMSP-RFC-0003-message-requests.md#33-before-the-request)); it MUST NOT be dropped and MUST NOT be sent empty, so the request and the history hold the same turns.
+A message with nothing a client can send is refused before the request goes out ([MMSP-RFC-0003](MMSP-RFC-0003-message-requests.md#33-before-the-request) §3.3); it MUST NOT be dropped and MUST NOT be sent empty, so the request and the history hold the same turns.
 
 ## 7. The `mmsp` Client
 

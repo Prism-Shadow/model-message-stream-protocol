@@ -36,7 +36,7 @@ The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY in this document are to
 
 - Without a client type, the family a model id begins with, compared case-insensitively, MUST name the client. The match MUST be a prefix match; routing MUST NOT match a substring or a version.
 - An id of no known family MUST raise `RoutingError` asking for a client type, and an unknown client type MUST raise `RoutingError` whatever the model id.
-- How a client tells apart the generations it serves is [MMSP-RFC-0003 §6.1](MMSP-RFC-0003-message-requests.md#61-explicit-matching).
+- How a client tells apart the generations it serves is [MMSP-RFC-0003](MMSP-RFC-0003-message-requests.md#61-explicit-matching) §6.1.
 
 ## 5. Listing Models
 

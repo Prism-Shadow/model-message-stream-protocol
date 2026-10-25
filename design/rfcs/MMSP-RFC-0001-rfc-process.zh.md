@@ -24,7 +24,7 @@ MMSP 要遵守的规则原先写在 mmsp-dev skill 里，写法是操作指南�
 
 ## 2. Conventions and Terminology
 
-本文中的关键词 MUST、MUST NOT、SHOULD、SHOULD NOT 与 MAY，当且仅当以全大写出现时，按 BCP 14（[RFC 2119](https://www.rfc-editor.org/rfc/rfc2119)、[RFC 8174](https://www.rfc-editor.org/rfc/rfc8174)）的定义理解。`spec` 类 RFC 中，描述代码行为的句子用 MUST 或 MUST NOT，SHOULD 与 SHOULD NOT 只用于对调用方与贡献者的要求。RFC 的中文对照把这些关键词依次写作 必须、不得、应当、不应 与 可以。
+本文中的关键词“必须”“不得”“应当”“不应”“可以”依次对应 BCP 14（[RFC 2119](https://www.rfc-editor.org/rfc/rfc2119)、[RFC 8174](https://www.rfc-editor.org/rfc/rfc8174)）中的 MUST、MUST NOT、SHOULD、SHOULD NOT 与 MAY，按其定义解释；本文只在这一含义上使用这五个词。`spec` 类 RFC 中，描述代码行为的句子用 MUST 或 MUST NOT，SHOULD 与 SHOULD NOT 只用于对调用方与贡献者的要求。RFC 的中文对照把这些关键词依次写作 必须、不得、应当、不应 与 可以。
 
 - *Spec*：固定代码遵守的一个概念、协议或算法的 RFC。
 - *Change*：修改协议或公开 API 的 RFC。
@@ -53,18 +53,18 @@ RFC 取目录与未关闭的 PR 都没有用过的下一个 `MMSP-RFC-NNNN`，�
 
 | 0.5.5 的编号 | 第一次重编号（#298） | 内容现在所在 |
 | --- | --- | --- |
-| MMSP-RFC-0002 所有模型共用一套协议 | MMSP-RFC-0002 消息协议须统一 | [MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.zh.md)；[MMSP-RFC-0009 §6](MMSP-RFC-0009-protocol-conversion.zh.md)（顺序） |
+| MMSP-RFC-0002 所有模型共用一套协议 | MMSP-RFC-0002 消息协议须统一 | [MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.zh.md)；[MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.zh.md#6-顺序) §6（顺序） |
 | MMSP-RFC-0003 同一套流语法，由基类收尾 | MMSP-RFC-0003 请求须异步流式（流语法）；MMSP-RFC-0005（`IncompleteStreamError`） | [MMSP-RFC-0003](MMSP-RFC-0003-message-requests.zh.md) |
-| MMSP-RFC-0004 路由是显式的 | MMSP-RFC-0006 客户端路由须显式；MMSP-RFC-0011（版本匹配） | [MMSP-RFC-0005](MMSP-RFC-0005-client-routing.zh.md)；[MMSP-RFC-0003 §6](MMSP-RFC-0003-message-requests.zh.md) |
+| MMSP-RFC-0004 路由是显式的 | MMSP-RFC-0006 客户端路由须显式；MMSP-RFC-0011（版本匹配） | [MMSP-RFC-0005](MMSP-RFC-0005-client-routing.zh.md)；[MMSP-RFC-0003](MMSP-RFC-0003-message-requests.zh.md#6-请求参数) §6 |
 | MMSP-RFC-0005 凭据只发往它被指定的地方 | MMSP-RFC-0007 保护密钥安全 | [MMSP-RFC-0006](MMSP-RFC-0006-upstream-credentials.zh.md) |
-| MMSP-RFC-0006 每个思考级别在每个客户端上都可用 | MMSP-RFC-0010 支持全部思考等级 | [MMSP-RFC-0003 §6](MMSP-RFC-0003-message-requests.zh.md) |
+| MMSP-RFC-0006 每个思考级别在每个客户端上都可用 | MMSP-RFC-0010 支持全部思考等级 | [MMSP-RFC-0003](MMSP-RFC-0003-message-requests.zh.md#6-请求参数) §6 |
 | MMSP-RFC-0007 被拒绝的值抛出有类型的错误 | MMSP-RFC-0009 异常要有类型 | [MMSP-RFC-0007](MMSP-RFC-0007-error-types.zh.md) |
-| MMSP-RFC-0008 回传最小化，fidelity 是例外通道 | MMSP-RFC-0004 消息结构保持精简；MMSP-RFC-0005（`tool_call_id`、不带签名的思考） | [MMSP-RFC-0002 §5](MMSP-RFC-0002-message-protocol.zh.md#5-消息携带什么)；[MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.zh.md) |
-| MMSP-RFC-0009 两个包，一份契约 | MMSP-RFC-0002 消息协议须统一 | [MMSP-RFC-0002 §6](MMSP-RFC-0002-message-protocol.zh.md#6-两个包中的同一套协议) |
-| MMSP-RFC-0010 每条流都以用量和结束原因收尾 | MMSP-RFC-0005 重要字段不能丢弃 | [MMSP-RFC-0003 §5](MMSP-RFC-0003-message-requests.zh.md) |
+| MMSP-RFC-0008 回传最小化，fidelity 是例外通道 | MMSP-RFC-0004 消息结构保持精简；MMSP-RFC-0005（`tool_call_id`、不带签名的思考） | [MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.zh.md#5-消息携带什么) §5；[MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.zh.md) |
+| MMSP-RFC-0009 两个包，一份契约 | MMSP-RFC-0002 消息协议须统一 | [MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.zh.md#6-两个包中的同一套协议) §6 |
+| MMSP-RFC-0010 每条流都以用量和结束原因收尾 | MMSP-RFC-0005 重要字段不能丢弃 | [MMSP-RFC-0003](MMSP-RFC-0003-message-requests.zh.md#5-流怎样结束) §5 |
 | MMSP-RFC-0011 思考经往返转换不丢失 | MMSP-RFC-0005 重要字段不能丢弃 | [MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.zh.md) |
-| MMSP-RFC-0012 转换直白，不带冗余 | MMSP-RFC-0013 实现代码须直观；MMSP-RFC-0004（不带冗余） | [MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.zh.md)；[MMSP-RFC-0002 §5](MMSP-RFC-0002-message-protocol.zh.md#5-消息携带什么) |
-| — | MMSP-RFC-0008 历史消息不改变 | [MMSP-RFC-0004 §6](MMSP-RFC-0004-message-fidelity.zh.md) |
+| MMSP-RFC-0012 转换直白，不带冗余 | MMSP-RFC-0013 实现代码须直观；MMSP-RFC-0004（不带冗余） | [MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.zh.md)；[MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.zh.md#5-消息携带什么) §5 |
+| — | MMSP-RFC-0008 历史消息不改变 | [MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.zh.md#6-相同的前缀) §6 |
 | — | MMSP-RFC-0012 允许中断请求 | [MMSP-RFC-0008](MMSP-RFC-0008-request-interruption.zh.md) |
 | — | — | [MMSP-RFC-0010](MMSP-RFC-0010-trace-recording.zh.md)，新增 |
 

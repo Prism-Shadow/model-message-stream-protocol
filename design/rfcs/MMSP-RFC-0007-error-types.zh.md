@@ -20,7 +20,7 @@
 本文中的关键词“必须”“不得”“应当”“不应”“可以”依次对应 BCP 14（[RFC 2119](https://www.rfc-editor.org/rfc/rfc2119)、[RFC 8174](https://www.rfc-editor.org/rfc/rfc8174)）中的 MUST、MUST NOT、SHOULD、SHOULD NOT 与 MAY，按其定义解释；本文只在这一含义上使用这五个词。
 
 - *裸的内置错误*：内置异常类本身的实例，例如 `ValueError`、`RuntimeError` 或 `Error`，而不是 `MMSPError` 子类的实例。
-- *中止错误*：Python 中是携带信号原因的 `asyncio.CancelledError`，TypeScript 中是信号的 `reason`（[MMSP-RFC-0008 §2](MMSP-RFC-0008-request-interruption.zh.md#2-conventions-and-terminology)）。
+- *中止错误*：Python 中是携带信号原因的 `asyncio.CancelledError`，TypeScript 中是信号的 `reason`（[MMSP-RFC-0008](MMSP-RFC-0008-request-interruption.zh.md#2-conventions-and-terminology) §2）。
 
 ## 3. 错误类
 
@@ -28,25 +28,25 @@
 
 ### 3.1 请求之前
 
-- `UnsupportedParameterError`：模型无法接受的 `UniConfig` 值，指明客户端与参数。`thinking_level` 不得属于此类（[MMSP-RFC-0003 §6.3](MMSP-RFC-0003-message-requests.zh.md)）。
+- `UnsupportedParameterError`：模型无法接受的 `UniConfig` 值，指明客户端与参数。`thinking_level` 不得属于此类（[MMSP-RFC-0003](MMSP-RFC-0003-message-requests.zh.md#63-思考等级) §6.3）。
 - `UnsupportedContentError`：格式正确、但模型无法接受的内容项。
 - `InvalidMessageError`：无法按原样发送的消息，适用时带有 `item_type` 与 `message_index`，例如未知的内容项、缺少 `tool_call_id` 的工具结果、不是合法 base64 的图片、没有说话人标签的 TTS 脚本，或没有可发送内容的消息。
 - `UnsupportedOperationError`：客户端根本无法执行的操作。
-- `ConcurrentCallError`（[MMSP-RFC-0004 §6.2](MMSP-RFC-0004-message-fidelity.zh.md)）；`RoutingError`（[MMSP-RFC-0005 §4](MMSP-RFC-0005-client-routing.zh.md#4-按模型-id-路由)）；构造函数抛出的 `ApiKeyRequiredError`（[MMSP-RFC-0006 §4](MMSP-RFC-0006-upstream-credentials.zh.md#4-解析规则)）。
+- `ConcurrentCallError`（[MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.zh.md#62-同一时间只有一次有状态调用) §6.2）；`RoutingError`（[MMSP-RFC-0005](MMSP-RFC-0005-client-routing.zh.md#4-按模型-id-路由) §4）；构造函数抛出的 `ApiKeyRequiredError`（[MMSP-RFC-0006](MMSP-RFC-0006-upstream-credentials.zh.md#4-解析规则) §4）。
 
 ### 3.2 流内部
 
-出现在内容项或 `stop` 本该出现的位置（[MMSP-RFC-0003 §5](MMSP-RFC-0003-message-requests.zh.md)）：
+出现在内容项或 `stop` 本该出现的位置（[MMSP-RFC-0003](MMSP-RFC-0003-message-requests.zh.md#5-流怎样结束) §5）：
 - `ToolCallArgumentParseError`：流式传来的工具调用参数无法解析为 JSON 对象；
-- `EmptyResponseError`：响应中除了思考什么也没有；
+- `EmptyResponseError`：响应中除了思考没有别的内容项，或者根本没有内容项；
 - `IncompleteStreamError`：流结束时缺少用量或结束原因；
 - `StreamProtocolError`：客户端违反了流语法；
-- `ProviderStreamError`：服务商在已打开的流中报告的错误；
-- `UnknownEventError`：设置了 `MMSP_DEBUG` 时无法识别的事件（[MMSP-RFC-0003 §4.1](MMSP-RFC-0003-message-requests.zh.md)）。
+- `ProviderStreamError`：服务商在已打开的流中报告、而它的 SDK 不会抛出的错误，即 Interactions API 的 `error` 事件；
+- `UnknownEventError`：设置了 `MMSP_DEBUG` 时无法识别的事件（[MMSP-RFC-0003](MMSP-RFC-0003-message-requests.zh.md#41-客户端产出什么) §4.1）。
 
 ### 3.3 内置基类
 
-每个错误类在 Python 中都必须是 `ValueError`，在 TypeScript 中都必须是 `Error`；`ProviderStreamError` 在 Python 中同时也是 `RuntimeError`。
+每个错误类都必须在 Python 中是 `ValueError`、在 TypeScript 中是 `Error`；`ProviderStreamError` 在 Python 中同时也是 `RuntimeError`。
 
 ## 4. 经由服务端转发
 

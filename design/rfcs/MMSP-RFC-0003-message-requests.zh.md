@@ -21,18 +21,18 @@
 
 ## 2. Conventions and Terminology
 
-本文中的关键词 MUST、MUST NOT、SHOULD、SHOULD NOT 与 MAY，当且仅当以全大写出现时，按 BCP 14（[RFC 2119](https://www.rfc-editor.org/rfc/rfc2119)、[RFC 8174](https://www.rfc-editor.org/rfc/rfc8174)）的定义理解。本中文版把它们依次写作 必须、不得、应当、不应 与 可以。
+本文中的关键词“必须”“不得”“应当”“不应”“可以”依次对应 BCP 14（[RFC 2119](https://www.rfc-editor.org/rfc/rfc2119)、[RFC 8174](https://www.rfc-editor.org/rfc/rfc8174)）中的 MUST、MUST NOT、SHOULD、SHOULD NOT 与 MAY，按其定义解释；本文只在这一含义上使用这五个词。
 
 - *客户端流*：客户端的 `_streaming_response_internal` / `_streamingResponseInternal` 产出的事件。*公开流*：基类产出给调用方的事件。
-- *片段*、*完整内容项*：定义见 [MMSP-RFC-0002 §2](MMSP-RFC-0002-message-protocol.zh.md)。*增长字段*：某类内容项的片段不断延长的那一个字段（`text`、`thinking`、`arguments`、`data`、`embedding`）。
-- *官方客户端*、*兼容客户端*：定义见 [MMSP-RFC-0005 §2](MMSP-RFC-0005-client-routing.zh.md)。
+- *片段*、*完整内容项*：定义见 [MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.zh.md#2-conventions-and-terminology) §2。*增长字段*：某类内容项的片段不断延长的那一个字段（`text`、`thinking`、`arguments`、`data`、`embedding`）。
+- *官方客户端*、*兼容客户端*：定义见 [MMSP-RFC-0005](MMSP-RFC-0005-client-routing.zh.md#2-conventions-and-terminology) §2。
 - *代*：一个厂商接受同一种请求的那些模型（`"4-6"`、`"gpt-6"`）。
 
 ## 3. 调用
 
 ### 3.1 两个入口
 
-调用模型必须只经由 `streaming_response` 与 `streaming_response_stateful`（TypeScript 中为 `streamingResponse` 与 `streamingResponseStateful`），它们都是产出 `UniEvent` 的异步生成器。没有同步调用，也没有一次返回整个响应的调用。客户端向端点发出的另一种请求只有 `list_models`（[MMSP-RFC-0005 §5](MMSP-RFC-0005-client-routing.zh.md)）。
+调用模型必须只经由 `streaming_response` 与 `streaming_response_stateful`（TypeScript 中为 `streamingResponse` 与 `streamingResponseStateful`），它们都是产出 `UniEvent` 的异步生成器。没有同步调用，也没有一次返回整个响应的调用。客户端向端点发出的另一种请求只有 `list_models`（[MMSP-RFC-0005](MMSP-RFC-0005-client-routing.zh.md#5-列出模型) §5）。
 
 ### 3.2 全部走流式
 
@@ -40,7 +40,7 @@
 
 ### 3.3 请求之前
 
-在发送任何内容之前，`streaming_response` 给每条缺少 `created_at` 的消息打上时间戳（[MMSP-RFC-0004 §6.3](MMSP-RFC-0004-message-fidelity.zh.md#63-created_at)），转换旧的内容项类型（[MMSP-RFC-0009 §7](MMSP-RFC-0009-protocol-conversion.zh.md)），并检查每条消息都有可发送的内容。没有内容项的消息，或者客户端的消息转换无法发送的消息（只有思考），必须在发往服务商的请求发出之前抛出带有 `message_index` 的 `InvalidMessageError`（[MMSP-RFC-0007 §3.1](MMSP-RFC-0007-error-types.zh.md)）。
+在发送任何内容之前，`streaming_response` 给每条缺少 `created_at` 的消息打上时间戳（[MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.zh.md#63-created_at) §6.3），转换旧的内容项类型（[MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.zh.md#7-每种输入一种形状) §7），并检查每条消息都有可发送的内容。没有内容项的消息，或者客户端的消息转换无法发送的消息（只有思考），必须在发往服务商的请求发出之前抛出带有 `message_index` 的 `InvalidMessageError`（[MMSP-RFC-0007](MMSP-RFC-0007-error-types.zh.md#31-请求之前) §3.1）。
 
 ## 4. 流的语法
 
@@ -68,9 +68,9 @@
 
 - 一条流必须要么以它的 `stop` 事件结束，要么以异常结束，不会两者兼有。
 - `stop` 事件必须携带一个 `usage_metadata` 对象和一个有值的 `finish_reason`。服务商的流缺少其中之一就结束时，在它之前的事件之后、原本 `stop` 的位置抛出 `IncompleteStreamError`，因此调用方不会看到缺少这两项的 `stop`，历史和 trace 也不会记录这一回合。这个错误指明客户端与缺少的一个或多个字段，并携带已经到达的用量或结束原因，好让这些 token 仍能计入。
-- 除了思考没有别的内容项、或者根本没有内容项的响应，在原本 `stop` 的位置抛出 `EmptyResponseError`，因为没有服务商接受它回传（[MMSP-RFC-0004 §5](MMSP-RFC-0004-message-fidelity.zh.md#5-别处产生的思考)）。
+- 除了思考没有别的内容项、或者根本没有内容项的响应，在原本 `stop` 的位置抛出 `EmptyResponseError`，因为没有服务商接受它回传（[MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.zh.md#5-别处产生的思考) §5）。
 - 客户端产出违反这套语法的内容时，在任何模式下都抛出 `StreamProtocolError`：完整内容项、带用量的 delta 事件、同一内容项上两份不同的 fidelity、第一个片段缺少名字或调用 id 的工具调用。这是客户端的缺陷，不得修补。`IncompleteStreamError` 不属于这种情况（是服务商截断了流），`EmptyResponseError` 也不属于（是没有内容的响应）。
-- SDK 在一条已打开的流中抛出的异常原样传出（[MMSP-RFC-0007 §4](MMSP-RFC-0007-error-types.zh.md)）；Interactions API 的 `error` 事件两个 Interactions SDK 都不会抛出，由客户端抛出 `ProviderStreamError`。中止按 [MMSP-RFC-0008](MMSP-RFC-0008-request-interruption.zh.md) 的规定结束这条流。
+- SDK 在一条已打开的流中抛出的异常原样传出（[MMSP-RFC-0007](MMSP-RFC-0007-error-types.zh.md#4-经由服务端转发) §4）；Interactions API 的 `error` 事件两个 Interactions SDK 都不会抛出，由客户端抛出 `ProviderStreamError`。中止按 [MMSP-RFC-0008](MMSP-RFC-0008-request-interruption.zh.md) 的规定结束这条流。
 
 ## 6. 请求参数
 
@@ -100,7 +100,7 @@
 
 ## 7. `mmsp` 客户端
 
-`mmsp` 客户端打上 `created_at`，把消息和配置原样发给它的服务端；§3.3 和 §6 的其余部分由服务端的客户端完成。它原样转发服务端的公开流，包括其中的 `stop`。服务端的流在 `stop` 之前结束时，它自己抛出 `IncompleteStreamError`；服务端的 `IncompleteStreamError` 以 `UpstreamError` 的形式到达它，带有该 `error_type` 以及这个错误的各个字段（[MMSP-RFC-0007 §4](MMSP-RFC-0007-error-types.zh.md)）。
+`mmsp` 客户端有自己的 `streaming_response`：它打上 `created_at`，把消息和配置原样发给它的服务端，不转换旧的内容项类型，也不检查每条消息是否有可发送的内容；§3.3 和 §6 的其余部分由服务端的客户端完成。它原样转发服务端的公开流，包括其中的 `stop`。服务端的流在 `stop` 之前结束时，它自己抛出 `IncompleteStreamError`；服务端的 `IncompleteStreamError` 以 `UpstreamError` 的形式到达它，带有该 `error_type` 以及这个错误的各个字段（[MMSP-RFC-0007](MMSP-RFC-0007-error-types.zh.md#4-经由服务端转发) §4）。
 
 ## 8. Conformance
 

@@ -20,7 +20,7 @@ A caller that handles a refusal needs one class to catch, the same in both packa
 The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY in this document are to be interpreted as described in BCP 14 ([RFC 2119](https://www.rfc-editor.org/rfc/rfc2119), [RFC 8174](https://www.rfc-editor.org/rfc/rfc8174)) when, and only when, they appear in all capitals.
 
 - *Bare built-in error*: an instance of a built-in class itself, such as `ValueError`, `RuntimeError` or `Error`, rather than of an `MMSPError` subclass.
-- *Abort error*: `asyncio.CancelledError` carrying the signal's reason in Python, the signal's `reason` in TypeScript ([MMSP-RFC-0008 §2](MMSP-RFC-0008-request-interruption.md#2-conventions-and-terminology)).
+- *Abort error*: `asyncio.CancelledError` carrying the signal's reason in Python, the signal's `reason` in TypeScript ([MMSP-RFC-0008](MMSP-RFC-0008-request-interruption.md#2-conventions-and-terminology) §2).
 
 ## 3. The Error Classes
 
@@ -28,21 +28,21 @@ Code outside `integration/` MUST NOT raise or throw a bare built-in error of its
 
 ### 3.1 Before the request
 
-- `UnsupportedParameterError`: a `UniConfig` value the model cannot take, naming the client and the parameter. `thinking_level` MUST NOT be one ([MMSP-RFC-0003 §6.3](MMSP-RFC-0003-message-requests.md#63-thinking-levels)).
+- `UnsupportedParameterError`: a `UniConfig` value the model cannot take, naming the client and the parameter. `thinking_level` MUST NOT be one ([MMSP-RFC-0003](MMSP-RFC-0003-message-requests.md#63-thinking-levels) §6.3).
 - `UnsupportedContentError`: a well-formed item the model cannot take.
 - `InvalidMessageError`: a message that cannot be sent as it is, with `item_type` and `message_index` where they apply, such as an unknown item, a tool result without `tool_call_id`, an image that is not valid base64, a TTS script without speaker labels, or a message with nothing to send.
 - `UnsupportedOperationError`: an operation a client cannot perform at all.
-- `ConcurrentCallError` ([MMSP-RFC-0004 §6.2](MMSP-RFC-0004-message-fidelity.md#62-one-stateful-call-at-a-time)); `RoutingError` ([MMSP-RFC-0005 §4](MMSP-RFC-0005-client-routing.md#4-routing-by-model-id)); `ApiKeyRequiredError`, from the constructor ([MMSP-RFC-0006 §4](MMSP-RFC-0006-upstream-credentials.md#4-resolution)).
+- `ConcurrentCallError` ([MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.md#62-one-stateful-call-at-a-time) §6.2); `RoutingError` ([MMSP-RFC-0005](MMSP-RFC-0005-client-routing.md#4-routing-by-model-id) §4); `ApiKeyRequiredError`, from the constructor ([MMSP-RFC-0006](MMSP-RFC-0006-upstream-credentials.md#4-resolution) §4).
 
 ### 3.2 Inside a stream
 
-In place of the item or the `stop` ([MMSP-RFC-0003 §5](MMSP-RFC-0003-message-requests.md#5-how-a-stream-ends)):
+In place of the item or the `stop` ([MMSP-RFC-0003](MMSP-RFC-0003-message-requests.md#5-how-a-stream-ends) §5):
 - `ToolCallArgumentParseError`: streamed tool call arguments that do not parse as a JSON object;
-- `EmptyResponseError`: a response with nothing but thinking;
+- `EmptyResponseError`: a response with no item but thinking, or with no item at all;
 - `IncompleteStreamError`: a stream that ended without its usage or its finish reason;
 - `StreamProtocolError`: a client that broke the stream grammar;
-- `ProviderStreamError`: an error a provider reports inside an open stream;
-- `UnknownEventError`: an unrecognized event under `MMSP_DEBUG` ([MMSP-RFC-0003 §4.1](MMSP-RFC-0003-message-requests.md#41-what-a-client-yields)).
+- `ProviderStreamError`: an error a provider reports inside an open stream that its SDK does not raise, the Interactions API's `error` event;
+- `UnknownEventError`: an unrecognized event under `MMSP_DEBUG` ([MMSP-RFC-0003](MMSP-RFC-0003-message-requests.md#41-what-a-client-yields) §4.1).
 
 ### 3.3 Built-in bases
 

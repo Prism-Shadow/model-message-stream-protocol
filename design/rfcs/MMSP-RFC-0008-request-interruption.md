@@ -34,7 +34,7 @@ The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY in this document are to
 
 - A caller MAY interrupt a stream at any point by aborting its signal or closing it. The provider's request MUST close with it at once, except that the Python `mmsp` client, aborted while the caller is busy between reads, closes its request at the caller's next read (§4).
 - After an abort the caller MUST get the deltas that arrived and then the abort error; a closed generator yields nothing more. The caller MUST NOT get a `.done` for the open item or a `stop`, nor a partial `.done` followed by `IncompleteStreamError`.
-- A stream that ends without its `stop` MUST record nothing and save no trace ([MMSP-RFC-0004 §6.1](MMSP-RFC-0004-message-fidelity.md#61-the-history-holds-copies), [MMSP-RFC-0010 §3](MMSP-RFC-0010-trace-recording.md#3-when-a-trace-is-saved)).
+- A stream that ends without its `stop` MUST record nothing and save no trace ([MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.md#61-the-history-holds-copies) §6.1, [MMSP-RFC-0010](MMSP-RFC-0010-trace-recording.md#3-when-a-trace-is-saved) §3).
 
 ## 4. Python
 
@@ -46,7 +46,7 @@ Every TypeScript client MUST pass the signal to its SDK, or to `fetch` in the `m
 
 ## 6. Stateful Calls
 
-An abort MUST release a stateful call's claim on the client at once, and the aborted call MUST NOT record its turn, even when the abort lands as the `stop` arrives ([MMSP-RFC-0004 §6.2](MMSP-RFC-0004-message-fidelity.md#62-one-stateful-call-at-a-time)). An abort that lands as the provider's stream ends MUST still end the stream as an abort.
+An abort MUST release a stateful call's claim on the client at once, and the aborted call MUST NOT record its turn, even when the abort lands as the `stop` arrives ([MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.md#62-one-stateful-call-at-a-time) §6.2). An abort that lands as the provider's stream ends MUST still end the stream as an abort.
 
 ## 7. Server, Playground and `mmsp` Client
 

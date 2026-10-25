@@ -21,18 +21,18 @@
 
 ## 2. Conventions and Terminology
 
-本文中的关键词 MUST、MUST NOT、SHOULD、SHOULD NOT 与 MAY，当且仅当以全大写出现时，按 BCP 14（[RFC 2119](https://www.rfc-editor.org/rfc/rfc2119)、[RFC 8174](https://www.rfc-editor.org/rfc/rfc8174)）的定义理解。本中文版把它们依次写作 必须、不得、应当、不应 与 可以。
+本文中的关键词“必须”“不得”“应当”“不应”“可以”依次对应 BCP 14（[RFC 2119](https://www.rfc-editor.org/rfc/rfc2119)、[RFC 8174](https://www.rfc-editor.org/rfc/rfc8174)）中的 MUST、MUST NOT、SHOULD、SHOULD NOT 与 MAY，按其定义解释；本文只在这一含义上使用这五个词。
 
 - *回传*：把一条记录下来的消息作为之后某次请求的一部分发回给模型。
 - *前缀*：一次请求中最新那条消息之前的各条消息，取客户端发出的线上形式。
 - *替身*：客户端在回传的回合中，为这个回合缺少而服务商又要求的东西放进去的内容（占位的思考签名、空的推理字段）。
-- *Fidelity*：定义见 [MMSP-RFC-0002 §5](MMSP-RFC-0002-message-protocol.zh.md)。*有状态的历史*：`streaming_response_stateful` 保存的消息。
+- *Fidelity*：定义见 [MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.zh.md#5-消息携带什么) §5。*有状态的历史*：`streaming_response_stateful` 保存的消息。
 
 ## 3. 消息保留什么
 
 - 一条记录下来的消息保留它的内容项及其 `fidelity`，之后的每次调用都必须从它们回传这条消息。除了 `created_at`（§6.3），MMSP 不在交给它的消息上写入任何东西。
 - 线上格式带有调用 id 时，`tool_call_id` 必须保存服务商的调用 id，回传时必须把它发回。线上格式同时带有内容项 id 和调用 id 时，它保存的是调用 id，结果依靠调用 id 对应到它的调用。不带 `tool_call_id` 的工具结果抛出 `InvalidMessageError`。
-- 由一条流构建的助手消息保留这条流的 `usage_metadata` 与 `finish_reason`（[MMSP-RFC-0003 §4.4](MMSP-RFC-0003-message-requests.zh.md#44-助手消息)）。
+- 由一条流构建的助手消息保留这条流的 `usage_metadata` 与 `finish_reason`（[MMSP-RFC-0003](MMSP-RFC-0003-message-requests.zh.md#44-助手消息) §4.4）。
 
 ## 4. 每种线上格式需要发回什么
 
@@ -57,17 +57,17 @@
 - Responses 的回传重建一个推理内容项，文本作为 `reasoning_text`；
 - 经由 `ant-messages` 时，不带签名的思考内容项以不带签名的形式发回，这是第三方 Messages 服务端接受的形式；Anthropic 自己的 API 会拒绝它。
 
-只有思考、别无其他内容的响应不会被记录，因为没有服务商接受它回传：它抛出 `EmptyResponseError`；回传的消息如果只有思考，也会被拒绝（[MMSP-RFC-0003 §3.3](MMSP-RFC-0003-message-requests.zh.md#33-请求之前)、[§5](MMSP-RFC-0003-message-requests.zh.md#5-流怎样结束)）。
+只有思考、别无其他内容的响应不会被记录，因为没有服务商接受它回传：它抛出 `EmptyResponseError`；回传的消息如果只有思考，也会被拒绝（[MMSP-RFC-0003](MMSP-RFC-0003-message-requests.zh.md#33-请求之前) §3.3、§5）。
 
 ## 6. 相同的前缀
 
 ### 6.1 历史保存副本
 
-有状态的历史必须与调用方、与产出的事件都不共享任何对象：`streaming_response_stateful` 记录发送的那条消息的深拷贝，并在 `stop` 事件到达时记录助手消息的深拷贝；`get_history` 返回一份副本，`set_history` 保存一份副本。回合在 `stop` 产出之前记录，因此调用方在看到 `stop` 时就停止迭代也没有问题，下一次调用也能从那时开始。没有 `stop` 就结束的流不追加任何内容，也不保存 trace（[MMSP-RFC-0010 §3](MMSP-RFC-0010-trace-recording.zh.md)）。
+有状态的历史必须与调用方、与产出的事件都不共享任何对象：`streaming_response_stateful` 记录发送的那条消息的深拷贝，并在 `stop` 事件到达时记录助手消息的深拷贝；`get_history` 返回一份副本，`set_history` 保存一份副本。回合在 `stop` 产出之前记录，因此调用方在看到 `stop` 时就停止迭代也没有问题，下一次调用也能从那时开始。没有 `stop` 就结束的流不追加任何内容，也不保存 trace（[MMSP-RFC-0010](MMSP-RFC-0010-trace-recording.zh.md#3-何时保存轨迹) §3）。
 
 ### 6.2 同一时间只有一次有状态调用
 
-一个客户端上已有一次调用在进行时，再调用 `streaming_response_stateful` 必须在发送任何内容之前抛出 `ConcurrentCallError`。一次调用占用客户端，直到它的 `stop`、它的错误、它的信号被中止，或它的生成器被关闭；被中止的调用立即释放客户端，并且什么也不记录，即使中止恰好发生在它的 `stop` 到达之时（[MMSP-RFC-0008 §6](MMSP-RFC-0008-request-interruption.zh.md)）。`streaming_response` 不保存历史，能与有状态调用同时运行。`AutoLLMClient` 把调用转发给它包装的客户端，占用的是被包装的那个客户端。
+一个客户端上已有一次调用在进行时，再调用 `streaming_response_stateful` 必须在发送任何内容之前抛出 `ConcurrentCallError`。一次调用占用客户端，直到它的 `stop`、它的错误、它的信号被中止，或它的生成器被关闭；被中止的调用立即释放客户端，并且什么也不记录，即使中止恰好发生在它的 `stop` 到达之时（[MMSP-RFC-0008](MMSP-RFC-0008-request-interruption.zh.md#6-有状态调用) §6）。`streaming_response` 不保存历史，能与有状态调用同时运行。`AutoLLMClient` 把调用转发给它包装的客户端，占用的是被包装的那个客户端。
 
 ### 6.3 `created_at`
 
@@ -75,14 +75,14 @@
 
 ### 6.4 过去回合的线上形式
 
-- 消息转换必须只根据一条消息本身和它之前的消息来写出这条消息，不得读取它之后的消息。转换向后带的，只是后面的消息需要从前面的消息得到的东西：`openai-chat` 对话中较早的回合产生过的推理字段（§4），以及在 Google 客户端中，每个调用的名字，回答这个调用的函数响应会重复它。替身（§4、§5）由这个回合和它之前的回合决定。旧格式转换（[MMSP-RFC-0009 §7](MMSP-RFC-0009-protocol-conversion.zh.md)）每次调用都以同样的方式转换一条消息，并且从不就地修改。所以一个回传的回合在每次调用中都以相同的线上形式发出，服务商的前缀缓存看到的是同一个前缀。
+- 消息转换必须只根据一条消息本身和它之前的消息来写出这条消息，不得读取它之后的消息。转换向后带的，只是后面的消息需要从前面的消息得到的东西：`openai-chat` 对话中较早的回合产生过的推理字段（§4），以及在 Google 客户端中，每个调用的名字，回答这个调用的函数响应会重复它。替身（§4、§5）由这个回合和它之前的回合决定。旧格式转换（[MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.zh.md#7-每种输入一种形状) §7）每次调用都以同样的方式转换一条消息，从不修改调用方的消息。所以一个回传的回合在每次调用中都以相同的线上形式发出，服务商的前缀缓存看到的是同一个前缀。
 - 以 URL 给出的图片，由把它内联进请求的客户端（`openai-chat`、`moonshot-official`、两个 Google 客户端、Bedrock 上的 `anthropic-official`）在每次请求时重新读取，所以只有在这个 URL 返回同样的字节时，它才以相同的形式发出。
 - 请求在消息之外携带的内容（系统提示、工具、配置）属于调用方，原样发送；MMSP 加到请求体中的内容只取决于客户端、模型和配置。唯一会移动的标记是 `anthropic-official` 在 Bedrock 上设置的缓存断点：它放在每次请求最后一条用户消息的最后一个内容项上，所以一个回合在某次调用中带着它，在下一次调用中就不再带。这正是 Anthropic 为不断增长的对话给出的做法：一次请求会读到上一次请求的断点写下的缓存条目，最多回看 20 个块（`llmsdk_docs/claude4_6/docs/prompt-caching.md`，"How automatic prefix checking works"）。在 Anthropic API 上，客户端改为设置顶层的 `cache_control`，没有回合携带标记。
 - Gemini TTS 请求没有前缀：两个 Google 客户端都只发送最新的那条消息，因为这个模型拒绝多轮对话。
 
 ### 6.5 不悄悄丢弃
 
-客户端没有任何可发送内容的消息，会在请求发出之前被拒绝（[MMSP-RFC-0003 §3.3](MMSP-RFC-0003-message-requests.zh.md#33-请求之前)）；它不得被丢弃，也不得以空内容发送，因此请求与历史中的回合始终一致。
+客户端没有任何可发送内容的消息，会在请求发出之前被拒绝（[MMSP-RFC-0003](MMSP-RFC-0003-message-requests.zh.md#33-请求之前) §3.3）；它不得被丢弃，也不得以空内容发送，因此请求与历史中的回合始终一致。
 
 ## 7. `mmsp` 客户端
 

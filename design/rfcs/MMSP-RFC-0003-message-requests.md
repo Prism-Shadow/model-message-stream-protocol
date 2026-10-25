@@ -24,15 +24,15 @@ The owner's words: 支持全部思考等级; 模型请求参数不模糊匹配; 
 The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY in this document are to be interpreted as described in BCP 14 ([RFC 2119](https://www.rfc-editor.org/rfc/rfc2119), [RFC 8174](https://www.rfc-editor.org/rfc/rfc8174)) when, and only when, they appear in all capitals.
 
 - *Client stream*: the events a client's `_streaming_response_internal` / `_streamingResponseInternal` yields. *Public stream*: the events the base class yields to the caller.
-- *Fragment*, *complete item*: as [MMSP-RFC-0002 §2](MMSP-RFC-0002-message-protocol.md#2-conventions-and-terminology) defines them. *Growing field*: the one field a kind's fragments extend (`text`, `thinking`, `arguments`, `data`, `embedding`).
-- *Official client*, *compatible client*: as [MMSP-RFC-0005 §2](MMSP-RFC-0005-client-routing.md#2-conventions-and-terminology) defines them.
+- *Fragment*, *complete item*: as [MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.md#2-conventions-and-terminology) §2 defines them. *Growing field*: the one field a kind's fragments extend (`text`, `thinking`, `arguments`, `data`, `embedding`).
+- *Official client*, *compatible client*: as [MMSP-RFC-0005](MMSP-RFC-0005-client-routing.md#2-conventions-and-terminology) §2 defines them.
 - *Generation*: the models of a vendor that take the same request (`"4-6"`, `"gpt-6"`).
 
 ## 3. The Call
 
 ### 3.1 Two entry points
 
-A model MUST be called only through `streaming_response` and `streaming_response_stateful` (`streamingResponse` and `streamingResponseStateful` in TypeScript), asynchronous generators of `UniEvent`. There is no synchronous call and no call that returns a whole response. `list_models` is the one other request a client makes to its endpoint ([MMSP-RFC-0005 §5](MMSP-RFC-0005-client-routing.md#5-listing-models)).
+A model MUST be called only through `streaming_response` and `streaming_response_stateful` (`streamingResponse` and `streamingResponseStateful` in TypeScript), asynchronous generators of `UniEvent`. There is no synchronous call and no call that returns a whole response. `list_models` is the one other request a client makes to its endpoint ([MMSP-RFC-0005](MMSP-RFC-0005-client-routing.md#5-listing-models) §5).
 
 ### 3.2 Streaming everything
 
@@ -40,7 +40,7 @@ A client MUST read the provider's streaming endpoint wherever the provider has o
 
 ### 3.3 Before the request
 
-Before anything is sent, `streaming_response` stamps `created_at` on each message that lacks it ([MMSP-RFC-0004 §6.3](MMSP-RFC-0004-message-fidelity.md#63-created_at)), converts legacy item types ([MMSP-RFC-0009 §7](MMSP-RFC-0009-protocol-conversion.md#7-one-shape-per-input)), and checks that every message has something to send. A message with no items, or one the client's message transform cannot send (thinking alone), MUST raise `InvalidMessageError` with its `message_index` before the provider's request goes out ([MMSP-RFC-0007 §3.1](MMSP-RFC-0007-error-types.md#31-before-the-request)).
+Before anything is sent, `streaming_response` stamps `created_at` on each message that lacks it ([MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.md#63-created_at) §6.3), converts legacy item types ([MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.md#7-one-shape-per-input) §7), and checks that every message has something to send. A message with no items, or one the client's message transform cannot send (thinking alone), MUST raise `InvalidMessageError` with its `message_index` before the provider's request goes out ([MMSP-RFC-0007](MMSP-RFC-0007-error-types.md#31-before-the-request) §3.1).
 
 ## 4. The Stream Grammar
 
@@ -68,9 +68,9 @@ The complete items in order, with the `stop` event's `usage_metadata` and `finis
 
 - A stream MUST end with its `stop` event or with an exception, never both.
 - The `stop` event MUST carry a `usage_metadata` object and a set `finish_reason`. A provider stream that ends without one of them raises `IncompleteStreamError` in place of the `stop`, after the events before it, so no caller sees a `stop` without them and no history or trace records the turn. The error names the client and the missing field or fields and carries the usage or finish reason that did arrive, so the tokens can still be counted.
-- A response with no item but thinking, or with no item at all, raises `EmptyResponseError` in place of the `stop`, because no provider takes it back ([MMSP-RFC-0004 §5](MMSP-RFC-0004-message-fidelity.md#5-thinking-produced-elsewhere)).
+- A response with no item but thinking, or with no item at all, raises `EmptyResponseError` in place of the `stop`, because no provider takes it back ([MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.md#5-thinking-produced-elsewhere) §5).
 - What a client yields against this grammar raises `StreamProtocolError` in every mode: a complete item, usage on a delta event, two different fidelity payloads on one item, or a tool call whose first fragment lacks its name or call id. It is a bug in the client and MUST NOT be repaired. `IncompleteStreamError` is not one (the provider cut the stream), and neither is `EmptyResponseError` (a response without content).
-- An exception an SDK raises inside an open stream propagates as it is ([MMSP-RFC-0007 §4](MMSP-RFC-0007-error-types.md#4-relay-through-the-server)); the Interactions API's `error` event, which neither Interactions SDK raises, raises `ProviderStreamError`. An abort ends the stream as [MMSP-RFC-0008](MMSP-RFC-0008-request-interruption.md) specifies.
+- An exception an SDK raises inside an open stream propagates as it is ([MMSP-RFC-0007](MMSP-RFC-0007-error-types.md#4-relay-through-the-server) §4); the Interactions API's `error` event, which neither Interactions SDK raises, raises `ProviderStreamError`. An abort ends the stream as [MMSP-RFC-0008](MMSP-RFC-0008-request-interruption.md) specifies.
 
 ## 6. Request Parameters
 
@@ -100,7 +100,7 @@ This document states the specification; [`site/src/docs/configuration.en.md`](..
 
 ## 7. The `mmsp` Client
 
-The `mmsp` client stamps `created_at` and sends the messages and the config to its server as given; the server's client does the rest of §3.3 and §6. It forwards its server's public stream as sent, its `stop` included. It raises `IncompleteStreamError` itself when the server's stream ends before a `stop`, and receives a server-side `IncompleteStreamError` as `UpstreamError` with that `error_type` and the error's fields ([MMSP-RFC-0007 §4](MMSP-RFC-0007-error-types.md#4-relay-through-the-server)).
+The `mmsp` client has a `streaming_response` of its own: it stamps `created_at` and sends the messages and the config to its server as given, without converting legacy item types or checking that each message has something to send; the server's client does the rest of §3.3 and §6. It forwards its server's public stream as sent, its `stop` included. It raises `IncompleteStreamError` itself when the server's stream ends before a `stop`, and receives a server-side `IncompleteStreamError` as `UpstreamError` with that `error_type` and the error's fields ([MMSP-RFC-0007](MMSP-RFC-0007-error-types.md#4-relay-through-the-server) §4).
 
 ## 8. Conformance
 

@@ -33,8 +33,8 @@
 ## 3. 中断一条流
 
 - 调用方可以在任何时候中止信号或关闭流来中断它。发往服务商的请求必须随之立即关闭，只有一种情况例外：调用方在两次读取之间忙于别的事时中止 Python 的 `mmsp` 客户端，它要到调用方下一次读取时才关闭请求（§4）。
-- 中止之后，调用方必须先拿到已经到达的增量，然后拿到中止错误；被关闭的生成器不再产出任何东西。调用方不得拿到未完成内容项的 `.done` 或 `stop`，也不得先拿到一个残缺的 `.done` 再拿到 `IncompleteStreamError`。
-- 没有 `stop` 就结束的流不得记录任何东西，也不得保存 trace（[MMSP-RFC-0004 §6.1](MMSP-RFC-0004-message-fidelity.zh.md)、[MMSP-RFC-0010 §3](MMSP-RFC-0010-trace-recording.zh.md)）。
+- 中止之后，调用方必须先拿到已经到达的增量，然后拿到中止错误；被关闭的生成器不再产出任何东西。调用方不得拿到未完成内容项的 `.done` 或 `stop`，或是残缺的 `.done` 之后跟着的 `IncompleteStreamError`。
+- 没有 `stop` 就结束的流必须什么也不记录，也不保存 trace（[MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.zh.md#61-历史保存副本) §6.1、[MMSP-RFC-0010](MMSP-RFC-0010-trace-recording.zh.md#3-何时保存轨迹) §3）。
 
 ## 4. Python
 
@@ -46,7 +46,7 @@
 
 ## 6. 有状态调用
 
-中止必须立即释放有状态调用对客户端的占用，被中止的调用不得记录它的回合，即使中止恰好发生在 `stop` 到达之时（[MMSP-RFC-0004 §6.2](MMSP-RFC-0004-message-fidelity.zh.md)）。恰好在服务商的流结束时发生的中止，也必须按中止结束这条流。
+中止必须立即释放有状态调用对客户端的占用，被中止的调用不得记录它的回合，即使中止恰好发生在 `stop` 到达之时（[MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.zh.md#62-同一时间只有一次有状态调用) §6.2）。恰好在服务商的流结束时发生的中止，也必须按中止结束这条流。
 
 ## 7. 服务端、playground 与 `mmsp` 客户端
 

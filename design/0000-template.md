@@ -26,13 +26,16 @@ described in BCP 14 ([RFC 2119](https://www.rfc-editor.org/rfc/rfc2119),
 [RFC 8174](https://www.rfc-editor.org/rfc/rfc8174)) when, and only when, they appear in all capitals.
 
 The terms this document uses, one definition each. A term another RFC defines is cited, not
-redefined, as `fidelity` is: `([MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.md) §5)`.
+redefined, as `fidelity` is:
+`([MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.md#5-what-a-message-carries) §5)`.
 
 ## 3. Noun
 
 Spec RFCs. The specification itself, one noun per section, numbered on from 3, with subsections
 `### 3.1 Noun` where a section has parts. Each normative sentence uses a key word and is true of
-the code. Cite another RFC as `([MMSP-RFC-NNNN](MMSP-RFC-NNNN-<slug>.md) §N)`.
+the code. Cite another RFC as `([MMSP-RFC-NNNN](MMSP-RFC-NNNN-<slug>.md#<anchor>) §N)`, the anchor
+being the GitHub slug of the cited section's heading; the Chinese twin links the `.zh.md` file at
+the slug of its own heading for that section.
 
 ## N. Conformance
 

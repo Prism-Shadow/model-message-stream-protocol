@@ -19,20 +19,20 @@
 
 ## 2. Conventions and Terminology
 
-本文以 必须、不得、应当、不应 与 可以 依次表示 BCP 14（[RFC 2119](https://www.rfc-editor.org/rfc/rfc2119)、[RFC 8174](https://www.rfc-editor.org/rfc/rfc8174)）定义的关键词 MUST、MUST NOT、SHOULD、SHOULD NOT 与 MAY，这些词只在表达规范要求时使用。
+本文中的关键词“必须”“不得”“应当”“不应”“可以”依次对应 BCP 14（[RFC 2119](https://www.rfc-editor.org/rfc/rfc2119)、[RFC 8174](https://www.rfc-editor.org/rfc/rfc8174)）中的 MUST、MUST NOT、SHOULD、SHOULD NOT 与 MAY，按其定义解释；本文只在这一含义上使用这五个词。
 
-- *中间表示*：`UniConfig`、`UniMessage` 与 `UniEvent` 及其内容项（[MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.zh.md) §3）。
+- *中间表示*：`UniConfig`、`UniMessage` 与 `UniEvent` 及其内容项（[MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.zh.md#3-三种结构) §3）。
 - *线上格式*：服务商的请求与事件形状，以其 SDK 的类型为准。
 - *服务商客户端*：除 `mmsp` 之外的每个客户端；`mmsp` 连接的是 MMSP 服务端，而不是服务商。
 - *转换方法*：§4 的三个转换方法之一。
 - *参考客户端*：同一协议的新客户端对照着读 diff 的那个客户端：Responses 协议是 `openai-official`，Chat Completions 是 `openai-chat`。
 - *适配器*：继承其所服务协议的客户端、只覆盖其服务端读法不同之处的客户端，如 `openai-chat-vllm-adapter` 之于 `openai-chat`。
-- *Fidelity*：见 [MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.zh.md) §5 的定义。
+- *Fidelity*：见 [MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.zh.md#5-消息携带什么) §5 的定义。
 
 ## 3. MMSP 作为中间表示
 
-- 每个请求都必须从 MMSP 转换而来，`UniConfig` 转为服务商的配置，`UniMessage` 转为其输入；每个线上事件，或不流式返回的端点的那一个响应，都必须转换为 `UniEvent`（[MMSP-RFC-0003](MMSP-RFC-0003-message-requests.zh.md) §4.1）。服务商的形状不会进入任何消息或事件（[MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.zh.md) §3.4）。
-- 客户端不得与另一个服务商的线上格式互相转换；两个服务商之间唯一的通路是 MMSP。调用方可以把经一个客户端记录的对话放到另一个客户端上继续：记录就是内容项及其 `fidelity`，接收的客户端按 [MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.zh.md) §4 与 §5 的规定，把它们转换为自己的线上格式。
+- 每个请求都必须从 MMSP 转换而来，`UniConfig` 转为服务商的配置，`UniMessage` 转为其输入；每个线上事件，或不流式返回的端点的那一个响应，都必须转换为 `UniEvent`（[MMSP-RFC-0003](MMSP-RFC-0003-message-requests.zh.md#41-客户端产出什么) §4.1）。服务商的形状不会进入任何消息或事件（[MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.zh.md#34-内容项) §3.4）。
+- 客户端不得与另一个服务商的线上格式互相转换；两个服务商之间唯一的通路是 MMSP。调用方可以把经一个客户端记录的对话放到另一个客户端上继续：记录就是内容项及其 `fidelity`，接收的客户端按 [MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.zh.md#4-每种线上格式需要发回什么) §4 与 §5 的规定，把它们转换为自己的线上格式。
 - 转换必须是无状态的。每个请求都携带完整的对话，客户端在请求之间、事件之间不保留任何转换状态，也没有客户端引用服务商保存的状态：Responses 客户端（`openai-official`、`openai-responses`、`deepseek-official`、`minimax-official`）与 Interactions 客户端（`google-official`）都发送 `store: false`，不发送此前任何响应的 id。客户端唯一的记忆是有状态历史，即基类保存、每次调用都完整发送的 MMSP 消息。
 - MMSP 服务端的线上格式就是 MMSP 本身：`POST /v1/stream` 接收 `{"model", "messages", "config"}`，以 server-sent events 返回公开的流，每个 bytes 值都以 base64 文本传输（`wire.py` / `wire.ts`）。因此除这层编码外，`mmsp` 客户端的转换方法原样传递，向服务商的转换由服务端的上游客户端完成。
 
@@ -52,16 +52,16 @@
 
 ## 7. 每种输入一种形状
 
-- 除下面的旧形状外，转换方法对每种输入必须只接受一种形状：线上事件是 SDK 类型的事件，消息只包含 `.done` 内容项（[MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.zh.md) §3.2）。
-- 0.5.0 之前记录的历史使用不带后缀的内容项类型（`text`、`tool_call`，…）。`normalize_legacy_messages` / `normalizeLegacyMessages` 必须在服务商客户端的转换方法看到它们之前完成转换：每个这样的类型变为对应的 `.done` 类型，零散的 `partial_tool_call` 被丢弃；需要转换的消息以副本返回，已是当前格式的消息原样返回，因此调用方的数据从不被修改；一个进程中第一次转换时发出一次警告。转换在 `streaming_response` 的请求消息上、有状态调用的那条消息上和 `set_history` 中进行，也在 tracer 加载的轨迹文件上进行（[MMSP-RFC-0010](MMSP-RFC-0010-trace-recording.zh.md) §7）。这些类型读取到 0.6.0 为止。
+- 除下面的旧形状外，转换方法对每种输入必须只接受一种形状：线上事件是 SDK 类型的事件，消息只包含 `.done` 内容项（[MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.zh.md#32-unimessage) §3.2）。
+- 0.5.0 之前记录的历史使用不带后缀的内容项类型（`text`、`tool_call`，…）。`normalize_legacy_messages` / `normalizeLegacyMessages` 必须在服务商客户端的转换方法看到它们之前完成转换：每个这样的类型变为对应的 `.done` 类型，零散的 `partial_tool_call` 被丢弃；需要转换的消息以副本返回，已是当前格式的消息作为同一个对象返回，因此它从不修改调用方的消息；一个进程中第一次转换时发出一次警告。转换在 `streaming_response` 的请求消息上、有状态调用的那条消息上和 `set_history` 中进行，也在 tracer 加载的轨迹文件上进行（[MMSP-RFC-0010](MMSP-RFC-0010-trace-recording.zh.md#7-读取轨迹) §7）。这些类型读取到 0.6.0 为止。
 - 早先版本在内容项内部记录下的三种形状同样读取到 0.6.0 为止：以 bytes 保存的思考签名、不带通道的推理项，以及 0.5.5 整块保存的网关推理块。等于函数名的工具调用 id 不在其中：`google-genai` 收到不带 id 的调用时仍然这样记录，两个 Google 客户端回传这样的调用时都不带 id。
-- 不保留任何冗余（[MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.zh.md) §5）。
+- 不保留任何冗余（[MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.zh.md#5-消息携带什么) §5）。
 
 ## 8. 基类
 
-- `streaming_response` / `streamingResponse` 必须在这一个方法里从上到下构建公开的流：为消息打上 `created_at` 并转换旧类型，校验消息，读取客户端的事件，把每个 delta 交给 `StreamItems` 并合并每个事件的用量与结束原因，关闭最后一个内容项，在流需要时抛出 `IncompleteStreamError` 或 `EmptyResponseError`（[MMSP-RFC-0003](MMSP-RFC-0003-message-requests.zh.md) §5），构建 `stop`，保存轨迹（[MMSP-RFC-0010](MMSP-RFC-0010-trace-recording.zh.md) §3），然后产出 `stop`。它的中止处理也在这个方法里，所防范的竞争情况就写在旁边。
+- `streaming_response` / `streamingResponse` 必须在这一个方法里从上到下构建公开的流：为消息打上 `created_at` 并转换旧类型，校验消息，读取客户端的事件，把每个 delta 交给 `StreamItems` 并合并每个事件的用量与结束原因，关闭最后一个内容项，在流需要时抛出 `IncompleteStreamError` 或 `EmptyResponseError`（[MMSP-RFC-0003](MMSP-RFC-0003-message-requests.zh.md#5-流怎样结束) §5），构建 `stop`，保存轨迹（[MMSP-RFC-0010](MMSP-RFC-0010-trace-recording.zh.md#3-何时保存轨迹) §3），然后产出 `stop`。它的中止处理也在这个方法里，所防范的竞争情况就写在旁边。
 - 客户端的事件与公开的流之间，除 `StreamItems` 外不得有其他类或辅助层。
-- `mmsp` 客户端覆盖 `streaming_response` / `streamingResponse`，把服务端的公开流按到达的样子转发，因为服务端的上游客户端已经构建好了它（[MMSP-RFC-0003](MMSP-RFC-0003-message-requests.zh.md) §7）。
+- `mmsp` 客户端覆盖 `streaming_response` / `streamingResponse`：它打上 `created_at`，把旧类型的转换和消息的校验留给服务端的上游客户端，并把服务端的公开流按到达的样子转发，因为那个客户端已经构建好了它（[MMSP-RFC-0003](MMSP-RFC-0003-message-requests.zh.md#7-mmsp-客户端) §7）。
 
 ## 9. Conformance
 
