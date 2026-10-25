@@ -1,18 +1,19 @@
-// The model catalog: every entry of the SDK's registry (src_ts/src/registry.ts, read as the site
-// is built) with the provider that serves it, the vendor that made it, the key it needs, its status
-// key and its integration kit. The kit is the README's quickstart written for the entry: the
+// The model catalog, as the site is built: every entry of the SDK's registry (src_ts/src/registry.ts)
+// with the provider that serves it, the vendor that made it, the key it needs and its status key.
+// The integration kit of an entry is the README's quickstart written for it (kit.ts): the
 // constructor call the registry test makes, then one request whose answer the program prints, so
-// the page cannot offer code the SDK does not run. The page's dialog reads the kits from
-// /models/kits.json (catalogKits), not from the page.
+// the page cannot offer code the SDK does not run. The page's dialog assembles a kit in the browser
+// from the row; what only the build can decide goes into the row through kitEntry(), the entry's
+// kind and whether the SDK's model families let its constructor name the model alone, and into the
+// page's provider table through kitProvider().
 import { listSupportedModels, type SupportedModel } from "../../../src_ts/src/registry.ts";
 import credentialsSource from "../../../src_ts/src/credentials.ts?raw";
 import { providerOf, vendorOf, type Provider, type Vendor } from "./providers";
-import { STRINGS, localePath, type Locale } from "./i18n";
+import type { Kind, KitEntry, KitProvider } from "./kit";
 
 export { STATUS_DATA_URL } from "./status";
 export { PROVIDERS, providerOf, vendorOf, type Provider, type Vendor } from "./providers";
-
-type Text = Record<Locale, string>;
+export { formatContext, formatPrice, literal } from "./kit";
 
 export function statusKey(entry: Pick<SupportedModel, "model" | "base_url" | "client">): string {
   return `${entry.client}+${entry.base_url}+${entry.model}`;
@@ -29,335 +30,42 @@ function familyClient(model: string): string | null {
   return FAMILIES.find(([prefix]) => lowered.startsWith(prefix))?.[1] ?? null;
 }
 
-export interface ServerRow {
-  model_id: string;
-  base_url?: string;
-  api_key: string;
-  server_model_id: string;
-  client_type?: string;
-}
-
-export interface Kit {
-  // a complete program, saved as main.ts
-  typescript: string;
-  // a complete program, saved as main.py
-  python: string;
-  server: ServerRow;
-  // the body of a POST /v1/stream that asks the server's row what the programs ask
-  request: Record<string, unknown>;
-  keyEnv: string;
-  // what to export in the key variable: a token, the service-account JSON, ACCESS,SECRET
-  keyValue: string;
-  keyHint?: Text;
-}
-
-// what a program asks a model of each output kind, and how it shows the answer: text as it
-// streams, an embedding by its size, an image or speech as the file it writes
-type Kind = "text" | "embed" | "image" | "audio";
-
-const ASK: Record<Kind, { prompt: string; config: Record<string, unknown> }> = {
-  text: { prompt: "Say 'Hello, World!'", config: {} },
-  embed: { prompt: "Hello, World!", config: {} },
-  image: { prompt: "A lighthouse at dusk, in watercolor", config: { image_config: { aspect_ratio: "1:1", image_size: "1K" } } },
-  audio: { prompt: "Hello, World!", config: {} },
-};
-
-// a value as TypeScript writes it, { a: ["b"] }, or as JSON and Python write it, {"a": ["b"]}
-export function literal(value: unknown, style: "ts" | "json"): string {
-  if (Array.isArray(value)) return `[${value.map((item) => literal(item, style)).join(", ")}]`;
-  if (typeof value !== "object" || value === null) return JSON.stringify(value);
-  const entries = Object.entries(value).map(([key, item]) => `${style === "ts" ? key : JSON.stringify(key)}: ${literal(item, style)}`);
-  if (!entries.length) return "{}";
-  return style === "ts" ? `{ ${entries.join(", ")} }` : `{${entries.join(", ")}}`;
-}
-
-// every speech model of the registry answers audio/l16; rate=24000; channels=1
-const PLAYBACK = "16-bit PCM, 24 kHz, mono: ffplay -f s16le -ar 24000 -ac 1 speech.pcm";
-
-const TS_BODY: Record<Kind, string[]> = {
-  text: ['if (item.type === "text.delta") process.stdout.write(item.text);'],
-  embed: [
-    'if (item.type === "embedding.done") {',
-    '  console.log(`${item.embedding.length} dimensions`, item.embedding.slice(0, 4), "...");',
-    "}",
-  ],
-  image: [
-    'if (item.type === "text.delta") process.stdout.write(item.text);',
-    'if (item.type === "inline_data.done") {',
-    '  const name = `image.${item.mime_type.split("/")[1]}`;',
-    "  writeFileSync(name, item.data);",
-    "  console.log(`\\nwrote ${name}, ${item.data.length} bytes`);",
-    "}",
-  ],
-  audio: [
-    'if (item.type === "inline_data.done") {',
-    '  writeFileSync("speech.pcm", item.data);',
-    "  console.log(`wrote speech.pcm, ${item.data.length} bytes, ${item.mime_type}`);",
-    "}",
-  ],
-};
-
-const PY_BODY: Record<Kind, string[]> = {
-  text: ['if item["type"] == "text.delta":', '    print(item["text"], end="", flush=True)'],
-  embed: ['if item["type"] == "embedding.done":', '    print(len(item["embedding"]), "dimensions", item["embedding"][:4], "...")'],
-  image: [
-    'if item["type"] == "text.delta":',
-    '    print(item["text"], end="", flush=True)',
-    'if item["type"] == "inline_data.done":',
-    '    name = "image." + item["mime_type"].split("/")[1]',
-    '    Path(name).write_bytes(item["data"])',
-    "    print(f\"\\nwrote {name}, {len(item['data'])} bytes\")",
-  ],
-  audio: [
-    'if item["type"] == "inline_data.done":',
-    '    Path("speech.pcm").write_bytes(item["data"])',
-    "    print(f\"wrote speech.pcm, {len(item['data'])} bytes, {item['mime_type']}\")",
-  ],
-};
-
-const prompt = (kind: Kind) => ({ type: "text.done", text: ASK[kind].prompt });
-const indent = (lines: string[], spaces: number) => lines.map((line) => " ".repeat(spaces) + line);
-
-function typescriptProgram(kind: Kind, constructor: string[]): string {
-  return [
-    ...(kind === "image" || kind === "audio" ? ['import { writeFileSync } from "node:fs";', ""] : []),
-    'import { AutoLLMClient } from "@prismshadow/mmsp";',
-    "",
-    "async function main() {",
-    ...indent(constructor, 2),
-    "  for await (const event of client.streamingResponseStateful({",
-    "    message: {",
-    '      role: "user",',
-    `      content_items: [${literal(prompt(kind), "ts")}],`,
-    "    },",
-    `    config: ${literal(ASK[kind].config, "ts")},`,
-    "  })) {",
-    "    for (const item of event.content_items) {",
-    ...indent(TS_BODY[kind], 6),
-    "    }",
-    "  }",
-    ...(kind === "text" ? ["  console.log();"] : []),
-    "}",
-    "",
-    "main().catch(console.error);",
-    ...(kind === "text" ? ["// Hello, World!"] : kind === "audio" ? [`// ${PLAYBACK}`] : []),
-  ].join("\n");
-}
-
-function pythonProgram(kind: Kind, constructor: string[], long: boolean): string {
-  return [
-    "import asyncio",
-    ...(long ? ["import os"] : []),
-    ...(kind === "image" || kind === "audio" ? ["from pathlib import Path"] : []),
-    "",
-    "from mmsp import AutoLLMClient",
-    "",
-    "",
-    "async def main():",
-    ...indent(constructor, 4),
-    "    async for event in client.streaming_response_stateful(",
-    "        message={",
-    '            "role": "user",',
-    `            "content_items": [${literal(prompt(kind), "json")}],`,
-    "        },",
-    `        config=${literal(ASK[kind].config, "json")},`,
-    "    ):",
-    '        for item in event["content_items"]:',
-    ...indent(PY_BODY[kind], 12),
-    ...(kind === "text" ? ["    print()"] : []),
-    "",
-    "",
-    "asyncio.run(main())",
-    ...(kind === "text" ? ["# Hello, World!"] : kind === "audio" ? [`# ${PLAYBACK}`] : []),
-  ].join("\n");
+// what the page carries of a provider for its kits; a plain token is written as your-key
+export function kitProvider(provider: Provider): KitProvider {
+  const { name, keyEnv, keyHint } = provider;
+  return { name, keyEnv, keyValue: provider.keyValue ?? "your-key", ...(keyHint ? { keyHint } : {}) };
 }
 
 /**
- * The code that calls an entry: complete TypeScript and Python programs, the README's quickstart
- * for this entry, that print what the model answers (its text as it streams; an embedding, image
- * or speech model by its output modality), and the row of an MMSP server's models table
- * (site/src/docs/server.en.md). An entry at its vendor's own endpoint, of a model the family table
- * routes to that vendor's client, needs only the model id: the client reads its key variable and
- * calls its default endpoint.
+ * What kit.ts needs of an entry. Its kind follows its first output that is not text: an entry that
+ * answers text is a text one even when it also draws images. Its constructor is the short one when
+ * the entry sits at its vendor's own endpoint and the family table routes the model id to that
+ * vendor's client.
  */
-export function kitFor(entry: Pick<SupportedModel, "model" | "base_url" | "client" | "output_modalities">): Kit {
-  const provider = providerOf(entry.base_url);
-  const { model, base_url, client } = entry;
-  const env = provider.keyEnv;
+export function kitEntry(entry: SupportedModel): KitEntry {
+  const { model, base_url, client, input_modalities, output_modalities, context_window, pricing } = entry;
+  const provider = providerOf(base_url);
   const short =
     familyClient(model) === client && provider.official?.client === client && provider.official.baseUrl === base_url;
-  const out = entry.output_modalities;
+  const out = output_modalities;
   const kind: Kind = out.includes("Text") ? "text" : out.includes("Embed") ? "embed" : out.includes("Image") ? "image" : "audio";
-  const q = JSON.stringify;
-  const typescript = typescriptProgram(
+  return {
+    model,
+    base_url,
+    client,
     kind,
-    short
-      ? [`const client = new AutoLLMClient({ model: ${q(model)} });`]
-      : [
-          "const client = new AutoLLMClient({",
-          `  model: ${q(model)},`,
-          `  clientType: ${q(client)},`,
-          `  baseUrl: ${q(base_url)},`,
-          `  apiKey: process.env.${env},`,
-          "});",
-        ],
-  );
-  const python = pythonProgram(
-    kind,
-    short
-      ? [`client = AutoLLMClient(model=${q(model)})`]
-      : [
-          "client = AutoLLMClient(",
-          `    model=${q(model)},`,
-          `    client_type=${q(client)},`,
-          `    base_url=${q(base_url)},`,
-          `    api_key=os.environ[${q(env)}],`,
-          ")",
-        ],
-    !short,
-  );
-  const serverModelId = model.split("/").at(-1)!;
-  const server: ServerRow = short
-    ? { model_id: model, api_key: `$${env}`, server_model_id: serverModelId }
-    : { model_id: model, base_url, api_key: `$${env}`, server_model_id: serverModelId, client_type: client };
-  const config = ASK[kind].config;
-  const request = {
-    model: serverModelId,
-    messages: [{ role: "user", content_items: [prompt(kind)] }],
-    ...(Object.keys(config).length ? { config } : {}),
+    short,
+    input_modalities,
+    output_modalities,
+    context_window,
+    pricing: pricing && { prompt_tokens: pricing.prompt_tokens, response_tokens: pricing.response_tokens, cached_tokens: pricing.cached_tokens },
   };
-  return { typescript, python, server, request, keyEnv: env, keyValue: provider.keyValue ?? "your-key", keyHint: provider.keyHint };
-}
-
-const PROMPT = {
-  en: {
-    goal: (model: string, provider: string, url: string) => `Add \`${model}\` (served by ${provider} at \`${url}\`) to this project through MMSP.`,
-    facts: "Facts",
-    packages: "Packages: `mmsp` for Python, `@prismshadow/mmsp` for TypeScript",
-    modelId: "Model id",
-    key: (env: string, value: string) => `API key: the environment variable \`${env}\`, holding ${value}`,
-    keyOf: (provider: string) => `${provider}'s API key`,
-    modalities: "Modalities",
-    context: (window: string, tokens: string) => `Context window: ${window} tokens (${tokens})`,
-    prices: "List prices per 1M tokens, USD",
-    price: { input: "input", output: "output", cached: "cached" },
-    code: "Code",
-    program: (language: string, file: string) => `${language}, \`${file}\`:`,
-    steps: "Steps",
-    list: (env: string) => [
-      "Use the project's language: the TypeScript program with `@prismshadow/mmsp`, or the Python one with `mmsp`.",
-      "Install the package: `npm install @prismshadow/mmsp` or `pip install mmsp`.",
-      `Read the key from \`${env}\`; never hard-code it or commit it.`,
-      "Wire the call into the project's existing LLM call site; if there is none, add a minimal module for it.",
-      "Run it once and check that the model answers.",
-      "Report what you changed: the files, the new dependency, and how to run it.",
-    ],
-    references: "References",
-    separator: ", ",
-    colon: ": ",
-  },
-  zh: {
-    goal: (model: string, provider: string, url: string) => `通过 MMSP 把 \`${model}\`（由 ${provider} 提供，地址 \`${url}\`）接入这个项目。`,
-    facts: "信息",
-    packages: "包：Python 用 `mmsp`，TypeScript 用 `@prismshadow/mmsp`",
-    modelId: "模型 id",
-    // a space between Chinese and a value that begins in Latin letters, as Chinese typesetting has it
-    key: (env: string, value: string) => `API 密钥：环境变量 \`${env}\`，值为${/^[A-Za-z0-9]/.test(value) ? " " : ""}${value}`,
-    keyOf: (provider: string) => `${provider} 的 API key`,
-    modalities: "模态",
-    context: (window: string, tokens: string) => `上下文窗口：${window} tokens（${tokens}）`,
-    prices: "每百万 tokens 标价（美元）",
-    price: { input: "输入", output: "输出", cached: "缓存" },
-    code: "代码",
-    program: (language: string, file: string) => `${language}，\`${file}\`：`,
-    steps: "步骤",
-    list: (env: string) => [
-      "使用项目本身的语言：TypeScript 项目用上面的 TypeScript 程序和 `@prismshadow/mmsp`，Python 项目用 Python 程序和 `mmsp`。",
-      "安装包：`npm install @prismshadow/mmsp` 或 `pip install mmsp`。",
-      `从 \`${env}\` 读取密钥，不要写进代码，也不要提交到仓库。`,
-      "把调用接到项目里现有的 LLM 调用处；没有的话，新增一个最小的模块来放它。",
-      "运行一次，确认模型有回复。",
-      "汇报改了什么：哪些文件、新增的依赖，以及如何运行。",
-    ],
-    references: "参考",
-    separator: "、",
-    colon: "：",
-  },
-} as const;
-
-/**
- * A prompt for an AI agent that wires one entry into the project it works in, in the page's
- * language: the goal, the facts the kit is built from, the kit's TypeScript and Python programs,
- * the steps, and where to read more.
- */
-export function agentPromptFor(
-  entry: Pick<SupportedModel, "model" | "base_url" | "client" | "input_modalities" | "output_modalities" | "context_window" | "pricing">,
-  locale: Locale,
-): string {
-  const words = PROMPT[locale];
-  const modality = STRINGS[locale].models.modality;
-  const provider = providerOf(entry.base_url);
-  const kit = kitFor(entry);
-  const site = import.meta.env.SITE;
-  const pricing = entry.pricing;
-  const prices = pricing
-    ? (
-        [
-          ["input", pricing.prompt_tokens],
-          ["output", pricing.response_tokens],
-          ["cached", pricing.cached_tokens],
-        ] as const
-      )
-        .filter(([, value]) => value !== undefined)
-        .map(([name, value]) => `${words.price[name]} ${formatPrice(value!)}`)
-        .join(words.separator)
-    : null;
-  return [
-    words.goal(entry.model, provider.name, entry.base_url),
-    "",
-    `## ${words.facts}`,
-    "",
-    `- ${words.packages}`,
-    `- \`client_type\`${words.colon}\`${entry.client}\``,
-    `- \`base_url\`${words.colon}\`${entry.base_url}\``,
-    `- ${words.modelId}${words.colon}\`${entry.model}\``,
-    `- ${words.key(kit.keyEnv, kit.keyHint?.[locale] ?? words.keyOf(provider.name))}`,
-    `- ${words.modalities}${words.colon}${entry.input_modalities.map((name) => modality[name]).join(words.separator)} → ${entry.output_modalities.map((name) => modality[name]).join(words.separator)}`,
-    ...(entry.context_window ? [`- ${words.context(formatContext(entry.context_window), entry.context_window.toLocaleString("en-US"))}`] : []),
-    ...(prices ? [`- ${words.prices}${words.colon}${prices}`] : []),
-    "",
-    `## ${words.code}`,
-    "",
-    words.program("TypeScript", "main.ts"),
-    "",
-    "```ts",
-    kit.typescript,
-    "```",
-    "",
-    words.program("Python", "main.py"),
-    "",
-    "```python",
-    kit.python,
-    "```",
-    "",
-    `## ${words.steps}`,
-    "",
-    ...words.list(kit.keyEnv).map((step, index) => `${index + 1}. ${step}`),
-    "",
-    `## ${words.references}`,
-    "",
-    `- ${new URL("/llms.txt", site).href}`,
-    `- ${new URL("/models.json", site).href}`,
-    `- ${new URL(localePath(locale, "/docs/quickstart/"), site).href}`,
-    "",
-  ].join("\n");
 }
 
 export interface CatalogRow extends SupportedModel {
   key: string;
   provider: Provider;
   vendor: Vendor | null;
-  kit: Kit;
   // the registry's prices in CNY, converted by the registry itself
   pricing_cny?: SupportedModel["pricing"];
 }
@@ -369,78 +77,6 @@ export function catalogRows(): CatalogRow[] {
     key: statusKey(entry),
     provider: providerOf(entry.base_url),
     vendor: vendorOf(entry.model),
-    kit: kitFor(entry),
     pricing_cny: cny[index].pricing,
   }));
-}
-
-// what the Model Index's dialog shows of an entry: each tab's file and the lines that install, key
-// and run it, and the prompt Copy for agent puts on the clipboard
-export interface CatalogKit {
-  typescript: string;
-  python: string;
-  // a whole mmsp-server.json
-  server: string;
-  agent: string;
-  run: Record<"typescript" | "python" | "server", string>;
-}
-
-/**
- * Every entry's dialog content in one language, by status key: /models/kits.json and
- * /zh/models/kits.json, which the page fetches when a reader first reaches for a code button, so
- * the page itself carries only the rows. The Server tab's file is started in the background, so one
- * paste also streams one answer through it.
- */
-export function catalogKits(locale: Locale): Record<string, CatalogKit> {
-  return Object.fromEntries(
-    catalogRows().map((row) => {
-      const { kit } = row;
-      const hint = kit.keyHint?.[locale];
-      const keyLine = `export ${kit.keyEnv}=${kit.keyValue}` + (hint && hint !== kit.keyValue ? `  # ${hint}` : "");
-      // a single-quoted shell word cannot hold a single quote, so the prompt's quotes become escaped
-      // double quotes
-      const body = literal(kit.request, "json").replaceAll("'", '\\"');
-      // an embedding, an image or speech streams as lines of numbers or base64; their heads show it
-      const heads = row.output_modalities.includes("Text") ? "" : " | cut -c 1-160";
-      const entry: CatalogKit = {
-        typescript: kit.typescript,
-        python: kit.python,
-        server: JSON.stringify({ models: [kit.server], api_keys: ["$MMSP_SERVER_API_KEY"] }, null, 2),
-        agent: agentPromptFor(row, locale),
-        run: {
-          typescript: ["npm install @prismshadow/mmsp", keyLine, "npx tsx main.ts"].join("\n"),
-          python: ["pip install mmsp", keyLine, "python main.py"].join("\n"),
-          server: [
-            "pip install mmsp",
-            keyLine,
-            "export MMSP_SERVER_API_KEY=secret",
-            "python -m mmsp.integration.server --config mmsp-server.json &",
-            "curl -sSN --retry 5 --retry-connrefused http://127.0.0.1:25752/v1/stream \\",
-            '  -H "Authorization: Bearer $MMSP_SERVER_API_KEY" -H "Content-Type: application/json" \\',
-            `  -d '${body}'${heads}`,
-          ].join("\n"),
-        },
-      };
-      return [row.key, entry];
-    }),
-  );
-}
-
-// a context window as vendors write it: 1M and 256K for powers of two, 200K and 1M for round
-// decimals
-export function formatContext(tokens: number): string {
-  const trim = (value: number) => String(Number(value.toFixed(2)));
-  if (tokens % 1_048_576 === 0) return `${tokens / 1_048_576}M`;
-  if (tokens % 1024 === 0 && tokens < 1_048_576) return `${tokens / 1024}K`;
-  if (tokens >= 1_000_000) return `${trim(tokens / 1_000_000)}M`;
-  return `${trim(tokens / 1000)}K`;
-}
-
-// a price per million tokens: two decimals from 1 up, three significant digits below, so a CNY
-// list price converted to USD reads 0.143, not 0.1429
-export function formatPrice(value: number): string {
-  if (value === 0) return "0";
-  if (value >= 1) return value.toFixed(2);
-  const [whole, decimals = ""] = String(Number(value.toPrecision(3))).split(".");
-  return `${whole}.${decimals.padEnd(2, "0")}`;
 }
