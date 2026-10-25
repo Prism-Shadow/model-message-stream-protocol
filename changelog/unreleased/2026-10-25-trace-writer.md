@@ -3,6 +3,7 @@
 - **Date:** 2026-10-25
 - **Type:** fix
 - **Scope:** `tracer`, `base_client`
+- **Breaking:** yes — some trace ids save under new names or raise `UnsupportedParameterError` before the request
 
 [中文版](2026-10-25-trace-writer.zh.md)
 
@@ -15,3 +16,10 @@
 - The tracer viewer answered 403 for any path that, symlinks resolved, is neither the cache directory nor inside it, by the writer's rule, and left entries whose symlinks lead outside out of its listings. Its string-prefix check had served a sibling such as `cache2/` through `/../cache2/...`, and TypeScript had not resolved symlinks.
 - The viewer percent-encoded each segment of its links, and the TypeScript viewer decoded the request path, so traces named with a space, a `#`, a `%` or CJK opened from their links. TypeScript had answered 404 for each.
 - An empty `MMSP_CACHE_DIR`, or an empty `cache_dir` in Python, meant the default `cache` under the working directory in both packages. Python had used the working directory itself.
+
+## Compatibility
+
+- A trace id that is absolute, empty, `.`, or that leaves the cache directory now raises `UnsupportedParameterError` before the request. Pass a relative id such as `agent/conv` (TypeScript had saved `/agent/conv` under the cache directory).
+- In Python, a trace id with a dot saves under the whole id, so `v1.2` saves `v1.2.json` where it had saved `v1.json`. Rename an existing trace file to read it under its id.
+- A trace id with a trailing slash saves as `trailing.json` in TypeScript, where it had saved `trailing/.json`.
+- The viewer no longer serves a path whose symlinks lead outside the cache directory.

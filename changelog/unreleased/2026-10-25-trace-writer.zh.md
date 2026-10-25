@@ -3,6 +3,7 @@
 - **Date:** 2026-10-25
 - **Type:** fix
 - **Scope:** `tracer`, `base_client`
+- **Breaking:** yes — 部分 trace id 的保存文件名会改变，或在请求前就抛出 `UnsupportedParameterError`
 
 [English](2026-10-25-trace-writer.md)
 
@@ -15,3 +16,10 @@
 - tracer 查看器按写入端的同一规则，对解析符号链接后既不是缓存目录、也不在其中的路径返回 403，目录列表也不再列出符号链接指向外部的条目。原先的字符串前缀检查会经由 `/../cache2/...` 把 `cache2/` 这类同名前缀的兄弟目录也提供出去，TypeScript 也不解析符号链接。
 - 查看器对链接逐段做百分号编码，TypeScript 查看器会解码请求路径，因此名字带空格、`#`、`%` 或中日韩文字的追踪都能从链接打开。TypeScript 原先对这些一律返回 404。
 - `MMSP_CACHE_DIR` 为空，或 Python 中 `cache_dir` 为空时，两个包都使用默认的工作目录下的 `cache`。Python 原先直接使用工作目录本身。
+
+## 兼容性
+
+- 绝对路径、空串、`.`，或者会跳出缓存目录的 trace id，现在会在发出请求前抛出 `UnsupportedParameterError`。请改用 `agent/conv` 这样的相对 id（TypeScript 原先会把 `/agent/conv` 存进缓存目录里）。
+- Python 中带点号的 trace id 现在按完整 id 保存，`v1.2` 保存为 `v1.2.json`，原先是 `v1.json`。已有的追踪文件需要改名，才能按它的 id 读到。
+- TypeScript 中以斜杠结尾的 trace id 现在保存为 `trailing.json`，原先是 `trailing/.json`。
+- 查看器不再提供那些经符号链接后指向缓存目录之外的路径。
