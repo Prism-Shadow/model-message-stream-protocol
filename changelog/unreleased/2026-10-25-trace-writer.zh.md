@@ -3,6 +3,7 @@
 - **Date:** 2026-10-25
 - **Type:** fix
 - **Scope:** `tracer`, `base_client`
+- **PR:** [#300](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/300)
 - **Breaking:** yes — 部分 trace id 的保存文件名会改变，或在请求前就抛出 `UnsupportedParameterError`
 
 [English](2026-10-25-trace-writer.md)

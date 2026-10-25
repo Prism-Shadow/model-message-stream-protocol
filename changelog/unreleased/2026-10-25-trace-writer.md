@@ -3,6 +3,7 @@
 - **Date:** 2026-10-25
 - **Type:** fix
 - **Scope:** `tracer`, `base_client`
+- **PR:** [#300](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/300)
 - **Breaking:** yes — some trace ids save under new names or raise `UnsupportedParameterError` before the request
 
 [中文版](2026-10-25-trace-writer.zh.md)
