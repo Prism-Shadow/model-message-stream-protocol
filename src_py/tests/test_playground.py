@@ -16,6 +16,7 @@ import json
 
 from flask import Flask
 
+from mmsp import list_supported_models
 from mmsp.abort_signal import AbortSignal
 from mmsp.integration import playground
 from mmsp.integration.playground import create_chat_app
@@ -111,6 +112,7 @@ def test_chat_app_index_route():
         assert b"getExtraHeaders()" in response.data
         assert b"listModels()" in response.data
         assert b"/api/models" in response.data
+        assert b"fetch('/api/registry')" in response.data
         assert b"apiKeyVisibilityToggle" in response.data
         assert b"toggleApiKeyVisibility()" in response.data
         assert b'id="stopButton"' in response.data
@@ -251,6 +253,20 @@ def test_chat_app_reports_a_failed_model_listing(monkeypatch):
 
     assert response.status_code == 400
     assert "401 unauthorized" in response.get_json()["error"]
+
+
+def test_chat_app_serves_the_registry_to_the_model_menu():
+    """Test that the model menu gets every registry entry, as its model id, client type and base URL only."""
+    app = create_chat_app()
+
+    with app.test_client() as client:
+        response = client.get("/api/registry")
+
+    assert response.status_code == 200
+    models = response.get_json()["models"]
+    assert len(models) == len(list_supported_models())
+    assert {key for entry in models for key in entry} == {"model", "client", "base_url"}
+    assert {"model": "gpt-6.1-sol", "client": "openai-official", "base_url": "https://api.openai.com/v1"} in models
 
 
 def test_chat_app_uses_client_connection_options(monkeypatch):

@@ -42,6 +42,7 @@ from werkzeug.serving import BaseWSGIServer, make_server
 from .. import AutoLLMClient
 from ..abort_signal import AbortSignal
 from ..credentials import CLIENT_CREDENTIALS, COMPATIBLE_CLIENT_TYPES, MODEL_FAMILIES, OFFICIAL_CLIENT_TYPES
+from ..registry import list_supported_models
 from ..wire import DEFAULT_HOST, DEFAULT_PORT, server_base_url
 from .server import (
     _COLUMNS,
@@ -608,6 +609,8 @@ def create_chat_app() -> Flask:
     """
     app = Flask(__name__)
     app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
+    app.json.ensure_ascii = False
+    app.json.sort_keys = False
 
     @app.errorhandler(RequestEntityTooLarge)
     def request_entity_too_large(_error: RequestEntityTooLarge) -> tuple[Response, int]:
@@ -2608,6 +2611,9 @@ def create_chat_app() -> Flask:
                 }
                 menu.classList.remove('hidden');
                 root.querySelector('[data-combobox-button]').setAttribute('aria-expanded', 'true');
+                if (comboboxId === 'modelCombobox') {
+                    loadRegistryModels();
+                }
 
                 const filter = menu.querySelector('.menu-search input');
                 if (filter) {
@@ -2690,7 +2696,7 @@ def create_chat_app() -> Flask:
                 const query = input.value.trim().toLowerCase();
                 let shown = 0;
                 document.querySelectorAll('#modelComboboxMenu [data-combobox-option]').forEach((option) => {
-                    const text = `${option.dataset.label} ${option.dataset.value}`.toLowerCase();
+                    const text = `${option.dataset.label} ${option.dataset.value} ${option.dataset.description}`.toLowerCase();
                     const match = !query || option.dataset.value === '__custom__' || text.includes(query);
                     option.classList.toggle('hidden', !match);
                     if (match && option.dataset.value !== '__custom__') {
@@ -2849,7 +2855,7 @@ def create_chat_app() -> Flask:
                 }
 
                 // a model keeps its client type, base URL and API key: a built-in starts from the ones its id
-                // names, a listed model from the ones its listing ran under
+                // names, a listed or registry model from the ones it came with
                 const option = selectedModelOption();
                 const clientType = (option && option.dataset.clientType) || familyClientType(option && option.dataset.value);
                 setClientType(clientType);
@@ -2922,20 +2928,16 @@ def create_chat_app() -> Flask:
                 hideIcon.classList.toggle('hidden', shouldShow);
             }
 
-            function addListedModels(modelIds) {
+            // each entry the menu lacks goes in before Custom model; one it has takes the API key
+            function addModelOptions(entries, apiKey) {
                 const menu = document.getElementById('modelComboboxMenu');
                 const options = Array.from(menu.querySelectorAll('[data-combobox-option]'));
                 const known = new Map(options.filter((option) => option.dataset.value !== '__custom__').map((option) => [optionEntryKey(option), option]));
                 const customOption = options.find((option) => option.dataset.value === '__custom__') || null;
-                // a listed model is served by the endpoint that listed it, so it takes the current
-                // client type, base URL and API key
-                const clientType = effectiveClientType();
-                const baseUrl = document.getElementById('baseUrlInput').value.trim();
-                const apiKey = document.getElementById('apiKeyInput').value.trim();
 
                 let added = 0;
-                modelIds.forEach((modelId) => {
-                    const key = entryKey(modelId, clientType, baseUrl);
+                entries.forEach(({ model, client, base_url: baseUrl }) => {
+                    const key = entryKey(model, client, baseUrl);
                     if (known.has(key)) {
                         if (apiKey) {
                             known.get(key).dataset.apiKey = apiKey;
@@ -2949,12 +2951,11 @@ def create_chat_app() -> Flask:
                     option.setAttribute('aria-selected', 'false');
                     option.className = 'combo-option';
                     option.setAttribute('data-combobox-option', '');
-                    option.dataset.value = modelId;
-                    option.dataset.label = modelId;
-                    option.dataset.description = clientType ? clientType + (baseUrl ? ' · ' + endpointHost(baseUrl) : '') : 'listed';
-                    option.dataset.listed = 'true';
-                    if (clientType) {
-                        option.dataset.clientType = clientType;
+                    option.dataset.value = model;
+                    option.dataset.label = model;
+                    option.dataset.description = client ? client + (baseUrl ? ' · ' + endpointHost(baseUrl) : '') : 'listed';
+                    if (client) {
+                        option.dataset.clientType = client;
                     }
                     if (baseUrl) {
                         option.dataset.baseUrl = baseUrl;
@@ -2965,7 +2966,7 @@ def create_chat_app() -> Flask:
                     option.onclick = () => selectComboboxOption('modelCombobox', option);
 
                     const label = document.createElement('span');
-                    label.textContent = modelId;
+                    label.textContent = model;
                     option.appendChild(label);
                     menu.insertBefore(option, customOption);
                     known.set(key, option);
@@ -2973,6 +2974,29 @@ def create_chat_app() -> Flask:
                 });
 
                 return added;
+            }
+
+            function addListedModels(modelIds) {
+                // a listed model is served by the endpoint that listed it, so it takes the current
+                // client type, base URL and API key
+                const client = effectiveClientType();
+                const baseUrl = document.getElementById('baseUrlInput').value.trim();
+                return addModelOptions(modelIds.map((model) => ({ model, client, base_url: baseUrl })), document.getElementById('apiKeyInput').value.trim());
+            }
+
+            // the registry's models join the menu when it first opens, so the page loads without them;
+            // a failed load is tried again at the next opening
+            let registryRequest = null;
+            function loadRegistryModels() {
+                registryRequest = registryRequest || fetch('/api/registry')
+                    .then((response) => response.json())
+                    .then((data) => {
+                        addModelOptions(data.models);
+                        filterModelOptions();
+                    })
+                    .catch(() => {
+                        registryRequest = null;
+                    });
             }
 
             async function listModels() {
@@ -3158,7 +3182,7 @@ def create_chat_app() -> Flask:
                         }
                     });
 
-                    // a model the menu does not list — one that was listed, or typed in — comes back as a custom entry
+                    // a model the menu does not list — one that was listed, came from the registry, or was typed in — comes back as a custom entry
                     const modelOption = saved.model ? comboboxOption('modelCombobox', saved.model) : null;
                     if (modelOption) {
                         selectComboboxOption('modelCombobox', modelOption);
@@ -3866,6 +3890,18 @@ def create_chat_app() -> Flask:
             return jsonify({"error": str(exc)}), 400
 
         return jsonify({"models": models})
+
+    @app.route("/api/registry")
+    def registry() -> Response:
+        """List the registry's models with the client type and base URL of each, for the model menu."""
+        return jsonify(
+            {
+                "models": [
+                    {"model": entry["model"], "client": entry["client"], "base_url": entry["base_url"]}
+                    for entry in list_supported_models()
+                ]
+            }
+        )
 
     tracer_app = Tracer().create_web_app(base_path="/tracer")
     app.wsgi_app = DispatcherMiddleware(
