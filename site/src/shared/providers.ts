@@ -118,7 +118,7 @@ export const PROVIDERS: (Provider & { prefixes: string[] })[] = [
     keyEnv: "OPENCODE_API_KEY",
   },
   { id: "fireworks", name: "Fireworks AI", mark: "fireworks", prefixes: ["https://api.fireworks.ai"], keyEnv: "FIREWORKS_API_KEY" },
-  { id: "qwen-pay-as-you-go", name: "Qwen Pay-As-You-Go", mark: "qwen", prefixes: ["https://dashscope.aliyuncs.com"], keyEnv: "DASHSCOPE_API_KEY" },
+  { id: "dashscope", name: "DashScope", mark: "qwen", prefixes: ["https://dashscope.aliyuncs.com"], keyEnv: "DASHSCOPE_API_KEY" },
   // a Token Plan key works only at its own endpoint, so it is not the pay-as-you-go variable
   {
     id: "qwen-token-plan",
@@ -128,8 +128,9 @@ export const PROVIDERS: (Provider & { prefixes: string[] })[] = [
     keyEnv: "QWEN_TOKEN_PLAN_API_KEY",
   },
   { id: "atlascloud", name: "Atlas Cloud", mark: "atlascloud", prefixes: ["https://api.atlascloud.ai"], keyEnv: "ATLASCLOUD_API_KEY" },
-  // an MMSP server, called by the `mmsp` client, which reads MMSP_API_KEY
-  { id: "penguin-go", name: "Penguin Go", prefixes: ["https://go.penguin.ooo"], keyEnv: "MMSP_API_KEY" },
+  // Prism Shadow's MMSP relay, called by the `mmsp` client; its key is passed as api_key, as every
+  // gateway's is, so it has a variable of its own and not the client's MMSP_API_KEY
+  { id: "penguin-go", name: "Penguin Go", prefixes: ["https://go.penguin.ooo"], keyEnv: "PENGUIN_GO_API_KEY" },
   { id: "modelscope", name: "ModelScope", mark: "modelscope", prefixes: ["https://api-inference.modelscope.cn"], keyEnv: "MODELSCOPE_API_KEY" },
   // `vllm serve` on this machine at its default port; it checks a key only when started with one
   {

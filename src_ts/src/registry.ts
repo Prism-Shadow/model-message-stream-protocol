@@ -16,12 +16,12 @@ export type Modality = "Text" | "Image" | "Video" | "Audio" | "Embed";
 export type Currency = "USD" | "CNY";
 
 /**
- * List prices per million tokens for MMSP's usage buckets.
+ * Prices per million tokens for MMSP's usage buckets.
  *
  * Keys mirror `usage_metadata`: `cached_tokens` (cache-hit price, absent when
  * the platform publishes none), `prompt_tokens` (non-cached input), and
- * `thoughts_tokens`/`response_tokens`, which both carry the vendor's output
- * price. Values are in the currency requested from listSupportedModels.
+ * `thoughts_tokens`/`response_tokens`, which both carry the output price.
+ * Values are in the currency requested from listSupportedModels.
  */
 export interface ModelPricing {
   currency: Currency;
@@ -39,8 +39,13 @@ export interface ModelPricing {
  * Modalities describe what is usable through that client; `context_window` and
  * `pricing` are omitted where the platform publishes no authoritative value.
  *
- * `pricing` is always the LIST price. A running promotion is deliberately not recorded: the
- * registry's job is the catalog price, and applying a promotion is the consumer's.
+ * `pricing` is the standing price the row's platform publishes, which is not always the model
+ * vendor's list price. A vendor's own endpoint stores its list price. A gateway stores the rate it
+ * bills, which can be lower: the TokenDance rows store the catalog's `items` rate, below the
+ * `reference` price it shows beside some models. A subscription gateway stores what a request
+ * draws from the plan's allowance, and a self-hosted server zero. A price tiered by prompt length
+ * stores its first tier, and a price by time of day its off-peak rate. A running promotion is not
+ * recorded: applying one is the consumer's job.
  */
 export interface SupportedModel {
   model: string;
@@ -78,8 +83,8 @@ const MODELSCOPE = "https://api-inference.modelscope.cn/v1";
 const VLLM_LOCAL = "http://127.0.0.1:8000/v1";
 
 // Display convention shared with the MMSP apps: prices are stored in USD
-// (official CNY list prices pre-converted at 7 CNY/USD), so requesting CNY
-// shows the vendor's numbers.
+// (CNY prices pre-converted at 7 CNY/USD), so requesting CNY shows the
+// platform's numbers.
 const CNY_PER_USD = 7.0;
 
 function usd(prompt: number, output: number, cached?: number): ModelPricing {
@@ -94,8 +99,7 @@ function usd(prompt: number, output: number, cached?: number): ModelPricing {
 }
 
 /**
- * Declare a CNY-denominated official list price; storage stays USD (converted
- * at 7 CNY/USD).
+ * Declare a CNY-denominated price; storage stays USD (converted at 7 CNY/USD).
  */
 function cny(prompt: number, output: number, cached?: number): ModelPricing {
   const rate = (v: number): number => Math.round((v / CNY_PER_USD) * 1e6) / 1e6;
@@ -106,13 +110,14 @@ function cny(prompt: number, output: number, cached?: number): ModelPricing {
   );
 }
 
-// Prices in USD per million tokens (CNY list prices pre-converted at 7 CNY/USD).
-// Each platform section names where its data was read and when. Gateway rows
-// list only the input modalities their client can send: the OpenAI-protocol
-// clients carry text and images, not video or audio.
+// Prices in USD per million tokens (CNY prices pre-converted at 7 CNY/USD).
+// Each platform's section opens with one header,
+// `--- <platform> (<rows>; <key>; <sources>, read <date>)`, then its notes.
+// Gateway rows list only the input modalities their client can send: the
+// OpenAI-protocol clients carry text and images, not video or audio.
 const SUPPORTED_MODELS: SupportedModel[] = [
-  // --- Official vendor endpoints (55 rows; list prices from each vendor's pricing page; the rows
-  // added 2026-10-24 name their page and read date)
+  // --- Official vendor endpoints (55 rows; each vendor's own key variable; list prices from each
+  // vendor's pricing page, the rows added 2026-10-24 naming their page and read date)
   {
     model: "gemini-4-argon",
     base_url: GOOGLE,
@@ -521,8 +526,8 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
     context_window: 1000000,
-    // official list price (verified 2026-08-26); a launch discount halves all three
-    // rates through 2026-09-09 (UTC+8)
+    // official list price (verified 2026-08-26); a launch discount halves all three rates
+    // through 2026-09-09 (UTC+8)
     pricing: usd(0.15, 0.5, 0.03),
   },
   {
@@ -652,14 +657,15 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     // (Beijing 9:00-12:00, 14:00-18:00) are double
     pricing: cny(4.5, 13.5, 0.15),
   },
-  // --- OpenRouter (123 rows; USD prices, context windows and modalities from the live models API
-  // https://openrouter.ai/api/v1/models and each model's /api/v1/models/{slug}/endpoints list,
-  // read 2026-10-24). The API quotes one endpoint per model; where that endpoint runs a promotion
-  // (a nonzero `discount` in its /endpoints entry), the row stores the model vendor's own endpoint
-  // at its undiscounted rate, or the quoted endpoint's undiscounted rate when the vendor serves
-  // none there. A vendor's own promotion that the API quotes as the plain price is not recorded
-  // either: the vendor's list price is stored. Rows whose model id names a family with an official
-  // client (deepseek/, moonshotai/, z-ai/) use that client; the rest use openai-responses.
+  // --- OpenRouter (123 rows; key OPENROUTER_API_KEY; USD prices, context windows and modalities
+  // from the live models API https://openrouter.ai/api/v1/models and each model's
+  // /api/v1/models/{slug}/endpoints list, read 2026-10-24). The API quotes one endpoint per model;
+  // where that endpoint runs a promotion (a nonzero `discount` in its /endpoints entry), the row
+  // stores the model vendor's own endpoint at its undiscounted rate, or the quoted endpoint's
+  // undiscounted rate when the vendor serves none there. A vendor's own promotion that the API
+  // quotes as the plain price is not recorded either: the vendor's list price is stored. Rows
+  // whose model id names a family with an official client (deepseek/, moonshotai/, z-ai/) use
+  // that client; the rest use openai-responses.
   {
     model: "amazon/nova-premier-v1",
     base_url: OPENROUTER,
@@ -1849,10 +1855,11 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     context_window: 200000,
     pricing: usd(0.0605, 0.4),
   },
-  // SiliconFlow (CNY list prices from https://siliconflow.cn/pricing, context windows and image
-  // input from the model records that page embeds, read 2026-10-19; no public pricing API).
-  // Its DeepSeek Flash rows store the 02:00-08:00 (Beijing) rate, as the DeepSeek rows store
-  // their off-peak rate.
+  // --- SiliconFlow (14 rows; key SILICONFLOW_API_KEY; CNY list prices from
+  // https://siliconflow.cn/pricing, and context windows and image input from the model records
+  // that page embeds, read 2026-10-19, the row added 2026-10-24 naming its read date). There is
+  // no public pricing API. Its DeepSeek Flash rows store the 02:00-08:00 (Beijing) rate, as the
+  // DeepSeek rows store their off-peak rate.
   {
     // the other 18 hours cost double: 2/8/0.04 CNY
     model: "deepseek-ai/DeepSeek-V4.1-Flash",
@@ -1985,9 +1992,10 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Embed"],
     context_window: 32768,
   },
-  // Google Vertex AI (google-genai with a service-account JSON key, which pins location
-  // "global"; list prices of the global endpoint from
-  // https://cloud.google.com/vertex-ai/generative-ai/pricing, read 2026-10-19)
+  // --- Google Vertex AI (6 rows; key VERTEX_API_KEY, the service-account JSON; list prices of the
+  // global endpoint from https://cloud.google.com/vertex-ai/generative-ai/pricing, read
+  // 2026-10-19). The rows use google-genai, which a service-account key pins to location
+  // "global".
   {
     // a promotion runs through 2026-11-30: $2 input, $10 output, $0.1 cache read
     model: "gemini-4-argon",
@@ -2044,10 +2052,10 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Embed"],
     pricing: usd(0.2, 0.0),
   },
-  // Amazon Bedrock (anthropic-official with "ACCESS_KEY,SECRET_KEY" as the key; Global
-  // cross-Region inference profiles, ids and context windows from each model card, prices of
-  // the Global table for US East (N. Virginia) at https://aws.amazon.com/bedrock/pricing/, read
-  // 2026-10-19; the geo profiles us./eu./jp./au. cost 10% more)
+  // --- Amazon Bedrock (9 rows; key BEDROCK_API_KEY, "ACCESS_KEY,SECRET_KEY"; ids and context
+  // windows of the Global cross-Region inference profiles from each model card, and prices of the
+  // Global table for US East (N. Virginia) at https://aws.amazon.com/bedrock/pricing/, read
+  // 2026-10-19). The rows use anthropic-official. The geo profiles us./eu./jp./au. cost 10% more.
   {
     model: "global.anthropic.claude-fable-5-1",
     base_url: BEDROCK,
@@ -2130,10 +2138,11 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     context_window: 1000000,
     pricing: usd(3.0, 15.0, 0.3),
   },
-  // --- TokenDance (61 rows; CNY prices at the `items` rate of the public catalog
-  // https://tokendance.space/portal/api/models/all, read 2026-10-24; each row's client speaks
-  // a protocol the catalog lists for the model, and its price is that protocol's, at the lowest
-  // tier where the catalog tiers it by prompt length)
+  // --- TokenDance (61 rows; key TOKENDANCE_API_KEY; CNY prices at the `items` rate of the public
+  // catalog https://tokendance.space/portal/api/models/all, read 2026-10-24). The `items` rate is
+  // what TokenDance bills, below the `reference` price the catalog shows beside some models. Each
+  // row's client speaks a protocol the catalog lists for the model, and its price is that
+  // protocol's, at the lowest tier where the catalog tiers it by prompt length.
   {
     // this row and the next take the gateway's Chat Completions path; weekday peak rates
     // (09:00-12:00, 14:00-18:00 Beijing) are double on both
@@ -2718,15 +2727,15 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Embed"],
     context_window: 8000,
     pricing: cny(0.5, 0.0),
-    },
-  // OpenCode Go (subscription gateway, key OPENCODE_API_KEY; no live call was made, for want of a
-  // key). Ids and each row's protocol from the endpoints table of
-  // https://opencode.ai/v2/docs/console/go/, USD per-token rates from its usage-limits table, and
-  // context windows and input modalities from models.dev's `opencode-go` provider
-  // (https://models.dev/api.json), all read 2026-10-24. A rate is what a request draws from the Go
-  // ($10) or Go Plus ($40) monthly allowance, the same on both plans. Rows on the Messages
-  // protocol, like the vendors' own rows, keep the input rate in the prompt bucket; the docs price
-  // their cache writes apart.
+  },
+  // --- OpenCode Go (28 rows; key OPENCODE_API_KEY; ids and each row's protocol from the endpoints
+  // table of https://opencode.ai/v2/docs/console/go/, USD per-token rates from its usage-limits
+  // table, and context windows and input modalities from models.dev's `opencode-go` provider
+  // (https://models.dev/api.json), all read 2026-10-24; unverified: no live call was made, for
+  // want of a key). A subscription gateway: a rate is what a request draws from the Go ($10) or
+  // Go Plus ($40) monthly allowance, the same on both plans. Rows on the Messages protocol, like
+  // the vendors' own rows, keep the input rate in the prompt bucket; the docs price their cache
+  // writes apart.
   {
     // base tier for prompts up to 200K tokens; every rate doubles above it
     model: "grok-4.7",
@@ -2994,13 +3003,13 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     context_window: 256000,
     pricing: usd(0.14, 0.58, 0.035),
   },
-  // Fireworks AI (key FIREWORKS_API_KEY; ids, client and base URL from the penguin-harness
-  // catalog; no live call was made, for want of a key). USD serverless prices, context windows
-  // and image input from each model's page at https://fireworks.ai/models/<owner>/<slug>, read
-  // 2026-10-24. The pages show a 1,048,576-token window as "1040k" beside the exact figure in
-  // their FAQ, so a bare "1040k" is recorded as 1048576. Six of the models are on-demand only on
-  // the read date and their pages list no serverless price; those rows carry the harness
-  // catalog's price.
+  // --- Fireworks AI (13 rows; key FIREWORKS_API_KEY; ids, client and base URL from the
+  // penguin-harness catalog, and USD serverless prices, context windows and image input from each
+  // model's page at https://fireworks.ai/models/<owner>/<slug>, read 2026-10-24; unverified: no
+  // live call was made, for want of a key). The pages show a 1,048,576-token window as "1040k"
+  // beside the exact figure in their FAQ, so a bare "1040k" is recorded as 1048576. Six of the
+  // models are on-demand only on the read date and their pages list no serverless price; those
+  // rows carry the harness catalog's price.
   {
     model: "accounts/fireworks/models/deepseek-v4p1-flash",
     base_url: FIREWORKS,
@@ -3130,11 +3139,11 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     context_window: 1000000,
     pricing: usd(2.0, 6.0, 0.25),
   },
-  // DashScope pay-as-you-go (Alibaba Cloud Model Studio's OpenAI-compatible endpoint; key
-  // DASHSCOPE_API_KEY; ids, client and base URL from the penguin-harness catalog; no live call
-  // was made, for want of a key). CNY list prices and input modalities from each model's page at
-  // https://www.qianwenai.com/models/<id>, read 2026-10-24. The pages round every window to "1M",
-  // so the rows keep the harness catalog's exact figures.
+  // --- DashScope (7 rows; key DASHSCOPE_API_KEY; ids, client and base URL from the
+  // penguin-harness catalog, and CNY list prices and input modalities from each model's page at
+  // https://www.qianwenai.com/models/<id>, read 2026-10-24; unverified: no live call was made, for
+  // want of a key). Alibaba Cloud Model Studio's pay-as-you-go OpenAI-compatible endpoint. The
+  // pages round every window to "1M", so the rows keep the harness catalog's exact figures.
   {
     // off-peak rate (22:00-08:00 Beijing, every day); the other hours cost double:
     // 2/8/0.2 CNY
@@ -3202,14 +3211,15 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     context_window: 1000000,
     pricing: cny(0.8, 2.8, 0.23),
   },
-  // Qwen Token Plan (subscription gateway billed in Credits; key QWEN_TOKEN_PLAN_API_KEY; ids,
-  // client and base URL from the penguin-harness catalog, all six on the plan's model list at
-  // https://platform.qianwenai.com/docs/token-plan/personal/token-plan-personal-overview; no live
-  // call was made, for want of a key). The plan publishes no per-token rate, so, as in the
-  // harness catalog, the rows carry each model's CNY pay-as-you-go list price and input
-  // modalities from https://www.qianwenai.com/models/<id>, read 2026-10-24, with the harness's
-  // exact windows where the pages round to "1M". The plan's limited-time night discount on Qwen
-  // 3.8 Max and Flash is not recorded.
+  // --- Qwen Token Plan (6 rows; key QWEN_TOKEN_PLAN_API_KEY; ids, client and base URL from the
+  // penguin-harness catalog, all six on the plan's model list at
+  // https://platform.qianwenai.com/docs/token-plan/personal/token-plan-personal-overview, and CNY
+  // pay-as-you-go list prices and input modalities from https://www.qianwenai.com/models/<id>,
+  // read 2026-10-24; unverified: no live call was made, for want of a key). A subscription
+  // gateway billed in Credits that publishes no per-token rate, so, as in the harness catalog, the
+  // rows carry each model's pay-as-you-go list price, with the harness's exact windows where the
+  // pages round to "1M". The plan's limited-time night discount on Qwen 3.8 Max and Flash is not
+  // recorded.
   {
     // off-peak rate (22:00-08:00 Beijing, every day) for this row and the next; the other
     // hours cost double: 2/8/0.2 CNY here, 9/27/0.9 CNY below
@@ -3268,10 +3278,11 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     context_window: 1000000,
     pricing: cny(2.0, 8.0, 0.4),
   },
-  // Atlas Cloud (key ATLASCLOUD_API_KEY; ids, client and base URL from the penguin-harness
-  // catalog; no live call was made, for want of a key). USD prices, context windows and input
-  // modalities from the public catalog API, https://api.atlascloud.ai/v1/models, and list prices
-  // from https://www.atlascloud.ai/pricing/models, read 2026-10-24.
+  // --- Atlas Cloud (3 rows; key ATLASCLOUD_API_KEY; ids, client and base URL from the
+  // penguin-harness catalog, USD prices, context windows and input modalities from the public
+  // catalog API, https://api.atlascloud.ai/v1/models, and list prices from
+  // https://www.atlascloud.ai/pricing/models, read 2026-10-24; unverified: no live call was made,
+  // for want of a key)
   {
     model: "deepseek-ai/deepseek-v4.1-flash",
     base_url: ATLASCLOUD,
@@ -3301,12 +3312,12 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     context_window: 262144,
     pricing: usd(0.248, 1.485),
   },
-  // Penguin Go (Prism Shadow's MMSP relay, reached through the mmsp client; key
-  // PENGUIN_GO_API_KEY; no live call was made, for want of a key). Ids, context windows, image
-  // input and the relay's list prices from the penguin-harness catalog, which carries the
-  // owner-confirmed relay prices of 2026-10-14, read 2026-10-24: the relay lists its models only
-  // to a key holder. The DeepSeek rows store the off-peak rate, half the peak price billed in
-  // DeepSeek's weekday windows (Beijing 9:00-12:00, 14:00-18:00).
+  // --- Penguin Go (9 rows; key PENGUIN_GO_API_KEY; ids, context windows, image input and the
+  // relay's list prices from the penguin-harness catalog, which carries the owner-confirmed relay
+  // prices of 2026-10-14, read 2026-10-24; unverified: no live call was made, for want of a key).
+  // Prism Shadow's MMSP relay, reached through the mmsp client; it lists its models only to a key
+  // holder. The DeepSeek rows store the off-peak rate, half the peak price billed in DeepSeek's
+  // weekday windows (Beijing 9:00-12:00, 14:00-18:00).
   {
     // the relay's list price for this row and the next two is Google's introductory rate
     model: "gemini-4-argon",
@@ -3389,11 +3400,11 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     context_window: 1000000,
     pricing: cny(4.5, 13.5, 0.15),
   },
-  // ModelScope API-Inference (key MODELSCOPE_API_KEY, the account's access token; ids, client and
-  // base URL from the penguin-harness catalog, all three listed by the public
-  // https://api-inference.modelscope.cn/v1/models; no live call was made). Context windows and
-  // image input from each model's card through the public model API,
-  // https://www.modelscope.cn/api/v1/models/<id>, read 2026-10-24; the windows are the cards'
+  // --- ModelScope API-Inference (3 rows; key MODELSCOPE_API_KEY, the account's access token; ids,
+  // client and base URL from the penguin-harness catalog, all three listed by the public
+  // https://api-inference.modelscope.cn/v1/models, and context windows and image input from each
+  // model's card through the public model API, https://www.modelscope.cn/api/v1/models/<id>, read
+  // 2026-10-24; unverified: no live call was made, for want of a key). The windows are the cards'
   // native lengths. ModelScope publishes no per-token price for API-Inference, so the rows carry
   // none.
   {
@@ -3421,11 +3432,12 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Text"],
     context_window: 262144,
   },
-  // vLLM (self-hosted: the openai-chat-vllm-adapter client at http://127.0.0.1:8000/v1, where
-  // `vllm serve` answers by default and the client's own default endpoint; key VLLM_API_KEY only
-  // when the server is started with one). Ids, native context windows and image input from the
-  // penguin-harness catalog, which reads them from https://recipes.vllm.ai/, read 2026-10-24;
-  // nothing was called. A local server bills no one per token, so every row is priced at zero.
+  // --- vLLM (8 rows; key VLLM_API_KEY, only when the server is started with one; ids, native
+  // context windows and image input from the penguin-harness catalog, which reads them from
+  // https://recipes.vllm.ai/, read 2026-10-24; unverified: no server was called). Self-hosted: the
+  // rows use the openai-chat-vllm-adapter client at http://127.0.0.1:8000/v1, where `vllm serve`
+  // answers by default and the client's own default endpoint. A local server bills no one per
+  // token, so every row is priced at zero.
   {
     model: "deepseek-ai/DeepSeek-V4-Flash",
     base_url: VLLM_LOCAL,
@@ -3525,10 +3537,13 @@ function convertPricing(
  * pricing.
  *
  * Covers the official vendor endpoints plus OpenRouter, SiliconFlow, Google
- * Vertex AI, Amazon Bedrock and TokenDance; `client` is the `clientType` token
- * that routes the model to its protocol client. Prices are per million tokens for MMSP's usage buckets
+ * Vertex AI, Amazon Bedrock, TokenDance, OpenCode Go, Fireworks AI, DashScope,
+ * Qwen Token Plan, Atlas Cloud, Penguin Go, ModelScope and a local vLLM server;
+ * `client` is the `clientType` token that routes the model to its protocol
+ * client. Prices are per million tokens for MMSP's usage buckets
  * (cached_tokens, prompt_tokens, thoughts_tokens, response_tokens), stored in
- * USD and converted to `currency` at 7 CNY/USD on request.
+ * USD and converted to `currency` at 7 CNY/USD on request; `SupportedModel`
+ * says which price each platform's rows store.
  */
 export function listSupportedModels(
   currency: Currency = "USD",

@@ -47,15 +47,28 @@ Audit LLM executions by adding **a single `trace_id` parameter**, no database re
 
 | Model Name     | Vendor                              | Example Model ID       | Input Modalities | Output Modalities              |
 | -------------- | ----------------------------------- | ---------------------- | ---------------- | ------------------------------ |
-| Gemini 4 Argon | Official/Google Vertex AI          | `gemini-4-argon`       | Text, Image      | Text                          |
-| Gemini 3-3.8   | Official/Google Vertex AI           | `gemini-3.8-flash`     | Text, Image      | Text, Image, Speech, Embedding |
-| Claude 4.6-5.5 | Official/Amazon Bedrock/UModelVerse | `claude-opus-5-5`      | Text, Image      | Text                           |
-| GPT-5.4-6.1    | Official/OpenRouter/UModelVerse     | `gpt-6.1-sol`          | Text, Image      | Text, Embedding                |
-| Kimi-K2.5/K2.6/K3/K3.1 Pro | Official/OpenRouter/SiliconFlow/TokenDance | `kimi-k3.1-pro` | Text, Image      | Text                           |
-| DeepSeek V4    | Official/OpenRouter/SiliconFlow/TokenDance | `deepseek-flash` | Text, Image      | Text                           |
-| GLM-5.1-5.3    | Official/OpenRouter/SiliconFlow/TokenDance | `glm-5.3`       | Text, Image      | Text                           |
-| MiniMax-M3/M3.1 | Official/OpenRouter/TokenDance     | `MiniMax-M3.1-Flash`   | Text, Image      | Text                           |
-| Qwen3.8        | OpenRouter/SiliconFlow/TokenDance/vLLM | `qwen/qwen3.8-27b` | Text, Image      | Text, Embedding                |
+| Gemini 4 Argon | Official/Google Vertex AI/OpenRouter/OpenCode Go/Penguin Go | `gemini-4-argon` | Text, Image | Text |
+| Gemini 3-3.8   | Official/Google Vertex AI/OpenRouter/Penguin Go | `gemini-3.8-flash` | Text, Image | Text, Image, Speech, Embedding |
+| Claude 4.5-5.5 | Official/Amazon Bedrock/OpenRouter/OpenCode Go/UModelVerse | `claude-opus-5-5` | Text, Image | Text |
+| GPT-5.3-6.1    | Official/OpenRouter/OpenCode Go/UModelVerse | `gpt-6.1-sol` | Text, Image | Text, Embedding |
+| Kimi-K2.5-K3.1 Pro | Official/OpenRouter/SiliconFlow/TokenDance/OpenCode Go/Fireworks AI/DashScope | `kimi-k3.1-pro` | Text, Image | Text |
+| DeepSeek V3.2/V4 | Official/OpenRouter/SiliconFlow/TokenDance/OpenCode Go/Fireworks AI/DashScope/Qwen Token Plan/Atlas Cloud/Penguin Go/ModelScope/vLLM | `deepseek-flash` | Text, Image | Text |
+| GLM-4.5-5.3    | Official/OpenRouter/SiliconFlow/TokenDance/OpenCode Go/Fireworks AI/DashScope/Qwen Token Plan | `glm-5.3` | Text, Image | Text |
+| MiniMax-M2.5-M3.1 | Official/OpenRouter/TokenDance/OpenCode Go/Fireworks AI | `MiniMax-M3.1-Flash` | Text, Image | Text |
+| Qwen3-3.8      | OpenRouter/SiliconFlow/TokenDance/OpenCode Go/Fireworks AI/DashScope/Qwen Token Plan/Atlas Cloud/ModelScope/vLLM | `qwen/qwen3.8-27b` | Text, Image | Text, Embedding |
+| Grok 4.3-4.7   | OpenRouter/OpenCode Go | `x-ai/grok-4.7` | Text, Image | Text |
+| MiMo-V2.5/V2.6 | OpenRouter/TokenDance/OpenCode Go | `mimo-v2.6-pro` | Text, Image | Text |
+| Seed 2.0/2.1   | OpenRouter/TokenDance | `seed-2.1-pro` | Text, Image | Text |
+| Hy3/Hy4        | OpenRouter/SiliconFlow/TokenDance/OpenCode Go | `hy4-preview` | Text | Text |
+| Step 3.5-5     | OpenRouter/TokenDance/OpenCode Go | `step-5-preview` | Text, Image | Text |
+| LongCat 2.0    | OpenRouter/SiliconFlow/TokenDance/OpenCode Go | `longcat-2.0` | Text | Text |
+| Muse Spark/Llama 4 | OpenRouter/OpenCode Go | `meta/muse-spark-1.3` | Text, Image | Text |
+| Mistral        | OpenRouter | `mistralai/mistral-large-4-0` | Text, Image | Text |
+| Nemotron 3/3.5 | OpenRouter | `nvidia/nemotron-3.5-super-vl` | Text, Image | Text |
+
+OpenRouter also serves Cohere Command A, Amazon Nova, Perplexity Sonar and Inception Mercury,
+OpenRouter and TokenDance serve inclusionAI Ling, and TokenDance serves iFlytek Spark and Dots;
+`list_supported_models()` lists every entry.
 
 ### Clients
 
@@ -98,11 +111,16 @@ as `global.anthropic.claude-opus-5-5`.
 TokenDance serves Chat Completions, Responses and Embeddings at `https://tokendance.space/gateway/v1`
 and Anthropic Messages at `https://tokendance.space/gateway`, all with one key.
 
+OpenCode Go serves Chat Completions and Responses at `https://opencode.ai/inference/go/openai/v1`,
+Anthropic Messages at `https://opencode.ai/inference/go/anthropic` and Google generateContent at
+`https://opencode.ai/inference/go/google`, all with one key, `OPENCODE_API_KEY`; its docs name the
+protocol of each model, and `list_supported_models()` gives each its client.
+
 Where a gateway serves more than one protocol, prefer `"openai-responses"`: OpenRouter serves it
 for every model it hosts, while SiliconFlow serves Chat Completions only.
 
 The full machine-readable list — model, base URL, client, input/output modalities, context
-window, and per-million-token list pricing in USD or CNY:
+window, and per-million-token pricing in USD or CNY:
 
 ```python
 from mmsp import list_supported_models

@@ -41,6 +41,11 @@ const MODALITY_ICONS: Record<Modality, string> = {
   Audio: '<path d="M2 10v3"></path><path d="M6 6v11"></path><path d="M10 3v18"></path><path d="M14 8v7"></path><path d="M18 5v13"></path><path d="M22 10v3"></path>',
   Embed: '<path d="M13.5 10.5 15 9"></path><path d="M4 4v15a1 1 0 0 0 1 1h15"></path><path d="M4.293 19.707 6 18"></path><path d="m9 15 1.5-1.5"></path>',
 };
+// Lucide: arrow-right, code; once in the sprite, since every row repeats them
+const ROW_ICONS = {
+  arrow: '<path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path>',
+  code: '<path d="m16 18 6-6-6-6"></path><path d="m8 6-6 6 6 6"></path>',
+};
 
 const price = (value: number | undefined) => (value === undefined ? undefined : formatPrice(value));
 // the dialog's programs, commands and agent prompts, by row key; fetched, not inlined, since they
@@ -111,9 +116,10 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
     </div>
   </div>
 
-  <!-- the modality icons once, as symbols every row points at -->
+  <!-- the modality and row icons once, as symbols every row points at -->
   <svg width="0" height="0" class="absolute" aria-hidden="true">
     {Object.entries(MODALITY_ICONS).map(([modality, paths]) => <symbol id={`modality-${modality}`} viewBox="0 0 24 24" {...stroke} set:html={paths} />)}
+    {Object.entries(ROW_ICONS).map(([name, paths]) => <symbol id={`catalog-${name}`} viewBox="0 0 24 24" {...stroke} set:html={paths} />)}
   </svg>
 
   <table class="catalog-table mt-4 w-full text-sm">
@@ -229,10 +235,7 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
                       {row.input_modalities.includes(modality) && <svg class={icon} aria-label={`${s.modality.in}: ${s.modality[modality]}`} role="img"><use href={`#modality-${modality}`} /></svg>}
                     </span>
                   ))}
-                  <svg viewBox="0 0 24 24" class="mx-0.5 h-3 w-3 shrink-0 text-gray-300 dark:text-gray-600" {...stroke} aria-hidden="true">
-                    <path d="M5 12h14"></path>
-                    <path d="m12 5 7 7-7 7"></path>
-                  </svg>
+                  <svg class="mx-0.5 h-3 w-3 shrink-0 text-gray-300 dark:text-gray-600" aria-hidden="true"><use href="#catalog-arrow" /></svg>
                   {OUTPUTS.filter((modality) => row.output_modalities.includes(modality)).map((modality) => (
                     <span class="modality" title={`${s.modality.out}: ${s.modality[modality]}`}>
                       <svg class={icon} aria-label={`${s.modality.out}: ${s.modality[modality]}`} role="img"><use href={`#modality-${modality}`} /></svg>
@@ -260,10 +263,7 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
               <td data-cell="throughput" data-label={columns.throughput} data-unit={units.throughput} class={metric} set:html={cells.throughput} />
               <td data-cell="kit" class="text-right">
                 <button type="button" class="catalog-kit" aria-haspopup="dialog" aria-label={s.kit.show.replace("{model}", row.model)}>
-                  <svg viewBox="0 0 24 24" class={icon} {...stroke} aria-hidden="true">
-                    <path d="m16 18 6-6-6-6"></path>
-                    <path d="m8 6-6 6 6 6"></path>
-                  </svg>
+                  <svg class={icon} aria-hidden="true"><use href="#catalog-code" /></svg>
                 </button>
               </td>
             </tr>

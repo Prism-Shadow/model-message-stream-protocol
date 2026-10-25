@@ -23,7 +23,7 @@ export const GET: APIRoute = ({ site }) => {
   const body = {
     source: `${REPO_URL}/blob/main/src_ts/src/registry.ts`,
     page: new URL("/models/", site).href,
-    pricing: "USD per 1M tokens, list price; thoughts_tokens and response_tokens are both billed at the output price",
+    pricing: "USD per 1M tokens: the vendor's list price on its own endpoint, and on a gateway the rate the gateway bills; thoughts_tokens and response_tokens are both billed at the output price",
     status: {
       page: new URL("/status/", site).href,
       files: ["latest.json", "history.json", "monthly.json"].map((name) => STATUS_DATA_URL + name),
