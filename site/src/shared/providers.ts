@@ -185,6 +185,9 @@ const VENDORS: [RegExp, Vendor][] = [
   [/inclusionai\/|(^|\/)ling-/, { id: "inclusionai", name: "inclusionAI", mark: "ling" }],
   [/xinghuo|spark-x/, { id: "iflytek", name: "iFlytek Spark", mark: "spark" }],
   [/dots-/, { id: "dots", name: "Dots" }],
+  [/thinkingmachines\/|(^|\/)inkling/, { id: "thinkingmachines", name: "Thinking Machines" }],
+  [/^recursive\//, { id: "recursive", name: "Recursive" }],
+  [/^openrouter\//, { id: "openrouter", name: "OpenRouter", mark: "openrouter" }],
 ];
 
 export function vendorOf(model: string): Vendor | null {

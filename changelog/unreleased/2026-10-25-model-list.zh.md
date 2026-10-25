@@ -22,6 +22,7 @@
 - 两个 Playground 都提供 `GET /api/registry`，为注册表的每个条目返回 `{"models": [{"model", "client", "base_url"}, ...]}`。模型菜单第一次打开时获取它，把菜单里还没有的条目插到 Custom model 之前，每条的说明为 `client · host`，选中即设置好客户端类型和 base URL；获取失败时，下次打开菜单会重试。原有的 13 个静态选项保留，菜单的筛选也会匹配说明文字。
 - 网站的 `PROVIDERS` 新增 OpenCode Go（同时包含文档中的 `/inference/go` 地址和 `/zen/go` 地址）、Fireworks AI、DashScope、Qwen Token Plan、Atlas Cloud、Penguin Go、ModelScope 和 vLLM，各自的 key 变量见“注册表元数据”。`VENDORS` 新增 Mistral、Meta、Cohere、Amazon、Perplexity、ByteDance Seed、Inception、inclusionAI、iFlytek Spark 和 Dots。`opencode`、`fireworks`、`atlascloud`、`modelscope`、`vllm`、`mistral`、`meta`、`cohere`、`aws`、`perplexity`、`bytedance`、`inception`、`ling` 和 `spark` 这些标志取自 lobe-icons；Penguin Go 和 Dots 没有标志。
 - 模型文档页的网关表、README 的 Supported Models 表和两个 `skills/*/reference/models.md` 都列出了新网关的 base URL、key 变量以及每个模型该用的客户端。skills 中过时的 `minimax/minimax-m3.1-flash:free` 改为 `minimax/minimax-m3.1-flash`。
+- 模型索引中没有图标的厂商或服务商以中性方块中的首字母显示，不再留空白；并为 `inkling`（Thinking Machines）、`recursive/`（Recursive）与 `openrouter/`（OpenRouter）标明厂商。
 
 ## 注册表元数据
 

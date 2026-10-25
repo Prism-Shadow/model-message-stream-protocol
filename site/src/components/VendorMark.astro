@@ -1,25 +1,31 @@
 ---
 // One vendor's or provider's mark. Inline, it carries its own paths; otherwise it points into the
-// page's MarkSprite, so a table that draws a mark per row sends each mark once.
-import { MARKS } from "../shared/marks";
+// page's MarkSprite, so a table that draws a mark per row sends each mark once. Without a mark it
+// draws the initial of `title`.
+import { MARKS, PLACEHOLDER, initialOf } from "../shared/marks";
 
 interface Props {
-  id: string;
+  id?: string;
   class?: string;
   title?: string;
   inline?: boolean;
 }
 const { id, class: className = "h-4 w-4", title, inline = false } = Astro.props;
-const mark = MARKS[id];
+const mark = id ? MARKS[id] : undefined;
 ---
 
 {
-  mark &&
-    (inline ? (
+  mark ? (
+    inline ? (
       <svg viewBox={mark.viewBox} fill="currentColor" class:list={[mark.tone, className]} role="img" aria-label={title ?? mark.title} set:html={mark.body} />
     ) : (
       <svg fill="currentColor" class:list={[mark.tone, className]} role="img" aria-label={title ?? mark.title}>
         <use href={`#mark-${id}`} />
       </svg>
-    ))
+    )
+  ) : (
+    <span class:list={[PLACEHOLDER, className]} role="img" aria-label={title}>
+      {initialOf(title ?? "")}
+    </span>
+  )
 }

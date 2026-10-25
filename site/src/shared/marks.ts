@@ -13,6 +13,14 @@ export interface Mark {
 
 const NEUTRAL = "text-gray-900 dark:text-gray-100";
 
+// a vendor or provider without a mark is drawn as its initial in a neutral square, never as a gap
+export const PLACEHOLDER =
+  "flex items-center justify-center rounded-[4px] bg-gray-200 text-[10px] font-semibold leading-none text-gray-600 select-none dark:bg-gray-700 dark:text-gray-300";
+
+export function initialOf(name: string): string {
+  return (name.match(/[a-z0-9]/i)?.[0] ?? "?").toUpperCase();
+}
+
 export const MARKS: Record<string, Mark> = {
   openai: {
     title: "OpenAI",

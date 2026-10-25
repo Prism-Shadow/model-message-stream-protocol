@@ -217,14 +217,14 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
               <td data-cell="model">
                 <span class="flex min-w-0 items-center gap-2">
                   <span class="flex h-4 w-4 shrink-0 items-center justify-center" title={row.vendor?.name} data-row-mark>
-                    {row.vendor?.mark && <VendorMark id={row.vendor.mark} title={row.vendor.name} />}
+                    <VendorMark id={row.vendor?.mark} title={row.vendor?.name ?? row.model.split("/")[0]} />
                   </span>
                   <span class="mono truncate text-[13px]" title={row.model}>{row.model}</span>
                 </span>
               </td>
               <td data-cell="provider">
                 <span class="flex min-w-0 items-center gap-2 text-gray-600 dark:text-gray-400">
-                  <span class="flex h-4 w-4 shrink-0 items-center justify-center">{row.provider.mark && <VendorMark id={row.provider.mark} title={row.provider.name} />}</span>
+                  <span class="flex h-4 w-4 shrink-0 items-center justify-center"><VendorMark id={row.provider.mark} title={row.provider.name} /></span>
                   <span class="truncate text-[13px]" title={row.base_url}>{row.provider.name}</span>
                 </span>
               </td>
