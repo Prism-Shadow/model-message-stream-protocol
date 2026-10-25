@@ -53,4 +53,4 @@ MMSP 保留完整的流，对所有服务商用同一种方式标记，并把完
 - [流式输出](/zh/docs/streaming/) 列出了两层标记的全部规则。
 - [Tracer 与 Playground](/zh/docs/tracing/) 记录并回放你的运行。
 
-每个客户端都遵守的规则，以及改变它们的决定，都是 RFC，见 [RFC 索引](/zh/rfcs/)。
+每个客户端都遵守的规范，以及改变它们的决定，都是 RFC，见 [RFC 索引](/zh/rfcs/)。
