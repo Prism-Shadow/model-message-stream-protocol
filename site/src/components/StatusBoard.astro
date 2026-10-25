@@ -14,7 +14,7 @@
 // opens the status workflow on GitHub, for a repository member to run; the page then follows that
 // run and redraws itself from the commit it publishes. Marks point into the page's MarkSprite.
 import { STRINGS, type Locale } from "../shared/i18n";
-import { MARKS } from "../shared/marks";
+import { MARKS, PLACEHOLDER, initialOf } from "../shared/marks";
 import { STATUS_WORKFLOW_URL, dailySchedule, todayUtc, windowDays } from "../shared/status";
 import { statusAtBuild } from "../shared/status-build";
 
@@ -226,6 +226,11 @@ const schedule = workflow ? dailySchedule(workflow) : null;
         use.setAttribute("href", `#mark-${side.mark}`);
         svg.append(use);
         slot.append(svg);
+      } else if (side) {
+        const placeholder = element("span", `${PLACEHOLDER} h-4 w-4`, initialOf(side.name));
+        placeholder.setAttribute("role", "img");
+        placeholder.setAttribute("aria-label", side.name);
+        slot.append(placeholder);
       }
       return slot;
     };

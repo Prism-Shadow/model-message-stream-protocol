@@ -40,7 +40,7 @@ Without a `client_type`, the family the model id begins with names the client:
 
 The match ignores case, so `MiniMax-M3` routes. A gateway's id such as `moonshotai/kimi-k3`, or Amazon Bedrock's `global.anthropic.claude-fable-5`, begins with no family and needs its `client_type`. The environment variable `CLIENT_TYPE` names one for every client the code does not.
 
-The list in code is always current, with the base URL, the client, the modalities, the context window and the list price of every entry:
+The list in code is always current, with the base URL, the client, the modalities, the context window and the price of every entry:
 
 <div class="code-group">
 
@@ -106,9 +106,18 @@ Common base URLs, and the variable the examples read each key from:
 | Google Vertex AI | `https://aiplatform.googleapis.com` | `VERTEX_API_KEY`: the service-account JSON |
 | Amazon Bedrock | `bedrock://<region>`, such as `bedrock://us-east-1` | `BEDROCK_API_KEY`: `ACCESS_KEY,SECRET_KEY` |
 | ModelVerse | `https://api.modelverse.cn/v1`, and `https://api.modelverse.cn/` for Claude | `MODELVERSE_API_KEY` |
-| vLLM | `http://127.0.0.1:8000/v1/` | |
+| OpenCode Go | `https://opencode.ai/inference/go/openai/v1`, `https://opencode.ai/inference/go/anthropic` for Anthropic Messages, and `https://opencode.ai/inference/go/google` for Gemini | `OPENCODE_API_KEY` |
+| Fireworks AI | `https://api.fireworks.ai/inference/v1` | `FIREWORKS_API_KEY` |
+| DashScope | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `DASHSCOPE_API_KEY` |
+| Qwen Token Plan | `https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1` | `QWEN_TOKEN_PLAN_API_KEY`: a Token Plan key, which works only at this endpoint |
+| Atlas Cloud | `https://api.atlascloud.ai/v1` | `ATLASCLOUD_API_KEY` |
+| Penguin Go | `https://go.penguin.ooo/api/v1` | `PENGUIN_GO_API_KEY` |
+| ModelScope | `https://api-inference.modelscope.cn/v1` | `MODELSCOPE_API_KEY`: the account's access token |
+| vLLM | `http://127.0.0.1:8000/v1/` | `VLLM_API_KEY`, only when the server is started with one |
 
 TokenDance serves several protocols with one key. Its model list names the protocols of each model; pick a client that speaks one of them, such as `deepseek-v4.1-flash` through `openai-chat`, and the vendor's official client where TokenDance speaks the vendor's API: `kimi-k3` through `moonshot-official`, `glm-5.3` through `zai-official`.
+
+OpenCode Go also serves several protocols with one key, each at its own base URL, and its docs name the protocol of each model: `openai-responses` for `gpt-6-luna`, `gpt-5.6-luna`, `grok-4.7` and the Muse Spark models; `ant-messages` at the Anthropic base for `claude-haiku-5-5`, `minimax-m3` and the Qwen models; `google-genai` at the Google base for `gemini-4-argon`; and `openai-chat` for the rest. On Fireworks AI, DashScope, Qwen Token Plan and Atlas Cloud every model takes `openai-chat`, and on ModelScope `openai-responses`. Penguin Go is an MMSP server, so its models take `mmsp`; a vLLM server's take `openai-chat-vllm-adapter`.
 
 ## Gemini on Vertex AI
 

@@ -33,6 +33,7 @@ import {
   MODEL_FAMILIES,
   OFFICIAL_CLIENT_TYPES,
 } from "../credentials";
+import { listSupportedModels } from "../registry";
 import { UniMessage, UniConfig, UsageMetadata } from "../types";
 import { DEFAULT_HOST, DEFAULT_PORT, serverBaseUrl } from "../wire";
 import {
@@ -2756,6 +2757,9 @@ export function createChatApp(): Express {
               }
               menu.classList.remove('hidden');
               root.querySelector('[data-combobox-button]').setAttribute('aria-expanded', 'true');
+              if (comboboxId === 'modelCombobox') {
+                  loadRegistryModels();
+              }
 
               const filter = menu.querySelector('.menu-search input');
               if (filter) {
@@ -2838,7 +2842,7 @@ export function createChatApp(): Express {
               const query = input.value.trim().toLowerCase();
               let shown = 0;
               document.querySelectorAll('#modelComboboxMenu [data-combobox-option]').forEach((option) => {
-                  const text = \`\${option.dataset.label} \${option.dataset.value}\`.toLowerCase();
+                  const text = \`\${option.dataset.label} \${option.dataset.value} \${option.dataset.description}\`.toLowerCase();
                   const match = !query || option.dataset.value === '__custom__' || text.includes(query);
                   option.classList.toggle('hidden', !match);
                   if (match && option.dataset.value !== '__custom__') {
@@ -2997,7 +3001,7 @@ export function createChatApp(): Express {
               }
 
               // a model keeps its client type, base URL and API key: a built-in starts from the ones its id
-              // names, a listed model from the ones its listing ran under
+              // names, a listed or registry model from the ones it came with
               const option = selectedModelOption();
               const clientType = (option && option.dataset.clientType) || familyClientType(option && option.dataset.value);
               setClientType(clientType);
@@ -3070,20 +3074,16 @@ export function createChatApp(): Express {
               hideIcon.classList.toggle('hidden', shouldShow);
           }
 
-          function addListedModels(modelIds) {
+          // each entry the menu lacks goes in before Custom model; one it has takes the API key
+          function addModelOptions(entries, apiKey) {
               const menu = document.getElementById('modelComboboxMenu');
               const options = Array.from(menu.querySelectorAll('[data-combobox-option]'));
               const known = new Map(options.filter((option) => option.dataset.value !== '__custom__').map((option) => [optionEntryKey(option), option]));
               const customOption = options.find((option) => option.dataset.value === '__custom__') || null;
-              // a listed model is served by the endpoint that listed it, so it takes the current
-              // client type, base URL and API key
-              const clientType = effectiveClientType();
-              const baseUrl = document.getElementById('baseUrlInput').value.trim();
-              const apiKey = document.getElementById('apiKeyInput').value.trim();
 
               let added = 0;
-              modelIds.forEach((modelId) => {
-                  const key = entryKey(modelId, clientType, baseUrl);
+              entries.forEach(({ model, client, base_url: baseUrl }) => {
+                  const key = entryKey(model, client, baseUrl);
                   if (known.has(key)) {
                       if (apiKey) {
                           known.get(key).dataset.apiKey = apiKey;
@@ -3097,12 +3097,11 @@ export function createChatApp(): Express {
                   option.setAttribute('aria-selected', 'false');
                   option.className = 'combo-option';
                   option.setAttribute('data-combobox-option', '');
-                  option.dataset.value = modelId;
-                  option.dataset.label = modelId;
-                  option.dataset.description = clientType ? clientType + (baseUrl ? ' · ' + endpointHost(baseUrl) : '') : 'listed';
-                  option.dataset.listed = 'true';
-                  if (clientType) {
-                      option.dataset.clientType = clientType;
+                  option.dataset.value = model;
+                  option.dataset.label = model;
+                  option.dataset.description = client ? client + (baseUrl ? ' · ' + endpointHost(baseUrl) : '') : 'listed';
+                  if (client) {
+                      option.dataset.clientType = client;
                   }
                   if (baseUrl) {
                       option.dataset.baseUrl = baseUrl;
@@ -3113,7 +3112,7 @@ export function createChatApp(): Express {
                   option.onclick = () => selectComboboxOption('modelCombobox', option);
 
                   const label = document.createElement('span');
-                  label.textContent = modelId;
+                  label.textContent = model;
                   option.appendChild(label);
                   menu.insertBefore(option, customOption);
                   known.set(key, option);
@@ -3121,6 +3120,29 @@ export function createChatApp(): Express {
               });
 
               return added;
+          }
+
+          function addListedModels(modelIds) {
+              // a listed model is served by the endpoint that listed it, so it takes the current
+              // client type, base URL and API key
+              const client = effectiveClientType();
+              const baseUrl = document.getElementById('baseUrlInput').value.trim();
+              return addModelOptions(modelIds.map((model) => ({ model, client, base_url: baseUrl })), document.getElementById('apiKeyInput').value.trim());
+          }
+
+          // the registry's models join the menu when it first opens, so the page loads without them;
+          // a failed load is tried again at the next opening
+          let registryRequest = null;
+          function loadRegistryModels() {
+              registryRequest = registryRequest || fetch('/api/registry')
+                  .then((response) => response.json())
+                  .then((data) => {
+                      addModelOptions(data.models);
+                      filterModelOptions();
+                  })
+                  .catch(() => {
+                      registryRequest = null;
+                  });
           }
 
           async function listModels() {
@@ -3306,7 +3328,7 @@ export function createChatApp(): Express {
                       }
                   });
 
-                  // a model the menu does not list — one that was listed, or typed in — comes back as a custom entry
+                  // a model the menu does not list — one that was listed, came from the registry, or was typed in — comes back as a custom entry
                   const modelOption = saved.model ? comboboxOption('modelCombobox', saved.model) : null;
                   if (modelOption) {
                       selectComboboxOption('modelCombobox', modelOption);
@@ -3999,6 +4021,17 @@ export function createChatApp(): Express {
         error: error instanceof Error ? error.message : String(error),
       });
     }
+  });
+
+  // the registry's models with the client type and base URL of each, for the model menu
+  app.get("/api/registry", (_req: Request, res: Response) => {
+    res.json({
+      models: listSupportedModels().map(({ model, client, base_url }) => ({
+        model,
+        client,
+        base_url,
+      })),
+    });
   });
 
   return app;
