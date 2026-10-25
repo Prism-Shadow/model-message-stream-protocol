@@ -3,6 +3,7 @@
 - **Date:** 2026-10-25
 - **Type:** feature
 - **Scope:** `registry`, `site`, `playground`, `docs`, `skills`
+- **PR:** [#302](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/302)
 
 [中文版](2026-10-25-model-list.zh.md)
 
