@@ -217,7 +217,6 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
               data-client={row.client}
               data-p={providerOfRow[index]}
               data-kind={entry.kind === "text" ? undefined : entry.kind}
-              data-short={entry.short ? "" : undefined}
               data-in={modalityCode(row.input_modalities)}
               data-out={modalityCode(row.output_modalities)}
               data-context={row.context_window}
@@ -786,7 +785,6 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
         base_url: url,
         client: data.client!,
         kind: (data.kind ?? "text") as Kind,
-        short: data.short !== undefined,
         input_modalities: modalitiesOf(data.in!),
         output_modalities: modalitiesOf(data.out!),
         context_window: number(data.context),

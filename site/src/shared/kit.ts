@@ -4,9 +4,8 @@
 // agent puts on the clipboard. The page assembles a kit in the browser when a row's code button is
 // pressed, from what the row carries (its model, endpoint, client, kind, modalities, context window
 // and USD prices) and one table of the providers the page names, so the page ships one template
-// instead of 345 programs. Nothing here reads the registry, the SDK's source or the build's
-// environment: catalog.ts decides an entry's kind and whether its constructor is the short one,
-// which needs the SDK's model families, and the caller passes the site's origin.
+// instead of 345 programs. Nothing here reads the registry or the build's environment: catalog.ts
+// decides an entry's kind, and the caller passes the site's origin.
 import { localePath, type Locale } from "./i18n";
 import type { Modality } from "../../../src_ts/src/registry.ts";
 
@@ -31,10 +30,6 @@ export interface KitEntry {
   base_url: string;
   client: string;
   kind: Kind;
-  // an entry at its vendor's own endpoint, of a model the family table routes to that vendor's
-  // client, is called with the model id alone: the client reads its key variable and calls its
-  // default endpoint
-  short: boolean;
   input_modalities: Modality[];
   output_modalities: Modality[];
   context_window?: number;
@@ -44,10 +39,10 @@ export interface KitEntry {
 
 export interface ServerRow {
   model_id: string;
-  base_url?: string;
+  base_url: string;
   api_key: string;
   server_model_id: string;
-  client_type?: string;
+  client_type: string;
 }
 
 export interface Kit {
@@ -168,10 +163,10 @@ function typescriptProgram(kind: Kind, constructor: string[]): string {
   ].join("\n");
 }
 
-function pythonProgram(kind: Kind, constructor: string[], long: boolean): string {
+function pythonProgram(kind: Kind, constructor: string[]): string {
   return [
     "import asyncio",
-    ...(long ? ["import os"] : []),
+    "import os",
     ...(kind === "image" || kind === "audio" ? ["from pathlib import Path"] : []),
     "",
     "from mmsp import AutoLLMClient",
@@ -200,43 +195,31 @@ function pythonProgram(kind: Kind, constructor: string[], long: boolean): string
  * The code that calls an entry: complete TypeScript and Python programs, the README's quickstart
  * for this entry, that print what the model answers (its text as it streams; an embedding, image
  * or speech model by its output kind), and the row of an MMSP server's models table
- * (site/src/docs/server.en.md). A short entry's constructor names only the model id.
+ * (site/src/docs/server.en.md). Every entry gets the full constructor, the one /models.json's `call`
+ * writes, so an entry at its vendor's own endpoint reads the same as one behind a gateway.
  */
 export function kitFor(entry: KitEntry, provider: KitProvider): Kit {
-  const { model, base_url, client, kind, short } = entry;
+  const { model, base_url, client, kind } = entry;
   const env = provider.keyEnv;
   const q = JSON.stringify;
-  const typescript = typescriptProgram(
-    kind,
-    short
-      ? [`const client = new AutoLLMClient({ model: ${q(model)} });`]
-      : [
-          "const client = new AutoLLMClient({",
-          `  model: ${q(model)},`,
-          `  clientType: ${q(client)},`,
-          `  baseUrl: ${q(base_url)},`,
-          `  apiKey: process.env.${env},`,
-          "});",
-        ],
-  );
-  const python = pythonProgram(
-    kind,
-    short
-      ? [`client = AutoLLMClient(model=${q(model)})`]
-      : [
-          "client = AutoLLMClient(",
-          `    model=${q(model)},`,
-          `    client_type=${q(client)},`,
-          `    base_url=${q(base_url)},`,
-          `    api_key=os.environ[${q(env)}],`,
-          ")",
-        ],
-    !short,
-  );
+  const typescript = typescriptProgram(kind, [
+    "const client = new AutoLLMClient({",
+    `  model: ${q(model)},`,
+    `  clientType: ${q(client)},`,
+    `  baseUrl: ${q(base_url)},`,
+    `  apiKey: process.env.${env},`,
+    "});",
+  ]);
+  const python = pythonProgram(kind, [
+    "client = AutoLLMClient(",
+    `    model=${q(model)},`,
+    `    client_type=${q(client)},`,
+    `    base_url=${q(base_url)},`,
+    `    api_key=os.environ[${q(env)}],`,
+    ")",
+  ]);
   const serverModelId = model.split("/").at(-1)!;
-  const server: ServerRow = short
-    ? { model_id: model, api_key: `$${env}`, server_model_id: serverModelId }
-    : { model_id: model, base_url, api_key: `$${env}`, server_model_id: serverModelId, client_type: client };
+  const server: ServerRow = { model_id: model, base_url, api_key: `$${env}`, server_model_id: serverModelId, client_type: client };
   const config = ASK[kind].config;
   const request = {
     model: serverModelId,
