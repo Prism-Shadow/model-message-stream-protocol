@@ -20,6 +20,7 @@ import {
   createChatApp,
   testUpstream,
 } from "../src/integration/playground";
+import { listSupportedModels } from "../src/registry";
 import { UniConfig, UniEvent, UniMessage } from "../src/types";
 
 let mockLastStreamingOptions: {
@@ -190,6 +191,7 @@ describe("Playground", () => {
     expect(response.text).toContain("getExtraHeaders()");
     expect(response.text).toContain("listModels()");
     expect(response.text).toContain("/api/models");
+    expect(response.text).toContain("fetch('/api/registry')");
     expect(response.text).toContain("apiKeyVisibilityToggle");
     expect(response.text).toContain("toggleApiKeyVisibility()");
     expect(response.text).toContain('id="stopButton"');
@@ -294,6 +296,23 @@ describe("Playground", () => {
 
     expect(response.status).toBe(400);
     expect(response.body.error).toContain("401 unauthorized");
+  });
+
+  test("should serve the registry to the model menu", async () => {
+    const app = createChatApp();
+
+    const response = await request(app).get("/api/registry");
+
+    expect(response.status).toBe(200);
+    expect(response.body.models).toHaveLength(listSupportedModels().length);
+    expect(new Set(response.body.models.flatMap(Object.keys))).toEqual(
+      new Set(["model", "client", "base_url"]),
+    );
+    expect(response.body.models).toContainEqual({
+      model: "gpt-6.1-sol",
+      client: "openai-official",
+      base_url: "https://api.openai.com/v1",
+    });
   });
 
   test("should mount tracer on the same app", async () => {
