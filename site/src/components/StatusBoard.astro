@@ -6,7 +6,7 @@
 // month's probe cost and run count. Then a pager that
 // moves the window of days shown back and forth, a switch of its length (7, 30 or 90, kept for the
 // next visit), and one block per channel: a head line with its state icon, vendor, model, provider,
-// TTFT, TPS, cost and uptime over the window, and under it one bar per day, each of which opens a
+// TTFT, TPS and uptime over the window, and under it one bar per day, each of which opens a
 // card with that day's result. The page is built with the probe's files (status-build.ts), the last
 // 180 days of history, and draws itself from them at once, then again from the status-data branch
 // in the browser when the branch holds a newer run; older days come from the branch's 365-day
@@ -428,7 +428,7 @@ const TIME_VALUE = "mt-1 text-[15px] leading-6 font-semibold tabular-nums";
       return { row: strip, uptime };
     };
 
-    const block = (key: string, target: TargetLatest, days: Record<string, Day> | undefined, cost: string, dates: string[], dated: string) => {
+    const block = (key: string, target: TargetLatest, days: Record<string, Day> | undefined, dates: string[], dated: string) => {
       const vendor = vendorOf(target.model);
       const provider = providerOf(target.base_url);
       const section = element("section", "status-block");
@@ -450,11 +450,9 @@ const TIME_VALUE = "mt-1 text-[15px] leading-6 font-semibold tabular-nums";
       if (target.status !== "up") served.append(element("span", "status-state", words.state[target.status]));
       name.append(model, served);
       const { row, uptime } = history(days, target.model, dates, dated);
-      const spent = element("span", "mono", cost);
-      spent.title = words.cost;
       // on a phone the gaps narrow so that the numbers keep one line
       const metrics = element("div", "flex flex-wrap items-baseline gap-x-1.5 gap-y-1 text-[13px] tabular-nums max-sm:basis-full max-sm:gap-x-1");
-      [metric(words.ttft, formatMs(target.ttft_ms)), metric(words.tps, formatTps(target.tps), words.tpsUnit), spent, uptime].forEach((item, index) => {
+      [metric(words.ttft, formatMs(target.ttft_ms)), metric(words.tps, formatTps(target.tps), words.tpsUnit), uptime].forEach((item, index) => {
         if (index) metrics.append(element("span", "text-gray-300 dark:text-gray-600", "·"));
         metrics.append(item);
       });
@@ -508,7 +506,6 @@ const TIME_VALUE = "mt-1 text-[15px] leading-6 font-semibold tabular-nums";
     // branch's 365 once read) over the yearly archives read while paging back
     let shown: Latest | null = null;
     let rolling: History | null = null;
-    let shownMonthly: Monthly | null = null;
     // the branch's rolling file has answered, or failed to
     let rollingAsked = false;
     // the archives asked for, by year; null when one did not come
@@ -530,14 +527,11 @@ const TIME_VALUE = "mt-1 text-[15px] leading-6 font-semibold tabular-nums";
 
     let scrolled = false;
     const thisMonth = () => new Date().toISOString().slice(0, 7);
-    const renderBlocks = (latest: Latest | null, historyData: History | null, monthly: Monthly | null, count: number, last: string) => {
-      const month = monthly?.months[thisMonth()];
+    const renderBlocks = (latest: Latest | null, historyData: History | null, count: number, last: string) => {
       const dates = windowDays(last, count);
       const dated = windowText(dates[0], last);
       blocks.replaceChildren(
-        ...Object.entries(latest?.targets ?? {}).map(([key, target]) =>
-          block(key, target, historyData?.targets[key], target.status === "nokey" ? "—" : formatUsd(month?.targets[key]), dates, dated),
-        ),
+        ...Object.entries(latest?.targets ?? {}).map(([key, target]) => block(key, target, historyData?.targets[key], dates, dated)),
       );
     };
     // ‹ while a day the page holds lies before the window, or a file that may hold older days has
@@ -554,7 +548,7 @@ const TIME_VALUE = "mt-1 text-[15px] leading-6 font-semibold tabular-nums";
       if (focused === laterButton && laterButton.disabled && !earlierButton.disabled) earlierButton.focus();
     };
     const drawWindow = () => {
-      renderBlocks(shown, held, shownMonthly, range, end);
+      renderBlocks(shown, held, range, end);
       updatePager();
     };
     for (const button of rangeButtons) {
@@ -633,7 +627,6 @@ const TIME_VALUE = "mt-1 text-[15px] leading-6 font-semibold tabular-nums";
     const render =(latest: Latest | null, historyData: History | null, monthly: Monthly | null) => {
       shown = latest;
       rolling = historyData;
-      shownMonthly = monthly;
       hold();
       const overall = board.querySelector<HTMLElement>("[data-status-overall]")!;
       const overallText = board.querySelector<HTMLElement>("[data-status-overall-text]")!;
