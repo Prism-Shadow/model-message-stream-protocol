@@ -70,8 +70,8 @@ const TIME_VALUE = "mt-1 text-[15px] leading-6 font-semibold tabular-nums";
       <span class="flex h-5 w-5 items-center justify-center" data-status-overall-icon></span>
       <p class="min-h-7 text-xl font-semibold tracking-tight" data-status-overall-text></p>
     </div>
-    <div class="px-5 py-4 sm:px-6">
-      <dl class="grid grid-cols-1 gap-x-10 gap-y-3 sm:grid-cols-[auto_auto] sm:justify-start" data-status-times>
+    <div class="flex flex-wrap items-center gap-x-6 gap-y-4 px-5 py-4 sm:px-6">
+      <dl class="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-[auto_auto] sm:justify-start" data-status-times>
         <div class="min-w-0" data-status-checked>
           <dt class={TIME_LABEL}>{s.status.lastProbe}</dt>
           <dd class={TIME_VALUE}>
@@ -91,26 +91,29 @@ const TIME_VALUE = "mt-1 text-[15px] leading-6 font-semibold tabular-nums";
           </dd>
         </div>
       </dl>
-      <p class="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <a
-          href={STATUS_WORKFLOW_URL}
-          target="_blank"
-          rel="noreferrer"
-          data-status-trigger
-          title={s.status.triggerNote}
-          aria-describedby="status-trigger-note"
-          class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-950 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-900 dark:hover:text-white"
-        >
-          <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <polygon points="6 3 20 12 6 21 6 3"></polygon>
-          </svg>
-          <span>{s.status.trigger}</span>
-        </a>
-        <span id="status-trigger-note" class="sr-only">{s.status.triggerNote}</span>
-        <span class="text-xs text-gray-500 dark:text-gray-400" aria-live="polite" data-status-trigger-progress hidden></span>
-      </p>
-      {/* shown from the first paint when the build has the month's file, so filling it in moves nothing */}
-      <p class="mt-3 min-h-4 text-xs text-gray-400 tabular-nums dark:text-gray-500" data-status-cost hidden={!(baked.latest && baked.monthly)}></p>
+      {/* the button and the cost keep to the right of the times, and on a phone under them */}
+      <div class="flex w-full flex-col items-start gap-1.5 sm:ml-auto sm:w-auto sm:items-end">
+        <p class="flex flex-wrap items-center gap-x-3 gap-y-1.5 sm:flex-row-reverse">
+          <a
+            href={STATUS_WORKFLOW_URL}
+            target="_blank"
+            rel="noreferrer"
+            data-status-trigger
+            title={s.status.triggerNote}
+            aria-describedby="status-trigger-note"
+            class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-950 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-900 dark:hover:text-white"
+          >
+            <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polygon points="6 3 20 12 6 21 6 3"></polygon>
+            </svg>
+            <span>{s.status.trigger}</span>
+          </a>
+          <span id="status-trigger-note" class="sr-only">{s.status.triggerNote}</span>
+          <span class="text-xs text-gray-500 dark:text-gray-400" aria-live="polite" data-status-trigger-progress hidden></span>
+        </p>
+        {/* shown from the first paint when the build has the month's file, so filling it in moves nothing */}
+        <p class="min-h-4 text-xs text-gray-400 tabular-nums dark:text-gray-500" data-status-cost hidden={!(baked.latest && baked.monthly)}></p>
+      </div>
     </div>
   </div>
   <div class="mt-6 flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
