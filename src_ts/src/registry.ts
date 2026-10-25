@@ -65,6 +65,17 @@ const VERTEX = "https://aiplatform.googleapis.com";
 const BEDROCK = "bedrock://us-east-1";
 const TOKENDANCE = "https://tokendance.space/gateway/v1";
 const TOKENDANCE_ANTHROPIC = "https://tokendance.space/gateway";
+const OPENCODE_GO = "https://opencode.ai/inference/go/openai/v1";
+const OPENCODE_GO_ANTHROPIC = "https://opencode.ai/inference/go/anthropic";
+const OPENCODE_GO_GOOGLE = "https://opencode.ai/inference/go/google";
+const FIREWORKS = "https://api.fireworks.ai/inference/v1";
+const DASHSCOPE = "https://dashscope.aliyuncs.com/compatible-mode/v1";
+const QWEN_TOKEN_PLAN =
+  "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1";
+const ATLASCLOUD = "https://api.atlascloud.ai/v1";
+const PENGUIN_GO = "https://go.penguin.ooo/api/v1";
+const MODELSCOPE = "https://api-inference.modelscope.cn/v1";
+const VLLM_LOCAL = "http://127.0.0.1:8000/v1";
 
 // Display convention shared with the MMSP apps: prices are stored in USD
 // (official CNY list prices pre-converted at 7 CNY/USD), so requesting CNY
@@ -1954,6 +1965,18 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: cny(6.0, 18.0, 0.3),
   },
   {
+    // added from the penguin-harness catalog: price, window and image input from
+    // https://siliconflow.cn/pricing and the record it embeds, read 2026-10-24, which lists no
+    // cache-hit price
+    model: "Qwen/Qwen3.6-35B-A3B",
+    base_url: SILICONFLOW,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: cny(1.8, 10.8),
+  },
+  {
     // the pricing page's chat table does not list embedding models
     model: "Qwen/Qwen3-Embedding-8B",
     base_url: SILICONFLOW,
@@ -2695,6 +2718,785 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Embed"],
     context_window: 8000,
     pricing: cny(0.5, 0.0),
+    },
+  // OpenCode Go (subscription gateway, key OPENCODE_API_KEY; no live call was made, for want of a
+  // key). Ids and each row's protocol from the endpoints table of
+  // https://opencode.ai/v2/docs/console/go/, USD per-token rates from its usage-limits table, and
+  // context windows and input modalities from models.dev's `opencode-go` provider
+  // (https://models.dev/api.json), all read 2026-10-24. A rate is what a request draws from the Go
+  // ($10) or Go Plus ($40) monthly allowance, the same on both plans. Rows on the Messages
+  // protocol, like the vendors' own rows, keep the input rate in the prompt bucket; the docs price
+  // their cache writes apart.
+  {
+    // base tier for prompts up to 200K tokens; every rate doubles above it
+    model: "grok-4.7",
+    base_url: OPENCODE_GO,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 500000,
+    pricing: usd(2.0, 6.0, 0.5),
+  },
+  {
+    model: "glm-5.3-flash",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.15, 0.5, 0.03),
+  },
+  {
+    model: "glm-5.3",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(1.4, 4.4, 0.26),
+  },
+  {
+    model: "glm-5.2",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(1.4, 4.4, 0.26),
+  },
+  {
+    // base tier up to 272K input tokens (0.2/0.75/0.02 above it); as on the official row, the
+    // prompt bucket carries the $0.125 cache-write rate rather than the $0.10 input rate
+    model: "gpt-6-luna",
+    base_url: OPENCODE_GO,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1050000,
+    pricing: usd(0.125, 0.5, 0.01),
+  },
+  {
+    // base tier up to 272K input tokens (0.4/1.8/0.04 above it); as on the official row, the
+    // prompt bucket carries the input rate, not the $0.25 cache write
+    model: "gpt-5.6-luna",
+    base_url: OPENCODE_GO,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1050000,
+    pricing: usd(0.2, 1.2, 0.02),
+  },
+  {
+    // base tier for prompts up to 100K tokens; every rate is 5x above it
+    model: "claude-haiku-5-5",
+    base_url: OPENCODE_GO_ANTHROPIC,
+    client: "ant-messages",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.1, 0.5, 0.01),
+  },
+  {
+    // list price; the docs' 50% discount through 2026-11-30 is not recorded
+    model: "gemini-4-argon",
+    base_url: OPENCODE_GO_GOOGLE,
+    client: "google-genai",
+    input_modalities: ["Text", "Image", "Video", "Audio"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(4.0, 20.0, 0.2),
+  },
+  {
+    model: "kimi-k3.1-pro",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(2.0, 10.0, 0.2),
+  },
+  {
+    model: "kimi-k3",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(3.0, 15.0, 0.3),
+  },
+  {
+    model: "kimi-k2.7-code",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.95, 4.0, 0.19),
+  },
+  {
+    model: "longcat-2.0",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.3, 1.2, 0.006),
+  },
+  {
+    model: "step-5-preview",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(1.0, 2.7, 0.1),
+  },
+  {
+    model: "mimo-v2.6-flash",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.14, 0.28, 0.0028),
+  },
+  {
+    model: "mimo-v2.6-pro",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.435, 0.87, 0.003625),
+  },
+  {
+    model: "mimo-v2.5",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.14, 0.28, 0.0028),
+  },
+  {
+    model: "mimo-v2.5-pro",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.435, 0.87, 0.003625),
+  },
+  {
+    model: "minimax-m3.1-flash",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.15, 0.6, 0.015),
+  },
+  {
+    // the docs list one rate; models.dev adds a 2x tier above 512K input tokens
+    model: "minimax-m3",
+    base_url: OPENCODE_GO_ANTHROPIC,
+    client: "ant-messages",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.3, 1.2, 0.06),
+  },
+  {
+    // this row and the next need the workspace privacy setting that allows paid endpoints
+    // which train on request data
+    model: "muse-spark-1.3-contributor",
+    base_url: OPENCODE_GO,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.1, 0.2, 0.002),
+  },
+  {
+    model: "muse-spark-1.2-contributor",
+    base_url: OPENCODE_GO,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.1, 0.2, 0.002),
+  },
+  {
+    model: "qwen3.8-max",
+    base_url: OPENCODE_GO_ANTHROPIC,
+    client: "ant-messages",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(2.0, 6.0, 0.25),
+  },
+  {
+    model: "qwen3.8-flash",
+    base_url: OPENCODE_GO_ANTHROPIC,
+    client: "ant-messages",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.15, 0.47, 0.016),
+  },
+  {
+    // base tier for prompts up to 256K tokens; every rate is 3x above it
+    model: "qwen3.7-plus",
+    base_url: OPENCODE_GO_ANTHROPIC,
+    client: "ant-messages",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.4, 1.6, 0.04),
+  },
+  {
+    // off-peak rate for this row and the next; weekday peak hours (UTC 01:00-04:00,
+    // 06:00-10:00) cost double, and both need the Global region in the workspace's privacy
+    // settings
+    model: "deepseek-v4.1-flash",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.15, 0.6, 0.003),
+  },
+  {
+    model: "deepseek-v4-pro",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.66, 1.98, 0.022),
+  },
+  {
+    model: "hy4-preview",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1024000,
+    pricing: usd(0.834, 2.501, 0.042),
+  },
+  {
+    // models.dev caps its input at 192,000 tokens of the 256,000-token window
+    model: "hy3",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 256000,
+    pricing: usd(0.14, 0.58, 0.035),
+  },
+  // Fireworks AI (key FIREWORKS_API_KEY; ids, client and base URL from the penguin-harness
+  // catalog; no live call was made, for want of a key). USD serverless prices, context windows
+  // and image input from each model's page at https://fireworks.ai/models/<owner>/<slug>, read
+  // 2026-10-24. The pages show a 1,048,576-token window as "1040k" beside the exact figure in
+  // their FAQ, so a bare "1040k" is recorded as 1048576. Six of the models are on-demand only on
+  // the read date and their pages list no serverless price; those rows carry the harness
+  // catalog's price.
+  {
+    model: "accounts/fireworks/models/deepseek-v4p1-flash",
+    base_url: FIREWORKS,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.3, 1.2, 0.006),
+  },
+  {
+    // on-demand only; the harness catalog's price
+    model: "accounts/fireworks/models/deepseek-v4-flash-0731",
+    base_url: FIREWORKS,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.14, 0.28, 0.028),
+  },
+  {
+    // on-demand only; the harness catalog's price
+    model: "accounts/fireworks/models/deepseek-v4-flash",
+    base_url: FIREWORKS,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.14, 0.28, 0.03),
+  },
+  {
+    // on-demand only; the harness catalog's price
+    model: "accounts/fireworks/models/deepseek-v4-pro-0813",
+    base_url: FIREWORKS,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(1.32, 3.96, 0.044),
+  },
+  {
+    // on-demand only; the harness catalog's price
+    model: "accounts/fireworks/models/deepseek-v4-pro",
+    base_url: FIREWORKS,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(1.74, 3.48, 0.15),
+  },
+  {
+    model: "accounts/fireworks/models/glm-5p3",
+    base_url: FIREWORKS,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(1.4, 4.4, 0.26),
+  },
+  {
+    model: "accounts/fireworks/models/glm-5p3-flash",
+    base_url: FIREWORKS,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.15, 0.5, 0.03),
+  },
+  {
+    // on-demand only; the harness catalog's price
+    model: "accounts/fireworks/models/glm-5p2",
+    base_url: FIREWORKS,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(1.4, 4.4, 0.14),
+  },
+  {
+    // the page also lists audio input, which openai-chat does not send
+    model: "accounts/fireworks/models/inkling",
+    base_url: FIREWORKS,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(1.0, 4.05, 0.17),
+  },
+  {
+    model: "accounts/fireworks/models/kimi-k3",
+    base_url: FIREWORKS,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(3.0, 15.0, 0.3),
+  },
+  {
+    // on-demand only; the harness catalog's price, and its 262,144-token window for the
+    // page's "262k"
+    model: "accounts/fireworks/models/kimi-k2p7-code",
+    base_url: FIREWORKS,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.95, 4.0, 0.19),
+  },
+  {
+    // the page serves a 512K window, below the model's native 1,048,576 (512,000 on
+    // models.dev; the harness has 524,288), and takes no image input
+    model: "accounts/fireworks/models/minimax-m3",
+    base_url: FIREWORKS,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 512000,
+    pricing: usd(0.3, 1.2, 0.06),
+  },
+  {
+    // the page gives no context length; the window is the harness catalog's, the vendor's
+    // 1M (models.dev lists 262,144)
+    model: "accounts/fireworks/models/qwen3p8-max",
+    base_url: FIREWORKS,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(2.0, 6.0, 0.25),
+  },
+  // DashScope pay-as-you-go (Alibaba Cloud Model Studio's OpenAI-compatible endpoint; key
+  // DASHSCOPE_API_KEY; ids, client and base URL from the penguin-harness catalog; no live call
+  // was made, for want of a key). CNY list prices and input modalities from each model's page at
+  // https://www.qianwenai.com/models/<id>, read 2026-10-24. The pages round every window to "1M",
+  // so the rows keep the harness catalog's exact figures.
+  {
+    // off-peak rate (22:00-08:00 Beijing, every day); the other hours cost double:
+    // 2/8/0.2 CNY
+    model: "deepseek-v4.1-flash",
+    base_url: DASHSCOPE,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(1.0, 4.0, 0.1),
+  },
+  {
+    model: "kimi/kimi-k3",
+    base_url: DASHSCOPE,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: cny(20.0, 100.0, 2.0),
+  },
+  {
+    model: "kimi/kimi-k2.8-preview",
+    base_url: DASHSCOPE,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: cny(6.5, 27.0, 1.7),
+  },
+  {
+    model: "qwen3.8-flash",
+    base_url: DASHSCOPE,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(0.8, 2.7, 0.1),
+  },
+  {
+    model: "qwen3.8-max",
+    base_url: DASHSCOPE,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(12.0, 36.0, 1.5),
+  },
+  {
+    // list price for prompts up to 256K tokens; a limited-time 20% discount is not
+    // recorded
+    model: "qwen3.7-plus",
+    base_url: DASHSCOPE,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(2.0, 8.0, 0.4),
+  },
+  {
+    model: "ZHIPU/GLM-5.3-Flash",
+    base_url: DASHSCOPE,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(0.8, 2.8, 0.23),
+  },
+  // Qwen Token Plan (subscription gateway billed in Credits; key QWEN_TOKEN_PLAN_API_KEY; ids,
+  // client and base URL from the penguin-harness catalog, all six on the plan's model list at
+  // https://platform.qianwenai.com/docs/token-plan/personal/token-plan-personal-overview; no live
+  // call was made, for want of a key). The plan publishes no per-token rate, so, as in the
+  // harness catalog, the rows carry each model's CNY pay-as-you-go list price and input
+  // modalities from https://www.qianwenai.com/models/<id>, read 2026-10-24, with the harness's
+  // exact windows where the pages round to "1M". The plan's limited-time night discount on Qwen
+  // 3.8 Max and Flash is not recorded.
+  {
+    // off-peak rate (22:00-08:00 Beijing, every day) for this row and the next; the other
+    // hours cost double: 2/8/0.2 CNY here, 9/27/0.9 CNY below
+    model: "deepseek-v4.1-flash",
+    base_url: QWEN_TOKEN_PLAN,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(1.0, 4.0, 0.1),
+  },
+  {
+    model: "deepseek-v4-pro-0813",
+    base_url: QWEN_TOKEN_PLAN,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(4.5, 13.5, 0.45),
+  },
+  {
+    model: "glm-5.3",
+    base_url: QWEN_TOKEN_PLAN,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: cny(8.0, 28.0, 2.0),
+  },
+  {
+    model: "qwen3.8-flash",
+    base_url: QWEN_TOKEN_PLAN,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(0.8, 2.7, 0.1),
+  },
+  {
+    model: "qwen3.8-max",
+    base_url: QWEN_TOKEN_PLAN,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(12.0, 36.0, 1.5),
+  },
+  {
+    // list price for prompts up to 256K tokens; a limited-time 20% discount is not
+    // recorded
+    model: "qwen3.7-plus",
+    base_url: QWEN_TOKEN_PLAN,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(2.0, 8.0, 0.4),
+  },
+  // Atlas Cloud (key ATLASCLOUD_API_KEY; ids, client and base URL from the penguin-harness
+  // catalog; no live call was made, for want of a key). USD prices, context windows and input
+  // modalities from the public catalog API, https://api.atlascloud.ai/v1/models, and list prices
+  // from https://www.atlascloud.ai/pricing/models, read 2026-10-24.
+  {
+    model: "deepseek-ai/deepseek-v4.1-flash",
+    base_url: ATLASCLOUD,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.3, 1.2, 0.03),
+  },
+  {
+    model: "deepseek-ai/deepseek-v4-pro-0813",
+    base_url: ATLASCLOUD,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(1.32, 3.96, 0.132),
+  },
+  {
+    // list price; a 25% model discount bills 0.186/1.11375, and no cache-read price is
+    // published
+    model: "qwen/qwen3.6-35b-a3b",
+    base_url: ATLASCLOUD,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.248, 1.485),
+  },
+  // Penguin Go (Prism Shadow's MMSP relay, reached through the mmsp client; key
+  // PENGUIN_GO_API_KEY; no live call was made, for want of a key). Ids, context windows, image
+  // input and the relay's list prices from the penguin-harness catalog, which carries the
+  // owner-confirmed relay prices of 2026-10-14, read 2026-10-24: the relay lists its models only
+  // to a key holder. The DeepSeek rows store the off-peak rate, half the peak price billed in
+  // DeepSeek's weekday windows (Beijing 9:00-12:00, 14:00-18:00).
+  {
+    // the relay's list price for this row and the next two is Google's introductory rate
+    model: "gemini-4-argon",
+    base_url: PENGUIN_GO,
+    client: "mmsp",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(2.0, 10.0, 0.1),
+  },
+  {
+    model: "gemini-3.8-flash",
+    base_url: PENGUIN_GO,
+    client: "mmsp",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.75, 3.75, 0.075),
+  },
+  {
+    model: "gemini-3.6-flash",
+    base_url: PENGUIN_GO,
+    client: "mmsp",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.75, 3.75, 0.075),
+  },
+  {
+    model: "gemini-3.5-flash",
+    base_url: PENGUIN_GO,
+    client: "mmsp",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(1.5, 9.0, 0.15),
+  },
+  {
+    model: "gemini-3.5-flash-lite",
+    base_url: PENGUIN_GO,
+    client: "mmsp",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.3, 2.5, 0.03),
+  },
+  {
+    model: "gemini-3.1-flash-lite",
+    base_url: PENGUIN_GO,
+    client: "mmsp",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.25, 1.5, 0.025),
+  },
+  {
+    model: "gemini-3.1-pro-preview",
+    base_url: PENGUIN_GO,
+    client: "mmsp",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(2.0, 12.0, 0.2),
+  },
+  {
+    model: "deepseek-flash",
+    base_url: PENGUIN_GO,
+    client: "mmsp",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(1.0, 4.0, 0.02),
+  },
+  {
+    model: "deepseek-v4-pro",
+    base_url: PENGUIN_GO,
+    client: "mmsp",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(4.5, 13.5, 0.15),
+  },
+  // ModelScope API-Inference (key MODELSCOPE_API_KEY, the account's access token; ids, client and
+  // base URL from the penguin-harness catalog, all three listed by the public
+  // https://api-inference.modelscope.cn/v1/models; no live call was made). Context windows and
+  // image input from each model's card through the public model API,
+  // https://www.modelscope.cn/api/v1/models/<id>, read 2026-10-24; the windows are the cards'
+  // native lengths. ModelScope publishes no per-token price for API-Inference, so the rows carry
+  // none.
+  {
+    // the card states contexts of up to one million tokens
+    model: "deepseek-ai/DeepSeek-V4.1-Flash",
+    base_url: MODELSCOPE,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+  },
+  {
+    model: "Qwen/Qwen3.8-27B",
+    base_url: MODELSCOPE,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+  },
+  {
+    model: "Qwen/Qwen3.8-Flash-Next",
+    base_url: MODELSCOPE,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+  },
+  // vLLM (self-hosted: the openai-chat-vllm-adapter client at http://127.0.0.1:8000/v1, where
+  // `vllm serve` answers by default and the client's own default endpoint; key VLLM_API_KEY only
+  // when the server is started with one). Ids, native context windows and image input from the
+  // penguin-harness catalog, which reads them from https://recipes.vllm.ai/, read 2026-10-24;
+  // nothing was called. A local server bills no one per token, so every row is priced at zero.
+  {
+    model: "deepseek-ai/DeepSeek-V4-Flash",
+    base_url: VLLM_LOCAL,
+    client: "openai-chat-vllm-adapter",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.0, 0.0),
+  },
+  {
+    model: "deepseek-ai/DeepSeek-V4-Flash-Vision-Exp",
+    base_url: VLLM_LOCAL,
+    client: "openai-chat-vllm-adapter",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.0, 0.0),
+  },
+  {
+    model: "deepseek-ai/DeepSeek-V4-Pro",
+    base_url: VLLM_LOCAL,
+    client: "openai-chat-vllm-adapter",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.0, 0.0),
+  },
+  {
+    model: "Qwen/Qwen3.5-0.8B",
+    base_url: VLLM_LOCAL,
+    client: "openai-chat-vllm-adapter",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.0, 0.0),
+  },
+  {
+    model: "Qwen/Qwen3.5-9B",
+    base_url: VLLM_LOCAL,
+    client: "openai-chat-vllm-adapter",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.0, 0.0),
+  },
+  {
+    model: "Qwen/Qwen3.6-35B-A3B",
+    base_url: VLLM_LOCAL,
+    client: "openai-chat-vllm-adapter",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.0, 0.0),
+  },
+  {
+    model: "Qwen/Qwen3.8-27B",
+    base_url: VLLM_LOCAL,
+    client: "openai-chat-vllm-adapter",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.0, 0.0),
+  },
+  {
+    model: "Qwen/Qwen3.8-Flash-Next",
+    base_url: VLLM_LOCAL,
+    client: "openai-chat-vllm-adapter",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.0, 0.0),
   },
 ];
 
