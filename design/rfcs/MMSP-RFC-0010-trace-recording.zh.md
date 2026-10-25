@@ -15,7 +15,7 @@
 
 项目负责人为本规范提出的要求是：「写一下 trace 的逻辑」。调用方能按实际发生的样子读到每一轮，一个错误的工具参数、一段失控的思考，几秒内就能找到，不必从日志里拼凑；一个审视自己轨迹的 harness 能据此修改提示词、工具或代码，再跑一遍。轨迹对每个模型都是同一种格式的同一种记录，所以它作为协议的一部分在这里规定，而不是留给各个客户端自行决定。
 
-[#17](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/17) 加入了 `trace_id` 与 tracer，当时在有状态的一轮之后保存历史；[#34](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/34) 与 [#38](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/38) 把写入与查看器带到 TypeScript；[#96](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/96) 加入了 `created_at` 与查看器中的轮次；[#223](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/223) 把保存移进 `streaming_response`，放在产出 `stop` 之前，这样在 `stop` 处停止读取的调用方也能找到轨迹。两个包的写入在文件命名、时间戳以及轨迹 id 能触及的位置上曾有差异；[#M](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/M) 统一了它们，并让 `streaming_response` 拒绝缓存目录之外的 id。
+[#17](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/17) 加入了 `trace_id` 与 tracer，当时在有状态的一轮之后保存历史；[#34](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/34) 与 [#38](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/38) 把写入与查看器带到 TypeScript；[#96](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/96) 加入了 `created_at` 与查看器中的轮次；[#223](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/223) 把保存移进 `streaming_response`，放在产出 `stop` 之前，这样在 `stop` 处停止读取的调用方也能找到轨迹。两个包的写入在文件命名、时间戳以及轨迹 id 能触及的位置上曾有差异；[#300](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/300) 统一了它们，并让 `streaming_response` 拒绝缓存目录之外的 id。
 
 ## 2. Conventions and Terminology
 
@@ -36,7 +36,7 @@
 ## 4. 轨迹 id
 
 - 轨迹 id 指定缓存目录下的文件；其中的 `/` 产生子目录。
-- `streaming_response` 必须在请求发出之前拒绝文件会解析到缓存目录之外的轨迹 id，例如绝对路径、`..` 段离开了该目录的 id，或空 id。它抛出指明 `trace_id` 的 `UnsupportedParameterError`（[MMSP-RFC-0007](MMSP-RFC-0007-error-types.zh.md#31-请求之前) §3.1），消息为 [fix/trace-writer: exact message]。文件解析在缓存目录之内的 id 按原样使用。
+- `streaming_response` 必须在请求发出之前拒绝文件会解析到缓存目录之外的轨迹 id，例如绝对路径、`..` 段离开了该目录的 id，或指向该目录本身的 id（`.`、`agent/..`）。它抛出指明 `trace_id` 的 `UnsupportedParameterError`（[MMSP-RFC-0007](MMSP-RFC-0007-error-types.zh.md#31-请求之前) §3.1），消息为 `<client> does not support trace_id '<id>': it must be a relative path that stays inside the cache directory.` 文件解析在缓存目录之内的 id 按 `path.resolve` 的方式规范化，所以 `agent/../kept` 写入 `kept.json`；空的 `trace_id` 不保存轨迹。
 - 经由 `mmsp` 客户端时，由服务端的上游客户端对照服务端的缓存目录检查 id，调用方得到 `error_type`（`errorType`）为 `UnsupportedParameterError` 的 `UpstreamError`（[MMSP-RFC-0007](MMSP-RFC-0007-error-types.zh.md#4-经由服务端转发) §4）。
 
 ## 5. 轨迹的内容
@@ -49,7 +49,7 @@
 
 ## 6. 文件与格式
 
-- 一次保存在缓存目录下写入 `<trace_id>.json` 与 `<trace_id>.txt`，后缀追加在原样的 id 之后，所以 `run.v2` 写入 `run.v2.json` 与 `run.v2.txt`。缺少的目录会被创建。每次保存都必须完整重写这两个文件：同一 id 后来的保存替换先前的，所以一个轨迹 id 保存的是一段对话的最新状态。
+- 一次保存在缓存目录下写入 `<trace_id>.json` 与 `<trace_id>.txt`，后缀追加在规范化后的 id 之后，所以 `run.v2` 写入 `run.v2.json` 与 `run.v2.txt`。缺少的目录会被创建。每次保存都必须完整重写这两个文件：同一 id 后来的保存替换先前的，所以一个轨迹 id 保存的是一段对话的最新状态。
 - `<trace_id>.json` 是 `{"history": [...], "config": {...}, "timestamp": "..."}`，以 UTF-8 写入，CJK 文本不转义，每个 bytes 值，例如 `inline_data.done` 或 `inline_thinking.done` 内容项的 `data`，都写成 base64 文本。`timestamp` 是保存时的 UTC 时间，采用带毫秒、以 `Z` 结尾的 ISO 8601，即 JavaScript `toISOString()` 的形式：`2026-10-24T09:30:00.000Z`。
 - `<trace_id>.txt` 是给人读的记录：不含 `trace_id` 的配置，然后是编号的每条消息，带着它的角色、内容项、用量与结束原因。程序应当读取 `.json`；这份记录的排版不作规定。
 
@@ -57,12 +57,13 @@
 
 - tracer 的查看器（`create_web_app` / `createWebApp`，或默认在端口 25750 上的 `start_web_server` / `startWebServer`）列出缓存目录，把 `.json` 轨迹按轮次呈现，其他文件以纯文本显示。
 - 它在加载 0.5.0 之前写下的轨迹文件时转换其中的内容项类型（[MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.zh.md#7-每种输入一种形状) §7）。
-- 它必须以 403 拒绝解析到缓存目录之外的请求路径。
+- 对于解析符号链接之后既不是缓存目录本身、也不在其中的请求路径，它必须以 403 拒绝，所用的检查与写入时相同；这样的条目也必须从它的列表中略去。
 - Playground 在 `/tracer/` 上提供查看器，使用它自己的缓存目录；Playground 启动的 MMSP 服务端运行在 Playground 的进程里，所以它的轨迹也出现在那里。
 
 ## 8. Conformance
 
 - `src_py/mmsp/base_client.py` / `src_ts/src/baseClient.ts`，在 `stop` 之前保存轨迹；`src_py/mmsp/integration/tracer.py` / `src_ts/src/integration/tracer.ts`，写入与查看器；`src_py/mmsp/mmsp/client.py` / `src_ts/src/mmsp/client.ts`，不保存任何东西。
-- `src_py/tests/test_tracer.py` / `src_ts/tests/tracer.test.ts`：带轨迹的响应在其 stop 事件到达调用方之前已在磁盘上；其 fidelity 保存时不带 `item_id`；两个文件都会写入，后来的保存覆盖它们，所在目录会被创建；0.5.0 之前保存的轨迹文件以当前内容项类型呈现；在 Python 中，查看器拒绝缓存目录之外的路径。
+- `src_py/tests/test_tracer.py` / `src_ts/tests/tracer.test.ts`：带轨迹的响应在其 stop 事件到达调用方之前已在磁盘上；其 fidelity 保存时不带 `item_id`；两个文件都会写入，后来的保存覆盖它们，所在目录会被创建；0.5.0 之前保存的轨迹文件以当前内容项类型呈现；文件名把后缀追加在规范化后的 id 之后；时间戳是带毫秒和 `Z` 的 UTC 时间；离开缓存目录的 id 会被拒绝；查看器以 403 拒绝缓存目录之外的路径，符号链接也算在内。
+- `src_py/tests/test_stream_protocol.py` / `src_ts/tests/stream-protocol.test.ts`：被拒绝的轨迹 id 在客户端发出请求之前就抛出 `UnsupportedParameterError`。
 - `src_py/tests/test_interruption.py` / `src_ts/tests/interruption.test.ts`，带 `trace_id` 发起流，检查在 `stop` 之前被中止、关闭或离开的流不保存任何东西。
 - `site/src/docs/tracing.en.md` / `tracing.zh.md`；`server.en.md` 的 Traces 一节与 `server.zh.md` 的「追踪」一节；`configuration.en.md` / `configuration.zh.md` 中 `trace_id` 的表格。
