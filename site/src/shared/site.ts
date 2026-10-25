@@ -126,8 +126,8 @@ export const RFC_INDEX: DocLink = {
   slug: "index",
   title: { en: "RFC index", zh: "RFC 索引" },
   description: {
-    en: "Every rule MMSP keeps and every decision that changed it, as RFCs: the index, and when a change needs one.",
-    zh: "MMSP 遵守的每条规则与改变它的每个决定都是 RFC：这里是索引，以及哪些改动需要 RFC。",
+    en: "The specifications MMSP conforms to and every decision that changed it, as RFCs: the index, and when a change needs one.",
+    zh: "MMSP 遵守的每项规范与改变它的每个决定都是 RFC：这里是索引，以及哪些改动需要 RFC。",
   },
   source: { en: "design/README.md", zh: "design/README.zh.md" },
 };

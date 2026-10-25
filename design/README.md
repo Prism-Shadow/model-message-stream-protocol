@@ -2,29 +2,26 @@
 
 [中文版](README.zh.md)
 
-The rules MMSP keeps and the decisions that changed it, each an RFC. When the code and an accepted RFC disagree, the RFC wins: fix the code, or supersede the RFC first through another RFC.
+The specifications MMSP conforms to and the decisions that changed it, each an RFC. When the code and an accepted RFC disagree, the RFC wins: fix the code, or supersede the RFC first through another RFC.
 
 ## The RFCs
 
 | RFC | Title | Kind | Status |
 | --- | --- | --- | --- |
-| [MMSP-RFC-0001](rfcs/MMSP-RFC-0001-rfc-process.md) | The RFC process | process | Accepted |
-| [MMSP-RFC-0002](rfcs/MMSP-RFC-0002-one-protocol.md) | One protocol for every model | rule | Accepted |
-| [MMSP-RFC-0003](rfcs/MMSP-RFC-0003-async-streaming.md) | Every request is an async stream | rule | Accepted |
-| [MMSP-RFC-0004](rfcs/MMSP-RFC-0004-lean-messages.md) | Messages stay lean | rule | Accepted |
-| [MMSP-RFC-0005](rfcs/MMSP-RFC-0005-essential-fields.md) | Essential fields are never dropped | rule | Accepted |
-| [MMSP-RFC-0006](rfcs/MMSP-RFC-0006-explicit-routing.md) | Client routing is explicit | rule | Accepted |
-| [MMSP-RFC-0007](rfcs/MMSP-RFC-0007-credential-scope.md) | Keys stay safe | rule | Accepted |
-| [MMSP-RFC-0008](rfcs/MMSP-RFC-0008-immutable-history.md) | History does not change | rule | Accepted |
-| [MMSP-RFC-0009](rfcs/MMSP-RFC-0009-typed-errors.md) | Every error is typed | rule | Accepted |
-| [MMSP-RFC-0010](rfcs/MMSP-RFC-0010-thinking-levels-usable.md) | Every thinking level is supported | rule | Accepted |
-| [MMSP-RFC-0011](rfcs/MMSP-RFC-0011-explicit-parameters.md) | Request parameters are never fuzzy-matched | rule | Accepted |
-| [MMSP-RFC-0012](rfcs/MMSP-RFC-0012-interruptible-requests.md) | A request can be interrupted | rule | Accepted |
-| [MMSP-RFC-0013](rfcs/MMSP-RFC-0013-direct-implementation.md) | Implementation code is straightforward | rule | Accepted |
+| [MMSP-RFC-0001](rfcs/MMSP-RFC-0001-rfc-process.md) | The RFC Process | process | Accepted |
+| [MMSP-RFC-0002](rfcs/MMSP-RFC-0002-message-protocol.md) | Message Protocol | spec | Accepted |
+| [MMSP-RFC-0003](rfcs/MMSP-RFC-0003-message-requests.md) | Message Requests | spec | Accepted |
+| [MMSP-RFC-0004](rfcs/MMSP-RFC-0004-message-fidelity.md) | Message Fidelity | spec | Accepted |
+| [MMSP-RFC-0005](rfcs/MMSP-RFC-0005-client-routing.md) | Client Routing | spec | Accepted |
+| [MMSP-RFC-0006](rfcs/MMSP-RFC-0006-upstream-credentials.md) | Upstream Credentials | spec | Accepted |
+| [MMSP-RFC-0007](rfcs/MMSP-RFC-0007-error-types.md) | Error Types | spec | Accepted |
+| [MMSP-RFC-0008](rfcs/MMSP-RFC-0008-request-interruption.md) | Request Interruption | spec | Accepted |
+| [MMSP-RFC-0009](rfcs/MMSP-RFC-0009-protocol-conversion.md) | Protocol Conversion | spec | Accepted |
+| [MMSP-RFC-0010](rfcs/MMSP-RFC-0010-trace-recording.md) | Trace Recording | spec | Accepted |
 
-A `rule` is an invariant the code keeps; a `change` changes the protocol or the public API; `process` is how this folder works. The status is `Accepted` or `Superseded by MMSP-RFC-NNNN`, so the rules in force are the `rule` rows that are Accepted. A proposed RFC is an open PR (`gh pr list --search "MMSP-RFC-"`) and a withdrawn one a closed PR; neither has a row.
+A `spec` fixes a concept, protocol or algorithm the code conforms to; a `change` changes the protocol or the public API; `process` is how this folder works. The status is `Accepted` or `Superseded by MMSP-RFC-NNNN`, so the specifications in force are the `spec` rows that are Accepted. A proposed RFC is an open PR (`gh pr list --search "MMSP-RFC-"`) and a withdrawn one a closed PR; neither has a row.
 
-The rule RFCs were renumbered once, on 2026-10-24, by the owner's order; [MMSP-RFC-0001](rfcs/MMSP-RFC-0001-rfc-process.md) maps the numbers of 0.5.5 to today's.
+The RFCs were renumbered twice on 2026-10-24, by the owner's order; [MMSP-RFC-0001](rfcs/MMSP-RFC-0001-rfc-process.md#5-numbering) §5 maps the numbers of 0.5.5 and of the first renumbering to today's.
 
 | File | Holds |
 | --- | --- |
@@ -35,7 +32,7 @@ Every file except the template has a Chinese twin, `<name>.zh.md`, which mirrors
 
 ## When a change needs an RFC
 
-- A change to a rule.
+- A change to a specification.
 - A change to the message or stream shapes: an item kind or field, a key of `UniEvent`, `UniMessage` or `UniConfig`, what `StreamItems` decides.
 - A change to the public API: the methods and constructor of `AutoLLMClient`, the package exports, the error classes.
 - A change to what the routing tables or the credential rule mean. Adding a row is not one.
@@ -46,9 +43,9 @@ A normal PR is enough for a new model or generation, a new vendor or protocol cl
 
 ## Writing an RFC
 
-1. Branch `rfc/<slug>` from `origin/dev` and copy `0000-template.md` to `rfcs/MMSP-RFC-NNNN-<slug>.md`. `NNNN` is the next number that neither `ls design/rfcs/` nor an open PR (`gh pr list --search "MMSP-RFC-"`) uses; a number is never reused. One decision per RFC. Set `Kind` to `rule`, `change` or `process`: a rule RFC keeps the sections Summary, Motivation, Rule and Enforced by; a change or process RFC keeps Summary, Motivation and the Rust RFC sections. Delete any section with nothing to say.
-2. Write the Chinese twin `MMSP-RFC-NNNN-<slug>.zh.md` in the same PR. The section names stay English in both. Each file links the other on the line under its metadata: `[中文版](MMSP-RFC-NNNN-<slug>.zh.md)` and `[English](MMSP-RFC-NNNN-<slug>.md)`.
-3. A rule changes only through a rule RFC that states the whole rule as it now stands and names the old one on its `Supersedes:` line. In the same PR, append `- Superseded by: [MMSP-RFC-NNNN](MMSP-RFC-NNNN-<slug>.md)` to the old file's metadata, in both languages, and set the old row's status in the table above.
+1. Branch `rfc/<slug>` from `origin/dev` and copy `0000-template.md` to `rfcs/MMSP-RFC-NNNN-<slug>.md`. `NNNN` is the next number that neither `ls design/rfcs/` nor an open PR (`gh pr list --search "MMSP-RFC-"`) uses; a number is never reused. One decision per RFC. Set `Kind` to `spec`, `change` or `process`: a spec RFC has Abstract, Introduction, Conventions and Terminology, its body sections and Conformance; a change or process RFC has Abstract, Introduction and the Rust RFC sections, numbered. Delete any section with nothing to say.
+2. Write the Chinese twin `MMSP-RFC-NNNN-<slug>.zh.md` in the same PR. The section names of the template (Abstract, Introduction, Conventions and Terminology, Conformance and the Rust RFC sections) stay English in both; a spec's body headings are translated in the Chinese twin, and the section numbers keep the two aligned. Each file links the other on the line under its metadata: `[中文版](MMSP-RFC-NNNN-<slug>.zh.md)` and `[English](MMSP-RFC-NNNN-<slug>.md)`.
+3. A specification changes only through a spec RFC that states the whole specification as it now stands and names the old one on its `Supersedes:` line. In the same PR, append `- Superseded by: [MMSP-RFC-NNNN](MMSP-RFC-NNNN-<slug>.md)` to the old file's metadata, in both languages, and set the old row's status in the table above.
 4. Add the RFC's row to the table above, with status `Accepted`: the row lands when the PR merges, which is what accepts the RFC.
 5. Add a changelog entry with `Type: process` and `Scope: design`, in the format of [`changelog/README.md`](../changelog/README.md).
 6. Open the PR with `gh pr create --base dev`, titled `MMSP-RFC-NNNN: <Title>`, then add its link to the `RFC PR` line in a follow-up commit.
@@ -57,9 +54,10 @@ An open PR is a proposed RFC, a merged one is accepted, and a closed one is with
 
 ## Writing rules
 
-- A rule's Summary is a normative statement of one to three sentences; its Rule section is at most a few lines of essential detail; its Enforced by section names the modules and tests that hold it, at file level.
-- Every sentence of a rule is true of the code. Where it is not, the code is fixed, or the rule is superseded.
+- A spec RFC reads as the specification of one thing that stays fixed: its Abstract says what is specified in one to three sentences, its body states it in numbered sections, and its Conformance section names the modules and tests that hold it, at file level.
+- Normative sentences use MUST, MUST NOT, SHOULD, SHOULD NOT or MAY, in capitals, as BCP 14 defines them; a sentence about what the code does uses MUST or MUST NOT, and SHOULD is for callers and contributors. The Chinese twin writes them 必须, 不得, 应当, 不应, 可以.
+- Every normative sentence is true of the code. Where it is not, the code is fixed, or the specification is superseded.
 - A number is an invariant or carries a tense. No counts and no current inventories: which clients exist, which models a client serves.
-- Code identifiers, file paths and the RFC section names stay English in both languages.
+- Code identifiers, file paths and the section names of the template stay English in both languages.
 - PR and issue links are full URLs; links to files of the repository are relative.
-- The table above is the only index. `grep -l MMSP-RFC-0004 design/rfcs/` finds the RFCs that cite a rule.
+- The table above is the only index. `grep -l MMSP-RFC-0004 design/rfcs/` finds the RFCs that cite a specification.
