@@ -13,8 +13,6 @@ export interface Provider {
   // what the key variable holds, where it is not a plain token, and what to export in its place
   keyHint?: Text;
   keyValue?: string;
-  // the vendor's own endpoint, which its official client calls by default
-  official?: { client: string; baseUrl: string };
 }
 
 export interface Vendor {
@@ -31,7 +29,6 @@ export const PROVIDERS: (Provider & { prefixes: string[] })[] = [
     mark: "openai",
     prefixes: ["https://api.openai.com"],
     keyEnv: "OPENAI_API_KEY",
-    official: { client: "openai-official", baseUrl: "https://api.openai.com/v1" },
   },
   {
     id: "anthropic",
@@ -39,7 +36,6 @@ export const PROVIDERS: (Provider & { prefixes: string[] })[] = [
     mark: "anthropic",
     prefixes: ["https://api.anthropic.com"],
     keyEnv: "ANTHROPIC_API_KEY",
-    official: { client: "anthropic-official", baseUrl: "https://api.anthropic.com" },
   },
   {
     id: "google",
@@ -47,7 +43,6 @@ export const PROVIDERS: (Provider & { prefixes: string[] })[] = [
     mark: "gemini",
     prefixes: ["https://generativelanguage.googleapis.com"],
     keyEnv: "GEMINI_API_KEY",
-    official: { client: "google-official", baseUrl: "https://generativelanguage.googleapis.com" },
   },
   {
     id: "zai",
@@ -55,7 +50,6 @@ export const PROVIDERS: (Provider & { prefixes: string[] })[] = [
     mark: "zai",
     prefixes: ["https://api.z.ai"],
     keyEnv: "ZAI_API_KEY",
-    official: { client: "zai-official", baseUrl: "https://api.z.ai/api/paas/v4/" },
   },
   {
     id: "moonshot",
@@ -63,7 +57,6 @@ export const PROVIDERS: (Provider & { prefixes: string[] })[] = [
     mark: "moonshot",
     prefixes: ["https://api.moonshot.cn", "https://api.moonshot.ai"],
     keyEnv: "MOONSHOT_API_KEY",
-    official: { client: "moonshot-official", baseUrl: "https://api.moonshot.cn/v1" },
   },
   {
     id: "deepseek",
@@ -71,7 +64,6 @@ export const PROVIDERS: (Provider & { prefixes: string[] })[] = [
     mark: "deepseek",
     prefixes: ["https://api.deepseek.com"],
     keyEnv: "DEEPSEEK_API_KEY",
-    official: { client: "deepseek-official", baseUrl: "https://api.deepseek.com" },
   },
   {
     id: "minimax",
@@ -79,7 +71,6 @@ export const PROVIDERS: (Provider & { prefixes: string[] })[] = [
     mark: "minimax",
     prefixes: ["https://api.minimax.io", "https://api.minimaxi.com"],
     keyEnv: "MINIMAX_API_KEY",
-    official: { client: "minimax-official", baseUrl: "https://api.minimax.io/v1" },
   },
   { id: "openrouter", name: "OpenRouter", mark: "openrouter", prefixes: ["https://openrouter.ai"], keyEnv: "OPENROUTER_API_KEY" },
   {
