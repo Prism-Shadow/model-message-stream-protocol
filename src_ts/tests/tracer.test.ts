@@ -13,8 +13,10 @@
 // limitations under the License.
 
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
 import { LLMClient } from "../src/baseClient";
+import { UnsupportedParameterError } from "../src/errors";
 import { Tracer } from "../src/integration/tracer";
 import { EventContentItem, UniEvent, UniMessage } from "../src/types";
 import {
@@ -211,6 +213,212 @@ describe("Tracer", () => {
 
     const jsonPath = path.join(tempCacheDir, relativePath + ".json");
     expect(fs.existsSync(jsonPath)).toBe(true);
+  });
+
+  test("should append the suffixes to a trace id with a dot", async () => {
+    const tracer = new Tracer(tempCacheDir);
+    const history: UniMessage[] = [
+      { role: "user", content_items: [{ type: "text.done", text: "Test" }] },
+    ];
+    tracer.saveHistory("fake-model", history, "agent/v1.2", {});
+
+    expect(fs.readdirSync(path.join(tempCacheDir, "agent")).sort()).toEqual([
+      "v1.2.json",
+      "v1.2.txt",
+    ]);
+    const supertest = await import("supertest");
+    const app = tracer.createWebApp();
+    expect((await supertest.default(app).get("/agent/v1.2.json")).status).toBe(
+      200,
+    );
+    expect((await supertest.default(app).get("/agent/v1.2.txt")).status).toBe(
+      200,
+    );
+  });
+
+  test("should write the timestamp in UTC as toISOString does", () => {
+    const tracer = new Tracer(tempCacheDir);
+    tracer.saveHistory("fake-model", [], "test/timestamp", {});
+
+    const { timestamp } = JSON.parse(
+      fs.readFileSync(
+        path.join(tempCacheDir, "test", "timestamp.json"),
+        "utf-8",
+      ),
+    );
+    expect(timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    expect(Math.abs(Date.now() - Date.parse(timestamp))).toBeLessThan(60000);
+  });
+
+  test.each([
+    "",
+    ".",
+    "..",
+    "agent/..",
+    "../outside",
+    "agent/../../outside",
+    "{root}/outside",
+    "{root}/cache/inside",
+  ])(
+    "should refuse the trace id %j outside the cache directory and write nothing",
+    (template) => {
+      const root = fs.mkdtempSync(path.join(os.tmpdir(), "mmsp-trace-"));
+      try {
+        const tracer = new Tracer(path.join(root, "cache"));
+        const traceId = template.replace("{root}", root);
+
+        let error: unknown;
+        try {
+          tracer.saveHistory("fake-model", [], traceId, {});
+        } catch (caught) {
+          error = caught;
+        }
+
+        expect(error).toBeInstanceOf(UnsupportedParameterError);
+        expect(error).toMatchObject({
+          client: "Tracer",
+          parameter: "trace_id",
+          message:
+            `Tracer does not support trace_id '${traceId}': ` +
+            "it must be a relative path that stays inside the cache directory.",
+        });
+        expect(fs.readdirSync(root)).toEqual(["cache"]);
+        expect(fs.readdirSync(path.join(root, "cache"))).toEqual([]);
+      } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+      }
+    },
+  );
+
+  test.each([
+    ["agent/../kept", ["kept.json", "kept.txt"]],
+    ["agent/run/..", ["agent.json", "agent.txt"]],
+    ["trailing/", ["trailing.json", "trailing.txt"]],
+  ])(
+    "should save the trace id %j that stays inside the cache directory under its normalized path",
+    (traceId, files) => {
+      const tracer = new Tracer(tempCacheDir);
+      tracer.saveHistory("fake-model", [], traceId, {});
+
+      expect(fs.readdirSync(tempCacheDir).sort()).toEqual(files);
+    },
+  );
+
+  test("should refuse a symlink leading outside the cache directory and follow one inside", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "mmsp-trace-"));
+    try {
+      const cacheDir = path.join(root, "cache");
+      fs.mkdirSync(path.join(root, "outside"));
+      fs.writeFileSync(path.join(root, "outside", "secret.txt"), "secret");
+      fs.mkdirSync(path.join(cacheDir, "real"), { recursive: true });
+      fs.symlinkSync(path.join(root, "outside"), path.join(cacheDir, "out"));
+      fs.symlinkSync(path.join(cacheDir, "real"), path.join(cacheDir, "alias"));
+      const tracer = new Tracer(cacheDir);
+      const history: UniMessage[] = [
+        { role: "user", content_items: [{ type: "text.done", text: "Test" }] },
+      ];
+
+      expect(() =>
+        tracer.saveHistory("fake-model", history, "out/conv", {}),
+      ).toThrow(UnsupportedParameterError);
+      tracer.saveHistory("fake-model", history, "alias/conv", {});
+
+      expect(fs.readdirSync(path.join(root, "outside"))).toEqual([
+        "secret.txt",
+      ]);
+      expect(fs.readdirSync(path.join(cacheDir, "real")).sort()).toEqual([
+        "conv.json",
+        "conv.txt",
+      ]);
+      const app = tracer.createWebApp();
+      const supertest = await import("supertest");
+      expect((await supertest.default(app).get("/out/secret.txt")).status).toBe(
+        403,
+      );
+      expect(
+        (await supertest.default(app).get("/alias/conv.json")).status,
+      ).toBe(200);
+      const listing = (await supertest.default(app).get("/")).text;
+      expect(listing).toContain('href="/alias"');
+      expect(listing).not.toContain('href="/out"');
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("should take an empty MMSP_CACHE_DIR as unset: the cache directory under the working directory", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "mmsp-trace-"));
+    const previousCwd = process.cwd();
+    const previousCacheDir = process.env.MMSP_CACHE_DIR;
+    try {
+      process.chdir(root);
+      process.env.MMSP_CACHE_DIR = "";
+      new Tracer().saveHistory("fake-model", [], "conv", {});
+
+      expect(fs.readdirSync(root)).toEqual(["cache"]);
+      expect(fs.readdirSync(path.join(root, "cache")).sort()).toEqual([
+        "conv.json",
+        "conv.txt",
+      ]);
+    } finally {
+      process.chdir(previousCwd);
+      if (previousCacheDir === undefined) {
+        delete process.env.MMSP_CACHE_DIR;
+      } else {
+        process.env.MMSP_CACHE_DIR = previousCacheDir;
+      }
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("should refuse a sibling whose name begins with the cache directory name", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "mmsp-trace-"));
+    try {
+      fs.mkdirSync(path.join(root, "cache2"));
+      fs.writeFileSync(path.join(root, "cache2", "secret.txt"), "secret");
+      const app = new Tracer(path.join(root, "cache")).createWebApp();
+      const supertest = await import("supertest");
+
+      const response = await supertest
+        .default(app)
+        .get("/..%2Fcache2/secret.txt");
+      expect(response.status).toBe(403);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("should link a trace named with a space, a #, a % or CJK so that the link opens it", async () => {
+    const tracer = new Tracer(tempCacheDir);
+    const history: UniMessage[] = [
+      { role: "user", content_items: [{ type: "text.done", text: "Test" }] },
+    ];
+    for (const traceId of ["run #1", "100%", "会话/001"]) {
+      tracer.saveHistory("fake-model", history, traceId, {});
+    }
+
+    const app = tracer.createWebApp();
+    const supertest = await import("supertest");
+    const listing = (await supertest.default(app).get("/")).text;
+    for (const href of [
+      "/run%20%231.json",
+      "/100%25.txt",
+      "/%E4%BC%9A%E8%AF%9D",
+    ]) {
+      expect(listing).toContain(`href="${href}"`);
+    }
+    expect(
+      (await supertest.default(app).get("/%E4%BC%9A%E8%AF%9D")).text,
+    ).toContain('href="/%E4%BC%9A%E8%AF%9D/001.json"');
+    for (const url of [
+      "/run%20%231.json",
+      "/100%25.txt",
+      "/%E4%BC%9A%E8%AF%9D/001.json",
+    ]) {
+      const response = await supertest.default(app).get(url);
+      expect(response.status).toBe(200);
+      expect(response.text).toContain("Test");
+    }
   });
 
   test("should create web app", () => {

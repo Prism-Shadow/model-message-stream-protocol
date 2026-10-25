@@ -22,6 +22,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import express, { Express, Request, Response } from "express";
+import { UnsupportedParameterError } from "../errors";
 import { normalizeLegacyMessages } from "../legacy";
 import { UniConfig, UniMessage } from "../types";
 
@@ -1111,6 +1112,38 @@ const ICONS = {
 };
 
 /**
+ * Resolve every symlink in an absolute path, as Python's os.path.realpath does: the files of a
+ * trace about to be saved do not exist yet, so the part that does not exist is kept as it is, and a
+ * symlink whose target does not exist yet still leads to that target.
+ *
+ * @param target - An absolute, normalized path
+ * @param links - How many symlinks have been followed, so that a cycle ends
+ * @returns The path with its symlinks resolved
+ */
+function realPath(target: string, links: number = 0): string {
+  try {
+    return fs.realpathSync(target);
+  } catch {
+    const parent = path.dirname(target);
+    if (parent === target) {
+      return target;
+    }
+    const resolved = path.join(realPath(parent, links), path.basename(target));
+    if (links < 40) {
+      try {
+        return realPath(
+          path.resolve(path.dirname(resolved), fs.readlinkSync(resolved)),
+          links + 1,
+        );
+      } catch {
+        // not a symlink: the part of the path that does not exist yet
+      }
+    }
+    return resolved;
+  }
+}
+
+/**
  * Tracer for saving conversation history to local files.
  *
  * This class handles saving conversation history to files in a cache directory.
@@ -1329,11 +1362,55 @@ export class Tracer {
   }
 
   /**
+   * Whether a path, its symlinks resolved, is the cache directory or a path under it.
+   *
+   * @param target - An absolute, normalized path
+   * @returns Whether the path stays inside the cache directory
+   */
+  private _isInsideCacheDir(target: string): boolean {
+    const cacheDir = realPath(this.cacheDir);
+    const resolved = realPath(target);
+    return (
+      resolved === cacheDir ||
+      resolved.startsWith(path.join(cacheDir, path.sep))
+    );
+  }
+
+  /**
+   * Resolve the path a trace's files share, before their `.json` and `.txt` suffixes.
+   *
+   * @param traceId - The trace id, a relative path that stays inside the cache directory
+   * @param client - The client the trace id was given to, named in the error
+   * @returns The trace id joined to the cache directory and normalized
+   * @throws UnsupportedParameterError When the trace id is absolute, or a file of the trace would be
+   *   outside the cache directory, which an empty id or one that names the directory is too.
+   */
+  resolveTracePath(traceId: string, client: string = "Tracer"): string {
+    const fileBase = path.resolve(this.cacheDir, traceId);
+    if (
+      path.isAbsolute(traceId) ||
+      ![".json", ".txt"].every((suffix) =>
+        this._isInsideCacheDir(fileBase + suffix),
+      )
+    ) {
+      throw new UnsupportedParameterError({
+        client,
+        parameter: "trace_id",
+        message:
+          `${client} does not support trace_id '${traceId}': ` +
+          "it must be a relative path that stays inside the cache directory.",
+      });
+    }
+    return fileBase;
+  }
+
+  /**
    * Save conversation history to files.
    *
    * @param history - List of UniMessage objects representing the conversation
-   * @param fileId - File identifier without extension (e.g., "agent1/00001")
+   * @param fileId - The trace id (e.g., "agent1/00001"), to which `.json` and `.txt` are appended
    * @param config - The UniConfig used for this conversation
+   * @throws UnsupportedParameterError When `resolveTracePath` refuses the trace id.
    */
   saveHistory(
     model: string,
@@ -1341,7 +1418,7 @@ export class Tracer {
     fileId: string,
     config: UniConfig,
   ): void {
-    const filePathBase = path.join(this.cacheDir, fileId);
+    const filePathBase = this.resolveTracePath(fileId);
     const dirPath = path.dirname(filePathBase);
     this._ensureDirectoryExists(dirPath);
 
@@ -1471,10 +1548,17 @@ export class Tracer {
       `${count} ${count === 1 ? one : many}`;
 
     app.get("*", (req: Request, res: Response) => {
-      const subpath = req.path.slice(1);
-      const fullPath = path.resolve(path.join(this.cacheDir, subpath));
+      // express leaves req.path percent-encoded, while Flask hands the Python viewer its path decoded
+      let subpath: string;
+      try {
+        subpath = decodeURIComponent(req.path.slice(1));
+      } catch {
+        return res.status(404).send("Path not found");
+      }
+      const fullPath = path.resolve(this.cacheDir, subpath);
 
-      if (!fullPath.startsWith(path.resolve(this.cacheDir))) {
+      // the rule the writer saves by, so the viewer opens every trace the writer saves
+      if (!this._isInsideCacheDir(fullPath)) {
         return res.status(403).send("Access denied");
       }
 
@@ -1516,7 +1600,7 @@ export class Tracer {
           // trace files written before 0.5.0 carry the legacy content item types
           const history = normalizeLegacyMessages(data.history || []);
           const totalRounds = Math.ceil(history.length / 2);
-          // Python saves the time local and TypeScript in UTC; both show local
+          // UTC, or naive local time in older Python traces; both show local
           const savedMs = Date.parse(data.timestamp || "");
           const savedAt = Number.isNaN(savedMs)
             ? String(data.timestamp || "")
@@ -1697,7 +1781,12 @@ export class Tracer {
 
         const entries = fs
           .readdirSync(fullPath, { withFileTypes: true })
-          .filter((entry) => entry.name !== ".DS_Store");
+          // an entry whose symlink leads outside the cache directory would be refused, so it is not listed
+          .filter(
+            (entry) =>
+              entry.name !== ".DS_Store" &&
+              this._isInsideCacheDir(path.join(fullPath, entry.name)),
+          );
         const entryStats = new Map<string, fs.Stats>();
         for (const entry of entries) {
           entryStats.set(
@@ -1735,7 +1824,7 @@ export class Tracer {
             }
             const url = this._prefixUrl(
               basePath,
-              "/" + relativePath.replace(/\\/g, "/"),
+              "/" + relativePath.split(path.sep).join("/"),
             );
             return `
             <a class="row" href="${esc(url)}">
@@ -1750,8 +1839,8 @@ export class Tracer {
         const parts = subpath ? subpath.split("/").filter(Boolean) : [];
         const title = parts.length ? parts[parts.length - 1] : "Traces";
         const baseUrl = subpath ? "/" + subpath : "/";
-        const sortNameUrl = this._prefixUrl(basePath, baseUrl + "?sort=name");
-        const sortMtimeUrl = this._prefixUrl(basePath, baseUrl + "?sort=mtime");
+        const sortNameUrl = this._prefixUrl(basePath, baseUrl) + "?sort=name";
+        const sortMtimeUrl = this._prefixUrl(basePath, baseUrl) + "?sort=mtime";
         const current = (sort: string) =>
           sortBy === sort ? ' aria-current="true"' : "";
 
@@ -1812,13 +1901,15 @@ export class Tracer {
    * @returns URL safe to render into tracer links
    */
   private _prefixUrl(basePath: string, url: string): string {
+    // each segment encoded, so a trace named `run #1` or `会话` opens
+    const encoded = url.split("/").map(encodeURIComponent).join("/");
     if (!basePath) {
-      return url;
+      return encoded;
     }
-    if (url === "/") {
+    if (encoded === "/") {
       return basePath + "/";
     }
-    return basePath + url;
+    return basePath + encoded;
   }
 
   /**

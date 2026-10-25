@@ -34,6 +34,8 @@ async for event in client.streaming_response_stateful(
 | `cache/agent1/conversation_001.json` | 完整的历史和配置数据 |
 | `cache/agent1/conversation_001.txt` | 可读的对话文本记录 |
 
+`.json` 和 `.txt` 直接接在 id 后面，所以 `v1.2` 会写成 `v1.2.json`。id 为空、是绝对路径，或者经由 `..` 或符号链接指向缓存目录之外时，请求发出之前就会抛出 `UnsupportedParameterError`。
+
 无需数据库，也无需额外配置。
 
 ## 查看追踪
