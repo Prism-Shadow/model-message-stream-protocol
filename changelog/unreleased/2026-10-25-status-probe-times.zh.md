@@ -3,6 +3,7 @@
 - **Date:** 2026-10-25
 - **Type:** feature
 - **Scope:** `site`
+- **PR:** [#304](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/304)
 
 [English](2026-10-25-status-probe-times.md)
 
