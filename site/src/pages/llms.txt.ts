@@ -27,7 +27,7 @@ ${rfcs.map((doc) => `- [${doc.title.en}](${md("en", doc)})`).join("\n")}
 
 ## Models
 
-- [Model catalog](${new URL("/models.json", site).href}): every model MMSP supports, as JSON: its endpoint, client, key variable, list price and the code that calls it
+- [Model catalog](${new URL("/models.json", site).href}): every model MMSP supports, as JSON: its endpoint, client, provider, key variable, modalities, context window and list price, and one constructor call that works for every row
 - [Model Index](${new URL("/models/", site).href}): the same catalog as a page
 - [Model Status](${new URL("/status/", site).href}): the daily probe of the watched channels: status, TTFT, TPS and probe cost
 
