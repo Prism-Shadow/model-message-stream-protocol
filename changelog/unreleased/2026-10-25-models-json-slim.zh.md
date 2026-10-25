@@ -3,6 +3,7 @@
 - **Date:** 2026-10-25
 - **Type:** feature
 - **Scope:** `site`
+- **PR:** [#305](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/305)
 - **Breaking:** yes — `/models.json` 的每一行去掉了 `kit`、`vendor`、`status_key`、`pricing.currency` 和 `pricing.thoughts_tokens`，也不再出现 `null`；`/models/kits.json` 与 `/zh/models/kits.json` 已删除。
 
 [English](2026-10-25-models-json-slim.md)

@@ -3,6 +3,7 @@
 - **Date:** 2026-10-25
 - **Type:** feature
 - **Scope:** `site`
+- **PR:** [#305](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/305)
 - **Breaking:** yes — `/models.json` rows lost `kit`, `vendor`, `status_key`, `pricing.currency` and `pricing.thoughts_tokens` and no longer carry `null`, and `/models/kits.json` and `/zh/models/kits.json` were removed.
 
 [中文版](2026-10-25-models-json-slim.zh.md)
