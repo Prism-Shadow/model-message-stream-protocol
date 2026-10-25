@@ -75,7 +75,7 @@ export const STRINGS = {
         throughput: "Throughput",
       },
       modality: { Text: "Text", Image: "Image", Video: "Video", Audio: "Audio", Embed: "Embedding", in: "In", out: "Out" },
-      kit: { show: "Code for {model}", copied: "Copied", copyFailed: "Copy failed", server: "Server", run: "Run it", close: "Close", code: "Code", copyCode: "Copy code", copyAgent: "Copy for agent", agentHint: "A prompt an AI agent can follow to wire this model into a project" },
+      kit: { show: "Code for {model}", copied: "Copied", copyFailed: "Copy failed", loading: "Loading…", loadFailed: "Could not load the code", server: "Server", run: "Run it", close: "Close", code: "Code", copyCode: "Copy code", copyAgent: "Copy for agent", agentHint: "A prompt an AI agent can follow to wire this model into a project" },
       status: { up: "Up", degraded: "Degraded", down: "Down", nokey: "No key", none: "Not probed", tps: "tok/s" },
     },
     status: {
@@ -190,7 +190,7 @@ export const STRINGS = {
         throughput: "吞吐",
       },
       modality: { Text: "文本", Image: "图像", Video: "视频", Audio: "音频", Embed: "向量", in: "输入", out: "输出" },
-      kit: { show: "{model} 的调用代码", copied: "已复制", copyFailed: "复制失败", server: "服务端", run: "运行", close: "关闭", code: "代码", copyCode: "复制代码", copyAgent: "复制给 Agent", agentHint: "可直接发给 AI Agent 的提示词，让它把这个模型接入项目" },
+      kit: { show: "{model} 的调用代码", copied: "已复制", copyFailed: "复制失败", loading: "加载中…", loadFailed: "代码加载失败", server: "服务端", run: "运行", close: "关闭", code: "代码", copyCode: "复制代码", copyAgent: "复制给 Agent", agentHint: "可直接发给 AI Agent 的提示词，让它把这个模型接入项目" },
       status: { up: "正常", degraded: "降级", down: "故障", nokey: "无密钥", none: "未探测", tps: "tok/s" },
     },
     status: {

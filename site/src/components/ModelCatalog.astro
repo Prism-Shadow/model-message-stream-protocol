@@ -3,12 +3,13 @@
 // JavaScript. A probed entry's latency and throughput come from the daily probe's files as the site
 // is built, and link to its channel on the status page. The script searches and sorts the rows,
 // switches the prices and their unit between USD and CNY, opens an entry's integration kit in a
-// dialog from the button at the end of its row, copies its code or a prompt for an agent, and
-// redraws the latency and throughput when the status-data branch has a newer run than the build.
+// dialog from the button at the end of its row (the kits come from /models/kits.json, prefetched
+// once the page has loaded), copies its code or a prompt for an agent, and redraws the latency and
+// throughput when the status-data branch has a newer run than the build.
 // Marks point into the page's MarkSprite.
 import VendorMark from "./VendorMark.astro";
 import { STRINGS, localePath, type Locale } from "../shared/i18n";
-import { agentPromptFor, catalogRows, formatContext, formatPrice, literal } from "../shared/catalog";
+import { catalogRows, formatContext, formatPrice } from "../shared/catalog";
 import { LATENCY_UNIT, PRICE_UNITS, isProbed, metricCells } from "../shared/catalog-status";
 import { withCurrentKeys } from "../shared/status";
 import { statusAtBuild } from "../shared/status-build";
@@ -42,39 +43,9 @@ const MODALITY_ICONS: Record<Modality, string> = {
 };
 
 const price = (value: number | undefined) => (value === undefined ? undefined : formatPrice(value));
-// each tab's file and the lines that install, key and run it; the Server tab's file is a whole
-// mmsp-server.json, started in the background so one paste also streams one answer through it
-const kits = rows.map((row) => {
-  const { model, base_url, output_modalities, kit } = row;
-  const hint = kit.keyHint?.[locale];
-  const keyLine = `export ${kit.keyEnv}=${kit.keyValue}` + (hint && hint !== kit.keyValue ? `  # ${hint}` : "");
-  // a single-quoted shell word cannot hold a single quote, so the prompt's quotes become escaped
-  // double quotes
-  const body = literal(kit.request, "json").replaceAll("'", '\\"');
-  // an embedding, an image or speech streams as lines of numbers or base64; their heads show it
-  const heads = output_modalities.includes("Text") ? "" : " | cut -c 1-160";
-  return {
-    model,
-    baseUrl: base_url,
-    typescript: kit.typescript,
-    python: kit.python,
-    agent: agentPromptFor(row, locale),
-    server: JSON.stringify({ models: [kit.server], api_keys: ["$MMSP_SERVER_API_KEY"] }, null, 2),
-    run: {
-      typescript: ["npm install @prismshadow/mmsp", keyLine, "npx tsx main.ts"].join("\n"),
-      python: ["pip install mmsp", keyLine, "python main.py"].join("\n"),
-      server: [
-        "pip install mmsp",
-        keyLine,
-        "export MMSP_SERVER_API_KEY=secret",
-        "python -m mmsp.integration.server --config mmsp-server.json &",
-        "curl -sSN --retry 5 --retry-connrefused http://127.0.0.1:25752/v1/stream \\",
-        '  -H "Authorization: Bearer $MMSP_SERVER_API_KEY" -H "Content-Type: application/json" \\',
-        `  -d '${body}'${heads}`,
-      ].join("\n"),
-    },
-  };
-});
+// the dialog's programs, commands and agent prompts, by row key; fetched, not inlined, since they
+// would be most of the page (catalogKits)
+const kitsUrl = localePath(locale, "/models/kits.json");
 const columns = s.columns;
 // the units sit in the headers, small, so the cells hold bare numbers; the prices' follows the switch
 const units = { price: PRICE_UNITS[currency], latency: LATENCY_UNIT, throughput: s.status.tps };
@@ -96,6 +67,7 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
   data-words={JSON.stringify({ ...s.status, ...s.kit, models: s.models, perMillion: s.perMillion })}
   data-status-page={statusPage}
   data-run-id={latest?.run_id}
+  data-kits-url={kitsUrl}
 >
   <div class="flex flex-wrap items-center gap-x-4 gap-y-3">
     <label class="relative w-full sm:w-72">
@@ -224,7 +196,6 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
           return (
             <tr
               data-row
-              data-index={index}
               data-key={row.key}
               data-search={[row.model, row.provider.name, row.vendor?.name, row.client, row.base_url].filter(Boolean).join(" ").toLowerCase()}
               data-model={row.model.toLowerCase()}
@@ -359,7 +330,6 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
       <pre class="astro-code kit-code mt-1"><code data-kit-run></code></pre>
     </div>
   </dialog>
-  <script type="application/json" data-catalog-kits set:html={JSON.stringify(kits).replaceAll("<", "\\u003c")} />
 </section>
 
 <style is:global>
@@ -728,6 +698,26 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
   .kit-code {
     white-space: pre;
   }
+  /* the line a pane holds until the kits arrive; the color goes on the code element, which the
+     dark theme's rule for Shiki's spans does not reach */
+  .kit-code .kit-loading {
+    background: linear-gradient(90deg, var(--color-gray-400) 35%, var(--color-gray-900) 50%, var(--color-gray-400) 65%);
+    background-size: 250% 100%;
+    background-clip: text;
+    color: transparent;
+    animation: kit-shimmer 1.8s linear infinite;
+  }
+  .dark .kit-code .kit-loading {
+    background-image: linear-gradient(90deg, var(--color-gray-500) 35%, var(--color-gray-100) 50%, var(--color-gray-500) 65%);
+  }
+  @keyframes kit-shimmer {
+    from {
+      background-position: 100% 0;
+    }
+    to {
+      background-position: -150% 0;
+    }
+  }
   .code-group .tab-strip .kit-copy {
     display: inline-flex;
     align-items: center;
@@ -743,19 +733,10 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
 <script>
   import { PRICE_UNITS, isProbed, metricCells, type MetricWords } from "../shared/catalog-status";
   import { loadLatest, statusQuery, withCurrentKeys, type Status } from "../shared/status";
+  import type { CatalogKit } from "../shared/catalog";
 
-  type Tab = "typescript" | "python" | "server";
-  interface KitText {
-    model: string;
-    baseUrl: string;
-    typescript: string;
-    python: string;
-    // the prompt "Copy for agent" puts on the clipboard
-    agent: string;
-    server: string;
-    run: Record<Tab, string>;
-  }
-  type Words = MetricWords & { copied: string; copyFailed: string; models: string; perMillion: string };
+  type Tab = keyof CatalogKit["run"];
+  type Words = MetricWords & { copied: string; copyFailed: string; loading: string; loadFailed: string; models: string; perMillion: string };
 
   const stored = (key: string) => {
     try {
@@ -773,7 +754,6 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
   const root = document.querySelector<HTMLElement>("[data-catalog]");
   if (root) {
     const words = JSON.parse(root.dataset.words!) as Words;
-    const kits = JSON.parse(root.querySelector("[data-catalog-kits]")!.textContent!) as KitText[];
     const body = root.querySelector<HTMLElement>("[data-catalog-body]")!;
     const rows = [...body.querySelectorAll<HTMLTableRowElement>("tr[data-row]")];
     const dialog = root.querySelector<HTMLDialogElement>("[data-kit-dialog]")!;
@@ -793,22 +773,49 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
     let language = LANGUAGES.includes(stored("mmsp-site.code") ?? "") ? stored("mmsp-site.code")! : LANGUAGES[0];
     let open: HTMLTableRowElement | null = null;
 
-    const renderKit = () => {
-      if (!open) return;
-      const kit = kits[Number(open.dataset.index)];
-      const tab = tabOf(language);
-      code.textContent = kit[tab];
-      run.textContent = kit.run[tab];
-      file.textContent = FILES[tab];
+    // the kits, by row key: fetched once, on the first hover or focus of a code button, or on
+    // opening; a failed fetch is tried again on the next opening
+    const kitsUrl = root.dataset.kitsUrl!;
+    let kits: Promise<Record<string, CatalogKit> | null> | undefined;
+    const loadKits = () =>
+      (kits ??= fetch(kitsUrl)
+        .then((response) => (response.ok ? (response.json() as Promise<Record<string, CatalogKit>>) : Promise.reject(response.status)))
+        .catch(() => {
+          kits = undefined;
+          return null;
+        }));
+    // until then the file is prefetched into the cache once the page has loaded; a <link> in the
+    // markup would be found at the end of the page with this script and share its bandwidth
+    addEventListener("load", () => {
+      if (!kits) document.head.append(Object.assign(document.createElement("link"), { rel: "prefetch", href: kitsUrl }));
+    });
+    const kitOf = async (row: HTMLTableRowElement) => (await loadKits())?.[row.dataset.key!];
+
+    // both panes hold a loading line until the kits are in; once they are, the code replaces it
+    // before the next paint
+    const renderKit = async () => {
+      const row = open;
+      if (!row) return;
+      file.textContent = FILES[tabOf(language)];
       for (const button of tabs) button.setAttribute("aria-selected", String(button.dataset.kitTab === language));
+      for (const pane of [code, run]) {
+        pane.textContent = words.loading;
+        pane.classList.add("kit-loading");
+      }
+      const kit = await kitOf(row);
+      if (open !== row) return;
+      const tab = tabOf(language);
+      for (const pane of [code, run]) pane.classList.remove("kit-loading");
+      code.textContent = kit ? kit[tab] : words.loadFailed;
+      run.textContent = kit ? kit.run[tab] : "";
     };
     const show = (row: HTMLTableRowElement) => {
-      const kit = kits[Number(row.dataset.index)];
+      const url = row.querySelector<HTMLElement>('[data-cell="provider"] [title]')!.title;
       open = row;
       row.dataset.open = "";
-      slot("model").textContent = kit.model;
-      slot("url").textContent = kit.baseUrl;
-      slot("url").title = kit.baseUrl;
+      slot("model").textContent = row.querySelector('[data-cell="model"] .mono')!.textContent;
+      slot("url").textContent = url;
+      slot("url").title = url;
       slot("mark").replaceChildren(...clones(row.querySelector("[data-row-mark]")));
       slot("provider").replaceChildren(...clones(row.querySelector('[data-cell="provider"] > span')));
       slot("modalities").replaceChildren(...clones(row.querySelector('[data-cell="modalities"] > span')));
@@ -837,7 +844,7 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
           return item;
         }),
       );
-      renderKit();
+      void renderKit();
       document.documentElement.classList.add("kit-open");
       dialog.showModal();
       panel.focus({ preventScroll: true });
@@ -861,16 +868,21 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
     dialog.addEventListener("click", (event) => {
       if (pressedOutside && event.target === dialog) dialog.close();
     });
-    for (const row of rows) row.querySelector(".catalog-kit")!.addEventListener("click", () => show(row));
+    for (const row of rows) {
+      const button = row.querySelector(".catalog-kit")!;
+      button.addEventListener("pointerenter", () => void loadKits());
+      button.addEventListener("focus", () => void loadKits());
+      button.addEventListener("click", () => show(row));
+    }
     for (const tab of tabs) {
       tab.addEventListener("click", () => {
         language = tab.dataset.kitTab!;
         store("mmsp-site.code", language);
-        renderKit();
+        void renderKit();
       });
     }
-    // Copy code takes the open tab's file as it reads; Copy for agent, the entry's agent prompt.
-    // Each says what happened in its own label for two seconds.
+    // Copy code takes the open tab's file; Copy for agent, the entry's agent prompt. Each says what
+    // happened in its own label for two seconds.
     for (const button of dialog.querySelectorAll<HTMLButtonElement>("[data-kit-copy]")) {
       const label = button.querySelector("span")!;
       const idle = label.textContent!;
@@ -880,11 +892,14 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
         label.textContent = idle;
       });
       button.addEventListener("click", async () => {
-        const text = button.dataset.kitCopy === "agent" ? (open ? kits[Number(open.dataset.index)].agent : "") : code.textContent;
+        const row = open;
+        if (!row) return;
         // held at its width while its label changes, so the button beside it stays put
         button.style.minWidth = `${button.offsetWidth}px`;
         try {
-          await navigator.clipboard.writeText(text ?? "");
+          const kit = await kitOf(row);
+          if (!kit) throw new Error("the kits did not load");
+          await navigator.clipboard.writeText(button.dataset.kitCopy === "agent" ? kit.agent : kit[tabOf(language)]);
           label.textContent = words.copied;
         } catch {
           label.textContent = words.copyFailed;

@@ -108,6 +108,39 @@ export const PROVIDERS: (Provider & { prefixes: string[] })[] = [
     keyHint: { en: "ACCESS,SECRET", zh: "ACCESS,SECRET" },
     keyValue: "ACCESS,SECRET",
   },
+  // the docs' /inference/go bases and the /zen/go ones the penguin-harness catalog calls, which
+  // answer the same
+  {
+    id: "opencode-go",
+    name: "OpenCode Go",
+    mark: "opencode",
+    prefixes: ["https://opencode.ai/inference/go", "https://opencode.ai/zen/go"],
+    keyEnv: "OPENCODE_API_KEY",
+  },
+  { id: "fireworks", name: "Fireworks AI", mark: "fireworks", prefixes: ["https://api.fireworks.ai"], keyEnv: "FIREWORKS_API_KEY" },
+  { id: "qwen-pay-as-you-go", name: "Qwen Pay-As-You-Go", mark: "qwen", prefixes: ["https://dashscope.aliyuncs.com"], keyEnv: "DASHSCOPE_API_KEY" },
+  // a Token Plan key works only at its own endpoint, so it is not the pay-as-you-go variable
+  {
+    id: "qwen-token-plan",
+    name: "Qwen Token Plan",
+    mark: "qwen",
+    prefixes: ["https://token-plan.cn-beijing.maas.aliyuncs.com"],
+    keyEnv: "QWEN_TOKEN_PLAN_API_KEY",
+  },
+  { id: "atlascloud", name: "Atlas Cloud", mark: "atlascloud", prefixes: ["https://api.atlascloud.ai"], keyEnv: "ATLASCLOUD_API_KEY" },
+  // an MMSP server, called by the `mmsp` client, which reads MMSP_API_KEY
+  { id: "penguin-go", name: "Penguin Go", prefixes: ["https://go.penguin.ooo"], keyEnv: "MMSP_API_KEY" },
+  { id: "modelscope", name: "ModelScope", mark: "modelscope", prefixes: ["https://api-inference.modelscope.cn"], keyEnv: "MODELSCOPE_API_KEY" },
+  // `vllm serve` on this machine at its default port; it checks a key only when started with one
+  {
+    id: "vllm",
+    name: "vLLM",
+    mark: "vllm",
+    prefixes: ["http://127.0.0.1:8000"],
+    keyEnv: "VLLM_API_KEY",
+    keyHint: { en: "the --api-key of vllm serve, or EMPTY", zh: "vllm serve 的 --api-key，没有则为 EMPTY" },
+    keyValue: "EMPTY",
+  },
 ];
 
 export function providerOf(baseUrl: string): Provider {
@@ -139,6 +172,18 @@ const VENDORS: [RegExp, Vendor][] = [
   [/x-ai\/|grok/, { id: "xai", name: "xAI", mark: "xai" }],
   [/xiaomi\/|(^|\/)mimo/, { id: "xiaomi", name: "Xiaomi", mark: "xiaomi" }],
   [/meituan|longcat/, { id: "meituan", name: "Meituan", mark: "longcat" }],
+  // a bare `mistral` or `llama` only at the start of a name, so a fine-tune another lab named after
+  // its base (dolphin-mistral-24b, hermes-3-llama-3.1-405b) is not filed under it
+  [/mistralai\/|(^|\/)mistral/, { id: "mistral", name: "Mistral", mark: "mistral" }],
+  [/^meta\/|meta-llama\/|(^|\/)llama|muse-/, { id: "meta", name: "Meta", mark: "meta" }],
+  [/cohere\/|command-/, { id: "cohere", name: "Cohere", mark: "cohere" }],
+  [/amazon\/|nova-/, { id: "amazon", name: "Amazon", mark: "aws" }],
+  [/perplexity\/|sonar/, { id: "perplexity", name: "Perplexity", mark: "perplexity" }],
+  [/bytedance|(^|\/)seed-/, { id: "bytedance", name: "ByteDance Seed", mark: "bytedance" }],
+  [/inception\/|mercury/, { id: "inception", name: "Inception", mark: "inception" }],
+  [/inclusionai\/|(^|\/)ling-/, { id: "inclusionai", name: "inclusionAI", mark: "ling" }],
+  [/xinghuo|spark-x/, { id: "iflytek", name: "iFlytek Spark", mark: "spark" }],
+  [/dots-/, { id: "dots", name: "Dots" }],
 ];
 
 export function vendorOf(model: string): Vendor | null {
