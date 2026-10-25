@@ -3,7 +3,7 @@
 - **Date:** 2026-10-24
 - **Type:** process
 - **Scope:** `design`, `site`, `skills`, `docs`
-- **PR:** [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298), [#N](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/N)
+- **PR:** [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298), [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
 
 [中文版](2026-10-24-rfc-specifications.zh.md)
 

@@ -3,7 +3,7 @@
 - Feature Name: `rfc_process`
 - Start Date: 2026-10-19
 - RFC PR: [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265)
-- Updated by: [#285](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/285), [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298), [#N](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/N)
+- Updated by: [#285](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/285), [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298), [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
 - Kind: process
 
 [中文版](MMSP-RFC-0001-rfc-process.zh.md)
@@ -49,7 +49,7 @@ The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY in this document are to
 
 ## 5. Numbering
 
-An RFC takes the next `MMSP-RFC-NNNN` that neither the folder nor an open PR uses, and a number is never reused. The exceptions are the two reassignments of 2026-10-24, both by the owner's order. [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) gave the rules MMSP-RFC-0002 to MMSP-RFC-0013 in the order of the owner's titles. [#N](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/N) then restated them as nine specifications, MMSP-RFC-0002 to MMSP-RFC-0009, added MMSP-RFC-0010, and gave each a noun title, again in the owner's order. The content moved as this table says:
+An RFC takes the next `MMSP-RFC-NNNN` that neither the folder nor an open PR uses, and a number is never reused. The exceptions are the two reassignments of 2026-10-24, both by the owner's order. [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) gave the rules MMSP-RFC-0002 to MMSP-RFC-0013 in the order of the owner's titles. [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301) then restated them as nine specifications, MMSP-RFC-0002 to MMSP-RFC-0009, added MMSP-RFC-0010, and gave each a noun title, again in the owner's order. The content moved as this table says:
 
 | 0.5.5 number | First renumbering (#298) | Content now in |
 | --- | --- | --- |

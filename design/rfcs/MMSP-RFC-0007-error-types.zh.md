@@ -2,7 +2,7 @@
 
 - Feature Name: `error_types`
 - Start Date: 2026-10-24
-- RFC PR: [#N](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/N)
+- RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
 - Kind: spec
 
 [English](MMSP-RFC-0007-error-types.md)

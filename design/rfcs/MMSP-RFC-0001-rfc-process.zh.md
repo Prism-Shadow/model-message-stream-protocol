@@ -3,7 +3,7 @@
 - Feature Name: `rfc_process`
 - Start Date: 2026-10-19
 - RFC PR: [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265)
-- Updated by: [#285](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/285), [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298), [#N](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/N)
+- Updated by: [#285](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/285), [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298), [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
 - Kind: process
 
 [English](MMSP-RFC-0001-rfc-process.md)
@@ -49,7 +49,7 @@ MMSP 要遵守的规则原先写在 mmsp-dev skill 里，写法是操作指南�
 
 ## 5. 编号
 
-RFC 取目录与未关闭的 PR 都没有用过的下一个 `MMSP-RFC-NNNN`，编号永不复用。例外是 2026-10-24 的两次重新分配，都出自项目负责人的要求。[#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) 按项目负责人给出的标题顺序，把各条规则依次编为 MMSP-RFC-0002 到 MMSP-RFC-0013。[#N](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/N) 随后把它们重写为九项规范 MMSP-RFC-0002 到 MMSP-RFC-0009，新增 MMSP-RFC-0010，并给每一篇一个名词标题，顺序同样出自项目负责人。内容按下表迁移：
+RFC 取目录与未关闭的 PR 都没有用过的下一个 `MMSP-RFC-NNNN`，编号永不复用。例外是 2026-10-24 的两次重新分配，都出自项目负责人的要求。[#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) 按项目负责人给出的标题顺序，把各条规则依次编为 MMSP-RFC-0002 到 MMSP-RFC-0013。[#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301) 随后把它们重写为九项规范 MMSP-RFC-0002 到 MMSP-RFC-0009，新增 MMSP-RFC-0010，并给每一篇一个名词标题，顺序同样出自项目负责人。内容按下表迁移：
 
 | 0.5.5 的编号 | 第一次重编号（#298） | 内容现在所在 |
 | --- | --- | --- |
