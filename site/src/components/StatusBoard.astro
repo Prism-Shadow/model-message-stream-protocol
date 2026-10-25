@@ -1,8 +1,9 @@
 ---
 // The status page's body, modeled on status.openai.com: one card whose head band takes the colour
 // of the worst status of every channel the daily probe watches, its icon and its words; under the
-// band when the probe last checked and when status.yml runs it next, Run a check now and the
-// month's probe cost. Then a pager that
+// band the last probe, linked to its run, and the next one status.yml is expected to start, each a
+// local time with its relative time beside it, then Run a check now, and last a footnote with the
+// month's probe cost and run count. Then a pager that
 // moves the window of days shown back and forth, a switch of its length (7, 30 or 90, kept for the
 // next visit), and one block per channel: a head line with its state icon, vendor, model, provider,
 // TTFT, TPS, cost and uptime over the window, and under it one bar per day, each of which opens a
@@ -15,7 +16,7 @@
 // run and redraws itself from the commit it publishes. Marks point into the page's MarkSprite.
 import { STRINGS, type Locale } from "../shared/i18n";
 import { MARKS, PLACEHOLDER, initialOf } from "../shared/marks";
-import { STATUS_WORKFLOW_URL, dailySchedule, todayUtc, windowDays } from "../shared/status";
+import { STATUS_RUN_URL, STATUS_WORKFLOW_URL, dailySchedule, todayUtc, windowDays } from "../shared/status";
 import { statusAtBuild } from "../shared/status-build";
 
 interface Props {
@@ -51,6 +52,8 @@ const DEFAULT_RANGE = 90;
 // when the probe runs next comes from the workflow itself, so the page never drifts from it
 const workflow = Object.values(import.meta.glob<string>("../../../.github/workflows/status.yml", { query: "?raw", import: "default", eager: true }))[0];
 const schedule = workflow ? dailySchedule(workflow) : null;
+const TIME_LABEL = "text-[11px] font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400";
+const TIME_VALUE = "mt-1 text-[15px] leading-6 font-semibold tabular-nums";
 ---
 
 <section
@@ -65,41 +68,49 @@ const schedule = workflow ? dailySchedule(workflow) : null;
   <div class="status-card overflow-hidden rounded-xl border" data-status-overall>
     <div class="status-card-head flex items-center gap-2.5 px-5 py-3.5 sm:px-6">
       <span class="flex h-5 w-5 items-center justify-center" data-status-overall-icon></span>
-      <p class="text-xl font-semibold tracking-tight" data-status-overall-text></p>
+      <p class="min-h-7 text-xl font-semibold tracking-tight" data-status-overall-text></p>
     </div>
-    <div class="flex flex-wrap items-start justify-between gap-x-8 gap-y-4 px-5 py-4 sm:px-6">
-      <div class="min-w-0">
-        <p class="text-[13px] text-gray-500 dark:text-gray-400" data-status-checked hidden>
-          <a
-            target="_blank"
-            rel="noreferrer"
-            class="underline decoration-gray-300 underline-offset-4 hover:text-gray-900 dark:decoration-gray-600 dark:hover:text-gray-100"
-          ></a><span data-status-next hidden><span class="mx-1.5 text-gray-300 dark:text-gray-600" aria-hidden="true">·</span><span data-status-next-text></span></span>
-        </p>
-        <p class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-          <a
-            href={STATUS_WORKFLOW_URL}
-            target="_blank"
-            rel="noreferrer"
-            data-status-trigger
-            title={s.status.triggerNote}
-            aria-describedby="status-trigger-note"
-            class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-950 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-900 dark:hover:text-white"
-          >
-            <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <polygon points="6 3 20 12 6 21 6 3"></polygon>
-            </svg>
-            <span>{s.status.trigger}</span>
-          </a>
-          <span id="status-trigger-note" class="sr-only">{s.status.triggerNote}</span>
-          <span class="text-xs text-gray-500 dark:text-gray-400" aria-live="polite" data-status-trigger-progress hidden></span>
-        </p>
-      </div>
-      <div class="sm:text-right" data-status-cost hidden>
-        <p class="mono text-2xl font-semibold tabular-nums" data-status-cost-month></p>
-        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400" data-status-cost-label></p>
-        <p class="mono mt-1 text-xs text-gray-400 tabular-nums dark:text-gray-500" data-status-cost-earlier></p>
-      </div>
+    <div class="px-5 py-4 sm:px-6">
+      <dl class="grid grid-cols-1 gap-x-10 gap-y-3 sm:grid-cols-[auto_auto] sm:justify-start" data-status-times>
+        <div class="min-w-0" data-status-checked>
+          <dt class={TIME_LABEL}>{s.status.lastProbe}</dt>
+          <dd class={TIME_VALUE}>
+            <a
+              href={baked.latest ? STATUS_RUN_URL + baked.latest.run_id : undefined}
+              target="_blank"
+              rel="noreferrer"
+              class="underline decoration-gray-300 underline-offset-4 hover:decoration-gray-500 dark:decoration-gray-600 dark:hover:decoration-gray-400 [&:not([href])]:no-underline"
+              data-status-checked-at
+            >—</a><span class="font-normal text-gray-500 dark:text-gray-400" data-status-checked-ago></span>
+          </dd>
+        </div>
+        <div class="min-w-0" data-status-next>
+          <dt class={TIME_LABEL}>{s.status.nextProbe}</dt>
+          <dd class={TIME_VALUE}>
+            <span data-status-next-at>—</span><span class="font-normal text-gray-500 dark:text-gray-400" data-status-next-in></span>
+          </dd>
+        </div>
+      </dl>
+      <p class="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <a
+          href={STATUS_WORKFLOW_URL}
+          target="_blank"
+          rel="noreferrer"
+          data-status-trigger
+          title={s.status.triggerNote}
+          aria-describedby="status-trigger-note"
+          class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-950 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-900 dark:hover:text-white"
+        >
+          <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polygon points="6 3 20 12 6 21 6 3"></polygon>
+          </svg>
+          <span>{s.status.trigger}</span>
+        </a>
+        <span id="status-trigger-note" class="sr-only">{s.status.triggerNote}</span>
+        <span class="text-xs text-gray-500 dark:text-gray-400" aria-live="polite" data-status-trigger-progress hidden></span>
+      </p>
+      {/* shown from the first paint when the build has the month's file, so filling it in moves nothing */}
+      <p class="mt-3 min-h-4 text-xs text-gray-400 tabular-nums dark:text-gray-500" data-status-cost hidden={!(baked.latest && baked.monthly)}></p>
     </div>
   </div>
   <div class="mt-6 flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
@@ -175,9 +186,7 @@ const schedule = workflow ? dailySchedule(workflow) : null;
     state: StatusWords;
     locale: string;
     overall: Record<Status | "allDown" | "none", string>;
-    checked: string;
-    next: string;
-    month: string;
+    cost: string;
     run: string;
     runs: string;
     ttft: string;
@@ -439,7 +448,7 @@ const schedule = workflow ? dailySchedule(workflow) : null;
       name.append(model, served);
       const { row, uptime } = history(days, target.model, dates, dated);
       const spent = element("span", "mono", cost);
-      spent.title = words.month;
+      spent.title = words.cost;
       // on a phone the gaps narrow so that the numbers keep one line
       const metrics = element("div", "flex flex-wrap items-baseline gap-x-1.5 gap-y-1 text-[13px] tabular-nums max-sm:basis-full max-sm:gap-x-1");
       [metric(words.ttft, formatMs(target.ttft_ms)), metric(words.tps, formatTps(target.tps), words.tpsUnit), spent, uptime].forEach((item, index) => {
@@ -590,24 +599,29 @@ const schedule = workflow ? dailySchedule(workflow) : null;
       drawWindow();
     });
 
-    // ---------- when the probe last checked, and when it runs next by the workflow's schedule; both
-    // are relative times, said again every minute. GitHub may start a scheduled run late, so for a
-    // while after the hour the next time named is tomorrow's even before today's run has landed.
-    const checkedLine = board.querySelector<HTMLElement>("[data-status-checked]")!;
-    const checkedRun = checkedLine.querySelector("a")!;
-    const nextItem = checkedLine.querySelector<HTMLElement>("[data-status-next]")!;
-    const nextText = nextItem.querySelector<HTMLElement>("[data-status-next-text]")!;
+    // ---------- the last probe and the next one by the workflow's schedule: each a local time, with
+    // its relative time beside it said again every minute and the full date in its tooltip. The next
+    // is only expected: GitHub may start a scheduled run late, so for a while after the hour the
+    // next time named is tomorrow's even before today's run has landed.
+    const checkedRun = board.querySelector<HTMLAnchorElement>("[data-status-checked-at]")!;
+    const checkedAgo = board.querySelector<HTMLElement>("[data-status-checked-ago]")!;
+    const nextAt = board.querySelector<HTMLElement>("[data-status-next-at]")!;
+    const nextIn = board.querySelector<HTMLElement>("[data-status-next-in]")!;
     const schedule = board.dataset.schedule ? (JSON.parse(board.dataset.schedule) as DailySchedule) : null;
     const localTime = new Intl.DateTimeFormat(words.locale, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+    const fullTime = new Intl.DateTimeFormat(words.locale, { dateStyle: "full", timeStyle: "long", hourCycle: "h23" });
     let checkedAt: string | undefined;
     const tick = () => {
       if (!checkedAt) return;
-      checkedRun.textContent = words.checked.replace("{ago}", ago(checkedAt, words.locale));
+      const checked = new Date(checkedAt);
+      checkedRun.textContent = localTime.format(checked);
+      checkedRun.title = fullTime.format(checked);
+      checkedAgo.textContent = ` · ${ago(checkedAt, words.locale)}`;
       if (!schedule) return;
       const next = nextRun(schedule);
-      nextText.textContent = words.next.replace("{in}", ago(next.toISOString(), words.locale));
-      nextItem.title = localTime.format(next);
-      nextItem.hidden = false;
+      nextAt.textContent = localTime.format(next);
+      nextAt.title = fullTime.format(next);
+      nextIn.textContent = ` · ${ago(next.toISOString(), words.locale)}`;
     };
     window.setInterval(tick, 60_000);
 
@@ -640,22 +654,20 @@ const schedule = workflow ? dailySchedule(workflow) : null;
       const stamps = targets.map(([, target]) => target.checked_at).filter((stamp): stamp is string => Boolean(stamp)).sort();
       checkedAt = stamps.at(-1) ?? latest.generated_at;
       checkedRun.href = STATUS_RUN_URL + latest.run_id;
-      checkedLine.hidden = false;
       tick();
 
-      const current = thisMonth();
-      const month = monthly?.months[current];
       if (monthly) {
-        board.querySelector("[data-status-cost-month]")!.textContent = formatUsd(month?.total_usd ?? 0);
-        board.querySelector("[data-status-cost-label]")!.textContent = [words.month, month ? runCount(month.runs) : ""].filter(Boolean).join(" · ");
-        const earlier = Object.keys(monthly.months)
+        const current = thisMonth();
+        const month = monthly.months[current];
+        const costLine = board.querySelector<HTMLElement>("[data-status-cost]")!;
+        costLine.textContent = [`${words.cost} ${formatUsd(month?.total_usd ?? 0)}`, month ? runCount(month.runs) : ""].filter(Boolean).join(" · ");
+        costLine.title = Object.keys(monthly.months)
           .filter((name) => name < current)
           .sort()
-          .reverse();
-        const earlierLine = board.querySelector<HTMLElement>("[data-status-cost-earlier]")!;
-        earlierLine.textContent = earlier.slice(0, 3).map((name) => `${monthName(name)} ${formatUsd(monthly.months[name].total_usd)}`).join(" · ");
-        earlierLine.title = earlier.map((name) => `${monthName(name)} ${formatUsd(monthly.months[name].total_usd)} · ${runCount(monthly.months[name].runs)}`).join("\n");
-        board.querySelector<HTMLElement>("[data-status-cost]")!.hidden = false;
+          .reverse()
+          .map((name) => `${monthName(name)} ${formatUsd(monthly.months[name].total_usd)} · ${runCount(monthly.months[name].runs)}`)
+          .join("\n");
+        costLine.hidden = false;
       }
 
       drawWindow();
