@@ -26,12 +26,14 @@ import json
 import os
 import wave
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 from flask import Flask, Response, render_template_string, request
 
+from ..errors import UnsupportedParameterError
 from ..legacy import normalize_legacy_messages
 from ..types import UniMessage
 
@@ -1128,8 +1130,9 @@ class Tracer:
 
     def __post_init__(self) -> None:
         """Initialize cache directory after instance creation."""
-        if self.cache_dir is None:
-            cache_dir_str = os.getenv("MMSP_CACHE_DIR", "cache")
+        # an empty value is no value, as in TypeScript, rather than the working directory
+        if not self.cache_dir:
+            cache_dir_str = os.getenv("MMSP_CACHE_DIR") or "cache"
             self.cache_dir = Path(cache_dir_str).absolute()
         elif isinstance(self.cache_dir, str):
             self.cache_dir = Path(self.cache_dir).absolute()
@@ -1258,6 +1261,8 @@ class Tracer:
     @staticmethod
     def _prefix_url(base_path: str, url: str) -> str:
         """Prefix an internal tracer URL with the mount path."""
+        # each segment encoded as encodeURIComponent does, so a trace named `run #1` or `会话` opens
+        url = quote(url, safe="/!'()*")
         if not base_path:
             return url
         if url == "/":
@@ -1266,7 +1271,7 @@ class Tracer:
 
     @staticmethod
     def _local_time(timestamp: str | None) -> str:
-        """Show a saved ISO timestamp in local time: Python saves it local, TypeScript in UTC."""
+        """Show a saved ISO timestamp in local time: it is UTC, or naive local time in older Python traces."""
         if not timestamp:
             return ""
         try:
@@ -1337,6 +1342,39 @@ class Tracer:
             f"{body}\n{_TRACER_SCRIPT}\n</body>\n</html>\n"
         )
 
+    def _is_inside_cache_dir(self, path: str) -> bool:
+        """Whether a path, its symlinks resolved, is the cache directory or a path under it."""
+        cache_dir = os.path.realpath(self.cache_dir)
+        resolved = os.path.realpath(path)
+        return resolved == cache_dir or resolved.startswith(os.path.join(cache_dir, ""))
+
+    def resolve_trace_path(self, trace_id: str, client: str = "Tracer") -> str:
+        """
+        Resolve the path a trace's files share, before their `.json` and `.txt` suffixes.
+
+        Args:
+            trace_id: The trace id, a relative path that stays inside the cache directory
+            client: The client the trace id was given to, named in the error
+
+        Returns:
+            The trace id joined to the cache directory and normalized
+
+        Raises:
+            UnsupportedParameterError: When the trace id is absolute, or a file of the trace would be
+                outside the cache directory, which an empty id or one that names the directory is too.
+        """
+        file_base = os.path.normpath(os.path.join(os.path.abspath(self.cache_dir), trace_id))
+        if os.path.isabs(trace_id) or not all(
+            self._is_inside_cache_dir(file_base + suffix) for suffix in (".json", ".txt")
+        ):
+            raise UnsupportedParameterError(
+                client,
+                "trace_id",
+                f"{client} does not support trace_id '{trace_id}': "
+                "it must be a relative path that stays inside the cache directory.",
+            )
+        return file_base
+
     def save_history(self, model: str, history: list[UniMessage], file_id: str, config: dict[str, Any]) -> None:
         """
         Save conversation history to files.
@@ -1344,27 +1382,30 @@ class Tracer:
         Args:
             model: The model name used for this conversation
             history: List of UniMessage objects representing the conversation
-            file_id: File identifier without extension (e.g., "agent1/00001")
+            file_id: The trace id (e.g., "agent1/00001"), to which `.json` and `.txt` are appended
             config: The UniConfig used for this conversation
+
+        Raises:
+            UnsupportedParameterError: When `resolve_trace_path` refuses the trace id.
         """
-        # Create directory if needed
-        file_path_base = self.cache_dir / file_id
-        file_path_base.parent.mkdir(parents=True, exist_ok=True)
+        file_path_base = self.resolve_trace_path(file_id)
+        os.makedirs(os.path.dirname(file_path_base), exist_ok=True)
 
         config_with_model = config.copy()
         config_with_model["model"] = model
         # Save as JSON
-        json_path = file_path_base.with_suffix(".json")
+        json_path = file_path_base + ".json"
         json_data = {
             "history": self._serialize_for_json(history),
             "config": self._serialize_for_json(config_with_model),
-            "timestamp": datetime.now().isoformat(),
+            # the format of JavaScript's toISOString, which the TypeScript tracer writes
+            "timestamp": datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z"),
         }
         with open(json_path, "w", encoding="utf-8") as f:
             json.dump(json_data, f, indent=2, ensure_ascii=False)
 
         # Save as human-readable text
-        txt_path = file_path_base.with_suffix(".txt")
+        txt_path = file_path_base + ".txt"
         formatted_content = self._format_history(history, config_with_model)
         with open(txt_path, "w", encoding="utf-8") as f:
             f.write(formatted_content)
@@ -1656,11 +1697,11 @@ class Tracer:
         @app.route("/<path:subpath>")
         def browse(subpath: str = "") -> str | Response:
             """Browse files and directories in the cache folder."""
-            full_path = self.cache_dir / subpath
-            full_path = full_path.resolve()
+            cache_dir = os.path.abspath(self.cache_dir)
+            full_path = Path(os.path.normpath(os.path.join(cache_dir, subpath)))
 
-            # Security check: ensure path is within cache_dir
-            if not str(full_path).startswith(str(self.cache_dir.resolve())):
+            # the rule the writer saves by, so the viewer opens every trace the writer saves
+            if not self._is_inside_cache_dir(str(full_path)):
                 return "Access denied", 403
 
             # If path doesn't exist
@@ -1723,15 +1764,12 @@ class Tracer:
                 with os.scandir(full_path) as scanner:
                     raw_entries = [entry for entry in scanner if entry.name != ".DS_Store"]
 
-                # Filter entries that pass the security check first
-                safe_entries: list[tuple[os.DirEntry, Path]] = []
-                for entry in raw_entries:
-                    try:
-                        relative_path = Path(entry.path).resolve().relative_to(self.cache_dir.resolve())
-                        safe_entries.append((entry, relative_path))
-                    except ValueError:
-                        # If relative_to fails, skip this entry for security
-                        continue
+                # an entry whose symlink leads outside the cache directory would be refused, so it is not listed
+                safe_entries: list[tuple[os.DirEntry, Path]] = [
+                    (entry, Path(os.path.relpath(entry.path, cache_dir)))
+                    for entry in raw_entries
+                    if self._is_inside_cache_dir(entry.path)
+                ]
 
                 # Pre-compute stat for each safe entry exactly once
                 entry_stats = {entry.name: entry.stat() for entry, _ in safe_entries}
@@ -1746,7 +1784,7 @@ class Tracer:
                     item_info: dict[str, Any] = {
                         "name": entry.name,
                         "is_dir": entry.is_dir(),
-                        "url": self._prefix_url(base_path, f"/{relative_path}"),
+                        "url": self._prefix_url(base_path, f"/{relative_path.as_posix()}"),
                         "mtime": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S"),
                     }
                     if entry.is_file():

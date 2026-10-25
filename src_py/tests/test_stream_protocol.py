@@ -15,6 +15,7 @@
 import asyncio
 import copy
 import json
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, AsyncIterator
 
@@ -31,6 +32,7 @@ from mmsp.errors import (
     InvalidMessageError,
     StreamProtocolError,
     ToolCallArgumentParseError,
+    UnsupportedParameterError,
 )
 from mmsp.legacy import normalize_legacy_messages
 from mmsp.types import EventContentItem, FinishReason, UniConfig, UniEvent, UniMessage, UsageMetadata
@@ -887,6 +889,28 @@ async def test_a_message_without_content_items_raises_invalid_message_error_befo
     assert str(exc_info.value) == "message 1 has nothing ScriptedClient can send"
     assert events == []
     assert client.sent_messages == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("trace_id", ["../outside", "agent/..", "{tmp_path}/outside"])
+async def test_a_trace_id_outside_the_cache_directory_raises_unsupported_parameter_error_before_anything_is_sent(
+    trace_id: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("MMSP_CACHE_DIR", str(tmp_path / "cache"))
+    trace_id = trace_id.format(tmp_path=tmp_path)
+    client = ScriptedClient(REPLY)
+    events: list[UniEvent] = []
+
+    with pytest.raises(UnsupportedParameterError) as exc_info:
+        async for event in client.streaming_response(messages=[USER], config={"trace_id": trace_id}):
+            events.append(event)
+
+    assert exc_info.value.client == "ScriptedClient"
+    assert exc_info.value.parameter == "trace_id"
+    assert str(exc_info.value).startswith(f"ScriptedClient does not support trace_id '{trace_id}'")
+    assert events == []
+    assert client.sent_messages == []
+    assert [path.name for path in tmp_path.rglob("*")] == ["cache"]
 
 
 @pytest.mark.asyncio

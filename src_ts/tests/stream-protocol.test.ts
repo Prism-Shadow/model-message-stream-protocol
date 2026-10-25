@@ -13,6 +13,9 @@
 // limitations under the License.
 
 import { describe, expect, jest, test } from "@jest/globals";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 import { AutoLLMClient } from "../src/autoClient";
 import { LLMClient } from "../src/baseClient";
 import {
@@ -22,6 +25,7 @@ import {
   InvalidMessageError,
   StreamProtocolError,
   ToolCallArgumentParseError,
+  UnsupportedParameterError,
 } from "../src/errors";
 import { normalizeLegacyMessages } from "../src/legacy";
 import {
@@ -1229,6 +1233,50 @@ describe("history and legacy messages", () => {
       });
       expect(events).toEqual([]);
       expect(client.sentMessages).toEqual([]);
+    },
+  );
+
+  test.each(["../outside", "agent/..", "{root}/outside"])(
+    "a trace id outside the cache directory (%j) raises UnsupportedParameterError before anything is sent",
+    async (template) => {
+      const root = fs.mkdtempSync(path.join(os.tmpdir(), "mmsp-trace-"));
+      const previousCacheDir = process.env.MMSP_CACHE_DIR;
+      process.env.MMSP_CACHE_DIR = path.join(root, "cache");
+      const traceId = template.replace("{root}", root);
+      const client = new ScriptedClient(reply);
+      const events: UniEvent[] = [];
+      try {
+        const error = await (async () => {
+          for await (const event of client.streamingResponse({
+            messages: [USER],
+            config: { trace_id: traceId },
+          })) {
+            events.push(event);
+          }
+        })().catch((caught) => caught);
+
+        expect(error).toBeInstanceOf(UnsupportedParameterError);
+        expect(error).toMatchObject({
+          client: "ScriptedClient",
+          parameter: "trace_id",
+        });
+        expect(
+          error.message.startsWith(
+            `ScriptedClient does not support trace_id '${traceId}'`,
+          ),
+        ).toBe(true);
+        expect(events).toEqual([]);
+        expect(client.sentMessages).toEqual([]);
+        expect(fs.readdirSync(root)).toEqual(["cache"]);
+        expect(fs.readdirSync(path.join(root, "cache"))).toEqual([]);
+      } finally {
+        if (previousCacheDir === undefined) {
+          delete process.env.MMSP_CACHE_DIR;
+        } else {
+          process.env.MMSP_CACHE_DIR = previousCacheDir;
+        }
+        fs.rmSync(root, { recursive: true, force: true });
+      }
     },
   );
 
