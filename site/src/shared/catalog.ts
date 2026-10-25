@@ -2,7 +2,8 @@
 // is built) with the provider that serves it, the vendor that made it, the key it needs, its status
 // key and its integration kit. The kit is the README's quickstart written for the entry: the
 // constructor call the registry test makes, then one request whose answer the program prints, so
-// the page cannot offer code the SDK does not run.
+// the page cannot offer code the SDK does not run. The page's dialog reads the kits from
+// /models/kits.json (catalogKits), not from the page.
 import { listSupportedModels, type SupportedModel } from "../../../src_ts/src/registry.ts";
 import credentialsSource from "../../../src_ts/src/credentials.ts?raw";
 import { providerOf, vendorOf, type Provider, type Vendor } from "./providers";
@@ -371,6 +372,58 @@ export function catalogRows(): CatalogRow[] {
     kit: kitFor(entry),
     pricing_cny: cny[index].pricing,
   }));
+}
+
+// what the Model Index's dialog shows of an entry: each tab's file and the lines that install, key
+// and run it, and the prompt Copy for agent puts on the clipboard
+export interface CatalogKit {
+  typescript: string;
+  python: string;
+  // a whole mmsp-server.json
+  server: string;
+  agent: string;
+  run: Record<"typescript" | "python" | "server", string>;
+}
+
+/**
+ * Every entry's dialog content in one language, by status key: /models/kits.json and
+ * /zh/models/kits.json, which the page fetches when a reader first reaches for a code button, so
+ * the page itself carries only the rows. The Server tab's file is started in the background, so one
+ * paste also streams one answer through it.
+ */
+export function catalogKits(locale: Locale): Record<string, CatalogKit> {
+  return Object.fromEntries(
+    catalogRows().map((row) => {
+      const { kit } = row;
+      const hint = kit.keyHint?.[locale];
+      const keyLine = `export ${kit.keyEnv}=${kit.keyValue}` + (hint && hint !== kit.keyValue ? `  # ${hint}` : "");
+      // a single-quoted shell word cannot hold a single quote, so the prompt's quotes become escaped
+      // double quotes
+      const body = literal(kit.request, "json").replaceAll("'", '\\"');
+      // an embedding, an image or speech streams as lines of numbers or base64; their heads show it
+      const heads = row.output_modalities.includes("Text") ? "" : " | cut -c 1-160";
+      const entry: CatalogKit = {
+        typescript: kit.typescript,
+        python: kit.python,
+        server: JSON.stringify({ models: [kit.server], api_keys: ["$MMSP_SERVER_API_KEY"] }, null, 2),
+        agent: agentPromptFor(row, locale),
+        run: {
+          typescript: ["npm install @prismshadow/mmsp", keyLine, "npx tsx main.ts"].join("\n"),
+          python: ["pip install mmsp", keyLine, "python main.py"].join("\n"),
+          server: [
+            "pip install mmsp",
+            keyLine,
+            "export MMSP_SERVER_API_KEY=secret",
+            "python -m mmsp.integration.server --config mmsp-server.json &",
+            "curl -sSN --retry 5 --retry-connrefused http://127.0.0.1:25752/v1/stream \\",
+            '  -H "Authorization: Bearer $MMSP_SERVER_API_KEY" -H "Content-Type: application/json" \\',
+            `  -d '${body}'${heads}`,
+          ].join("\n"),
+        },
+      };
+      return [row.key, entry];
+    }),
+  );
 }
 
 // a context window as vendors write it: 1M and 256K for powers of two, 200K and 1M for round
