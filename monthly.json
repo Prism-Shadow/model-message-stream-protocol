@@ -1,13 +1,13 @@
 {
   "months": {
     "2026-10": {
-      "runs": 4,
-      "total_usd": 0.04306125,
+      "runs": 5,
+      "total_usd": 0.05390551,
       "targets": {
-        "deepseek-official+https://api.deepseek.com+deepseek-flash": 0.00413428,
-        "google-genai+https://aiplatform.googleapis.com+gemini-3.8-flash": 0.035844,
+        "deepseek-official+https://api.deepseek.com+deepseek-flash": 0.00484285,
+        "google-genai+https://aiplatform.googleapis.com+gemini-3.8-flash": 0.044595,
         "deepseek-official+https://tokendance.space/gateway/v1+deepseek-v4.1-flash": 0.0007424,
-        "openai-chat+https://tokendance.space/gateway/v1+deepseek-v4.1-flash": 0.00234057
+        "openai-chat+https://tokendance.space/gateway/v1+deepseek-v4.1-flash": 0.00372526
       }
     }
   }
