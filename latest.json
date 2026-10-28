@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-10-27T09:59:52Z",
-  "run_id": "40484948016",
+  "generated_at": "2026-10-28T10:45:28Z",
+  "run_id": "40674525792",
   "samples": 3,
   "targets": {
     "deepseek-official+https://api.deepseek.com+deepseek-flash": {
@@ -9,17 +9,17 @@
       "base_url": "https://api.deepseek.com",
       "status": "up",
       "ok": 3,
-      "ttft_ms": 888,
-      "tps": 120.3,
+      "ttft_ms": 671,
+      "tps": 119.5,
       "usage": {
         "cached_tokens": 0,
         "prompt_tokens": 168,
-        "thoughts_tokens": 164,
-        "response_tokens": 1034
+        "thoughts_tokens": 237,
+        "response_tokens": 1044
       },
-      "cost_usd": 0.00070857,
+      "cost_usd": 0.000756,
       "error": null,
-      "checked_at": "2026-10-27T09:59:37Z"
+      "checked_at": "2026-10-28T10:45:17Z"
     },
     "google-genai+https://aiplatform.googleapis.com+gemini-3.8-flash": {
       "model": "gemini-3.8-flash",
@@ -27,17 +27,17 @@
       "base_url": "https://aiplatform.googleapis.com",
       "status": "up",
       "ok": 3,
-      "ttft_ms": 1389,
-      "tps": 87.9,
+      "ttft_ms": 2167,
+      "tps": 85.5,
       "usage": {
         "cached_tokens": 0,
         "prompt_tokens": 84,
         "thoughts_tokens": 0,
-        "response_tokens": 1150
+        "response_tokens": 1222
       },
-      "cost_usd": 0.008751,
+      "cost_usd": 0.009291,
       "error": null,
-      "checked_at": "2026-10-27T09:59:42Z"
+      "checked_at": "2026-10-28T10:45:25Z"
     },
     "openai-chat+https://tokendance.space/gateway/v1+deepseek-v4.1-flash": {
       "model": "deepseek-v4.1-flash",
@@ -45,17 +45,17 @@
       "base_url": "https://tokendance.space/gateway/v1",
       "status": "up",
       "ok": 3,
-      "ttft_ms": 1152,
-      "tps": 104.7,
+      "ttft_ms": 1022,
+      "tps": 104.4,
       "usage": {
         "cached_tokens": 0,
         "prompt_tokens": 168,
-        "thoughts_tokens": 1849,
-        "response_tokens": 1138
+        "thoughts_tokens": 1603,
+        "response_tokens": 980
       },
-      "cost_usd": 0.00138469,
+      "cost_usd": 0.0012,
       "error": null,
-      "checked_at": "2026-10-27T09:59:52Z"
+      "checked_at": "2026-10-28T10:45:28Z"
     }
   }
 }
