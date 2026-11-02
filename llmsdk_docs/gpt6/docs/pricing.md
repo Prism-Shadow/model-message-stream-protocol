@@ -1,0 +1,658 @@
+# Pricing
+
+> For the complete documentation index, see [llms.txt](/llms.txt). Markdown versions of documentation pages are available by appending `.md` to the page URL.
+
+<a id="astra"></a>
+<a id="latest-models"></a>
+
+
+  
+
+    
+
+Flagship models
+
+
+  
+
+  
+Speed
+
+  
+
+    Prices per 1M tokens.
+
+  
+
+Standard
+
+
+      
+### Standard pricing data
+
+| Model | Short context input | Short context output | Short context cached input | Short context 30m write | Short context 12h write | Long context input | Long context output | Long context cached input | Long context 30m write | Long context 12h write |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| gpt-6-astra | $10.00 | $50.00 | $1.00 | $12.50 | $25.00 | $20.00 | $75.00 | $2.00 | $25.00 | $50.00 |
+| gpt-6.1-sol | $2.00 | $10.00 | $0.10 | $2.50 | $5.00 | $4.00 | $15.00 | $0.20 | $5.00 | $10.00 |
+| gpt-6.1-terra | $1.00 | $5.00 | $0.05 | $1.25 | $2.50 | $2.00 | $7.50 | $0.10 | $2.50 | $5.00 |
+| gpt-6-luna | $0.10 | $0.50 | $0.01 | $0.125 | $0.25 | $0.20 | $0.75 | $0.02 | $0.25 | $0.50 |
+| gpt-6-sol | $2.00 | $10.00 | $0.20 | $2.50 | $5.00 | $4.00 | $15.00 | $0.40 | $5.00 | $10.00 |
+| gpt-5.6-sol | $4.00 | $20.00 | $0.40 | $5.00 | $10.00 | $8.00 | $30.00 | $0.80 | $10.00 | $20.00 |
+| gpt-5.6-terra | $2.00 | $12.00 | $0.20 | $2.50 | $5.00 | $4.00 | $18.00 | $0.40 | $5.00 | $10.00 |
+| gpt-5.6-luna | $0.20 | $1.20 | $0.02 | $0.25 | $0.50 | $0.40 | $1.80 | $0.04 | $0.50 | $1.00 |
+| gpt-5.5 (<272K context length) | $5.00 | $30.00 | $0.50 | - | - | $10.00 | $45.00 | $1.00 | - | - |
+| gpt-5.5-pro (<272K context length) | $30.00 | $180.00 | - | - | - | $60.00 | $270.00 | - | - | - |
+| gpt-5.4 (<272K context length) | $2.50 | $15.00 | $0.25 | - | - | $5.00 | $22.50 | $0.50 | - | - |
+| gpt-5.4-pro (<272K context length) | $30.00 | $180.00 | - | - | - | $60.00 | $270.00 | - | - | - |
+
+| Model | Input | Output | Cached input |
+| --- | --- | --- | --- |
+| gpt-5.4-mini | $0.75 | $4.50 | $0.075 |
+| gpt-5.4-nano | $0.20 | $1.25 | $0.02 |
+| gpt-5.2 | $1.75 | $14.00 | $0.175 |
+| gpt-5.2-pro | $21.00 | $168.00 | - |
+| gpt-5.1 | $1.25 | $10.00 | $0.125 |
+| gpt-5 | $1.25 | $10.00 | $0.125 |
+| gpt-5-mini | $0.25 | $2.00 | $0.025 |
+| gpt-5-nano | $0.05 | $0.40 | $0.005 |
+| gpt-5-pro | $15.00 | $120.00 | - |
+| gpt-4.1 | $2.00 | $8.00 | $0.50 |
+| gpt-4.1-mini | $0.40 | $1.60 | $0.10 |
+| gpt-4.1-nano | $0.10 | $0.40 | $0.025 |
+| gpt-4o | $2.50 | $10.00 | $1.25 |
+| gpt-4o-2024-05-13 | $5.00 | $15.00 | - |
+| gpt-4o-mini | $0.15 | $0.60 | $0.075 |
+| o1 | $15.00 | $60.00 | $7.50 |
+| o1-pro | $150.00 | $600.00 | - |
+| o3-pro | $20.00 | $80.00 | - |
+| o3 | $2.00 | $8.00 | $0.50 |
+| o4-mini | $1.10 | $4.40 | $0.275 |
+| o3-mini | $1.10 | $4.40 | $0.55 |
+| gpt-4-turbo-2024-04-09 | $10.00 | $30.00 | - |
+| gpt-4-0613 | $30.00 | $60.00 | - |
+| gpt-3.5-turbo | $0.50 | $1.50 | - |
+| gpt-3.5-turbo-0125 | $0.50 | $1.50 | - |
+
+    
+
+    
+
+      
+Batch
+
+
+      
+### Batch pricing data
+
+#### Batch
+
+| Model | Short context input | Short context output | Short context cached input | Short context 30m write | Short context 12h write | Long context input | Long context output | Long context cached input | Long context 30m write | Long context 12h write |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| gpt-6-astra | $5.00 | $25.00 | $0.50 | $6.25 | $12.50 | $10.00 | $37.50 | $1.00 | $12.50 | $25.00 |
+| gpt-6.1-sol | $1.00 | $5.00 | $0.05 | $1.25 | $2.50 | $2.00 | $7.50 | $0.10 | $2.50 | $5.00 |
+| gpt-6.1-terra | $0.50 | $2.50 | $0.025 | $0.625 | $1.25 | $1.00 | $3.75 | $0.05 | $1.25 | $2.50 |
+| gpt-6-luna | $0.05 | $0.25 | $0.005 | $0.0625 | $0.125 | $0.10 | $0.375 | $0.01 | $0.125 | $0.25 |
+| gpt-6-sol | $1.00 | $5.00 | $0.10 | $1.25 | $2.50 | $2.00 | $7.50 | $0.20 | $2.50 | $5.00 |
+| gpt-5.6-sol | $2.00 | $10.00 | $0.20 | $2.50 | $5.00 | $4.00 | $15.00 | $0.40 | $5.00 | $10.00 |
+| gpt-5.6-terra | $1.00 | $6.00 | $0.10 | $1.25 | $2.50 | $2.00 | $9.00 | $0.20 | $2.50 | $5.00 |
+| gpt-5.6-luna | $0.10 | $0.60 | $0.01 | $0.125 | $0.25 | $0.20 | $0.90 | $0.02 | $0.25 | $0.50 |
+| gpt-5.5 (<272K context length) | $2.50 | $15.00 | $0.25 | - | - | $5.00 | $22.50 | $0.50 | - | - |
+| gpt-5.5-pro (<272K context length) | $15.00 | $90.00 | - | - | - | - | - | - | - | - |
+| gpt-5.4 (<272K context length) | $1.25 | $7.50 | $0.13 | - | - | $2.50 | $11.25 | $0.25 | - | - |
+| gpt-5.4-pro (<272K context length) | $15.00 | $90.00 | - | - | - | $30.00 | $135.00 | - | - | - |
+
+| Model | Input | Output | Cached input |
+| --- | --- | --- | --- |
+| gpt-5.4-mini | $0.375 | $2.25 | $0.0375 |
+| gpt-5.4-nano | $0.10 | $0.625 | $0.01 |
+| gpt-5.2 | $0.875 | $7.00 | $0.0875 |
+| gpt-5.2-pro | $10.50 | $84.00 | - |
+| gpt-5.1 | $0.625 | $5.00 | $0.0625 |
+| gpt-5 | $0.625 | $5.00 | $0.0625 |
+| gpt-5-mini | $0.125 | $1.00 | $0.0125 |
+| gpt-5-nano | $0.025 | $0.20 | $0.0025 |
+| gpt-5-pro | $7.50 | $60.00 | - |
+| gpt-4.1 | $1.00 | $4.00 | - |
+| gpt-4.1-mini | $0.20 | $0.80 | - |
+| gpt-4.1-nano | $0.05 | $0.20 | - |
+| gpt-4o | $1.25 | $5.00 | - |
+| gpt-4o-2024-05-13 | $2.50 | $7.50 | - |
+| gpt-4o-mini | $0.075 | $0.30 | - |
+| o1 | $7.50 | $30.00 | - |
+| o1-pro | $75.00 | $300.00 | - |
+| o3-pro | $10.00 | $40.00 | - |
+| o3 | $1.00 | $4.00 | - |
+| o4-mini | $0.55 | $2.20 | - |
+| o3-mini | $0.55 | $2.20 | - |
+| gpt-4-turbo-2024-04-09 | $5.00 | $15.00 | - |
+| gpt-4-0613 | $15.00 | $30.00 | - |
+| gpt-3.5-turbo-0125 | $0.25 | $0.75 | - |
+
+#### Flex
+
+| Model | Short context input | Short context output | Short context cached input | Short context 30m write | Short context 12h write | Long context input | Long context output | Long context cached input | Long context 30m write | Long context 12h write |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| gpt-6-astra | $5.00 | $25.00 | $0.50 | $6.25 | $12.50 | $10.00 | $37.50 | $1.00 | $12.50 | $25.00 |
+| gpt-6.1-sol | $1.00 | $5.00 | $0.05 | $1.25 | $2.50 | $2.00 | $7.50 | $0.10 | $2.50 | $5.00 |
+| gpt-6.1-terra | $0.50 | $2.50 | $0.025 | $0.625 | $1.25 | $1.00 | $3.75 | $0.05 | $1.25 | $2.50 |
+| gpt-6-luna | $0.05 | $0.25 | $0.005 | $0.0625 | $0.125 | $0.10 | $0.375 | $0.01 | $0.125 | $0.25 |
+| gpt-6-sol | $1.00 | $5.00 | $0.10 | $1.25 | $2.50 | $2.00 | $7.50 | $0.20 | $2.50 | $5.00 |
+| gpt-5.6-sol | $2.00 | $10.00 | $0.20 | $2.50 | $5.00 | $4.00 | $15.00 | $0.40 | $5.00 | $10.00 |
+| gpt-5.6-terra | $1.00 | $6.00 | $0.10 | $1.25 | $2.50 | $2.00 | $9.00 | $0.20 | $2.50 | $5.00 |
+| gpt-5.6-luna | $0.10 | $0.60 | $0.01 | $0.125 | $0.25 | $0.20 | $0.90 | $0.02 | $0.25 | $0.50 |
+| gpt-5.5 (<272K context length) | $2.50 | $15.00 | $0.25 | - | - | $5.00 | $22.50 | $0.50 | - | - |
+| gpt-5.5-pro (<272K context length) | $15.00 | $90.00 | - | - | - | - | - | - | - | - |
+| gpt-5.4 (<272K context length) | $1.25 | $7.50 | $0.13 | - | - | $2.50 | $11.25 | $0.25 | - | - |
+| gpt-5.4-pro (<272K context length) | $15.00 | $90.00 | - | - | - | $30.00 | $135.00 | - | - | - |
+
+| Model | Input | Output | Cached input |
+| --- | --- | --- | --- |
+| gpt-5.4-mini | $0.375 | $2.25 | $0.0375 |
+| gpt-5.4-nano | $0.10 | $0.625 | $0.01 |
+| gpt-5.2 | $0.875 | $7.00 | $0.0875 |
+| gpt-5.1 | $0.625 | $5.00 | $0.0625 |
+| gpt-5 | $0.625 | $5.00 | $0.0625 |
+| gpt-5-mini | $0.125 | $1.00 | $0.0125 |
+| gpt-5-nano | $0.025 | $0.20 | $0.0025 |
+| o3 | $1.00 | $4.00 | $0.25 |
+| o4-mini | $0.55 | $2.20 | $0.138 |
+
+    
+
+    
+
+      
+Fast
+
+
+      
+### Fast pricing data
+
+| Model | Short context input | Short context output | Short context cached input | Short context 30m write | Short context 12h write | Long context input | Long context output | Long context cached input | Long context 30m write | Long context 12h write |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| gpt-6-astra | $20.00 | $100.00 | $2.00 | $25.00 | $50.00 | $40.00 | $150.00 | $4.00 | $50.00 | $100.00 |
+| gpt-6.1-sol | $4.00 | $20.00 | $0.20 | $5.00 | $10.00 | $8.00 | $30.00 | $0.40 | $10.00 | $20.00 |
+| gpt-6.1-terra | $2.00 | $10.00 | $0.10 | $2.50 | $5.00 | $4.00 | $15.00 | $0.20 | $5.00 | $10.00 |
+| gpt-6-luna | $0.20 | $1.00 | $0.02 | $0.25 | $0.50 | $0.40 | $1.50 | $0.04 | $0.50 | $1.00 |
+| gpt-6-sol | $4.00 | $20.00 | $0.40 | $5.00 | $10.00 | $8.00 | $30.00 | $0.80 | $10.00 | $20.00 |
+| gpt-5.6-sol | $8.00 | $40.00 | $0.80 | $10.00 | $20.00 | $16.00 | $60.00 | $1.60 | $20.00 | $40.00 |
+| gpt-5.6-terra | $4.00 | $24.00 | $0.40 | $5.00 | $10.00 | $8.00 | $36.00 | $0.80 | $10.00 | $20.00 |
+| gpt-5.6-luna | $0.40 | $2.40 | $0.04 | $0.50 | $1.00 | $0.80 | $3.60 | $0.08 | $1.00 | $2.00 |
+| gpt-5.5 (<272K context length) | $12.50 | $75.00 | $1.25 | - | - | - | - | - | - | - |
+| gpt-5.4 (<272K context length) | $5.00 | $30.00 | $0.50 | - | - | - | - | - | - | - |
+
+| Model | Input | Output | Cached input |
+| --- | --- | --- | --- |
+| gpt-5.4-mini | $1.50 | $9.00 | $0.15 |
+| gpt-5.2 | $3.50 | $28.00 | $0.35 |
+| gpt-5.1 | $2.50 | $20.00 | $0.25 |
+| gpt-5 | $2.50 | $20.00 | $0.25 |
+| gpt-5-mini | $0.45 | $3.60 | $0.045 |
+| gpt-4.1 | $3.50 | $14.00 | $0.875 |
+| gpt-4.1-mini | $0.70 | $2.80 | $0.175 |
+| gpt-4.1-nano | $0.20 | $0.80 | $0.05 |
+| gpt-4o | $4.25 | $17.00 | $2.125 |
+| gpt-4o-2024-05-13 | $8.75 | $26.25 | - |
+| gpt-4o-mini | $0.25 | $1.00 | $0.125 |
+| o3 | $3.50 | $14.00 | $0.875 |
+| o4-mini | $2.00 | $8.00 | $0.50 |
+
+    
+
+    
+
+      
+Ultrafast
+
+      
+### Ultrafast pricing data
+
+| Model | Short context input | Short context output | Short context cached input | Short context 30m write | Short context 12h write | Long context input | Long context output | Long context cached input | Long context 30m write | Long context 12h write |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| gpt-6-astra | $60.00 | $300.00 | $6.00 | $75.00 | $150.00 | $120.00 | $450.00 | $12.00 | $150.00 | $300.00 |
+| gpt-6.1-sol | $12.00 | $60.00 | $0.60 | $15.00 | $30.00 | $24.00 | $90.00 | $1.20 | $30.00 | $60.00 |
+
+Short context: ≤272K input tokens. Long context: >272K input tokens.
+
+
+  
+
+
+Regional processing (data residency) endpoints are charged a 10% uplift for models released on or after March 5, 2026. Starting Nov 1, 2026, FedRAMP endpoints are also charged a 10% uplift. Priority processing was renamed Fast mode on July 30, 2026. GPT-5.6 Sol’s promotional pricing is available at least through November 21, 2026.
+
+  
+
+
+
+
+
+
+  
+
+Cyber models
+
+
+  
+Our latest Daybreak models.
+
+
+
+
+
+  Prices per 1M tokens.
+
+
+### Standard pricing data
+
+| Model | Short context input | Short context output | Short context cached input | Short context 30m write | Short context 12h write | Long context input | Long context output | Long context cached input | Long context 30m write | Long context 12h write |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| gpt-5.6-sol | $4.00 | $20.00 | $0.40 | $5.00 | $10.00 | $8.00 | $30.00 | $0.80 | $10.00 | $20.00 |
+| gpt-5.6-cyber | $12.50 | $75.00 | $1.25 | $15.625 | $31.25 | - | - | - | - | - |
+| gpt-5.5-cyber | $12.50 | $75.00 | $1.25 | - | - | - | - | - | - | - |
+
+
+
+  
+
+Life sciences models
+
+
+  
+Our latest Rosalind models.
+
+
+
+
+
+  Prices per 1M tokens.
+
+
+### Standard pricing data
+
+| Model | Short context input | Short context output | Short context cached input | Short context 30m write | Short context 12h write | Long context input | Long context output | Long context cached input | Long context 30m write | Long context 12h write |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| gpt-6-rosalind | $15.00 | $75.00 | $1.50 | $18.75 | $37.50 | $30.00 | $112.50 | $3.00 | $37.50 | $75.00 |
+| gpt-rosalind-research | $5.00 | $25.00 | $0.50 | - | - | - | - | - | - | - |
+| gpt-rosalind-discovery | $5.00 | $25.00 | $0.50 | - | - | - | - | - | - | - |
+
+Access is limited to approved internal research through the [trusted-access program](https://help.openai.com/en/articles/20001193-gpt-rosalind-for-life-sciences-research). All eligible organizations will continue to get access to the latest GPT-Rosalind models as they’re released. Regional processing (data residency) endpoints are charged a 10% uplift for models released on or after March 5, 2026, that are eligible for data residency. See our [Your data](https://developers.openai.com/api/docs/guides/your-data) guide for supported regions and processing details.
+
+
+
+  
+
+Legal model configurations
+
+
+  
+Our latest legal model configurations.
+
+  
+Prices per 1M tokens.
+
+
+
+
+### Grouped Pricing Table data
+
+| Model configuration | Input | Output | Cached input |
+| --- | --- | --- | --- |
+| gpt-6-astra-law | $10.00 | $50.00 | $1.00 |
+
+GPT-6 Astra for Law promotional pricing is available at least through December 31, 2026.
+
+
+
+  
+
+    
+
+Multimodal models
+
+
+  
+
+
+
+
+
+  
+
+GPT-Live sessions
+
+
+
+
+[GPT-Live 1](https://developers.openai.com/api/docs/models/gpt-live-1) voice sessions are billed per second,
+without rounding up to a whole minute. Backend model and tool usage is charged
+separately.
+
+### Pricing Table data
+
+| Model | Price per minute |
+| --- | --- |
+| gpt-live-1 | $0.05 |
+
+
+
+  
+
+Realtime and audio generation models
+
+
+
+
+
+Prices per 1M tokens unless noted.
+
+
+### Grouped Pricing Table data
+
+| Model | Modality | Input | Output / cost | Cached input |
+| --- | --- | --- | --- | --- |
+| gpt-realtime-2.1 | Audio | $32.00 | $64.00 | $0.40 |
+| gpt-realtime-2.1 | Text | $4.00 | $24.00 | $0.40 |
+| gpt-realtime-2.1 | Image | $5.00 | - | $0.50 |
+| gpt-realtime-2.1-mini | Audio | $10.00 | $20.00 | $0.30 |
+| gpt-realtime-2.1-mini | Text | $0.60 | $2.40 | $0.06 |
+| gpt-realtime-2.1-mini | Image | $0.80 | - | $0.08 |
+| gpt-realtime-2 | Audio | $32.00 | $64.00 | $0.40 |
+| gpt-realtime-2 | Text | $4.00 | $24.00 | $0.40 |
+| gpt-realtime-2 | Image | $5.00 | - | $0.50 |
+| gpt-realtime-1.5 | Audio | $32.00 | $64.00 | $0.40 |
+| gpt-realtime-1.5 | Text | $4.00 | $16.00 | $0.40 |
+| gpt-realtime-1.5 | Image | $5.00 | - | $0.50 |
+| gpt-realtime-mini | Audio | $10.00 | $20.00 | $0.30 |
+| gpt-realtime-mini | Text | $0.60 | $2.40 | $0.06 |
+| gpt-realtime-mini | Image | $0.80 | - | $0.08 |
+| gpt-realtime | Audio | $32.00 | $64.00 | $0.40 |
+| gpt-realtime | Text | $4.00 | $16.00 | $0.40 |
+| gpt-realtime | Image | $5.00 | - | $0.50 |
+| gpt-audio-1.5 | Audio | $32.00 | $64.00 | - |
+| gpt-audio-1.5 | Text | $2.50 | $10.00 | - |
+| gpt-audio-mini | Audio | $10.00 | $20.00 | - |
+| gpt-audio-mini | Text | $0.60 | $2.40 | - |
+| gpt-audio | Audio | $32.00 | $64.00 | - |
+| gpt-audio | Text | $2.50 | $10.00 | - |
+| gpt-4o-mini-tts | Audio | - | $12.00 | - |
+| gpt-4o-mini-tts | Text | $0.60 | - | - |
+| tts-1 | Text | $15.00 / 1M characters | - | - |
+| tts-1-hd | Text | $30.00 / 1M characters | - | - |
+
+
+
+  
+
+    
+
+Image generation models
+
+
+    
+Prices per 1M tokens.
+
+  
+
+
+  
+
+Standard
+
+
+      For image generation cost estimates, use the calculator in the image generation guide.
+      
+### Grouped Pricing Table data
+
+| Model | Modality | Input | Output | Cached input |
+| --- | --- | --- | --- | --- |
+| gpt-image-2.5-sunburst | Image | $8.00 | $30.00 | $2.00 |
+| gpt-image-2.5-sunburst | Text | $5.00 | - | $1.25 |
+| gpt-image-2.5-flare | Image | $8.00 | $30.00 | $2.00 |
+| gpt-image-2.5-flare | Text | $5.00 | - | $1.25 |
+| gpt-image-2 | Image | $8.00 | $30.00 | $2.00 |
+| gpt-image-2 | Text | $5.00 | - | $1.25 |
+| gpt-image-1.5 | Image | $8.00 | $32.00 | $2.00 |
+| gpt-image-1.5 | Text | $5.00 | $10.00 | $1.25 |
+| gpt-image-1-mini | Image | $2.50 | $8.00 | $0.25 |
+| gpt-image-1-mini | Text | $2.00 | - | $0.20 |
+| chatgpt-image-latest | Image | $8.00 | $32.00 | $2.00 |
+| chatgpt-image-latest | Text | $5.00 | $10.00 | $1.25 |
+
+Cached input rates for GPT Image 2 and GPT Image 2.5 only apply to images generated with the Responses API. [Learn more](https://developers.openai.com/api/docs/guides/image-generation#cached-input-pricing).
+
+    
+
+    
+
+      
+Batch
+
+
+      For image generation cost estimates, use the calculator in the image generation guide.
+      
+### Grouped Pricing Table data
+
+| Model | Modality | Input | Output | Cached input |
+| --- | --- | --- | --- | --- |
+| gpt-image-2 | Image | $4.00 | $15.00 | $1.00 |
+| gpt-image-2 | Text | $2.50 | - | $0.625 |
+| gpt-image-2.5-sunburst | Image | $4.00 | $15.00 | $1.00 |
+| gpt-image-2.5-sunburst | Text | $2.50 | - | $0.625 |
+| gpt-image-2.5-flare | Image | $4.00 | $15.00 | $1.00 |
+| gpt-image-2.5-flare | Text | $2.50 | - | $0.625 |
+| gpt-image-1.5 | Image | $4.00 | $16.00 | $1.00 |
+| gpt-image-1.5 | Text | $2.50 | $5.00 | $0.63 |
+| gpt-image-1-mini | Image | $1.25 | $4.00 | $0.13 |
+| gpt-image-1-mini | Text | $1.00 | - | $0.10 |
+| chatgpt-image-latest | Image | $4.00 | $16.00 | $1.00 |
+| chatgpt-image-latest | Text | $2.50 | $5.00 | $0.63 |
+
+Cached input rates for GPT Image 2 and GPT Image 2.5 only apply to images generated with the Responses API. [Learn more](https://developers.openai.com/api/docs/guides/image-generation#cached-input-pricing).
+
+
+
+
+
+
+  
+
+Transcription models
+
+
+
+
+
+Prices per 1M tokens unless noted.
+
+
+### Grouped Pricing Table data
+
+| Model | Use case | Input | Output | Estimated cost |
+| --- | --- | --- | --- | --- |
+| gpt-realtime-translate | Live translation | - | - | $0.034 / minute |
+| gpt-live-transcribe | Live transcription | - | - | $0.017 / minute |
+| gpt-realtime-whisper | Live transcription | - | - | $0.017 / minute |
+| gpt-transcribe | Transcription | - | - | $0.0045 / minute |
+| gpt-4o-transcribe | Transcription | $2.50 | $10.00 | $0.006 / minute |
+| gpt-4o-mini-transcribe | Transcription | $1.25 | $5.00 | $0.003 / minute |
+| gpt-4o-transcribe-diarize | Transcription + diarization | $2.50 | $10.00 | $0.006 / minute |
+| Whisper | Transcription | - | - | $0.006 / minute |
+
+
+
+  
+
+Tools
+
+
+
+
+
+### Grouped Pricing Table data
+
+| Tool | Details | Pricing |
+| --- | --- | --- |
+| Web search | Web search (all models) | $10.00 / 1k calls + Search content tokens billed at model rates. |
+| Web search | Image Web search (all models) | $10.00 / 1k calls + Search content tokens billed at model rates. |
+| Web search | Web search preview (reasoning models, including `gpt-5`, `o-series`) | $10.00 / 1k calls + Search content tokens billed at model rates. |
+| Web search | Web search preview (non-reasoning models) | $25.00 / 1k calls + Search content tokens are free. |
+| Containers | Hosted Shell and Code Interpreter | 1 GB $0.03, 4 GB $0.12, 16 GB $0.48, 64 GB $1.92 per 20-minute session per container. |
+| File search | Storage | $0.10 / GB per day (1 GB free) |
+| File search | Tool call | $2.50 / 1k calls |
+| Agent Kit | ChatKit file and image upload storage | $0.10 / GB-day after 1 GB free per account per month |
+
+$10.00 / 1k calls + Search content tokens billed at model rates.
+
+Web search preview (reasoning models, including `gpt-5`, `o-series`)
+
+$25.00 / 1k calls + Search content tokens are free.
+
+Hosted Shell and Code Interpreter
+
+Tokens used for built-in tools are billed at the chosen model's per-token rates. GB refers to binary gigabytes (also known as gibibytes), where 1 GB is 2^30 bytes. Web search content tokens are tokens retrieved from the search index and fed to the model alongside your prompt to generate an answer. For gpt-4o-mini and gpt-4.1-mini with the non-preview web search tool, search content tokens are billed as a fixed block of 8,000 input tokens per call. File search tool call pricing applies to the Responses API only. Container pricing includes Hosted Shell and Code Interpreter. Eligible container sessions will be billed by the minute, with a 5-minute minimum per session. Responses API, Chat Completions API, Realtime API, Batch API, and Assistants API are not priced separately. Tokens are billed at the chosen model's input and output rates.
+
+
+  
+
+    
+
+Specialized models
+
+
+    
+Prices per 1M tokens.
+
+  
+
+
+  
+
+Standard
+
+
+      
+### Grouped Pricing Table data
+
+| Category | Model | Input | Output | Cached input |
+| --- | --- | --- | --- | --- |
+| ChatGPT | chat-latest | $5.00 | $30.00 | $0.50 |
+| Codex | gpt-5.3-codex | $1.75 | $14.00 | $0.175 |
+| Search | gpt-5-search-api | $1.25 | $10.00 | $0.125 |
+| Embedding | text-embedding-3-small | $0.02 | - | - |
+| Embedding | text-embedding-3-large | $0.13 | - | - |
+| Embedding | text-embedding-ada-002 | $0.10 | - | - |
+| Moderation | omni-moderation-latest | Free | - | - |
+
+Regional processing (data residency) endpoints are charged a 10% uplift for models released on or after March 5, 2026, that are eligible for data residency. See our [Your data](https://developers.openai.com/api/docs/guides/your-data) guide for supported regions and processing details.
+
+    
+
+    
+
+      
+Fast
+
+
+      
+### Grouped Pricing Table data
+
+| Category | Model | Input | Output | Cached input |
+| --- | --- | --- | --- | --- |
+| Codex | gpt-5.3-codex | $3.50 | $28.00 | $0.35 |
+
+Regional processing (data residency) endpoints are charged a 10% uplift for models released on or after March 5, 2026, that are eligible for data residency. See our [Your data](https://developers.openai.com/api/docs/guides/your-data) guide for supported regions and processing details.
+
+
+
+
+
+
+  
+
+    
+
+Finetuning
+
+
+    
+Prices per 1M tokens.
+
+  
+
+  
+
+    OpenAI is winding down the fine-tuning platform. The platform is no longer
+      accessible to new users, but existing users of the fine-tuning platform
+      will be able to create training jobs for the coming months.
+      
+
+      All fine-tuned models will remain available for inference until their base
+      models are deprecated. The full timeline is
+      [here](https://developers.openai.com/api/docs/deprecations#update-to-openais-self-serve-fine-tuning).
+  
+
+
+  
+
+Standard
+
+
+      
+### Pricing Table data
+
+| Model | Training | Input | Output | Cached input |
+| --- | --- | --- | --- | --- |
+| o4-mini-2025-04-16 | $100.00 / hour | $4.00 | $16.00 | $1.00 |
+| o4-mini-2025-04-16 (data sharing) | $100.00 / hour | $2.00 | $8.00 | $0.50 |
+| gpt-4.1-2025-04-14 | $25.00 | $3.00 | $12.00 | $0.75 |
+| gpt-4.1-mini-2025-04-14 | $5.00 | $0.80 | $3.20 | $0.20 |
+| gpt-4.1-nano-2025-04-14 | $1.50 | $0.20 | $0.80 | $0.05 |
+| gpt-4o-2024-08-06 | $25.00 | $3.75 | $15.00 | $1.875 |
+| gpt-4o-mini-2024-07-18 | $3.00 | $0.30 | $1.20 | $0.15 |
+| gpt-3.5-turbo (legacy) | $8.00 | $3.00 | $6.00 | - |
+| davinci-002 (legacy) | $6.00 | $12.00 | $12.00 | - |
+| babbage-002 (legacy) | $0.40 | $1.60 | $1.60 | - |
+
+    
+
+    
+
+      
+Batch
+
+
+      
+### Pricing Table data
+
+| Model | Training | Input | Output | Cached input |
+| --- | --- | --- | --- | --- |
+| o4-mini-2025-04-16 | $100.00 / hour | $2.00 | $8.00 | $0.50 |
+| o4-mini-2025-04-16 (data sharing) | $100.00 / hour | $1.00 | $4.00 | $0.25 |
+| gpt-4.1-2025-04-14 | $25.00 | $1.50 | $6.00 | $0.50 |
+| gpt-4.1-mini-2025-04-14 | $5.00 | $0.40 | $1.60 | $0.10 |
+| gpt-4.1-nano-2025-04-14 | $1.50 | $0.10 | $0.40 | $0.025 |
+| gpt-4o-2024-08-06 | $25.00 | $2.225 | $12.50 | $0.90 |
+| gpt-4o-mini-2024-07-18 | $3.00 | $0.15 | $0.60 | $0.075 |
+| gpt-3.5-turbo (legacy) | $8.00 | $1.50 | $3.00 | - |
+| davinci-002 (legacy) | $6.00 | $6.00 | $6.00 | - |
+| babbage-002 (legacy) | $0.40 | $0.80 | $0.90 | - |
+
+
+
+
+Tokens used for model grading in reinforcement fine-tuning are billed at that model's per-token rate. Inference discounts are available if you enable data sharing when creating the fine-tune job. Learn more.
+
+
+  
+
+Cloud platforms
+
+
+
+
+
+OpenAI models on Amazon Bedrock and Microsoft Azure are billed through those
+services.
+
+- See [Amazon Bedrock pricing](https://aws.amazon.com/bedrock/pricing/).
+- See [Microsoft Azure pricing](https://azure.microsoft.com/en-us/pricing/details/azure-openai/).

@@ -25,7 +25,7 @@ To use a specific model, please refer to its dedicated README:
 - **[GLM-5.3](./glm5_3/README.md)** - Z.AI's GLM-5.3 API documentation (forced thinking, reasoning_effort restricted to low/high/max)
 - **[GPT-5.5](./gpt5_5/README.md)** - OpenAI's GPT-5.5 API documentation and examples
 - **[GPT-5.6](./gpt5_6/README.md)** - OpenAI's GPT-5.6 generation (sol/terra/luna): reasoning modes, fast mode, and Responses migration
-- **[GPT-6](./gpt6/README.md)** - OpenAI's GPT-6 generation (gpt-6-astra, gpt-6.1-sol, gpt-6-luna): Responses API, Luna supports `none`, cache-write billing
+- **[GPT-6](./gpt6/README.md)** - OpenAI's GPT-6 generation (gpt-6-astra, gpt-6.1-sol, gpt-6.1-terra, gpt-6-luna): Responses API, Terra and Luna support `none`, cache-write billing
 - **[Jina web tools](./jina_webtool/README.md)** - Jina's Reader (r.jina.ai) and Search (s.jina.ai) APIs (`jina-fetch`, `jina-search`; `jina-webtool` client), billed in tokens
 - **[Kimi K3](./kimi_k3/README.md)** - Moonshot's Kimi K3 API documentation (reasoning_effort, tool calling, vision, caching)
 - **[Kimi K3.1 Pro](./kimi_k3_1/README.md)** - Moonshot's Kimi K3.1 Pro (`kimi-k3.1-pro`, `kimi-k3.1-pro-highspeed`): K3's request contract, new prices, `prompt_cache_options` TTLs and cache-write usage

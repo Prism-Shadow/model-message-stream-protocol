@@ -9,10 +9,6 @@ latestModelInfo:
 
 > For the complete documentation index, see [llms.txt](/llms.txt). Markdown versions of documentation pages are available by appending `.md` to the page URL.
 
-Choose a GPT-6 model based on the reasoning your task requires, speed, and cost.
-
-
-
 - [GPT-6 Astra](https://developers.openai.com/api/docs/models/gpt-6-astra)
 
   **Highest intelligence**
@@ -24,6 +20,12 @@ Choose a GPT-6 model based on the reasoning your task requires, speed, and cost.
   **Balanced speed, cost, and intelligence**
 
   Near-Astra performance for complex work at a lower cost.
+
+- [GPT-6.1 Terra](https://developers.openai.com/api/docs/models/gpt-6.1-terra)
+
+  **Fast and efficient**
+
+  For visual reasoning, precise computer use, and clear, natural writing.
 
 - [GPT-6 Luna](https://developers.openai.com/api/docs/models/gpt-6-luna)
 
@@ -48,17 +50,33 @@ All GPT-6 Astra users also have access to [Fast mode](https://developers.openai.
 
 ### GPT-6.1 Sol
 
-Use GPT-6.1 Sol for complex coding, computer use, and professional work when you
-want near-Astra performance at a lower cost. Compare it with Astra on your tasks
-to assess the tradeoff between quality and cost.
+GPT-6.1 Sol delivers near-Astra performance at a lower cost for complex coding,
+computer use, and professional work. It supports `low`, `medium` (default),
+`high`, `xhigh`, and `max` reasoning effort.
 
-Set `reasoning.effort` to `low`, `medium` (default), `high`, `xhigh`, or `max`.
-Use the Responses API for tool calling. Chat Completions supports requests
-without tools. The `none` and `minimal` reasoning efforts are not supported.
+See the [model page](https://developers.openai.com/api/docs/models/gpt-6.1-sol) for specifications and pricing.
 
-See the [model page](https://developers.openai.com/api/docs/models/gpt-6.1-sol) for specifications,
-pricing, and availability, or [model selection](https://developers.openai.com/api/docs/guides/model-selection#when-to-consider-gpt-61-sol)
-for guidance on choosing a model.
+<a id="gpt-61-terra"></a>
+<a id="gpt-6.1-terra"></a>
+
+### GPT-6.1 Terra
+
+GPT-6.1 Terra is a fast, efficient model for visual reasoning, precise computer
+use, and clear, natural writing. Use it to match product photos to catalog
+entries, compare technical drawings, act on application screens, or draft and
+revise text.
+
+It supports `none`, `low`, `medium` (default), `high`, `xhigh`, and `max`
+reasoning effort. Start with `medium` and increase it if the improvement in
+quality is worth the added time and tokens.
+
+When migrating from GPT-5.6 Terra, compare both models on representative images
+and workflows using the same reasoning effort. If your application calls tools
+through Chat Completions, migrate those requests to the Responses API.
+
+See the [model page](https://developers.openai.com/api/docs/models/gpt-6.1-terra) for specifications and pricing,
+[image inputs](https://developers.openai.com/api/docs/guides/images-vision) for visual analysis, and
+[computer use](https://developers.openai.com/api/docs/guides/tools-computer-use) for acting on screens.
 
 <a id="gpt-6-astra-what-is-new" className="scroll-mt-[110px]"></a>
 
@@ -73,8 +91,8 @@ GPT-6 also supports the existing API capabilities available with GPT-5.6, includ
 
 ## Limitations
 
-- GPT-6 Astra and GPT-6.1 Sol do not support the `none` reasoning effort; GPT-6 Sol and GPT-6 Luna do.
-- Fast mode is not available with EU data residency for GPT-6 Astra, GPT-6 Sol, or GPT-6 Luna. [Ultrafast mode](https://developers.openai.com/api/docs/guides/ultrafast-mode) supports US data residency and global processing only. It does not support EU or other non-US regional processing endpoints. See [data residency eligibility](https://developers.openai.com/api/docs/guides/your-data#which-models-and-features-are-eligible-for-data-residency).
+- GPT-6 Astra and GPT-6.1 Sol do not support the `none` reasoning effort; GPT-6.1 Terra, GPT-6 Sol, and GPT-6 Luna do.
+- Fast mode supports EU data residency for GPT-6.1 Sol, GPT-6.1 Terra, and GPT-6 Luna, but not GPT-6 Astra or GPT-6 Sol. [Ultrafast mode](https://developers.openai.com/api/docs/guides/ultrafast-mode) for GPT-6.1 Sol supports US and EU data residency and global processing. GPT-6 Astra Ultrafast supports US data residency and global processing only. See [data residency eligibility](https://developers.openai.com/api/docs/guides/your-data#which-models-and-features-are-eligible-for-data-residency).
 
 <a id="prompting-best-practices" className="scroll-mt-[110px]"></a>
 
@@ -198,12 +216,12 @@ To use this skill in other coding agents, download it from the [Codex repository
 
 ### Update API and model parameters
 
-Set `model` to `gpt-6-astra`, `gpt-6.1-sol`, or `gpt-6-luna`, then check the following:
+Set `model` to `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6.1-terra`, or `gpt-6-luna`, then check the following:
 
-- **Reasoning effort:** Preserve your current effective [reasoning effort](https://developers.openai.com/api/docs/guides/reasoning#reasoning-effort) where supported. GPT-6 Astra and GPT-6.1 Sol do not support `none`; use `low` instead. GPT-6 Sol and GPT-6 Luna support `none`. If your existing request uses `minimal`, start with `low` and compare results on representative tasks. Use `reasoning.effort` in Responses or `reasoning_effort` in Chat Completions.
-- **Tool calling:** Use the [Responses API](https://developers.openai.com/api/docs/guides/migrate-to-responses#migrating-from-chat-completions). GPT-6 Astra and GPT-6.1 Sol support Chat Completions, but tool calling requires Responses. GPT-6 Sol and GPT-6 Luna support function calling in Chat Completions only with `reasoning_effort: "none"`. Use Responses for reasoning with tools.
+- **Reasoning effort:** Preserve your current effective [reasoning effort](https://developers.openai.com/api/docs/guides/reasoning#reasoning-effort) where supported. GPT-6 Astra and GPT-6.1 Sol do not support `none`; use `low` instead. GPT-6.1 Terra, GPT-6 Sol, and GPT-6 Luna support `none`. If your existing request uses `minimal`, start with `low` and compare results on representative tasks. Use `reasoning.effort` in Responses or `reasoning_effort` in Chat Completions.
+- **Tool calling:** Use the [Responses API](https://developers.openai.com/api/docs/guides/migrate-to-responses#migrating-from-chat-completions). GPT-6 Astra, GPT-6.1 Sol, and GPT-6.1 Terra support Chat Completions, but tool calling requires Responses. GPT-6 Sol and GPT-6 Luna support function calling in Chat Completions only with `reasoning_effort: "none"`. Use Responses for reasoning with tools.
 - **Unsupported parameters:** When reasoning effort is not `none`, remove `temperature`, `top_p`, and `top_logprobs`. For Chat Completions, also remove `logprobs`. For Responses, remove `message.output_text.logprobs` from `include`.
-- **Data residency:** Fast mode is not available with EU data residency for GPT-6 Astra, GPT-6 Sol, or GPT-6 Luna. [Ultrafast mode](https://developers.openai.com/api/docs/guides/ultrafast-mode) supports US data residency and global processing only. It does not support EU or other non-US regional processing endpoints. Fast mode for GPT-6 Astra does not include a latency SLA. See [Fast mode compatibility](https://developers.openai.com/api/docs/guides/fast-mode#is-fast-mode-compatible-with-data-residency-zero-data-retention-and-a-baa).
+- **Data residency:** Fast mode supports EU data residency for GPT-6.1 Sol, GPT-6.1 Terra, and GPT-6 Luna, but not GPT-6 Astra or GPT-6 Sol. [Ultrafast mode](https://developers.openai.com/api/docs/guides/ultrafast-mode) for GPT-6.1 Sol supports US and EU data residency and global processing. GPT-6 Astra Ultrafast supports US data residency and global processing only. Fast mode for GPT-6 Astra does not include a latency SLA. See [Fast mode compatibility](https://developers.openai.com/api/docs/guides/fast-mode#is-fast-mode-compatible-with-data-residency-zero-data-retention-and-a-baa).
 - **Changing reasoning effort:** If your application changes effort between responses, use `configuration_update` items in standard, single-agent requests. Keep request-level `reasoning.effort` unchanged to preserve the prompt prefix for caching. Check the [compatibility limits](https://developers.openai.com/api/docs/guides/reasoning#change-reasoning-mid-conversation) before adopting this feature.
 - **Prompt caching:** When migrating from GPT-5.5 or earlier, replace `prompt_cache_retention` with `prompt_cache_options.ttl` set to `"30m"`. Review the [prompt caching changes](https://developers.openai.com/api/docs/guides/prompt-caching#summary-of-model-differences), including cache boundaries and cache-write billing.
 - **Unnecessary approval pauses:** If you run into issues where the model keeps asking for approval before proceeding, use the [initiative and follow-through guidance](#initiative-and-follow-through) to prompt for more autonomous execution. See the rest of [Prompting best practices](#prompting-best-practices) for guidance on instruction following, writing style, subagent delegation, and testing.

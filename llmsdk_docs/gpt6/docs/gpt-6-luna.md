@@ -94,7 +94,7 @@ Tools supported by this model when using the Responses API.
 
 ## Snapshots
 
-Use `gpt-6-luna` in your API requests.
+Snapshots let you lock in a specific version of the model so that performance and behavior remain consistent. Below is a list of all available snapshots and aliases for GPT-6 Luna.
 
 - `gpt-6-luna`
 
