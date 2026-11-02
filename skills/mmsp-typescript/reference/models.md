@@ -26,8 +26,8 @@ Use exact model IDs, and pass the model's client type as `clientType`. If a mode
 | GPT 5.5 | Official / ModelVerse | `gpt-5.5` | `openai-official` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
 | GPT 5.6 | Official | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | `openai-official` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
 | GPT 5.6 | OpenRouter | `openai/gpt-5.6-sol`, `openai/gpt-5.6-terra`, `openai/gpt-5.6-luna` | `openai-responses` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
-| GPT 6 | Official | `gpt-6.1-sol`, `gpt-6-astra` | `openai-official` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
-| GPT 6 | OpenRouter | `openai/gpt-6-astra` | `openai-responses` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
+| GPT 6 | Official | `gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-astra` | `openai-official` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
+| GPT 6 | OpenRouter | `openai/gpt-6-astra`, `openai/gpt-6.1-terra` | `openai-responses` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
 | OpenAI Embedding | Official | `text-embedding-3-small`, `text-embedding-3-large` | `openai-official` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
 | Kimi-K2.6 | Official | `kimi-k2.6` | `moonshot-official` | `MOONSHOT_API_KEY` | `MOONSHOT_BASE_URL` |
 | Kimi-K2.6 | OpenRouter | `moonshotai/kimi-k2.6` | `moonshot-official` | `MOONSHOT_API_KEY` | `MOONSHOT_BASE_URL` |

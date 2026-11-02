@@ -193,7 +193,7 @@ def test_thinking_switch_reaches_the_wire(model: str, client_type: str, level: T
 
 # What each remaining client puts on the wire for a level, per its vendor's effort
 # vocabulary: OpenAI takes the full set except on GPT-6, which rejects "none" and
-# "minimal" so NONE degrades to low (GPT-6 Luna takes none); Claude tops out at max (xhigh
+# "minimal" so NONE degrades to low (GPT-6 Luna and GPT-6.1 Terra take none); Claude tops out at max (xhigh
 # only from 4.7), DeepSeek and Kimi accept low/high/max, DeepSeek and the Kimi K3 series
 # turn thinking off with none, MiniMax-M3 has no level above high, and MiniMax-M3.1-Flash
 # cannot turn thinking off but takes low through max.
@@ -210,6 +210,10 @@ THINKING_EFFORT_CASES = [
     ("gpt-6.1-sol", None, ThinkingLevel.MAX, "max"),
     ("gpt-6-luna", None, ThinkingLevel.NONE, "none"),
     ("gpt-6-luna", "openai-responses", ThinkingLevel.NONE, "none"),
+    ("gpt-6.1-terra", None, ThinkingLevel.NONE, "none"),
+    ("gpt-6.1-terra", None, ThinkingLevel.MAX, "max"),
+    ("gpt-6.1-terra", "openai-responses", ThinkingLevel.NONE, "none"),
+    ("openai/gpt-6.1-terra", "openai-responses", ThinkingLevel.NONE, "none"),
     ("gpt-5.6", None, ThinkingLevel.NONE, "none"),
     ("gpt-5.6", None, ThinkingLevel.XHIGH, "xhigh"),
     ("gpt-5.6", None, ThinkingLevel.MAX, "max"),

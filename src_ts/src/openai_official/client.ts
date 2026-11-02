@@ -46,6 +46,22 @@ import {
 } from "../utils";
 
 /**
+ * The GPT-6 models that take the "none" reasoning effort. GPT-6 Astra and
+ * GPT-6.1 Sol reject both "none" and "minimal" with a 400 (verified live
+ * 2026-09-09: "Unsupported value: 'none' is not supported with the
+ * 'gpt-6-astra' model. Supported values are: 'low', 'medium', 'high', 'xhigh',
+ * and 'max'."); GPT-6 Luna and GPT-6.1 Terra accept it (verified live
+ * 2026-10-14 and 2026-11-02).
+ */
+const GPT6_NONE_EFFORT = ["gpt-6-luna", "gpt-6.1-terra"];
+/**
+ * The generations that take prompt_cache_options; GPT-5.5 answers 400
+ * "prompt_cache_options is not supported on this model" (verified live
+ * 2026-11-02).
+ */
+const PROMPT_CACHE_OPTIONS = ["gpt-5.6", "gpt-6"];
+
+/**
  * GPT-6-specific LLM client implementation (also serves GPT-5.6, GPT-5.5 and GPT-5.4).
  */
 export class OpenAIOfficialClient extends LLMClient {
@@ -83,16 +99,12 @@ export class OpenAIOfficialClient extends LLMClient {
    * Convert ThinkingLevel enum to OpenAI's reasoning effort.
    */
   private _convertThinkingLevelToEffort(thinkingLevel: ThinkingLevel): string {
-    // GPT-6 Luna accepts none; keep the requested setting on official and gateway routes.
     if (
       thinkingLevel === ThinkingLevel.NONE &&
       this._model.includes("gpt-6") &&
-      !this._model.includes("gpt-6-luna")
+      !GPT6_NONE_EFFORT.some((model) => this._model.includes(model))
     ) {
-      // GPT-6 Astra and GPT-6.1 Sol reject both "none" and "minimal" with a 400 (verified live 2026-09-09:
-      // "Unsupported value: 'none' is not supported with the 'gpt-6-astra' model.
-      // Supported values are: 'low', 'medium', 'high', 'xhigh', and 'max'."), so NONE
-      // degrades to the lowest effort the generation accepts.
+      // the rest of the generation has no off switch, so NONE runs at the lowest effort it accepts
       return "low";
     }
 
@@ -113,7 +125,10 @@ export class OpenAIOfficialClient extends LLMClient {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private _convertToolChoice(toolChoice: ToolChoice): any {
     if (Array.isArray(toolChoice)) {
+      // without its type the object is refused: 400 "Missing required parameter: 'tool_choice.type'"
+      // (verified live 2026-11-02 on GPT-6 Astra, GPT-6.1 Sol, GPT-6.1 Terra and GPT-6 Luna)
       return {
+        type: "allowed_tools",
         mode: "required",
         tools: toolChoice.map((name) => ({ type: "function", name })),
       };
@@ -195,13 +210,25 @@ export class OpenAIOfficialClient extends LLMClient {
     }
 
     if (
+      config.prompt_caching === PromptCaching.ENHANCE &&
+      PROMPT_CACHE_OPTIONS.some((generation) =>
+        this._model.includes(generation),
+      )
+    ) {
+      // the cache is written with a 30-minute minimum lifetime; enhance asks for 12 hours, at twice
+      // the 30-minute write rate. The SDK types the ttl only as "30m", while the Responses API takes
+      // "12h" (verified live 2026-11-02; the usage reports the writes under
+      // cache_write_tokens_details.ttl_12h_tokens)
+      openaiConfig.prompt_cache_options = { ttl: "12h" };
+    } else if (
       config.prompt_caching !== undefined &&
       config.prompt_caching !== PromptCaching.ENABLE
     ) {
       throw new UnsupportedParameterError({
         client: this.constructor.name,
         parameter: "prompt_caching",
-        message: "prompt_caching must be ENABLE for GPT-6.",
+        message:
+          "OpenAI does not support this prompt_caching (disable has no equivalent; enhance needs GPT-5.6 or later).",
       });
     }
 

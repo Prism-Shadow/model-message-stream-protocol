@@ -41,6 +41,13 @@ from ..utils import (
 )
 
 
+# The GPT-6 models that take the "none" reasoning effort. A gateway serving GPT-6 Astra or GPT-6.1 Sol
+# forwards the effort to OpenAI, which rejects "none" and "minimal" with a 400 (verified live 2026-09-09
+# against api.openai.com); GPT-6 Luna and GPT-6.1 Terra accept it, on OpenRouter too (verified live
+# 2026-10-14 and 2026-11-02).
+_GPT6_NONE_EFFORT = ("gpt-6-luna", "gpt-6.1-terra")
+
+
 class OpenaiResponsesClient(LLMClient):
     """OpenAI Responses-compatible client implementation."""
 
@@ -63,11 +70,12 @@ class OpenaiResponsesClient(LLMClient):
 
     def _convert_thinking_level_to_effort(self, thinking_level: ThinkingLevel) -> str:
         """Convert ThinkingLevel enum to the Responses API reasoning effort."""
-        # GPT-6 Luna accepts none on official and gateway routes.
-        if thinking_level == ThinkingLevel.NONE and "gpt-6" in self._model and "gpt-6-luna" not in self._model:
-            # a gateway serving GPT-6 Astra or GPT-6.1 Sol forwards the effort to OpenAI, which rejects "none" and
-            # "minimal" with a 400 (verified live 2026-09-09 against api.openai.com), so NONE
-            # degrades to the lowest effort the generation accepts.
+        if (
+            thinking_level == ThinkingLevel.NONE
+            and "gpt-6" in self._model
+            and not any(model in self._model for model in _GPT6_NONE_EFFORT)
+        ):
+            # the rest of the generation has no off switch, so NONE runs at the lowest effort it accepts
             return "low"
 
         mapping = {
@@ -83,7 +91,14 @@ class OpenaiResponsesClient(LLMClient):
     def _convert_tool_choice(self, tool_choice: ToolChoice) -> str | dict[str, Any]:
         """Convert ToolChoice to the Responses API tool_choice format with allowed tools support."""
         if isinstance(tool_choice, list):
-            return {"mode": "required", "tools": [{"type": "function", "name": name} for name in tool_choice]}
+            # the documented allowed-tools object; without its type OpenAI and OpenRouter refuse it with a 400
+            # (verified live 2026-11-02; DeepSeek refuses every forced tool_choice in thinking mode, and
+            # MiniMax and Z.AI ignore it in either shape)
+            return {
+                "type": "allowed_tools",
+                "mode": "required",
+                "tools": [{"type": "function", "name": name} for name in tool_choice],
+            }
         return tool_choice
 
     def _convert_image_url(self, image_url: str) -> dict[str, str]:

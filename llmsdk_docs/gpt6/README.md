@@ -125,3 +125,11 @@ Probed live on 2026-11-02 (captures under `api_captures/gpt6_1_terra/`):
 - An image needing more than 30,000 patches at its own size (6000 x 6000, 35,344 patches) is
   refused with 400 when `detail` is omitted, `auto` or `original`, and read at `high` or `low`.
   GPT-6 Astra, GPT-6.1 Sol and GPT-6 Luna refuse the same image without `detail`.
+- `prompt_cache_options: {"ttl": "12h"}` is accepted on the Responses API by GPT-6.1 Terra, GPT-6
+  Luna and GPT-5.6 Luna, although the API reference still lists `"30m"` as the only `ttl` (the
+  prompt-caching guide documents `"12h"`). The usage then reports the write under
+  `input_tokens_details.cache_write_tokens_details.ttl_12h_tokens`, and the same request again reads
+  it as `cached_tokens`. GPT-5.5 refuses the field (400 `prompt_cache_options is not supported on
+  this model`), OpenAI's Chat Completions refuses `"12h"` (400 `Supported values are: '30m'`),
+  OpenRouter's Responses API refuses the field, and its Chat Completions drops the `ttl` and bills
+  the 30-minute write rate.

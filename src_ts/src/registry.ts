@@ -116,7 +116,7 @@ function cny(prompt: number, output: number, cached?: number): ModelPricing {
 // Gateway rows list only the input modalities their client can send: the
 // OpenAI-protocol clients carry text and images, not video or audio.
 const SUPPORTED_MODELS: SupportedModel[] = [
-  // --- Official vendor endpoints (55 rows; each vendor's own key variable; list prices from each
+  // --- Official vendor endpoints (56 rows; each vendor's own key variable; list prices from each
   // vendor's pricing page, the rows added 2026-10-24 naming their page and read date)
   {
     model: "gemini-4-argon",
@@ -356,6 +356,19 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Text"],
     context_window: 1050000,
     pricing: usd(2.5, 10.0, 0.1),
+  },
+  {
+    // developers.openai.com/api/docs/pricing (read 2026-11-02) per 1M tokens: $0.05 cached input,
+    // $1 uncached input, $1.25 cache writes ($2.50 with the 12-hour lifetime), $5 output, above
+    // 272K input tokens 2x input and cache and 1.5x output. The prompt bucket carries the
+    // 30-minute cache-write rate, as for gpt-6.1-sol.
+    model: "gpt-6.1-terra",
+    base_url: OPENAI,
+    client: "openai-official",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1050000,
+    pricing: usd(1.25, 5.0, 0.05),
   },
   {
     // official list price per 1M tokens: $1 cached input, $10 uncached input, $12.5 cache
@@ -657,7 +670,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     // (Beijing 9:00-12:00, 14:00-18:00) are double
     pricing: cny(4.5, 13.5, 0.15),
   },
-  // --- OpenRouter (123 rows; key OPENROUTER_API_KEY; USD prices, context windows and modalities
+  // --- OpenRouter (124 rows; key OPENROUTER_API_KEY; USD prices, context windows and modalities
   // from the live models API https://openrouter.ai/api/v1/models and each model's
   // /api/v1/models/{slug}/endpoints list, read 2026-10-24). The API quotes one endpoint per model;
   // where that endpoint runs a promotion (a nonzero `discount` in its /endpoints entry), the row
@@ -1326,6 +1339,17 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Text"],
     context_window: 1050000,
     pricing: usd(2.5, 10.0, 0.1),
+  },
+  {
+    // $1 input, $5 output, $0.05 cache read, $1.25 cache write; the prompt bucket carries the
+    // cache-write rate
+    model: "openai/gpt-6.1-terra",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1050000,
+    pricing: usd(1.25, 5.0, 0.05),
   },
   {
     // default OpenAI endpoint, no discount: $10 input, $50 output, $1 cache read, $12.5 cache
