@@ -3,7 +3,7 @@
 - **Date:** 2026-11-02
 - **Type:** process
 - **Scope:** `design`
-- **PR:** [#N](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/N)
+- **PR:** [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308)
 
 [中文版](2026-11-02-web-tools-rfcs.zh.md)
 

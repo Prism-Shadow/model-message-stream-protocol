@@ -2,7 +2,7 @@
 
 - Feature Name: `message_requests`
 - Start Date: 2026-11-02
-- RFC PR: [#N](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/N)
+- RFC PR: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308)
 - Kind: spec
 - Supersedes: [MMSP-RFC-0003](MMSP-RFC-0003-message-requests.zh.md)
 
