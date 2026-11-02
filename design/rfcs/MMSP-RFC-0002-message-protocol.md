@@ -3,8 +3,8 @@
 - Feature Name: `message_protocol`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308)
 - Kind: spec
-- Superseded by: [MMSP-RFC-0014](MMSP-RFC-0014-message-protocol.md)
 
 [中文版](MMSP-RFC-0002-message-protocol.zh.md)
 
@@ -19,6 +19,8 @@ MMSP exists so that a caller writes to one message format and one stream grammar
 A replayed turn has to be accepted by the API with the model's behavior intact; it does not have to reproduce the wire item field for field, and every field mirrored into `fidelity` is one more provider shape that consumers, traces and histories carry. [#159](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/159) added `fidelity` for the exact reasoning field a strict upstream demands back; [#287](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/287) replaced a gateway's reasoning block, which had been kept whole, with the three keys that rebuild it. The owner's words: 转换只保留必要的部分，冗余字段不需要保留.
 
 Stated in [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265) as MMSP-RFC-0002, MMSP-RFC-0009, part of MMSP-RFC-0008 and the second half of MMSP-RFC-0012, and in [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) as MMSP-RFC-0002 and MMSP-RFC-0004. The order rule of the earlier MMSP-RFC-0002 is now [MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.md#6-order) §6.
+
+On 2026-11-02 the owner asked for web search and page fetch, done the way embedding is: 在mmsp里面增加search和fetch的能力,实现方式和embedding类似. They entered the protocol as one more kind of item, `webtool`, whose `webdata` holds the pages a search found or the page a fetch read, and one more `UniConfig` key, `webtool_config`, whose `count` is how many results a search returns. On what a search result carries, the owner's words: search的content显示摘要,不要用need content参数 jina要加no content. [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308) amended this specification in place, with the `webtool` kinds added to §3.4.
 
 ## 2. Conventions and Terminology
 
@@ -45,7 +47,9 @@ An event has `role`, `event_type` (`delta` or `stop`), `content_items`, `usage_m
 
 ### 3.4 Content Items
 
-The complete kinds are `text.done`, `image_url.done`, `inline_data.done`, `thinking.done`, `inline_thinking.done`, `tool_call.done`, `tool_result.done` and `embedding.done`. The fragment kinds are the `.delta` forms of all of them but `image_url` and `tool_result`, which a caller writes and no stream carries. A message or an event MUST NOT carry any other kind of item, a provider's own types included.
+The complete kinds are `text.done`, `image_url.done`, `inline_data.done`, `thinking.done`, `inline_thinking.done`, `tool_call.done`, `tool_result.done`, `embedding.done` and `webtool.done`. The fragment kinds are the `.delta` forms of all of them but `image_url` and `tool_result`, which a caller writes and no stream carries. A message or an event MUST NOT carry any other kind of item, a provider's own types included.
+
+A `webtool` item's `webdata` is a list of `WebData` objects, each with a `title`, a `content` and a `url`, all three strings. For a search it MUST hold the results in rank order, each result's `content` being the summary the search endpoint gives of the page, never the page's body; a search that found nothing is an item whose `webdata` is empty. For a fetch it MUST hold the one page read, its `content` being the page's Markdown and its `url` the page's address, or the URL sent where the endpoint returns none.
 
 ## 4. Provider Features
 

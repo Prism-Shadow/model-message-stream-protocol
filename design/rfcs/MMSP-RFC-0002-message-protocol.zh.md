@@ -3,8 +3,8 @@
 - Feature Name: `message_protocol`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308)
 - Kind: spec
-- Superseded by: [MMSP-RFC-0014](MMSP-RFC-0014-message-protocol.zh.md)
 
 [English](MMSP-RFC-0002-message-protocol.md)
 
@@ -19,6 +19,8 @@ MMSP 的用意，是让调用方只面对一种消息格式和一套流语法，
 回传的回合要被 API 接受，且模型的行为不受影响；它不必逐字段重现线上的内容项，而每一个照搬进 `fidelity` 的字段，都是使用方、trace 与历史记录要多携带的一种服务商结构。[#159](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/159) 加入 `fidelity`，用来承载严格的上游要求原样发回的推理字段；[#287](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/287) 不再整块保存网关的推理块，改为保存重建它所需的三个键。项目负责人的原话是：「转换只保留必要的部分，冗余字段不需要保留」。
 
 这些要求最初在 [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265) 中写作 MMSP-RFC-0002、MMSP-RFC-0009、MMSP-RFC-0008 的一部分与 MMSP-RFC-0012 的后半部分，在 [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) 中写作 MMSP-RFC-0002 与 MMSP-RFC-0004。原 MMSP-RFC-0002 中保持顺序的那一条，现在是 [MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.zh.md#6-顺序) §6。
+
+2026-11-02，项目负责人要求加入网页搜索与网页抓取，做法与 embedding 相同，原话是：「在mmsp里面增加search和fetch的能力,实现方式和embedding类似」。它们以一种新的内容项类型 `webtool` 进入协议，它的 `webdata` 存放搜索找到的网页或抓取读到的那一页；另有一个新的 `UniConfig` 键 `webtool_config`，它的 `count` 是搜索返回的结果数。关于搜索结果携带什么，项目负责人的原话是：「search的content显示摘要,不要用need content参数 jina要加no content」。[#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308) 在原文上修改了本规范：在 §3.4 中加入 `webtool` 类型。
 
 ## 2. Conventions and Terminology
 
@@ -45,7 +47,9 @@ MMSP 的用意，是让调用方只面对一种消息格式和一套流语法，
 
 ### 3.4 内容项
 
-完整内容项的类型有 `text.done`、`image_url.done`、`inline_data.done`、`thinking.done`、`inline_thinking.done`、`tool_call.done`、`tool_result.done` 与 `embedding.done`。片段的类型是其中除 `image_url` 与 `tool_result` 之外各类型的 `.delta` 形式；这两种由调用方写入，不会出现在任何流中。消息或事件不得携带其他任何类型的内容项，服务商自己的类型也包括在内。
+完整内容项的类型有 `text.done`、`image_url.done`、`inline_data.done`、`thinking.done`、`inline_thinking.done`、`tool_call.done`、`tool_result.done`、`embedding.done` 与 `webtool.done`。片段的类型是其中除 `image_url` 与 `tool_result` 之外各类型的 `.delta` 形式；这两种由调用方写入，不会出现在任何流中。消息或事件不得携带其他任何类型的内容项，服务商自己的类型也包括在内。
+
+`webtool` 内容项的 `webdata` 是一个 `WebData` 对象的列表，每个对象有 `title`、`content` 与 `url`，三者都是字符串。对于搜索，它必须按排名顺序存放搜索结果，每个结果的 `content` 是搜索端点给出的该网页摘要，绝不是网页正文；什么也没搜到的搜索，是一个 `webdata` 为空的内容项。对于抓取，它必须只存放读到的那一页，`content` 是该网页的 Markdown，`url` 是该网页的地址，端点不返回地址时则是发出的 URL。
 
 ## 4. 服务商功能
 

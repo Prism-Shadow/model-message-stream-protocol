@@ -2,26 +2,22 @@
 
 [English](README.md)
 
-MMSP 遵守的规范，以及改变过它的决定，每一项都是一篇 RFC。代码与已采纳的 RFC 不一致时，以 RFC 为准：要么修正代码，要么先经另一篇 RFC 取代它。
+MMSP 遵守的规范，以及改变过它的决定，每一项都是一篇 RFC。代码与已采纳的 RFC 不一致时，以 RFC 为准：要么修正代码，要么先修改这篇 RFC。
 
 ## 全部 RFC
 
 | RFC | 标题 | 类别 | 状态 |
 | --- | --- | --- | --- |
 | [MMSP-RFC-0001](rfcs/MMSP-RFC-0001-rfc-process.zh.md) | RFC 流程 | process | 已采纳 |
-| [MMSP-RFC-0002](rfcs/MMSP-RFC-0002-message-protocol.zh.md) | 消息协议 | spec | 被 MMSP-RFC-0014 取代 |
-| [MMSP-RFC-0003](rfcs/MMSP-RFC-0003-message-requests.zh.md) | 消息请求 | spec | 被 MMSP-RFC-0015 取代 |
+| [MMSP-RFC-0002](rfcs/MMSP-RFC-0002-message-protocol.zh.md) | 消息协议 | spec | 已采纳 |
+| [MMSP-RFC-0003](rfcs/MMSP-RFC-0003-message-requests.zh.md) | 消息请求 | spec | 已采纳 |
 | [MMSP-RFC-0004](rfcs/MMSP-RFC-0004-message-fidelity.zh.md) | 消息保真 | spec | 已采纳 |
-| [MMSP-RFC-0005](rfcs/MMSP-RFC-0005-client-routing.zh.md) | 客户端路由 | spec | 被 MMSP-RFC-0016 取代 |
-| [MMSP-RFC-0006](rfcs/MMSP-RFC-0006-upstream-credentials.zh.md) | 服务上游密钥 | spec | 被 MMSP-RFC-0017 取代 |
+| [MMSP-RFC-0005](rfcs/MMSP-RFC-0005-client-routing.zh.md) | 客户端路由 | spec | 已采纳 |
+| [MMSP-RFC-0006](rfcs/MMSP-RFC-0006-upstream-credentials.zh.md) | 服务上游密钥 | spec | 已采纳 |
 | [MMSP-RFC-0007](rfcs/MMSP-RFC-0007-error-types.zh.md) | 异常类型 | spec | 已采纳 |
 | [MMSP-RFC-0008](rfcs/MMSP-RFC-0008-request-interruption.zh.md) | 请求中断 | spec | 已采纳 |
 | [MMSP-RFC-0009](rfcs/MMSP-RFC-0009-protocol-conversion.zh.md) | 协议转换 | spec | 已采纳 |
 | [MMSP-RFC-0010](rfcs/MMSP-RFC-0010-trace-recording.zh.md) | 轨迹记录 | spec | 已采纳 |
-| [MMSP-RFC-0014](rfcs/MMSP-RFC-0014-message-protocol.zh.md) | 消息协议 | spec | 已采纳 |
-| [MMSP-RFC-0015](rfcs/MMSP-RFC-0015-message-requests.zh.md) | 消息请求 | spec | 已采纳 |
-| [MMSP-RFC-0016](rfcs/MMSP-RFC-0016-client-routing.zh.md) | 客户端路由 | spec | 已采纳 |
-| [MMSP-RFC-0017](rfcs/MMSP-RFC-0017-upstream-credentials.zh.md) | 服务上游密钥 | spec | 已采纳 |
 
 `spec` 固定代码遵守的一个概念、协议或算法；`change` 修改协议或公开 API；`process` 是这个目录的运作方式。状态为「已采纳」或「被 MMSP-RFC-NNNN 取代」，因此现行的规范就是状态为「已采纳」的 `spec` 行。提议中的 RFC 是一个未关闭的 PR（`gh pr list --search "MMSP-RFC-"`），撤回的 RFC 是一个已关闭的 PR；两者在表中都没有行。
 
@@ -49,10 +45,20 @@ RFC 曾于 2026-10-24 按项目负责人的要求重编号两次；[MMSP-RFC-000
 
 1. 从 `origin/dev` 拉出 `rfc/<slug>` 分支，把 `0000-template.md` 复制为 `rfcs/MMSP-RFC-NNNN-<slug>.md`。`NNNN` 取 `ls design/rfcs/` 与未关闭的 PR（`gh pr list --search "MMSP-RFC-"`）都没有用过的下一个编号；编号永不复用。一篇 RFC 只记一个决定。把 `Kind` 设为 `spec`、`change` 或 `process`：`spec` 类 RFC 包含 Abstract、Introduction、Conventions and Terminology、正文各节与 Conformance；`change` 与 `process` 类 RFC 包含 Abstract、Introduction 与 Rust RFC 的各节，全部编号。无话可说的小节直接删去。
 2. 在同一个 PR 中写好中文对照 `MMSP-RFC-NNNN-<slug>.zh.md`。模板中的节名（Abstract、Introduction、Conventions and Terminology、Conformance 与 Rust RFC 的各节）在两份文件中都保持英文；`spec` 类 RFC 正文各节的标题在中文对照中翻译，两份文件靠节号逐节对齐。两份文件在元数据下方的一行互相链接：`[中文版](MMSP-RFC-NNNN-<slug>.zh.md)` 与 `[English](MMSP-RFC-NNNN-<slug>.md)`。
-3. 规范只能经由一篇 `spec` 类 RFC 修改：它完整陈述修改后的规范，并在 `Supersedes:` 一行写明旧的那篇。在同一个 PR 中，往旧文件的元数据末尾追加 `- Superseded by: [MMSP-RFC-NNNN](MMSP-RFC-NNNN-<slug>.md)`，两种语言都要加，并在上表中更新旧行的状态。
-4. 在上表中添加这篇 RFC 的一行，状态为「已采纳」：这一行随 PR 合并落地，而合并正是采纳这篇 RFC 的方式。
-5. 按 [`changelog/README.md`](../changelog/README.zh.md) 的格式添加一条 `Type: process`、`Scope: design` 的变更记录。
-6. 用 `gh pr create --base dev` 提交 PR，标题为 `MMSP-RFC-NNNN: <Title>`，然后在后续提交中把 PR 链接填进 `RFC PR` 一行。
+3. 在上表中添加这篇 RFC 的一行，状态为「已采纳」：这一行随 PR 合并落地，而合并正是采纳这篇 RFC 的方式。
+4. 按 [`changelog/README.md`](../changelog/README.zh.md) 的格式添加一条 `Type: process`、`Scope: design` 的变更记录。
+5. 用 `gh pr create --base dev` 提交 PR，标题为 `MMSP-RFC-NNNN: <Title>`，然后在后续提交中把 PR 链接填进 `RFC PR` 一行。
+
+## 修改已采纳的 RFC
+
+已采纳的 RFC，包括规范，都在原文上修改：
+
+1. 从 `origin/dev` 拉出 `rfc/<slug>` 分支，修改这篇 RFC 及其中文对照。编号、标题与索引中的行都不变；规范修改后仍完整陈述它所固定的一切。
+2. 在它的 Introduction 中加一段，说明这次修改依据的具体情形，附上 PR 链接。
+3. 在文件的 `- Updated by:` 一行末尾追加这个 PR 的链接，两种语言都要加；没有这一行的文件，把它加在 `RFC PR` 一行之后。
+4. 添加一条 `Type: process`、`Scope: design` 的变更记录，用 `gh pr create --base dev` 提交 PR，标题为 `MMSP-RFC-NNNN: <改了什么>`。
+
+整篇取代另一项规范的规范是一篇新的 RFC：它在 `Supersedes:` 一行写明旧的那篇；它的 PR 往旧文件的元数据末尾追加 `- Superseded by: [MMSP-RFC-NNNN](MMSP-RFC-NNNN-<slug>.md)`，两种语言都要加，并在上表中更新旧行的状态。
 
 未关闭的 PR 是提议中的 RFC，合并即被采纳，关闭即被撤回，编号作废。RFC 文件没有状态字段；它是「已采纳」还是「被取代」，由上表记录。实现某篇已采纳的 `change` 类 RFC 的 PR 在 `RFC PR` 一行之后加上 `- Implementation PR: [#N](<url>)`，并在自己的变更记录中链接这篇 RFC。
 
@@ -60,7 +66,7 @@ RFC 曾于 2026-10-24 按项目负责人的要求重编号两次；[MMSP-RFC-000
 
 - `spec` 类 RFC 读起来是对一件固定不变之事的规范：Abstract 用一到三句话说明规范了什么，正文分编号的小节陈述它，Conformance 一节在文件层面列出保证它成立的模块与测试。
 - 规范性语句使用大写的 MUST、MUST NOT、SHOULD、SHOULD NOT 或 MAY，含义按 BCP 14 的定义；描述代码行为的句子用 MUST 或 MUST NOT，SHOULD 只用于对调用方与贡献者的要求。中文对照把它们写作 必须、不得、应当、不应、可以。
-- 每一句规范性语句都要符合代码。不符合时，要么修正代码，要么取代这项规范。
+- 每一句规范性语句都要符合代码。不符合时，要么修正代码，要么修改这项规范。
 - 数字要么是不变量，要么带有时态。不写数量，也不写当下的清单：有哪些客户端，某个客户端支持哪些模型。
 - 代码标识符、文件路径与模板中的节名在两种语言中都保持英文。
 - PR 与 issue 链接写完整 URL；指向仓库内文件的链接用相对路径。

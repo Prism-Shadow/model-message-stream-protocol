@@ -3,38 +3,40 @@
 - Feature Name: `upstream_credentials`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308)
 - Kind: spec
-- Superseded by: [MMSP-RFC-0017](MMSP-RFC-0017-upstream-credentials.md)
 
 [中文版](MMSP-RFC-0006-upstream-credentials.zh.md)
 
 ## Abstract
 
-An upstream credential is the key a client sends to the endpoint it calls. A key passed to a client is used whatever the base URL, while a key read from the environment goes only to the endpoint it was given for: a client handed no key reads its `<P>_API_KEY` only when it is passed no base URL or its own default endpoint, and refuses any other base URL with `ApiKeyRequiredError` unless its server is open. This document specifies the credential table, the resolution rule, open servers and what the clients hand their SDKs.
+An upstream credential is the key a client sends to the endpoint it calls. A key passed to a client is used whatever the base URL, while a key read from the environment goes only to the endpoint it was given for: a client handed no key reads its `<P>_API_KEY` only when it is passed no base URL or one of its own default endpoints, and refuses any other base URL with `ApiKeyRequiredError` unless its server is open. This document specifies the credential table, the resolution rule, open servers and what the clients hand their SDKs.
 
 ## 1. Introduction
 
 A client that read `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` from the environment used to send it to whatever base URL it was given, so a caller that pointed a client at a gateway sent the vendor's key there ([#224](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/224)). [#258](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/258) made it one rule for every client type in both packages, declared in a table a host can read without building a client. [#276](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/276) gave the vLLM adapter a row of its own in place of OpenAI's, and extended the rule to the rest of OpenAI's environment, which the OpenAI SDK sent to whatever endpoint it was given. [#288](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/288) and [#290](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/290) made the clients of other vendors on the OpenAI SDK raise the same error when they are given no key, where they had raised a bare built-in error. Stated in [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265) as MMSP-RFC-0005 and in [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) as MMSP-RFC-0007.
+
+On 2026-11-02 the owner asked for web search and page fetch, done the way embedding is: 在mmsp里面增加search和fetch的能力,实现方式和embedding类似. Jina serves its Reader on `https://r.jina.ai` and its Search on `https://s.jina.ai`, with one key for both, so a row declares the other hosts on which its vendor serves some of its models, and the environment's key goes to each of them as it goes to the default endpoint. The web tool clients are built on the OpenAI SDK, the compatible one as well as the official one, so the rule for a client given no key covers every client on that SDK whose key is not OpenAI's. [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308) amended this specification in place, with the other default endpoints added to §2, §3 and §4 and the last rule of §4 stated for every such client.
 
 ## 2. Conventions and Terminology
 
 The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY in this document are to be interpreted as described in BCP 14 ([RFC 2119](https://www.rfc-editor.org/rfc/rfc2119), [RFC 8174](https://www.rfc-editor.org/rfc/rfc8174)) when, and only when, they appear in all capitals.
 
 - *Row*: a client type's entry in `CLIENT_CREDENTIALS`.
-- *Key*, *base URL*: the `api_key` and `base_url` a client is built with. *Default endpoint*: the row's `default_base_url`.
+- *Key*, *base URL*: the `api_key` and `base_url` a client is built with. *Default endpoint*: the row's `default_base_url`. *Other default endpoints*: the row's `other_base_urls`, other hosts on which the vendor serves some of the client's models. A client's *own default endpoints* are its default endpoint and its other default endpoints.
 - `<P>_API_KEY`, `<P>_BASE_URL`: the variables the row's `api_key_env` and `base_url_env` name, such as `ZAI_API_KEY` and `ZAI_BASE_URL`.
 - *Open server*: a server that may take no key, marked `open_server` in its row, as the rows of `mmsp` and `openai-chat-vllm-adapter` are.
 
 ## 3. The Credential Table
 
-`CLIENT_CREDENTIALS` declares each client type's key variable, base URL variable, default endpoint and whether its server is open. Every client MUST resolve its key and endpoint through it with `resolve_credentials` / `resolveCredentials`, and MUST NOT read either from the environment itself. The `credentials` module MUST import nothing outside the standard library and read no environment, so a host can read the table without building a client.
+`CLIENT_CREDENTIALS` declares each client type's key variable, base URL variable, default endpoint, other default endpoints and whether its server is open. Every client MUST resolve its key and endpoint through it with `resolve_credentials` / `resolveCredentials`, and MUST NOT read either from the environment itself. The `credentials` module MUST import nothing outside the standard library and read no environment, so a host can read the table without building a client.
 
 ## 4. Resolution
 
 - A key passed in MUST be used whatever the base URL.
-- Without a key, a client passed no base URL MUST read `<P>_API_KEY` and call `<P>_BASE_URL`, else its default endpoint. A client passed its own default endpoint MUST read `<P>_API_KEY` for it. Endpoints are compared with surrounding whitespace trimmed, the scheme and host in any case, the path without trailing slashes, and anything after the path as written.
+- Without a key, a client passed no base URL MUST read `<P>_API_KEY` and call `<P>_BASE_URL`, else the one of its own default endpoints that serves its model. A client passed one of its own default endpoints MUST read `<P>_API_KEY` for it. Endpoints are compared with surrounding whitespace trimmed, the scheme and host in any case, the path without trailing slashes, and anything after the path as written.
 - Any other base URL passed without a key MUST raise `ApiKeyRequiredError` when the client is built, before any request, except on a client of an open server (§5).
-- An official client of a vendor other than OpenAI that is built on the OpenAI SDK MUST raise `ApiKeyRequiredError` when it is given no key, neither passed nor in `<P>_API_KEY`, because the SDK would fill the missing key from `OPENAI_API_KEY`.
+- A client built on the OpenAI SDK whose key variable is not `OPENAI_API_KEY`, official or compatible, MUST raise `ApiKeyRequiredError` when it is given no key, neither passed nor in `<P>_API_KEY`, because the SDK would fill the missing key from `OPENAI_API_KEY`; a client of an open server sends a placeholder instead (§5).
 
 ## 5. Open Servers
 
