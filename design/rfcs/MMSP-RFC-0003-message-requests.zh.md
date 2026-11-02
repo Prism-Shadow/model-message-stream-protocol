@@ -3,7 +3,7 @@
 - Feature Name: `message_requests`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313)
 - Kind: spec
 
 [English](MMSP-RFC-0003-message-requests.md)
@@ -22,7 +22,7 @@
 
 2026-11-02，项目负责人要求加入网页搜索与网页抓取，做法与 embedding 相同，原话是：「在mmsp里面增加search和fetch的能力,实现方式和embedding类似」。DeepSeek 的 Search 与 Fetch、Jina 的 Search 与 Reader，对一次请求都用一个 JSON 作答。Jina 另有事件流模式，但网页每多加载一些，它就把整页重发一遍，从不只发其中一部分，其中没有可以流式传出的东西；所以客户端读取 JSON，网页工具像 embedding 一样请求，每条消息一次请求、一个内容项。关于搜索要什么，项目负责人的原话是：「search的content显示摘要,不要用need content参数 jina要加no content」。[#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308) 在原文上修改了本规范：§3.2 加入网页工具端点，§2 的增长字段加入 `webdata`，§6.1 加入 `-search` 与 `-fetch` 标记，§6.3 加入不思考的模型。
 
-2026-11-02，OpenAI 发布 GPT-6.1 Terra，项目负责人要求支持，原话是：「GPT 6.1 terra更新了」。与 GPT-6 Astra、GPT-6.1 Sol 不同，Terra 接受 `none` 这一 effort，所以两个 Responses 客户端在 Terra 上把 `none` 当作它自己的关闭开关。为它做的探测发现了所有 GPT-6 模型上的两处缺口：`tool_choice` 的列表形式发出时缺少 OpenAI 与 OpenRouter 要求的 `type`（400 `Missing required parameter: 'tool_choice.type'`）；超过 30,000 个 patch 的图片被拒绝，因为只有 GPT-5.6 会被发送 `detail: "high"`。项目负责人还把 `enhance` 映射到 OpenAI 的 12 小时缓存时长，GPT-5.6 及之后的模型在 Responses API 上接受它，GPT-5.5 拒绝。
+2026-11-02，OpenAI 发布 GPT-6.1 Terra，项目负责人要求支持，原话是：「GPT 6.1 terra更新了」。与 GPT-6 Astra、GPT-6.1 Sol 不同，Terra 接受 `none` 这一 effort，所以两个 Responses 客户端在 Terra 上把 `none` 当作它自己的关闭开关。为它做的探测发现了所有 GPT-6 模型上的两处缺口：`tool_choice` 的列表形式发出时缺少 OpenAI 与 OpenRouter 要求的 `type`（400 `Missing required parameter: 'tool_choice.type'`）；超过 30,000 个 patch 的图片被拒绝，因为只有 GPT-5.6 会被发送 `detail: "high"`。项目负责人还把 `enhance` 映射到 OpenAI 的 12 小时缓存时长，GPT-5.6 及之后的模型在 Responses API 上接受它，GPT-5.5 拒绝。[#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313) 在原文上修改了本规范：§6.1 与 §6.3 写入 Terra 的 `none` 和这一代模型的 `detail`，§6.4 写入 allowed-tools 列表与 12 小时缓存。
 
 ## 2. Conventions and Terminology
 

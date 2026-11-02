@@ -3,7 +3,7 @@
 - Feature Name: `message_requests`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313)
 - Kind: spec
 
 [中文版](MMSP-RFC-0003-message-requests.zh.md)
@@ -22,7 +22,7 @@ The owner's words: 支持全部思考等级; 模型请求参数不模糊匹配; 
 
 On 2026-11-02 the owner asked for web search and page fetch, done the way embedding is: 在mmsp里面增加search和fetch的能力,实现方式和embedding类似. DeepSeek's Search and Fetch and Jina's Search and Reader each answer a request in one JSON. Jina also offers an event stream, but it sends the whole page again each time more of it has loaded, never a part, so there is nothing in it to stream; the clients read the JSON, and a web tool is requested the way an embedding is, each message one request and one item. On what a search asks for, the owner's words: search的content显示摘要,不要用need content参数 jina要加no content. [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308) amended this specification in place, with the web tool endpoints added to §3.2, `webdata` to the growing fields of §2, the `-search` and `-fetch` markers to §6.1, and the models that do not think to §6.3.
 
-On 2026-11-02 OpenAI released GPT-6.1 Terra, and the owner asked for it: GPT 6.1 terra更新了. Unlike GPT-6 Astra and GPT-6.1 Sol, Terra takes the `none` effort, so `none` runs as its own off switch on both Responses clients. The probes for it found two gaps on every GPT-6 model: the list form of `tool_choice` went out without the `type` that OpenAI and OpenRouter require (400 `Missing required parameter: 'tool_choice.type'`), and an image above 30,000 patches was refused, because only GPT-5.6 was sent `detail: "high"`. The owner also mapped `enhance` to OpenAI's 12-hour cache lifetime, which GPT-5.6 and later take on the Responses API and GPT-5.5 refuses.
+On 2026-11-02 OpenAI released GPT-6.1 Terra, and the owner asked for it: GPT 6.1 terra更新了. Unlike GPT-6 Astra and GPT-6.1 Sol, Terra takes the `none` effort, so `none` runs as its own off switch on both Responses clients. The probes for it found two gaps on every GPT-6 model: the list form of `tool_choice` went out without the `type` that OpenAI and OpenRouter require (400 `Missing required parameter: 'tool_choice.type'`), and an image above 30,000 patches was refused, because only GPT-5.6 was sent `detail: "high"`. The owner also mapped `enhance` to OpenAI's 12-hour cache lifetime, which GPT-5.6 and later take on the Responses API and GPT-5.5 refuses. [#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313) amended this specification in place, with Terra's `none` and the generation's `detail` in §6.1 and §6.3, and the allowed-tools list and the 12-hour cache in §6.4.
 
 ## 2. Conventions and Terminology
 
