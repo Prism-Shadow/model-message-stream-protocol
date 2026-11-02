@@ -3,6 +3,7 @@
 - **Date:** 2026-11-02
 - **Type:** process
 - **Scope:** `design`
+- **PR:** [#307](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/307)
 
 [English](2026-11-02-rfc-prompt-cache-sessions.md)
 
