@@ -1,11 +1,11 @@
-# MMSP-RFC-0018 提示缓存会话
+# MMSP-RFC-0014 提示缓存会话
 
 - Feature Name: `session_id`
 - Start Date: 2026-11-02
 - RFC PR: [#307](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/307)
 - Kind: change
 
-[English](MMSP-RFC-0018-prompt-cache-sessions.md)
+[English](MMSP-RFC-0014-prompt-cache-sessions.md)
 
 ## Abstract
 
