@@ -18,6 +18,7 @@ The specifications MMSP conforms to and the decisions that changed it, each an R
 | [MMSP-RFC-0008](rfcs/MMSP-RFC-0008-request-interruption.md) | Request Interruption | spec | Accepted |
 | [MMSP-RFC-0009](rfcs/MMSP-RFC-0009-protocol-conversion.md) | Protocol Conversion | spec | Accepted |
 | [MMSP-RFC-0010](rfcs/MMSP-RFC-0010-trace-recording.md) | Trace Recording | spec | Accepted |
+| [MMSP-RFC-0018](rfcs/MMSP-RFC-0018-prompt-cache-sessions.md) | Prompt Cache Sessions | change | Accepted |
 
 A `spec` fixes a concept, protocol or algorithm the code conforms to; a `change` changes the protocol or the public API; `process` is how this folder works. The status is `Accepted` or `Superseded by MMSP-RFC-NNNN`, so the specifications in force are the `spec` rows that are Accepted. A proposed RFC is an open PR (`gh pr list --search "MMSP-RFC-"`) and a withdrawn one a closed PR; neither has a row.
 
