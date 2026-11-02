@@ -11,12 +11,12 @@
       }
     },
     "2026-11": {
-      "runs": 1,
-      "total_usd": 0.01078664,
+      "runs": 2,
+      "total_usd": 0.02259962,
       "targets": {
-        "deepseek-official+https://api.deepseek.com+deepseek-flash": 0.00066343,
-        "google-genai+https://aiplatform.googleapis.com+gemini-3.8-flash": 0.0086535,
-        "openai-chat+https://tokendance.space/gateway/v1+deepseek-v4.1-flash": 0.00146971
+        "deepseek-official+https://api.deepseek.com+deepseek-flash": 0.002216,
+        "google-genai+https://aiplatform.googleapis.com+gemini-3.8-flash": 0.017697,
+        "openai-chat+https://tokendance.space/gateway/v1+deepseek-v4.1-flash": 0.00268662
       }
     }
   }
