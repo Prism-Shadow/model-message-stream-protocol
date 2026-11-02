@@ -685,11 +685,13 @@ export class GoogleOfficialClient extends LLMClient {
           fidelity: { item_id: itemId },
         });
       } else if (delta.type === "audio") {
-        // TTS streams raw PCM in 40 ms chunks; the MIME type carries the format a player needs
+        // TTS streams raw PCM in chunks; the MIME type carries the format a player needs. The
+        // deltas stopped naming it on 2026-11-02, and headerless 16-bit PCM (audio/l16) is the
+        // documented streaming default.
         contentItems.push({
           type: "inline_data.delta",
           data: Buffer.from(delta.data || "", "base64"),
-          mime_type: `${delta.mime_type}; rate=${delta.sample_rate}; channels=${delta.channels}`,
+          mime_type: `${delta.mime_type || "audio/l16"}; rate=${delta.sample_rate}; channels=${delta.channels}`,
           fidelity: { item_id: itemId },
         });
       } else if (isDebugEnabled()) {

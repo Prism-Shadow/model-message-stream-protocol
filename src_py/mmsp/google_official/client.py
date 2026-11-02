@@ -526,12 +526,16 @@ class GoogleOfficialClient(LLMClient):
                     }
                 )
             elif delta.type == "audio":
-                # TTS streams raw PCM in 40 ms chunks; the MIME type carries the format a player needs
+                # TTS streams raw PCM in chunks; the MIME type carries the format a player needs. The
+                # deltas stopped naming it on 2026-11-02, and headerless 16-bit PCM (audio/l16) is the
+                # documented streaming default.
                 content_items.append(
                     {
                         "type": "inline_data.delta",
                         "data": base64.b64decode(delta.data or ""),
-                        "mime_type": f"{delta.mime_type}; rate={delta.sample_rate}; channels={delta.channels}",
+                        "mime_type": (
+                            f"{delta.mime_type or 'audio/l16'}; rate={delta.sample_rate}; channels={delta.channels}"
+                        ),
                         "fidelity": {"item_id": item_id},
                     }
                 )
