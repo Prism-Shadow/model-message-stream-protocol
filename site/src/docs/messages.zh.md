@@ -44,6 +44,7 @@ description: UniMessage，每个服务商都能读写的消息，以及它所包
 | `tool_call.done` | `name`、作为对象的 `arguments`、`tool_call_id` | 助手 |
 | `tool_result.done` | `text`、可选的 `images`、`tool_call_id` | 用户 |
 | `embedding.done` | `embedding`，一个数字列表 | 助手 |
+| `webtool.done` | `webdata`，一个网页列表，每项有 `title`、`content` 和 `url` | 助手：搜索的结果，或抓取读到的页面 |
 
 助手写的任何一项都可能带有 [`fidelity`](/zh/docs/fidelity/)：服务商在下一轮接受这一项时需要拿回的东西。
 

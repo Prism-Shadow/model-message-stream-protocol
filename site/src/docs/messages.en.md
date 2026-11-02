@@ -44,6 +44,7 @@ Every item in a message is complete, and its type ends in `.done`.
 | `tool_call.done` | `name`, `arguments` as an object, `tool_call_id` | Assistant |
 | `tool_result.done` | `text`, optional `images`, `tool_call_id` | User |
 | `embedding.done` | `embedding`, a list of numbers | Assistant |
+| `webtool.done` | `webdata`, a list of pages, each with `title`, `content` and `url` | Assistant: a search's results, or the page a fetch read |
 
 Any item the assistant wrote may carry [`fidelity`](/docs/fidelity/): what the provider needs back to accept the item on the next turn.
 

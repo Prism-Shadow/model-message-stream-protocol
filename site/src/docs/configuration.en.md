@@ -28,6 +28,7 @@ description: UniConfig, the options of a request, and what each client sends for
   "image_config": {"aspect_ratio": "4:3", "image_size": "1K"},
   "tts_config": [{"voice": "Kore"}],
   "embedding_config": {"dimensions": 768},
+  "webtool_config": {"count": 5},
   "trace_id": "agent1/conversation_001"
 }
 ```
@@ -48,6 +49,7 @@ description: UniConfig, the options of a request, and what each client sends for
 | `image_config` | object | For Gemini image output: `aspect_ratio` (`1:1`, `2:3`, `3:2`, `3:4`, `4:3`, `9:16`, `16:9`, `21:9`) and `image_size` (`1K`, `2K`). |
 | `tts_config` | list | For Gemini speech: one entry per speaker, with `voice` and an optional `speaker`. With two speakers, the text is a script with one `Name: line` per turn. |
 | `embedding_config` | object | For embeddings: `dimensions`, the size of the vector. |
+| `webtool_config` | object | For web search: `count`, how many results a search returns. |
 | `trace_id` | string | Saves the turn under this id. See [Tracer and playground](/docs/tracing/). |
 
 ## Values a model rejects
@@ -58,7 +60,7 @@ A value a client cannot send raises `UnsupportedParameterError` before the reque
 
 ## What each client sends
 
-Clients are named by their `client_type` ([Models and endpoints](/docs/models/)); `openai-official` serves the `text-embedding-*` models through `openai-embedding`. On both Google clients, a speech model is one whose id contains `tts` and an embedding model one whose id contains `embedding`. The `mmsp` client sends the configuration unchanged, and the server applies it through the model's own client, so that client's rows hold.
+Clients are named by their `client_type` ([Models and endpoints](/docs/models/)); `openai-official` serves the `text-embedding-*` models through `openai-embedding`, and `deepseek-official` serves `deepseek-search` and `deepseek-fetch` through `deepseek-webtool`. The web tool clients, `deepseek-webtool` and `jina-webtool`, tell a search from a fetch by the `-search` or `-fetch` in the id. On both Google clients, a speech model is one whose id contains `tts` and an embedding model one whose id contains `embedding`. The `mmsp` client sends the configuration unchanged, and the server applies it through the model's own client, so that client's rows hold.
 
 ### `max_tokens`
 
@@ -68,7 +70,7 @@ Clients are named by their `client_type` ([Models and endpoints](/docs/models/))
 | `zai-official` | `max_tokens` |
 | `openai-official`, `openai-responses`, `deepseek-official`, `minimax-official`, `google-official`, `google-genai` | `max_output_tokens`, speech models included |
 | `openai-chat`, `openai-chat-vllm-adapter`, `moonshot-official` | `max_completion_tokens` |
-| `openai-embedding`, Gemini embedding models | ignored |
+| `openai-embedding`, `deepseek-webtool`, `jina-webtool`, Gemini embedding models | ignored |
 
 ### `temperature`
 
@@ -78,7 +80,7 @@ Clients are named by their `client_type` ([Models and endpoints](/docs/models/))
 | `minimax-official` | `temperature` from 0 to 1; outside that range it raises |
 | `anthropic-official`, `openai-official`, `deepseek-official`, `moonshot-official` | nothing for 1.0; any other value raises |
 | `google-official`, `google-genai` | any value raises, speech models included |
-| `openai-embedding`, Gemini embedding models | ignored |
+| `openai-embedding`, `deepseek-webtool`, `jina-webtool`, Gemini embedding models | ignored |
 
 ### `system_prompt`
 
@@ -88,7 +90,7 @@ Clients are named by their `client_type` ([Models and endpoints](/docs/models/))
 | `openai-official`, `openai-responses`, `deepseek-official`, `minimax-official` | `instructions` |
 | `google-official`, `google-genai` | `system_instruction`; ignored by speech models |
 | `openai-chat`, `openai-chat-vllm-adapter`, `moonshot-official`, `zai-official` | a first message with the role `system`; nothing for an empty string |
-| `openai-embedding`, Gemini embedding models | ignored |
+| `openai-embedding`, `deepseek-webtool`, `jina-webtool`, Gemini embedding models | ignored |
 
 ### `tools`
 
@@ -98,7 +100,7 @@ Clients are named by their `client_type` ([Models and endpoints](/docs/models/))
 | `openai-official`, `openai-responses`, `deepseek-official`, `minimax-official`, `google-official` | `tools`, each with `type: "function"` |
 | `openai-chat`, `openai-chat-vllm-adapter`, `moonshot-official`, `zai-official` | `tools`, each as the `function` of a `type: "function"` tool |
 | `google-genai` | one tool of `function_declarations` |
-| `openai-embedding`, Gemini speech and embedding models | ignored |
+| `openai-embedding`, `deepseek-webtool`, `jina-webtool`, Gemini speech and embedding models | ignored |
 
 ### `tool_choice`
 
@@ -117,7 +119,7 @@ A cell is the value sent: the `type` on the Anthropic clients, the function call
 | `minimax-official` | `auto` | `none`; raises on MiniMax-M3.1-Flash | raises | raises |
 | `zai-official` | `auto` | raises | raises | raises |
 
-Claude Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.1 cannot be forced to call a tool, so `"required"` and a list raise on them. The Google clients send `tool_choice` only with `tools`, and speech models ignore it. `openai-embedding` and Gemini embedding models ignore it.
+Claude Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.1 cannot be forced to call a tool, so `"required"` and a list raise on them. The Google clients send `tool_choice` only with `tools`, and speech models ignore it. `openai-embedding`, the web tool clients and Gemini embedding models ignore it.
 
 ### `thinking_level`
 
@@ -153,7 +155,7 @@ Each client sends the level as its protocol's effort: `output_config.effort` wit
 | DeepSeek-V4-Pro, DeepSeek-V4-Flash | the same, but `reasoning_effort` `high` for `low` too |
 | Qwen3.6-35B-A3B, Qwen3.5-0.8B, Qwen3.5-9B and any other model | `enable_thinking`: `false` for `none`, `true` otherwise |
 
-`openai-embedding` and Gemini speech and embedding models ignore `thinking_level`.
+`openai-embedding`, the web tool clients and Gemini speech and embedding models ignore `thinking_level`.
 
 ### `thinking_summary`
 
@@ -166,7 +168,7 @@ Each client sends the level as its protocol's effort: `output_config.effort` wit
 | `google-genai` | `include_thoughts: true` | `include_thoughts: false` |
 | `openai-chat`, `openai-chat-vllm-adapter`, `minimax-official`, `moonshot-official`, `zai-official` | ignored | ignored |
 
-On the Anthropic clients, a summary asked for without a `thinking_level` turns adaptive thinking on; with thinking `disabled` or `between_tools`, nothing is sent. `openai-embedding` and Gemini speech and embedding models ignore it.
+On the Anthropic clients, a summary asked for without a `thinking_level` turns adaptive thinking on; with thinking `disabled` or `between_tools`, nothing is sent. `openai-embedding`, the web tool clients and Gemini speech and embedding models ignore it.
 
 ### `prompt_caching`
 
@@ -176,7 +178,7 @@ On the Anthropic clients, a summary asked for without a `thinking_level` turns a
 | `anthropic-official` on Bedrock | the same marker with `ttl: "5m"` on the last block of the last user message, also when not set | the same with `ttl: "1h"` | nothing |
 | `moonshot-official` on Kimi K3 and K3.1 Pro | nothing | `prompt_cache_options: {"mode": "implicit", "ttl": "1h"}` | raises |
 | Every other client; `moonshot-official` on Kimi K2 | nothing | raises | raises |
-| `openai-embedding`, Gemini embedding models | ignored | ignored | ignored |
+| `openai-embedding`, `deepseek-webtool`, `jina-webtool`, Gemini embedding models | ignored | ignored | ignored |
 
 ### `fast_mode`
 
@@ -188,7 +190,7 @@ On the Anthropic clients, a summary asked for without a `thinking_level` turns a
 | `minimax-official` | `service_tier: "priority"` on MiniMax-M3; raises on MiniMax-M3.1-Flash |
 | `ant-messages` | `speed: "fast"` with the beta `fast-mode-2026-02-01` |
 | `anthropic-official` | the same; raises on Bedrock and on Claude 4.6, Sonnet 5.5, Haiku 5.5 and Fable 5.1 |
-| `google-genai`, `deepseek-official`, `moonshot-official`, `zai-official`, `openai-embedding` | raises |
+| `google-genai`, `deepseek-official`, `moonshot-official`, `zai-official`, `openai-embedding`, `deepseek-webtool`, `jina-webtool` | raises |
 | Gemini embedding models | ignored |
 
 ### `image_config`
@@ -219,6 +221,17 @@ Every other model and client ignores it.
 | `openai-embedding` | `dimensions` |
 | `google-official`, `google-genai`: embedding models | `output_dimensionality` |
 | Every other client and model | ignored |
+
+### `webtool_config`
+
+| Client | `count` sent as |
+| --- | --- |
+| `deepseek-webtool`: search | `count`, 1 to 50; DeepSeek returns 10 when not set |
+| `jina-webtool`: search | `num`, 0 to 20; Jina returns 10 when not set |
+| Both web tool clients: fetch | ignored: a fetch reads one page |
+| Every other client | ignored |
+
+A search returns each result's summary as its `content`: DeepSeek's `summary`, and Jina's `description`, asked for with `X-Respond-With: no-content`. A fetch returns the page's Markdown.
 
 ### `trace_id`
 

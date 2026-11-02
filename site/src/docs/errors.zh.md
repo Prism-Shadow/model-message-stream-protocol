@@ -25,9 +25,9 @@ Python 将这些字段命名为 `tool_name`、`tool_call_id`、`raw_arguments_le
 | 错误 | 何时抛出 | 携带 |
 | --- | --- | --- |
 | `UnsupportedParameterError` | 模型拒绝某个 `UniConfig` 值，比如给固定温度的模型传 `temperature`。 | `client`、`parameter` |
-| `UnsupportedContentError` | 格式正确、但模型无法接收的内容项：发给纯文本模型的图片，发给嵌入或语音模型的非文本内容项。 | `client`、`item_type` |
+| `UnsupportedContentError` | 格式正确、但模型无法接收的内容项：发给纯文本模型的图片，发给嵌入、语音模型或网页工具的非文本内容项。 | `client`、`item_type` |
 | `InvalidMessageError` | 消息无法按原样发送：未知类型的内容项、没有 `tool_call_id` 的工具结果、不是合法 base64 或无法获取的图片、缺少说话人标签的 TTS 脚本，或者一条在线路上没有任何可发送内容的消息。 | `client`、`item_type`、`message_index` |
-| `UnsupportedOperationError` | 端点无法提供的调用，比如在 Amazon Bedrock 上列出模型。 | `client`、`operation` |
+| `UnsupportedOperationError` | 端点无法提供的调用，比如在 Amazon Bedrock 或网页工具上列出模型。 | `client`、`operation` |
 | `ConcurrentCallError` | 同一个客户端上一次有状态调用尚未结束时，又调用了 `streaming_response_stateful`。一份历史记录不能同时记录两轮对话：请等第一次调用的 `stop` 事件或它的错误。 | `client` |
 | `RoutingError` | `client_type` 和模型 id 都没有指明客户端：`client_type` 未知，或者没有给出 `client_type` 而模型 id 不属于任何已知家族（[模型选择](/zh/docs/models/)）。由 `AutoLLMClient` 抛出。 | `model`、`client_type` |
 | `ApiKeyRequiredError` | 构造客户端时传入了 `base_url` 而没有 `api_key`，且该 URL 不是客户端的默认端点，环境变量中的 key 不能发往那里（[规则](/zh/docs/client/)）；或者，客户端没有 key 就无法调用它的端点，却既没有传入 key，它的 `<P>_API_KEY` 也没有设置，此时 `base_url` 为 `None`。由构造函数抛出。 | `client`、`client_type`、`api_key_env`、`base_url_env`、`base_url` |

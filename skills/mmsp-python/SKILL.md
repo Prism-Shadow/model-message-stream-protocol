@@ -108,6 +108,7 @@ Agent loop rules:
 - Write message items with the `.done` types (`text.done`, `tool_result.done`, …). Types without the suffix are still accepted, with a deprecation warning, until 0.6.0.
 - Preserve `thinking.done` and `inline_thinking.done` items. Do not strip or modify `fidelity` fields.
 - For embedding models, each `UniMessage` in the `messages` array produces **one embedding vector**. Within a single message, all items in `content_items` are aggregated into a single embedding. Set `embedding_config.dimensions` in the config to control vector size.
+- For web search and fetch (`deepseek-search`, `deepseek-fetch`, `jina-search`, `jina-fetch`), each `UniMessage` is **one request**: its text is the query or the URL, and the answer is one `webtool.done` whose `webdata` lists `{title, content, url}`. Set `webtool_config.count` for the number of search results. Call the stateless method: the answer cannot be replayed in a later turn.
 
 ## Reference
 
