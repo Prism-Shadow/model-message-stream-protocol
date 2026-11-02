@@ -20,9 +20,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
 import anthropic
+import openai
 import pytest
 
 from mmsp import AutoLLMClient
+from mmsp.utils import prompt_cache_key
 
 
 @dataclass
@@ -145,3 +147,119 @@ async def test_request_body_on_every_sdk_version(case: BodyCase, body_server: st
     model_config = client._client.transform_uni_config_to_model_config(case.config)  # noqa: SLF001
     for name in case.unpinned:
         assert name not in model_config and name not in model_config.get("extra_body", {})
+
+
+SESSION_ID = "8d2f0c4e-7a1b-4c3d-9e5f-0a1b2c3d4e5f"
+# 65 characters go out as the SHA-256 hex digest of their UTF-8 bytes; 64 emoji, 128 UTF-16 units
+# long, are 64 characters and go out as they are
+LONG_SESSION_ID = "会" * 65
+LONG_SESSION_KEY = "f3d8cc68018e7e0a0aa2c74cfddfc7515e10785943068732c6ed311eb6f074c5"
+EMOJI_SESSION_ID = "😀" * 64
+
+
+@dataclass
+class SessionCase:
+    name: str
+    client_type: str
+    model: str
+    config: dict[str, Any]
+    # the prompt_cache_key of the body; None means the body carries none
+    expected: str | None
+
+
+SESSION_CASES = [
+    SessionCase("openai-official", "openai-official", "gpt-6-luna", {"session_id": SESSION_ID}, SESSION_ID),
+    SessionCase(
+        "openai-official-long", "openai-official", "gpt-6-luna", {"session_id": LONG_SESSION_ID}, LONG_SESSION_KEY
+    ),
+    SessionCase(
+        "openai-official-emoji", "openai-official", "gpt-6-luna", {"session_id": EMOJI_SESSION_ID}, EMOJI_SESSION_ID
+    ),
+    SessionCase("openai-official-empty", "openai-official", "gpt-6-luna", {"session_id": ""}, None),
+    SessionCase("openai-official-unset", "openai-official", "gpt-6-luna", {}, None),
+    SessionCase("openai-responses", "openai-responses", "openai/gpt-6-luna", {"session_id": SESSION_ID}, SESSION_ID),
+    SessionCase("openai-chat", "openai-chat", "gpt-6-luna", {"session_id": SESSION_ID}, SESSION_ID),
+    SessionCase("openai-chat-long", "openai-chat", "gpt-6-luna", {"session_id": LONG_SESSION_ID}, LONG_SESSION_KEY),
+    SessionCase(
+        "openai-chat-vllm-adapter",
+        "openai-chat-vllm-adapter",
+        "Qwen/Qwen3.6-35B-A3B",
+        {"session_id": SESSION_ID},
+        SESSION_ID,
+    ),
+    SessionCase("moonshot-official-k3", "moonshot-official", "kimi-k3.1-pro", {"session_id": SESSION_ID}, SESSION_ID),
+    SessionCase("moonshot-official-k2", "moonshot-official", "kimi-k2.6", {"session_id": SESSION_ID}, SESSION_ID),
+    SessionCase("minimax-official", "minimax-official", "MiniMax-M3", {"session_id": SESSION_ID}, SESSION_ID),
+    SessionCase(
+        "minimax-official-long", "minimax-official", "MiniMax-M3", {"session_id": LONG_SESSION_ID}, LONG_SESSION_KEY
+    ),
+    SessionCase("deepseek-official", "deepseek-official", "deepseek-v4-flash", {"session_id": SESSION_ID}, None),
+    SessionCase("zai-official", "zai-official", "glm-5.3", {"session_id": SESSION_ID}, None),
+    SessionCase("openai-embedding", "openai-embedding", "text-embedding-3-large", {"session_id": SESSION_ID}, None),
+]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", SESSION_CASES, ids=[case.name for case in SESSION_CASES])
+async def test_session_id_reaches_the_wire_as_prompt_cache_key(case: SessionCase, body_server: str):
+    _BodyHandler.received_body = {}
+    client = AutoLLMClient(model=case.model, api_key="test-key", base_url=body_server, client_type=case.client_type)
+    messages = [{"role": "user", "content_items": [{"type": "text.done", "text": "Hi"}]}]
+
+    with pytest.raises(openai.BadRequestError):
+        async for _ in client.streaming_response(messages=messages, config=case.config):
+            pass
+
+    body = _BodyHandler.received_body
+    assert body["model"] == case.model
+    assert body.get("prompt_cache_key") == case.expected
+    assert "prompt_cache_key" in body or case.expected is None
+    assert "session_id" not in body
+
+
+IGNORING_CLIENTS = [
+    ("anthropic-official", "claude-sonnet-5"),
+    ("ant-messages", "claude-sonnet-5"),
+    ("google-official", "gemini-3.8-flash"),
+    ("google-genai", "gemini-3.8-flash"),
+    ("openai-embedding", "text-embedding-3-large"),
+    ("deepseek-official", "deepseek-v4-flash"),
+    ("zai-official", "glm-5.3"),
+]
+
+
+@pytest.mark.parametrize(("client_type", "model"), IGNORING_CLIENTS)
+def test_session_id_changes_nothing_where_no_prompt_cache_key_exists(client_type: str, model: str):
+    client = AutoLLMClient(model=model, api_key="test-key", client_type=client_type)._client  # noqa: SLF001
+    config = {"max_tokens": 100}
+
+    with_session = client.transform_uni_config_to_model_config({**config, "session_id": SESSION_ID})
+    assert with_session == client.transform_uni_config_to_model_config(config)
+
+
+def test_kimi_k2_sends_no_trace_id_as_prompt_cache_key():
+    client = AutoLLMClient(model="kimi-k2.6", api_key="test-key", client_type="moonshot-official")._client  # noqa: SLF001
+
+    assert "prompt_cache_key" not in client.transform_uni_config_to_model_config({"trace_id": "agent1/session_001"})
+
+
+def test_mmsp_client_forwards_session_id():
+    client = AutoLLMClient(model="gpt-6-luna", api_key="test-key", client_type="mmsp")._client  # noqa: SLF001
+
+    assert client.transform_uni_config_to_model_config({"session_id": LONG_SESSION_ID}) == {
+        "session_id": LONG_SESSION_ID
+    }
+
+
+@pytest.mark.parametrize(
+    ("session_id", "expected"),
+    [
+        ("x" * 64, "x" * 64),
+        ("x" * 65, "9537c5fdf120482f7d58d25e9ed583f52c02b4e304ea814db1633ad565aed7e9"),
+        (EMOJI_SESSION_ID, EMOJI_SESSION_ID),
+        (LONG_SESSION_ID, LONG_SESSION_KEY),
+    ],
+    ids=["64-ascii", "65-ascii", "64-emoji", "65-cjk"],
+)
+def test_prompt_cache_key_keeps_64_characters_and_digests_more(session_id: str, expected: str):
+    assert prompt_cache_key(session_id) == expected

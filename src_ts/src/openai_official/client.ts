@@ -41,6 +41,7 @@ import {
   isDebugEnabled,
   openaiClientOptions,
   openaiImageDetail,
+  promptCacheKey,
   resolveCredentials,
 } from "../utils";
 
@@ -202,6 +203,10 @@ export class OpenAIOfficialClient extends LLMClient {
         parameter: "prompt_caching",
         message: "prompt_caching must be ENABLE for GPT-6.",
       });
+    }
+
+    if (config.session_id) {
+      openaiConfig.prompt_cache_key = promptCacheKey(config.session_id);
     }
 
     return openaiConfig;

@@ -2410,7 +2410,19 @@ export function createChatApp(): Express {
 
       <script>
           let isStreaming = false;
-          let sessionId = Math.random().toString(36).substring(7);
+          // a conversation's id, which the server also sends as its prompt cache session; randomUUID exists
+          // only in a secure context, so a page served over plain HTTP builds the UUID from getRandomValues
+          function newSessionId() {
+              if (crypto.randomUUID) {
+                  return crypto.randomUUID();
+              }
+              const bytes = crypto.getRandomValues(new Uint8Array(16));
+              bytes[6] = (bytes[6] & 0x0f) | 0x40;
+              bytes[8] = (bytes[8] & 0x3f) | 0x80;
+              const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+              return [hex.slice(0, 8), hex.slice(8, 12), hex.slice(12, 16), hex.slice(16, 20), hex.slice(20)].join('-');
+          }
+          let sessionId = newSessionId();
           // the entry (model id, client type, base URL) the conversation on screen was started with; null before the first message
           let conversationEntry = null;
           let selectedImages = [];
@@ -3816,7 +3828,7 @@ export function createChatApp(): Express {
           }
 
           function resetThread() {
-              sessionId = Math.random().toString(36).substring(7);
+              sessionId = newSessionId();
               lastMessageTimestamp = null;
               conversationEntry = null;
               document.getElementById('thread').innerHTML = '';
@@ -3871,7 +3883,7 @@ export function createChatApp(): Express {
           // the earlier messages stay on screen above the divider; the backend forgets them with the old session
           async function startNewConversation() {
               const previous = sessionId;
-              sessionId = Math.random().toString(36).substring(7);
+              sessionId = newSessionId();
               try {
                   await fetch('/api/clear', {
                       method: 'POST',
@@ -4006,6 +4018,10 @@ export function createChatApp(): Express {
 
       const client = sessionClients.get(sessionId)!;
       const requestConfig = getRequestConfig(config || {});
+      // the page's conversation id names the prompt cache session; the fallback id names none
+      if (session_id && !requestConfig.session_id) {
+        requestConfig.session_id = session_id;
+      }
 
       for await (const event of client.streamingResponseStateful({
         message,

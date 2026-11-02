@@ -324,8 +324,44 @@ def test_chat_app_uses_client_connection_options(monkeypatch):
         "client_type": "openai-official",
         "default_headers": {"X-Title": "MMSP"},
     }
-    assert captured["request_config"] == {"thinking_level": "low"}
+    assert captured["request_config"] == {"thinking_level": "low", "session_id": "connection-options"}
     assert isinstance(captured["signal"], AbortSignal)
+
+
+def test_chat_app_sends_the_conversation_id_as_session_id(monkeypatch):
+    """Test that the page's conversation id is the request's session_id, and the fallback session sends none."""
+    configs = []
+
+    class FakeClient:
+        def __init__(self, model, api_key=None, base_url=None, client_type=None, default_headers=None):
+            pass
+
+        async def streaming_response_stateful(self, message, config, signal=None):
+            configs.append(config)
+            for event in EVENTS:
+                yield event
+
+        def clear_history(self):
+            pass
+
+    playground._session_clients.clear()
+    playground._session_client_options.clear()
+    monkeypatch.setattr(playground, "AutoLLMClient", FakeClient)
+
+    message = {"role": "user", "content_items": [{"type": "text.done", "text": "Hello"}]}
+    app = create_chat_app()
+    with app.test_client() as client:
+        for body in (
+            {"session_id": "0f8e4c3a-5b1d-4e2f-9a7c-6d5e4f3a2b1c", "message": message, "config": {"model": "gpt-5.5"}},
+            {"message": message, "config": {"model": "gpt-5.5"}},
+            {"session_id": "page", "message": message, "config": {"model": "gpt-5.5", "session_id": "caller"}},
+        ):
+            response = client.post("/api/chat", json=body)
+            assert _sse_events(response.data)[-1] == "[DONE]"
+
+    assert configs == [{"session_id": "0f8e4c3a-5b1d-4e2f-9a7c-6d5e4f3a2b1c"}, {}, {"session_id": "caller"}]
+    playground._session_clients.clear()
+    playground._session_client_options.clear()
 
 
 def test_chat_app_accepts_large_image_payload(monkeypatch):

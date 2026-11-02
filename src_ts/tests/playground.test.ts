@@ -367,8 +367,42 @@ describe("Playground", () => {
     });
     expect(mockLastStreamingOptions?.config).toEqual({
       thinking_level: "low",
+      session_id: "connection-options",
     });
     expect(mockLastStreamingOptions?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  test("should send the conversation id as session_id, and none for the fallback session", async () => {
+    const app = createChatApp();
+    const message: UniMessage = {
+      role: "user",
+      content_items: [{ type: "text.done", text: "Hello" }],
+    };
+    const configs: UniConfig[] = [];
+
+    for (const body of [
+      {
+        session_id: "0f8e4c3a-5b1d-4e2f-9a7c-6d5e4f3a2b1c",
+        message,
+        config: { model: "gpt-5.5" },
+      },
+      { message, config: { model: "gpt-5.5" } },
+      {
+        session_id: "page",
+        message,
+        config: { model: "gpt-5.5", session_id: "caller" },
+      },
+    ]) {
+      const response = await request(app).post("/api/chat").send(body);
+      expect(sseEvents(response.text).pop()).toBe("[DONE]");
+      configs.push(mockLastStreamingOptions!.config);
+    }
+
+    expect(configs).toEqual([
+      { session_id: "0f8e4c3a-5b1d-4e2f-9a7c-6d5e4f3a2b1c" },
+      {},
+      { session_id: "caller" },
+    ]);
   });
 
   test("should accept image payloads larger than the default JSON limit", async () => {

@@ -41,6 +41,7 @@ import {
   isDebugEnabled,
   openaiClientOptions,
   openaiImageDetail,
+  promptCacheKey,
   resolveCredentials,
 } from "../utils";
 
@@ -196,6 +197,10 @@ export class OpenaiResponsesClient extends LLMClient {
         parameter: "prompt_caching",
         message: "prompt_caching must be ENABLE for the Responses API.",
       });
+    }
+
+    if (config.session_id) {
+      openaiConfig.prompt_cache_key = promptCacheKey(config.session_id);
     }
 
     return openaiConfig;

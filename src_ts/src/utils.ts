@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { createHash } from "crypto";
+
 import { CLIENT_CREDENTIALS, environmentCredential } from "./credentials";
 import { ApiKeyRequiredError, InvalidMessageError } from "./errors";
 import { UsageMetadata } from "./types";
@@ -162,6 +164,24 @@ export function openaiClientOptions(
 export function isDebugEnabled(): boolean {
   const flag = (process.env.MMSP_DEBUG || "").trim().toLowerCase();
   return !["", "0", "false", "no", "off"].includes(flag);
+}
+
+/**
+ * The prompt cache key a session id goes out as (MMSP-RFC-0014).
+ *
+ * OpenAI's Responses API refuses a key of more than 64 characters, counted in code points,
+ * and so do OpenAI's models behind OpenRouter. A longer id goes out as its SHA-256 hex
+ * digest, which has 64 and keeps one session on one key.
+ *
+ * @param sessionId - The session id of the request, not empty.
+ * @returns The session id when it has at most 64 characters, else its SHA-256 hex digest.
+ */
+export function promptCacheKey(sessionId: string): string {
+  // code points, as Python's len counts them, not the UTF-16 units of length
+  if (Array.from(sessionId).length <= 64) {
+    return sessionId;
+  }
+  return createHash("sha256").update(sessionId, "utf8").digest("hex");
 }
 
 /** Pixel dimensions read from an image header. */

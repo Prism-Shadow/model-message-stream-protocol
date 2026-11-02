@@ -2264,7 +2264,19 @@ def create_chat_app() -> Flask:
 
         <script>
             let isStreaming = false;
-            let sessionId = Math.random().toString(36).substring(7);
+            // a conversation's id, which the server also sends as its prompt cache session; randomUUID exists
+            // only in a secure context, so a page served over plain HTTP builds the UUID from getRandomValues
+            function newSessionId() {
+                if (crypto.randomUUID) {
+                    return crypto.randomUUID();
+                }
+                const bytes = crypto.getRandomValues(new Uint8Array(16));
+                bytes[6] = (bytes[6] & 0x0f) | 0x40;
+                bytes[8] = (bytes[8] & 0x3f) | 0x80;
+                const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+                return [hex.slice(0, 8), hex.slice(8, 12), hex.slice(12, 16), hex.slice(16, 20), hex.slice(20)].join('-');
+            }
+            let sessionId = newSessionId();
             // the entry (model id, client type, base URL) the conversation on screen was started with; null before the first message
             let conversationEntry = null;
             let selectedImages = [];
@@ -3670,7 +3682,7 @@ def create_chat_app() -> Flask:
             }
 
             function resetThread() {
-                sessionId = Math.random().toString(36).substring(7);
+                sessionId = newSessionId();
                 lastMessageTimestamp = null;
                 conversationEntry = null;
                 document.getElementById('thread').innerHTML = '';
@@ -3725,7 +3737,7 @@ def create_chat_app() -> Flask:
             // the earlier messages stay on screen above the divider; the backend forgets them with the old session
             async function startNewConversation() {
                 const previous = sessionId;
-                sessionId = Math.random().toString(36).substring(7);
+                sessionId = newSessionId();
                 try {
                     await fetch('/api/clear', {
                         method: 'POST',
@@ -3860,6 +3872,9 @@ def create_chat_app() -> Flask:
 
                 client = _session_clients[session_id]
                 request_config = _get_request_config(config)
+                # the page's conversation id names the prompt cache session; the fallback id names none
+                if data.get("session_id") and not request_config.get("session_id"):
+                    request_config["session_id"] = data["session_id"]
 
                 # Create async function to collect events
                 async def stream_events():

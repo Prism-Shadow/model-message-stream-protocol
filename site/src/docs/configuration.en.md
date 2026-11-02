@@ -24,6 +24,7 @@ description: UniConfig, the options of a request, and what each client sends for
   "thinking_level": "high",
   "thinking_summary": true,
   "prompt_caching": "enable",
+  "session_id": "8d2f0c4e-7a1b-4c3d-9e5f-0a1b2c3d4e5f",
   "fast_mode": false,
   "image_config": {"aspect_ratio": "4:3", "image_size": "1K"},
   "tts_config": [{"voice": "Kore"}],
@@ -45,6 +46,7 @@ description: UniConfig, the options of a request, and what each client sends for
 | `thinking_level` | `"none"`, `"low"`, `"medium"`, `"high"`, `"xhigh"`, `"max"` | How much the model thinks. |
 | `thinking_summary` | boolean | Ask for a summary of the thinking. Whether one comes back depends on the model. |
 | `prompt_caching` | `"enable"`, `"disable"`, `"enhance"` | How the prompt is cached. |
+| `session_id` | string | The conversation the request belongs to. Recommended: one stable id per conversation raises the prompt cache hit rate. |
 | `fast_mode` | boolean | Ask for the provider's faster tier. |
 | `image_config` | object | For Gemini image output: `aspect_ratio` (`1:1`, `2:3`, `3:2`, `3:4`, `4:3`, `9:16`, `16:9`, `21:9`) and `image_size` (`1K`, `2K`). |
 | `tts_config` | list | For Gemini speech: one entry per speaker, with `voice` and an optional `speaker`. With two speakers, the text is a script with one `Name: line` per turn. |
@@ -180,6 +182,17 @@ On the Anthropic clients, a summary asked for without a `thinking_level` turns a
 | Every other client; `moonshot-official` on Kimi K2 | nothing | raises | raises |
 | `openai-embedding`, `deepseek-webtool`, `jina-webtool`, Gemini embedding models | ignored | ignored | ignored |
 
+### `session_id`
+
+Set one `session_id` per conversation, such as a UUID, and keep it across the conversation's turns. Endpoints that route by it send the conversation back to the machine that holds its cached prefix, which raises the cache hit rate. Clients without such a key ignore it, so it is safe on every request.
+
+| Client | Sent as |
+| --- | --- |
+| `openai-official`, `openai-responses`, `openai-chat`, `openai-chat-vllm-adapter`, `moonshot-official`, `minimax-official` | `prompt_cache_key`: the id itself up to 64 characters, its SHA-256 hex digest beyond |
+| `anthropic-official`, `ant-messages`, `google-official`, `google-genai`, `deepseek-official`, `zai-official`, `openai-embedding` | ignored |
+
+An empty string sends nothing.
+
 ### `fast_mode`
 
 `false` or not set sends nothing.
@@ -239,7 +252,6 @@ A search returns each result's summary as its `content`: DeepSeek's `summary`, a
 | --- | --- |
 | Every client | Saves the turn under this id. |
 | `mmsp` | The server saves the turn; the client saves nothing. |
-| `moonshot-official` on Kimi K2 | Also sends it as `prompt_cache_key`. |
 
 ## In Python and TypeScript
 

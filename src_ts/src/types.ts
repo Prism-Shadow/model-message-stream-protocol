@@ -282,6 +282,12 @@ export interface UniConfig {
   tool_choice?: ToolChoice;
   system_prompt?: string;
   prompt_caching?: PromptCaching;
+  // the conversation a request belongs to, recommended on every request since one stable id per
+  // conversation raises the prompt cache hit rate: openai-official, openai-responses, openai-chat
+  // (with its vLLM adapter), moonshot-official and minimax-official send it as prompt_cache_key,
+  // beyond 64 characters as its SHA-256 hex digest; every other client ignores it, and so does
+  // every client for an empty string
+  session_id?: string;
   // fast processing at premium pricing: openai-official, openai-responses, openai-chat (with its
   // vLLM adapter), google-official and minimax-official send service_tier="priority";
   // anthropic-official and ant-messages send speed="fast"; google-genai, deepseek-official,

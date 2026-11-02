@@ -40,6 +40,7 @@ import {
 import {
   isDebugEnabled,
   openaiClientOptions,
+  promptCacheKey,
   resolveCredentials,
 } from "../utils";
 
@@ -208,6 +209,10 @@ export class MiniMaxOfficialClient extends LLMClient {
         message:
           "MiniMax Responses API does not support enhancing its automatic prompt cache.",
       });
+    }
+
+    if (config.session_id) {
+      minimaxConfig.prompt_cache_key = promptCacheKey(config.session_id);
     }
 
     return minimaxConfig;

@@ -269,6 +269,7 @@ config = {
     "tool_choice": "auto",  # "auto", "required", "none", or ["tool_name"]
     "system_prompt": "You are a helpful assistant",
     "prompt_caching": PromptCaching.ENABLE,
+    "session_id": "conversation_001",  # Recommended: one per conversation raises the prompt cache hit rate
     "trace_id": "agent1/conversation_001",  # Optional: save conversation trace
 }
 ```

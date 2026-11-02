@@ -33,7 +33,7 @@ from ..types import (
     UniMessage,
     UsageMetadata,
 )
-from ..utils import is_debug_enabled, openai_client_options, resolve_credentials
+from ..utils import is_debug_enabled, openai_client_options, prompt_cache_key, resolve_credentials
 
 
 class MiniMaxOfficialClient(LLMClient):
@@ -149,6 +149,9 @@ class MiniMaxOfficialClient(LLMClient):
                 "prompt_caching",
                 "MiniMax Responses API does not support enhancing its automatic prompt cache.",
             )
+
+        if config.get("session_id"):
+            minimax_config["prompt_cache_key"] = prompt_cache_key(config["session_id"])
 
         return minimax_config
 
