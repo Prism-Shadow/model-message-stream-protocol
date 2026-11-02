@@ -99,6 +99,11 @@ def test_an_unknown_client_type_has_no_answer():
         ("gpt-6-astra", None, "openai-official"),
         ("text-embedding-3-large", None, "openai-embedding"),
         ("text-embedding-3-large", "OpenAI-Official", "openai-embedding"),
+        ("deepseek-search", None, "deepseek-webtool"),
+        ("DeepSeek-Fetch", "deepseek-official", "deepseek-webtool"),
+        # only the two web tool ids leave deepseek-official
+        ("deepseek-search-v2", None, "deepseek-official"),
+        ("jina-search", None, "jina-webtool"),
         ("claude-sonnet-5", "ant-messages", "ant-messages"),
         ("qwen3.8", "openai", "openai-chat"),
         ("gemini-3.8-flash", "gemini-generate-content", "google-genai"),

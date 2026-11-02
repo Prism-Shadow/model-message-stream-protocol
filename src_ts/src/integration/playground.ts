@@ -1803,7 +1803,7 @@ export function createChatApp(): Express {
               overflow: hidden;
           }
 
-          .embedding-head {
+          .embedding-head, .web-tool-head {
               display: flex;
               justify-content: space-between;
               gap: 8px;
@@ -1819,6 +1819,58 @@ export function createChatApp(): Express {
               box-shadow: inset 0 1px 0 var(--ring);
               font-family: var(--mono);
               font-size: 12px;
+              overflow-wrap: anywhere;
+          }
+
+          .web-tool {
+              margin: 4px 0 12px;
+              border-radius: 12px;
+              background: var(--surface);
+              box-shadow: var(--shadow-card);
+              overflow: hidden;
+          }
+
+          .web-pages {
+              display: grid;
+              gap: 12px;
+              margin: 0;
+              padding: 10px 12px 12px;
+              list-style: none;
+              box-shadow: inset 0 1px 0 var(--ring);
+          }
+
+          .web-pages li {
+              display: grid;
+              gap: 2px;
+              min-width: 0;
+          }
+
+          .web-title {
+              color: var(--text);
+              font-weight: 500;
+              overflow-wrap: anywhere;
+          }
+
+          a.web-title:hover {
+              text-decoration: underline;
+          }
+
+          .web-url {
+              color: var(--subtle);
+              font-family: var(--mono);
+              font-size: 12px;
+              overflow-wrap: anywhere;
+          }
+
+          .web-text {
+              display: -webkit-box;
+              overflow: hidden;
+              -webkit-box-orient: vertical;
+              -webkit-line-clamp: 4;
+              color: var(--muted);
+              font-size: 13px;
+              line-height: 1.55;
+              white-space: pre-wrap;
               overflow-wrap: anywhere;
           }
 
@@ -2548,6 +2600,21 @@ export function createChatApp(): Express {
               return \`<div class="embedding-content"><div class="embedding-head"><span>Embedding</span><span class="mono">\${formatCount(size)} dimensions</span></div><code>\${preview}</code></div>\`;
           }
 
+          function renderWebtool(item) {
+              const pages = Array.isArray(item.webdata) ? item.webdata : [];
+              const count = pages.length === 1 ? '1 page' : \`\${formatCount(pages.length)} pages\`;
+              const list = pages.map((page) => {
+                  const url = String(page.url || '');
+                  const title = escapeHtml(page.title || url);
+                  const link = url.startsWith('http://') || url.startsWith('https://')
+                      ? \`<a class="web-title" href="\${escapeHtml(url).replace(/"/g, '&quot;')}" target="_blank" rel="noopener noreferrer">\${title}</a>\`
+                      : \`<span class="web-title">\${title}</span>\`;
+                  const text = page.content ? \`<div class="web-text">\${escapeHtml(page.content)}</div>\` : '';
+                  return \`<li>\${link}<span class="web-url">\${escapeHtml(url)}</span>\${text}</li>\`;
+              }).join('');
+              return \`<div class="web-tool"><div class="web-tool-head"><span>Web</span><span class="mono">\${count}</span></div>\${list ? \`<ol class="web-pages">\${list}</ol>\` : ''}</div>\`;
+          }
+
           // Every stream item gets the element its kind reads best in; the stream loop only feeds it text.
           function openStreamItem(contentDiv, kind, started = performance.now()) {
               const item = { kind, text: '', name: '', started, root: null, container: null };
@@ -2878,12 +2945,14 @@ export function createChatApp(): Express {
               'moonshot-official': 'Moonshot',
               'deepseek-official': 'DeepSeek',
               'minimax-official': 'MiniMax',
+              'jina-webtool': 'Jina Reader and Search',
               'openai-responses': 'OpenAI Responses',
               'openai-chat': 'OpenAI Chat Completions',
               'openai-chat-vllm-adapter': 'Chat Completions on vLLM',
               'openai-embedding': 'OpenAI Embeddings',
               'ant-messages': 'Anthropic Messages',
               'google-genai': 'Google generateContent',
+              'deepseek-webtool': 'DeepSeek Search and Fetch',
               'mmsp': 'MMSP server'
           };
 
@@ -3658,7 +3727,7 @@ export function createChatApp(): Express {
                                   }
 
                                   // a delta event carries a fragment of the open item or its done item, whose complete
-                                  // content replaces the fragments shown so far; an image or an embedding shows once
+                                  // content replaces the fragments shown so far; an image, an embedding or a web tool's pages show once
                                   // done, and thinking inline data not at all
                                   for (const item of event.content_items) {
                                       if (item.type === 'text.delta' || item.type === 'text.done') {
@@ -3687,6 +3756,8 @@ export function createChatApp(): Express {
                                           contentDiv.insertAdjacentHTML('beforeend', renderInlineData(item));
                                       } else if (item.type === 'embedding.done') {
                                           contentDiv.insertAdjacentHTML('beforeend', renderEmbedding(item));
+                                      } else if (item.type === 'webtool.done') {
+                                          contentDiv.insertAdjacentHTML('beforeend', renderWebtool(item));
                                       }
 
                                       if (item.type.endsWith('.done')) {

@@ -801,6 +801,7 @@ _TRACER_HEAD = """
     .kind-tool_result { --k: var(--green); }
     .kind-image_url, .kind-inline_data { --k: var(--violet); }
     .kind-embedding { --k: var(--indigo); }
+    .kind-webtool { --k: var(--green); }
 
     .item-head {
         grid-column: 1;
@@ -874,6 +875,48 @@ _TRACER_HEAD = """
         font-family: var(--mono);
         font-size: 12.5px;
         line-height: 1.6;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+
+    .web-pages {
+        display: grid;
+        gap: 12px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .web-page {
+        display: grid;
+        gap: 2px;
+        min-width: 0;
+    }
+
+    .web-title {
+        font-weight: 500;
+        overflow-wrap: anywhere;
+    }
+
+    a.web-title:hover {
+        text-decoration: underline;
+    }
+
+    .web-url {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--subtle);
+        overflow-wrap: anywhere;
+    }
+
+    .web-content {
+        display: -webkit-box;
+        overflow: hidden;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 4;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.55;
         white-space: pre-wrap;
         overflow-wrap: anywhere;
     }
@@ -1456,6 +1499,10 @@ class Tracer:
                     lines.append(self._format_inline_data_summary(item))
                 elif item["type"] == "embedding.done":
                     lines.append(self._format_embedding_preview(item))
+                elif item["type"] == "webtool.done":
+                    lines.append(f"Web Tool: {len(item['webdata'])} pages")
+                    for page in item["webdata"]:
+                        lines.append(f"  {page['title']} <{page['url']}>")
                 elif item["type"] == "tool_call.done":
                     lines.append(f"Tool Call: {item['name']}")
                     lines.append(f"  Arguments: {json.dumps(item['arguments'], indent=2, ensure_ascii=False)}")
@@ -1641,6 +1688,20 @@ class Tracer:
                             {% endif %}
                             {% elif item.type == 'embedding.done' %}
                             <div class="embedding">{{ item|embedding_preview }}</div>
+                            {% elif item.type == 'webtool.done' %}
+                            {% if item.webdata %}
+                            <ol class="web-pages">
+                                {% for page in item.webdata %}
+                                <li class="web-page">
+                                    {% if page.url.startswith('http://') or page.url.startswith('https://') %}<a class="web-title" href="{{ page.url }}" target="_blank" rel="noopener noreferrer">{{ page.title or page.url }}</a>{% else %}<span class="web-title">{{ page.title or page.url }}</span>{% endif %}
+                                    <span class="web-url">{{ page.url }}</span>
+                                    {% if page.content %}<div class="web-content">{{ page.content }}</div>{% endif %}
+                                </li>
+                                {% endfor %}
+                            </ol>
+                            {% else %}
+                            <div class="item-note">No results</div>
+                            {% endif %}
                             {% endif %}
                         </div>
                         {% endfor %}

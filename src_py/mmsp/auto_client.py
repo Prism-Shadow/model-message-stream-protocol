@@ -76,6 +76,10 @@ def _client_class(client_type: str, model: str) -> type[LLMClient]:
             from .minimax_official import MiniMaxOfficialClient
 
             return MiniMaxOfficialClient
+        case "jina-webtool":
+            from .jina_webtool import JinaWebtoolClient
+
+            return JinaWebtoolClient
         case "openai-responses":
             from .openai_responses import OpenaiResponsesClient
 
@@ -100,6 +104,10 @@ def _client_class(client_type: str, model: str) -> type[LLMClient]:
             from .google_genai import GoogleGenaiClient
 
             return GoogleGenaiClient
+        case "deepseek-webtool":
+            from .deepseek_webtool import DeepSeekWebtoolClient
+
+            return DeepSeekWebtoolClient
         case "mmsp":
             from .mmsp import MmspClient
 

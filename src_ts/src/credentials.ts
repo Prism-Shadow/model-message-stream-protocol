@@ -28,6 +28,7 @@ export const OFFICIAL_CLIENT_TYPES = [
   "moonshot-official",
   "deepseek-official",
   "minimax-official",
+  "jina-webtool",
 ] as const;
 
 // A compatible client speaks one wire protocol for whatever endpoint serves it.
@@ -38,6 +39,7 @@ export const COMPATIBLE_CLIENT_TYPES = [
   "openai-embedding",
   "ant-messages",
   "google-genai",
+  "deepseek-webtool",
   "mmsp",
 ] as const;
 
@@ -51,6 +53,7 @@ export const MODEL_FAMILIES: [string, string][] = [
   ["kimi-", "moonshot-official"],
   ["deepseek-", "deepseek-official"],
   ["minimax-", "minimax-official"],
+  ["jina-", "jina-webtool"],
 ];
 
 // The earlier names of three client types, still accepted.
@@ -73,6 +76,11 @@ export interface ClientCredentials {
    * is the endpoint of `baseUrlEnv` or `defaultBaseUrl` when `apiKeyEnv` is unset as well.
    */
   openServer?: boolean;
+  /**
+   * The client's other default endpoints, where its vendor serves some of its models on another
+   * host; the key goes to them as it goes to `defaultBaseUrl`.
+   */
+  otherBaseUrls?: string[];
 }
 
 const OPENAI: ClientCredentials = {
@@ -90,6 +98,11 @@ const GEMINI: ClientCredentials = {
   baseUrlEnv: "GEMINI_BASE_URL",
   defaultBaseUrl: "https://generativelanguage.googleapis.com",
 };
+const DEEPSEEK: ClientCredentials = {
+  apiKeyEnv: "DEEPSEEK_API_KEY",
+  baseUrlEnv: "DEEPSEEK_BASE_URL",
+  defaultBaseUrl: "https://api.deepseek.com",
+};
 
 /** Every client type's credentials, by its canonical name. */
 export const CLIENT_CREDENTIALS: Readonly<Record<string, ClientCredentials>> = {
@@ -106,15 +119,18 @@ export const CLIENT_CREDENTIALS: Readonly<Record<string, ClientCredentials>> = {
     baseUrlEnv: "MOONSHOT_BASE_URL",
     defaultBaseUrl: "https://api.moonshot.cn/v1",
   },
-  "deepseek-official": {
-    apiKeyEnv: "DEEPSEEK_API_KEY",
-    baseUrlEnv: "DEEPSEEK_BASE_URL",
-    defaultBaseUrl: "https://api.deepseek.com",
-  },
+  "deepseek-official": DEEPSEEK,
   "minimax-official": {
     apiKeyEnv: "MINIMAX_API_KEY",
     baseUrlEnv: "MINIMAX_BASE_URL",
     defaultBaseUrl: "https://api.minimax.io/v1",
+  },
+  // Jina reads a page on r.jina.ai and searches on s.jina.ai
+  "jina-webtool": {
+    apiKeyEnv: "JINA_API_KEY",
+    baseUrlEnv: "JINA_BASE_URL",
+    defaultBaseUrl: "https://r.jina.ai",
+    otherBaseUrls: ["https://s.jina.ai"],
   },
   "openai-responses": OPENAI,
   "openai-chat": OPENAI,
@@ -128,6 +144,7 @@ export const CLIENT_CREDENTIALS: Readonly<Record<string, ClientCredentials>> = {
   "openai-embedding": OPENAI,
   "ant-messages": ANTHROPIC,
   "google-genai": GEMINI,
+  "deepseek-webtool": DEEPSEEK,
   mmsp: {
     apiKeyEnv: "MMSP_API_KEY",
     baseUrlEnv: "MMSP_BASE_URL",
@@ -189,7 +206,8 @@ export function clientTypeForModel(model: string): string | null {
 /**
  * The client AutoLLMClient builds for a model: the client type passed in (in any casing, an
  * earlier name accepted), else the official client of the model id's family. `openai-official`
- * serves a `text-embedding-` model through `openai-embedding`.
+ * serves a `text-embedding-` model through `openai-embedding`, and `deepseek-official` serves
+ * `deepseek-search` and `deepseek-fetch` through `deepseek-webtool`.
  *
  * @param model - The model id
  * @param clientType - The client type passed in, if any
@@ -208,12 +226,18 @@ export function routedClientType(
   ) {
     return "openai-embedding";
   }
+  if (
+    routed === "deepseek-official" &&
+    ["deepseek-search", "deepseek-fetch"].includes(model.toLowerCase())
+  ) {
+    return "deepseek-webtool";
+  }
   return routed;
 }
 
 /**
  * What a client does for its key when it is handed none. Without a base URL it reads `<P>_API_KEY`
- * and `<P>_BASE_URL`. With its own default endpoint (trailing slashes and the host's case
+ * and `<P>_BASE_URL`. With one of its own default endpoints (trailing slashes and the host's case
  * ignored) it reads `<P>_API_KEY` for that endpoint. With any other base URL it refuses, because
  * the environment's key was not given for that endpoint, except a client of an open server (`mmsp`,
  * `openai-chat-vllm-adapter`), which calls any base URL keyless.
@@ -230,7 +254,7 @@ export function environmentCredential(
   if (canonical === null) {
     return null;
   }
-  const { apiKeyEnv, baseUrlEnv, defaultBaseUrl, openServer } =
+  const { apiKeyEnv, baseUrlEnv, defaultBaseUrl, openServer, otherBaseUrls } =
     CLIENT_CREDENTIALS[canonical];
   if (!baseUrl) {
     return { kind: "env", apiKeyEnv, baseUrlEnv };
@@ -238,7 +262,12 @@ export function environmentCredential(
   if (openServer) {
     return { kind: "keyless" };
   }
-  if (normalizedEndpoint(baseUrl) === normalizedEndpoint(defaultBaseUrl)) {
+  const endpoint = normalizedEndpoint(baseUrl);
+  if (
+    [defaultBaseUrl, ...(otherBaseUrls ?? [])].some(
+      (ownEndpoint) => endpoint === normalizedEndpoint(ownEndpoint),
+    )
+  ) {
     return { kind: "env", apiKeyEnv, baseUrlEnv: null };
   }
   return { kind: "required", apiKeyEnv, baseUrlEnv };

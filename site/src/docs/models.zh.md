@@ -15,8 +15,9 @@ description: MMSP 的客户端构成、各客户端支持的模型，以及如�
 | `google-official` | `gemini-4-argon`、`gemini-3.8-flash`、`gemini-3.7-flash`、`gemini-3.1-pro-preview`；`gemini-3.1-flash-image`、`gemini-3.8-flash-tts`；`gemini-embedding-2` | Gemini Interactions | `GEMINI_API_KEY` `GEMINI_BASE_URL` |
 | `zai-official` | `glm-5.3`、`glm-5.3-flash`、`glm-5.2` | Chat Completions | `ZAI_API_KEY` `ZAI_BASE_URL` |
 | `moonshot-official` | `kimi-k3.1-pro`、`kimi-k3.1-pro-highspeed`、`kimi-k3`、`kimi-k2.6` | Chat Completions | `MOONSHOT_API_KEY` `MOONSHOT_BASE_URL` |
-| `deepseek-official` | `deepseek-flash`、`deepseek-v4-pro` | Responses | `DEEPSEEK_API_KEY` `DEEPSEEK_BASE_URL` |
+| `deepseek-official` | `deepseek-flash`、`deepseek-v4-pro`；`deepseek-search`、`deepseek-fetch` | Responses；`deepseek-search` 和 `deepseek-fetch` 走 Search 和 Fetch | `DEEPSEEK_API_KEY` `DEEPSEEK_BASE_URL` |
 | `minimax-official` | `MiniMax-M3.1-Flash`、`MiniMax-M3` | Responses | `MINIMAX_API_KEY` `MINIMAX_BASE_URL` |
+| `jina-webtool` | `jina-search`、`jina-fetch` | Jina Search（`https://s.jina.ai`）、Reader（`https://r.jina.ai`） | `JINA_API_KEY` `JINA_BASE_URL` |
 
 每行列出了客户端读取的环境变量：先是 key，然后是端点。端点默认为厂商官方地址。官方客户端始终读取这些变量，因此也能用于对接镜像了厂商 API 的网关。例如，OpenRouter 上的 `deepseek/deepseek-v4-pro` 可通过 `deepseek-official` 调用，SiliconFlow 上的 `Pro/moonshotai/Kimi-K2.6` 可通过 `moonshot-official` 调用，只需传入网关的 `base_url` 和 `api_key` 即可。
 
@@ -37,6 +38,7 @@ MiniMax-M3.1-Flash（`MiniMax-M3.1-Flash`）始终思考，支持 `low` 到 `max
 | `kimi-` | `moonshot-official` |
 | `deepseek-` | `deepseek-official` |
 | `minimax-` | `minimax-official` |
+| `jina-` | `jina-webtool` |
 
 匹配不区分大小写，因此 `MiniMax-M3` 也能正确路由。网关的模型 id（如 `moonshotai/kimi-k3`）或 Amazon Bedrock 的 id（如 `global.anthropic.claude-fable-5`）不以已知系列开头，必须显式指定 `client_type`。环境变量 `CLIENT_TYPE` 可为代码中未指定的客户端设置默认值。
 
@@ -60,7 +62,7 @@ models = list_supported_models(currency="CNY")  # 默认 "USD"
 
 ## 兼容客户端
 
-七个兼容客户端可调用任何提供对应协议的端点。使用时需用 `client_type` 指定协议，并同时提供端点和 key：可以传入 `base_url` 和 `api_key` 参数，或在环境变量中设置 `OPENAI_BASE_URL` 和 `OPENAI_API_KEY`（`ant-messages` 对应 `ANTHROPIC_` 变量对，`google-genai` 对应 `GEMINI_` 变量对，`openai-chat-vllm-adapter` 对应 `VLLM_` 变量对，`mmsp` 对应 `MMSP_` 变量对）。如果传入的 `base_url` 不是客户端的默认端点，又不提供 `api_key`，会报错：环境变量中的 key 不会自动用于代码指定的端点（[规则](/zh/docs/client/)）。`openai-chat-vllm-adapter` 和 `mmsp` 例外：它们的服务端可以不要 key，因此改为不带 key 调用；两者都不传时，分别发往 `http://127.0.0.1:8000/v1` 和 `http://127.0.0.1:25752/v1`。
+八个兼容客户端可调用任何提供对应协议的端点。使用时需用 `client_type` 指定协议，并同时提供端点和 key：可以传入 `base_url` 和 `api_key` 参数，或在环境变量中设置 `OPENAI_BASE_URL` 和 `OPENAI_API_KEY`（`ant-messages` 对应 `ANTHROPIC_` 变量对，`google-genai` 对应 `GEMINI_` 变量对，`deepseek-webtool` 对应 `DEEPSEEK_` 变量对，`openai-chat-vllm-adapter` 对应 `VLLM_` 变量对，`mmsp` 对应 `MMSP_` 变量对）。如果传入的 `base_url` 不是客户端的默认端点，又不提供 `api_key`，会报错：环境变量中的 key 不会自动用于代码指定的端点（[规则](/zh/docs/client/)）。`openai-chat-vllm-adapter` 和 `mmsp` 例外：它们的服务端可以不要 key，因此改为不带 key 调用；两者都不传时，分别发往 `http://127.0.0.1:8000/v1` 和 `http://127.0.0.1:25752/v1`。
 
 | `client_type` | 协议 | 提供方 |
 | --- | --- | --- |
@@ -70,6 +72,7 @@ models = list_supported_models(currency="CNY")  # 默认 "USD"
 | `openai-embedding` | OpenAI Embeddings | 任何向量端点 |
 | `ant-messages` | Anthropic Messages | Anthropic、OpenRouter、DeepSeek、Z.AI、MiniMax |
 | `google-genai` | Google generateContent，即 Google GenAI SDK 所用的协议 | Vertex AI、Gemini API、代理此协议的网关 |
+| `deepseek-webtool` | DeepSeek 的网页搜索与网页抓取，`/v1/tools/search` 和 `/v1/tools/fetch` | DeepSeek、TokenDance |
 | `mmsp` | MMSP 本身 | [MMSP 服务端](/zh/docs/server/) |
 
 如果网关支持多种协议，优先选择 `openai-responses`。OpenRouter 为其所有托管模型提供此协议；SiliconFlow 仅提供 Chat Completions。
@@ -102,7 +105,7 @@ client = AutoLLMClient(
 | --- | --- | --- |
 | OpenRouter | `https://openrouter.ai/api/v1` | `OPENROUTER_API_KEY` |
 | SiliconFlow | `https://api.siliconflow.cn/v1` | `SILICONFLOW_API_KEY` |
-| TokenDance（词元跳动） | `https://tokendance.space/gateway/v1`，Anthropic Messages 使用 `https://tokendance.space/gateway` | `TOKENDANCE_API_KEY` |
+| TokenDance（词元跳动） | `https://tokendance.space/gateway/v1`，Anthropic Messages 使用 `https://tokendance.space/gateway`，`deepseek-webtool` 使用 `https://tokendance.space/gateway/deepseek` | `TOKENDANCE_API_KEY` |
 | Google Vertex AI | `https://aiplatform.googleapis.com` | `VERTEX_API_KEY`：服务账号 JSON |
 | Amazon Bedrock | `bedrock://<region>`，例如 `bedrock://us-east-1` | `BEDROCK_API_KEY`：`ACCESS_KEY,SECRET_KEY` |
 | ModelVerse | `https://api.modelverse.cn/v1`，Claude 模型使用 `https://api.modelverse.cn/` | `MODELVERSE_API_KEY` |
@@ -182,4 +185,6 @@ client = AutoLLMClient(
 | `openai-official`、`deepseek-official`、`minimax-official`、`openai-responses` | `openai-responses` |
 | `zai-official`、`moonshot-official`、`openai-chat`、`openai-chat-vllm-adapter` | `openai-chat` |
 | `openai-embedding`，以及 `text-embedding-*` 下的 `openai-official` | `openai-embedding` |
+| `deepseek-webtool`，以及 `deepseek-search` 和 `deepseek-fetch` 下的 `deepseek-official` | `deepseek-webtool` |
+| `jina-webtool` | `jina-webtool` |
 | `mmsp` | `mmsp` |

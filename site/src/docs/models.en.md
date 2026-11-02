@@ -15,8 +15,9 @@ Use exact model ids. A model id that begins with a known family names its offici
 | `google-official` | `gemini-4-argon`, `gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-3.1-pro-preview`; `gemini-3.1-flash-image`, `gemini-3.8-flash-tts`; `gemini-embedding-2` | Gemini Interactions | `GEMINI_API_KEY` `GEMINI_BASE_URL` |
 | `zai-official` | `glm-5.3`, `glm-5.3-flash`, `glm-5.2` | Chat Completions | `ZAI_API_KEY` `ZAI_BASE_URL` |
 | `moonshot-official` | `kimi-k3.1-pro`, `kimi-k3.1-pro-highspeed`, `kimi-k3`, `kimi-k2.6` | Chat Completions | `MOONSHOT_API_KEY` `MOONSHOT_BASE_URL` |
-| `deepseek-official` | `deepseek-flash`, `deepseek-v4-pro` | Responses | `DEEPSEEK_API_KEY` `DEEPSEEK_BASE_URL` |
+| `deepseek-official` | `deepseek-flash`, `deepseek-v4-pro`; `deepseek-search`, `deepseek-fetch` | Responses; Search and Fetch for `deepseek-search` and `deepseek-fetch` | `DEEPSEEK_API_KEY` `DEEPSEEK_BASE_URL` |
 | `minimax-official` | `MiniMax-M3.1-Flash`, `MiniMax-M3` | Responses | `MINIMAX_API_KEY` `MINIMAX_BASE_URL` |
+| `jina-webtool` | `jina-search`, `jina-fetch` | Jina Search on `https://s.jina.ai`, Reader on `https://r.jina.ai` | `JINA_API_KEY` `JINA_BASE_URL` |
 
 Each row names the environment variables the client reads: the key, then the endpoint, which defaults to the vendor's own. An official client reads them whatever endpoint it is given, so it also serves a gateway that mirrors the vendor's API: OpenRouter serves `deepseek/deepseek-v4-pro` through `deepseek-official`, and SiliconFlow serves `Pro/moonshotai/Kimi-K2.6` through `moonshot-official`, each with the gateway's `base_url` and `api_key`.
 
@@ -37,6 +38,7 @@ Without a `client_type`, the family the model id begins with names the client:
 | `kimi-` | `moonshot-official` |
 | `deepseek-` | `deepseek-official` |
 | `minimax-` | `minimax-official` |
+| `jina-` | `jina-webtool` |
 
 The match ignores case, so `MiniMax-M3` routes. A gateway's id such as `moonshotai/kimi-k3`, or Amazon Bedrock's `global.anthropic.claude-fable-5`, begins with no family and needs its `client_type`. The environment variable `CLIENT_TYPE` names one for every client the code does not.
 
@@ -60,7 +62,7 @@ models = list_supported_models(currency="CNY")  # "USD" by default
 
 ## Compatible clients
 
-Seven compatible clients call any endpoint that serves their protocol. Name one with `client_type`, and give it the endpoint and its key together: as `base_url` and `api_key`, or as `OPENAI_BASE_URL` and `OPENAI_API_KEY` in the environment (the `ANTHROPIC_` pair for `ant-messages`, the `GEMINI_` pair for `google-genai`, the `VLLM_` pair for `openai-chat-vllm-adapter`, the `MMSP_` pair for `mmsp`). A `base_url` other than the client's default endpoint without an `api_key` raises: the environment's key is not sent to an endpoint named in code ([the rule](/docs/client/)). `openai-chat-vllm-adapter` and `mmsp` call it keyless instead, because their servers may take no key; without either, they reach `http://127.0.0.1:8000/v1` and `http://127.0.0.1:25752/v1`.
+Eight compatible clients call any endpoint that serves their protocol. Name one with `client_type`, and give it the endpoint and its key together: as `base_url` and `api_key`, or as `OPENAI_BASE_URL` and `OPENAI_API_KEY` in the environment (the `ANTHROPIC_` pair for `ant-messages`, the `GEMINI_` pair for `google-genai`, the `DEEPSEEK_` pair for `deepseek-webtool`, the `VLLM_` pair for `openai-chat-vllm-adapter`, the `MMSP_` pair for `mmsp`). A `base_url` other than the client's default endpoint without an `api_key` raises: the environment's key is not sent to an endpoint named in code ([the rule](/docs/client/)). `openai-chat-vllm-adapter` and `mmsp` call it keyless instead, because their servers may take no key; without either, they reach `http://127.0.0.1:8000/v1` and `http://127.0.0.1:25752/v1`.
 
 | `client_type` | Protocol | Served by |
 | --- | --- | --- |
@@ -70,6 +72,7 @@ Seven compatible clients call any endpoint that serves their protocol. Name one 
 | `openai-embedding` | OpenAI Embeddings | Any embedding endpoint |
 | `ant-messages` | Anthropic Messages | Anthropic, OpenRouter, DeepSeek, Z.AI, MiniMax |
 | `google-genai` | Google generateContent, as the Google GenAI SDK speaks it | Vertex AI, the Gemini API, gateways that proxy it |
+| `deepseek-webtool` | DeepSeek's web search and page fetch, `/v1/tools/search` and `/v1/tools/fetch` | DeepSeek, TokenDance |
 | `mmsp` | MMSP itself | An [MMSP server](/docs/server/) |
 
 Where a gateway serves more than one, prefer `openai-responses`. OpenRouter serves it for every model it hosts; SiliconFlow serves Chat Completions only.
@@ -102,7 +105,7 @@ Common base URLs, and the variable the examples read each key from:
 | --- | --- | --- |
 | OpenRouter | `https://openrouter.ai/api/v1` | `OPENROUTER_API_KEY` |
 | SiliconFlow | `https://api.siliconflow.cn/v1` | `SILICONFLOW_API_KEY` |
-| TokenDance | `https://tokendance.space/gateway/v1`, and `https://tokendance.space/gateway` for Anthropic Messages | `TOKENDANCE_API_KEY` |
+| TokenDance | `https://tokendance.space/gateway/v1`, `https://tokendance.space/gateway` for Anthropic Messages, and `https://tokendance.space/gateway/deepseek` for `deepseek-webtool` | `TOKENDANCE_API_KEY` |
 | Google Vertex AI | `https://aiplatform.googleapis.com` | `VERTEX_API_KEY`: the service-account JSON |
 | Amazon Bedrock | `bedrock://<region>`, such as `bedrock://us-east-1` | `BEDROCK_API_KEY`: `ACCESS_KEY,SECRET_KEY` |
 | ModelVerse | `https://api.modelverse.cn/v1`, and `https://api.modelverse.cn/` for Claude | `MODELVERSE_API_KEY` |
@@ -182,4 +185,6 @@ Every client speaks one protocol on the wire, whichever `client_type` reaches it
 | `openai-official`, `deepseek-official`, `minimax-official`, `openai-responses` | `openai-responses` |
 | `zai-official`, `moonshot-official`, `openai-chat`, `openai-chat-vllm-adapter` | `openai-chat` |
 | `openai-embedding`, and `openai-official` for `text-embedding-*` | `openai-embedding` |
+| `deepseek-webtool`, and `deepseek-official` for `deepseek-search` and `deepseek-fetch` | `deepseek-webtool` |
+| `jina-webtool` | `jina-webtool` |
 | `mmsp` | `mmsp` |

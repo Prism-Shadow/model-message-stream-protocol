@@ -114,6 +114,11 @@ describe("routedClientType", () => {
     ["gpt-6-astra", undefined, "openai-official"],
     ["text-embedding-3-large", undefined, "openai-embedding"],
     ["text-embedding-3-large", "OpenAI-Official", "openai-embedding"],
+    ["deepseek-search", undefined, "deepseek-webtool"],
+    ["DeepSeek-Fetch", "deepseek-official", "deepseek-webtool"],
+    // only the two web tool ids leave deepseek-official
+    ["deepseek-search-v2", undefined, "deepseek-official"],
+    ["jina-search", undefined, "jina-webtool"],
     ["claude-sonnet-5", "ant-messages", "ant-messages"],
     ["qwen3.8", "openai", "openai-chat"],
     ["gemini-3.8-flash", "gemini-generate-content", "google-genai"],

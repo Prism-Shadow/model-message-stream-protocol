@@ -13,6 +13,7 @@ To use a specific model, please refer to its dedicated README:
 - **[Claude 4.7](./claude4_7/README.md)** - Anthropic's Claude 4.7 API documentation and examples
 - **[Claude 4.8](./claude4_8/README.md)** - Anthropic's Claude 4.8 API documentation and examples
 - **[DeepSeek V4](./deepseek_v4/README.md)** - DeepSeek V4 API documentation and OpenAI-compatible usage guides
+- **[DeepSeek web tools](./deepseek_webtool/README.md)** - DeepSeek's Search and Fetch APIs (`deepseek-search`, `deepseek-fetch`; `deepseek-webtool` client), billed per request, also served by TokenDance
 - **[Gemini 3](./gemini3/README.md)** - Google's Gemini 3 API documentation and examples
 - **[Gemini 3.6](./gemini3_6/README.md)** - Google's Gemini 3.6 generation (gemini-3.6-flash, gemini-3.5-flash-lite): sampling-parameter deprecation and thinking levels
 - **[Gemini 3.7](./gemini3_7/README.md)** - Google's Gemini 3.7 generation (gemini-3.7-flash): same wire contract as 3.6, drops the `minimal` thinking level
@@ -25,6 +26,7 @@ To use a specific model, please refer to its dedicated README:
 - **[GPT-5.5](./gpt5_5/README.md)** - OpenAI's GPT-5.5 API documentation and examples
 - **[GPT-5.6](./gpt5_6/README.md)** - OpenAI's GPT-5.6 generation (sol/terra/luna): reasoning modes, fast mode, and Responses migration
 - **[GPT-6](./gpt6/README.md)** - OpenAI's GPT-6 generation (gpt-6-astra, gpt-6.1-sol, gpt-6-luna): Responses API, Luna supports `none`, cache-write billing
+- **[Jina web tools](./jina_webtool/README.md)** - Jina's Reader (r.jina.ai) and Search (s.jina.ai) APIs (`jina-fetch`, `jina-search`; `jina-webtool` client), billed in tokens
 - **[Kimi K3](./kimi_k3/README.md)** - Moonshot's Kimi K3 API documentation (reasoning_effort, tool calling, vision, caching)
 - **[Kimi K3.1 Pro](./kimi_k3_1/README.md)** - Moonshot's Kimi K3.1 Pro (`kimi-k3.1-pro`, `kimi-k3.1-pro-highspeed`): K3's request contract, new prices, `prompt_cache_options` TTLs and cache-write usage
 - **[MiniMax M-series](./minimax_m3/README.md)** - Responses API-compatible documentation for MiniMax M3.1-Flash (always-on thinking, `effort` low to max, no priority tier) and M3, plus Subscription Key integration

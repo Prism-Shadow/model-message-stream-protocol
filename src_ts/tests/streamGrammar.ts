@@ -114,6 +114,10 @@ export function assertStreamGrammar(events: UniEvent[]): void {
       expect(item.embedding).toEqual(
         open.flatMap((delta) => ("embedding" in delta ? delta.embedding : [])),
       );
+    } else if (item.type === "webtool.done") {
+      expect(item.webdata).toEqual(
+        open.flatMap((delta) => ("webdata" in delta ? delta.webdata : [])),
+      );
     }
     open = [];
   }

@@ -110,6 +110,18 @@ def test_a_vector_is_an_item_of_its_own_and_an_empty_one_goes_out_all_the_same()
     assert items.end() == [{"type": "embedding.done", "embedding": []}]
 
 
+def test_a_web_tool_answer_is_an_item_of_its_own_and_one_that_found_nothing_goes_out_all_the_same():
+    page = {"title": "Example Domain", "content": "This domain is for use in examples.", "url": "https://example.com"}
+    items = StreamItems("Test")
+    assert items.delta({"type": "webtool.delta", "webdata": [page]}) == [{"type": "webtool.delta", "webdata": [page]}]
+    # a search that found nothing answered all the same
+    assert items.delta({"type": "webtool.delta", "webdata": []}) == [
+        {"type": "webtool.done", "webdata": [page]},
+        {"type": "webtool.delta", "webdata": []},
+    ]
+    assert items.end() == [{"type": "webtool.done", "webdata": []}]
+
+
 # ---------------------------------------------------------------- when an item is done
 
 

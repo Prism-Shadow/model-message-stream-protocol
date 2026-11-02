@@ -28,6 +28,7 @@ description: UniConfig，请求的配置选项，以及每个客户端为它们�
   "image_config": {"aspect_ratio": "4:3", "image_size": "1K"},
   "tts_config": [{"voice": "Kore"}],
   "embedding_config": {"dimensions": 768},
+  "webtool_config": {"count": 5},
   "trace_id": "agent1/conversation_001"
 }
 ```
@@ -48,6 +49,7 @@ description: UniConfig，请求的配置选项，以及每个客户端为它们�
 | `image_config` | 对象 | Gemini 图像输出配置：`aspect_ratio`（`1:1`、`2:3`、`3:2`、`3:4`、`4:3`、`9:16`、`16:9`、`21:9`）和 `image_size`（`1K`、`2K`）。 |
 | `tts_config` | 列表 | Gemini 语音合成配置：每个说话人对应一项，包含 `voice` 和可选的 `speaker`。两个说话人时，文本写成台词稿，每轮一行 `Name: 台词`。 |
 | `embedding_config` | 对象 | 向量生成配置：`dimensions` 指定向量维度。 |
+| `webtool_config` | 对象 | 网页搜索配置：`count` 指定一次搜索返回的结果条数。 |
 | `trace_id` | 字符串 | 用此 ID 保存当前轮次。详见 [Tracer 与 Playground](/zh/docs/tracing/)。 |
 
 ## 模型拒绝的参数值
@@ -58,7 +60,7 @@ description: UniConfig，请求的配置选项，以及每个客户端为它们�
 
 ## 每个客户端发送什么
 
-客户端以 `client_type` 命名（见[模型与端点](/zh/docs/models/)）；`openai-official` 通过 `openai-embedding` 服务 `text-embedding-*` 模型。在两个 Google 客户端上，ID 含 `tts` 的是语音模型，含 `embedding` 的是向量模型。`mmsp` 客户端原样发送配置，由服务端交给该模型自己的客户端处理，因此适用那个客户端的行。
+客户端以 `client_type` 命名（见[模型与端点](/zh/docs/models/)）；`openai-official` 通过 `openai-embedding` 服务 `text-embedding-*` 模型，`deepseek-official` 通过 `deepseek-webtool` 服务 `deepseek-search` 和 `deepseek-fetch`。两个网页工具客户端 `deepseek-webtool` 和 `jina-webtool` 按 ID 里的 `-search` 或 `-fetch` 区分搜索和抓取。在两个 Google 客户端上，ID 含 `tts` 的是语音模型，含 `embedding` 的是向量模型。`mmsp` 客户端原样发送配置，由服务端交给该模型自己的客户端处理，因此适用那个客户端的行。
 
 ### `max_tokens`
 
@@ -68,7 +70,7 @@ description: UniConfig，请求的配置选项，以及每个客户端为它们�
 | `zai-official` | `max_tokens` |
 | `openai-official`、`openai-responses`、`deepseek-official`、`minimax-official`、`google-official`、`google-genai` | `max_output_tokens`，语音模型也一样 |
 | `openai-chat`、`openai-chat-vllm-adapter`、`moonshot-official` | `max_completion_tokens` |
-| `openai-embedding`、Gemini 向量模型 | 忽略 |
+| `openai-embedding`、`deepseek-webtool`、`jina-webtool`、Gemini 向量模型 | 忽略 |
 
 ### `temperature`
 
@@ -78,7 +80,7 @@ description: UniConfig，请求的配置选项，以及每个客户端为它们�
 | `minimax-official` | 0 到 1 之间的 `temperature`；超出范围时抛错 |
 | `anthropic-official`、`openai-official`、`deepseek-official`、`moonshot-official` | 1.0 不发送；其他值抛错 |
 | `google-official`、`google-genai` | 任何值都抛错，语音模型也一样 |
-| `openai-embedding`、Gemini 向量模型 | 忽略 |
+| `openai-embedding`、`deepseek-webtool`、`jina-webtool`、Gemini 向量模型 | 忽略 |
 
 ### `system_prompt`
 
@@ -88,7 +90,7 @@ description: UniConfig，请求的配置选项，以及每个客户端为它们�
 | `openai-official`、`openai-responses`、`deepseek-official`、`minimax-official` | `instructions` |
 | `google-official`、`google-genai` | `system_instruction`；语音模型忽略 |
 | `openai-chat`、`openai-chat-vllm-adapter`、`moonshot-official`、`zai-official` | 一条角色为 `system` 的首条消息；空字符串不发送 |
-| `openai-embedding`、Gemini 向量模型 | 忽略 |
+| `openai-embedding`、`deepseek-webtool`、`jina-webtool`、Gemini 向量模型 | 忽略 |
 
 ### `tools`
 
@@ -98,7 +100,7 @@ description: UniConfig，请求的配置选项，以及每个客户端为它们�
 | `openai-official`、`openai-responses`、`deepseek-official`、`minimax-official`、`google-official` | `tools`，每项带 `type: "function"` |
 | `openai-chat`、`openai-chat-vllm-adapter`、`moonshot-official`、`zai-official` | `tools`，每项作为一个 `type: "function"` 工具的 `function` |
 | `google-genai` | 一个由 `function_declarations` 组成的工具 |
-| `openai-embedding`、Gemini 语音和向量模型 | 忽略 |
+| `openai-embedding`、`deepseek-webtool`、`jina-webtool`、Gemini 语音和向量模型 | 忽略 |
 
 ### `tool_choice`
 
@@ -117,7 +119,7 @@ description: UniConfig，请求的配置选项，以及每个客户端为它们�
 | `minimax-official` | `auto` | `none`；MiniMax-M3.1-Flash 上抛错 | 抛错 | 抛错 |
 | `zai-official` | `auto` | 抛错 | 抛错 | 抛错 |
 
-Claude Opus 5.5、Sonnet 5.5、Haiku 5.5 和 Fable 5.1 不能强制调用工具，在它们上面传 `"required"` 或工具名列表会抛错。两个 Google 客户端只在有 `tools` 时发送 `tool_choice`，语音模型忽略它。`openai-embedding` 和 Gemini 向量模型忽略它。
+Claude Opus 5.5、Sonnet 5.5、Haiku 5.5 和 Fable 5.1 不能强制调用工具，在它们上面传 `"required"` 或工具名列表会抛错。两个 Google 客户端只在有 `tools` 时发送 `tool_choice`，语音模型忽略它。`openai-embedding`、网页工具客户端和 Gemini 向量模型忽略它。
 
 ### `thinking_level`
 
@@ -153,7 +155,7 @@ Claude Opus 5.5、Sonnet 5.5、Haiku 5.5 和 Fable 5.1 不能强制调用工具�
 | DeepSeek-V4-Pro、DeepSeek-V4-Flash | 同上，但 `low` 的 `reasoning_effort` 也是 `high` |
 | Qwen3.6-35B-A3B、Qwen3.5-0.8B、Qwen3.5-9B 及其他任何模型 | `enable_thinking`：`none` 为 `false`，其余为 `true` |
 
-`openai-embedding` 和 Gemini 语音、向量模型忽略 `thinking_level`。
+`openai-embedding`、网页工具客户端和 Gemini 语音、向量模型忽略 `thinking_level`。
 
 ### `thinking_summary`
 
@@ -166,7 +168,7 @@ Claude Opus 5.5、Sonnet 5.5、Haiku 5.5 和 Fable 5.1 不能强制调用工具�
 | `google-genai` | `include_thoughts: true` | `include_thoughts: false` |
 | `openai-chat`、`openai-chat-vllm-adapter`、`minimax-official`、`moonshot-official`、`zai-official` | 忽略 | 忽略 |
 
-在 Anthropic 的两个客户端上，没有 `thinking_level` 时请求摘要会开启自适应思考；思考类型为 `disabled` 或 `between_tools` 时不发送。`openai-embedding` 和 Gemini 语音、向量模型忽略它。
+在 Anthropic 的两个客户端上，没有 `thinking_level` 时请求摘要会开启自适应思考；思考类型为 `disabled` 或 `between_tools` 时不发送。`openai-embedding`、网页工具客户端和 Gemini 语音、向量模型忽略它。
 
 ### `prompt_caching`
 
@@ -176,7 +178,7 @@ Claude Opus 5.5、Sonnet 5.5、Haiku 5.5 和 Fable 5.1 不能强制调用工具�
 | `anthropic-official`（Bedrock） | 同样的标记加 `ttl: "5m"`，放在最后一条用户消息的最后一块上，未设置时也是 | 同上加 `ttl: "1h"` | 不发送 |
 | `moonshot-official`（Kimi K3 与 K3.1 Pro） | 不发送 | `prompt_cache_options: {"mode": "implicit", "ttl": "1h"}` | 抛错 |
 | 其他所有客户端；`moonshot-official`（Kimi K2） | 不发送 | 抛错 | 抛错 |
-| `openai-embedding`、Gemini 向量模型 | 忽略 | 忽略 | 忽略 |
+| `openai-embedding`、`deepseek-webtool`、`jina-webtool`、Gemini 向量模型 | 忽略 | 忽略 | 忽略 |
 
 ### `fast_mode`
 
@@ -188,7 +190,7 @@ Claude Opus 5.5、Sonnet 5.5、Haiku 5.5 和 Fable 5.1 不能强制调用工具�
 | `minimax-official` | MiniMax-M3 上为 `service_tier: "priority"`；MiniMax-M3.1-Flash 上抛错 |
 | `ant-messages` | `speed: "fast"` 加 beta `fast-mode-2026-02-01` |
 | `anthropic-official` | 同上；Bedrock 上以及 Claude 4.6、Sonnet 5.5、Haiku 5.5 和 Fable 5.1 上抛错 |
-| `google-genai`、`deepseek-official`、`moonshot-official`、`zai-official`、`openai-embedding` | 抛错 |
+| `google-genai`、`deepseek-official`、`moonshot-official`、`zai-official`、`openai-embedding`、`deepseek-webtool`、`jina-webtool` | 抛错 |
 | Gemini 向量模型 | 忽略 |
 
 ### `image_config`
@@ -219,6 +221,17 @@ Gemini 语音模型，两个 Google 客户端相同：
 | `openai-embedding` | `dimensions` |
 | `google-official`、`google-genai`：向量模型 | `output_dimensionality` |
 | 其他所有客户端和模型 | 忽略 |
+
+### `webtool_config`
+
+| 客户端 | `count` 发送为 |
+| --- | --- |
+| `deepseek-webtool`：搜索 | `count`，取 1 到 50；不设时 DeepSeek 返回 10 条 |
+| `jina-webtool`：搜索 | `num`，取 0 到 20；不设时 Jina 返回 10 条 |
+| 两个网页工具客户端：抓取 | 忽略：抓取只读一个页面 |
+| 其他所有客户端 | 忽略 |
+
+搜索结果的 `content` 是每条结果的摘要：DeepSeek 用 `summary`，Jina 用 `description`（请求时带 `X-Respond-With: no-content`）。抓取返回页面的 Markdown 正文。
 
 ### `trace_id`
 

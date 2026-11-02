@@ -789,6 +789,7 @@ const TRACER_HEAD = `
     .kind-tool_result { --k: var(--green); }
     .kind-image_url, .kind-inline_data { --k: var(--violet); }
     .kind-embedding { --k: var(--indigo); }
+    .kind-webtool { --k: var(--green); }
 
     .item-head {
         grid-column: 1;
@@ -862,6 +863,48 @@ const TRACER_HEAD = `
         font-family: var(--mono);
         font-size: 12.5px;
         line-height: 1.6;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+
+    .web-pages {
+        display: grid;
+        gap: 12px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .web-page {
+        display: grid;
+        gap: 2px;
+        min-width: 0;
+    }
+
+    .web-title {
+        font-weight: 500;
+        overflow-wrap: anywhere;
+    }
+
+    a.web-title:hover {
+        text-decoration: underline;
+    }
+
+    .web-url {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--subtle);
+        overflow-wrap: anywhere;
+    }
+
+    .web-content {
+        display: -webkit-box;
+        overflow: hidden;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 4;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.55;
         white-space: pre-wrap;
         overflow-wrap: anywhere;
     }
@@ -1486,6 +1529,11 @@ export class Tracer {
           lines.push(this._formatInlineDataSummary(item));
         } else if (item.type === "embedding.done") {
           lines.push(this._formatEmbeddingPreview(item));
+        } else if (item.type === "webtool.done") {
+          lines.push(`Web Tool: ${item.webdata.length} pages`);
+          for (const page of item.webdata) {
+            lines.push(`  ${page.title} <${page.url}>`);
+          }
         } else if (item.type === "tool_call.done") {
           lines.push(`Tool Call: ${item.name}`);
           lines.push(`  Arguments: ${JSON.stringify(item.arguments, null, 2)}`);
@@ -1691,6 +1739,24 @@ export class Tracer {
                     }
                   } else if (item.type === "embedding.done") {
                     inner = `<div class="embedding">${esc(this._formatEmbeddingPreview(item))}</div>`;
+                  } else if (item.type === "webtool.done") {
+                    inner =
+                      item.webdata.length > 0
+                        ? `<ol class="web-pages">${item.webdata
+                            .map((page) => {
+                              const title = esc(page.title || page.url);
+                              const link =
+                                page.url.startsWith("http://") ||
+                                page.url.startsWith("https://")
+                                  ? `<a class="web-title" href="${esc(page.url)}" target="_blank" rel="noopener noreferrer">${title}</a>`
+                                  : `<span class="web-title">${title}</span>`;
+                              const content = page.content
+                                ? `<div class="web-content">${esc(page.content)}</div>`
+                                : "";
+                              return `<li class="web-page">${link}<span class="web-url">${esc(page.url)}</span>${content}</li>`;
+                            })
+                            .join("")}</ol>`
+                        : `<div class="item-note">No results</div>`;
                   }
                   const callId =
                     item.type === "tool_call.done" ||

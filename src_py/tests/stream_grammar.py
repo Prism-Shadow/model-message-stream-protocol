@@ -75,6 +75,8 @@ def assert_stream_grammar(events: list[UniEvent]) -> None:
             assert item["mime_type"] == open_deltas[0]["mime_type"]
         elif item["type"] == "embedding.done":
             assert item["embedding"] == [value for delta in open_deltas for value in delta["embedding"]]
+        elif item["type"] == "webtool.done":
+            assert item["webdata"] == [page for delta in open_deltas for page in delta["webdata"]]
         open_deltas = []
 
     assert open_deltas == []

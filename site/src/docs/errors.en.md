@@ -25,9 +25,9 @@ Python names the fields `tool_name`, `tool_call_id`, `raw_arguments_length`, `ra
 | Error | Raised when | Carries |
 | --- | --- | --- |
 | `UnsupportedParameterError` | A `UniConfig` value the model rejects, such as `temperature` on a model that fixes it. | `client`, `parameter` |
-| `UnsupportedContentError` | A well-formed item the model cannot take: an image on a text-only model, an item other than text for embeddings or speech. | `client`, `item_type` |
+| `UnsupportedContentError` | A well-formed item the model cannot take: an image on a text-only model, an item other than text for embeddings, speech or a web tool. | `client`, `item_type` |
 | `InvalidMessageError` | A message cannot be sent as it is: an item of an unknown kind, a tool result without `tool_call_id`, an image that is not valid base64 or cannot be fetched, a TTS script without its speaker labels, or a message with nothing the wire can carry. | `client`, `item_type`, `message_index` |
-| `UnsupportedOperationError` | A call the endpoint cannot serve, such as listing models on Amazon Bedrock. | `client`, `operation` |
+| `UnsupportedOperationError` | A call the endpoint cannot serve, such as listing models on Amazon Bedrock or a web tool. | `client`, `operation` |
 | `ConcurrentCallError` | `streaming_response_stateful` was called while another stateful call on the same client had not ended. Two turns cannot be recorded in one history at once: wait for the first one's `stop` event or its error. | `client` |
 | `RoutingError` | Neither the `client_type` nor the model id names a client: an unknown `client_type`, or none and a model id of no known family ([model selection](/docs/models/)). Raised by `AutoLLMClient`. | `model`, `client_type` |
 | `ApiKeyRequiredError` | A client was built with a `base_url` and no `api_key`, and the URL is not the client's default endpoint, so the environment's key may not go there ([the rule](/docs/client/)); or a client that cannot call its endpoint without a key got none, neither passed nor in its `<P>_API_KEY`, and `base_url` is `None`. Raised by the constructor. | `client`, `client_type`, `api_key_env`, `base_url_env`, `base_url` |

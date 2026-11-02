@@ -49,9 +49,12 @@ const MODELS: Record<string, string> = {
   mmsp: "gpt-5.5",
 };
 
-// openai-embedding answers with one response, not a stream
+// openai-embedding and the web tools answer with one response, not a stream
 const STREAMING_CLIENT_TYPES = Object.keys(CLIENT_CREDENTIALS).filter(
-  (clientType) => clientType !== "openai-embedding",
+  (clientType) =>
+    !["openai-embedding", "deepseek-webtool", "jina-webtool"].includes(
+      clientType,
+    ),
 );
 
 // the SDKs that end their stream quietly when their request is aborted

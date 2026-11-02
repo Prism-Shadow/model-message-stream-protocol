@@ -65,6 +65,8 @@ Audit LLM executions by adding **a single `trace_id` parameter**, no database re
 | Muse Spark/Llama 4 | OpenRouter/OpenCode Go | `meta/muse-spark-1.3` | Text, Image | Text |
 | Mistral        | OpenRouter | `mistralai/mistral-large-4-0` | Text, Image | Text |
 | Nemotron 3/3.5 | OpenRouter | `nvidia/nemotron-3.5-super-vl` | Text, Image | Text |
+| DeepSeek Search/Fetch | Official/TokenDance | `deepseek-search` | Text | Web search, Page fetch |
+| Jina Search/Reader | Official | `jina-search` | Text | Web search, Page fetch |
 
 OpenRouter also serves Cohere Command A, Amazon Nova, Perplexity Sonar and Inception Mercury,
 OpenRouter and TokenDance serve inclusionAI Ling, and TokenDance serves iFlytek Spark and Dots;
@@ -83,22 +85,24 @@ a **compatible client** speaks one wire protocol for any endpoint that serves it
 | `google-official`          | Gemini Interactions                                                    | `GEMINI_API_KEY`, `GEMINI_BASE_URL`      |
 | `zai-official`             | Z.AI Chat Completions                                                  | `ZAI_API_KEY`, `ZAI_BASE_URL`            |
 | `moonshot-official`        | Moonshot Chat Completions                                              | `MOONSHOT_API_KEY`, `MOONSHOT_BASE_URL`  |
-| `deepseek-official`        | DeepSeek Responses                                                     | `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`  |
+| `deepseek-official`        | DeepSeek Responses; `deepseek-search` and `deepseek-fetch` through DeepSeek's Search and Fetch | `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`  |
 | `minimax-official`         | MiniMax Responses                                                      | `MINIMAX_API_KEY`, `MINIMAX_BASE_URL`    |
+| `jina-webtool`             | Jina Search (`jina-search`) and Reader (`jina-fetch`)                  | `JINA_API_KEY`, `JINA_BASE_URL`          |
 | `openai-responses`         | OpenAI Responses, served by OpenAI, OpenRouter, DeepSeek, Z.AI, MiniMax | `OPENAI_API_KEY`, `OPENAI_BASE_URL`      |
 | `openai-chat` (`openai`)   | OpenAI Chat Completions, served by most gateways, SiliconFlow, vLLM    | `OPENAI_API_KEY`, `OPENAI_BASE_URL`      |
 | `openai-chat-vllm-adapter` | Chat Completions as vLLM serves it, mapping `thinking_level` onto the template's switches | `VLLM_API_KEY`, `VLLM_BASE_URL`          |
 | `openai-embedding`         | OpenAI Embeddings, served by any embedding endpoint                    | `OPENAI_API_KEY`, `OPENAI_BASE_URL`      |
 | `ant-messages`             | Anthropic Messages, served by Anthropic, OpenRouter, DeepSeek, Z.AI, MiniMax | `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL` |
 | `google-genai`             | Google generateContent, served by Vertex AI, the Gemini API, and gateways that proxy it | `GEMINI_API_KEY`, `GEMINI_BASE_URL` |
+| `deepseek-webtool`         | DeepSeek's web search and page fetch, served by DeepSeek, TokenDance   | `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`  |
 | `mmsp`                     | MMSP itself, served by an [MMSP server](#mmsp-server)                  | `MMSP_API_KEY`, `MMSP_BASE_URL`          |
 
 `client_type` may be omitted for a model id that begins with a known family: `gpt-` and
 `text-embedding-` route to `openai-official`, `claude-` to `anthropic-official`, `gemini-` to
 `google-official`, `glm-` to `zai-official`, `kimi-` to `moonshot-official`, `deepseek-` to
-`deepseek-official`, `minimax-` to `minimax-official`. Any other id raises and asks for a
-`client_type`. The `CLIENT_TYPE` environment variable names one for every client the code does
-not.
+`deepseek-official`, `minimax-` to `minimax-official`, `jina-` to `jina-webtool`. Any other id
+raises and asks for a `client_type`. The `CLIENT_TYPE` environment variable names one for every
+client the code does not.
 
 Gemini on Google Vertex AI takes `client_type="google-genai"` and the service-account JSON key as
 the API key: Vertex AI's Interactions endpoint, which `google-official` speaks, serves none of these
@@ -108,8 +112,9 @@ Claude on Amazon Bedrock takes `client_type="anthropic-official"`, `base_url="be
 and `"ACCESS_KEY,SECRET_KEY"` as the API key, with a Bedrock inference profile as the model id, such
 as `global.anthropic.claude-opus-5-5`.
 
-TokenDance serves Chat Completions, Responses and Embeddings at `https://tokendance.space/gateway/v1`
-and Anthropic Messages at `https://tokendance.space/gateway`, all with one key.
+TokenDance serves Chat Completions, Responses and Embeddings at `https://tokendance.space/gateway/v1`,
+Anthropic Messages at `https://tokendance.space/gateway` and DeepSeek's web tools at
+`https://tokendance.space/gateway/deepseek`, all with one key.
 
 OpenCode Go serves Chat Completions and Responses at `https://opencode.ai/inference/go/openai/v1`,
 Anthropic Messages at `https://opencode.ai/inference/go/anthropic` and Google generateContent at
@@ -185,7 +190,7 @@ A key goes only where it was given for. A key passed in is used, with the `base_
 
 - `(async) streaming_response(messages, config)`: Streams the response of LLMs in a stateless manner.
 - `(async) streaming_response_stateful(message, config)`: Streams the response of LLMs in a stateful manner.
-- `(async) list_models()`: Lists the model ids the configured endpoint serves. A protocol client (`openai-chat`, `openai-chat-vllm-adapter`, `openai-responses`, `ant-messages`, `openai-embedding`, `google-genai`, `mmsp`) is named explicitly and lists everything the endpoint serves; a client deduced from a model id lists only the ids that deduce back to it.
+- `(async) list_models()`: Lists the model ids the configured endpoint serves. A protocol client (`openai-chat`, `openai-chat-vllm-adapter`, `openai-responses`, `ant-messages`, `openai-embedding`, `google-genai`, `mmsp`) is named explicitly and lists everything the endpoint serves; a client deduced from a model id lists only the ids that deduce back to it. `deepseek-webtool` and `jina-webtool` raise `UnsupportedOperationError`: their endpoints list no models.
 - `clear_history()`: Clears the history of the stateful LLM client.
 - `get_history()`: Returns the history of the stateful LLM client.
 - `set_history(history)`: Replaces the history of the stateful LLM client with a copy of the provided list.
@@ -474,6 +479,53 @@ main().catch(console.error);
 ```
 </details>
 
+### DeepSeek web search
+
+Each message is one search; `deepseek-fetch` and `jina-fetch` take a URL instead. A web tool cannot replay its own answer, so call the stateless `streaming_response`.
+
+<details><summary><strong>Python Example</strong></summary>
+
+```python
+import asyncio
+import os
+from mmsp import AutoLLMClient
+
+os.environ["DEEPSEEK_API_KEY"] = "your-deepseek-api-key"
+
+async def main():
+    client = AutoLLMClient(model="deepseek-search")
+
+    async for event in client.streaming_response(
+        messages=[{"role": "user", "content_items": [{"type": "text.done", "text": "DeepSeek V4"}]}],
+        config={"webtool_config": {"count": 5}},
+    ):
+        print(event)
+
+asyncio.run(main())
+```
+</details>
+
+<details><summary><strong>TypeScript Example</strong></summary>
+
+```typescript
+import { AutoLLMClient } from "@prismshadow/mmsp";
+
+process.env.DEEPSEEK_API_KEY = "your-deepseek-api-key";
+
+async function main() {
+  const client = new AutoLLMClient({ model: "deepseek-search" });
+  for await (const event of client.streamingResponse({
+    messages: [{ role: "user", content_items: [{ type: "text.done", text: "DeepSeek V4" }] }],
+    config: { webtool_config: { count: 5 } },
+  })) {
+    console.log(event);
+  }
+}
+
+main().catch(console.error);
+```
+</details>
+
 ### DeepSeek via the OpenAI Responses protocol
 
 Any compatible endpoint can be called through the generic protocol clients by picking the
@@ -631,6 +683,7 @@ Example UniConfig:
   "image_config": {"aspect_ratio": "4:3", "image_size": "1K"},
   "tts_config": [{"voice": "Kore"}],
   "embedding_config": {"dimensions": 768},
+  "webtool_config": {"count": 5},
   "trace_id": null
 }
 ```
@@ -799,6 +852,8 @@ Every client speaks one protocol on the wire, whichever `client_type` reaches it
 | `zai-official`, `moonshot-official`                         | `openai-chat`      |
 | `openai-chat` (alias `openai`), `openai-chat-vllm-adapter`  | `openai-chat`      |
 | `openai-embedding`, and `openai-official` for `text-embedding-*` | `openai-embedding` |
+| `deepseek-webtool`, and `deepseek-official` for `deepseek-search`, `deepseek-fetch` | `deepseek-webtool` |
+| `jina-webtool`                                              | `jina-webtool`     |
 | `mmsp`                                                      | `mmsp`             |
 
 ## Related Work

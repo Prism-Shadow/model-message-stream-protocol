@@ -61,9 +61,9 @@ MMSP, the Model Message Stream Protocol: one message format and one streaming gr
 
 When adding support for new AI models, follow these rules:
 
-1. A client is named by its `client_type`, and `auto_client.py` / `autoClient.ts` create the client that type names from one table. An **official client** per vendor (`openai-official`, `anthropic-official`, `google-official`, `zai-official`, `moonshot-official`, `deepseek-official`, `minimax-official`) lives in a folder named after it (`openai_official/`) and serves every generation of that vendor's models; a **compatible client** per wire protocol (`openai-chat`, `openai-responses`, `ant-messages`, ...) serves any endpoint that speaks it. (MMSP-RFC-0005)
+1. A client is named by its `client_type`, and `auto_client.py` / `autoClient.ts` create the client that type names from one table. An **official client** per vendor (`openai-official`, `anthropic-official`, `google-official`, `zai-official`, `moonshot-official`, `deepseek-official`, `minimax-official`, and Jina's `jina-webtool`) lives in a folder named after it (`openai_official/`) and serves every generation of that vendor's models; a **compatible client** per wire protocol (`openai-chat`, `openai-responses`, `ant-messages`, `deepseek-webtool`, ...) serves any endpoint that speaks it. (MMSP-RFC-0005)
 2. A new generation of a vendor's models goes into the vendor's official client. Inside it, tell generations apart by explicit version (e.g. `"4-6" in self._model`), never by a bare substring like `if "claude" in model.lower()`, and keep the older generations working. (MMSP-RFC-0003)
-3. Without a `client_type`, the family a model id begins with (`gpt-`, `claude-`, `gemini-`, `glm-`, `kimi-`, `deepseek-`, `minimax-`) names its official client; an id of no known family raises and asks for a `client_type`. A new vendor adds its family to that table. **DO NOT** add any other routing rule on model ids. (MMSP-RFC-0005)
+3. Without a `client_type`, the family a model id begins with (`gpt-`, `claude-`, `gemini-`, `glm-`, `kimi-`, `deepseek-`, `minimax-`, `jina-`) names its official client; an id of no known family raises and asks for a `client_type`. A new vendor adds its family to that table. **DO NOT** add any other routing rule on model ids. (MMSP-RFC-0005)
 4. **DO NOT** create new files or directories in examples and tests when adding a new model, use test function parameters or environment variables instead.
 5. **Always** consult the [llmsdk_docs/README.md](../llmsdk_docs/README.md) for AI model SDK usage details.
 
@@ -99,6 +99,8 @@ When writing tests that require calling AI models, the following secrets are ava
 - `SILICONFLOW_API_KEY` - API key for SiliconFlow Models
 - `BEDROCK_API_KEY` - API key for Amazon Bedrock Models
 - `VERTEX_API_KEY` - API key for Google Vertex AI Models
+- `TOKENDANCE_API_KEY` - API key for TokenDance Models
+- `JINA_API_KEY` - API key for Jina's Reader and Search
 
 To use these secrets in your workflow files, reference them in the `env:` section:
 
@@ -116,6 +118,8 @@ env:
   SILICONFLOW_API_KEY: ${{ secrets.SILICONFLOW_API_KEY }}
   BEDROCK_API_KEY: ${{ secrets.BEDROCK_API_KEY }}
   VERTEX_API_KEY: ${{ secrets.VERTEX_API_KEY }}
+  TOKENDANCE_API_KEY: ${{ secrets.TOKENDANCE_API_KEY }}
+  JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
 ```
 
 These secrets can be used in your test code to authenticate with the respective AI model providers. Make sure to handle these credentials securely and never log or expose them in test output.

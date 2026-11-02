@@ -133,6 +133,24 @@ describe("one assembly rule for every kind", () => {
     ]);
     expect(items.end()).toEqual([{ type: "embedding.done", embedding: [] }]);
   });
+
+  test("a web tool's answer is an item of its own, and one that found nothing goes out all the same", () => {
+    const page = {
+      title: "Example Domain",
+      content: "This domain is for use in examples.",
+      url: "https://example.com",
+    };
+    const items = new StreamItems("Test");
+    expect(items.delta({ type: "webtool.delta", webdata: [page] })).toEqual([
+      { type: "webtool.delta", webdata: [page] },
+    ]);
+    // a search that found nothing answered all the same
+    expect(items.delta({ type: "webtool.delta", webdata: [] })).toEqual([
+      { type: "webtool.done", webdata: [page] },
+      { type: "webtool.delta", webdata: [] },
+    ]);
+    expect(items.end()).toEqual([{ type: "webtool.done", webdata: [] }]);
+  });
 });
 
 describe("when an item is done", () => {
