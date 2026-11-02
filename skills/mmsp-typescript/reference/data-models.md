@@ -24,6 +24,7 @@ const config = {
   thinking_level: ThinkingLevel.HIGH,
   system_prompt: "You are helpful.",
   prompt_caching: PromptCaching.ENABLE,
+  session_id: "8d2f0c4e-7a1b-4c3d-9e5f-0a1b2c3d4e5f",
   image_config: { aspect_ratio: "4:3", image_size: "1K" },
   tts_config: [{ voice: "Kore" }],
   embedding_config: { dimensions: 768 },
@@ -42,6 +43,7 @@ Fields:
 - `tool_choice` (`ToolChoice`): `auto`, `required`, `none`, or a list of tool names; support varies by model. Claude Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.1 cannot be forced to call a tool: `"required"` and a list of names raise `UnsupportedParameterError` on them.
 - `system_prompt` (`string`): System instruction text.
 - `prompt_caching` (`PromptCaching`): `ENABLE`, `DISABLE`, or `ENHANCE`.
+- `session_id` (`string`): The conversation the request belongs to. Recommended: one stable id per conversation raises the prompt cache hit rate; clients without a cache key ignore it.
 - `image_config` (`ImageConfig`): `aspect_ratio` (`1:1`, `2:3`, `3:2`, `3:4`, `4:3`, `9:16`, `16:9`, `21:9`) and `image_size` (`1K`, `2K`).
 - `tts_config` (`SpeakerConfig[]`): Voice config; each item has `voice` and optional `speaker`. With two speakers, write the text as a script with one `Name: line` per turn, each name one of the configured speakers; Gemini 3.8 TTS receives each turn with its speaker as metadata.
 - `embedding_config` (`EmbeddingConfig`): Embedding config, currently `dimensions`.

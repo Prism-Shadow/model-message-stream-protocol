@@ -24,6 +24,7 @@ description: UniConfig，请求的配置选项，以及每个客户端为它们�
   "thinking_level": "high",
   "thinking_summary": true,
   "prompt_caching": "enable",
+  "session_id": "8d2f0c4e-7a1b-4c3d-9e5f-0a1b2c3d4e5f",
   "fast_mode": false,
   "image_config": {"aspect_ratio": "4:3", "image_size": "1K"},
   "tts_config": [{"voice": "Kore"}],
@@ -45,6 +46,7 @@ description: UniConfig，请求的配置选项，以及每个客户端为它们�
 | `thinking_level` | `"none"`、`"low"`、`"medium"`、`"high"`、`"xhigh"`、`"max"` | 控制模型的思考深度。 |
 | `thinking_summary` | 布尔 | 请求返回思考摘要。实际是否返回取决于模型。 |
 | `prompt_caching` | `"enable"`、`"disable"`、`"enhance"` | 提示词缓存策略。 |
+| `session_id` | 字符串 | 请求所属的对话。推荐设置：每个对话一个固定的 id，能提高提示词缓存的命中率。 |
 | `fast_mode` | 布尔 | 请求使用服务商的快速档位。 |
 | `image_config` | 对象 | Gemini 图像输出配置：`aspect_ratio`（`1:1`、`2:3`、`3:2`、`3:4`、`4:3`、`9:16`、`16:9`、`21:9`）和 `image_size`（`1K`、`2K`）。 |
 | `tts_config` | 列表 | Gemini 语音合成配置：每个说话人对应一项，包含 `voice` 和可选的 `speaker`。两个说话人时，文本写成台词稿，每轮一行 `Name: 台词`。 |
@@ -180,6 +182,17 @@ Claude Opus 5.5、Sonnet 5.5、Haiku 5.5 和 Fable 5.1 不能强制调用工具�
 | 其他所有客户端；`moonshot-official`（Kimi K2） | 不发送 | 抛错 | 抛错 |
 | `openai-embedding`、`deepseek-webtool`、`jina-webtool`、Gemini 向量模型 | 忽略 | 忽略 | 忽略 |
 
+### `session_id`
+
+每个对话设一个 `session_id`（例如一个 UUID），并在这个对话的各轮之间保持不变。按它路由的端点会把对话送回存有其缓存前缀的机器，从而提高缓存命中率。没有这种键的客户端会忽略它，所以每个请求都可以放心设置。
+
+| 客户端 | 发送为 |
+| --- | --- |
+| `openai-official`、`openai-responses`、`openai-chat`、`openai-chat-vllm-adapter`、`moonshot-official`、`minimax-official` | `prompt_cache_key`：64 个字符以内为 id 本身，超过时为它的 SHA-256 十六进制摘要 |
+| `anthropic-official`、`ant-messages`、`google-official`、`google-genai`、`deepseek-official`、`zai-official`、`openai-embedding` | 忽略 |
+
+空字符串不发送。
+
 ### `fast_mode`
 
 `false` 或未设置时不发送。
@@ -239,7 +252,6 @@ Gemini 语音模型，两个 Google 客户端相同：
 | --- | --- |
 | 所有客户端 | 用此 ID 保存当前轮次。 |
 | `mmsp` | 由服务端保存当前轮次；客户端不保存。 |
-| `moonshot-official`（Kimi K2） | 同时作为 `prompt_cache_key` 发送。 |
 
 ## 在 Python 和 TypeScript 中
 

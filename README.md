@@ -679,6 +679,7 @@ Example UniConfig:
   "tool_choice": "auto | required | none | a list of allowed tool names",
   "system_prompt": "You are a helpful assistant.",
   "prompt_caching": "enable | disable | enhance",
+  "session_id": "one stable id per conversation; recommended, it raises the prompt cache hit rate",
   "fast_mode": false,
   "image_config": {"aspect_ratio": "4:3", "image_size": "1K"},
   "tts_config": [{"voice": "Kore"}],

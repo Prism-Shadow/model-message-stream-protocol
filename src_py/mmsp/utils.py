@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import base64
+import hashlib
 import math
 import os
 import re
@@ -140,6 +141,25 @@ def is_debug_enabled() -> bool:
         bool: Whether debug mode is on.
     """
     return os.getenv("MMSP_DEBUG", "").strip().lower() not in ("", "0", "false", "no", "off")
+
+
+def prompt_cache_key(session_id: str) -> str:
+    """
+    The prompt cache key a session id goes out as (MMSP-RFC-0014).
+
+    OpenAI's Responses API refuses a key of more than 64 characters, counted in code points, and so
+    do OpenAI's models behind OpenRouter. A longer id goes out as its SHA-256 hex digest, which has
+    64 and keeps one session on one key.
+
+    Args:
+        session_id: The session id of the request, not empty
+
+    Returns:
+        str: The session id when it has at most 64 characters, else its SHA-256 hex digest.
+    """
+    if len(session_id) <= 64:
+        return session_id
+    return hashlib.sha256(session_id.encode("utf-8")).hexdigest()
 
 
 def image_dimensions(data: bytes) -> tuple[int, int] | None:

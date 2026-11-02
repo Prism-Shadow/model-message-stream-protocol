@@ -38,6 +38,7 @@ import {
   fixOpenrouterUsageMetadata,
   openaiClientOptions,
   openaiImageDetail,
+  promptCacheKey,
   resolveCredentials,
 } from "../utils";
 
@@ -207,6 +208,10 @@ export class OpenaiChatClient extends LLMClient {
         parameter: "prompt_caching",
         message: "prompt_caching must be ENABLE for OpenAI.",
       });
+    }
+
+    if (config.session_id) {
+      openaiConfig.prompt_cache_key = promptCacheKey(config.session_id);
     }
 
     return openaiConfig;

@@ -2,6 +2,7 @@
 
 [English](README.md)
 
+- [2026-11-02] 按 MMSP-RFC-0014 的规定，`UniConfig.session_id` 标明请求所属的对话；`openai-official`、`openai-responses`、`openai-chat` 及其 vLLM 适配器、`moonshot-official` 与 `minimax-official` 把它作为 `prompt_cache_key` 发送，64 个字符以内原样发送，超过时发送它的 SHA-256 十六进制摘要，其他客户端忽略它，Kimi K2 不再把 `trace_id` 作为这个键发送，Playground 把它每个对话的 UUID 作为 `session_id` 发送。([详情](2026-11-02-session-id.zh.md))
 - [2026-11-02] `deepseek-webtool` 和 `jina-webtool` 在两个包中加入网页搜索与网页抓取（`deepseek-search`、`deepseek-fetch`、`jina-search`、`jina-fetch`）：每条消息是一次请求，回答是一个列出 `{title, content, url}` 的 `webtool.done`，`webtool_config.count` 设定搜索结果条数，`prompt_tokens` 记 DeepSeek 的请求次数或 Jina 计费的 token 数。([详情](2026-11-02-web-tools.zh.md), [#310](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/310))
 - [2026-11-02] 新增 `change` 类 RFC MMSP-RFC-0014 提示缓存会话：`UniConfig.session_id` 标明请求所属的对话，在服务商接受提示缓存键的客户端上作为 `prompt_cache_key` 发送，64 个字符以内原样发送，超过时发送它的 SHA-256 十六进制摘要。([详情](2026-11-02-rfc-prompt-cache-sessions.zh.md), [#307](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/307))
 - [2026-11-02] 已采纳的 RFC（包括规范）改为在原文上修改，并以 `Updated by` 一行记录；MMSP-RFC-0002、MMSP-RFC-0003、MMSP-RFC-0005 与 MMSP-RFC-0006 写入了网页搜索与网页抓取：`webtool` 内容项及其 `webdata`，以一个 JSON 作答、每条消息一次请求的网页工具端点，`deepseek-official` 通过 `deepseek-webtool` 服务 `deepseek-search` 与 `deepseek-fetch`，端点不列出模型时 `list_models` 抛错，一行的其他默认端点，以及每一个密钥不是 OpenAI 的、基于 OpenAI SDK 的客户端都会抛出的 `ApiKeyRequiredError`。([详情](2026-11-02-web-tools-rfcs.zh.md), [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308))

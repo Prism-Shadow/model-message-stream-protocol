@@ -24,8 +24,10 @@ import {
   test,
 } from "@jest/globals";
 import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 
 import { AutoLLMClient, UniConfig, UniMessage } from "../src";
+import { promptCacheKey } from "../src/utils";
 
 interface BodyCase {
   name: string;
@@ -190,5 +192,230 @@ describe("request body on every SDK version", () => {
     for (const name of testCase.unpinned ?? []) {
       expect(modelConfig).not.toHaveProperty(name);
     }
+  });
+});
+
+const SESSION_ID = "8d2f0c4e-7a1b-4c3d-9e5f-0a1b2c3d4e5f";
+// 65 characters go out as the SHA-256 hex digest of their UTF-8 bytes; 64 emoji, 128 UTF-16
+// units long, are 64 characters and go out as they are
+const LONG_SESSION_ID = "会".repeat(65);
+const LONG_SESSION_KEY =
+  "f3d8cc68018e7e0a0aa2c74cfddfc7515e10785943068732c6ed311eb6f074c5";
+const EMOJI_SESSION_ID = "😀".repeat(64);
+
+interface SessionCase {
+  name: string;
+  clientType: string;
+  model: string;
+  config: UniConfig;
+  // the prompt_cache_key of the body; undefined means the body carries none
+  expected: string | undefined;
+}
+
+// The cases are those of src_py/tests/test_request_body.py.
+const SESSION_CASES: SessionCase[] = [
+  {
+    name: "openai-official",
+    clientType: "openai-official",
+    model: "gpt-6-luna",
+    config: { session_id: SESSION_ID },
+    expected: SESSION_ID,
+  },
+  {
+    name: "openai-official-long",
+    clientType: "openai-official",
+    model: "gpt-6-luna",
+    config: { session_id: LONG_SESSION_ID },
+    expected: LONG_SESSION_KEY,
+  },
+  {
+    name: "openai-official-emoji",
+    clientType: "openai-official",
+    model: "gpt-6-luna",
+    config: { session_id: EMOJI_SESSION_ID },
+    expected: EMOJI_SESSION_ID,
+  },
+  {
+    name: "openai-official-empty",
+    clientType: "openai-official",
+    model: "gpt-6-luna",
+    config: { session_id: "" },
+    expected: undefined,
+  },
+  {
+    name: "openai-official-unset",
+    clientType: "openai-official",
+    model: "gpt-6-luna",
+    config: {},
+    expected: undefined,
+  },
+  {
+    name: "openai-responses",
+    clientType: "openai-responses",
+    model: "openai/gpt-6-luna",
+    config: { session_id: SESSION_ID },
+    expected: SESSION_ID,
+  },
+  {
+    name: "openai-chat",
+    clientType: "openai-chat",
+    model: "gpt-6-luna",
+    config: { session_id: SESSION_ID },
+    expected: SESSION_ID,
+  },
+  {
+    name: "openai-chat-long",
+    clientType: "openai-chat",
+    model: "gpt-6-luna",
+    config: { session_id: LONG_SESSION_ID },
+    expected: LONG_SESSION_KEY,
+  },
+  {
+    name: "openai-chat-vllm-adapter",
+    clientType: "openai-chat-vllm-adapter",
+    model: "Qwen/Qwen3.6-35B-A3B",
+    config: { session_id: SESSION_ID },
+    expected: SESSION_ID,
+  },
+  {
+    name: "moonshot-official-k3",
+    clientType: "moonshot-official",
+    model: "kimi-k3.1-pro",
+    config: { session_id: SESSION_ID },
+    expected: SESSION_ID,
+  },
+  {
+    name: "moonshot-official-k2",
+    clientType: "moonshot-official",
+    model: "kimi-k2.6",
+    config: { session_id: SESSION_ID },
+    expected: SESSION_ID,
+  },
+  {
+    name: "minimax-official",
+    clientType: "minimax-official",
+    model: "MiniMax-M3",
+    config: { session_id: SESSION_ID },
+    expected: SESSION_ID,
+  },
+  {
+    name: "minimax-official-long",
+    clientType: "minimax-official",
+    model: "MiniMax-M3",
+    config: { session_id: LONG_SESSION_ID },
+    expected: LONG_SESSION_KEY,
+  },
+  {
+    name: "deepseek-official",
+    clientType: "deepseek-official",
+    model: "deepseek-v4-flash",
+    config: { session_id: SESSION_ID },
+    expected: undefined,
+  },
+  {
+    name: "zai-official",
+    clientType: "zai-official",
+    model: "glm-5.3",
+    config: { session_id: SESSION_ID },
+    expected: undefined,
+  },
+  {
+    name: "openai-embedding",
+    clientType: "openai-embedding",
+    model: "text-embedding-3-large",
+    config: { session_id: SESSION_ID },
+    expected: undefined,
+  },
+];
+
+describe("session_id reaches the wire as prompt_cache_key", () => {
+  test.each(SESSION_CASES)("$name", async (testCase) => {
+    const client = new AutoLLMClient({
+      model: testCase.model,
+      apiKey: "test-key",
+      baseUrl: origin,
+      clientType: testCase.clientType,
+    });
+    const messages: UniMessage[] = [
+      { role: "user", content_items: [{ type: "text.done", text: "Hi" }] },
+    ];
+
+    const drain = async (): Promise<void> => {
+      for await (const event of client.streamingResponse({
+        messages,
+        config: testCase.config,
+      })) {
+        void event;
+      }
+    };
+    await expect(drain()).rejects.toThrow(OpenAI.BadRequestError);
+
+    expect(receivedBody.model).toBe(testCase.model);
+    expect(receivedBody.prompt_cache_key).toBe(testCase.expected);
+    expect("prompt_cache_key" in receivedBody).toBe(
+      testCase.expected !== undefined,
+    );
+    expect(receivedBody).not.toHaveProperty("session_id");
+  });
+});
+
+describe("session_id changes nothing where no prompt cache key exists", () => {
+  test.each([
+    ["anthropic-official", "claude-sonnet-5"],
+    ["ant-messages", "claude-sonnet-5"],
+    ["google-official", "gemini-3.8-flash"],
+    ["google-genai", "gemini-3.8-flash"],
+    ["openai-embedding", "text-embedding-3-large"],
+    ["deepseek-official", "deepseek-v4-flash"],
+    ["zai-official", "glm-5.3"],
+  ])("%s", (clientType, model) => {
+    const client = new AutoLLMClient({ model, apiKey: "test-key", clientType });
+    const config: UniConfig = { max_tokens: 100 };
+
+    expect(
+      client.transformUniConfigToModelConfig({
+        ...config,
+        session_id: SESSION_ID,
+      }),
+    ).toEqual(client.transformUniConfigToModelConfig(config));
+  });
+});
+
+test("Kimi K2 sends no trace_id as prompt_cache_key", () => {
+  const client = new AutoLLMClient({
+    model: "kimi-k2.6",
+    apiKey: "test-key",
+    clientType: "moonshot-official",
+  });
+
+  expect(
+    client.transformUniConfigToModelConfig({ trace_id: "agent1/session_001" }),
+  ).not.toHaveProperty("prompt_cache_key");
+});
+
+test("the mmsp client forwards session_id", () => {
+  const client = new AutoLLMClient({
+    model: "gpt-6-luna",
+    apiKey: "test-key",
+    clientType: "mmsp",
+  });
+
+  expect(
+    client.transformUniConfigToModelConfig({ session_id: LONG_SESSION_ID }),
+  ).toEqual({ session_id: LONG_SESSION_ID });
+});
+
+describe("promptCacheKey keeps 64 characters and digests more", () => {
+  test.each([
+    ["64-ascii", "x".repeat(64), "x".repeat(64)],
+    [
+      "65-ascii",
+      "x".repeat(65),
+      "9537c5fdf120482f7d58d25e9ed583f52c02b4e304ea814db1633ad565aed7e9",
+    ],
+    ["64-emoji", EMOJI_SESSION_ID, EMOJI_SESSION_ID],
+    ["65-cjk", LONG_SESSION_ID, LONG_SESSION_KEY],
+  ])("%s", (_name, sessionId, expected) => {
+    expect(promptCacheKey(sessionId)).toBe(expected);
   });
 });

@@ -36,7 +36,13 @@ from ..types import (
     UniMessage,
     UsageMetadata,
 )
-from ..utils import fix_openrouter_usage_metadata, openai_client_options, openai_image_detail, resolve_credentials
+from ..utils import (
+    fix_openrouter_usage_metadata,
+    openai_client_options,
+    openai_image_detail,
+    prompt_cache_key,
+    resolve_credentials,
+)
 
 
 class OpenaiChatClient(LLMClient):
@@ -140,6 +146,9 @@ class OpenaiChatClient(LLMClient):
             raise UnsupportedParameterError(
                 self.__class__.__name__, "prompt_caching", "prompt_caching must be ENABLE for OpenAI."
             )
+
+        if config.get("session_id"):
+            openai_config["prompt_cache_key"] = prompt_cache_key(config["session_id"])
 
         return openai_config
 
