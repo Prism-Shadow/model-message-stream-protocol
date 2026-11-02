@@ -72,6 +72,8 @@ export const PROVIDERS: (Provider & { prefixes: string[] })[] = [
     prefixes: ["https://api.minimax.io", "https://api.minimaxi.com"],
     keyEnv: "MINIMAX_API_KEY",
   },
+  // Jina searches on s.jina.ai and reads a page on r.jina.ai, with one key
+  { id: "jina", name: "Jina AI", mark: "jina", prefixes: ["https://s.jina.ai", "https://r.jina.ai"], keyEnv: "JINA_API_KEY" },
   { id: "openrouter", name: "OpenRouter", mark: "openrouter", prefixes: ["https://openrouter.ai"], keyEnv: "OPENROUTER_API_KEY" },
   {
     id: "siliconflow",
@@ -157,6 +159,7 @@ const VENDORS: [RegExp, Vendor][] = [
   [/(^|\/)(z-ai\/|zai-org\/|glm)/, { id: "zai", name: "Z.ai", mark: "zai" }],
   [/moonshotai\/|(^|\/)kimi/, { id: "moonshot", name: "Moonshot AI", mark: "moonshot" }],
   [/minimax/, { id: "minimax", name: "MiniMax", mark: "minimax" }],
+  [/(^|\/)jina-/, { id: "jina", name: "Jina AI", mark: "jina" }],
   [/qwen/, { id: "qwen", name: "Qwen", mark: "qwen" }],
   [/nvidia\/|nemotron/, { id: "nvidia", name: "NVIDIA", mark: "nvidia" }],
   [/stepfun\/|(^|\/)step-/, { id: "stepfun", name: "StepFun", mark: "stepfun" }],

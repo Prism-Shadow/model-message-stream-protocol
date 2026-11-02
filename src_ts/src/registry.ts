@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export type Modality = "Text" | "Image" | "Video" | "Audio" | "Embed";
+// "Embed" is an embedding vector, and "Web" the pages a web tool answers with (`webtool.done`)
+export type Modality = "Text" | "Image" | "Video" | "Audio" | "Embed" | "Web";
 export type Currency = "USD" | "CNY";
 
 /**
@@ -70,6 +71,7 @@ const VERTEX = "https://aiplatform.googleapis.com";
 const BEDROCK = "bedrock://us-east-1";
 const TOKENDANCE = "https://tokendance.space/gateway/v1";
 const TOKENDANCE_ANTHROPIC = "https://tokendance.space/gateway";
+const TOKENDANCE_DEEPSEEK = "https://tokendance.space/gateway/deepseek";
 const OPENCODE_GO = "https://opencode.ai/inference/go/openai/v1";
 const OPENCODE_GO_ANTHROPIC = "https://opencode.ai/inference/go/anthropic";
 const OPENCODE_GO_GOOGLE = "https://opencode.ai/inference/go/google";
@@ -81,6 +83,8 @@ const ATLASCLOUD = "https://api.atlascloud.ai/v1";
 const PENGUIN_GO = "https://go.penguin.ooo/api/v1";
 const MODELSCOPE = "https://api-inference.modelscope.cn/v1";
 const VLLM_LOCAL = "http://127.0.0.1:8000/v1";
+const JINA_SEARCH = "https://s.jina.ai";
+const JINA_READER = "https://r.jina.ai";
 
 // Display convention shared with the MMSP apps: prices are stored in USD
 // (CNY prices pre-converted at 7 CNY/USD), so requesting CNY shows the
@@ -116,7 +120,7 @@ function cny(prompt: number, output: number, cached?: number): ModelPricing {
 // Gateway rows list only the input modalities their client can send: the
 // OpenAI-protocol clients carry text and images, not video or audio.
 const SUPPORTED_MODELS: SupportedModel[] = [
-  // --- Official vendor endpoints (56 rows; each vendor's own key variable; list prices from each
+  // --- Official vendor endpoints (58 rows; each vendor's own key variable; list prices from each
   // vendor's pricing page, the rows added 2026-10-24 naming their page and read date)
   {
     model: "gemini-4-argon",
@@ -669,6 +673,45 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     // official off-peak list price (verified 2026-08-18); peak-hour rates
     // (Beijing 9:00-12:00, 14:00-18:00) are double
     pricing: cny(4.5, 13.5, 0.15),
+  },
+  {
+    // deepseek-official serves this row and the next through deepseek-webtool. ¥5 per 1,000
+    // successful requests (api-docs.deepseek.com/zh-cn/guides/search, read 2026-11-02); a request
+    // counts as one prompt token, so ¥5,000 per million
+    model: "deepseek-search",
+    base_url: DEEPSEEK,
+    client: "deepseek-official",
+    input_modalities: ["Text"],
+    output_modalities: ["Web"],
+    pricing: cny(5000.0, 0.0),
+  },
+  {
+    model: "deepseek-fetch",
+    base_url: DEEPSEEK,
+    client: "deepseek-official",
+    input_modalities: ["Text"],
+    output_modalities: ["Web"],
+    pricing: cny(5000.0, 0.0),
+  },
+  // --- Jina (2 rows; key JINA_API_KEY; Search on https://s.jina.ai and Reader on https://r.jina.ai,
+  // the token price from Jina's models API https://api.jina.ai/v1/models, read 2026-11-02). The API
+  // lists $0.05 per million tokens for Jina's models, and the client counts the tokens Jina bills as
+  // prompt tokens: a flat 10,000 for a search, the page's tokens for a read.
+  {
+    model: "jina-search",
+    base_url: JINA_SEARCH,
+    client: "jina-webtool",
+    input_modalities: ["Text"],
+    output_modalities: ["Web"],
+    pricing: usd(0.05, 0.0),
+  },
+  {
+    model: "jina-fetch",
+    base_url: JINA_READER,
+    client: "jina-webtool",
+    input_modalities: ["Text"],
+    output_modalities: ["Web"],
+    pricing: usd(0.05, 0.0),
   },
   // --- OpenRouter (124 rows; key OPENROUTER_API_KEY; USD prices, context windows and modalities
   // from the live models API https://openrouter.ai/api/v1/models and each model's
@@ -2162,11 +2205,13 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     context_window: 1000000,
     pricing: usd(3.0, 15.0, 0.3),
   },
-  // --- TokenDance (61 rows; key TOKENDANCE_API_KEY; CNY prices at the `items` rate of the public
+  // --- TokenDance (63 rows; key TOKENDANCE_API_KEY; CNY prices at the `items` rate of the public
   // catalog https://tokendance.space/portal/api/models/all, read 2026-10-24). The `items` rate is
   // what TokenDance bills, below the `reference` price the catalog shows beside some models. Each
   // row's client speaks a protocol the catalog lists for the model, and its price is that
-  // protocol's, at the lowest tier where the catalog tiers it by prompt length.
+  // protocol's, at the lowest tier where the catalog tiers it by prompt length. The two web tool
+  // rows at the end bill ¥0.005 per request (TokenDance's console, read 2026-11-02), stored as
+  // ¥5,000 per million prompt tokens, one per request.
   {
     // this row and the next take the gateway's Chat Completions path; weekday peak rates
     // (09:00-12:00, 14:00-18:00 Beijing) are double on both
@@ -2751,6 +2796,22 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Embed"],
     context_window: 8000,
     pricing: cny(0.5, 0.0),
+  },
+  {
+    model: "deepseek-search",
+    base_url: TOKENDANCE_DEEPSEEK,
+    client: "deepseek-webtool",
+    input_modalities: ["Text"],
+    output_modalities: ["Web"],
+    pricing: cny(5000.0, 0.0),
+  },
+  {
+    model: "deepseek-fetch",
+    base_url: TOKENDANCE_DEEPSEEK,
+    client: "deepseek-webtool",
+    input_modalities: ["Text"],
+    output_modalities: ["Web"],
+    pricing: cny(5000.0, 0.0),
   },
   // --- OpenCode Go (28 rows; key OPENCODE_API_KEY; ids and each row's protocol from the endpoints
   // table of https://opencode.ai/v2/docs/console/go/, USD per-token rates from its usage-limits

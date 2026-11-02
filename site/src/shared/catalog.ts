@@ -30,7 +30,7 @@ export function kitProvider(provider: Provider): KitProvider {
 export function kitEntry(entry: SupportedModel): KitEntry {
   const { model, base_url, client, input_modalities, output_modalities, context_window, pricing } = entry;
   const out = output_modalities;
-  const kind: Kind = out.includes("Text") ? "text" : out.includes("Embed") ? "embed" : out.includes("Image") ? "image" : "audio";
+  const kind: Kind = out.includes("Text") ? "text" : out.includes("Embed") ? "embed" : out.includes("Web") ? "web" : out.includes("Image") ? "image" : "audio";
   return {
     model,
     base_url,

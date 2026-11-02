@@ -34,14 +34,15 @@ const targets = rows.map((row) => latest?.targets[row.key]);
 const SORT_FIRST: Record<string, "asc" | "desc"> = { latency: "asc", throughput: "desc" };
 
 const INPUTS: Modality[] = ["Text", "Image", "Video", "Audio"];
-const OUTPUTS: Modality[] = ["Text", "Image", "Audio", "Embed"];
-// Lucide: type, image, video, audio-lines, axis-3d
+const OUTPUTS: Modality[] = ["Text", "Image", "Audio", "Embed", "Web"];
+// Lucide: type, image, video, audio-lines, axis-3d, globe
 const MODALITY_ICONS: Record<Modality, string> = {
   Text: '<path d="M4 7V4h16v3"></path><path d="M9 20h6"></path><path d="M12 4v16"></path>',
   Image: '<rect width="18" height="18" x="3" y="3" rx="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path>',
   Video: '<path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"></path><rect x="2" y="6" width="14" height="12" rx="2"></rect>',
   Audio: '<path d="M2 10v3"></path><path d="M6 6v11"></path><path d="M10 3v18"></path><path d="M14 8v7"></path><path d="M18 5v13"></path><path d="M22 10v3"></path>',
   Embed: '<path d="M13.5 10.5 15 9"></path><path d="M4 4v15a1 1 0 0 0 1 1h15"></path><path d="M4.293 19.707 6 18"></path><path d="m9 15 1.5-1.5"></path>',
+  Web: '<circle cx="12" cy="12" r="10"></circle><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path><path d="M2 12h20"></path>',
 };
 // Lucide: arrow-right, code; once in the sprite, since every row repeats them
 const ROW_ICONS = {

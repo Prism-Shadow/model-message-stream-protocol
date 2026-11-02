@@ -4,7 +4,7 @@
 // agent puts on the clipboard. The page assembles a kit in the browser when a row's code button is
 // pressed, from what the row carries (its model, endpoint, client, kind, modalities, context window
 // and USD prices) and one table of the providers the page names, so the page ships one template
-// instead of 345 programs. Nothing here reads the registry or the build's environment: catalog.ts
+// instead of 351 programs. Nothing here reads the registry or the build's environment: catalog.ts
 // decides an entry's kind, and the caller passes the site's origin.
 import { localePath, type Locale } from "./i18n";
 import type { Modality } from "../../../src_ts/src/registry.ts";
@@ -22,8 +22,9 @@ export interface KitProvider {
 }
 
 // what a program asks a model of each output kind, and how it shows the answer: text as it
-// streams, an embedding by its size, an image or speech as the file it writes
-export type Kind = "text" | "embed" | "image" | "audio";
+// streams, an embedding by its size, an image or speech as the file it writes, a web tool's pages
+// by their titles and URLs
+export type Kind = "text" | "embed" | "image" | "audio" | "web";
 
 export interface KitEntry {
   model: string;
@@ -68,18 +69,27 @@ export interface CatalogKit {
 
 // a row's modalities as the page writes them in an attribute, one letter each in the registry's
 // order, since the agent prompt lists them in that order
-const LETTERS: Record<Modality, string> = { Text: "T", Image: "I", Video: "V", Audio: "A", Embed: "E" };
+const LETTERS: Record<Modality, string> = { Text: "T", Image: "I", Video: "V", Audio: "A", Embed: "E", Web: "W" };
 const MODALITIES = Object.fromEntries(Object.entries(LETTERS).map(([name, letter]) => [letter, name as Modality]));
 
 export const modalityCode = (modalities: Modality[]) => modalities.map((name) => LETTERS[name]).join("");
 export const modalitiesOf = (code: string) => [...code].map((letter) => MODALITIES[letter]);
 
-const ASK: Record<Kind, { prompt: string; config: Record<string, unknown> }> = {
+interface Ask {
+  prompt: string;
+  config: Record<string, unknown>;
+}
+
+const ASK: Record<Kind, Ask> = {
   text: { prompt: "Say 'Hello, World!'", config: {} },
   embed: { prompt: "Hello, World!", config: {} },
   image: { prompt: "A lighthouse at dusk, in watercolor", config: { image_config: { aspect_ratio: "1:1", image_size: "1K" } } },
   audio: { prompt: "Hello, World!", config: {} },
+  web: { prompt: "Hello, World!", config: { webtool_config: { count: 3 } } },
 };
+// a web tool whose id names a fetch reads one page; the clients tell it from a search the same way
+const FETCH: Ask = { prompt: "https://example.com", config: {} };
+const askOf = (kind: Kind, model: string): Ask => (kind === "web" && model.toLowerCase().includes("-fetch") ? FETCH : ASK[kind]);
 
 // a value as TypeScript writes it, { a: ["b"] }, or as JSON and Python write it, {"a": ["b"]}
 export function literal(value: unknown, style: "ts" | "json"): string {
@@ -114,6 +124,7 @@ const TS_BODY: Record<Kind, string[]> = {
     "  console.log(`wrote speech.pcm, ${item.data.length} bytes, ${item.mime_type}`);",
     "}",
   ],
+  web: ['if (item.type === "webtool.done") {', "  for (const page of item.webdata) console.log(page.title, page.url);", "}"],
 };
 
 const PY_BODY: Record<Kind, string[]> = {
@@ -132,24 +143,35 @@ const PY_BODY: Record<Kind, string[]> = {
     '    Path("speech.pcm").write_bytes(item["data"])',
     "    print(f\"wrote speech.pcm, {len(item['data'])} bytes, {item['mime_type']}\")",
   ],
+  web: ['if item["type"] == "webtool.done":', '    for page in item["webdata"]:', '        print(page["title"], page["url"])'],
 };
 
-const prompt = (kind: Kind) => ({ type: "text.done", text: ASK[kind].prompt });
+const prompt = (ask: Ask) => ({ type: "text.done", text: ask.prompt });
 const indent = (lines: string[], spaces: number) => lines.map((line) => " ".repeat(spaces) + line);
 
-function typescriptProgram(kind: Kind, constructor: string[]): string {
+function typescriptProgram(kind: Kind, ask: Ask, constructor: string[]): string {
+  const input = literal(prompt(ask), "ts");
+  // a web tool cannot replay its own answer, so its program makes the stateless call, as the README's does
+  const call =
+    kind === "web"
+      ? [
+          "for await (const event of client.streamingResponse({",
+          "  messages: [",
+          "    {",
+          '      role: "user",',
+          `      content_items: [${input}],`,
+          "    },",
+          "  ],",
+        ]
+      : ["for await (const event of client.streamingResponseStateful({", "  message: {", '    role: "user",', `    content_items: [${input}],`, "  },"];
   return [
     ...(kind === "image" || kind === "audio" ? ['import { writeFileSync } from "node:fs";', ""] : []),
     'import { AutoLLMClient } from "@prismshadow/mmsp";',
     "",
     "async function main() {",
     ...indent(constructor, 2),
-    "  for await (const event of client.streamingResponseStateful({",
-    "    message: {",
-    '      role: "user",',
-    `      content_items: [${literal(prompt(kind), "ts")}],`,
-    "    },",
-    `    config: ${literal(ASK[kind].config, "ts")},`,
+    ...indent(call, 2),
+    `    config: ${literal(ask.config, "ts")},`,
     "  })) {",
     "    for (const item of event.content_items) {",
     ...indent(TS_BODY[kind], 6),
@@ -163,7 +185,20 @@ function typescriptProgram(kind: Kind, constructor: string[]): string {
   ].join("\n");
 }
 
-function pythonProgram(kind: Kind, constructor: string[]): string {
+function pythonProgram(kind: Kind, ask: Ask, constructor: string[]): string {
+  const input = literal(prompt(ask), "json");
+  const call =
+    kind === "web"
+      ? [
+          "async for event in client.streaming_response(",
+          "    messages=[",
+          "        {",
+          '            "role": "user",',
+          `            "content_items": [${input}],`,
+          "        },",
+          "    ],",
+        ]
+      : ["async for event in client.streaming_response_stateful(", "    message={", '        "role": "user",', `        "content_items": [${input}],`, "    },"];
   return [
     "import asyncio",
     "import os",
@@ -174,12 +209,8 @@ function pythonProgram(kind: Kind, constructor: string[]): string {
     "",
     "async def main():",
     ...indent(constructor, 4),
-    "    async for event in client.streaming_response_stateful(",
-    "        message={",
-    '            "role": "user",',
-    `            "content_items": [${literal(prompt(kind), "json")}],`,
-    "        },",
-    `        config=${literal(ASK[kind].config, "json")},`,
+    ...indent(call, 4),
+    `        config=${literal(ask.config, "json")},`,
     "    ):",
     '        for item in event["content_items"]:',
     ...indent(PY_BODY[kind], 12),
@@ -193,8 +224,8 @@ function pythonProgram(kind: Kind, constructor: string[]): string {
 
 /**
  * The code that calls an entry: complete TypeScript and Python programs, the README's quickstart
- * for this entry, that print what the model answers (its text as it streams; an embedding, image
- * or speech model by its output kind), and the row of an MMSP server's models table
+ * for this entry, that print what the model answers (its text as it streams; an embedding, image,
+ * speech or web tool model by its output kind), and the row of an MMSP server's models table
  * (site/src/docs/server.en.md). Every entry gets the full constructor, the one /models.json's `call`
  * writes, so an entry at its vendor's own endpoint reads the same as one behind a gateway.
  */
@@ -202,7 +233,8 @@ export function kitFor(entry: KitEntry, provider: KitProvider): Kit {
   const { model, base_url, client, kind } = entry;
   const env = provider.keyEnv;
   const q = JSON.stringify;
-  const typescript = typescriptProgram(kind, [
+  const ask = askOf(kind, model);
+  const typescript = typescriptProgram(kind, ask, [
     "const client = new AutoLLMClient({",
     `  model: ${q(model)},`,
     `  clientType: ${q(client)},`,
@@ -210,7 +242,7 @@ export function kitFor(entry: KitEntry, provider: KitProvider): Kit {
     `  apiKey: process.env.${env},`,
     "});",
   ]);
-  const python = pythonProgram(kind, [
+  const python = pythonProgram(kind, ask, [
     "client = AutoLLMClient(",
     `    model=${q(model)},`,
     `    client_type=${q(client)},`,
@@ -220,11 +252,10 @@ export function kitFor(entry: KitEntry, provider: KitProvider): Kit {
   ]);
   const serverModelId = model.split("/").at(-1)!;
   const server: ServerRow = { model_id: model, base_url, api_key: `$${env}`, server_model_id: serverModelId, client_type: client };
-  const config = ASK[kind].config;
   const request = {
     model: serverModelId,
-    messages: [{ role: "user", content_items: [prompt(kind)] }],
-    ...(Object.keys(config).length ? { config } : {}),
+    messages: [{ role: "user", content_items: [prompt(ask)] }],
+    ...(Object.keys(ask.config).length ? { config: ask.config } : {}),
   };
   return { typescript, python, server, request };
 }
@@ -360,7 +391,8 @@ export function catalogKit(entry: KitEntry, provider: KitProvider, locale: Local
   // a single-quoted shell word cannot hold a single quote, so the prompt's quotes become escaped
   // double quotes
   const body = literal(kit.request, "json").replaceAll("'", '\\"');
-  // an embedding, an image or speech streams as lines of numbers or base64; their heads show it
+  // an embedding, an image, speech or a page streams as long lines of numbers, base64 or Markdown;
+  // their heads show it
   const heads = entry.output_modalities.includes("Text") ? "" : " | cut -c 1-160";
   return {
     typescript: kit.typescript,
