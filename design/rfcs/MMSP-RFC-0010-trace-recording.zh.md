@@ -3,6 +3,7 @@
 - Feature Name: `trace_recording`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
+- Updated by: [#307](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/307)
 - Kind: spec
 
 [English](MMSP-RFC-0010-trace-recording.md)
@@ -16,6 +17,8 @@
 项目负责人为本规范提出的要求是：「写一下 trace 的逻辑」。调用方能按实际发生的样子读到每一轮，一个错误的工具参数、一段失控的思考，几秒内就能找到，不必从日志里拼凑；一个审视自己轨迹的 harness 能据此修改提示词、工具或代码，再跑一遍。轨迹对每个模型都是同一种格式的同一种记录，所以它作为协议的一部分在这里规定，而不是留给各个客户端自行决定。
 
 [#17](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/17) 加入了 `trace_id` 与 tracer，当时在有状态的一轮之后保存历史；[#34](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/34) 与 [#38](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/38) 把写入与查看器带到 TypeScript；[#96](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/96) 加入了 `created_at` 与查看器中的轮次；[#223](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/223) 把保存移进 `streaming_response`，放在产出 `stop` 之前，这样在 `stop` 处停止读取的调用方也能找到轨迹。两个包的写入在文件命名、时间戳以及轨迹 id 能触及的位置上曾有差异；[#300](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/300) 统一了它们，并让 `streaming_response` 拒绝缓存目录之外的 id。
+
+2026-11-02，提示缓存键改由 `session_id` 提供（[#307](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/307)，[MMSP-RFC-0014](MMSP-RFC-0014-prompt-cache-sessions.zh.md)）。`moonshot-official` 此前在 Kimi K2 上把轨迹 id 作为 `prompt_cache_key` 发送，现已不再发送，因此轨迹 id 不会发给任何服务商。
 
 ## 2. Conventions and Terminology
 
@@ -31,7 +34,7 @@
 - 在产出 `stop` 之前抛出异常的 `streaming_response` 不保存轨迹，无论是服务商的错误、`IncompleteStreamError`、`EmptyResponseError`、`StreamProtocolError` 还是中止错误（[MMSP-RFC-0008](MMSP-RFC-0008-request-interruption.zh.md#3-中断一条流) §3）；生成器在 `stop` 之前被关闭的也不保存。
 - 有状态调用经由 `streaming_response` 保存，所以它的轨迹是到此为止的整段对话。
 - 经由 `mmsp` 客户端时，`trace_id` 随配置传到服务端：服务端的上游客户端把轨迹保存在服务端的缓存目录下，`mmsp` 客户端不得自己保存。
-- `moonshot-official` 在 Kimi K2 一代上还把轨迹 id 作为 `prompt_cache_key` 发送。其他服务商客户端都不把它发给服务商。
+- 任何服务商客户端都不把轨迹 id 发给服务商；提示缓存键由 `session_id` 提供（[MMSP-RFC-0014](MMSP-RFC-0014-prompt-cache-sessions.zh.md)）。
 
 ## 4. 轨迹 id
 
