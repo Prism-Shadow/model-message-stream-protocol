@@ -3,6 +3,7 @@
 - **Date:** 2026-11-02
 - **Type:** feature
 - **Scope:** `registry`, `site`, `skills`
+- **PR:** [#312](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/312)
 
 [English](2026-11-02-web-tool-registry.md)
 
