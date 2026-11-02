@@ -9,15 +9,19 @@ The specifications MMSP conforms to and the decisions that changed it, each an R
 | RFC | Title | Kind | Status |
 | --- | --- | --- | --- |
 | [MMSP-RFC-0001](rfcs/MMSP-RFC-0001-rfc-process.md) | The RFC Process | process | Accepted |
-| [MMSP-RFC-0002](rfcs/MMSP-RFC-0002-message-protocol.md) | Message Protocol | spec | Accepted |
-| [MMSP-RFC-0003](rfcs/MMSP-RFC-0003-message-requests.md) | Message Requests | spec | Accepted |
+| [MMSP-RFC-0002](rfcs/MMSP-RFC-0002-message-protocol.md) | Message Protocol | spec | Superseded by MMSP-RFC-0014 |
+| [MMSP-RFC-0003](rfcs/MMSP-RFC-0003-message-requests.md) | Message Requests | spec | Superseded by MMSP-RFC-0015 |
 | [MMSP-RFC-0004](rfcs/MMSP-RFC-0004-message-fidelity.md) | Message Fidelity | spec | Accepted |
-| [MMSP-RFC-0005](rfcs/MMSP-RFC-0005-client-routing.md) | Client Routing | spec | Accepted |
-| [MMSP-RFC-0006](rfcs/MMSP-RFC-0006-upstream-credentials.md) | Upstream Credentials | spec | Accepted |
+| [MMSP-RFC-0005](rfcs/MMSP-RFC-0005-client-routing.md) | Client Routing | spec | Superseded by MMSP-RFC-0016 |
+| [MMSP-RFC-0006](rfcs/MMSP-RFC-0006-upstream-credentials.md) | Upstream Credentials | spec | Superseded by MMSP-RFC-0017 |
 | [MMSP-RFC-0007](rfcs/MMSP-RFC-0007-error-types.md) | Error Types | spec | Accepted |
 | [MMSP-RFC-0008](rfcs/MMSP-RFC-0008-request-interruption.md) | Request Interruption | spec | Accepted |
 | [MMSP-RFC-0009](rfcs/MMSP-RFC-0009-protocol-conversion.md) | Protocol Conversion | spec | Accepted |
 | [MMSP-RFC-0010](rfcs/MMSP-RFC-0010-trace-recording.md) | Trace Recording | spec | Accepted |
+| [MMSP-RFC-0014](rfcs/MMSP-RFC-0014-message-protocol.md) | Message Protocol | spec | Accepted |
+| [MMSP-RFC-0015](rfcs/MMSP-RFC-0015-message-requests.md) | Message Requests | spec | Accepted |
+| [MMSP-RFC-0016](rfcs/MMSP-RFC-0016-client-routing.md) | Client Routing | spec | Accepted |
+| [MMSP-RFC-0017](rfcs/MMSP-RFC-0017-upstream-credentials.md) | Upstream Credentials | spec | Accepted |
 
 A `spec` fixes a concept, protocol or algorithm the code conforms to; a `change` changes the protocol or the public API; `process` is how this folder works. The status is `Accepted` or `Superseded by MMSP-RFC-NNNN`, so the specifications in force are the `spec` rows that are Accepted. A proposed RFC is an open PR (`gh pr list --search "MMSP-RFC-"`) and a withdrawn one a closed PR; neither has a row.
 

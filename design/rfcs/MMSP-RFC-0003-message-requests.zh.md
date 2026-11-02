@@ -4,6 +4,7 @@
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
 - Kind: spec
+- Superseded by: [MMSP-RFC-0015](MMSP-RFC-0015-message-requests.zh.md)
 
 [English](MMSP-RFC-0003-message-requests.md)
 

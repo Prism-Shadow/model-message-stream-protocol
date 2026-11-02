@@ -27,7 +27,7 @@ described in BCP 14 ([RFC 2119](https://www.rfc-editor.org/rfc/rfc2119),
 
 The terms this document uses, one definition each. A term another RFC defines is cited, not
 redefined, as `fidelity` is:
-`([MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.md#5-what-a-message-carries) §5)`.
+`([MMSP-RFC-0014](MMSP-RFC-0014-message-protocol.md#5-what-a-message-carries) §5)`.
 
 ## 3. Noun
 

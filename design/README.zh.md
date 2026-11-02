@@ -9,15 +9,19 @@ MMSP 遵守的规范，以及改变过它的决定，每一项都是一篇 RFC�
 | RFC | 标题 | 类别 | 状态 |
 | --- | --- | --- | --- |
 | [MMSP-RFC-0001](rfcs/MMSP-RFC-0001-rfc-process.zh.md) | RFC 流程 | process | 已采纳 |
-| [MMSP-RFC-0002](rfcs/MMSP-RFC-0002-message-protocol.zh.md) | 消息协议 | spec | 已采纳 |
-| [MMSP-RFC-0003](rfcs/MMSP-RFC-0003-message-requests.zh.md) | 消息请求 | spec | 已采纳 |
+| [MMSP-RFC-0002](rfcs/MMSP-RFC-0002-message-protocol.zh.md) | 消息协议 | spec | 被 MMSP-RFC-0014 取代 |
+| [MMSP-RFC-0003](rfcs/MMSP-RFC-0003-message-requests.zh.md) | 消息请求 | spec | 被 MMSP-RFC-0015 取代 |
 | [MMSP-RFC-0004](rfcs/MMSP-RFC-0004-message-fidelity.zh.md) | 消息保真 | spec | 已采纳 |
-| [MMSP-RFC-0005](rfcs/MMSP-RFC-0005-client-routing.zh.md) | 客户端路由 | spec | 已采纳 |
-| [MMSP-RFC-0006](rfcs/MMSP-RFC-0006-upstream-credentials.zh.md) | 服务上游密钥 | spec | 已采纳 |
+| [MMSP-RFC-0005](rfcs/MMSP-RFC-0005-client-routing.zh.md) | 客户端路由 | spec | 被 MMSP-RFC-0016 取代 |
+| [MMSP-RFC-0006](rfcs/MMSP-RFC-0006-upstream-credentials.zh.md) | 服务上游密钥 | spec | 被 MMSP-RFC-0017 取代 |
 | [MMSP-RFC-0007](rfcs/MMSP-RFC-0007-error-types.zh.md) | 异常类型 | spec | 已采纳 |
 | [MMSP-RFC-0008](rfcs/MMSP-RFC-0008-request-interruption.zh.md) | 请求中断 | spec | 已采纳 |
 | [MMSP-RFC-0009](rfcs/MMSP-RFC-0009-protocol-conversion.zh.md) | 协议转换 | spec | 已采纳 |
 | [MMSP-RFC-0010](rfcs/MMSP-RFC-0010-trace-recording.zh.md) | 轨迹记录 | spec | 已采纳 |
+| [MMSP-RFC-0014](rfcs/MMSP-RFC-0014-message-protocol.zh.md) | 消息协议 | spec | 已采纳 |
+| [MMSP-RFC-0015](rfcs/MMSP-RFC-0015-message-requests.zh.md) | 消息请求 | spec | 已采纳 |
+| [MMSP-RFC-0016](rfcs/MMSP-RFC-0016-client-routing.zh.md) | 客户端路由 | spec | 已采纳 |
+| [MMSP-RFC-0017](rfcs/MMSP-RFC-0017-upstream-credentials.zh.md) | 服务上游密钥 | spec | 已采纳 |
 
 `spec` 固定代码遵守的一个概念、协议或算法；`change` 修改协议或公开 API；`process` 是这个目录的运作方式。状态为「已采纳」或「被 MMSP-RFC-NNNN 取代」，因此现行的规范就是状态为「已采纳」的 `spec` 行。提议中的 RFC 是一个未关闭的 PR（`gh pr list --search "MMSP-RFC-"`），撤回的 RFC 是一个已关闭的 PR；两者在表中都没有行。
 
