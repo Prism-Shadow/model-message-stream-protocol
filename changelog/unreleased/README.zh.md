@@ -2,6 +2,7 @@
 
 [English](README.md)
 
+- [2026-11-02] 音频增量不带 `mime_type` 时（API 自 2026-11-02 起不再发送），`google-official` 把经 Interactions 流式返回的 Gemini TTS 音频标为 `audio/l16; rate=<sample_rate>; channels=<channels>`，此前内容项在 Python 中为 `None; ...`，在 TypeScript 中为 `undefined; ...`。([详情](2026-11-02-gemini-tts-mime-type.zh.md))
 - [2026-11-02] 按 MMSP-RFC-0014 的规定，`UniConfig.session_id` 标明请求所属的对话；`openai-official`、`openai-responses`、`openai-chat` 及其 vLLM 适配器、`moonshot-official` 与 `minimax-official` 把它作为 `prompt_cache_key` 发送，64 个字符以内原样发送，超过时发送它的 SHA-256 十六进制摘要，其他客户端忽略它，Kimi K2 不再把 `trace_id` 作为这个键发送，Playground 把它每个对话的 UUID 作为 `session_id` 发送。([详情](2026-11-02-session-id.zh.md), [#309](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/309))
 - [2026-11-02] `deepseek-webtool` 和 `jina-webtool` 在两个包中加入网页搜索与网页抓取（`deepseek-search`、`deepseek-fetch`、`jina-search`、`jina-fetch`）：每条消息是一次请求，回答是一个列出 `{title, content, url}` 的 `webtool.done`，`webtool_config.count` 设定搜索结果条数，`prompt_tokens` 记 DeepSeek 的请求次数或 Jina 计费的 token 数。([详情](2026-11-02-web-tools.zh.md), [#310](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/310))
 - [2026-11-02] 新增 `change` 类 RFC MMSP-RFC-0014 提示缓存会话：`UniConfig.session_id` 标明请求所属的对话，在服务商接受提示缓存键的客户端上作为 `prompt_cache_key` 发送，64 个字符以内原样发送，超过时发送它的 SHA-256 十六进制摘要。([详情](2026-11-02-rfc-prompt-cache-sessions.zh.md), [#307](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/307))

@@ -44,7 +44,8 @@ The snapshot describes the `steps` schema introduced by the May 2026 breaking ch
 - [image-generation.md](./docs/image-generation.md) - Nano Banana models, `response_format`
   image entries (`aspect_ratio`, `image_size`), thinking with interim images, interleaved output
 - [speech-generation.md](./docs/speech-generation.md) - Single- and multi-speaker TTS with
-  `generation_config.speech_config`, streaming audio, voices, limitations
+  `generation_config.speech_config` and per-turn `speech_metadata`, streaming audio, audio output
+  formats, voices, limitations (snapshot 2026-11-02)
 - [text-generation.md](./docs/text-generation.md) - Basic requests, `system_instruction`,
   multi-turn input
 - [priority-inference.md](./docs/priority-inference.md) - `service_tier: "priority"`
@@ -62,9 +63,17 @@ The snapshot describes the `steps` schema introduced by the May 2026 breaking ch
   `index`. A `thought` step streams zero or more `thought_summary` deltas and then one
   `thought_signature` delta as its last delta; `function_call` arguments arrive as
   `arguments_delta` with the field `arguments`; text as `text`; images as `image`
-  (`mime_type`, base64 `data`); audio as `audio` (`audio/l16`, `sample_rate`, `channels`).
-  The stream ends with `interaction.completed` (status + `usage`, no `steps`) and
-  `event: done` / `data: [DONE]`.
+  (`mime_type`, base64 `data`); audio as `audio` (`sample_rate`, `channels`, and `mime_type`
+  `audio/l16` until 2026-11-02). The stream ends with `interaction.completed` (status + `usage`,
+  no `steps`) and `event: done` / `data: [DONE]`.
+- Since 2026-11-02 (verified live with `gemini-3.8-flash-tts`, `gemini-3.8-flash-lite-tts` and
+  `gemini-3.1-flash-tts-preview`, one and two speakers) a streamed `audio` delta carries
+  `sample_rate: 24000` and `channels: 1` but no `mime_type`, in both SDKs; its bytes are the
+  documented streaming default, headerless 16-bit PCM (`audio/l16`). Setting
+  `response_format.mime_type: "audio/l16"` does not bring the field back on 3.8 and is rejected by
+  3.1 (400 "Audio MIME type AUDIO_L16 is not supported"). Unary responses name the type:
+  `audio/wav` (with a RIFF header) on 3.8, `audio/l16; rate=24000; channels=1` on 3.1.
+  generateContent still streams `inlineData.mimeType` `audio/l16; rate=24000; channels=1`.
 - Every text-model turn observed starts with a `thought` step, including
   `thinking_summaries: "none"` and omitted `generation_config`; summaries are off unless
   `thinking_summaries: "auto"`. `gemini-3.1-flash-image` sometimes streams a `model_output` text

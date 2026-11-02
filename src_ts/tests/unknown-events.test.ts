@@ -872,6 +872,47 @@ describe.each(GEMINI_STREAM_CASES)(
         },
       ]);
     });
+
+    test("labels audio deltas without a MIME type as audio/l16", async () => {
+      // the audio delta as the API streams it since 2026-11-02: no mime_type
+      const audio = (text: string) => ({
+        type: "audio",
+        data: Buffer.from(text).toString("base64"),
+        sample_rate: 24000,
+        channels: 1,
+      });
+      const client = createAutoClient(testCase);
+      installFakeGeminiStream(client, [
+        { event_type: "step.start", index: 0, step: { type: "model_output" } },
+        geminiDeltaEvent(0, audio("pcm 1")),
+        geminiDeltaEvent(0, audio("pcm 2")),
+        { event_type: "step.stop", index: 0 },
+        geminiCompletedEvent(),
+      ]);
+
+      const events = await collectEvents(
+        client.streamingResponse({ messages, config: {} }),
+      );
+      assertStreamGrammar(events);
+      const mimeType = "audio/l16; rate=24000; channels=1";
+      expect(events.flatMap((event) => event.content_items)).toEqual([
+        {
+          type: "inline_data.delta",
+          data: Buffer.from("pcm 1"),
+          mime_type: mimeType,
+        },
+        {
+          type: "inline_data.delta",
+          data: Buffer.from("pcm 2"),
+          mime_type: mimeType,
+        },
+        {
+          type: "inline_data.done",
+          data: Buffer.from("pcm 1pcm 2"),
+          mime_type: mimeType,
+        },
+      ]);
+    });
   },
 );
 
