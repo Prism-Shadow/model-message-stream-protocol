@@ -3,6 +3,7 @@
 - **Date:** 2026-11-02
 - **Type:** feature
 - **Scope:** `types`, `utils`, `openai_official`, `openai_responses`, `openai_chat`, `moonshot_official`, `minimax_official`, `integration`, `docs`
+- **PR:** [#309](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/309)
 
 [English](2026-11-02-session-id.md)
 
