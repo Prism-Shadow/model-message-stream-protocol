@@ -225,7 +225,7 @@ class UnsupportedContentError(MMSPError):
 class UnknownEventError(MMSPError):
     """Raised with MMSP_DEBUG set when a client does not recognize a wire event.
 
-    Without MMSP_DEBUG the event is skipped (MMSP-RFC-0015).
+    Without MMSP_DEBUG the event is skipped (MMSP-RFC-0003).
     """
 
     def __init__(self, client: str, event: str) -> None:

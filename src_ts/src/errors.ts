@@ -302,7 +302,7 @@ export class UnsupportedContentError extends MMSPError {
 
 /**
  * Raised with MMSP_DEBUG set when a client does not recognize a wire event; without it the event
- * is skipped (MMSP-RFC-0015).
+ * is skipped (MMSP-RFC-0003).
  */
 export class UnknownEventError extends MMSPError {
   readonly client: string;
