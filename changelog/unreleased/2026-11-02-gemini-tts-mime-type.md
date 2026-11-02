@@ -3,6 +3,7 @@
 - **Date:** 2026-11-02
 - **Type:** fix
 - **Scope:** `google_official`, `tests`, `llmsdk_docs`
+- **PR:** [#311](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/311)
 
 [中文版](2026-11-02-gemini-tts-mime-type.zh.md)
 
