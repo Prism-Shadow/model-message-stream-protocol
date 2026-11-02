@@ -2,6 +2,7 @@
 
 [English](README.md)
 
+- [2026-11-02] 已采纳的 RFC（包括规范）改为在原文上修改，并以 `Updated by` 一行记录；MMSP-RFC-0002、MMSP-RFC-0003、MMSP-RFC-0005 与 MMSP-RFC-0006 写入了网页搜索与网页抓取：`webtool` 内容项及其 `webdata`，以一个 JSON 作答、每条消息一次请求的网页工具端点，`deepseek-official` 通过 `deepseek-webtool` 服务 `deepseek-search` 与 `deepseek-fetch`，端点不列出模型时 `list_models` 抛错，一行的其他默认端点，以及每一个密钥不是 OpenAI 的、基于 OpenAI SDK 的客户端都会抛出的 `ApiKeyRequiredError`。([详情](2026-11-02-web-tools-rfcs.zh.md), [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308))
 - [2026-10-25] `/models.json` 的每一行去掉了 `kit`、`vendor`、`status_key`、`pricing.currency` 和 `pricing.thoughts_tokens`，缺失的值直接省略而不写 `null`，每行一个条目，并新增适用于每一行的顶层 `call`，体积从 837,545 字节降到 115,078 字节；模型索引改为在浏览器中依据该行和一张服务商表组装集成代码，`/models/kits.json` 与 `/zh/models/kits.json` 已删除。([详情](2026-10-25-models-json-slim.zh.md), [#305](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/305))
 - [2026-10-25] 状态卡片改为以上次探测（链接到那次运行）和预计的下次探测为主，各显示本地时间并附相对时间；本月的探测费用和次数改为“立即检测一次”下方的小字备注，两者移到时间右侧，此前各月移入它的提示框；各渠道行不再显示各自的费用。([详情](2026-10-25-status-probe-times.zh.md), [#304](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/304))
 - [2026-10-25] 注册表从 125 条增至 345 条，覆盖 penguin-harness 目录中所有在用的条目，新增 OpenCode Go、Fireworks AI、DashScope、Qwen Token Plan、Atlas Cloud、Penguin Go、ModelScope 和 vLLM 分组，另有 87 个 OpenRouter 模型、44 个 TokenDance 模型和较早的官方模型；模型索引改为按需从 `kits.json` 获取集成代码，Playground 的模型菜单由新增的 `GET /api/registry` 填充。([详情](2026-10-25-model-list.zh.md), [#302](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/302))

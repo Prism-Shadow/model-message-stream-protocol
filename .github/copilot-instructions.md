@@ -52,8 +52,8 @@ MMSP, the Model Message Stream Protocol: one message format and one streaming gr
 
 ## Specifications and RFCs
 
-- The specifications every change conforms to are the accepted spec RFCs in the index of `design/README.md`. When the code and a specification disagree, the specification wins: fix the code, or supersede the specification first through an RFC.
-- A change to a specification, to the message or stream shapes, to the public API, to what routing or the credential rule means, or anything breaking, starts as an RFC: copy `design/0000-template.md` to `design/rfcs/MMSP-RFC-NNNN-<slug>.md` and open a PR to `dev`. `design/README.md` has the process.
+- The specifications every change conforms to are the accepted spec RFCs in the index of `design/README.md`. When the code and a specification disagree, the specification wins: fix the code, or change the specification first through an RFC PR.
+- A change to a specification, to the message or stream shapes, to the public API, to what routing or the credential rule means, or anything breaking, starts as an RFC PR to `dev`: it edits the RFC that states the thing in place, in both languages, and adds the PR to its `Updated by` line; where no RFC states it, it copies `design/0000-template.md` to `design/rfcs/MMSP-RFC-NNNN-<slug>.md`. `design/README.md` has the process.
 - A client's transforms are direct (MMSP-RFC-0009) and keep nothing redundant (MMSP-RFC-0002); what a replay must keep is MMSP-RFC-0004, and the usage and finish reason every stream ends with are MMSP-RFC-0003.
 - A request can be interrupted: an abort or a closed generator closes the provider's request (MMSP-RFC-0008). The history does not change, and nothing but `created_at` is written to a caller's message (MMSP-RFC-0004).
 

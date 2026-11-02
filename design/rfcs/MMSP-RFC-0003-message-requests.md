@@ -3,6 +3,7 @@
 - Feature Name: `message_requests`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308)
 - Kind: spec
 
 [中文版](MMSP-RFC-0003-message-requests.zh.md)
@@ -19,12 +20,14 @@ A caller sets a `ThinkingLevel` once and changes models by name; a client that r
 
 The owner's words: 支持全部思考等级; 模型请求参数不模糊匹配; and, for this document, 要求异步和流式，任何思考等级不能报错，请求参数尽量精确. Stated in [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265) as MMSP-RFC-0003, MMSP-RFC-0006, MMSP-RFC-0010 and the version rule of MMSP-RFC-0004, and in [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) as MMSP-RFC-0003, MMSP-RFC-0005 (the `stop` event), MMSP-RFC-0010 and MMSP-RFC-0011.
 
+On 2026-11-02 the owner asked for web search and page fetch, done the way embedding is: 在mmsp里面增加search和fetch的能力,实现方式和embedding类似. DeepSeek's Search and Fetch and Jina's Search and Reader each answer a request in one JSON. Jina also offers an event stream, but it sends the whole page again each time more of it has loaded, never a part, so there is nothing in it to stream; the clients read the JSON, and a web tool is requested the way an embedding is, each message one request and one item. On what a search asks for, the owner's words: search的content显示摘要,不要用need content参数 jina要加no content. [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308) amended this specification in place, with the web tool endpoints added to §3.2, `webdata` to the growing fields of §2, the `-search` and `-fetch` markers to §6.1, and the models that do not think to §6.3.
+
 ## 2. Conventions and Terminology
 
 The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY in this document are to be interpreted as described in BCP 14 ([RFC 2119](https://www.rfc-editor.org/rfc/rfc2119), [RFC 8174](https://www.rfc-editor.org/rfc/rfc8174)) when, and only when, they appear in all capitals.
 
 - *Client stream*: the events a client's `_streaming_response_internal` / `_streamingResponseInternal` yields. *Public stream*: the events the base class yields to the caller.
-- *Fragment*, *complete item*: as [MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.md#2-conventions-and-terminology) §2 defines them. *Growing field*: the one field a kind's fragments extend (`text`, `thinking`, `arguments`, `data`, `embedding`).
+- *Fragment*, *complete item*: as [MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.md#2-conventions-and-terminology) §2 defines them. *Growing field*: the one field a kind's fragments extend (`text`, `thinking`, `arguments`, `data`, `embedding`, `webdata`).
 - *Official client*, *compatible client*: as [MMSP-RFC-0005](MMSP-RFC-0005-client-routing.md#2-conventions-and-terminology) §2 defines them.
 - *Generation*: the models of a vendor that take the same request (`"4-6"`, `"gpt-6"`).
 
@@ -37,6 +40,8 @@ A model MUST be called only through `streaming_response` and `streaming_response
 ### 3.2 Streaming everything
 
 A client MUST read the provider's streaming endpoint wherever the provider has one. An embedding endpoint does not stream: its vectors go out as items, then one `stop` carrying the input count the endpoint reports as `prompt_tokens` and `finish_reason` `stop`. `openai-embedding` pairs each vector with its input by the vector's `index`.
+
+A web tool endpoint does not stream either: it answers a request in one JSON. An event stream that sends the whole answer again as the page loads, as Jina's does, is not a streaming endpoint in this sense, and the client MUST read the JSON instead. A web tool client MUST send one request per message, the message's text items joined being the query or the URL. Each answer goes out as one `webtool` item as it arrives, a search that found nothing included, then one `stop` carrying `finish_reason` `stop` and, as `prompt_tokens`, what the endpoint bills summed over the requests: the tokens it reports, or 1 for each request where it bills by the request. A search MUST ask for each result's summary and MUST NOT ask for its page's body.
 
 ### 3.3 Before the request
 
@@ -76,8 +81,8 @@ The complete items in order, with the `stop` event's `usage_metadata` and `finis
 
 ### 6.1 Explicit matching
 
-- What a client sends for a model MUST be decided by an explicit match, never a guess. Inside an official client, generations are told apart by the version in the id (`"4-6"`; `"gpt-6"` and not `"gpt-6-luna"`; `"k2."`; `"m3.1"`; `"glm-5.3"`), kept in named tuples or plain conditions; the first row that matches applies. A tier or modality marker (`-pro`, `-image`, `tts`, `embedding`) selects the model's kind the same way. A bare family substring such as `"claude"` or `"gpt"` MUST NOT decide anything. A new generation adds a row or a condition, never a looser match.
-- A compatible client reads the model id only where what it sends differs by model, and then by an explicit name too: the vLLM adapter picks a chat template's thinking switch from its own table and falls back to Qwen3's; `openai-responses` turns `none` into `low` on GPT-6 except Luna; `openai-chat` and `openai-responses` ask for `detail: "high"` on an image GPT-5.6 would otherwise refuse.
+- What a client sends for a model MUST be decided by an explicit match, never a guess. Inside an official client, generations are told apart by the version in the id (`"4-6"`; `"gpt-6"` and not `"gpt-6-luna"`; `"k2."`; `"m3.1"`; `"glm-5.3"`), kept in named tuples or plain conditions; the first row that matches applies. A tier or modality marker (`-pro`, `-image`, `tts`, `embedding`, `-search`, `-fetch`) selects the model's kind the same way. A bare family substring such as `"claude"` or `"gpt"` MUST NOT decide anything. A new generation adds a row or a condition, never a looser match.
+- A compatible client reads the model id only where what it sends differs by model, and then by an explicit name or marker too: the vLLM adapter picks a chat template's thinking switch from its own table and falls back to Qwen3's; `openai-responses` turns `none` into `low` on GPT-6 except Luna; `openai-chat` and `openai-responses` ask for `detail: "high"` on an image GPT-5.6 would otherwise refuse; `deepseek-webtool` searches or fetches by the `-search` or `-fetch` in the id.
 - Which client a model id reaches is [MMSP-RFC-0005](MMSP-RFC-0005-client-routing.md).
 
 ### 6.2 Values with no setting
@@ -87,7 +92,7 @@ A `UniConfig` value a client cannot send for the model MUST raise `UnsupportedPa
 ### 6.3 Thinking levels
 
 - A client MUST NOT reject a `ThinkingLevel`: no client raises `UnsupportedParameterError` for `thinking_level`, on any model.
-- Each official client maps every level onto a setting of the model's generation from a fixed table, without a warning: the level itself where the model has it; another level the model accepts where it has not (Claude 4.6 runs `xhigh` at `high`; Gemini runs `xhigh` and `max` at `high`); for `none`, the model's own off switch where it has one (`disabled` on Claude Sonnet 5, `none` on GPT-6 Luna and the Kimi K3 series); for `none` on a model with no off switch, the least thinking it allows (the lowest effort on Claude Opus 5.5, `between_tools` on Claude Sonnet 5.5, `minimal` or `low` on Gemini).
+- Each official client maps every level onto a setting of the model's generation from a fixed table, without a warning: the level itself where the model has it; another level the model accepts where it has not (Claude 4.6 runs `xhigh` at `high`; Gemini runs `xhigh` and `max` at `high`); for `none`, the model's own off switch where it has one (`disabled` on Claude Sonnet 5, `none` on GPT-6 Luna and the Kimi K3 series); for `none` on a model with no off switch, the least thinking it allows (the lowest effort on Claude Opus 5.5, `between_tools` on Claude Sonnet 5.5, `minimal` or `low` on Gemini). A model that does not think, such as an embedding model or a web tool, has no such setting, and the level is ignored.
 - Through a compatible client the endpoint decides what a level runs as, and MAY refuse the value: `ant-messages` sends `disabled` for `none`; `openai-responses` sends the level as its effort, with `none` as `low` on GPT-6 except Luna; `openai-chat` sends no level; its vLLM adapter sends only its chat template's switch; the `mmsp` client forwards the level to its server.
 
 ### 6.4 Values with another form

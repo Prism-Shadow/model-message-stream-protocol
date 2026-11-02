@@ -2,7 +2,7 @@
 
 [中文版](README.zh.md)
 
-The specifications MMSP conforms to and the decisions that changed it, each an RFC. When the code and an accepted RFC disagree, the RFC wins: fix the code, or supersede the RFC first through another RFC.
+The specifications MMSP conforms to and the decisions that changed it, each an RFC. When the code and an accepted RFC disagree, the RFC wins: fix the code, or change the RFC first.
 
 ## The RFCs
 
@@ -45,10 +45,20 @@ A normal PR is enough for a new model or generation, a new vendor or protocol cl
 
 1. Branch `rfc/<slug>` from `origin/dev` and copy `0000-template.md` to `rfcs/MMSP-RFC-NNNN-<slug>.md`. `NNNN` is the next number that neither `ls design/rfcs/` nor an open PR (`gh pr list --search "MMSP-RFC-"`) uses; a number is never reused. One decision per RFC. Set `Kind` to `spec`, `change` or `process`: a spec RFC has Abstract, Introduction, Conventions and Terminology, its body sections and Conformance; a change or process RFC has Abstract, Introduction and the Rust RFC sections, numbered. Delete any section with nothing to say.
 2. Write the Chinese twin `MMSP-RFC-NNNN-<slug>.zh.md` in the same PR. The section names of the template (Abstract, Introduction, Conventions and Terminology, Conformance and the Rust RFC sections) stay English in both; a spec's body headings are translated in the Chinese twin, and the section numbers keep the two aligned. Each file links the other on the line under its metadata: `[中文版](MMSP-RFC-NNNN-<slug>.zh.md)` and `[English](MMSP-RFC-NNNN-<slug>.md)`.
-3. A specification changes only through a spec RFC that states the whole specification as it now stands and names the old one on its `Supersedes:` line. In the same PR, append `- Superseded by: [MMSP-RFC-NNNN](MMSP-RFC-NNNN-<slug>.md)` to the old file's metadata, in both languages, and set the old row's status in the table above.
-4. Add the RFC's row to the table above, with status `Accepted`: the row lands when the PR merges, which is what accepts the RFC.
-5. Add a changelog entry with `Type: process` and `Scope: design`, in the format of [`changelog/README.md`](../changelog/README.md).
-6. Open the PR with `gh pr create --base dev`, titled `MMSP-RFC-NNNN: <Title>`, then add its link to the `RFC PR` line in a follow-up commit.
+3. Add the RFC's row to the table above, with status `Accepted`: the row lands when the PR merges, which is what accepts the RFC.
+4. Add a changelog entry with `Type: process` and `Scope: design`, in the format of [`changelog/README.md`](../changelog/README.md).
+5. Open the PR with `gh pr create --base dev`, titled `MMSP-RFC-NNNN: <Title>`, then add its link to the `RFC PR` line in a follow-up commit.
+
+## Changing an accepted RFC
+
+An accepted RFC, a specification included, changes in place:
+
+1. Branch `rfc/<slug>` from `origin/dev` and edit the RFC and its Chinese twin. It keeps its number, title and row, and a specification still states everything it fixes, as it now stands.
+2. Add a paragraph to its Introduction on the case the change was decided on, with the PR's link.
+3. Append the PR's link to the file's `- Updated by:` line in both languages; a file without one gets the line after `RFC PR`.
+4. Add a changelog entry with `Type: process` and `Scope: design`, and open the PR with `gh pr create --base dev`, titled `MMSP-RFC-NNNN: <what changed>`.
+
+A specification that replaces another one whole is a new RFC: it names the old one on its `Supersedes:` line, and its PR appends `- Superseded by: [MMSP-RFC-NNNN](MMSP-RFC-NNNN-<slug>.md)` to the old file's metadata in both languages and sets the old row's status in the table above.
 
 An open PR is a proposed RFC, a merged one is accepted, and a closed one is withdrawn, its number spent. The file has no status field; the table above carries `Accepted` or `Superseded by`. The PR that implements an accepted change RFC adds `- Implementation PR: [#N](<url>)` after the `RFC PR` line and links the RFC from its own changelog entry.
 
@@ -56,7 +66,7 @@ An open PR is a proposed RFC, a merged one is accepted, and a closed one is with
 
 - A spec RFC reads as the specification of one thing that stays fixed: its Abstract says what is specified in one to three sentences, its body states it in numbered sections, and its Conformance section names the modules and tests that hold it, at file level.
 - Normative sentences use MUST, MUST NOT, SHOULD, SHOULD NOT or MAY, in capitals, as BCP 14 defines them; a sentence about what the code does uses MUST or MUST NOT, and SHOULD is for callers and contributors. The Chinese twin writes them 必须, 不得, 应当, 不应, 可以.
-- Every normative sentence is true of the code. Where it is not, the code is fixed, or the specification is superseded.
+- Every normative sentence is true of the code. Where it is not, the code is fixed, or the specification is changed.
 - A number is an invariant or carries a tense. No counts and no current inventories: which clients exist, which models a client serves.
 - Code identifiers, file paths and the section names of the template stay English in both languages.
 - PR and issue links are full URLs; links to files of the repository are relative.

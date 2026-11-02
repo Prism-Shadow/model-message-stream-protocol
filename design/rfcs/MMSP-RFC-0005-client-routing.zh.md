@@ -3,17 +3,20 @@
 - Feature Name: `client_routing`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308)
 - Kind: spec
 
 [English](MMSP-RFC-0005-client-routing.md)
 
 ## Abstract
 
-客户端路由根据客户端类型与模型 id，决定 `AutoLLMClient` 基于哪个客户端构造。客户端类型经由一张客户端类型表指定客户端；没有客户端类型时，由模型 id 开头的模型族前缀指定该厂商的官方客户端，不属于任何已知模型族的 id 抛出 `RoutingError`。模型 id 只按前缀匹配，从不按子串或版本匹配。
+客户端路由根据客户端类型与模型 id，决定 `AutoLLMClient` 基于哪个客户端构造。客户端类型经由一张客户端类型表指定客户端；没有客户端类型时，由模型 id 开头的模型族前缀指定该厂商的官方客户端，不属于任何已知模型族的 id 抛出 `RoutingError`。模型 id 只按前缀或整个 id 匹配，从不按子串或版本匹配。
 
 ## 1. Introduction
 
 在 [#228](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/228) 之前，有些模型 id 按子串路由，于是像 `moonshotai/kimi-k3` 这样的网关 id 会因为拼写上的巧合落到某个客户端，新一代模型也要新增一条匹配规则，而不是新增一行。有了一张客户端类型表和一张模型族表，读者看表就能说出一个模型 id 会到达哪个客户端；不属于任何已知模型族的 id 会要求传入 `client_type`，而不是去猜。本规范最初在 [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265) 中写作 MMSP-RFC-0004，在 [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) 中写作 MMSP-RFC-0006。
+
+2026-11-02，项目负责人要求加入网页搜索与网页抓取，做法与 embedding 相同，原话是：「在mmsp里面增加search和fetch的能力,实现方式和embedding类似」。正如 `openai-official` 经由 `openai-embedding` 服务 OpenAI 的 embedding 模型，`deepseek-official` 经由 `deepseek-webtool` 服务 DeepSeek 的 Search 与 Fetch，即 `deepseek-search` 与 `deepseek-fetch`；`deepseek-webtool` 是这套 JSON API 的兼容客户端，也可用于提供相同路径的网关。Jina 的网页工具有自己的模型族 `jina-`。这两个端点都不列出模型，Bedrock 也不列出，`anthropic-official` 在 Bedrock 上早已从 `list_models` 抛出 `UnsupportedOperationError`。[#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308) 在原文上修改了本规范：在 §3 中加入 `deepseek-official` 的规则，在 §5 中加入不列出模型的端点。
 
 ## 2. Conventions and Terminology
 
@@ -31,6 +34,7 @@
 - 代码中传入的客户端类型必须优先于 `CLIENT_TYPE`；代码没有传入时，才由 `CLIENT_TYPE` 指定客户端。
 - 客户端类型必须不区分大小写地被接受，旧名称 `openai`（即 `openai-chat`）、`gemini-official`（即 `google-official`）与 `gemini-generate-content`（即 `google-genai`）也必须被接受。
 - `openai-official` 必须经由 `openai-embedding` 服务 `text-embedding-` 模型，无论这个客户端是指定的还是推断出的。
+- `deepseek-official` 必须经由 `deepseek-webtool` 服务 `deepseek-search` 与 `deepseek-fetch` 这两个 id，按整个 id 不区分大小写地匹配，无论这个客户端是指定的还是推断出的。
 
 ## 4. 按模型 id 路由
 
@@ -40,7 +44,7 @@
 
 ## 5. 列出模型
 
-在指定的客户端上，`list_models` 必须返回其端点提供的全部模型。在推断出的客户端上，它必须只返回所属模型族与自身模型 id 指向同一官方客户端的那些 id，因此代理多家厂商的网关会被筛到这家厂商自己的模型。两者都保持端点返回的顺序。
+在指定的客户端上，`list_models` 必须返回其端点提供的全部模型。在推断出的客户端上，它必须只返回所属模型族与自身模型 id 指向同一官方客户端的那些 id，因此代理多家厂商的网关会被筛到这家厂商自己的模型。两者都保持端点返回的顺序。端点不列出模型的客户端，无论是指定的还是推断出的，`list_models` 都必须抛出 `UnsupportedOperationError`（[MMSP-RFC-0007](MMSP-RFC-0007-error-types.zh.md#31-请求之前) §3.1）。
 
 ## 6. 修改这些表
 
