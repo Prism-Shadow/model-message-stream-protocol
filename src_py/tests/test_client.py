@@ -40,6 +40,7 @@ class Model:
     support_image_generation: bool = False
     support_tts: bool = False
     support_embedding: bool = False
+    support_webtool: Literal["search", "fetch"] | None = None
     provider: Literal[
         "official",
         "bedrock",
@@ -185,6 +186,11 @@ async def _check_event_integrity(event: dict) -> None:
         elif item["type"] == "tool_result.done":
             assert isinstance(item["text"], str)
             assert isinstance(item["tool_call_id"], str)
+        elif item["type"] in ("webtool.delta", "webtool.done"):
+            assert isinstance(item["webdata"], list)
+            for page in item["webdata"]:
+                assert set(page) == {"title", "content", "url"}
+                assert all(isinstance(value, str) for value in page.values())
 
     if event["usage_metadata"]:
         assert "cached_tokens" in event["usage_metadata"]
@@ -322,8 +328,8 @@ async def test_clear_history(model: Model):
 @pytest.mark.parametrize("model", AVAILABLE_MODELS, ids=[str(model) for model in AVAILABLE_MODELS])
 async def test_concat_uni_events_to_uni_message(model: Model):
     """Test concatenation of events into a single message."""
-    if model.support_embedding:
-        pytest.skip(f"Embedding model {model.name} do not need concatenation.")
+    if model.support_embedding or model.support_webtool:
+        pytest.skip(f"Embedding and web tool model {model.name} do not need concatenation.")
     client = await _create_client(model)
     messages = [
         {
@@ -368,6 +374,12 @@ ROUTING_CASES = [
     # a version-free DeepSeek id routes on the family too
     ("deepseek-flash", None, "DeepSeekOfficialClient"),
     ("MiniMax-M3", None, "MiniMaxOfficialClient"),
+    # deepseek-official serves DeepSeek's web tools through deepseek-webtool
+    ("deepseek-search", None, "DeepSeekWebtoolClient"),
+    ("deepseek-fetch", "deepseek-official", "DeepSeekWebtoolClient"),
+    ("deepseek-search", "deepseek-webtool", "DeepSeekWebtoolClient"),
+    ("jina-search", None, "JinaWebtoolClient"),
+    ("jina-fetch", "jina-webtool", "JinaWebtoolClient"),
     ("deepseek-v4-pro", "OpenAI-Responses", "OpenaiResponsesClient"),
     ("qwen/qwen3.8-27b", "openai-responses", "OpenaiResponsesClient"),
     ("qwen3.6", "openai-chat", "OpenaiChatClient"),
@@ -932,6 +944,65 @@ async def test_embedding(model: Model):
     for item in embedding_items:
         assert len(item["embedding"]) == 768
         assert all(isinstance(v, float) for v in item["embedding"])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("model", AVAILABLE_MODELS, ids=[str(model) for model in AVAILABLE_MODELS])
+async def test_web_search(model: Model):
+    """Test web search: one request per message, each answered by one web tool item of at most count results."""
+    if model.support_webtool != "search":
+        pytest.skip(f"Web search is not supported by {model.name}.")
+
+    client = await _create_client(model)
+    messages = [
+        {"role": "user", "content_items": [{"type": "text.done", "text": "Python programming language"}]},
+        {
+            "role": "user",
+            "content_items": [{"type": "text.done", "text": "TypeScript "}, {"type": "text.done", "text": "handbook"}],
+        },
+    ]
+
+    events = []
+    async for event in client.streaming_response(messages=messages, config={"webtool_config": {"count": 3}}):
+        await _check_event_integrity(event)
+        events.append(event)
+
+    assert_stream_grammar(events)
+    webtool_items = [item for event in events for item in event["content_items"] if item["type"] == "webtool.done"]
+    assert len(webtool_items) == 2
+    for item in webtool_items:
+        assert 1 <= len(item["webdata"]) <= 3
+        for page in item["webdata"]:
+            assert page["url"].startswith("http")
+            assert page["title"] or page["content"]
+    assert events[-1]["finish_reason"] == "stop"
+    assert events[-1]["usage_metadata"]["prompt_tokens"] > 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("model", AVAILABLE_MODELS, ids=[str(model) for model in AVAILABLE_MODELS])
+async def test_web_fetch(model: Model):
+    """Test page fetch: the one page read, as one web tool item."""
+    if model.support_webtool != "fetch":
+        pytest.skip(f"Page fetch is not supported by {model.name}.")
+
+    client = await _create_client(model)
+    messages = [{"role": "user", "content_items": [{"type": "text.done", "text": "https://example.com"}]}]
+
+    events = []
+    async for event in client.streaming_response(messages=messages, config={}):
+        await _check_event_integrity(event)
+        events.append(event)
+
+    assert_stream_grammar(events)
+    webtool_items = [item for event in events for item in event["content_items"] if item["type"] == "webtool.done"]
+    assert len(webtool_items) == 1
+    [page] = webtool_items[0]["webdata"]
+    assert page["url"].startswith("https://example.com")
+    assert "Example Domain" in page["title"]
+    assert page["content"]
+    assert events[-1]["finish_reason"] == "stop"
+    assert events[-1]["usage_metadata"]["prompt_tokens"] > 0
 
 
 if __name__ == "__main__":

@@ -35,6 +35,7 @@ OFFICIAL_CLIENT_TYPES = (
     "moonshot-official",
     "deepseek-official",
     "minimax-official",
+    "jina-webtool",
 )
 
 # A compatible client speaks one wire protocol for whatever endpoint serves it.
@@ -45,6 +46,7 @@ COMPATIBLE_CLIENT_TYPES = (
     "openai-embedding",
     "ant-messages",
     "google-genai",
+    "deepseek-webtool",
     "mmsp",
 )
 
@@ -58,6 +60,7 @@ MODEL_FAMILIES = (
     ("kimi-", "moonshot-official"),
     ("deepseek-", "deepseek-official"),
     ("minimax-", "minimax-official"),
+    ("jina-", "jina-webtool"),
 )
 
 # The earlier names of three client types, still accepted.
@@ -79,17 +82,21 @@ class ClientCredentials:
         open_server: The client's server may take no key: a base URL passed without a key is called
             keyless, and so is the endpoint of base_url_env or default_base_url when api_key_env is
             unset as well.
+        other_base_urls: The client's other default endpoints, where its vendor serves some of its
+            models on another host; the key goes to them as it goes to default_base_url.
     """
 
     api_key_env: str
     base_url_env: str
     default_base_url: str
     open_server: bool = False
+    other_base_urls: tuple[str, ...] = ()
 
 
 _OPENAI = ClientCredentials("OPENAI_API_KEY", "OPENAI_BASE_URL", "https://api.openai.com/v1")
 _ANTHROPIC = ClientCredentials("ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL", "https://api.anthropic.com")
 _GEMINI = ClientCredentials("GEMINI_API_KEY", "GEMINI_BASE_URL", "https://generativelanguage.googleapis.com")
+_DEEPSEEK = ClientCredentials("DEEPSEEK_API_KEY", "DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 
 # Every client type's credentials, by its canonical name.
 CLIENT_CREDENTIALS: dict[str, ClientCredentials] = {
@@ -98,8 +105,12 @@ CLIENT_CREDENTIALS: dict[str, ClientCredentials] = {
     "google-official": _GEMINI,
     "zai-official": ClientCredentials("ZAI_API_KEY", "ZAI_BASE_URL", "https://api.z.ai/api/paas/v4/"),
     "moonshot-official": ClientCredentials("MOONSHOT_API_KEY", "MOONSHOT_BASE_URL", "https://api.moonshot.cn/v1"),
-    "deepseek-official": ClientCredentials("DEEPSEEK_API_KEY", "DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
+    "deepseek-official": _DEEPSEEK,
     "minimax-official": ClientCredentials("MINIMAX_API_KEY", "MINIMAX_BASE_URL", "https://api.minimax.io/v1"),
+    # Jina reads a page on r.jina.ai and searches on s.jina.ai
+    "jina-webtool": ClientCredentials(
+        "JINA_API_KEY", "JINA_BASE_URL", "https://r.jina.ai", other_base_urls=("https://s.jina.ai",)
+    ),
     "openai-responses": _OPENAI,
     "openai-chat": _OPENAI,
     # the variables `vllm serve` itself reads for its key, and the address it answers on by default
@@ -109,6 +120,7 @@ CLIENT_CREDENTIALS: dict[str, ClientCredentials] = {
     "openai-embedding": _OPENAI,
     "ant-messages": _ANTHROPIC,
     "google-genai": _GEMINI,
+    "deepseek-webtool": _DEEPSEEK,
     "mmsp": ClientCredentials("MMSP_API_KEY", "MMSP_BASE_URL", "http://127.0.0.1:25752/v1", open_server=True),
 }
 
@@ -174,7 +186,8 @@ def routed_client_type(model: str, client_type: str | None = None) -> str | None
 
     The client type passed in (in any casing, an earlier name accepted), else the official client of
     the model id's family. `openai-official` serves a `text-embedding-` model through
-    `openai-embedding`.
+    `openai-embedding`, and `deepseek-official` serves `deepseek-search` and `deepseek-fetch` through
+    `deepseek-webtool`.
 
     Args:
         model: The model id.
@@ -186,6 +199,8 @@ def routed_client_type(model: str, client_type: str | None = None) -> str | None
     routed = _canonical_client_type(client_type) if client_type else client_type_for_model(model)
     if routed == "openai-official" and model.lower().startswith("text-embedding-"):
         return "openai-embedding"
+    if routed == "deepseek-official" and model.lower() in ("deepseek-search", "deepseek-fetch"):
+        return "deepseek-webtool"
     return routed
 
 
@@ -193,7 +208,7 @@ def environment_credential(client_type: str, base_url: str | None = None) -> Env
     """
     What a client does for its key when it is handed none.
 
-    Without a base URL it reads `<P>_API_KEY` and `<P>_BASE_URL`. With its own default endpoint
+    Without a base URL it reads `<P>_API_KEY` and `<P>_BASE_URL`. With one of its own default endpoints
     (trailing slashes and the host's case ignored) it reads `<P>_API_KEY` for that endpoint. With any
     other base URL it refuses, because the environment's key was not given for that endpoint, except
     a client of an open server (`mmsp`, `openai-chat-vllm-adapter`), which calls any base URL keyless.
@@ -213,6 +228,10 @@ def environment_credential(client_type: str, base_url: str | None = None) -> Env
         return EnvironmentCredential("env", credentials.api_key_env, credentials.base_url_env)
     if credentials.open_server:
         return EnvironmentCredential("keyless")
-    if _normalized_endpoint(base_url) == _normalized_endpoint(credentials.default_base_url):
+    endpoint = _normalized_endpoint(base_url)
+    if any(
+        endpoint == _normalized_endpoint(default)
+        for default in (credentials.default_base_url, *credentials.other_base_urls)
+    ):
         return EnvironmentCredential("env", credentials.api_key_env, None)
     return EnvironmentCredential("required", credentials.api_key_env, credentials.base_url_env)

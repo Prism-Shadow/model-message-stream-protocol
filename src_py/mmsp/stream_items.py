@@ -63,6 +63,14 @@ _KINDS = {
         begins=lambda delta: True,
         keeps_empty=True,
     ),
+    # one web tool call's whole answer per delta, and a search that found nothing is an answer too
+    "webtool": _Kind(
+        "webdata",
+        (),
+        lambda chunks: [page for chunk in chunks for page in chunk],
+        begins=lambda delta: True,
+        keeps_empty=True,
+    ),
 }
 
 
@@ -92,7 +100,7 @@ class StreamItems:
     it is done when a delta of the next item arrives, or when the stream ends.
 
     A delta belongs to the next item when it carries another `fidelity.item_id`, is of another kind,
-    or begins an item by itself (a call's name, an image, a vector). Otherwise it continues the item
+    or begins an item by itself (a call's name, an image, a vector, a web tool's answer). Otherwise it continues the item
     streaming now: a delta without an id does, and so do a call's arguments whatever id a gateway
     puts on them. Fidelity sent alone under the item's id is that item's, whatever kind carries it.
 

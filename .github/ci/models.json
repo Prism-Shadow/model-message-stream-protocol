@@ -69,6 +69,35 @@
       }
     ]
   },
+  "deepseek-webtool": {
+    "models": [
+      {
+        "api_key_env": "DEEPSEEK_API_KEY",
+        "name": "deepseek-search",
+        "support_text": false,
+        "support_image_understanding": false,
+        "support_webtool": "search"
+      },
+      {
+        "api_key_env": "DEEPSEEK_API_KEY",
+        "name": "deepseek-fetch",
+        "support_text": false,
+        "support_image_understanding": false,
+        "support_webtool": "fetch"
+      },
+      {
+        "api_key_env": "TOKENDANCE_API_KEY",
+        "name": "deepseek-search",
+        "support_text": false,
+        "support_image_understanding": false,
+        "support_webtool": "search",
+        "provider": "tokendance",
+        "client_type": "deepseek-webtool",
+        "base_url": "https://tokendance.space/gateway/deepseek",
+        "slow": true
+      }
+    ]
+  },
   "google-genai": {
     "models": [
       {
@@ -137,6 +166,24 @@
         "support_text": false,
         "support_image_understanding": false,
         "support_embedding": true
+      }
+    ]
+  },
+  "jina-webtool": {
+    "models": [
+      {
+        "api_key_env": "JINA_API_KEY",
+        "name": "jina-search",
+        "support_text": false,
+        "support_image_understanding": false,
+        "support_webtool": "search"
+      },
+      {
+        "api_key_env": "JINA_API_KEY",
+        "name": "jina-fetch",
+        "support_text": false,
+        "support_image_understanding": false,
+        "support_webtool": "fetch"
       }
     ]
   },

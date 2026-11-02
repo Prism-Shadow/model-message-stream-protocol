@@ -56,8 +56,12 @@ MODELS = {
     "mmsp": "gpt-5.5",
 }
 
-# openai-embedding answers with one response, not a stream
-STREAMING_CLIENT_TYPES = [client_type for client_type in CLIENT_CREDENTIALS if client_type != "openai-embedding"]
+# openai-embedding and the web tools answer with one response, not a stream
+STREAMING_CLIENT_TYPES = [
+    client_type
+    for client_type in CLIENT_CREDENTIALS
+    if client_type not in ("openai-embedding", "deepseek-webtool", "jina-webtool")
+]
 
 # the SDKs that end their stream quietly when their request is aborted
 QUIET_ON_ABORT_CLIENT_TYPES = ["openai-chat", "ant-messages"]

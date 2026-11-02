@@ -22,6 +22,7 @@ import {
 import {
   EmbeddingDoneItem,
   EventContentItem,
+  WebtoolDoneItem,
   ThinkingLevel,
   UniMessage,
   UniConfig,
@@ -44,6 +45,7 @@ interface Model {
   supportImageGeneration: boolean;
   supportAudioGeneration: boolean;
   supportEmbedding: boolean;
+  supportWebtool?: "search" | "fetch";
   clientType?: string;
   baseUrl?: string;
   provider:
@@ -72,6 +74,7 @@ interface ModelCase {
   support_image_generation?: boolean;
   support_tts?: boolean;
   support_embedding?: boolean;
+  support_webtool?: "search" | "fetch";
 }
 
 const MODEL_CATALOG: Record<string, { models: ModelCase[] }> = JSON.parse(
@@ -115,6 +118,7 @@ for (const [client, group] of Object.entries(MODEL_CATALOG)) {
       supportImageGeneration: entry.support_image_generation ?? false,
       supportAudioGeneration: entry.support_tts ?? false,
       supportEmbedding: entry.support_embedding ?? false,
+      supportWebtool: entry.support_webtool,
     });
   }
 }
@@ -244,6 +248,14 @@ function checkEventIntegrity(event: UniEvent): void {
     } else if (item.type === "tool_result.done") {
       expect(typeof item.text).toBe("string");
       expect(typeof item.tool_call_id).toBe("string");
+    } else if (item.type === "webtool.delta" || item.type === "webtool.done") {
+      expect(Array.isArray(item.webdata)).toBe(true);
+      for (const page of item.webdata) {
+        expect(Object.keys(page).sort()).toEqual(["content", "title", "url"]);
+        expect(Object.values(page).every((v) => typeof v === "string")).toBe(
+          true,
+        );
+      }
     }
   }
 
@@ -1095,6 +1107,94 @@ if (AVAILABLE_MODELS.length > 0) {
         expect(item.embedding.every((v) => typeof v === "number")).toBe(true);
       }
     });
+
+    modelTest("should search the web", 120000, async (model) => {
+      if (model.supportWebtool !== "search") {
+        return;
+      }
+
+      const client = createClient(model);
+      const messages = [
+        {
+          role: "user" as const,
+          content_items: [
+            { type: "text.done" as const, text: "Python programming language" },
+          ],
+        },
+        {
+          role: "user" as const,
+          content_items: [
+            { type: "text.done" as const, text: "TypeScript " },
+            { type: "text.done" as const, text: "handbook" },
+          ],
+        },
+      ];
+
+      const events: UniEvent[] = [];
+      for await (const event of client.streamingResponse({
+        messages,
+        config: { webtool_config: { count: 3 } },
+      })) {
+        checkEventIntegrity(event);
+        events.push(event);
+      }
+
+      assertStreamGrammar(events);
+      const webtoolItems = events
+        .flatMap((event): EventContentItem[] => event.content_items)
+        .filter(
+          (item): item is WebtoolDoneItem => item.type === "webtool.done",
+        );
+      expect(webtoolItems.length).toBe(2);
+      for (const item of webtoolItems) {
+        expect(item.webdata.length).toBeGreaterThanOrEqual(1);
+        expect(item.webdata.length).toBeLessThanOrEqual(3);
+        for (const page of item.webdata) {
+          expect(page.url.startsWith("http")).toBe(true);
+          expect(Boolean(page.title || page.content)).toBe(true);
+        }
+      }
+      const stop = events[events.length - 1];
+      expect(stop.finish_reason).toBe("stop");
+      expect(stop.usage_metadata?.prompt_tokens).toBeGreaterThan(0);
+    });
+
+    modelTest("should fetch a page", 120000, async (model) => {
+      if (model.supportWebtool !== "fetch") {
+        return;
+      }
+
+      const client = createClient(model);
+      const events: UniEvent[] = [];
+      for await (const event of client.streamingResponse({
+        messages: [
+          {
+            role: "user",
+            content_items: [{ type: "text.done", text: "https://example.com" }],
+          },
+        ],
+        config: {},
+      })) {
+        checkEventIntegrity(event);
+        events.push(event);
+      }
+
+      assertStreamGrammar(events);
+      const webtoolItems = events
+        .flatMap((event): EventContentItem[] => event.content_items)
+        .filter(
+          (item): item is WebtoolDoneItem => item.type === "webtool.done",
+        );
+      expect(webtoolItems.length).toBe(1);
+      expect(webtoolItems[0].webdata.length).toBe(1);
+      const [page] = webtoolItems[0].webdata;
+      expect(page.url.startsWith("https://example.com")).toBe(true);
+      expect(page.title).toContain("Example Domain");
+      expect(page.content).not.toBe("");
+      const stop = events[events.length - 1];
+      expect(stop.finish_reason).toBe("stop");
+      expect(stop.usage_metadata?.prompt_tokens).toBeGreaterThan(0);
+    });
   });
 }
 
@@ -1117,6 +1217,12 @@ const ROUTING_CASES: [string, string | undefined, string][] = [
   // a version-free DeepSeek id routes on the family too
   ["deepseek-flash", undefined, "DeepSeekOfficialClient"],
   ["MiniMax-M3", undefined, "MiniMaxOfficialClient"],
+  // deepseek-official serves DeepSeek's web tools through deepseek-webtool
+  ["deepseek-search", undefined, "DeepSeekWebtoolClient"],
+  ["deepseek-fetch", "deepseek-official", "DeepSeekWebtoolClient"],
+  ["deepseek-search", "deepseek-webtool", "DeepSeekWebtoolClient"],
+  ["jina-search", undefined, "JinaWebtoolClient"],
+  ["jina-fetch", "jina-webtool", "JinaWebtoolClient"],
   ["deepseek-v4-pro", "OpenAI-Responses", "OpenaiResponsesClient"],
   ["qwen/qwen3.8-27b", "openai-responses", "OpenaiResponsesClient"],
   ["qwen3.6", "openai-chat", "OpenaiChatClient"],
