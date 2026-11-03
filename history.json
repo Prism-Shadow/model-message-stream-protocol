@@ -97,6 +97,15 @@
         "cost_usd": 0.00155257,
         "error": null,
         "samples": 3
+      },
+      "2026-11-03": {
+        "status": "up",
+        "ok": 3,
+        "ttft_ms": 809,
+        "tps": 117.0,
+        "cost_usd": 0.00087943,
+        "error": null,
+        "samples": 3
       }
     },
     "google-genai+https://aiplatform.googleapis.com+gemini-3.8-flash": {
@@ -193,6 +202,15 @@
         "ttft_ms": 1488,
         "tps": 78.9,
         "cost_usd": 0.0090435,
+        "error": null,
+        "samples": 3
+      },
+      "2026-11-03": {
+        "status": "up",
+        "ok": 3,
+        "ttft_ms": 1739,
+        "tps": 67.0,
+        "cost_usd": 0.008871,
         "error": null,
         "samples": 3
       }
@@ -294,6 +312,15 @@
         "tps": 89.2,
         "cost_usd": 0.00121691,
         "error": null,
+        "samples": 3
+      },
+      "2026-11-03": {
+        "status": "degraded",
+        "ok": 2,
+        "ttft_ms": 875,
+        "tps": 89.2,
+        "cost_usd": 0.00147017,
+        "error": "EmptyResponseError: OpenaiChatClient returned no content other than thinking (finish_reason='length').",
         "samples": 3
       }
     }

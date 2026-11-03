@@ -1,0 +1,189 @@
+{
+  "date": "2026-11-03",
+  "runs": [
+    {
+      "generated_at": "2026-11-03T12:13:52Z",
+      "run_id": "41633854366",
+      "samples": 3,
+      "targets": {
+        "deepseek-official+https://api.deepseek.com+deepseek-flash": {
+          "model": "deepseek-flash",
+          "client": "deepseek-official",
+          "base_url": "https://api.deepseek.com",
+          "status": "up",
+          "ok": 3,
+          "ttft_ms": 809,
+          "tps": 117.0,
+          "usage": {
+            "cached_tokens": 0,
+            "prompt_tokens": 168,
+            "thoughts_tokens": 522,
+            "response_tokens": 975
+          },
+          "cost_usd": 0.00087943,
+          "error": null,
+          "checked_at": "2026-11-03T12:13:38Z",
+          "samples": [
+            {
+              "ttft_ms": 2280,
+              "tps": 111.9,
+              "elapsed_ms": 5918,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 56,
+                "thoughts_tokens": 35,
+                "response_tokens": 315
+              },
+              "finish_reason": "stop",
+              "error": null
+            },
+            {
+              "ttft_ms": 809,
+              "tps": 117.0,
+              "elapsed_ms": 4137,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 56,
+                "thoughts_tokens": 69,
+                "response_tokens": 320
+              },
+              "finish_reason": "stop",
+              "error": null
+            },
+            {
+              "ttft_ms": 729,
+              "tps": 118.8,
+              "elapsed_ms": 7113,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 56,
+                "thoughts_tokens": 418,
+                "response_tokens": 340
+              },
+              "finish_reason": "stop",
+              "error": null
+            }
+          ]
+        },
+        "google-genai+https://aiplatform.googleapis.com+gemini-3.8-flash": {
+          "model": "gemini-3.8-flash",
+          "client": "google-genai",
+          "base_url": "https://aiplatform.googleapis.com",
+          "status": "up",
+          "ok": 3,
+          "ttft_ms": 1739,
+          "tps": 67.0,
+          "usage": {
+            "cached_tokens": 0,
+            "prompt_tokens": 84,
+            "thoughts_tokens": 0,
+            "response_tokens": 1166
+          },
+          "cost_usd": 0.008871,
+          "error": null,
+          "checked_at": "2026-11-03T12:13:44Z",
+          "samples": [
+            {
+              "ttft_ms": 1739,
+              "tps": 62.7,
+              "elapsed_ms": 8227,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 28,
+                "thoughts_tokens": 0,
+                "response_tokens": 396
+              },
+              "finish_reason": "stop",
+              "error": null
+            },
+            {
+              "ttft_ms": 950,
+              "tps": 91.5,
+              "elapsed_ms": 5247,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 28,
+                "thoughts_tokens": 0,
+                "response_tokens": 388
+              },
+              "finish_reason": "stop",
+              "error": null
+            },
+            {
+              "ttft_ms": 2548,
+              "tps": 67.0,
+              "elapsed_ms": 8328,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 28,
+                "thoughts_tokens": 0,
+                "response_tokens": 382
+              },
+              "finish_reason": "stop",
+              "error": null
+            }
+          ]
+        },
+        "openai-chat+https://tokendance.space/gateway/v1+deepseek-v4.1-flash": {
+          "model": "deepseek-v4.1-flash",
+          "client": "openai-chat",
+          "base_url": "https://tokendance.space/gateway/v1",
+          "status": "degraded",
+          "ok": 2,
+          "ttft_ms": 875,
+          "tps": 89.2,
+          "usage": {
+            "cached_tokens": 0,
+            "prompt_tokens": 168,
+            "thoughts_tokens": 2514,
+            "response_tokens": 660
+          },
+          "cost_usd": 0.00147017,
+          "error": "EmptyResponseError: OpenaiChatClient returned no content other than thinking (finish_reason='length').",
+          "checked_at": "2026-11-03T12:13:52Z",
+          "samples": [
+            {
+              "ttft_ms": 1601,
+              "tps": 152.9,
+              "elapsed_ms": 15031,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 56,
+                "thoughts_tokens": 2048,
+                "response_tokens": 0
+              },
+              "finish_reason": null,
+              "error": "EmptyResponseError: OpenaiChatClient returned no content other than thinking (finish_reason='length')."
+            },
+            {
+              "ttft_ms": 947,
+              "tps": 93.0,
+              "elapsed_ms": 7775,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 56,
+                "thoughts_tokens": 286,
+                "response_tokens": 349
+              },
+              "finish_reason": "stop",
+              "error": null
+            },
+            {
+              "ttft_ms": 803,
+              "tps": 85.5,
+              "elapsed_ms": 6551,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 56,
+                "thoughts_tokens": 180,
+                "response_tokens": 311
+              },
+              "finish_reason": "stop",
+              "error": null
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

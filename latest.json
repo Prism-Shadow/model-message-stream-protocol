@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-11-02T12:47:24Z",
-  "run_id": "41447423462",
+  "generated_at": "2026-11-03T12:13:52Z",
+  "run_id": "41633854366",
   "samples": 3,
   "targets": {
     "deepseek-official+https://api.deepseek.com+deepseek-flash": {
@@ -9,17 +9,17 @@
       "base_url": "https://api.deepseek.com",
       "status": "up",
       "ok": 3,
-      "ttft_ms": 1003,
-      "tps": 118.9,
+      "ttft_ms": 809,
+      "tps": 117.0,
       "usage": {
         "cached_tokens": 0,
         "prompt_tokens": 168,
-        "thoughts_tokens": 1645,
-        "response_tokens": 1030
+        "thoughts_tokens": 522,
+        "response_tokens": 975
       },
-      "cost_usd": 0.00155257,
+      "cost_usd": 0.00087943,
       "error": null,
-      "checked_at": "2026-11-02T12:47:20Z"
+      "checked_at": "2026-11-03T12:13:38Z"
     },
     "google-genai+https://aiplatform.googleapis.com+gemini-3.8-flash": {
       "model": "gemini-3.8-flash",
@@ -27,35 +27,35 @@
       "base_url": "https://aiplatform.googleapis.com",
       "status": "up",
       "ok": 3,
-      "ttft_ms": 1488,
-      "tps": 78.9,
+      "ttft_ms": 1739,
+      "tps": 67.0,
       "usage": {
         "cached_tokens": 0,
         "prompt_tokens": 84,
         "thoughts_tokens": 0,
-        "response_tokens": 1189
+        "response_tokens": 1166
       },
-      "cost_usd": 0.0090435,
+      "cost_usd": 0.008871,
       "error": null,
-      "checked_at": "2026-11-02T12:47:19Z"
+      "checked_at": "2026-11-03T12:13:44Z"
     },
     "openai-chat+https://tokendance.space/gateway/v1+deepseek-v4.1-flash": {
       "model": "deepseek-v4.1-flash",
       "client": "openai-chat",
       "base_url": "https://tokendance.space/gateway/v1",
-      "status": "up",
-      "ok": 3,
-      "ttft_ms": 987,
+      "status": "degraded",
+      "ok": 2,
+      "ttft_ms": 875,
       "tps": 89.2,
       "usage": {
         "cached_tokens": 0,
         "prompt_tokens": 168,
-        "thoughts_tokens": 1578,
-        "response_tokens": 1042
+        "thoughts_tokens": 2514,
+        "response_tokens": 660
       },
-      "cost_usd": 0.00121691,
-      "error": null,
-      "checked_at": "2026-11-02T12:47:24Z"
+      "cost_usd": 0.00147017,
+      "error": "EmptyResponseError: OpenaiChatClient returned no content other than thinking (finish_reason='length').",
+      "checked_at": "2026-11-03T12:13:52Z"
     }
   }
 }
