@@ -247,10 +247,10 @@ describe("thinking switch reaches the wire", () => {
 
 // What each remaining client puts on the wire for a level, per its vendor's effort
 // vocabulary: OpenAI takes the full set except on GPT-6, which rejects "none" and
-// "minimal" so NONE degrades to low (GPT-6 Luna takes none); Claude tops out at max (xhigh
-// only from 4.7), DeepSeek and Kimi accept low/high/max, DeepSeek and the Kimi K3 series
-// turn thinking off with none, MiniMax-M3 has no level above high, and
-// MiniMax-M3.1-Flash cannot turn thinking off but takes low through max.
+// "minimal" so NONE degrades to low (GPT-6 Luna and GPT-6.1 Terra take none); Claude
+// tops out at max (xhigh only from 4.7), DeepSeek and Kimi accept low/high/max,
+// DeepSeek and the Kimi K3 series turn thinking off with none, MiniMax-M3 has no level
+// above high, and MiniMax-M3.1-Flash cannot turn thinking off but takes low through max.
 const THINKING_EFFORT_CASES: Array<
   [string, string | undefined, ThinkingLevel, string | undefined]
 > = [
@@ -261,6 +261,10 @@ const THINKING_EFFORT_CASES: Array<
   ["gpt-6.1-sol", undefined, ThinkingLevel.MAX, "max"],
   ["gpt-6-luna", undefined, ThinkingLevel.NONE, "none"],
   ["gpt-6-luna", "openai-responses", ThinkingLevel.NONE, "none"],
+  ["gpt-6.1-terra", undefined, ThinkingLevel.NONE, "none"],
+  ["gpt-6.1-terra", undefined, ThinkingLevel.MAX, "max"],
+  ["gpt-6.1-terra", "openai-responses", ThinkingLevel.NONE, "none"],
+  ["openai/gpt-6.1-terra", "openai-responses", ThinkingLevel.NONE, "none"],
   // a gateway serving GPT-6 forwards the effort to OpenAI, so the generic Responses
   // client degrades NONE the same way
   ["gpt-6-astra", "openai-responses", ThinkingLevel.NONE, "low"],

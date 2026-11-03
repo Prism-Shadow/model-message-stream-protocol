@@ -58,7 +58,7 @@ description: UniConfig, the options of a request, and what each client sends for
 
 A value a client cannot send raises `UnsupportedParameterError` before the request goes out, naming the client and the parameter. A key a client has no use for is ignored. The tables below give both, per client.
 
-`thinking_level` never raises. Where a model cannot turn thinking off, `"none"` asks for the least of it: the lowest effort on Claude Opus 5.5, Haiku 5.5, Fable 5 and Fable 5.1, GPT-6 Astra and GPT-6.1 Sol, MiniMax-M3.1-Flash and GLM-5.3; no up-front thinking on Claude Sonnet 5.5; `minimal` or `low` on Gemini, whichever the model takes. GPT-6 Luna, Kimi K3 and Kimi K3.1 Pro take `"none"` as it is.
+`thinking_level` never raises. Where a model cannot turn thinking off, `"none"` asks for the least of it: the lowest effort on Claude Opus 5.5, Haiku 5.5, Fable 5 and Fable 5.1, GPT-6 Astra and GPT-6.1 Sol, MiniMax-M3.1-Flash and GLM-5.3; no up-front thinking on Claude Sonnet 5.5; `minimal` or `low` on Gemini, whichever the model takes. GPT-6 Luna, GPT-6.1 Terra, Kimi K3 and Kimi K3.1 Pro take `"none"` as it is.
 
 ## What each client sends
 
@@ -112,7 +112,7 @@ A cell is the value sent: the `type` on the Anthropic clients, the function call
 | --- | --- | --- | --- | --- |
 | `anthropic-official` | `auto` | `none` | `any` | `any` with the `name`; one name only |
 | `ant-messages` | `auto` | `none` | `any` | `tool` with the `name`; one name only |
-| `openai-official`, `openai-responses` | `auto` | `none` | `required` | `mode: "required"` with the tools |
+| `openai-official`, `openai-responses` | `auto` | `none` | `required` | `allowed_tools` with `mode: "required"` |
 | `openai-chat`, `openai-chat-vllm-adapter` | `auto` | `none` | `required` | `allowed_tools` with `mode: "auto"` |
 | `google-official` | `auto` | `none` | `any` | `allowed_tools` with `mode: "any"` |
 | `google-genai` | `AUTO` | `NONE` | `ANY` | `ANY` with `allowed_function_names` |
@@ -133,7 +133,7 @@ Each client sends the level as its protocol's effort: `output_config.effort` wit
 | `anthropic-official`: Claude Sonnet 5.5 | `between_tools` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `anthropic-official`: Claude 4.6 | `disabled` | `low` | `medium` | `high` | `high` | `max` |
 | `anthropic-official`: other Claude models; `ant-messages` | `disabled` | `low` | `medium` | `high` | `xhigh` | `max` |
-| `openai-official`, `openai-responses`: GPT-6 models except GPT-6 Luna | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
+| `openai-official`, `openai-responses`: GPT-6 models except GPT-6 Luna and GPT-6.1 Terra | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `openai-official`, `openai-responses`: other models | `none` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `openai-chat` | not sent | not sent | not sent | not sent | not sent | not sent |
 | `deepseek-official` | `none` | `low` | `high` | `high` | `high` | `max` |
@@ -179,8 +179,11 @@ On the Anthropic clients, a summary asked for without a `thinking_level` turns a
 | `anthropic-official` | `cache_control: {"type": "ephemeral"}`, also when not set | the same with `ttl: "1h"` | nothing |
 | `anthropic-official` on Bedrock | the same marker with `ttl: "5m"` on the last block of the last user message, also when not set | the same with `ttl: "1h"` | nothing |
 | `moonshot-official` on Kimi K3 and K3.1 Pro | nothing | `prompt_cache_options: {"mode": "implicit", "ttl": "1h"}` | raises |
-| Every other client; `moonshot-official` on Kimi K2 | nothing | raises | raises |
+| `openai-official` on GPT-5.6 and GPT-6 | nothing | `prompt_cache_options: {"ttl": "12h"}` | raises |
+| Every other client; `moonshot-official` on Kimi K2; `openai-official` on earlier GPT models | nothing | raises | raises |
 | `openai-embedding`, `deepseek-webtool`, `jina-webtool`, Gemini embedding models | ignored | ignored | ignored |
+
+On GPT-5.6 and GPT-6 a 12-hour cache write bills at twice the 30-minute write rate, and cache writes count in `prompt_tokens`, which has no separate bucket for them.
 
 ### `session_id`
 

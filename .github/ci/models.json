@@ -314,6 +314,10 @@
       },
       {
         "api_key_env": "OPENAI_API_KEY",
+        "name": "gpt-6.1-terra"
+      },
+      {
+        "api_key_env": "OPENAI_API_KEY",
         "name": "gpt-6-luna"
       },
       {
@@ -354,6 +358,14 @@
       {
         "api_key_env": "OPENROUTER_API_KEY",
         "name": "openai/gpt-6-luna",
+        "provider": "openrouter",
+        "client_type": "openai-responses",
+        "base_url": "https://openrouter.ai/api/v1",
+        "slow": true
+      },
+      {
+        "api_key_env": "OPENROUTER_API_KEY",
+        "name": "openai/gpt-6.1-terra",
         "provider": "openrouter",
         "client_type": "openai-responses",
         "base_url": "https://openrouter.ai/api/v1",

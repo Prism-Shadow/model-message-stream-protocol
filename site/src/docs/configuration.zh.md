@@ -58,7 +58,7 @@ description: UniConfig，请求的配置选项，以及每个客户端为它们�
 
 客户端无法发送的参数值会在请求发出前抛出 `UnsupportedParameterError`，并指明客户端和具体参数。客户端用不到的字段会被忽略。下面的表格按客户端给出这两种情况。
 
-`thinking_level` 永远不会抛错。模型无法关闭思考时，`"none"` 取最少的思考：Claude Opus 5.5、Haiku 5.5、Fable 5、Fable 5.1，GPT-6 Astra、GPT-6.1 Sol，MiniMax-M3.1-Flash 和 GLM-5.3 上是最低的思考档位；Claude Sonnet 5.5 上是不在回答前思考；Gemini 上是 `minimal` 或 `low`，取模型支持的那一个。GPT-6 Luna、Kimi K3 和 Kimi K3.1 Pro 原样接受 `"none"`。
+`thinking_level` 永远不会抛错。模型无法关闭思考时，`"none"` 取最少的思考：Claude Opus 5.5、Haiku 5.5、Fable 5、Fable 5.1，GPT-6 Astra、GPT-6.1 Sol，MiniMax-M3.1-Flash 和 GLM-5.3 上是最低的思考档位；Claude Sonnet 5.5 上是不在回答前思考；Gemini 上是 `minimal` 或 `low`，取模型支持的那一个。GPT-6 Luna、GPT-6.1 Terra、Kimi K3 和 Kimi K3.1 Pro 原样接受 `"none"`。
 
 ## 每个客户端发送什么
 
@@ -112,7 +112,7 @@ description: UniConfig，请求的配置选项，以及每个客户端为它们�
 | --- | --- | --- | --- | --- |
 | `anthropic-official` | `auto` | `none` | `any` | `any` 加 `name`；只能一个名字 |
 | `ant-messages` | `auto` | `none` | `any` | `tool` 加 `name`；只能一个名字 |
-| `openai-official`、`openai-responses` | `auto` | `none` | `required` | `mode: "required"` 加工具列表 |
+| `openai-official`、`openai-responses` | `auto` | `none` | `required` | `allowed_tools`，`mode: "required"` |
 | `openai-chat`、`openai-chat-vllm-adapter` | `auto` | `none` | `required` | `allowed_tools`，`mode: "auto"` |
 | `google-official` | `auto` | `none` | `any` | `allowed_tools`，`mode: "any"` |
 | `google-genai` | `AUTO` | `NONE` | `ANY` | `ANY` 加 `allowed_function_names` |
@@ -133,7 +133,7 @@ Claude Opus 5.5、Sonnet 5.5、Haiku 5.5 和 Fable 5.1 不能强制调用工具�
 | `anthropic-official`：Claude Sonnet 5.5 | `between_tools` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `anthropic-official`：Claude 4.6 | `disabled` | `low` | `medium` | `high` | `high` | `max` |
 | `anthropic-official`：其他 Claude 模型；`ant-messages` | `disabled` | `low` | `medium` | `high` | `xhigh` | `max` |
-| `openai-official`、`openai-responses`：GPT-6 Luna 以外的 GPT-6 模型 | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
+| `openai-official`、`openai-responses`：GPT-6 Luna 与 GPT-6.1 Terra 以外的 GPT-6 模型 | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `openai-official`、`openai-responses`：其他模型 | `none` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `openai-chat` | 不发送 | 不发送 | 不发送 | 不发送 | 不发送 | 不发送 |
 | `deepseek-official` | `none` | `low` | `high` | `high` | `high` | `max` |
@@ -179,8 +179,11 @@ Claude Opus 5.5、Sonnet 5.5、Haiku 5.5 和 Fable 5.1 不能强制调用工具�
 | `anthropic-official` | `cache_control: {"type": "ephemeral"}`，未设置时也是 | 同上加 `ttl: "1h"` | 不发送 |
 | `anthropic-official`（Bedrock） | 同样的标记加 `ttl: "5m"`，放在最后一条用户消息的最后一块上，未设置时也是 | 同上加 `ttl: "1h"` | 不发送 |
 | `moonshot-official`（Kimi K3 与 K3.1 Pro） | 不发送 | `prompt_cache_options: {"mode": "implicit", "ttl": "1h"}` | 抛错 |
-| 其他所有客户端；`moonshot-official`（Kimi K2） | 不发送 | 抛错 | 抛错 |
+| `openai-official`（GPT-5.6 与 GPT-6） | 不发送 | `prompt_cache_options: {"ttl": "12h"}` | 抛错 |
+| 其他所有客户端；`moonshot-official`（Kimi K2）；`openai-official`（更早的 GPT 模型） | 不发送 | 抛错 | 抛错 |
 | `openai-embedding`、`deepseek-webtool`、`jina-webtool`、Gemini 向量模型 | 忽略 | 忽略 | 忽略 |
+
+GPT-5.6 与 GPT-6 上，12 小时的缓存写入按 30 分钟写入价格的两倍计费；缓存写入计入 `prompt_tokens`，没有单独的计数。
 
 ### `session_id`
 

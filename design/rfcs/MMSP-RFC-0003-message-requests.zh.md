@@ -3,7 +3,7 @@
 - Feature Name: `message_requests`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313)
 - Kind: spec
 
 [English](MMSP-RFC-0003-message-requests.md)
@@ -21,6 +21,8 @@
 项目负责人的原话：支持全部思考等级；模型请求参数不模糊匹配；对本文则是：要求异步和流式，任何思考等级不能报错，请求参数尽量精确。这些内容最初在 [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265) 中写作 MMSP-RFC-0003、MMSP-RFC-0006、MMSP-RFC-0010 以及 MMSP-RFC-0004 中的版本规则，在 [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) 中写作 MMSP-RFC-0003、MMSP-RFC-0005（`stop` 事件部分）、MMSP-RFC-0010 与 MMSP-RFC-0011。
 
 2026-11-02，项目负责人要求加入网页搜索与网页抓取，做法与 embedding 相同，原话是：「在mmsp里面增加search和fetch的能力,实现方式和embedding类似」。DeepSeek 的 Search 与 Fetch、Jina 的 Search 与 Reader，对一次请求都用一个 JSON 作答。Jina 另有事件流模式，但网页每多加载一些，它就把整页重发一遍，从不只发其中一部分，其中没有可以流式传出的东西；所以客户端读取 JSON，网页工具像 embedding 一样请求，每条消息一次请求、一个内容项。关于搜索要什么，项目负责人的原话是：「search的content显示摘要,不要用need content参数 jina要加no content」。[#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308) 在原文上修改了本规范：§3.2 加入网页工具端点，§2 的增长字段加入 `webdata`，§6.1 加入 `-search` 与 `-fetch` 标记，§6.3 加入不思考的模型。
+
+2026-11-02，OpenAI 发布 GPT-6.1 Terra，项目负责人要求支持，原话是：「GPT 6.1 terra更新了」。与 GPT-6 Astra、GPT-6.1 Sol 不同，Terra 接受 `none` 这一 effort，所以两个 Responses 客户端在 Terra 上把 `none` 当作它自己的关闭开关。为它做的探测发现了所有 GPT-6 模型上的两处缺口：`tool_choice` 的列表形式发出时缺少 OpenAI 与 OpenRouter 要求的 `type`（400 `Missing required parameter: 'tool_choice.type'`）；超过 30,000 个 patch 的图片被拒绝，因为只有 GPT-5.6 会被发送 `detail: "high"`。项目负责人还把 `enhance` 映射到 OpenAI 的 12 小时缓存时长，GPT-5.6 及之后的模型在 Responses API 上接受它，GPT-5.5 拒绝。[#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313) 在原文上修改了本规范：§6.1 与 §6.3 写入 Terra 的 `none` 和这一代模型的 `detail`，§6.4 写入 allowed-tools 列表与 12 小时缓存。
 
 ## 2. Conventions and Terminology
 
@@ -81,8 +83,8 @@
 
 ### 6.1 明确匹配
 
-- 客户端为某个模型发送什么，必须由明确的匹配决定，绝不靠猜。在官方客户端内部，各代模型靠 id 中的版本区分（`"4-6"`；`"gpt-6"` 但不是 `"gpt-6-luna"`；`"k2."`；`"m3.1"`；`"glm-5.3"`），写在有名字的元组或直白的条件里；先匹配上的那一行生效。表示档位或模态的标记（`-pro`、`-image`、`tts`、`embedding`、`-search`、`-fetch`）也以同样的方式选定模型的类别。`"claude"`、`"gpt"` 这类只有系列名的子串不得决定任何事。新的一代模型加一行或一个条件，绝不放宽匹配。
-- 兼容客户端只在发送的内容因模型而异时才读取模型 id，而且同样按明确的名字或标记：vLLM 适配器从自己的表中选出聊天模板的思考开关，找不到时退回 Qwen3 的开关；`openai-responses` 在 Luna 以外的 GPT-6 上把 `none` 变成 `low`；`openai-chat` 和 `openai-responses` 对 GPT-5.6 原本会拒绝的图片请求 `detail: "high"`；`deepseek-webtool` 按 id 中的 `-search` 或 `-fetch` 决定搜索还是抓取。
+- 客户端为某个模型发送什么，必须由明确的匹配决定，绝不靠猜。在官方客户端内部，各代模型靠 id 中的版本区分（`"4-6"`；`"gpt-6"` 但既不是 `"gpt-6-luna"` 也不是 `"gpt-6.1-terra"`；`"gpt-5.6"`；`"k2."`；`"m3.1"`；`"glm-5.3"`），写在有名字的元组或直白的条件里；先匹配上的那一行生效。表示档位或模态的标记（`-pro`、`-image`、`tts`、`embedding`、`-search`、`-fetch`）也以同样的方式选定模型的类别。`"claude"`、`"gpt"` 这类只有系列名的子串不得决定任何事。新的一代模型加一行或一个条件，绝不放宽匹配。
+- 兼容客户端只在发送的内容因模型而异时才读取模型 id，而且同样按明确的名字或标记：vLLM 适配器从自己的表中选出聊天模板的思考开关，找不到时退回 Qwen3 的开关；`openai-responses` 在 Luna 与 GPT-6.1 Terra 以外的 GPT-6 上把 `none` 变成 `low`；`openai-chat` 和 `openai-responses` 对 GPT-5.6 或 GPT-6 原本会拒绝的图片请求 `detail: "high"`；`deepseek-webtool` 按 id 中的 `-search` 或 `-fetch` 决定搜索还是抓取。
 - 模型 id 由哪个客户端处理，见 [MMSP-RFC-0005](MMSP-RFC-0005-client-routing.zh.md)。
 
 ### 6.2 没有对应设置的值
@@ -92,12 +94,12 @@
 ### 6.3 思考等级
 
 - 客户端不得拒绝任何 `ThinkingLevel`：无论什么模型，都没有客户端为 `thinking_level` 抛出 `UnsupportedParameterError`。
-- 每个官方客户端按一张固定的表，把每个级别映射到该模型这一代的某个设置上，不发出警告：模型有这个级别时，就用它本身；模型没有时，用模型接受的另一个级别（Claude 4.6 以 `high` 运行 `xhigh`；Gemini 以 `high` 运行 `xhigh` 和 `max`）；对于 `none`，模型有自己的关闭开关时就用它（Claude Sonnet 5 上的 `disabled`，GPT-6 Luna 和 Kimi K3 系列上的 `none`）；对于没有关闭开关的模型上的 `none`，用它允许的最少思考（Claude Opus 5.5 上的最低 effort，Claude Sonnet 5.5 上的 `between_tools`，Gemini 上的 `minimal` 或 `low`）。不思考的模型，例如 embedding 模型或网页工具，没有这样的设置，级别被忽略。
-- 经由兼容客户端时，由端点决定某个级别实际如何运行，端点可以拒绝这个值：`ant-messages` 对 `none` 发送 `disabled`；`openai-responses` 把级别作为它的 effort 发送，在 Luna 以外的 GPT-6 上把 `none` 发成 `low`；`openai-chat` 不发送级别；它的 vLLM 适配器只发送聊天模板的思考开关；`mmsp` 客户端把级别转发给它的服务端。
+- 每个官方客户端按一张固定的表，把每个级别映射到该模型这一代的某个设置上，不发出警告：模型有这个级别时，就用它本身；模型没有时，用模型接受的另一个级别（Claude 4.6 以 `high` 运行 `xhigh`；Gemini 以 `high` 运行 `xhigh` 和 `max`）；对于 `none`，模型有自己的关闭开关时就用它（Claude Sonnet 5 上的 `disabled`，GPT-6 Luna、GPT-6.1 Terra 和 Kimi K3 系列上的 `none`）；对于没有关闭开关的模型上的 `none`，用它允许的最少思考（Claude Opus 5.5 上的最低 effort，Claude Sonnet 5.5 上的 `between_tools`，Gemini 上的 `minimal` 或 `low`）。不思考的模型，例如 embedding 模型或网页工具，没有这样的设置，级别被忽略。
+- 经由兼容客户端时，由端点决定某个级别实际如何运行，端点可以拒绝这个值：`ant-messages` 对 `none` 发送 `disabled`；`openai-responses` 把级别作为它的 effort 发送，在 Luna 与 GPT-6.1 Terra 以外的 GPT-6 上把 `none` 发成 `low`；`openai-chat` 不发送级别；它的 vLLM 适配器只发送聊天模板的思考开关；`mmsp` 客户端把级别转发给它的服务端。
 
 ### 6.4 有另一种形式的值
 
-协议对某个值有另一种形式时，映射写明用哪一种：工具名列表在 `openai-chat` 上是 `allowed_tools`；只有一个名字的列表在 `ant-messages` 上是 `{type: "tool", name}`；没有设置的 `max_tokens` 在 Anthropic 客户端上是 64000。
+协议对某个值有另一种形式时，映射写明用哪一种：工具名列表是 `allowed_tools`，在 `openai-chat` 上带 `mode: "auto"`，在 `openai-official` 和 `openai-responses` 上带 `mode: "required"`；只有一个名字的列表在 `ant-messages` 上是 `{type: "tool", name}`；没有设置的 `max_tokens` 在 Anthropic 客户端上是 64000；`prompt_caching` 的 `enhance` 在 `openai-official` 上对 GPT-5.6 及之后的模型是 `prompt_cache_options: {ttl: "12h"}`。
 
 ### 6.5 配置页
 

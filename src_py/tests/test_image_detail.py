@@ -183,10 +183,14 @@ class ImageDetailCase:
 
 IMAGE_DETAIL_CASES = [
     ImageDetailCase("OpenAIOfficialClient", "gpt-5.6-terra", None, "responses", True),
+    ImageDetailCase("OpenAIOfficialClient", "gpt-6.1-terra", None, "responses", True),
+    ImageDetailCase("OpenAIOfficialClient", "gpt-6-astra", None, "responses", True),
     ImageDetailCase("OpenAIOfficialClient", "gpt-5.5", None, "responses", False),
     ImageDetailCase("OpenaiResponsesClient", "openai/gpt-5.6-terra", "openai-responses", "responses", True),
+    ImageDetailCase("OpenaiResponsesClient", "openai/gpt-6.1-terra", "openai-responses", "responses", True),
     ImageDetailCase("OpenaiResponsesClient", "deepseek-v4-flash-vision-exp", "openai-responses", "responses", False),
     ImageDetailCase("OpenaiChatClient", "GPT-5.6-Sol", "openai-chat", "chat", True),
+    ImageDetailCase("OpenaiChatClient", "gpt-6-luna", "openai-chat", "chat", True),
     ImageDetailCase("OpenaiChatClient", "gpt-5.5", "openai-chat", "chat", False),
     ImageDetailCase("MoonshotOfficialClient", "kimi-k3", None, "chat", False),
     ImageDetailCase("ZAIOfficialClient", "glm-5.3-flash", None, "chat", False),

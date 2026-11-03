@@ -41,6 +41,16 @@ from ..utils import (
 )
 
 
+# The GPT-6 models that take the "none" reasoning effort. GPT-6 Astra and GPT-6.1 Sol reject both
+# "none" and "minimal" with a 400 (verified live 2026-09-09: "Unsupported value: 'none' is not
+# supported with the 'gpt-6-astra' model. Supported values are: 'low', 'medium', 'high', 'xhigh',
+# and 'max'."); GPT-6 Luna and GPT-6.1 Terra accept it (verified live 2026-10-14 and 2026-11-02).
+_GPT6_NONE_EFFORT = ("gpt-6-luna", "gpt-6.1-terra")
+# The generations that take prompt_cache_options; GPT-5.5 answers 400 "prompt_cache_options is not
+# supported on this model" (verified live 2026-11-02).
+_PROMPT_CACHE_OPTIONS = ("gpt-5.6", "gpt-6")
+
+
 class OpenAIOfficialClient(LLMClient):
     """GPT-6-specific LLM client implementation (also serves GPT-5.6, GPT-5.5 and GPT-5.4)."""
 
@@ -63,12 +73,12 @@ class OpenAIOfficialClient(LLMClient):
 
     def _convert_thinking_level_to_effort(self, thinking_level: ThinkingLevel) -> str:
         """Convert ThinkingLevel enum to OpenAI's reasoning effort."""
-        # GPT-6 Luna accepts none on official and gateway routes.
-        if thinking_level == ThinkingLevel.NONE and "gpt-6" in self._model and "gpt-6-luna" not in self._model:
-            # GPT-6 Astra and GPT-6.1 Sol reject both "none" and "minimal" with a 400 (verified live 2026-09-09:
-            # "Unsupported value: 'none' is not supported with the 'gpt-6-astra' model.
-            # Supported values are: 'low', 'medium', 'high', 'xhigh', and 'max'."), so NONE
-            # degrades to the lowest effort the generation accepts.
+        if (
+            thinking_level == ThinkingLevel.NONE
+            and "gpt-6" in self._model
+            and not any(model in self._model for model in _GPT6_NONE_EFFORT)
+        ):
+            # the rest of the generation has no off switch, so NONE runs at the lowest effort it accepts
             return "low"
 
         mapping = {
@@ -84,7 +94,13 @@ class OpenAIOfficialClient(LLMClient):
     def _convert_tool_choice(self, tool_choice: ToolChoice) -> str | dict[str, Any]:
         """Convert ToolChoice to OpenAI's tool_choice format with allowed tools support."""
         if isinstance(tool_choice, list):
-            return {"mode": "required", "tools": [{"type": "function", "name": name} for name in tool_choice]}
+            # without its type the object is refused: 400 "Missing required parameter: 'tool_choice.type'"
+            # (verified live 2026-11-02 on GPT-6 Astra, GPT-6.1 Sol, GPT-6.1 Terra and GPT-6 Luna)
+            return {
+                "type": "allowed_tools",
+                "mode": "required",
+                "tools": [{"type": "function", "name": name} for name in tool_choice],
+            }
         return tool_choice
 
     def _convert_image_url(self, image_url: str) -> dict[str, str]:
@@ -138,9 +154,20 @@ class OpenAIOfficialClient(LLMClient):
         if config.get("fast_mode"):
             openai_config["service_tier"] = "priority"
 
-        if config.get("prompt_caching") is not None and config["prompt_caching"] != PromptCaching.ENABLE:
+        if config.get("prompt_caching") == PromptCaching.ENHANCE and any(
+            generation in self._model for generation in _PROMPT_CACHE_OPTIONS
+        ):
+            # the cache is written with a 30-minute minimum lifetime; enhance asks for 12 hours, at twice
+            # the 30-minute write rate. Sent through extra_body: the SDK types prompt_cache_options only
+            # from openai 3.0, and its ttl only as "30m", while the Responses API takes "12h" (verified
+            # live 2026-11-02; the usage reports the writes under cache_write_tokens_details.ttl_12h_tokens)
+            openai_config.setdefault("extra_body", {})["prompt_cache_options"] = {"ttl": "12h"}
+        elif config.get("prompt_caching") is not None and config["prompt_caching"] != PromptCaching.ENABLE:
             raise UnsupportedParameterError(
-                self.__class__.__name__, "prompt_caching", "prompt_caching must be ENABLE for GPT-6."
+                self.__class__.__name__,
+                "prompt_caching",
+                "OpenAI does not support this prompt_caching (disable has no equivalent; enhance needs GPT-5.6 "
+                "or later).",
             )
 
         if config.get("session_id"):

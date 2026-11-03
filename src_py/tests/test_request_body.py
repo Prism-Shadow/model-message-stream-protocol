@@ -23,7 +23,7 @@ import anthropic
 import openai
 import pytest
 
-from mmsp import AutoLLMClient
+from mmsp import AutoLLMClient, PromptCaching, UnsupportedParameterError
 from mmsp.utils import prompt_cache_key
 
 
@@ -263,3 +263,110 @@ def test_mmsp_client_forwards_session_id():
 )
 def test_prompt_cache_key_keeps_64_characters_and_digests_more(session_id: str, expected: str):
     assert prompt_cache_key(session_id) == expected
+
+
+WEATHER_TOOL = {
+    "name": "get_weather",
+    "description": "Get the current weather in a given location",
+    "parameters": {"type": "object", "properties": {"location": {"type": "string"}}, "required": ["location"]},
+}
+# the documented allowed-tools object of the Responses API, type included
+RESPONSES_ALLOWED_TOOLS = {
+    "type": "allowed_tools",
+    "mode": "required",
+    "tools": [{"type": "function", "name": "get_weather"}],
+}
+CHAT_ALLOWED_TOOLS = {
+    "type": "allowed_tools",
+    "allowed_tools": {"mode": "auto", "tools": [{"type": "function", "function": {"name": "get_weather"}}]},
+}
+
+
+@dataclass
+class OpenAIBodyCase:
+    name: str
+    client_type: str
+    model: str
+    config: dict[str, Any]
+    # a None value means the body carries no such field
+    expected: dict[str, Any]
+
+
+OPENAI_BODY_CASES = [
+    OpenAIBodyCase(
+        "openai-official-tool-list",
+        "openai-official",
+        "gpt-6.1-terra",
+        {"tools": [WEATHER_TOOL], "tool_choice": ["get_weather"]},
+        {"tool_choice": RESPONSES_ALLOWED_TOOLS},
+    ),
+    OpenAIBodyCase(
+        "openai-responses-tool-list",
+        "openai-responses",
+        "openai/gpt-6.1-terra",
+        {"tools": [WEATHER_TOOL], "tool_choice": ["get_weather"]},
+        {"tool_choice": RESPONSES_ALLOWED_TOOLS},
+    ),
+    OpenAIBodyCase(
+        "openai-chat-tool-list",
+        "openai-chat",
+        "gpt-6.1-terra",
+        {"tools": [WEATHER_TOOL], "tool_choice": ["get_weather"]},
+        {"tool_choice": CHAT_ALLOWED_TOOLS},
+    ),
+    OpenAIBodyCase(
+        "openai-official-enhance-gpt-6",
+        "openai-official",
+        "gpt-6.1-terra",
+        {"prompt_caching": PromptCaching.ENHANCE},
+        {"prompt_cache_options": {"ttl": "12h"}},
+    ),
+    OpenAIBodyCase(
+        "openai-official-enhance-gpt-5.6",
+        "openai-official",
+        "gpt-5.6-luna",
+        {"prompt_caching": PromptCaching.ENHANCE},
+        {"prompt_cache_options": {"ttl": "12h"}},
+    ),
+    OpenAIBodyCase(
+        "openai-official-enable",
+        "openai-official",
+        "gpt-6.1-terra",
+        {"prompt_caching": PromptCaching.ENABLE},
+        {"prompt_cache_options": None},
+    ),
+]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", OPENAI_BODY_CASES, ids=[case.name for case in OPENAI_BODY_CASES])
+async def test_openai_clients_send_tool_lists_and_cache_lifetime(case: OpenAIBodyCase, body_server: str):
+    _BodyHandler.received_body = {}
+    client = AutoLLMClient(model=case.model, api_key="test-key", base_url=body_server, client_type=case.client_type)
+    messages = [{"role": "user", "content_items": [{"type": "text.done", "text": "Hi"}]}]
+
+    with pytest.raises(openai.BadRequestError):
+        async for _ in client.streaming_response(messages=messages, config=case.config):
+            pass
+
+    body = _BodyHandler.received_body
+    assert body["model"] == case.model
+    assert {name: body.get(name) for name in case.expected} == case.expected
+
+
+@pytest.mark.parametrize(
+    ("client_type", "model", "prompt_caching"),
+    [
+        ("openai-official", "gpt-5.5", PromptCaching.ENHANCE),
+        ("openai-official", "gpt-6.1-terra", PromptCaching.DISABLE),
+        ("openai-responses", "openai/gpt-6.1-terra", PromptCaching.ENHANCE),
+        ("openai-chat", "gpt-6.1-terra", PromptCaching.ENHANCE),
+    ],
+)
+def test_openai_clients_refuse_the_prompt_caching_they_cannot_send(
+    client_type: str, model: str, prompt_caching: PromptCaching
+):
+    client = AutoLLMClient(model=model, api_key="test-key", client_type=client_type)._client  # noqa: SLF001
+
+    with pytest.raises(UnsupportedParameterError, match="prompt_caching"):
+        client.transform_uni_config_to_model_config({"prompt_caching": prompt_caching})

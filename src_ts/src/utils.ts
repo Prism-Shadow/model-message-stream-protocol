@@ -320,6 +320,12 @@ const OPENAI_PATCH_LIMIT = 30000;
 const OPENAI_ORIGINAL_MAX_SIDE = 65535;
 
 /**
+ * The OpenAI generations whose default `auto` detail sizes an image as
+ * `original`.
+ */
+const ORIGINAL_DETAIL_BY_DEFAULT = ["gpt-5.6", "gpt-6"];
+
+/**
  * Base64 characters decoded first: 48 bytes, enough for any PNG, GIF or WebP
  * header. A JPEG's frame header may sit behind metadata segments, so its
  * window grows by the factor below until the header is found or the payload
@@ -401,11 +407,12 @@ export function exceedsOpenaiPatchLimit(imageUrl: string): boolean {
 /**
  * The `detail` an OpenAI image part needs so that the API reads the image.
  *
- * GPT-5.6 reads the default `auto` detail as `original`, which keeps the
- * image's own dimensions and rejects one over 30,000 patches instead of
+ * GPT-5.6 and GPT-6 read the default `auto` detail as `original`, which keeps
+ * the image's own dimensions and rejects one over 30,000 patches instead of
  * resizing it; `high` has the API fit it into 2,500 patches, so the image is
- * read instead of refused. Every other model keeps a patch budget at every
- * detail level, so no other model gets the field.
+ * read instead of refused (verified live 2026-11-02 on every GPT-6 model, on
+ * Responses, Chat Completions and through OpenRouter). Every other model keeps
+ * a patch budget at every detail level, so no other model gets the field.
  *
  * @param model - The model id the request is sent with.
  * @param imageUrl - The image URL as it goes on the wire.
@@ -415,8 +422,11 @@ export function openaiImageDetail(
   model: string,
   imageUrl: string,
 ): "high" | undefined {
-  return model.toLowerCase().includes("gpt-5.6") &&
-    exceedsOpenaiPatchLimit(imageUrl)
+  const lower = model.toLowerCase();
+  const readsOriginal = ORIGINAL_DETAIL_BY_DEFAULT.some((generation) =>
+    lower.includes(generation),
+  );
+  return readsOriginal && exceedsOpenaiPatchLimit(imageUrl)
     ? "high"
     : undefined;
 }

@@ -2,7 +2,9 @@
 
 > For the complete documentation index, see [llms.txt](/llms.txt). Markdown versions of documentation pages are available by appending `.md` to the page URL.
 
-Fast mode delivers up to 2.5× faster speeds and more consistent latency while keeping pay-as-you-go flexibility. Fast mode is ideal for high-value, user-facing applications with regular traffic where latency is paramount.
+Fast mode delivers up to 2.5× faster speeds and more consistent latency with pay-as-you-go pricing. Use it for user-facing applications with regular traffic where latency matters.
+
+For faster speeds with GPT-6 Astra or GPT-6.1 Sol, see [Ultrafast mode](https://developers.openai.com/api/docs/guides/ultrafast-mode).
 
 Priority processing was renamed Fast mode on July 30, 2026. We also increased
   the speed at which Fast mode operates for `gpt-5.6-sol` to make it up to 2.5×
@@ -23,7 +25,7 @@ import OpenAI from "openai";
 const openai = new OpenAI();
 
 const response = await openai.responses.create({
-  model: "gpt-5.6-sol",
+  model: "gpt-6.1-sol",
   input: "What does 'fit check for my napalm era' mean?",
   service_tier: "fast",
 });
@@ -37,7 +39,7 @@ from openai import OpenAI
 client = OpenAI()
 
 response = client.responses.create(
-    model="gpt-5.6-sol",
+    model="gpt-6.1-sol",
     input="What does 'fit check for my napalm era' mean?",
     service_tier="fast",
 )
@@ -58,7 +60,7 @@ import (
 func main() {
 	client := openai.NewClient()
 	response, err := client.Responses.New(context.Background(), responses.ResponseNewParams{
-		Model:       "gpt-5.6-sol",
+		Model:       "gpt-6.1-sol",
 		ServiceTier: "fast",
 		Input:       responses.ResponseNewParamsInputUnion{OfString: openai.String("What does 'fit check for my napalm era' mean?")},
 	})
@@ -69,13 +71,32 @@ func main() {
 }
 ```
 
+```java
+import com.openai.client.OpenAIClient;
+import com.openai.client.okhttp.OpenAIOkHttpClient;
+import com.openai.models.responses.ResponseCreateParams;
+
+ResponseCreateParams params =
+    ResponseCreateParams.builder()
+        .model("gpt-6.1-sol")
+        .input("What does 'fit check for my napalm era' mean?")
+        .serviceTier(ResponseCreateParams.ServiceTier.of("fast"))
+        .build();
+
+client.responses().create(params).output().stream()
+    .flatMap(item -> item.message().stream())
+    .flatMap(message -> message.content().stream())
+    .flatMap(content -> content.outputText().stream())
+    .forEach(text -> System.out.println(text.text()));
+```
+
 ```ruby
 require "openai"
 
 client = OpenAI::Client.new
 
 response = client.responses.create(
-  model: "gpt-5.6-sol",
+  model: "gpt-6.1-sol",
   service_tier: :fast,
   input: "What does 'fit check for my napalm era' mean?"
 )
@@ -88,7 +109,7 @@ curl https://api.openai.com/v1/responses \
   -H "Authorization: Bearer $OPENAI_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "gpt-5.6-sol",
+    "model": "gpt-6.1-sol",
     "input": "What does 'fit check for my napalm era' mean?",
     "service_tier": "fast"
   }'
@@ -107,7 +128,7 @@ Fast mode consumption counts toward rate limits the same way as Standard process
 
 **Ramp rate limit**
 
-If your traffic ramps too fast, the system may downgrade some Fast mode requests to standard speeds and charge standard rates. When this happens, the response contains `service_tier: "default"`. The ramp rate limit may apply if you send at least 1 million tokens per minute (TPM) and increase TPM by more than 50% within 15 minutes.
+If your traffic ramps too fast, the system may downgrade some Fast mode requests to standard speeds and charge standard rates. When this happens, the response contains `service_tier: "default"`. As a rule of thumb, once your traffic reaches 1 million input tokens per minute (TPM), increase it by no more than 50% every 15 minutes. The exact point at which the ramp-rate limit applies can vary by model and traffic conditions.
 
 To avoid triggering the ramp rate limit:
 
@@ -139,6 +160,8 @@ Scale Tier and Fast mode are separate. Fast mode requests have separate billing 
 
 Fast mode charges a per-token premium compared with Standard processing. All processing modes count toward your annual Enterprise spend commitment, and eligible cached input tokens receive the same discounts available for Standard processing.
 
+For GPT-5.6 Sol, Fast mode costs twice the corresponding Standard rate. Short-context requests cost $8 per 1 million input tokens and $40 per 1 million output tokens; long-context requests cost $16 per 1 million input tokens and $60 per 1 million output tokens. GPT-5.6 Sol’s promotional pricing is available at least through November 21, 2026. See [pricing details](https://developers.openai.com/api/docs/pricing?latest-pricing=fast).
+
 To review usage, open the usage dashboard, select Responses or Chat Completions, and group by service tier. To review costs, group by line item.
 
 ### Which models and modalities support Fast mode?
@@ -151,8 +174,8 @@ Yes. All your traffic contributes to the same ramp rate limit. If you routinely 
 
 ### What happens if Fast mode doesn't meet its latency target?
 
-Contact your account director if you have questions or concerns. Fast mode and Scale Tier receive the same service-level agreement treatment, and eligible Enterprise agreements may provide service credits when those targets aren't met.
+Fast mode for GPT-6 Astra does not include a latency SLA. For GPT-5.6 and earlier models, Fast mode and Scale Tier receive the same service-level agreement treatment, and eligible Enterprise agreements may provide service credits when latency targets aren't met. Contact your account director if you have questions or concerns.
 
 ### Is Fast mode compatible with data residency, Zero Data Retention, and a BAA?
 
-Yes. Fast mode is compatible with data residency, Zero Data Retention, and a Business Associate Agreement (BAA). Existing endpoint, tool, eligibility, and contractual requirements still apply. See the [Your data guide](https://developers.openai.com/api/docs/guides/your-data) for details.
+Fast mode is compatible with data residency, Zero Data Retention, and a Business Associate Agreement (BAA), subject to model-specific availability. Fast mode supports EU data residency for GPT-6.1 Sol, GPT-6.1 Terra, and GPT-6 Luna. Fast mode is not available with EU data residency for GPT-6 Astra or GPT-6 Sol. Existing endpoint, tool, eligibility, and contractual requirements still apply. See the [Your data guide](https://developers.openai.com/api/docs/guides/your-data) for details.

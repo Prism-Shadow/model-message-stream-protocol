@@ -46,6 +46,15 @@ import {
 } from "../utils";
 
 /**
+ * The GPT-6 models that take the "none" reasoning effort. A gateway serving
+ * GPT-6 Astra or GPT-6.1 Sol forwards the effort to OpenAI, which rejects
+ * "none" and "minimal" with a 400 (verified live 2026-09-09 against
+ * api.openai.com); GPT-6 Luna and GPT-6.1 Terra accept it, on OpenRouter too
+ * (verified live 2026-10-14 and 2026-11-02).
+ */
+const GPT6_NONE_EFFORT = ["gpt-6-luna", "gpt-6.1-terra"];
+
+/**
  * OpenAI Responses-compatible client implementation.
  */
 export class OpenaiResponsesClient extends LLMClient {
@@ -83,15 +92,12 @@ export class OpenaiResponsesClient extends LLMClient {
    * Convert ThinkingLevel enum to the Responses API reasoning effort.
    */
   private _convertThinkingLevelToEffort(thinkingLevel: ThinkingLevel): string {
-    // GPT-6 Luna accepts none; keep the requested setting on official and gateway routes.
     if (
       thinkingLevel === ThinkingLevel.NONE &&
       this._model.includes("gpt-6") &&
-      !this._model.includes("gpt-6-luna")
+      !GPT6_NONE_EFFORT.some((model) => this._model.includes(model))
     ) {
-      // a gateway serving GPT-6 Astra or GPT-6.1 Sol forwards the effort to OpenAI, which rejects "none" and
-      // "minimal" with a 400 (verified live 2026-09-09 against api.openai.com), so NONE
-      // degrades to the lowest effort the generation accepts.
+      // the rest of the generation has no off switch, so NONE runs at the lowest effort it accepts
       return "low";
     }
 
@@ -112,7 +118,11 @@ export class OpenaiResponsesClient extends LLMClient {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private _convertToolChoice(toolChoice: ToolChoice): any {
     if (Array.isArray(toolChoice)) {
+      // the documented allowed-tools object; without its type OpenAI and OpenRouter refuse it with a 400
+      // (verified live 2026-11-02; DeepSeek refuses every forced tool_choice in thinking mode, and
+      // MiniMax and Z.AI ignore it in either shape)
       return {
+        type: "allowed_tools",
         mode: "required",
         tools: toolChoice.map((name) => ({ type: "function", name })),
       };

@@ -26,7 +26,13 @@ import {
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 
-import { AutoLLMClient, UniConfig, UniMessage } from "../src";
+import {
+  AutoLLMClient,
+  PromptCaching,
+  UniConfig,
+  UniMessage,
+  UnsupportedParameterError,
+} from "../src";
 import { promptCacheKey } from "../src/utils";
 
 interface BodyCase {
@@ -417,5 +423,128 @@ describe("promptCacheKey keeps 64 characters and digests more", () => {
     ["65-cjk", LONG_SESSION_ID, LONG_SESSION_KEY],
   ])("%s", (_name, sessionId, expected) => {
     expect(promptCacheKey(sessionId)).toBe(expected);
+  });
+});
+
+const WEATHER_TOOL = {
+  name: "get_weather",
+  description: "Get the current weather in a given location",
+  parameters: {
+    type: "object",
+    properties: { location: { type: "string" } },
+    required: ["location"],
+  },
+};
+// the documented allowed-tools object of the Responses API, type included
+const RESPONSES_ALLOWED_TOOLS = {
+  type: "allowed_tools",
+  mode: "required",
+  tools: [{ type: "function", name: "get_weather" }],
+};
+const CHAT_ALLOWED_TOOLS = {
+  type: "allowed_tools",
+  allowed_tools: {
+    mode: "auto",
+    tools: [{ type: "function", function: { name: "get_weather" } }],
+  },
+};
+
+interface OpenAIBodyCase {
+  name: string;
+  clientType: string;
+  model: string;
+  config: UniConfig;
+  // an undefined value means the body carries no such field
+  expected: Record<string, unknown>;
+}
+
+// The cases are those of src_py/tests/test_request_body.py.
+const OPENAI_BODY_CASES: OpenAIBodyCase[] = [
+  {
+    name: "openai-official-tool-list",
+    clientType: "openai-official",
+    model: "gpt-6.1-terra",
+    config: { tools: [WEATHER_TOOL], tool_choice: ["get_weather"] },
+    expected: { tool_choice: RESPONSES_ALLOWED_TOOLS },
+  },
+  {
+    name: "openai-responses-tool-list",
+    clientType: "openai-responses",
+    model: "openai/gpt-6.1-terra",
+    config: { tools: [WEATHER_TOOL], tool_choice: ["get_weather"] },
+    expected: { tool_choice: RESPONSES_ALLOWED_TOOLS },
+  },
+  {
+    name: "openai-chat-tool-list",
+    clientType: "openai-chat",
+    model: "gpt-6.1-terra",
+    config: { tools: [WEATHER_TOOL], tool_choice: ["get_weather"] },
+    expected: { tool_choice: CHAT_ALLOWED_TOOLS },
+  },
+  {
+    name: "openai-official-enhance-gpt-6",
+    clientType: "openai-official",
+    model: "gpt-6.1-terra",
+    config: { prompt_caching: PromptCaching.ENHANCE },
+    expected: { prompt_cache_options: { ttl: "12h" } },
+  },
+  {
+    name: "openai-official-enhance-gpt-5.6",
+    clientType: "openai-official",
+    model: "gpt-5.6-luna",
+    config: { prompt_caching: PromptCaching.ENHANCE },
+    expected: { prompt_cache_options: { ttl: "12h" } },
+  },
+  {
+    name: "openai-official-enable",
+    clientType: "openai-official",
+    model: "gpt-6.1-terra",
+    config: { prompt_caching: PromptCaching.ENABLE },
+    expected: { prompt_cache_options: undefined },
+  },
+];
+
+describe("OpenAI clients send tool lists and the cache lifetime", () => {
+  test.each(OPENAI_BODY_CASES)("$name", async (testCase) => {
+    const client = new AutoLLMClient({
+      model: testCase.model,
+      apiKey: "test-key",
+      baseUrl: origin,
+      clientType: testCase.clientType,
+    });
+    const messages: UniMessage[] = [
+      { role: "user", content_items: [{ type: "text.done", text: "Hi" }] },
+    ];
+
+    const drain = async (): Promise<void> => {
+      for await (const event of client.streamingResponse({
+        messages,
+        config: testCase.config,
+      })) {
+        void event;
+      }
+    };
+    await expect(drain()).rejects.toThrow(OpenAI.BadRequestError);
+
+    expect(receivedBody.model).toBe(testCase.model);
+    const picked = Object.fromEntries(
+      Object.keys(testCase.expected).map((name) => [name, receivedBody[name]]),
+    );
+    expect(picked).toStrictEqual(testCase.expected);
+  });
+});
+
+describe("OpenAI clients refuse the prompt_caching they cannot send", () => {
+  test.each<[string, string, PromptCaching]>([
+    ["openai-official", "gpt-5.5", PromptCaching.ENHANCE],
+    ["openai-official", "gpt-6.1-terra", PromptCaching.DISABLE],
+    ["openai-responses", "openai/gpt-6.1-terra", PromptCaching.ENHANCE],
+    ["openai-chat", "gpt-6.1-terra", PromptCaching.ENHANCE],
+  ])("%s %s %s", (clientType, model, promptCaching) => {
+    const client = new AutoLLMClient({ model, apiKey: "test-key", clientType });
+
+    expect(() =>
+      client.transformUniConfigToModelConfig({ prompt_caching: promptCaching }),
+    ).toThrow(UnsupportedParameterError);
   });
 });

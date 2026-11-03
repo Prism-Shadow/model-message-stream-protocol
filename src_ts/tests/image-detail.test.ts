@@ -271,6 +271,18 @@ const IMAGE_DETAIL_CASES: ImageDetailCase[] = [
   },
   {
     expectedClient: "OpenAIOfficialClient",
+    model: "gpt-6.1-terra",
+    protocol: "responses",
+    shrinks: true,
+  },
+  {
+    expectedClient: "OpenAIOfficialClient",
+    model: "gpt-6-astra",
+    protocol: "responses",
+    shrinks: true,
+  },
+  {
+    expectedClient: "OpenAIOfficialClient",
     model: "gpt-5.5",
     protocol: "responses",
     shrinks: false,
@@ -278,6 +290,13 @@ const IMAGE_DETAIL_CASES: ImageDetailCase[] = [
   {
     expectedClient: "OpenaiResponsesClient",
     model: "openai/gpt-5.6-terra",
+    clientType: "openai-responses",
+    protocol: "responses",
+    shrinks: true,
+  },
+  {
+    expectedClient: "OpenaiResponsesClient",
+    model: "openai/gpt-6.1-terra",
     clientType: "openai-responses",
     protocol: "responses",
     shrinks: true,
@@ -292,6 +311,13 @@ const IMAGE_DETAIL_CASES: ImageDetailCase[] = [
   {
     expectedClient: "OpenaiChatClient",
     model: "GPT-5.6-Sol",
+    clientType: "openai-chat",
+    protocol: "chat",
+    shrinks: true,
+  },
+  {
+    expectedClient: "OpenaiChatClient",
+    model: "gpt-6-luna",
     clientType: "openai-chat",
     protocol: "chat",
     shrinks: true,

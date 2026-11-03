@@ -238,6 +238,9 @@ _OPENAI_PATCH_LIMIT = 30000
 # down to fit it before the patches are counted (the same guide, model sizing table).
 _OPENAI_ORIGINAL_MAX_SIDE = 65535
 
+# The OpenAI generations whose default `auto` detail sizes an image as `original`.
+_ORIGINAL_DETAIL_BY_DEFAULT = ("gpt-5.6", "gpt-6")
+
 # Base64 characters decoded first: 48 bytes, enough for any PNG, GIF or WebP header. A JPEG's
 # frame header may sit behind metadata segments, so its window grows by the factor below until
 # the header is found or the payload runs out.
@@ -332,10 +335,11 @@ def openai_image_detail(model: str, image_url: str) -> Literal["high"] | None:
     """
     The `detail` an OpenAI image part needs so that the API reads the image.
 
-    GPT-5.6 reads the default `auto` detail as `original`, which keeps the image's own
+    GPT-5.6 and GPT-6 read the default `auto` detail as `original`, which keeps the image's own
     dimensions and rejects one over 30,000 patches instead of resizing it; `high` has the API
-    fit it into 2,500 patches, so the image is read instead of refused. Every other model keeps
-    a patch budget at every detail level, so no other model gets the field.
+    fit it into 2,500 patches, so the image is read instead of refused (verified live 2026-11-02
+    on every GPT-6 model, on Responses, Chat Completions and through OpenRouter). Every other
+    model keeps a patch budget at every detail level, so no other model gets the field.
 
     Args:
         model (str): The model id the request is sent with.
@@ -344,7 +348,8 @@ def openai_image_detail(model: str, image_url: str) -> Literal["high"] | None:
     Returns:
         Literal["high"] | None: "high" when the image needs it, otherwise None.
     """
-    if "gpt-5.6" in model.lower() and exceeds_openai_patch_limit(image_url):
+    reads_original = any(generation in model.lower() for generation in _ORIGINAL_DETAIL_BY_DEFAULT)
+    if reads_original and exceeds_openai_patch_limit(image_url):
         return "high"
 
     return None
