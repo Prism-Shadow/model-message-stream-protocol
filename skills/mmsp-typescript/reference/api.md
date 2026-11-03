@@ -57,7 +57,7 @@ clearHistory(): void;
  * List supported models covering official endpoints plus OpenRouter and
  * SiliconFlow. Each entry carries (model, base_url, client) - mapping onto the
  * AutoLLMClient constructor (model, baseUrl, clientType) - plus input/output
- * modalities (Text/Image/Video/Audio/Embed), context_window, and
+ * modalities (Text/Image/Video/Audio/Embed/Web), context_window, and
  * per-million-token pricing in the requested currency (official list prices,
  * converted at 7 CNY/USD).
  */
