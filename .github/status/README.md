@@ -20,8 +20,8 @@ To add a target, copy the triple of a registry entry and name its key variable. 
 
 - **TTFT**: from the request to the first non-empty text or thinking delta.
 - **TPS**: thoughts plus response tokens, over the time from the first such delta to the last.
-- **Status**: `up` when every sample answered, `degraded` when some did, `down` when none did or the client could not be built, `nokey` when the key variable is empty (configuration, not an outage). A sample fails on any error or after 120 s.
-- **Cost**: the summed usage at the registry's USD list price per million tokens. Cached input is billed at the cache-hit price, or at the input price where the platform publishes none. Promotions and peak-hour rates are not counted.
+- **Status**: `up` when every sample answered, `degraded` when some did, `down` when none did or the client could not be built, `nokey` when the key variable is empty (configuration, not an outage). A sample fails on any error or after 120 s, with one exception: an answer that is all thinking and stopped at `max_tokens` (`EmptyResponseError` with finish reason `length`) means the budget was too small for that answer, not that the channel failed, so the sample is asked once more with twice the `max_tokens`, and only that second answer decides it.
+- **Cost**: the summed usage at the registry's USD list price per million tokens, both answers of a retried sample included. Cached input is billed at the cache-hit price, or at the input price where the platform publishes none. Promotions and peak-hour rates are not counted.
 - **Errors**: `Class: message` on one line, at most 200 characters. Every `*_API_KEY` value in the environment, every `key=` URL parameter and every masked key tail a provider quotes (`****cdef`) is replaced by `***`.
 
 ## Data files
@@ -50,6 +50,7 @@ The key of every target is `<client>+<base_url>+<model>`, the registry triple jo
 // runs/2026-10-19.json: every run of the day, each the latest.json shape plus its samples
 {"date": "2026-10-19", "runs": [{"generated_at": "...", "run_id": "...", "samples": 3, "targets": {"<key>": {
    "...": "...", "samples": [{"ttft_ms": 405, "tps": 88.1, "elapsed_ms": 14520, "usage": {}, "finish_reason": "stop", "error": null}]}}}]}
+// a retried sample is its second answer, with the usage of both and "retried": "<the first answer's error>"
 ```
 
 A run that probes some targets only keeps the other targets' `latest.json` entries. `monthly.json` recounts the current month from its run files on every run.

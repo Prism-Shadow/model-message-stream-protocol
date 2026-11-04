@@ -2,6 +2,7 @@
 
 [English](README.md)
 
+- [2026-11-04] 回答只有思考内容且在 `max_tokens` 处被截断时，状态探测会把 `max_tokens` 加倍再试一次；每日探测新增四个渠道（TokenDance 的 `glm-5.3-flash`、`qwen3.8-flash`、`mimo-v2.6-flash`，Bedrock 的 `global.anthropic.claude-sonnet-4-6`）。`/status/` 上的每日卡片可以移入并复制文字，柱状条止于最近一次有探测的那天，没有更早数据时 ‹ 置灰。([详情](2026-11-04-status-probe-and-board.zh.md))
 - [2026-11-04] 模型索引的每一行在代码按钮前新增一个链接，在新标签页打开该模型在服务商处的页面，353 行中有 345 行带有链接（vLLM 条目除外），集成代码对话框里的服务商名称也链接到同一个页面；链接由页面脚本依据服务商和模型 id 通过 `site/src/shared/pages.ts` 计算，`/models/` 的 gzip 体积因此增加 213 字节，脚本增加 957 字节。([详情](2026-11-04-model-index-source-pages.zh.md), [#314](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/314))
 - [2026-11-06] `google-official` 与 `google-genai` 在 SDK 客户端中写明 API 版本，Gemini API 和网关上为 `v1beta`，Vertex AI 上为 `v1beta1`；`google-genai` 3.0.0 把 Gemini API 的默认版本改成了 `v1`，两个客户端仍发往 2.x 发往的地址，Gemini TTS 不再返回 404；依赖仍为 `google-genai>=2.23.0`，Python CI 在 `google-genai<3` 和 `==2.23.0` 上重新运行离线测试。([详情](2026-11-06-google-genai-3.zh.md), [#319](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/319))
 - [2026-11-02] 注册表列出了网页工具模型：DeepSeek 和 TokenDance 上的 `deepseek-search`、`deepseek-fetch`，以及 Jina 上的 `jina-search`、`jina-fetch`（从 347 条增至 353 条），输出模态为新增的 `Web`，按 prompt token 计价，DeepSeek 每次请求记 1 个；模型索引用地球图标显示它们，集成代码打印每个网页的标题和 URL。([详情](2026-11-02-web-tool-registry.zh.md), [#312](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/312))
