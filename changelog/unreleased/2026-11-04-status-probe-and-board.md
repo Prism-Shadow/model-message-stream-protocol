@@ -3,7 +3,7 @@
 - **Date:** 2026-11-04
 - **Type:** process
 - **Scope:** `status`, `site`
-- **PR:** pending
+- **PR:** [#315](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/315)
 
 [中文版](2026-11-04-status-probe-and-board.zh.md)
 
