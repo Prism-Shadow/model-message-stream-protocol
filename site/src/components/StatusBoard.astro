@@ -331,10 +331,15 @@ const TIME_VALUE = "mt-1 text-[15px] leading-6 font-semibold tabular-nums";
         const bar = barOf(event.target);
         if (bar && event.pointerType !== "touch") showDay(bar);
       });
-      // a finger leaves the strip as it lifts; its card stays until the next tap
-      group.addEventListener("pointerleave", (event) => {
-        if (event.pointerType !== "touch") hideDay(strip);
+      // a pointer may leave the bars for the card, to select and copy its text: the card closes once
+      // the pointer has left both for a moment. A finger leaves the strip as it lifts; its card
+      // stays until the next tap
+      let leaving: number | undefined;
+      strip.addEventListener("pointerleave", (event) => {
+        if (event.pointerType === "touch") return;
+        leaving = window.setTimeout(() => hideDay(strip), 200);
       });
+      strip.addEventListener("pointerenter", () => window.clearTimeout(leaving));
       group.addEventListener("pointerdown", (event) => {
         const bar = barOf(event.target);
         if (!bar || event.pointerType !== "touch") return;
@@ -347,8 +352,10 @@ const TIME_VALUE = "mt-1 text-[15px] leading-6 font-semibold tabular-nums";
         for (const other of bars) other.tabIndex = other === bar ? 0 : -1;
         showDay(bar);
       });
+      // a click into the card to select its text takes the focus from the bar, and keeps the card
       group.addEventListener("focusout", (event) => {
-        if (!(event.relatedTarget instanceof Node && group.contains(event.relatedTarget))) hideDay(strip);
+        if (event.relatedTarget instanceof Node && group.contains(event.relatedTarget)) return;
+        if (!strip.matches(":hover")) hideDay(strip);
       });
       group.addEventListener("keydown", (event) => {
         const bar = barOf(event.target);
@@ -463,8 +470,8 @@ const TIME_VALUE = "mt-1 text-[15px] leading-6 font-semibold tabular-nums";
     };
 
     // ---------- the window of days on screen: `range` days (7, 30 or 90, kept for the next visit)
-    // that end on `end`, which starts at today; ‹ and › move it by one range, as status.openai.com
-    // pages its quarters. A change redraws the blocks from the days the page holds.
+    // that end on `end`, which starts at the newest day; ‹ and › move it by one range, as
+    // status.openai.com pages its quarters. A change redraws the blocks from the days the page holds.
     const RANGE_KEY = "mmsp-site.status-range";
     const ranges = board.querySelector<HTMLElement>("[data-status-range]")!;
     const rangeButtons = [...ranges.querySelectorAll<HTMLButtonElement>("button")];
@@ -473,8 +480,16 @@ const TIME_VALUE = "mt-1 text-[15px] leading-6 font-semibold tabular-nums";
     const laterButton = pager.querySelector<HTMLButtonElement>("[data-status-later]")!;
     const windowLabel = pager.querySelector<HTMLElement>("[data-status-window]")!;
     let range = Number(rangeButtons.find((button) => button.getAttribute("aria-checked") === "true")!.dataset.value);
-    let end = todayUtc();
     const addDays = (date: string, count: number) => new Date(Date.parse(`${date}T00:00:00Z`) + count * 86_400_000).toISOString().slice(0, 10);
+    // the newest day a strip shows: today once a run has probed it, yesterday until then. Yesterday's
+    // bar stays even when no run probed it, so a day that passed without a run still shows as a gap
+    const newestDay = () => {
+      const today = todayUtc();
+      return shown?.generated_at.slice(0, 10) === today ? today : addDays(today, -1);
+    };
+    // the window follows the newest day, as a run lands or a day begins, until ‹ moves it back
+    let atNewest = true;
+    let end = addDays(todayUtc(), -1);
     const startOf = (last: string) => addDays(last, 1 - range);
     const applyRange = (days: number) => {
       range = days;
@@ -534,20 +549,25 @@ const TIME_VALUE = "mt-1 text-[15px] leading-6 font-semibold tabular-nums";
         ...Object.entries(latest?.targets ?? {}).map(([key, target]) => block(key, target, historyData?.targets[key], dates, dated)),
       );
     };
-    // ‹ while a day the page holds lies before the window, or a file that may hold older days has
-    // not been asked for; › until the window ends today. A button that turns disabled under the
-    // keyboard hands the focus to the other.
+    // ‹ while a day the page holds lies before the window, or a file not read yet may hold one: the
+    // rolling file when the build's days reach back to their first, the archive of the year before
+    // the window when the rolling file's do. A probe younger than those files has no older days, so
+    // ‹ is grey once the window reaches its first. › until the window ends on the newest day. A
+    // button that turns disabled under the keyboard hands the focus to the other.
     const updatePager = () => {
       const start = startOf(end);
       windowLabel.textContent = windowText(start, end);
       const focused = document.activeElement;
       const olderYear = addDays(oldest ?? start, -1).slice(0, 4);
-      earlierButton.disabled = !shown || !((oldest !== undefined && start > oldest) || !rollingAsked || !archives.has(olderYear));
-      laterButton.disabled = end >= todayUtc();
+      const filesFrom = addDays(todayUtc(), 1 - (rolling?.days ?? HISTORY_DAYS));
+      const unread = oldest === undefined ? !rollingAsked : oldest <= filesFrom && (!rollingAsked || !archives.has(olderYear));
+      earlierButton.disabled = !shown || !((oldest !== undefined && start > oldest) || unread);
+      laterButton.disabled = end >= newestDay();
       if (focused === earlierButton && earlierButton.disabled && !laterButton.disabled) laterButton.focus();
       if (focused === laterButton && laterButton.disabled && !earlierButton.disabled) earlierButton.focus();
     };
     const drawWindow = () => {
+      if (atNewest) end = newestDay();
       renderBlocks(shown, held, range, end);
       updatePager();
     };
@@ -585,14 +605,16 @@ const TIME_VALUE = "mt-1 text-[15px] leading-6 font-semibold tabular-nums";
         // nothing older than the window on screen: it stays, and ‹ turns grey
         if (oldest === undefined || oldest >= start) return updatePager();
       }
+      atNewest = false;
       end = last;
       drawWindow();
     });
     laterButton.addEventListener("click", () => {
       if (laterButton.disabled) return;
-      const today = todayUtc();
+      const newest = newestDay();
       const last = addDays(end, range);
-      end = last > today ? today : last;
+      end = last > newest ? newest : last;
+      atNewest = end === newest;
       drawWindow();
     });
 
@@ -882,7 +904,8 @@ const TIME_VALUE = "mt-1 text-[15px] leading-6 font-semibold tabular-nums";
     box-shadow: 0 0 0 1px var(--color-gray-500);
   }
   /* a day's card, the kit dialog's frame at a tooltip's size: it floats under the bars, or over
-     them near the bottom of the window, so nothing moves when it opens */
+     them near the bottom of the window, so nothing moves when it opens. Open, it takes the pointer,
+     so its text can be selected and copied */
   .status-day-card {
     position: absolute;
     top: calc(1rem + 4px);
@@ -904,10 +927,27 @@ const TIME_VALUE = "mt-1 text-[15px] leading-6 font-semibold tabular-nums";
       visibility 0s 150ms;
   }
   .status-day-card[data-open] {
+    pointer-events: auto;
     visibility: visible;
     opacity: 1;
     transform: none;
     transition-delay: 0s;
+  }
+  /* the 4px between the bars and the card, above it or below, belong to the card, so a pointer
+     crossing them stays */
+  .status-day-card::before,
+  .status-day-card::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 6px;
+  }
+  .status-day-card::before {
+    bottom: 100%;
+  }
+  .status-day-card::after {
+    top: 100%;
   }
   .dark .status-day-card {
     border-color: var(--color-gray-800);
@@ -923,11 +963,8 @@ const TIME_VALUE = "mt-1 text-[15px] leading-6 font-semibold tabular-nums";
     color: var(--color-gray-500);
     overflow-wrap: anywhere;
   }
+  /* the whole error, at most 200 characters, so a copy takes all of it */
   .status-day-card .status-error {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
-    overflow: hidden;
     margin-top: 0.25rem;
     font-size: 11px;
   }
