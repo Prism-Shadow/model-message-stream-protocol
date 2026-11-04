@@ -6,7 +6,8 @@
 // dialog from the button at the end of its row, copies its code or a prompt for an agent, and redraws
 // the latency and throughput when the status-data branch has a newer run than the build. The kit is
 // assembled in the browser by kit.ts from the row's own attributes and the page's one table of
-// providers, so the page carries no program and fetches nothing to open one.
+// providers, so the page carries no program and fetches nothing to open one. The link beside the
+// code button, to the model's page at its provider, is added by the script as well (pages.ts).
 // Marks point into the page's MarkSprite.
 import VendorMark from "./VendorMark.astro";
 import { STRINGS, localePath, type Locale } from "../shared/i18n";
@@ -44,10 +45,11 @@ const MODALITY_ICONS: Record<Modality, string> = {
   Embed: '<path d="M13.5 10.5 15 9"></path><path d="M4 4v15a1 1 0 0 0 1 1h15"></path><path d="M4.293 19.707 6 18"></path><path d="m9 15 1.5-1.5"></path>',
   Web: '<circle cx="12" cy="12" r="10"></circle><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path><path d="M2 12h20"></path>',
 };
-// Lucide: arrow-right, code; once in the sprite, since every row repeats them
+// Lucide: arrow-right, code, external-link; once in the sprite, since every row repeats them
 const ROW_ICONS = {
   arrow: '<path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path>',
   code: '<path d="m16 18 6-6-6-6"></path><path d="m8 6-6 6 6 6"></path>',
+  page: '<path d="M15 3h6v6"></path><path d="M10 14 21 3"></path><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>',
 };
 
 const price = (value: number | undefined) => (value === undefined ? undefined : formatPrice(value));
@@ -143,7 +145,8 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
       <col class="w-24" />
       {/* "Throughput" and its unit, tok/s, are the widest header */}
       <col class="w-30" />
-      <col class="w-10" />
+      {/* the page link and the code button */}
+      <col class="w-18" />
     </colgroup>
     <thead>
       <tr class="border-b border-gray-200 text-left dark:border-gray-800">
@@ -297,7 +300,7 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
             <span class="mono break-all" data-kit-model></span>
           </h2>
           <p class="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[13px]">
-            <span class="flex min-w-0 items-center gap-2 text-gray-600 dark:text-gray-400" data-kit-provider></span>
+            <a class="kit-provider flex min-w-0 items-center gap-2 text-gray-600 dark:text-gray-400" target="_blank" rel="noopener noreferrer" data-kit-provider></a>
             <span class="mono truncate text-xs text-gray-400 dark:text-gray-500" data-kit-url></span>
           </p>
         </div>
@@ -349,7 +352,7 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
 
 <style is:global>
   /* ---------- the table: columns on a desktop; on narrower screens each row stacks, the model and
-     its code button first, then the provider, the context and the modalities, then the prices, then
+     its two buttons first, then the provider, the context and the modalities, then the prices, then
      a probed entry's latency and throughput */
   .catalog-table {
     border-collapse: collapse;
@@ -378,7 +381,8 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
       background: var(--color-gray-900);
     }
   }
-  .catalog-kit {
+  .catalog-kit,
+  .catalog-page {
     display: inline-flex;
     width: 2rem;
     height: 2rem;
@@ -390,11 +394,13 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
       background-color 150ms cubic-bezier(0.23, 1, 0.32, 1),
       color 150ms cubic-bezier(0.23, 1, 0.32, 1);
   }
-  .catalog-kit:hover {
+  .catalog-kit:hover,
+  .catalog-page:hover {
     background: var(--color-gray-100);
     color: var(--color-gray-900);
   }
-  .dark .catalog-kit:hover {
+  .dark .catalog-kit:hover,
+  .dark .catalog-page:hover {
     background: var(--color-gray-800);
     color: var(--color-gray-100);
   }
@@ -470,8 +476,8 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
     .catalog-table th[data-sort-key="model"] {
       padding-left: 2.25rem;
     }
-    /* the code button fills its column and ends with the table, no taller than a row of text; its
-       header ends where the buttons do */
+    /* the page link and the code button fill their column and end with the table, no taller than a
+       row of text; the header ends where the buttons do */
     .catalog-table td[data-cell="kit"] {
       padding: 0 0 0 0.5rem;
     }
@@ -493,7 +499,7 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
       display: grid;
       /* the first column is the mark and its gap, so the lines under the model id start where it
          does; an entry the probe has not reached has no fourth line */
-      grid-template-columns: 1.5rem auto auto minmax(0, 1fr) 2.25rem;
+      grid-template-columns: 1.5rem auto auto minmax(0, 1fr) 4.25rem;
       grid-template-areas:
         "model model model model kit"
         ". provider context modalities modalities"
@@ -532,8 +538,9 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
       align-self: center;
       justify-self: end;
     }
-    /* the button reaches into the row's padding, so the first line is as tall as the id */
-    .catalog-table td[data-cell="kit"] .catalog-kit {
+    /* the buttons reach into the row's padding, so the first line is as tall as the id */
+    .catalog-table td[data-cell="kit"] .catalog-kit,
+    .catalog-table td[data-cell="kit"] .catalog-page {
       margin-block: -0.375rem;
     }
     .catalog-table td[data-cell="provider"] {
@@ -704,6 +711,15 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
     background: var(--color-gray-800);
     color: var(--color-gray-100);
   }
+  /* the provider under the model id, a link to the model's page there when it has one */
+  .kit-provider[href]:hover {
+    color: var(--color-gray-900);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .dark .kit-provider[href]:hover {
+    color: var(--color-gray-100);
+  }
   .kit-panel .code-group {
     margin: 1rem 0 0;
   }
@@ -729,11 +745,12 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
   import { PRICE_UNITS, isProbed, metricCells, type MetricWords } from "../shared/catalog-status";
   import { loadLatest, statusQuery, withCurrentKeys, type Status } from "../shared/status";
   import { catalogKit, modalitiesOf, type CatalogKit, type Kind, type KitEntry, type KitProvider } from "../shared/kit";
+  import { modelPage } from "../shared/pages";
   import type { Locale } from "../shared/i18n";
   import type { Modality } from "../../../src_ts/src/registry.ts";
 
   type Tab = keyof CatalogKit["run"];
-  type Words = MetricWords & { copied: string; copyFailed: string; models: string; perMillion: string; modality: Record<Modality, string> };
+  type Words = MetricWords & { copied: string; copyFailed: string; page: string; models: string; perMillion: string; modality: Record<Modality, string> };
 
   const stored = (key: string) => {
     try {
@@ -778,6 +795,26 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
     const providers = JSON.parse(root.querySelector("[data-kit-providers]")!.textContent!) as KitProvider[];
     const locale = document.documentElement.dataset.locale as Locale;
     const site = root.dataset.site!;
+    const modelOf = (row: HTMLTableRowElement) => row.querySelector('[data-cell="model"] .mono')!.textContent!;
+
+    // ---------- the model's page at its provider: a link before each row's code button, for the rows
+    // whose provider has one, opened in a new tab
+    const pageTemplate = document.createElement("a");
+    pageTemplate.className = "catalog-page";
+    pageTemplate.target = "_blank";
+    pageTemplate.rel = "noopener noreferrer";
+    pageTemplate.innerHTML = '<svg class="h-3.5 w-3.5" aria-hidden="true"><use href="#catalog-page"></use></svg>';
+    for (const row of rows) {
+      const provider = providers[Number(row.dataset.p)];
+      const model = modelOf(row);
+      const href = modelPage(provider.id, model);
+      if (!href) continue;
+      const link = pageTemplate.cloneNode(true) as HTMLAnchorElement;
+      link.href = href;
+      link.title = words.page.replace("{model}", model).replace("{provider}", provider.name);
+      link.setAttribute("aria-label", link.title);
+      row.querySelector(".catalog-kit")!.before(link);
+    }
     const entryOf = (row: HTMLTableRowElement, model: string, url: string): KitEntry => {
       const data = row.dataset;
       const number = (value: string | undefined) => (value === undefined ? undefined : Number(value));
@@ -804,7 +841,7 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
     };
     const show = (row: HTMLTableRowElement) => {
       const url = row.querySelector<HTMLElement>('[data-cell="provider"] [title]')!.title;
-      const model = row.querySelector('[data-cell="model"] .mono')!.textContent!;
+      const model = modelOf(row);
       open = row;
       row.dataset.open = "";
       kit = catalogKit(entryOf(row, model, url), providers[Number(row.dataset.p)], locale, site, words.modality);
@@ -812,7 +849,22 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
       slot("url").textContent = url;
       slot("url").title = url;
       slot("mark").replaceChildren(...clones(row.querySelector("[data-row-mark]")));
-      slot("provider").replaceChildren(...clones(row.querySelector('[data-cell="provider"] > span')));
+      // the provider links to the row's page, if it has one, and its name drops the row's tooltip,
+      // the base URL, which the dialog prints beside it
+      const provider = slot("provider") as HTMLAnchorElement;
+      const page = row.querySelector<HTMLAnchorElement>(".catalog-page");
+      provider.replaceChildren(...clones(row.querySelector('[data-cell="provider"] > span')));
+      for (const titled of provider.querySelectorAll("[title]")) titled.removeAttribute("title");
+      for (const name of ["href", "title", "aria-label"]) {
+        const value = page?.getAttribute(name);
+        if (value) provider.setAttribute(name, value);
+        else provider.removeAttribute(name);
+      }
+      if (page) {
+        const icon = page.firstElementChild!.cloneNode(true) as SVGElement;
+        icon.setAttribute("class", "h-3 w-3 shrink-0");
+        provider.append(icon);
+      }
       slot("modalities").replaceChildren(...clones(row.querySelector('[data-cell="modalities"] > span')));
       slot("context").textContent = row.querySelector('[data-cell="context"]')!.textContent!.trim();
       const prices = [...row.querySelectorAll<HTMLElement>("[data-price]")].filter((cell) => cell.textContent !== "—");

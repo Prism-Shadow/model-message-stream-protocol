@@ -11,8 +11,10 @@ import type { Modality } from "../../../src_ts/src/registry.ts";
 
 type Text = Record<Locale, string>;
 
-// what the programs and the agent prompt need of a provider; the page carries these once, as a table
+// what the programs and the agent prompt need of a provider; the page carries these once, as a table,
+// with the id that names the provider's model pages (pages.ts)
 export interface KitProvider {
+  id: string;
   name: string;
   keyEnv: string;
   // what to export in the key variable: a token, the service-account JSON, ACCESS,SECRET
