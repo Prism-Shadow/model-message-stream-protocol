@@ -31,7 +31,9 @@ To use a specific model, please refer to its dedicated README:
 - **[Kimi K3.1 Pro](./kimi_k3_1/README.md)** - Moonshot's Kimi K3.1 Pro (`kimi-k3.1-pro`, `kimi-k3.1-pro-highspeed`): K3's request contract, new prices, `prompt_cache_options` TTLs and cache-write usage
 - **[MiniMax M-series](./minimax_m3/README.md)** - Responses API-compatible documentation for MiniMax M3.1-Flash (always-on thinking, `effort` low to max, no priority tier) and M3, plus Subscription Key integration
 - **[openai-chat-vllm-adapter model artifacts](./openai_chat_vllm_adapter/README.md)** - Upstream chat templates for the Qwen models served through vLLM, and the encoding module that stands in for one on DeepSeek V4; the source behind the adapter's per-model thinking switch
+- **[OpenAI Images API](./openai_images/README.md)** - OpenAI's `POST /v1/images/generations` for the GPT Image models (`gpt-image-2.5-flare`): sizes, streaming events, usage, errors; plus TokenDance's OpenAI-format gateway for `seedream-5.0-lite`
 - **[OpenAI Responses protocol](./openai_responses/README.md)** - The OpenAI Responses-compatible protocol across OpenAI, OpenRouter, DeepSeek, Z.AI, and MiniMax (generic `openai_responses` client)
+- **[OpenRouter media APIs](./openrouter_media/README.md)** - OpenRouter's image generation (`/api/v1/images`, also answered at `/images/generations`, and Chat Completions `modalities`), text-to-speech (`/api/v1/audio/speech`) and speech-to-text (`/api/v1/audio/transcriptions`), with `bytedance-seed/seedream-5-0-flash`, `fish-audio/drama-3` and `fish-audio/transcribe-1`
 
 Each model directory contains:
 - `docs/` - Detailed documentation for the model's features and capabilities
