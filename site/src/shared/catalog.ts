@@ -19,8 +19,8 @@ export function statusKey(entry: Pick<SupportedModel, "model" | "base_url" | "cl
 
 // what the page carries of a provider for its kits; a plain token is written as your-key
 export function kitProvider(provider: Provider): KitProvider {
-  const { name, keyEnv, keyHint } = provider;
-  return { name, keyEnv, keyValue: provider.keyValue ?? "your-key", ...(keyHint ? { keyHint } : {}) };
+  const { id, name, keyEnv, keyHint } = provider;
+  return { id, name, keyEnv, keyValue: provider.keyValue ?? "your-key", ...(keyHint ? { keyHint } : {}) };
 }
 
 /**
