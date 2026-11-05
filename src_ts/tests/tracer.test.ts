@@ -540,6 +540,40 @@ describe("Tracer", () => {
     expect(txtContent).toContain("Inline Audio: audio/pcm");
   });
 
+  test("should play a PCM clip at the rate and channels its MIME type names", async () => {
+    const tracer = new Tracer(tempCacheDir);
+    const pcm = Buffer.from(
+      Array.from({ length: 16 }, (_, index) => index % 2),
+    );
+    tracer.saveHistory(
+      "fake-model",
+      [
+        {
+          role: "assistant",
+          content_items: [
+            {
+              type: "inline_data.done",
+              data: pcm,
+              mime_type: "audio/l16; rate=44100; channels=2",
+            },
+          ],
+        },
+      ],
+      "test/pcm_rate",
+      {},
+    );
+
+    const app = tracer.createWebApp();
+    const supertest = await import("supertest");
+    const response = await supertest.default(app).get("/test/pcm_rate.json");
+    const wav = Buffer.from(
+      /data:audio\/wav;base64,([A-Za-z0-9+/=]+)/.exec(response.text)![1],
+      "base64",
+    );
+    expect([wav.readUInt32LE(24), wav.readUInt16LE(22)]).toEqual([44100, 2]);
+    expect(wav.subarray(44)).toEqual(pcm);
+  });
+
   test("should render embedding previews with the first five values", async () => {
     const tracer = new Tracer(tempCacheDir);
 

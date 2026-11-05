@@ -44,6 +44,9 @@ COMPATIBLE_CLIENT_TYPES = (
     "openai-chat",
     "openai-chat-vllm-adapter",
     "openai-embedding",
+    "openai-image",
+    "openai-speech",
+    "openai-transcription",
     "ant-messages",
     "google-genai",
     "deepseek-webtool",
@@ -118,6 +121,9 @@ CLIENT_CREDENTIALS: dict[str, ClientCredentials] = {
         "VLLM_API_KEY", "VLLM_BASE_URL", "http://127.0.0.1:8000/v1", open_server=True
     ),
     "openai-embedding": _OPENAI,
+    "openai-image": _OPENAI,
+    "openai-speech": _OPENAI,
+    "openai-transcription": _OPENAI,
     "ant-messages": _ANTHROPIC,
     "google-genai": _GEMINI,
     "deepseek-webtool": _DEEPSEEK,
@@ -186,8 +192,8 @@ def routed_client_type(model: str, client_type: str | None = None) -> str | None
 
     The client type passed in (in any casing, an earlier name accepted), else the official client of
     the model id's family. `openai-official` serves a `text-embedding-` model through
-    `openai-embedding`, and `deepseek-official` serves `deepseek-search` and `deepseek-fetch` through
-    `deepseek-webtool`.
+    `openai-embedding` and a `gpt-image-` model through `openai-image`, and `deepseek-official` serves
+    `deepseek-search` and `deepseek-fetch` through `deepseek-webtool`.
 
     Args:
         model: The model id.
@@ -199,6 +205,8 @@ def routed_client_type(model: str, client_type: str | None = None) -> str | None
     routed = _canonical_client_type(client_type) if client_type else client_type_for_model(model)
     if routed == "openai-official" and model.lower().startswith("text-embedding-"):
         return "openai-embedding"
+    if routed == "openai-official" and model.lower().startswith("gpt-image-"):
+        return "openai-image"
     if routed == "deepseek-official" and model.lower() in ("deepseek-search", "deepseek-fetch"):
         return "deepseek-webtool"
     return routed

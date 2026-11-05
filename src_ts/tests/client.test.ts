@@ -37,6 +37,9 @@ import { assertStreamGrammar } from "./streamGrammar";
 const IMAGE =
   "https://sghimages.shobserver.com/img/catch/2022/01/22/c1ae0300-9402-4128-a7e6-1244d3874167.jpg";
 const IMAGE_KEYWORDS = ["flower", "narcissus", "daffodil", "bloom"];
+// eleven seconds of a speech, "...ask not what your country can do for you...", from the Whisper repository
+const AUDIO =
+  "https://raw.githubusercontent.com/openai/whisper/main/tests/jfk.flac";
 
 interface Model {
   name: string;
@@ -46,6 +49,7 @@ interface Model {
   supportAudioGeneration: boolean;
   supportEmbedding: boolean;
   supportWebtool?: "search" | "fetch";
+  supportTranscription: boolean;
   clientType?: string;
   baseUrl?: string;
   provider:
@@ -75,6 +79,7 @@ interface ModelCase {
   support_tts?: boolean;
   support_embedding?: boolean;
   support_webtool?: "search" | "fetch";
+  support_transcription?: boolean;
 }
 
 const MODEL_CATALOG: Record<string, { models: ModelCase[] }> = JSON.parse(
@@ -119,6 +124,7 @@ for (const [client, group] of Object.entries(MODEL_CATALOG)) {
       supportAudioGeneration: entry.support_tts ?? false,
       supportEmbedding: entry.support_embedding ?? false,
       supportWebtool: entry.support_webtool,
+      supportTranscription: entry.support_transcription ?? false,
     });
   }
 }
@@ -141,6 +147,7 @@ if (
     supportImageGeneration: false,
     supportAudioGeneration: false,
     supportEmbedding: false,
+    supportTranscription: false,
     provider: "mmsp",
     clientType: "mmsp",
     baseUrl: process.env.MMSP_BASE_URL,
@@ -981,7 +988,7 @@ if (AVAILABLE_MODELS.length > 0) {
       }
       const client = createClient(model);
       const config: UniConfig = {
-        image_config: { aspect_ratio: "1:1", image_size: "1K" },
+        image_config: { aspect_ratio: "1:1", image_size: "2K" },
       };
       const messages: UniMessage[] = [
         {
@@ -1024,9 +1031,7 @@ if (AVAILABLE_MODELS.length > 0) {
       }
 
       const client = createClient(model);
-      const config: UniConfig = {
-        tts_config: [{ voice: "Kore" }],
-      };
+      const config: UniConfig = {};
       const messages: UniMessage[] = [
         {
           role: "user",
@@ -1064,6 +1069,48 @@ if (AVAILABLE_MODELS.length > 0) {
         ),
       ).toBe(true);
       expect(inlineItems.every((item) => item.data.length > 0)).toBe(true);
+    });
+
+    modelTest("should transcribe audio", 120000, async (model) => {
+      if (!model.supportTranscription) {
+        return;
+      }
+
+      const response = await fetch(AUDIO);
+      expect(response.ok).toBe(true);
+      const audio = Buffer.from(await response.arrayBuffer());
+
+      const client = createClient(model);
+      const events: UniEvent[] = [];
+      for await (const event of client.streamingResponse({
+        messages: [
+          {
+            role: "user",
+            content_items: [
+              {
+                type: "inline_data.done",
+                data: audio,
+                mime_type: "audio/flac",
+              },
+            ],
+          },
+        ],
+        config: {},
+      })) {
+        checkEventIntegrity(event);
+        events.push(event);
+      }
+
+      assertStreamGrammar(events);
+      const text = events
+        .flatMap((event): EventContentItem[] => event.content_items)
+        .filter((item) => item.type === "text.done")
+        .map((item) => (item as { type: "text.done"; text: string }).text)
+        .join("");
+      expect(text.toLowerCase()).toContain("country");
+      const stop = events[events.length - 1];
+      expect(stop.finish_reason).toBe("stop");
+      expect(stop.usage_metadata?.prompt_tokens).toBeGreaterThan(0);
     });
 
     modelTest("should stream text embeddings", 60000, async (model) => {
@@ -1205,6 +1252,16 @@ const ROUTING_CASES: [string, string | undefined, string][] = [
   ["GPT-5.5", undefined, "OpenAIOfficialClient"],
   ["text-embedding-3-large", undefined, "OpenaiEmbeddingClient"],
   ["text-embedding-3-large", "openai-official", "OpenaiEmbeddingClient"],
+  // openai-official serves OpenAI's image models through openai-image
+  ["gpt-image-2.5-flare", undefined, "OpenaiImageClient"],
+  ["gpt-image-2.5-flare", "openai-official", "OpenaiImageClient"],
+  ["seedream-5.0-lite", "openai-image", "OpenaiImageClient"],
+  ["fish-audio/drama-3", "openai-speech", "OpenaiSpeechClient"],
+  [
+    "fish-audio/transcribe-1",
+    "openai-transcription",
+    "OpenaiTranscriptionClient",
+  ],
   ["claude-sonnet-5", undefined, "AnthropicOfficialClient"],
   ["gemini-3.8-flash", undefined, "GoogleOfficialClient"],
   ["gemini-embedding-2", undefined, "GoogleOfficialClient"],
