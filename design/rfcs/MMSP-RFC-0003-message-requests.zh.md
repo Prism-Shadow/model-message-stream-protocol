@@ -3,7 +3,7 @@
 - Feature Name: `message_requests`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313), [#RFCPR](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/RFCPR)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313), [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316)
 - Kind: spec
 
 [English](MMSP-RFC-0003-message-requests.md)
@@ -24,7 +24,7 @@
 
 2026-11-02，OpenAI 发布 GPT-6.1 Terra，项目负责人要求支持，原话是：「GPT 6.1 terra更新了」。与 GPT-6 Astra、GPT-6.1 Sol 不同，Terra 接受 `none` 这一 effort，所以两个 Responses 客户端在 Terra 上把 `none` 当作它自己的关闭开关。为它做的探测发现了所有 GPT-6 模型上的两处缺口：`tool_choice` 的列表形式发出时缺少 OpenAI 与 OpenRouter 要求的 `type`（400 `Missing required parameter: 'tool_choice.type'`）；超过 30,000 个 patch 的图片被拒绝，因为只有 GPT-5.6 会被发送 `detail: "high"`。项目负责人还把 `enhance` 映射到 OpenAI 的 12 小时缓存时长，GPT-5.6 及之后的模型在 Responses API 上接受它，GPT-5.5 拒绝。[#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313) 在原文上修改了本规范：§6.1 与 §6.3 写入 Terra 的 `none` 和这一代模型的 `detail`，§6.4 写入 allowed-tools 列表与 12 小时缓存。
 
-2026-11-04，项目负责人要求通过 OpenAI 的格式支持图像生成、语音合成与语音转写，由 OpenAI、OpenRouter 与 TokenDance 提供，各由一个兼容客户端负责：`openai-image`、`openai-speech` 与 `openai-transcription`。每个客户端读取什么，由抓包决定。对流式的图像请求，OpenAI 只用一个携带整张图片的 `image_generation.completed` 事件作答，OpenRouter 忽略 `stream`，TokenDance 发送它自己的事件，所以图像从一个 JSON 中读取；语音端点边生成边发送音频字节，第一块约 0.7 秒后到达；转写端点用一个 JSON 作答。映射由项目负责人确定：`image_config` 变成 Gemini 1K 与 2K 尺寸表中的 `size`，表中每个尺寸都符合 OpenAI 的尺寸规则；`tts_config` 变成那一个 `voice`；用量对图像是端点的 token 数，对语音是输入的 UTF-8 字节数（Fish Audio 按字节计费），对转写是音频的秒数。拒绝 1K 尺寸的 TokenDance 模型以它自己的错误作答。[#RFCPR](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/RFCPR) 在原文上修改了本规范：§3.2 加入媒体端点，§5 加入下载失败，§6.3 加入不思考的模型，§6.4 加入尺寸与音色。
+2026-11-04，项目负责人要求通过 OpenAI 的格式支持图像生成、语音合成与语音转写，由 OpenAI、OpenRouter 与 TokenDance 提供，各由一个兼容客户端负责：`openai-image`、`openai-speech` 与 `openai-transcription`。每个客户端读取什么，由抓包决定。对流式的图像请求，OpenAI 只用一个携带整张图片的 `image_generation.completed` 事件作答，OpenRouter 忽略 `stream`，TokenDance 发送它自己的事件，所以图像从一个 JSON 中读取；语音端点边生成边发送音频字节，第一块约 0.7 秒后到达；转写端点用一个 JSON 作答。映射由项目负责人确定：`image_config` 变成 Gemini 1K 与 2K 尺寸表中的 `size`，表中每个尺寸都符合 OpenAI 的尺寸规则；`tts_config` 变成那一个 `voice`；用量对图像是端点的 token 数，对语音是输入的 UTF-8 字节数（Fish Audio 按字节计费），对转写是音频的秒数。拒绝 1K 尺寸的 TokenDance 模型以它自己的错误作答。[#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316) 在原文上修改了本规范：§3.2 加入媒体端点，§5 加入下载失败，§6.3 加入不思考的模型，§6.4 加入尺寸与音色。
 
 ## 2. Conventions and Terminology
 

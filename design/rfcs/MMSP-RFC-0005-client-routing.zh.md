@@ -3,7 +3,7 @@
 - Feature Name: `client_routing`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#RFCPR](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/RFCPR)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316)
 - Kind: spec
 
 [English](MMSP-RFC-0005-client-routing.md)
@@ -18,7 +18,7 @@
 
 2026-11-02，项目负责人要求加入网页搜索与网页抓取，做法与 embedding 相同，原话是：「在mmsp里面增加search和fetch的能力,实现方式和embedding类似」。正如 `openai-official` 经由 `openai-embedding` 服务 OpenAI 的 embedding 模型，`deepseek-official` 经由 `deepseek-webtool` 服务 DeepSeek 的 Search 与 Fetch，即 `deepseek-search` 与 `deepseek-fetch`；`deepseek-webtool` 是这套 JSON API 的兼容客户端，也可用于提供相同路径的网关。Jina 的网页工具有自己的模型族 `jina-`。这两个端点都不列出模型，Bedrock 也不列出，`anthropic-official` 在 Bedrock 上早已从 `list_models` 抛出 `UnsupportedOperationError`。[#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308) 在原文上修改了本规范：在 §3 中加入 `deepseek-official` 的规则，在 §5 中加入不列出模型的端点。
 
-2026-11-04，项目负责人要求通过 OpenAI 的格式支持图像生成、语音合成与语音转写，各由一个兼容客户端负责：`openai-image`、`openai-speech` 与 `openai-transcription`。正如 `openai-official` 经由 `openai-embedding` 服务 OpenAI 的 embedding 模型，它经由 `openai-image` 服务 OpenAI 的图像模型 `gpt-image-`。网关后面其他厂商的模型，例如 `bytedance-seed/seedream-5-0-flash` 或 `fish-audio/drama-3`，不以任何模型族开头，用 `client_type` 指定客户端。[#RFCPR](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/RFCPR) 在原文上修改了本规范：在 §3 中加入 `gpt-image-` 的规则。
+2026-11-04，项目负责人要求通过 OpenAI 的格式支持图像生成、语音合成与语音转写，各由一个兼容客户端负责：`openai-image`、`openai-speech` 与 `openai-transcription`。正如 `openai-official` 经由 `openai-embedding` 服务 OpenAI 的 embedding 模型，它经由 `openai-image` 服务 OpenAI 的图像模型 `gpt-image-`。网关后面其他厂商的模型，例如 `bytedance-seed/seedream-5-0-flash` 或 `fish-audio/drama-3`，不以任何模型族开头，用 `client_type` 指定客户端。[#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316) 在原文上修改了本规范：在 §3 中加入 `gpt-image-` 的规则。
 
 ## 2. Conventions and Terminology
 

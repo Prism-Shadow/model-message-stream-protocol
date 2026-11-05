@@ -3,7 +3,7 @@
 - Feature Name: `upstream_credentials`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#RFCPR](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/RFCPR)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316)
 - Kind: spec
 
 [English](MMSP-RFC-0006-upstream-credentials.md)
@@ -18,7 +18,7 @@
 
 2026-11-02，项目负责人要求加入网页搜索与网页抓取，做法与 embedding 相同，原话是：「在mmsp里面增加search和fetch的能力,实现方式和embedding类似」。Jina 在 `https://r.jina.ai` 上提供 Reader，在 `https://s.jina.ai` 上提供 Search，两者共用一个密钥；因此一行可以声明厂商提供其部分模型的其他主机，环境变量中的密钥像发往默认端点一样发往其中每一个。网页工具客户端都基于 OpenAI SDK，兼容客户端与官方客户端都是，所以客户端拿不到密钥时的那条规则，覆盖该 SDK 上密钥不是 OpenAI 密钥的每一个客户端。[#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308) 在原文上修改了本规范：在 §2、§3 与 §4 中加入其他默认端点，并把 §4 的最后一条规则写成适用于每一个这样的客户端。
 
-2026-11-04，项目负责人要求通过 OpenAI 的格式支持图像生成，并规定图像的 `url` 下载时不带任何凭据。OpenAI 与 OpenRouter 用图像的字节作答，TokenDance 则给出一个指向火山引擎对象存储中图像的链接，签名有效期 24 小时；随下载发出的密钥会到达一个从未为它给出的主机。[#RFCPR](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/RFCPR) 在原文上修改了本规范：加入 §7。
+2026-11-04，项目负责人要求通过 OpenAI 的格式支持图像生成，并规定图像的 `url` 下载时不带任何凭据。OpenAI 与 OpenRouter 用图像的字节作答，TokenDance 则给出一个指向火山引擎对象存储中图像的链接，签名有效期 24 小时；随下载发出的密钥会到达一个从未为它给出的主机。[#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316) 在原文上修改了本规范：加入 §7。
 
 ## 2. Conventions and Terminology
 

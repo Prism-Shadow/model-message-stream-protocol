@@ -3,7 +3,7 @@
 - Feature Name: `client_routing`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#RFCPR](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/RFCPR)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316)
 - Kind: spec
 
 [中文版](MMSP-RFC-0005-client-routing.zh.md)
@@ -18,7 +18,7 @@ Before [#228](https://github.com/Prism-Shadow/model-message-stream-protocol/pull
 
 On 2026-11-02 the owner asked for web search and page fetch, done the way embedding is: 在mmsp里面增加search和fetch的能力,实现方式和embedding类似. As `openai-official` serves OpenAI's embedding models through `openai-embedding`, `deepseek-official` serves DeepSeek's Search and Fetch, `deepseek-search` and `deepseek-fetch`, through `deepseek-webtool`, the compatible client of their JSON API, which also serves a gateway that offers the same paths. Jina's web tools have a family of their own, `jina-`. Neither endpoint lists its models, and neither does Bedrock, on which `anthropic-official` already raised `UnsupportedOperationError` from `list_models`. [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308) amended this specification in place, with the `deepseek-official` rule added to §3 and the endpoint that lists no models to §5.
 
-On 2026-11-04 the owner asked for image generation, speech and transcription through OpenAI's formats, each by a compatible client: `openai-image`, `openai-speech` and `openai-transcription`. As `openai-official` serves OpenAI's embedding models through `openai-embedding`, it serves OpenAI's image models, `gpt-image-`, through `openai-image`. A model of another vendor behind a gateway, such as `bytedance-seed/seedream-5-0-flash` or `fish-audio/drama-3`, begins with no family and names its client with `client_type`. [#RFCPR](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/RFCPR) amended this specification in place, with the `gpt-image-` rule added to §3.
+On 2026-11-04 the owner asked for image generation, speech and transcription through OpenAI's formats, each by a compatible client: `openai-image`, `openai-speech` and `openai-transcription`. As `openai-official` serves OpenAI's embedding models through `openai-embedding`, it serves OpenAI's image models, `gpt-image-`, through `openai-image`. A model of another vendor behind a gateway, such as `bytedance-seed/seedream-5-0-flash` or `fish-audio/drama-3`, begins with no family and names its client with `client_type`. [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316) amended this specification in place, with the `gpt-image-` rule added to §3.
 
 ## 2. Conventions and Terminology
 

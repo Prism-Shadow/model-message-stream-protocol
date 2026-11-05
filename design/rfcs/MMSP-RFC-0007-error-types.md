@@ -3,7 +3,7 @@
 - Feature Name: `error_types`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#RFCPR](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/RFCPR)
+- Updated by: [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316)
 - Kind: spec
 
 [中文版](MMSP-RFC-0007-error-types.zh.md)
@@ -16,7 +16,7 @@ Outside `integration/`, every error MMSP raises, apart from the abort error, is 
 
 A caller that handles a refusal needs one class to catch, the same in both packages and through the server; a bare `ValueError` or `Error` cannot be told from a bug. The audit that wrote the first rule found `tts_config` rejected with a bare error in both Google clients ([#269](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/269)). The audit of 2026-10-23 found about sixty more places, from a tool result without its `tool_call_id` to an image on a text-only model, and the owner widened the rule from a rejected value to every error ([#288](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/288), [#290](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/290)). Stated in [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265) as MMSP-RFC-0007 and in [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) as MMSP-RFC-0009.
 
-On 2026-11-04 the owner asked for image generation through OpenAI's format, where a gateway may answer with a link to the image rather than its bytes. A download of that link that answers with an HTTP error is a failure of the provider's answer that no SDK raises, inside an open stream, and the owner chose `ProviderStreamError` for it, with the HTTP status as its code. [#RFCPR](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/RFCPR) amended this specification in place, in §3.2.
+On 2026-11-04 the owner asked for image generation through OpenAI's format, where a gateway may answer with a link to the image rather than its bytes. A download of that link that answers with an HTTP error is a failure of the provider's answer that no SDK raises, inside an open stream, and the owner chose `ProviderStreamError` for it, with the HTTP status as its code. [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316) amended this specification in place, in §3.2.
 
 ## 2. Conventions and Terminology
 
