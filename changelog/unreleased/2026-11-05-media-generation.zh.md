@@ -3,7 +3,7 @@
 - **Date:** 2026-11-05
 - **Type:** feature
 - **Scope:** `openai_image`, `openai_speech`, `openai_transcription`, `registry`, `integration`
-- **PR:** [#IMPLPR](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/IMPLPR)
+- **PR:** [#317](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/317)
 
 [English](2026-11-05-media-generation.md)
 
