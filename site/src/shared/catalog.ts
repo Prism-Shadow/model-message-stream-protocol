@@ -24,13 +24,25 @@ export function kitProvider(provider: Provider): KitProvider {
 }
 
 /**
- * What kit.ts needs of an entry. Its kind follows its first output that is not text: an entry that
- * answers text is a text one even when it also draws images.
+ * What kit.ts needs of an entry. An entry that takes audio and no text transcribes it; any other
+ * entry's kind follows its first output that is not text: an entry that answers text is a text one
+ * even when it also draws images.
  */
 export function kitEntry(entry: SupportedModel): KitEntry {
   const { model, base_url, client, input_modalities, output_modalities, context_window, pricing } = entry;
   const out = output_modalities;
-  const kind: Kind = out.includes("Text") ? "text" : out.includes("Embed") ? "embed" : out.includes("Web") ? "web" : out.includes("Image") ? "image" : "audio";
+  const kind: Kind =
+    input_modalities.includes("Audio") && !input_modalities.includes("Text")
+      ? "transcribe"
+      : out.includes("Text")
+        ? "text"
+        : out.includes("Embed")
+          ? "embed"
+          : out.includes("Web")
+            ? "web"
+            : out.includes("Image")
+              ? "image"
+              : "audio";
   return {
     model,
     base_url,
