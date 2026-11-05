@@ -84,3 +84,7 @@ An embedding model streams one `embedding.delta` and one `embedding.done` per me
 ## Web search and fetch
 
 A web tool model (`deepseek-search`, `deepseek-fetch`, `jina-search`, `jina-fetch`) streams one `webtool.delta` and one `webtool.done` per message you sent, then the `stop` event. A message's text is the query of a search or the URL of a fetch. A search's `webdata` holds its results in rank order, each with its summary as `content`, and is empty when it found nothing; a fetch's holds the one page, with its Markdown as `content`. The `stop` event's `prompt_tokens` is what was billed: 1 per request on DeepSeek, the tokens Jina counts on Jina.
+
+## Images, speech and transcription
+
+The media clients make one request per message too. `openai-image` streams each image as one `inline_data.delta` and its `inline_data.done`. `openai-speech` streams the audio as it is made, as `inline_data.delta` chunks of one item per message, headerless PCM named `audio/l16; rate=<rate>; channels=<channels>`. `openai-transcription` takes one audio `inline_data.done` per message and streams its text as one `text.delta` and its `text.done`. The `stop` event's `prompt_tokens` is what was billed: an image's input tokens, with its output tokens as `response_tokens`; speech's input in UTF-8 bytes; a transcription's audio in seconds, rounded up.

@@ -14,7 +14,7 @@ MMSP 抛出的每个错误都是 `MMSPError`，并按出错的原因命名。在
 | `EmptyResponseError` | 响应只有思考，没有别的内容就结束了。这样的消息在下一轮送回会得到 400。在原本该出现 `stop` 事件的位置抛出。 | `client`、结束原因，以及 `usage_metadata`，token 仍可计数 |
 | `IncompleteStreamError` | 服务商的流在用量或结束原因到达之前就结束了。这是一条中途断开的流，重试即可。在原本该出现 `stop` 事件的位置抛出。 | `client`、`missing`，以及已经到达的 `finish_reason` 和 `usage_metadata` |
 | `StreamProtocolError` | 某个客户端产生的流违反了[文法](/zh/docs/streaming/)。这是 MMSP 的 bug，不是模型输出的问题。 | `client` |
-| `ProviderStreamError` | 服务商在一条已打开的流中报告了错误，比如 Gemini Interactions 的 `error` 事件。 | `client`、`code`，以及服务商给出的消息 |
+| `ProviderStreamError` | 服务商在一条已打开的流中报告了错误，比如 Gemini Interactions 的 `error` 事件；或者下载生成图像的链接时得到 HTTP 错误，此时状态码即 `code`。 | `client`、`code`，以及服务商给出的消息 |
 
 遇到 `ToolCallArgumentParseError`，记录预览后重试或重新提示模型。切勿使用不完整的参数运行工具。
 
@@ -25,8 +25,8 @@ Python 将这些字段命名为 `tool_name`、`tool_call_id`、`raw_arguments_le
 | 错误 | 何时抛出 | 携带 |
 | --- | --- | --- |
 | `UnsupportedParameterError` | 模型拒绝某个 `UniConfig` 值，比如给固定温度的模型传 `temperature`。 | `client`、`parameter` |
-| `UnsupportedContentError` | 格式正确、但模型无法接收的内容项：发给纯文本模型的图片，发给嵌入、语音模型或网页工具的非文本内容项。 | `client`、`item_type` |
-| `InvalidMessageError` | 消息无法按原样发送：未知类型的内容项、没有 `tool_call_id` 的工具结果、不是合法 base64 或无法获取的图片、缺少说话人标签的 TTS 脚本，或者一条在线路上没有任何可发送内容的消息。 | `client`、`item_type`、`message_index` |
+| `UnsupportedContentError` | 格式正确、但模型无法接收的内容项：发给纯文本模型的图片，发给嵌入、语音、图像生成模型或网页工具的非文本内容项，发给转写模型的音频文件以外的内容项。 | `client`、`item_type` |
+| `InvalidMessageError` | 消息无法按原样发送：未知类型的内容项、没有 `tool_call_id` 的工具结果、不是合法 base64 或无法获取的图片、缺少说话人标签的 TTS 脚本，含两个音频内容项或未写明采样率的 PCM 的转写消息，或者一条在线路上没有任何可发送内容的消息。 | `client`、`item_type`、`message_index` |
 | `UnsupportedOperationError` | 端点无法提供的调用，比如在 Amazon Bedrock 或网页工具上列出模型。 | `client`、`operation` |
 | `ConcurrentCallError` | 同一个客户端上一次有状态调用尚未结束时，又调用了 `streaming_response_stateful`。一份历史记录不能同时记录两轮对话：请等第一次调用的 `stop` 事件或它的错误。 | `client` |
 | `RoutingError` | `client_type` 和模型 id 都没有指明客户端：`client_type` 未知，或者没有给出 `client_type` 而模型 id 不属于任何已知家族（[模型选择](/zh/docs/models/)）。由 `AutoLLMClient` 抛出。 | `model`、`client_type` |

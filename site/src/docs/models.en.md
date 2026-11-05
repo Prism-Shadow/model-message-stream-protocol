@@ -10,7 +10,7 @@ Use exact model ids. A model id that begins with a known family names its offici
 
 | `client_type` | Models | Speaks | Key and endpoint |
 | --- | --- | --- | --- |
-| `openai-official` | `gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-astra`, `gpt-5.6-sol`, `gpt-5.5`; `text-embedding-3-large`, `text-embedding-3-small` | OpenAI Responses; Embeddings for `text-embedding-*` | `OPENAI_API_KEY` `OPENAI_BASE_URL` |
+| `openai-official` | `gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-astra`, `gpt-5.6-sol`, `gpt-5.5`; `text-embedding-3-large`, `text-embedding-3-small`; `gpt-image-2.5-flare` | OpenAI Responses; Embeddings for `text-embedding-*`; Images for `gpt-image-*` | `OPENAI_API_KEY` `OPENAI_BASE_URL` |
 | `anthropic-official` | `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5`, `claude-fable-5-1`, `claude-opus-5`, `claude-sonnet-5` | Anthropic Messages | `ANTHROPIC_API_KEY` `ANTHROPIC_BASE_URL` |
 | `google-official` | `gemini-4-carbon`, `gemini-4-argon`, `gemini-3.8-flash`, `gemini-3.1-pro-preview`; `gemini-3.1-flash-image`, `gemini-3.8-flash-tts`; `gemini-embedding-2` | Gemini Interactions | `GEMINI_API_KEY` `GEMINI_BASE_URL` |
 | `zai-official` | `glm-5.3`, `glm-5.3-flash`, `glm-5.2` | Chat Completions | `ZAI_API_KEY` `ZAI_BASE_URL` |
@@ -62,7 +62,7 @@ models = list_supported_models(currency="CNY")  # "USD" by default
 
 ## Compatible clients
 
-Eight compatible clients call any endpoint that serves their protocol. Name one with `client_type`, and give it the endpoint and its key together: as `base_url` and `api_key`, or as `OPENAI_BASE_URL` and `OPENAI_API_KEY` in the environment (the `ANTHROPIC_` pair for `ant-messages`, the `GEMINI_` pair for `google-genai`, the `DEEPSEEK_` pair for `deepseek-webtool`, the `VLLM_` pair for `openai-chat-vllm-adapter`, the `MMSP_` pair for `mmsp`). A `base_url` other than the client's default endpoint without an `api_key` raises: the environment's key is not sent to an endpoint named in code ([the rule](/docs/client/)). `openai-chat-vllm-adapter` and `mmsp` call it keyless instead, because their servers may take no key; without either, they reach `http://127.0.0.1:8000/v1` and `http://127.0.0.1:25752/v1`.
+Eleven compatible clients call any endpoint that serves their protocol. Name one with `client_type`, and give it the endpoint and its key together: as `base_url` and `api_key`, or as `OPENAI_BASE_URL` and `OPENAI_API_KEY` in the environment (the `ANTHROPIC_` pair for `ant-messages`, the `GEMINI_` pair for `google-genai`, the `DEEPSEEK_` pair for `deepseek-webtool`, the `VLLM_` pair for `openai-chat-vllm-adapter`, the `MMSP_` pair for `mmsp`). A `base_url` other than the client's default endpoint without an `api_key` raises: the environment's key is not sent to an endpoint named in code ([the rule](/docs/client/)). `openai-chat-vllm-adapter` and `mmsp` call it keyless instead, because their servers may take no key; without either, they reach `http://127.0.0.1:8000/v1` and `http://127.0.0.1:25752/v1`.
 
 | `client_type` | Protocol | Served by |
 | --- | --- | --- |
@@ -70,6 +70,9 @@ Eight compatible clients call any endpoint that serves their protocol. Name one 
 | `openai-chat` | OpenAI Chat Completions. `openai` is an alias. | Most gateways, SiliconFlow, vLLM |
 | `openai-chat-vllm-adapter` | Chat Completions as vLLM serves it. Maps `thinking_level` onto the template's own switches. | vLLM |
 | `openai-embedding` | OpenAI Embeddings | Any embedding endpoint |
+| `openai-image` | OpenAI Images, `/images/generations`: one image per message | OpenAI, OpenRouter, TokenDance |
+| `openai-speech` | OpenAI Audio Speech, `/audio/speech`: the audio streams as it is made | OpenAI, OpenRouter |
+| `openai-transcription` | OpenAI Audio Transcriptions, `/audio/transcriptions`: one audio item per message | OpenAI, OpenRouter |
 | `ant-messages` | Anthropic Messages | Anthropic, OpenRouter, DeepSeek, Z.AI, MiniMax |
 | `google-genai` | Google generateContent, as the Google GenAI SDK speaks it | Vertex AI, the Gemini API, gateways that proxy it |
 | `deepseek-webtool` | DeepSeek's web search and page fetch, `/v1/tools/search` and `/v1/tools/fetch` | DeepSeek, TokenDance |
@@ -185,6 +188,9 @@ Every client speaks one protocol on the wire, whichever `client_type` reaches it
 | `openai-official`, `deepseek-official`, `minimax-official`, `openai-responses` | `openai-responses` |
 | `zai-official`, `moonshot-official`, `openai-chat`, `openai-chat-vllm-adapter` | `openai-chat` |
 | `openai-embedding`, and `openai-official` for `text-embedding-*` | `openai-embedding` |
+| `openai-image`, and `openai-official` for `gpt-image-*` | `openai-image` |
+| `openai-speech` | `openai-speech` |
+| `openai-transcription` | `openai-transcription` |
 | `deepseek-webtool`, and `deepseek-official` for `deepseek-search` and `deepseek-fetch` | `deepseek-webtool` |
 | `jina-webtool` | `jina-webtool` |
 | `mmsp` | `mmsp` |
