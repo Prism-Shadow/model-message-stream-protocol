@@ -10,7 +10,7 @@ description: MMSP 的客户端构成、各客户端支持的模型，以及如�
 
 | `client_type` | 模型 | 协议 | Key 与端点 |
 | --- | --- | --- | --- |
-| `openai-official` | `gpt-6.1-sol`、`gpt-6.1-terra`、`gpt-6-astra`、`gpt-5.6-sol`、`gpt-5.5`；`text-embedding-3-large`、`text-embedding-3-small` | OpenAI Responses；`text-embedding-*` 走 Embeddings | `OPENAI_API_KEY` `OPENAI_BASE_URL` |
+| `openai-official` | `gpt-6.1-sol`、`gpt-6.1-terra`、`gpt-6-astra`、`gpt-5.6-sol`、`gpt-5.5`；`text-embedding-3-large`、`text-embedding-3-small`；`gpt-image-2.5-flare` | OpenAI Responses；`text-embedding-*` 走 Embeddings；`gpt-image-*` 走 Images | `OPENAI_API_KEY` `OPENAI_BASE_URL` |
 | `anthropic-official` | `claude-opus-5-5`、`claude-sonnet-5-5`、`claude-haiku-5-5`、`claude-fable-5-1`、`claude-opus-5`、`claude-sonnet-5` | Anthropic Messages | `ANTHROPIC_API_KEY` `ANTHROPIC_BASE_URL` |
 | `google-official` | `gemini-4-argon`、`gemini-3.8-flash`、`gemini-3.7-flash`、`gemini-3.1-pro-preview`；`gemini-3.1-flash-image`、`gemini-3.8-flash-tts`；`gemini-embedding-2` | Gemini Interactions | `GEMINI_API_KEY` `GEMINI_BASE_URL` |
 | `zai-official` | `glm-5.3`、`glm-5.3-flash`、`glm-5.2` | Chat Completions | `ZAI_API_KEY` `ZAI_BASE_URL` |
@@ -62,7 +62,7 @@ models = list_supported_models(currency="CNY")  # 默认 "USD"
 
 ## 兼容客户端
 
-八个兼容客户端可调用任何提供对应协议的端点。使用时需用 `client_type` 指定协议，并同时提供端点和 key：可以传入 `base_url` 和 `api_key` 参数，或在环境变量中设置 `OPENAI_BASE_URL` 和 `OPENAI_API_KEY`（`ant-messages` 对应 `ANTHROPIC_` 变量对，`google-genai` 对应 `GEMINI_` 变量对，`deepseek-webtool` 对应 `DEEPSEEK_` 变量对，`openai-chat-vllm-adapter` 对应 `VLLM_` 变量对，`mmsp` 对应 `MMSP_` 变量对）。如果传入的 `base_url` 不是客户端的默认端点，又不提供 `api_key`，会报错：环境变量中的 key 不会自动用于代码指定的端点（[规则](/zh/docs/client/)）。`openai-chat-vllm-adapter` 和 `mmsp` 例外：它们的服务端可以不要 key，因此改为不带 key 调用；两者都不传时，分别发往 `http://127.0.0.1:8000/v1` 和 `http://127.0.0.1:25752/v1`。
+十一个兼容客户端可调用任何提供对应协议的端点。使用时需用 `client_type` 指定协议，并同时提供端点和 key：可以传入 `base_url` 和 `api_key` 参数，或在环境变量中设置 `OPENAI_BASE_URL` 和 `OPENAI_API_KEY`（`ant-messages` 对应 `ANTHROPIC_` 变量对，`google-genai` 对应 `GEMINI_` 变量对，`deepseek-webtool` 对应 `DEEPSEEK_` 变量对，`openai-chat-vllm-adapter` 对应 `VLLM_` 变量对，`mmsp` 对应 `MMSP_` 变量对）。如果传入的 `base_url` 不是客户端的默认端点，又不提供 `api_key`，会报错：环境变量中的 key 不会自动用于代码指定的端点（[规则](/zh/docs/client/)）。`openai-chat-vllm-adapter` 和 `mmsp` 例外：它们的服务端可以不要 key，因此改为不带 key 调用；两者都不传时，分别发往 `http://127.0.0.1:8000/v1` 和 `http://127.0.0.1:25752/v1`。
 
 | `client_type` | 协议 | 提供方 |
 | --- | --- | --- |
@@ -70,6 +70,9 @@ models = list_supported_models(currency="CNY")  # 默认 "USD"
 | `openai-chat` | OpenAI Chat Completions。`openai` 是其别名。 | 大多数网关、SiliconFlow、vLLM |
 | `openai-chat-vllm-adapter` | vLLM 提供的 Chat Completions。将 `thinking_level` 映射到模板自有的开关。 | vLLM |
 | `openai-embedding` | OpenAI Embeddings | 任何向量端点 |
+| `openai-image` | OpenAI Images，`/images/generations`：每条消息一张图 | OpenAI、OpenRouter、TokenDance |
+| `openai-speech` | OpenAI Audio Speech，`/audio/speech`：音频边生成边流出 | OpenAI、OpenRouter |
+| `openai-transcription` | OpenAI Audio Transcriptions，`/audio/transcriptions`：每条消息一个音频内容项 | OpenAI、OpenRouter |
 | `ant-messages` | Anthropic Messages | Anthropic、OpenRouter、DeepSeek、Z.AI、MiniMax |
 | `google-genai` | Google generateContent，即 Google GenAI SDK 所用的协议 | Vertex AI、Gemini API、代理此协议的网关 |
 | `deepseek-webtool` | DeepSeek 的网页搜索与网页抓取，`/v1/tools/search` 和 `/v1/tools/fetch` | DeepSeek、TokenDance |
@@ -185,6 +188,9 @@ client = AutoLLMClient(
 | `openai-official`、`deepseek-official`、`minimax-official`、`openai-responses` | `openai-responses` |
 | `zai-official`、`moonshot-official`、`openai-chat`、`openai-chat-vllm-adapter` | `openai-chat` |
 | `openai-embedding`，以及 `text-embedding-*` 下的 `openai-official` | `openai-embedding` |
+| `openai-image`，以及 `gpt-image-*` 下的 `openai-official` | `openai-image` |
+| `openai-speech` | `openai-speech` |
+| `openai-transcription` | `openai-transcription` |
 | `deepseek-webtool`，以及 `deepseek-search` 和 `deepseek-fetch` 下的 `deepseek-official` | `deepseek-webtool` |
 | `jina-webtool` | `jina-webtool` |
 | `mmsp` | `mmsp` |

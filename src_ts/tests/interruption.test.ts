@@ -49,12 +49,18 @@ const MODELS: Record<string, string> = {
   mmsp: "gpt-5.5",
 };
 
-// openai-embedding and the web tools answer with one response, not a stream
+// openai-embedding, the web tools, openai-image and openai-transcription answer with one response,
+// not a stream, and openai-speech streams audio, not text (media-clients.test.ts interrupts it)
 const STREAMING_CLIENT_TYPES = Object.keys(CLIENT_CREDENTIALS).filter(
   (clientType) =>
-    !["openai-embedding", "deepseek-webtool", "jina-webtool"].includes(
-      clientType,
-    ),
+    ![
+      "openai-embedding",
+      "deepseek-webtool",
+      "jina-webtool",
+      "openai-image",
+      "openai-speech",
+      "openai-transcription",
+    ].includes(clientType),
 );
 
 // the SDKs that end their stream quietly when their request is aborted

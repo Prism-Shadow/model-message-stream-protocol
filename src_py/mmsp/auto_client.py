@@ -96,6 +96,18 @@ def _client_class(client_type: str, model: str) -> type[LLMClient]:
             from .openai_embedding import OpenaiEmbeddingClient
 
             return OpenaiEmbeddingClient
+        case "openai-image":
+            from .openai_image import OpenaiImageClient
+
+            return OpenaiImageClient
+        case "openai-speech":
+            from .openai_speech import OpenaiSpeechClient
+
+            return OpenaiSpeechClient
+        case "openai-transcription":
+            from .openai_transcription import OpenaiTranscriptionClient
+
+            return OpenaiTranscriptionClient
         case "ant-messages":
             from .ant_messages import AntMessagesClient
 

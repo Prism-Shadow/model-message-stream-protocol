@@ -306,6 +306,37 @@
       }
     ]
   },
+  "openai-image": {
+    "models": [
+      {
+        "api_key_env": "OPENAI_API_KEY",
+        "name": "gpt-image-2.5-flare",
+        "support_text": false,
+        "support_image_understanding": false,
+        "support_image_generation": true
+      },
+      {
+        "api_key_env": "OPENROUTER_API_KEY",
+        "name": "bytedance-seed/seedream-5-0-flash",
+        "support_text": false,
+        "support_image_understanding": false,
+        "support_image_generation": true,
+        "provider": "openrouter",
+        "client_type": "openai-image",
+        "slow": true
+      },
+      {
+        "api_key_env": "TOKENDANCE_API_KEY",
+        "name": "seedream-5.0-lite",
+        "support_text": false,
+        "support_image_understanding": false,
+        "support_image_generation": true,
+        "provider": "tokendance",
+        "client_type": "openai-image",
+        "slow": true
+      }
+    ]
+  },
   "openai-official": {
     "models": [
       {
@@ -377,6 +408,32 @@
         "provider": "openrouter",
         "client_type": "openai-responses",
         "slow": true
+      }
+    ]
+  },
+  "openai-speech": {
+    "models": [
+      {
+        "api_key_env": "OPENROUTER_API_KEY",
+        "name": "fish-audio/drama-3",
+        "support_text": false,
+        "support_image_understanding": false,
+        "support_tts": true,
+        "provider": "openrouter",
+        "client_type": "openai-speech"
+      }
+    ]
+  },
+  "openai-transcription": {
+    "models": [
+      {
+        "api_key_env": "OPENROUTER_API_KEY",
+        "name": "fish-audio/transcribe-1",
+        "support_text": false,
+        "support_image_understanding": false,
+        "support_transcription": true,
+        "provider": "openrouter",
+        "client_type": "openai-transcription"
       }
     ]
   },

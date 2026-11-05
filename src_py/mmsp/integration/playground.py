@@ -43,7 +43,7 @@ from .. import AutoLLMClient
 from ..abort_signal import AbortSignal
 from ..credentials import CLIENT_CREDENTIALS, COMPATIBLE_CLIENT_TYPES, MODEL_FAMILIES, OFFICIAL_CLIENT_TYPES
 from ..registry import list_supported_models
-from ..wire import DEFAULT_HOST, DEFAULT_PORT, server_base_url
+from ..wire import DEFAULT_HOST, DEFAULT_PORT, decode_wire, server_base_url
 from .server import (
     _COLUMNS,
     SERVER_TEMPLATE,
@@ -1409,6 +1409,23 @@ def create_chat_app() -> Flask:
                 margin-bottom: 0;
             }
 
+            .bubble-audio {
+                display: grid;
+                justify-items: end;
+                gap: 6px;
+                margin-bottom: 6px;
+            }
+
+            .bubble-audio:last-child {
+                margin-bottom: 0;
+            }
+
+            .bubble-audio audio {
+                width: 260px;
+                max-width: 100%;
+                height: 36px;
+            }
+
             .message-content {
                 white-space: pre-wrap;
                 overflow-wrap: anywhere;
@@ -1899,6 +1916,30 @@ def create_chat_app() -> Flask:
                 opacity: 1;
             }
 
+            .preview-audio {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                max-width: 220px;
+                height: 56px;
+                padding: 0 12px;
+                border-radius: 10px;
+                background: var(--raised);
+                box-shadow: 0 0 0 1px var(--ring);
+                color: var(--muted);
+                font-size: 13px;
+            }
+
+            .preview-audio svg {
+                flex: none;
+            }
+
+            .preview-audio span {
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
             #messageInput {
                 display: block;
                 width: 100%;
@@ -2245,8 +2286,8 @@ def create_chat_app() -> Flask:
                         <div id="imagePreviewContainer" class="previews hidden"></div>
                         <textarea id="messageInput" rows="1" placeholder="Message gpt-6.1-sol" aria-label="Message"></textarea>
                         <div class="composer-bar">
-                            <input type="file" id="imageInput" accept="image/*" multiple class="hidden" onchange="handleImageSelect(event)">
-                            <button type="button" class="icon-btn" onclick="document.getElementById('imageInput').click()" aria-label="Attach images" title="Attach images">
+                            <input type="file" id="imageInput" accept="image/*,audio/*" multiple class="hidden" onchange="handleImageSelect(event)">
+                            <button type="button" class="icon-btn" onclick="document.getElementById('imageInput').click()" aria-label="Attach images or audio" title="Attach images or audio">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.4 11.1-8.8 8.8a5.5 5.5 0 0 1-7.8-7.8l8.8-8.8a3.7 3.7 0 0 1 5.2 5.2l-8.8 8.8a1.8 1.8 0 0 1-2.6-2.6l8.1-8.1"></path></svg>
                             </button>
                             <span class="composer-hint" id="composerHint">Enter to send, Shift+Enter for a new line</span>
@@ -2280,6 +2321,8 @@ def create_chat_app() -> Flask:
             // the entry (model id, client type, base URL) the conversation on screen was started with; null before the first message
             let conversationEntry = null;
             let selectedImages = [];
+            // audio files to send as the message's inline data, for a transcription model
+            let selectedAudio = [];
             let lastMessageTimestamp = null;
             let currentAbortController = null;
 
@@ -2553,8 +2596,9 @@ def create_chat_app() -> Flask:
                 const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
 
                 Array.from(files).forEach(file => {
-                    if (!allowedTypes.includes(file.type)) {
-                        alert(`File "${file.name}" is not a valid image type. Please upload JPEG, PNG, GIF, or WebP images.`);
+                    const isAudio = file.type.startsWith('audio/');
+                    if (!isAudio && !allowedTypes.includes(file.type)) {
+                        alert(`File "${file.name}" is neither an image (JPEG, PNG, GIF or WebP) nor audio.`);
                         return;
                     }
 
@@ -2566,10 +2610,14 @@ def create_chat_app() -> Flask:
                     const reader = new FileReader();
                     reader.onload = function(e) {
                         const base64Data = e.target.result;
-                        if (typeof base64Data === 'string' && base64Data.startsWith('data:image/')) {
+                        if (typeof base64Data !== 'string') return;
+                        if (isAudio) {
+                            // the data URL's payload, which the server decodes into the item's bytes
+                            selectedAudio.push({ name: file.name, mimeType: file.type, data: base64Data.slice(base64Data.indexOf(',') + 1) });
+                        } else if (base64Data.startsWith('data:image/')) {
                             selectedImages.push(base64Data);
-                            updateImagePreview();
                         }
+                        updateImagePreview();
                     };
                     reader.readAsDataURL(file);
                 });
@@ -2585,7 +2633,7 @@ def create_chat_app() -> Flask:
             function updateImagePreview() {
                 const container = document.getElementById('imagePreviewContainer');
                 updateSendState();
-                if (selectedImages.length === 0) {
+                if (selectedImages.length === 0 && selectedAudio.length === 0) {
                     container.classList.add('hidden');
                     container.innerHTML = '';
                     return;
@@ -2597,11 +2645,21 @@ def create_chat_app() -> Flask:
                         <img src="${img}" alt="Attached image ${idx + 1}">
                         <button type="button" onclick="removeImage(${idx})" aria-label="Remove image ${idx + 1}">${ICONS.close}</button>
                     </div>
+                `).join('') + selectedAudio.map((audio, idx) => `
+                    <div class="preview preview-audio" title="${escapeHtml(audio.name).replace(/"/g, '&quot;')}">
+                        ${ICONS.audio}<span>${escapeHtml(audio.name)}</span>
+                        <button type="button" onclick="removeAudio(${idx})" aria-label="Remove audio ${idx + 1}">${ICONS.close}</button>
+                    </div>
                 `).join('');
             }
 
             function removeImage(idx) {
                 selectedImages.splice(idx, 1);
+                updateImagePreview();
+            }
+
+            function removeAudio(idx) {
+                selectedAudio.splice(idx, 1);
                 updateImagePreview();
             }
 
@@ -2816,6 +2874,9 @@ def create_chat_app() -> Flask:
                 'openai-chat': 'OpenAI Chat Completions',
                 'openai-chat-vllm-adapter': 'Chat Completions on vLLM',
                 'openai-embedding': 'OpenAI Embeddings',
+                'openai-image': 'OpenAI Images',
+                'openai-speech': 'OpenAI Speech',
+                'openai-transcription': 'OpenAI Transcriptions',
                 'ant-messages': 'Anthropic Messages',
                 'google-genai': 'Google generateContent',
                 'deepseek-webtool': 'DeepSeek Search and Fetch',
@@ -3319,7 +3380,7 @@ def create_chat_app() -> Flask:
                 document.getElementById('thread').classList.remove('hidden');
             }
 
-            function addMessageCard(role, content, metadata = null, images = [], timestamp = null) {
+            function addMessageCard(role, content, metadata = null, images = [], timestamp = null, audio = []) {
                 const thread = document.getElementById('thread');
                 showThread();
 
@@ -3335,6 +3396,13 @@ def create_chat_app() -> Flask:
                         html += '<div class="bubble-images">';
                         images.forEach((img, idx) => {
                             html += `<img src="${img}" alt="Image ${idx + 1}">`;
+                        });
+                        html += '</div>';
+                    }
+                    if (audio && audio.length > 0) {
+                        html += '<div class="bubble-audio">';
+                        audio.forEach(clip => {
+                            html += `<audio controls preload="metadata" aria-label="${escapeHtml(clip.name).replace(/"/g, '&quot;')}"><source src="data:${clip.mimeType};base64,${clip.data}" type="${clip.mimeType}"></audio>`;
                         });
                         html += '</div>';
                     }
@@ -3423,7 +3491,7 @@ def create_chat_app() -> Flask:
 
             function updateSendState() {
                 const input = document.getElementById('messageInput');
-                document.getElementById('sendButton').disabled = isStreaming || (!input.value.trim() && selectedImages.length === 0);
+                document.getElementById('sendButton').disabled = isStreaming || (!input.value.trim() && selectedImages.length === 0 && selectedAudio.length === 0);
             }
 
             function stopGeneration() {
@@ -3465,7 +3533,7 @@ def create_chat_app() -> Flask:
                 const input = document.getElementById('messageInput');
                 const message = input.value.trim();
 
-                if ((!message && selectedImages.length === 0) || isStreaming) return;
+                if ((!message && selectedImages.length === 0 && selectedAudio.length === 0) || isStreaming) return;
 
                 // set first, so that a second Enter while the old conversation is cleared is ignored
                 isStreaming = true;
@@ -3481,11 +3549,13 @@ def create_chat_app() -> Flask:
                 resizeMessageInput();
 
                 const currentImages = [...selectedImages];
+                const currentAudio = [...selectedAudio];
                 selectedImages = [];
+                selectedAudio = [];
                 updateImagePreview();
 
                 const userSendTime = Date.now();
-                addMessageCard('user', message, null, currentImages, userSendTime);
+                addMessageCard('user', message, null, currentImages, userSendTime, currentAudio);
 
                 const assistantCard = addMessageCard('assistant', '');
                 const contentDiv = assistantCard.querySelector('.message-content');
@@ -3507,6 +3577,10 @@ def create_chat_app() -> Flask:
 
                     currentImages.forEach(img => {
                         content_items.push({ type: 'image_url.done', image_url: img });
+                    });
+
+                    currentAudio.forEach(clip => {
+                        content_items.push({ type: 'inline_data.done', data: clip.data, mime_type: clip.mimeType });
                     });
 
                     const response = await fetch('/api/chat', {
@@ -3775,7 +3849,7 @@ def create_chat_app() -> Flask:
             }
             textarea.addEventListener('input', resizeMessageInput);
 
-            // images pasted or dropped onto the composer attach like picked ones
+            // images and audio pasted or dropped onto the composer attach like picked ones
             textarea.addEventListener('paste', (event) => {
                 const files = Array.from(event.clipboardData ? event.clipboardData.files : []);
                 if (files.length) {
@@ -3840,6 +3914,8 @@ def create_chat_app() -> Flask:
 
         if not message:
             return jsonify({"error": "No message provided"}), 400
+        # an attached audio file arrives as base64, since JSON has no bytes
+        message = decode_wire(message)
 
         def generate():
             """Generate streaming response using the persistent event loop."""

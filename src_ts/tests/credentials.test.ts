@@ -114,6 +114,11 @@ describe("routedClientType", () => {
     ["gpt-6-astra", undefined, "openai-official"],
     ["text-embedding-3-large", undefined, "openai-embedding"],
     ["text-embedding-3-large", "OpenAI-Official", "openai-embedding"],
+    ["gpt-image-2.5-flare", undefined, "openai-image"],
+    ["GPT-Image-2.5-Flare", "openai-official", "openai-image"],
+    ["bytedance-seed/seedream-5-0-flash", "openai-image", "openai-image"],
+    ["fish-audio/drama-3", "openai-speech", "openai-speech"],
+    ["fish-audio/transcribe-1", "openai-transcription", "openai-transcription"],
     ["deepseek-search", undefined, "deepseek-webtool"],
     ["DeepSeek-Fetch", "deepseek-official", "deepseek-webtool"],
     // only the two web tool ids leave deepseek-official

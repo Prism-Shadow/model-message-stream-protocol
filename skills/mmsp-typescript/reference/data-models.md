@@ -44,8 +44,8 @@ Fields:
 - `system_prompt` (`string`): System instruction text.
 - `prompt_caching` (`PromptCaching`): `ENABLE`, `DISABLE`, or `ENHANCE`.
 - `session_id` (`string`): The conversation the request belongs to. Recommended: one stable id per conversation raises the prompt cache hit rate; clients without a cache key ignore it.
-- `image_config` (`ImageConfig`): `aspect_ratio` (`1:1`, `2:3`, `3:2`, `3:4`, `4:3`, `9:16`, `16:9`, `21:9`) and `image_size` (`1K`, `2K`).
-- `tts_config` (`SpeakerConfig[]`): Voice config; each item has `voice` and optional `speaker`. With two speakers, write the text as a script with one `Name: line` per turn, each name one of the configured speakers; Gemini 3.8 TTS receives each turn with its speaker as metadata.
+- `image_config` (`ImageConfig`): `aspect_ratio` (`1:1`, `2:3`, `3:2`, `3:4`, `4:3`, `9:16`, `16:9`, `21:9`) and `image_size` (`1K`, `2K`); `openai-image` sends them as the `size` of Gemini's table (1:1 is `1024x1024` / `2048x2048`, 16:9 `1376x768` / `2752x1536`), 1K without `image_size`, 1:1 without `aspect_ratio`, no `size` without `image_config`.
+- `tts_config` (`SpeakerConfig[]`): Voice config; each item has `voice` and optional `speaker`. With two speakers, write the text as a script with one `Name: line` per turn, each name one of the configured speakers; Gemini 3.8 TTS receives each turn with its speaker as metadata. `openai-speech` takes one entry's `voice`, and none without `tts_config`.
 - `embedding_config` (`EmbeddingConfig`): Embedding config, currently `dimensions`.
 - `webtool_config` (`WebtoolConfig`): Web search config, currently `count`, how many results a search returns (DeepSeek 1–50, Jina 0–20, 10 when unset); a fetch ignores it.
 - `trace_id` (`string`): Stable ID for tracer output.

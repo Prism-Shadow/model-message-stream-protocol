@@ -1275,15 +1275,25 @@ export class Tracer {
   }
 
   /**
-   * Wrap raw PCM bytes in a WAV header using Gemini TTS defaults.
+   * Wrap raw 16-bit PCM in a WAV header of the rate and channels its MIME type names.
+   *
+   * `audio/l16; rate=44100; channels=1` names both; without them, Gemini TTS's 24 kHz mono.
    *
    * @param item - inline_data content item
    * @returns WAV bytes
    */
-  private _buildWaveBytesFromPcm(item: { data?: Buffer | string }): Buffer {
+  private _buildWaveBytesFromPcm(item: {
+    mime_type?: string;
+    data?: Buffer | string;
+  }): Buffer {
     const pcmBytes = this._decodeInlineData(item);
-    const channels = 1;
-    const sampleRate = 24000;
+    const pcmFormat: Record<string, string> = {};
+    for (const parameter of (item.mime_type || "").split(";").slice(1)) {
+      const [name, value = ""] = parameter.split("=");
+      pcmFormat[name.trim().toLowerCase()] = value.trim();
+    }
+    const channels = Number(pcmFormat.channels || 1);
+    const sampleRate = Number(pcmFormat.rate || 24000);
     const bitsPerSample = 16;
     const byteRate = (sampleRate * channels * bitsPerSample) / 8;
     const blockAlign = (channels * bitsPerSample) / 8;
