@@ -3,7 +3,7 @@
 - Feature Name: `message_requests`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313), [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316)
 - Kind: spec
 
 [中文版](MMSP-RFC-0003-message-requests.zh.md)
@@ -23,6 +23,8 @@ The owner's words: 支持全部思考等级; 模型请求参数不模糊匹配; 
 On 2026-11-02 the owner asked for web search and page fetch, done the way embedding is: 在mmsp里面增加search和fetch的能力,实现方式和embedding类似. DeepSeek's Search and Fetch and Jina's Search and Reader each answer a request in one JSON. Jina also offers an event stream, but it sends the whole page again each time more of it has loaded, never a part, so there is nothing in it to stream; the clients read the JSON, and a web tool is requested the way an embedding is, each message one request and one item. On what a search asks for, the owner's words: search的content显示摘要,不要用need content参数 jina要加no content. [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308) amended this specification in place, with the web tool endpoints added to §3.2, `webdata` to the growing fields of §2, the `-search` and `-fetch` markers to §6.1, and the models that do not think to §6.3.
 
 On 2026-11-02 OpenAI released GPT-6.1 Terra, and the owner asked for it: GPT 6.1 terra更新了. Unlike GPT-6 Astra and GPT-6.1 Sol, Terra takes the `none` effort, so `none` runs as its own off switch on both Responses clients. The probes for it found two gaps on every GPT-6 model: the list form of `tool_choice` went out without the `type` that OpenAI and OpenRouter require (400 `Missing required parameter: 'tool_choice.type'`), and an image above 30,000 patches was refused, because only GPT-5.6 was sent `detail: "high"`. The owner also mapped `enhance` to OpenAI's 12-hour cache lifetime, which GPT-5.6 and later take on the Responses API and GPT-5.5 refuses. [#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313) amended this specification in place, with Terra's `none` and the generation's `detail` in §6.1 and §6.3, and the allowed-tools list and the 12-hour cache in §6.4.
+
+On 2026-11-04 the owner asked for image generation, speech and transcription through OpenAI's formats, served by OpenAI, OpenRouter and TokenDance, each by a compatible client: `openai-image`, `openai-speech` and `openai-transcription`. The captures decided what each reads. OpenAI answers a streamed image request with one `image_generation.completed` event holding the whole image, OpenRouter ignores `stream`, and TokenDance sends events of its own, so an image is read from one JSON; a speech endpoint sends its audio bytes as it makes them, the first after about 0.7 s; a transcription endpoint answers in one JSON. The owner fixed the mappings: `image_config` becomes the `size` of Gemini's table of 1K and 2K sizes, every one of which keeps OpenAI's size rules; `tts_config` becomes the one `voice`; and the usage is the endpoint's tokens for an image, the input's UTF-8 bytes for speech, which Fish Audio bills by, and the audio's seconds for a transcription. A TokenDance model that refuses a 1K size answers with its own error. [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316) amended this specification in place, with the media endpoints added to §3.2, the failed download to §5, the models that do not think to §6.3, and the size and the voice to §6.4.
 
 ## 2. Conventions and Terminology
 
@@ -44,6 +46,14 @@ A model MUST be called only through `streaming_response` and `streaming_response
 A client MUST read the provider's streaming endpoint wherever the provider has one. An embedding endpoint does not stream: its vectors go out as items, then one `stop` carrying the input count the endpoint reports as `prompt_tokens` and `finish_reason` `stop`. `openai-embedding` pairs each vector with its input by the vector's `index`.
 
 A web tool endpoint does not stream either: it answers a request in one JSON. An event stream that sends the whole answer again as the page loads, as Jina's does, is not a streaming endpoint in this sense, and the client MUST read the JSON instead. A web tool client MUST send one request per message, the message's text items joined being the query or the URL. Each answer goes out as one `webtool` item as it arrives, a search that found nothing included, then one `stop` carrying `finish_reason` `stop` and, as `prompt_tokens`, what the endpoint bills summed over the requests: the tokens it reports, or 1 for each request where it bills by the request. A search MUST ask for each result's summary and MUST NOT ask for its page's body.
+
+An image generation endpoint does not stream either: `openai-image` MUST read its JSON and MUST NOT ask for a stream or send `response_format`. A speech endpoint streams the audio's bytes, and `openai-speech` MUST yield each chunk as it arrives, as an `inline_data` fragment of the one item a message's speech is. A transcription endpoint answers in one JSON. Each of the three clients MUST send one request per message, as a web tool client does: an image's prompt and speech's input are the message's text items joined, and any other item raises `UnsupportedContentError`; a transcription's file is the message's one audio `inline_data` item, a text, image or other item raising `UnsupportedContentError` and a second audio item `InvalidMessageError`.
+
+- An image is read from the answer's `b64_json`, else downloaded from its `url` with no credential ([MMSP-RFC-0006](MMSP-RFC-0006-upstream-credentials.md#7-links-in-an-answer) §7). Its MIME type is the answer's `media_type`, else `image/` and its `output_format`, else the type its bytes show.
+- Speech keeps the endpoint's default format and sends no `response_format`. Headerless PCM, `audio/pcm` in the response's `content-type`, goes out as `audio/l16; rate=<rate>; channels=<channels>` with the rate and channels of that header; any other format goes out under its `content-type`.
+- A transcription is uploaded in OpenAI's multipart form, its `file` named with the extension of its MIME type and its `model`, with no `prompt`. Headerless PCM (`audio/l16`, `audio/pcm`) is sent as WAV, built from the rate and channels of its MIME type; PCM whose MIME type names no rate raises `InvalidMessageError`. The text goes out as one `text` item.
+
+Then one `stop` carries `finish_reason` `stop` and the usage summed over the requests. For an image, `prompt_tokens` is the endpoint's `input_tokens` or `prompt_tokens` and `response_tokens` its `output_tokens` or `completion_tokens`, whichever it reports, a count it does not report staying `None`. For speech, whose endpoint reports no usage, `prompt_tokens` is the UTF-8 byte length of the input and `response_tokens` 0. For a transcription, `prompt_tokens` is the `usage.seconds` the endpoint reports, rounded up to a whole second, and `response_tokens` 0.
 
 ### 3.3 Before the request
 
@@ -77,7 +87,7 @@ The complete items in order, with the `stop` event's `usage_metadata` and `finis
 - The `stop` event MUST carry a `usage_metadata` object and a set `finish_reason`. A provider stream that ends without one of them raises `IncompleteStreamError` in place of the `stop`, after the events before it, so no caller sees a `stop` without them and no history or trace records the turn. The error names the client and the missing field or fields and carries the usage or finish reason that did arrive, so the tokens can still be counted.
 - A response with no item but thinking, or with no item at all, raises `EmptyResponseError` in place of the `stop`, because no provider takes it back ([MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.md#5-thinking-produced-elsewhere) §5).
 - What a client yields against this grammar raises `StreamProtocolError` in every mode: a complete item, usage on a delta event, two different fidelity payloads on one item, or a tool call whose first fragment lacks its name or call id. It is a bug in the client and MUST NOT be repaired. `IncompleteStreamError` is not one (the provider cut the stream), and neither is `EmptyResponseError` (a response without content).
-- An exception an SDK raises inside an open stream propagates as it is ([MMSP-RFC-0007](MMSP-RFC-0007-error-types.md#4-relay-through-the-server) §4); the Interactions API's `error` event, which neither Interactions SDK raises, raises `ProviderStreamError`. An abort ends the stream as [MMSP-RFC-0008](MMSP-RFC-0008-request-interruption.md) specifies.
+- An exception an SDK raises inside an open stream propagates as it is ([MMSP-RFC-0007](MMSP-RFC-0007-error-types.md#4-relay-through-the-server) §4); the Interactions API's `error` event, which neither Interactions SDK raises, raises `ProviderStreamError`, and so does the download of a generated image's `url` that answers with an HTTP error, the status as the error's code. An abort ends the stream as [MMSP-RFC-0008](MMSP-RFC-0008-request-interruption.md) specifies.
 
 ## 6. Request Parameters
 
@@ -94,12 +104,25 @@ A `UniConfig` value a client cannot send for the model MUST raise `UnsupportedPa
 ### 6.3 Thinking levels
 
 - A client MUST NOT reject a `ThinkingLevel`: no client raises `UnsupportedParameterError` for `thinking_level`, on any model.
-- Each official client maps every level onto a setting of the model's generation from a fixed table, without a warning: the level itself where the model has it; another level the model accepts where it has not (Claude 4.6 runs `xhigh` at `high`; Gemini runs `xhigh` and `max` at `high`); for `none`, the model's own off switch where it has one (`disabled` on Claude Sonnet 5, `none` on GPT-6 Luna, GPT-6.1 Terra and the Kimi K3 series); for `none` on a model with no off switch, the least thinking it allows (the lowest effort on Claude Opus 5.5, `between_tools` on Claude Sonnet 5.5, `minimal` or `low` on Gemini). A model that does not think, such as an embedding model or a web tool, has no such setting, and the level is ignored.
+- Each official client maps every level onto a setting of the model's generation from a fixed table, without a warning: the level itself where the model has it; another level the model accepts where it has not (Claude 4.6 runs `xhigh` at `high`; Gemini runs `xhigh` and `max` at `high`); for `none`, the model's own off switch where it has one (`disabled` on Claude Sonnet 5, `none` on GPT-6 Luna, GPT-6.1 Terra and the Kimi K3 series); for `none` on a model with no off switch, the least thinking it allows (the lowest effort on Claude Opus 5.5, `between_tools` on Claude Sonnet 5.5, `minimal` or `low` on Gemini). A model that does not think, such as an embedding model, a web tool or a model of `openai-image`, `openai-speech` or `openai-transcription`, has no such setting, and the level is ignored.
 - Through a compatible client the endpoint decides what a level runs as, and MAY refuse the value: `ant-messages` sends `disabled` for `none`; `openai-responses` sends the level as its effort, with `none` as `low` on GPT-6 except Luna and GPT-6.1 Terra; `openai-chat` sends no level; its vLLM adapter sends only its chat template's switch; the `mmsp` client forwards the level to its server.
 
 ### 6.4 Values with another form
 
 Where a protocol has another form for a value, the mapping says which: a list of tool names is `allowed_tools`, with `mode: "auto"` on `openai-chat` and `mode: "required"` on `openai-official` and `openai-responses`; a list of one name is `{type: "tool", name}` on `ant-messages`; an unset `max_tokens` is 64000 on the Anthropic clients; `prompt_caching` `enhance` is `prompt_cache_options: {ttl: "12h"}` on `openai-official` for GPT-5.6 and later.
+
+`tts_config` is `voice` on `openai-speech`: the `voice` of its one entry, and no `voice` without it, so the endpoint speaks in its default voice; more than one entry raises `UnsupportedParameterError`. `image_config` is `size` on `openai-image`, from the table below: an `aspect_ratio` without `image_size` takes its 1K size, an `image_size` without `aspect_ratio` takes 1:1, and no `image_config` sends no `size`. Every size of the table is a multiple of 16 on both sides, holds 655,360 to 8,294,400 pixels, has no edge longer than 3840 and no ratio beyond 3:1, as OpenAI requires.
+
+| `aspect_ratio` | `1K` | `2K` |
+| --- | --- | --- |
+| `1:1` | `1024x1024` | `2048x2048` |
+| `2:3` | `848x1264` | `1696x2528` |
+| `3:2` | `1264x848` | `2528x1696` |
+| `3:4` | `896x1200` | `1792x2400` |
+| `4:3` | `1200x896` | `2400x1792` |
+| `9:16` | `768x1376` | `1536x2752` |
+| `16:9` | `1376x768` | `2752x1536` |
+| `21:9` | `1584x672` | `3168x1344` |
 
 ### 6.5 The configuration page
 
