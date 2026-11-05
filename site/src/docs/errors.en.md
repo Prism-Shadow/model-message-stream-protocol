@@ -14,7 +14,7 @@ A stream ends with its `stop` event or with an exception, never both. When one i
 | `EmptyResponseError` | The response finished with thinking and nothing else. Sent back on the next turn, such a message fails with a 400. Raised in place of the `stop` event. | `client`, the finish reason, and `usage_metadata`, so the tokens can still be counted |
 | `IncompleteStreamError` | The provider's stream ended before its usage or its finish reason arrived. The stream was cut short, so retry. Raised in place of the `stop` event. | `client`, `missing`, and the `finish_reason` and `usage_metadata` that did arrive |
 | `StreamProtocolError` | A client produced a stream that breaks [the grammar](/docs/streaming/). This is a bug in MMSP, not in the model's output. | `client` |
-| `ProviderStreamError` | The provider reported an error inside an open stream, such as Gemini Interactions' `error` event. | `client`, `code`, and the provider's message |
+| `ProviderStreamError` | The provider reported an error inside an open stream, such as Gemini Interactions' `error` event, or the link to a generated image answered its download with an HTTP error, whose status is the `code`. | `client`, `code`, and the provider's message |
 
 For `ToolCallArgumentParseError`, log the preview and retry or re-prompt the model. Never run a tool from partial arguments.
 
@@ -25,8 +25,8 @@ Python names the fields `tool_name`, `tool_call_id`, `raw_arguments_length`, `ra
 | Error | Raised when | Carries |
 | --- | --- | --- |
 | `UnsupportedParameterError` | A `UniConfig` value the model rejects, such as `temperature` on a model that fixes it. | `client`, `parameter` |
-| `UnsupportedContentError` | A well-formed item the model cannot take: an image on a text-only model, an item other than text for embeddings, speech or a web tool. | `client`, `item_type` |
-| `InvalidMessageError` | A message cannot be sent as it is: an item of an unknown kind, a tool result without `tool_call_id`, an image that is not valid base64 or cannot be fetched, a TTS script without its speaker labels, or a message with nothing the wire can carry. | `client`, `item_type`, `message_index` |
+| `UnsupportedContentError` | A well-formed item the model cannot take: an image on a text-only model, an item other than text for embeddings, speech, image generation or a web tool, an item other than one audio file for a transcription. | `client`, `item_type` |
+| `InvalidMessageError` | A message cannot be sent as it is: an item of an unknown kind, a tool result without `tool_call_id`, an image that is not valid base64 or cannot be fetched, a TTS script without its speaker labels, a transcription message with two audio items or PCM of no rate, or a message with nothing the wire can carry. | `client`, `item_type`, `message_index` |
 | `UnsupportedOperationError` | A call the endpoint cannot serve, such as listing models on Amazon Bedrock or a web tool. | `client`, `operation` |
 | `ConcurrentCallError` | `streaming_response_stateful` was called while another stateful call on the same client had not ended. Two turns cannot be recorded in one history at once: wait for the first one's `stop` event or its error. | `client` |
 | `RoutingError` | Neither the `client_type` nor the model id names a client: an unknown `client_type`, or none and a model id of no known family ([model selection](/docs/models/)). Raised by `AutoLLMClient`. | `model`, `client_type` |

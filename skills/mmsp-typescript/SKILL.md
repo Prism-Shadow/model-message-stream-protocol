@@ -112,6 +112,7 @@ Keep these points in mind for agent loops:
 - Preserve `thinking.done` and `inline_thinking.done` items. Do not strip or modify `fidelity` fields.
 - For embedding models, each `UniMessage` in the `messages` array produces **one embedding vector**. Within a single message, all items in `content_items` are aggregated into a single embedding. Set `embedding_config.dimensions` in the config to control vector size.
 - For web search and fetch (`deepseek-search`, `deepseek-fetch`, `jina-search`, `jina-fetch`), each `UniMessage` is **one request**: its text is the query or the URL, and the answer is one `webtool.done` whose `webdata` lists `{title, content, url}`. Set `webtool_config.count` for the number of search results. Call the stateless method: the answer cannot be replayed in a later turn.
+- For image generation, speech and transcription through OpenAI's formats (`openai-image`, `openai-speech`, `openai-transcription`), each `UniMessage` is **one request** as well: a prompt answered by one image, a text answered by audio chunks of one item, or one audio `inline_data.done` (headerless PCM with its `rate` in the MIME type) answered by its text. `image_config` picks the size and `tts_config` takes one voice. Call the stateless method.
 
 ## Reference
 

@@ -39,13 +39,15 @@ client = AutoLLMClient(
 )
 ```
 
-`client_type` names one of the official clients (`openai-official`, `anthropic-official`, `google-official`, `zai-official`, `moonshot-official`, `deepseek-official`, `minimax-official`, `jina-webtool`) or one of the compatible clients (`openai-responses`, `openai-chat`, `openai-chat-vllm-adapter`, `openai-embedding`, `ant-messages`, `google-genai`, `deepseek-webtool`, `mmsp`). It may be omitted for a model id that begins with a known family (`gpt-`, `text-embedding-`, `claude-`, `gemini-`, `glm-`, `kimi-`, `deepseek-`, `minimax-`, `jina-`), which names its official client; any other id raises and asks for one.
+`client_type` names one of the official clients (`openai-official`, `anthropic-official`, `google-official`, `zai-official`, `moonshot-official`, `deepseek-official`, `minimax-official`, `jina-webtool`) or one of the compatible clients (`openai-responses`, `openai-chat`, `openai-chat-vllm-adapter`, `openai-embedding`, `openai-image`, `openai-speech`, `openai-transcription`, `ant-messages`, `google-genai`, `deepseek-webtool`, `mmsp`). It may be omitted for a model id that begins with a known family (`gpt-`, `text-embedding-`, `claude-`, `gemini-`, `glm-`, `kimi-`, `deepseek-`, `minimax-`, `jina-`), which names its official client; any other id raises and asks for one.
 
 `google-official` speaks the Gemini API's Interactions endpoint. `google-genai` speaks generateContent, as the `google-genai` SDK does, for Vertex AI (a service-account JSON key as the API key), the Gemini API, and gateways that proxy it; Vertex AI's Interactions endpoint serves none of the Gemini models, so a service-account key needs `google-genai`.
 
 `mmsp` speaks MMSP itself to an MMSP server (`python -m mmsp.integration.server --config <file>`), with the key and endpoint of `MMSP_API_KEY` and `MMSP_BASE_URL`, by default `http://127.0.0.1:25752/v1`.
 
 `deepseek-webtool` and `jina-webtool` search the web (`deepseek-search`, `jina-search`) and fetch a page (`deepseek-fetch`, `jina-fetch`); `deepseek-official` serves the DeepSeek pair through `deepseek-webtool`. Each message is one query or URL, answered by one `webtool.done` item.
+
+`openai-image`, `openai-speech` and `openai-transcription` generate an image, speak a text and transcribe an audio file through OpenAI's Images and Audio APIs, for OpenAI, OpenRouter and TokenDance; `openai-official` serves `gpt-image-*` through `openai-image`. Each message is one request: a prompt, a text, or one audio `inline_data.done`.
 
 `openai-chat-vllm-adapter` speaks Chat Completions to a vLLM server, with the key and endpoint of `VLLM_API_KEY` and `VLLM_BASE_URL`, by default `http://127.0.0.1:8000/v1`, where `vllm serve` answers. Like `mmsp`, it calls its server keyless when it has no key, sending vLLM's placeholder key `EMPTY`.
 
