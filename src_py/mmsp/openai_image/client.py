@@ -90,8 +90,8 @@ class OpenaiImageClient(LLMClient):
                 raise UnsupportedParameterError(
                     self.__class__.__name__,
                     "image_config",
-                    f"OpenAI image generation does not support aspect_ratio {aspect_ratio!r} "
-                    f"with image_size {image_size!r}.",
+                    "OpenAI image generation does not support this image_config: aspect_ratio takes 1:1, 2:3, "
+                    "3:2, 3:4, 4:3, 9:16, 16:9 or 21:9, and image_size 1K or 2K.",
                 )
             params["size"] = size
         return params
