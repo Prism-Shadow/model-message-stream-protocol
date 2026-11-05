@@ -23,6 +23,9 @@ import { OpenaiChatClient } from "./openai_chat";
 import { OpenaiResponsesClient } from "./openai_responses";
 import { AntMessagesClient } from "./ant_messages";
 import { OpenaiEmbeddingClient } from "./openai_embedding";
+import { OpenaiImageClient } from "./openai_image";
+import { OpenaiSpeechClient } from "./openai_speech";
+import { OpenaiTranscriptionClient } from "./openai_transcription";
 import { DeepSeekOfficialClient } from "./deepseek_official";
 import { MiniMaxOfficialClient } from "./minimax_official";
 import { JinaWebtoolClient } from "./jina_webtool";
@@ -84,6 +87,12 @@ function clientClass(clientType: string, model: string): LLMClientConstructor {
       return OpenaiChatVllmAdapterClient;
     case "openai-embedding":
       return OpenaiEmbeddingClient;
+    case "openai-image":
+      return OpenaiImageClient;
+    case "openai-speech":
+      return OpenaiSpeechClient;
+    case "openai-transcription":
+      return OpenaiTranscriptionClient;
     case "ant-messages":
       return AntMessagesClient;
     case "google-genai":

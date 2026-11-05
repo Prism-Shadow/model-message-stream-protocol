@@ -99,6 +99,11 @@ def test_an_unknown_client_type_has_no_answer():
         ("gpt-6-astra", None, "openai-official"),
         ("text-embedding-3-large", None, "openai-embedding"),
         ("text-embedding-3-large", "OpenAI-Official", "openai-embedding"),
+        ("gpt-image-2.5-flare", None, "openai-image"),
+        ("GPT-Image-2.5-Flare", "openai-official", "openai-image"),
+        ("bytedance-seed/seedream-5-0-flash", "openai-image", "openai-image"),
+        ("fish-audio/drama-3", "openai-speech", "openai-speech"),
+        ("fish-audio/transcribe-1", "openai-transcription", "openai-transcription"),
         ("deepseek-search", None, "deepseek-webtool"),
         ("DeepSeek-Fetch", "deepseek-official", "deepseek-webtool"),
         # only the two web tool ids leave deepseek-official

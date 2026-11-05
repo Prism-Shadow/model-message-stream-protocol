@@ -56,11 +56,20 @@ MODELS = {
     "mmsp": "gpt-5.5",
 }
 
-# openai-embedding and the web tools answer with one response, not a stream
+# openai-embedding, the web tools, openai-image and openai-transcription answer with one response,
+# not a stream, and openai-speech streams audio, not text (test_media_clients.py interrupts it)
 STREAMING_CLIENT_TYPES = [
     client_type
     for client_type in CLIENT_CREDENTIALS
-    if client_type not in ("openai-embedding", "deepseek-webtool", "jina-webtool")
+    if client_type
+    not in (
+        "openai-embedding",
+        "deepseek-webtool",
+        "jina-webtool",
+        "openai-image",
+        "openai-speech",
+        "openai-transcription",
+    )
 ]
 
 # the SDKs that end their stream quietly when their request is aborted

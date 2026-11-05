@@ -12,11 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import base64
+import io
 import json
 import os
 import re
 import shutil
 import tempfile
+import wave
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -274,6 +277,26 @@ def test_format_history_with_different_content_types(temp_cache_dir):
         html = response.data.decode()
         assert "Embedding: [0.1, 0.2, 0.3, 0.4, 0.5]" in html
         assert "0.6" not in html
+
+
+def test_a_pcm_clip_plays_at_the_rate_and_channels_its_mime_type_names(temp_cache_dir):
+    """Test that PCM audio is wrapped as WAV of its own rate and channels, Fish Audio's 44.1 kHz included."""
+    tracer = Tracer(cache_dir=temp_cache_dir)
+    history = [
+        {
+            "role": "assistant",
+            "content_items": [
+                {"type": "inline_data.done", "data": b"\x00\x01" * 8, "mime_type": "audio/l16; rate=44100; channels=2"}
+            ],
+        }
+    ]
+    tracer.save_history("fake-model", history, "test/pcm_rate", {})
+
+    with tracer.create_web_app().test_client() as client:
+        html = client.get("/test/pcm_rate.json").data.decode()
+    wav = base64.b64decode(re.search(r"data:audio/wav;base64,([A-Za-z0-9+/=]+)", html).group(1))
+    with wave.open(io.BytesIO(wav)) as clip:
+        assert (clip.getframerate(), clip.getnchannels(), clip.readframes(4)) == (44100, 2, b"\x00\x01" * 8)
 
 
 def test_web_app_creation(temp_cache_dir):

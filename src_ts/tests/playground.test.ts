@@ -205,6 +205,10 @@ describe("Playground", () => {
     expect(response.text).toContain("baseUrlInput");
     expect(response.text).toContain("type: 'text.done', text: message");
     expect(response.text).toContain("type: 'image_url.done', image_url: img");
+    expect(response.text).toContain(
+      "type: 'inline_data.done', data: clip.data, mime_type: clip.mimeType",
+    );
+    expect(response.text).toContain('accept="image/*,audio/*"');
     expect(response.text).toContain("event.event_type === 'stop'");
     expect(response.text).toContain("item.type === 'text.delta'");
     expect(response.text).toContain("item.type === 'thinking.done'");
@@ -430,6 +434,39 @@ describe("Playground", () => {
       image_url: largeImage,
     });
     expect(mockLastStreamingOptions?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  test("should hand an attached audio file to the client as bytes", async () => {
+    const app = createChatApp();
+
+    const response = await request(app)
+      .post("/api/chat")
+      .send({
+        session_id: "audio",
+        message: {
+          role: "user",
+          content_items: [
+            {
+              type: "inline_data.done",
+              data: "AAEC/w==",
+              mime_type: "audio/flac",
+            },
+          ],
+        },
+        config: {
+          model: "fish-audio/transcribe-1",
+          client_type: "openai-transcription",
+        },
+      });
+
+    expect(response.status).toBe(200);
+    expect(mockLastStreamingOptions?.message.content_items).toEqual([
+      {
+        type: "inline_data.done",
+        data: Buffer.from([0, 1, 2, 255]),
+        mime_type: "audio/flac",
+      },
+    ]);
   });
 
   test("should stream every event of the response, then the done marker", async () => {

@@ -30,6 +30,8 @@ from mmsp import AutoLLMClient, RoutingError, ThinkingLevel, UnsupportedParamete
 
 IMAGE = "https://sghimages.shobserver.com/img/catch/2022/01/22/c1ae0300-9402-4128-a7e6-1244d3874167.jpg"
 IMAGE_KEYWORDS = ("flower", "narcissus", "daffodil", "bloom")
+# eleven seconds of a speech, "...ask not what your country can do for you...", from the Whisper repository
+AUDIO = "https://raw.githubusercontent.com/openai/whisper/main/tests/jfk.flac"
 
 
 @dataclass
@@ -41,6 +43,7 @@ class Model:
     support_tts: bool = False
     support_embedding: bool = False
     support_webtool: Literal["search", "fetch"] | None = None
+    support_transcription: bool = False
     provider: Literal[
         "official",
         "bedrock",
@@ -328,8 +331,8 @@ async def test_clear_history(model: Model):
 @pytest.mark.parametrize("model", AVAILABLE_MODELS, ids=[str(model) for model in AVAILABLE_MODELS])
 async def test_concat_uni_events_to_uni_message(model: Model):
     """Test concatenation of events into a single message."""
-    if model.support_embedding or model.support_webtool:
-        pytest.skip(f"Embedding and web tool model {model.name} do not need concatenation.")
+    if model.support_embedding or model.support_webtool or model.support_transcription:
+        pytest.skip(f"Embedding, web tool and transcription model {model.name} do not need concatenation.")
     client = await _create_client(model)
     messages = [
         {
@@ -362,6 +365,12 @@ ROUTING_CASES = [
     ("GPT-5.5", None, "OpenAIOfficialClient"),
     ("text-embedding-3-large", None, "OpenaiEmbeddingClient"),
     ("text-embedding-3-large", "openai-official", "OpenaiEmbeddingClient"),
+    # openai-official serves OpenAI's image models through openai-image
+    ("gpt-image-2.5-flare", None, "OpenaiImageClient"),
+    ("gpt-image-2.5-flare", "openai-official", "OpenaiImageClient"),
+    ("seedream-5.0-lite", "openai-image", "OpenaiImageClient"),
+    ("fish-audio/drama-3", "openai-speech", "OpenaiSpeechClient"),
+    ("fish-audio/transcribe-1", "openai-transcription", "OpenaiTranscriptionClient"),
     ("claude-sonnet-5", None, "AnthropicOfficialClient"),
     ("gemini-3.8-flash", None, "GoogleOfficialClient"),
     ("gemini-embedding-2", None, "GoogleOfficialClient"),
@@ -869,7 +878,7 @@ async def test_image_generation(model: Model):
                 ],
             }
         ],
-        config={"image_config": {"aspect_ratio": "1:1", "image_size": "1K"}},
+        config={"image_config": {"aspect_ratio": "1:1", "image_size": "2K"}},
     ):
         await _check_event_integrity(event)
         events.append(event)
@@ -902,7 +911,7 @@ async def test_tts_generation_single_speaker(model: Model):
                 ],
             }
         ],
-        config={"tts_config": [{"voice": "Kore"}]},
+        config={},
     ):
         await _check_event_integrity(event)
         events.append(event)
@@ -912,6 +921,38 @@ async def test_tts_generation_single_speaker(model: Model):
     assert inline_items, f"No inline data returned for TTS output by {model.name}"
     assert any("audio/" in item["mime_type"] for item in inline_items)
     assert all(isinstance(item["data"], bytes) and item["data"] for item in inline_items)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("model", AVAILABLE_MODELS, ids=[str(model) for model in AVAILABLE_MODELS])
+async def test_transcription(model: Model):
+    """Test transcription: one message of audio, answered by its text."""
+    if not model.support_transcription:
+        pytest.skip(f"Transcription is not supported by {model.name}.")
+
+    async with httpx.AsyncClient(follow_redirects=True) as http:
+        response = await http.get(AUDIO)
+        response.raise_for_status()
+
+    client = await _create_client(model)
+    events = []
+    async for event in client.streaming_response(
+        messages=[
+            {
+                "role": "user",
+                "content_items": [{"type": "inline_data.done", "data": response.content, "mime_type": "audio/flac"}],
+            }
+        ],
+        config={},
+    ):
+        await _check_event_integrity(event)
+        events.append(event)
+
+    assert_stream_grammar(events)
+    text = "".join(item["text"] for event in events for item in event["content_items"] if item["type"] == "text.done")
+    assert "country" in text.lower()
+    assert events[-1]["finish_reason"] == "stop"
+    assert events[-1]["usage_metadata"]["prompt_tokens"] > 0
 
 
 @pytest.mark.asyncio
