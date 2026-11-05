@@ -3,20 +3,22 @@
 - Feature Name: `upstream_credentials`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#RFCPR](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/RFCPR)
 - Kind: spec
 
 [中文版](MMSP-RFC-0006-upstream-credentials.zh.md)
 
 ## Abstract
 
-An upstream credential is the key a client sends to the endpoint it calls. A key passed to a client is used whatever the base URL, while a key read from the environment goes only to the endpoint it was given for: a client handed no key reads its `<P>_API_KEY` only when it is passed no base URL or one of its own default endpoints, and refuses any other base URL with `ApiKeyRequiredError` unless its server is open. This document specifies the credential table, the resolution rule, open servers and what the clients hand their SDKs.
+An upstream credential is the key a client sends to the endpoint it calls. A key passed to a client is used whatever the base URL, while a key read from the environment goes only to the endpoint it was given for: a client handed no key reads its `<P>_API_KEY` only when it is passed no base URL or one of its own default endpoints, and refuses any other base URL with `ApiKeyRequiredError` unless its server is open. This document specifies the credential table, the resolution rule, open servers, what the clients hand their SDKs, and the download of a link an answer carries, which takes no credential.
 
 ## 1. Introduction
 
 A client that read `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` from the environment used to send it to whatever base URL it was given, so a caller that pointed a client at a gateway sent the vendor's key there ([#224](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/224)). [#258](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/258) made it one rule for every client type in both packages, declared in a table a host can read without building a client. [#276](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/276) gave the vLLM adapter a row of its own in place of OpenAI's, and extended the rule to the rest of OpenAI's environment, which the OpenAI SDK sent to whatever endpoint it was given. [#288](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/288) and [#290](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/290) made the clients of other vendors on the OpenAI SDK raise the same error when they are given no key, where they had raised a bare built-in error. Stated in [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265) as MMSP-RFC-0005 and in [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) as MMSP-RFC-0007.
 
 On 2026-11-02 the owner asked for web search and page fetch, done the way embedding is: 在mmsp里面增加search和fetch的能力,实现方式和embedding类似. Jina serves its Reader on `https://r.jina.ai` and its Search on `https://s.jina.ai`, with one key for both, so a row declares the other hosts on which its vendor serves some of its models, and the environment's key goes to each of them as it goes to the default endpoint. The web tool clients are built on the OpenAI SDK, the compatible one as well as the official one, so the rule for a client given no key covers every client on that SDK whose key is not OpenAI's. [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308) amended this specification in place, with the other default endpoints added to §2, §3 and §4 and the last rule of §4 stated for every such client.
+
+On 2026-11-04 the owner asked for image generation through OpenAI's format, with the rule that the image's `url` is downloaded without any credential. TokenDance answers with a link to the image on Volcano Engine's object storage, signed for 24 hours, where OpenAI and OpenRouter answer with the image's bytes; a key sent with that download would go to a host it was never given for. [#RFCPR](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/RFCPR) amended this specification in place, with §7 added.
 
 ## 2. Conventions and Terminology
 
@@ -48,7 +50,11 @@ The Anthropic and OpenAI SDKs fill what they are not handed from their own envir
 - an Anthropic client sends its own key and never `ANTHROPIC_AUTH_TOKEN`;
 - a client on the OpenAI SDK sends the rest of OpenAI's environment (`OPENAI_ORG_ID`, `OPENAI_PROJECT_ID`, `OPENAI_ADMIN_KEY`, `OPENAI_WEBHOOK_SECRET`, the headers `OPENAI_CUSTOM_HEADERS` lists) only where `OPENAI_API_KEY` goes, through `openai_client_options` / `openaiClientOptions`.
 
-## 7. Conformance
+## 7. Links in an Answer
+
+A link an endpoint answers with, such as the `url` of a generated image, is not the endpoint. A client MUST download it with an HTTP client of its own, not its SDK's, and MUST send no credential with the download: neither its key nor the default headers it was built with nor any variable of the environment.
+
+## 8. Conformance
 
 - `CLIENT_CREDENTIALS` and `environment_credential` in `src_py/mmsp/credentials.py` / `src_ts/src/credentials.ts`; `resolve_credentials` / `resolveCredentials`, which every client calls when it is built, and `openai_client_options` / `openaiClientOptions`, which every client on the OpenAI SDK calls, in `utils.py` / `utils.ts`.
 - `src_py/tests/test_env_credentials.py`, `src_ts/tests/env-credentials.test.ts`, which build every client type under a controlled environment and read the credential its SDK holds.
