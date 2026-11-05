@@ -3,7 +3,7 @@
 - Feature Name: `error_types`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#RFCPR](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/RFCPR)
+- Updated by: [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316)
 - Kind: spec
 
 [English](MMSP-RFC-0007-error-types.md)
@@ -16,7 +16,7 @@
 
 处理拒绝的调用方需要一个能捕获的类，在两个包中、经由服务端时都一样；裸的 `ValueError` 或 `Error` 无法与缺陷区分开。写下第一版规则时做的审查发现，两个 Google 客户端都用裸错误拒绝 `tts_config`（[#269](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/269)）。2026-10-23 的审查又发现了约六十处，从缺少 `tool_call_id` 的工具结果，到发给纯文本模型的图片，项目负责人随后把规则从被拒绝的值扩大到每一个错误（[#288](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/288)、[#290](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/290)）。本规范最初在 [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265) 中写作 MMSP-RFC-0007，在 [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) 中写作 MMSP-RFC-0009。
 
-2026-11-04，项目负责人要求通过 OpenAI 的格式支持图像生成，其中网关可能用指向图像的链接作答，而不是图像的字节。下载该链接时得到 HTTP 错误，是服务商答案的失败，发生在已打开的流中，没有任何 SDK 会抛出它；项目负责人为它选定了 `ProviderStreamError`，以 HTTP 状态码作为它的 code。[#RFCPR](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/RFCPR) 在原文上修改了本规范的 §3.2。
+2026-11-04，项目负责人要求通过 OpenAI 的格式支持图像生成，其中网关可能用指向图像的链接作答，而不是图像的字节。下载该链接时得到 HTTP 错误，是服务商答案的失败，发生在已打开的流中，没有任何 SDK 会抛出它；项目负责人为它选定了 `ProviderStreamError`，以 HTTP 状态码作为它的 code。[#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316) 在原文上修改了本规范的 §3.2。
 
 ## 2. Conventions and Terminology
 

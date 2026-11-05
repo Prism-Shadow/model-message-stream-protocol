@@ -3,7 +3,7 @@
 - Feature Name: `upstream_credentials`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#RFCPR](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/RFCPR)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316)
 - Kind: spec
 
 [中文版](MMSP-RFC-0006-upstream-credentials.zh.md)
@@ -18,7 +18,7 @@ A client that read `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` from the environment 
 
 On 2026-11-02 the owner asked for web search and page fetch, done the way embedding is: 在mmsp里面增加search和fetch的能力,实现方式和embedding类似. Jina serves its Reader on `https://r.jina.ai` and its Search on `https://s.jina.ai`, with one key for both, so a row declares the other hosts on which its vendor serves some of its models, and the environment's key goes to each of them as it goes to the default endpoint. The web tool clients are built on the OpenAI SDK, the compatible one as well as the official one, so the rule for a client given no key covers every client on that SDK whose key is not OpenAI's. [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308) amended this specification in place, with the other default endpoints added to §2, §3 and §4 and the last rule of §4 stated for every such client.
 
-On 2026-11-04 the owner asked for image generation through OpenAI's format, with the rule that the image's `url` is downloaded without any credential. TokenDance answers with a link to the image on Volcano Engine's object storage, signed for 24 hours, where OpenAI and OpenRouter answer with the image's bytes; a key sent with that download would go to a host it was never given for. [#RFCPR](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/RFCPR) amended this specification in place, with §7 added.
+On 2026-11-04 the owner asked for image generation through OpenAI's format, with the rule that the image's `url` is downloaded without any credential. TokenDance answers with a link to the image on Volcano Engine's object storage, signed for 24 hours, where OpenAI and OpenRouter answer with the image's bytes; a key sent with that download would go to a host it was never given for. [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316) amended this specification in place, with §7 added.
 
 ## 2. Conventions and Terminology
 

@@ -3,7 +3,7 @@
 - **Date:** 2026-11-05
 - **Type:** process
 - **Scope:** `design`
-- **PR:** [#RFCPR](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/RFCPR)
+- **PR:** [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316)
 
 [English](2026-11-05-media-generation-rfcs.md)
 
