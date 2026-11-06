@@ -19,6 +19,7 @@ To use a specific model, please refer to its dedicated README:
 - **[Gemini 3.7](./gemini3_7/README.md)** - Google's Gemini 3.7 generation (gemini-3.7-flash): same wire contract as 3.6, drops the `minimal` thinking level
 - **[Gemini 3.8](./gemini3_8/README.md)** - Google's Gemini 3.8 generation (gemini-3.8-flash, gemini-3.8-flash-tts, gemini-3.8-flash-lite-tts): same wire contract, capabilities and price table as 3.7
 - **[Gemini 4](./gemini4/README.md)** - Google's `gemini-4-carbon` and `gemini-4-argon`: low/medium/high thinking, a unified 1M-token context window, implicit caching, long-decode limits, and the Gemini API's deprecation schedule
+- **[Gemini Omni Flash](./gemini_omni/README.md)** - Google's video generation and editing model (`gemini-omni-1.2-flash`, `gemini-omni-1.1-flash`) on the Interactions API: `response_format` video entries, image to video, URI delivery, per-second video pricing
 - **[Gemini Interactions API](./gemini_interactions/README.md)** - Google's Interactions API (`/v1beta/interactions`, `steps` schema): thought steps and signatures, streaming step events, function calling, image and speech generation, usage, v1/v1beta and Vertex AI references
 - **[GLM-5.1](./glm5_1/README.md)** - Z.AI's GLM-5.1 API documentation and examples
 - **[GLM-5.2](./glm5_2/README.md)** - Z.AI's GLM-5.2 API documentation (reasoning_effort, thinking modes, tool streaming)
