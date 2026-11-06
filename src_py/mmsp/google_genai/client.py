@@ -102,6 +102,9 @@ class GoogleGenaiClient(LLMClient):
             http_options["base_url"] = base_url
         if default_headers:
             http_options["headers"] = default_headers
+        # The SDK picks the API version unless told: v1beta (v1beta1 on Vertex AI) up to 2.x, v1 on the Gemini API
+        # from 3.0, or GOOGLE_GENAI_API_VERSION. Speech output exists on v1beta only
+        # (llmsdk_docs/gemini_interactions/docs/api-versions.md), so each platform's version is named here.
         if api_key and api_key.startswith("{"):
             service_account_info = json.loads(api_key)
             credentials = service_account.Credentials.from_service_account_info(
@@ -112,10 +115,10 @@ class GoogleGenaiClient(LLMClient):
                 credentials=credentials,
                 project=service_account_info["project_id"],
                 location="global",
-                http_options=http_options,
+                http_options={**http_options, "api_version": "v1beta1"},
             )
         else:
-            self._client = genai.Client(api_key=api_key, http_options=http_options)
+            self._client = genai.Client(api_key=api_key, http_options={**http_options, "api_version": "v1beta"})
 
         self._history: list[UniMessage] = []
 

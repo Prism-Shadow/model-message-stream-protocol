@@ -79,3 +79,13 @@ jobs:
           done
         env:
           MMSP_TEST_CLIENTS: "[]"
+
+      - name: Rerun the offline tests on the older google-genai lines
+        working-directory: ./src_py
+        run: |
+          for sdk in "google-genai<3" "google-genai==2.23.0"; do
+            uv run --with "$sdk" python -c "from google import genai; print('google-genai', genai.__version__)"
+            uv run --with "$sdk" pytest -n 16 --dist loadgroup tests
+          done
+        env:
+          MMSP_TEST_CLIENTS: "[]"
