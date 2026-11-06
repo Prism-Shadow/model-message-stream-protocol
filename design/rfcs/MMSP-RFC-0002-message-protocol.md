@@ -3,7 +3,7 @@
 - Feature Name: `message_protocol`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#__PR__](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/__PR__)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318)
 - Kind: spec
 
 [中文版](MMSP-RFC-0002-message-protocol.zh.md)
@@ -22,7 +22,7 @@ Stated in [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/p
 
 On 2026-11-02 the owner asked for web search and page fetch, done the way embedding is: 在mmsp里面增加search和fetch的能力,实现方式和embedding类似. They entered the protocol as one more kind of item, `webtool`, whose `webdata` holds the pages a search found or the page a fetch read, and one more `UniConfig` key, `webtool_config`, whose `count` is how many results a search returns. On what a search result carries, the owner's words: search的content显示摘要,不要用need content参数 jina要加no content. [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308) amended this specification in place, with the `webtool` kinds added to §3.4.
 
-On 2026-11-06 the owner asked for Gemini Omni's video generation: 支持一下google omni的视频生成能力. A video entered the protocol as an `inline_data` item, without a new kind; one the provider delivers by URI is returned as its URI, in text, because the owner chose no new item type for it. [#__PR__](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/__PR__) amended this specification in place, with the media of `inline_data` in §3.4.
+On 2026-11-06 the owner asked for Gemini Omni's video generation: 支持一下google omni的视频生成能力. A video entered the protocol as an `inline_data` item, without a new kind; one the provider delivers by URI is returned as its URI, in text, because the owner chose no new item type for it. [#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318) amended this specification in place, with the media of `inline_data` in §3.4.
 
 ## 2. Conventions and Terminology
 

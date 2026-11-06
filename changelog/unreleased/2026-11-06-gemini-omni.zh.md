@@ -3,7 +3,7 @@
 - **Date:** 2026-11-06
 - **Type:** feature
 - **Scope:** `google_official`, `stream_items`, `registry`, `integration`, `site`
-- **PR:** [#__PR__](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/__PR__)
+- **PR:** [#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318)
 
 [English](2026-11-06-gemini-omni.md)
 
