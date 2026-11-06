@@ -3,7 +3,7 @@
 - Feature Name: `message_protocol`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#__PR__](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/__PR__)
 - Kind: spec
 
 [中文版](MMSP-RFC-0002-message-protocol.zh.md)
@@ -21,6 +21,8 @@ A replayed turn has to be accepted by the API with the model's behavior intact; 
 Stated in [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265) as MMSP-RFC-0002, MMSP-RFC-0009, part of MMSP-RFC-0008 and the second half of MMSP-RFC-0012, and in [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) as MMSP-RFC-0002 and MMSP-RFC-0004. The order rule of the earlier MMSP-RFC-0002 is now [MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.md#6-order) §6.
 
 On 2026-11-02 the owner asked for web search and page fetch, done the way embedding is: 在mmsp里面增加search和fetch的能力,实现方式和embedding类似. They entered the protocol as one more kind of item, `webtool`, whose `webdata` holds the pages a search found or the page a fetch read, and one more `UniConfig` key, `webtool_config`, whose `count` is how many results a search returns. On what a search result carries, the owner's words: search的content显示摘要,不要用need content参数 jina要加no content. [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308) amended this specification in place, with the `webtool` kinds added to §3.4.
+
+On 2026-11-06 the owner asked for Gemini Omni's video generation: 支持一下google omni的视频生成能力. A video entered the protocol as an `inline_data` item, without a new kind; one the provider delivers by URI is returned as its URI, in text, because the owner chose no new item type for it. [#__PR__](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/__PR__) amended this specification in place, with the media of `inline_data` in §3.4.
 
 ## 2. Conventions and Terminology
 
@@ -48,6 +50,8 @@ An event has `role`, `event_type` (`delta` or `stop`), `content_items`, `usage_m
 ### 3.4 Content Items
 
 The complete kinds are `text.done`, `image_url.done`, `inline_data.done`, `thinking.done`, `inline_thinking.done`, `tool_call.done`, `tool_result.done`, `embedding.done` and `webtool.done`. The fragment kinds are the `.delta` forms of all of them but `image_url` and `tool_result`, which a caller writes and no stream carries. A message or an event MUST NOT carry any other kind of item, a provider's own types included.
+
+An `inline_data` item's `mime_type` names its medium: an image, audio or a video. An image or a video arrives whole, one fragment to an item; audio streams as the fragments of one item. A video the provider delivers by URI rather than by its bytes is a `text` item holding the URI.
 
 A `webtool` item's `webdata` is a list of `WebData` objects, each with a `title`, a `content` and a `url`, all three strings. For a search it MUST hold the results in rank order, each result's `content` being the summary the search endpoint gives of the page, never the page's body; a search that found nothing is an item whose `webdata` is empty. For a fetch it MUST hold the one page read, its `content` being the page's Markdown and its `url` the page's address, or the URL sent where the endpoint returns none.
 

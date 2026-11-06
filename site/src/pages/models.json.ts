@@ -13,10 +13,9 @@ export const GET: APIRoute = ({ site }) => {
   const rows = listSupportedModels("USD").map((entry) => {
     const provider = providerOf(entry.base_url);
     const pricing = entry.pricing;
-    // the row keeps one output price; a registry row billing thoughts apart would need its own field
-    if (pricing && pricing.thoughts_tokens !== pricing.response_tokens) {
-      throw new Error(`site/src/pages/models.json.ts: ${entry.model} at ${entry.base_url} bills thoughts apart from the response`);
-    }
+    // thoughts are billed at the output price unless the row names their own (Gemini Omni's video
+    // response costs more than its text thoughts)
+    const thoughts = pricing && pricing.thoughts_tokens !== pricing.response_tokens ? pricing.thoughts_tokens : undefined;
     return {
       model: entry.model,
       base_url: entry.base_url,
@@ -25,7 +24,7 @@ export const GET: APIRoute = ({ site }) => {
       input_modalities: entry.input_modalities,
       output_modalities: entry.output_modalities,
       context_window: entry.context_window,
-      pricing: pricing && { prompt_tokens: pricing.prompt_tokens, response_tokens: pricing.response_tokens, cached_tokens: pricing.cached_tokens },
+      pricing: pricing && { prompt_tokens: pricing.prompt_tokens, response_tokens: pricing.response_tokens, thoughts_tokens: thoughts, cached_tokens: pricing.cached_tokens },
       api_key_env: provider.keyEnv,
       api_key_format: provider.keyHint?.en,
     };
@@ -39,7 +38,7 @@ export const GET: APIRoute = ({ site }) => {
       docs: new URL("/docs/quickstart/", site).href,
     },
     pricing:
-      "USD per 1M tokens: the vendor's list price on its own endpoint, and on a gateway the rate the gateway bills; prompt_tokens is the uncached input, cached_tokens a cache hit, and response_tokens the output, at which thoughts are billed too",
+      "USD per 1M tokens: the vendor's list price on its own endpoint, and on a gateway the rate the gateway bills; prompt_tokens is the uncached input, cached_tokens a cache hit, and response_tokens the output, at which thoughts are billed too unless a row names thoughts_tokens",
     status: {
       page: new URL("/status/", site).href,
       files: ["latest.json", "history.json", "monthly.json"].map((name) => STATUS_DATA_URL + name),

@@ -62,7 +62,7 @@ description: UniConfig，请求的配置选项，以及每个客户端为它们�
 
 ## 每个客户端发送什么
 
-客户端以 `client_type` 命名（见[模型与端点](/zh/docs/models/)）；`openai-official` 通过 `openai-embedding` 服务 `text-embedding-*` 模型，通过 `openai-image` 服务 `gpt-image-*` 模型，`deepseek-official` 通过 `deepseek-webtool` 服务 `deepseek-search` 和 `deepseek-fetch`。三个媒体客户端 `openai-image`、`openai-speech` 和 `openai-transcription` 只发送模型、提示词、输入文本或文件，以及 `image_config` 或 `tts_config`。两个网页工具客户端 `deepseek-webtool` 和 `jina-webtool` 按 ID 里的 `-search` 或 `-fetch` 区分搜索和抓取。在两个 Google 客户端上，ID 含 `tts` 的是语音模型，含 `embedding` 的是向量模型。`mmsp` 客户端原样发送配置，由服务端交给该模型自己的客户端处理，因此适用那个客户端的行。
+客户端以 `client_type` 命名（见[模型与端点](/zh/docs/models/)）；`openai-official` 通过 `openai-embedding` 服务 `text-embedding-*` 模型，通过 `openai-image` 服务 `gpt-image-*` 模型，`deepseek-official` 通过 `deepseek-webtool` 服务 `deepseek-search` 和 `deepseek-fetch`。三个媒体客户端 `openai-image`、`openai-speech` 和 `openai-transcription` 只发送模型、提示词、输入文本或文件，以及 `image_config` 或 `tts_config`。两个网页工具客户端 `deepseek-webtool` 和 `jina-webtool` 按 ID 里的 `-search` 或 `-fetch` 区分搜索和抓取。在两个 Google 客户端上，ID 含 `tts` 的是语音模型，含 `embedding` 的是向量模型；在 `google-official` 上，ID 含 `gemini-omni` 的是 Gemini Omni。`mmsp` 客户端原样发送配置，由服务端交给该模型自己的客户端处理，因此适用那个客户端的行。
 
 ### `max_tokens`
 
@@ -71,6 +71,7 @@ description: UniConfig，请求的配置选项，以及每个客户端为它们�
 | `anthropic-official`、`ant-messages` | `max_tokens`；未设置时为 64000，因为 Messages API 要求必填 |
 | `zai-official` | `max_tokens` |
 | `openai-official`、`openai-responses`、`deepseek-official`、`minimax-official`、`google-official`、`google-genai` | `max_output_tokens`，语音模型也一样 |
+| `google-official` 上的 Gemini Omni | 不发送：视频本身的 token 也计入上限（默认视频为 57,920），按文本设定的上限会在视频生成后才失败 |
 | `openai-chat`、`openai-chat-vllm-adapter`、`moonshot-official` | `max_completion_tokens` |
 | `openai-embedding`、`deepseek-webtool`、`jina-webtool`、媒体客户端、Gemini 向量模型 | 忽略 |
 
@@ -102,6 +103,7 @@ description: UniConfig，请求的配置选项，以及每个客户端为它们�
 | `openai-official`、`openai-responses`、`deepseek-official`、`minimax-official`、`google-official` | `tools`，每项带 `type: "function"` |
 | `openai-chat`、`openai-chat-vllm-adapter`、`moonshot-official`、`zai-official` | `tools`，每项作为一个 `type: "function"` 工具的 `function` |
 | `google-genai` | 一个由 `function_declarations` 组成的工具 |
+| `google-official` 上的 Gemini Omni | 抛错 |
 | `openai-embedding`、`deepseek-webtool`、`jina-webtool`、媒体客户端、Gemini 语音和向量模型 | 忽略 |
 
 ### `tool_choice`
@@ -121,7 +123,7 @@ description: UniConfig，请求的配置选项，以及每个客户端为它们�
 | `minimax-official` | `auto` | `none`；MiniMax-M3.1-Flash 上抛错 | 抛错 | 抛错 |
 | `zai-official` | `auto` | 抛错 | 抛错 | 抛错 |
 
-Claude Opus 5.5、Sonnet 5.5、Haiku 5.5 和 Fable 5.1 不能强制调用工具，在它们上面传 `"required"` 或工具名列表会抛错。两个 Google 客户端只在有 `tools` 时发送 `tool_choice`，语音模型忽略它。`openai-embedding`、网页工具客户端、媒体客户端和 Gemini 向量模型忽略它。
+Claude Opus 5.5、Sonnet 5.5、Haiku 5.5 和 Fable 5.1 不能强制调用工具，在它们上面传 `"required"` 或工具名列表会抛错。两个 Google 客户端只在有 `tools` 时发送 `tool_choice`，语音模型忽略它；Gemini Omni 上任何值都抛错。`openai-embedding`、网页工具客户端、媒体客户端和 Gemini 向量模型忽略它。
 
 ### `thinking_level`
 
@@ -143,6 +145,7 @@ Claude Opus 5.5、Sonnet 5.5、Haiku 5.5 和 Fable 5.1 不能强制调用工具�
 | `moonshot-official`：Kimi K3、Kimi K3.1 Pro | `none` | `low` | `high` | `high` | `max` | `max` |
 | `zai-official`：GLM-5.3、GLM-5.3-Flash | `low` | `low` | `high` | `high` | `max` | `max` |
 | `zai-official`：其他 GLM 模型 | `disabled` | `low` | `medium` | `high` | `xhigh` | `max` |
+| `google-official`：Gemini Omni | `low` | `low` | `high` | `high` | `high` | `high` |
 | `google-official`、`google-genai`：图像模型 | `minimal` | `minimal` | `high` | `high` | `high` | `high` |
 | `google-official`、`google-genai`：Gemini 3 Pro | `low` | `low` | `high` | `high` | `high` | `high` |
 | `google-official`、`google-genai`：其他 Pro 模型，Gemini 3.7、3.8、4 Argon、4 Carbon | `low` | `low` | `medium` | `high` | `high` | `high` |
@@ -202,7 +205,8 @@ GPT-5.6 与 GPT-6 上，12 小时的缓存写入按 30 分钟写入价格的两�
 
 | 客户端 | `true` |
 | --- | --- |
-| `openai-official`、`openai-responses`、`openai-chat`、`openai-chat-vllm-adapter`、`google-official` | `service_tier: "priority"` |
+| `openai-official`、`openai-responses`、`openai-chat`、`openai-chat-vllm-adapter` | `service_tier: "priority"` |
+| `google-official` | `service_tier: "priority"`；Gemini Omni 上抛错 |
 | `minimax-official` | MiniMax-M3 上为 `service_tier: "priority"`；MiniMax-M3.1-Flash 上抛错 |
 | `ant-messages` | `speed: "fast"` 加 beta `fast-mode-2026-02-01` |
 | `anthropic-official` | 同上；Bedrock 上以及 Claude 4.6、Sonnet 5.5、Haiku 5.5 和 Fable 5.1 上抛错 |
@@ -214,7 +218,7 @@ GPT-5.6 与 GPT-6 上，12 小时的缓存写入按 30 分钟写入价格的两�
 | 客户端 | 发送为 |
 | --- | --- |
 | `google-genai` | `image_config` |
-| `google-official` | `response_format`：先是一个文本项，再是一个带 `aspect_ratio` 和 `image_size` 的图像项 |
+| `google-official` | `response_format`：先是一个文本项，再是一个带 `aspect_ratio` 和 `image_size` 的图像项；Gemini Omni 上抛错 |
 | `openai-image` | `size`，取自下表；只有 `aspect_ratio` 时取该比例的 1K 尺寸，只有 `image_size` 时取 1:1，没有 `image_config` 时不发送 `size` |
 | 其他所有客户端；Gemini 语音和向量模型 | 忽略 |
 

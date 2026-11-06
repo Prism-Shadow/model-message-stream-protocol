@@ -42,7 +42,9 @@ export function kitEntry(entry: SupportedModel): KitEntry {
             ? "web"
             : out.includes("Image")
               ? "image"
-              : "audio";
+              : out.includes("Video")
+                ? "video"
+                : "audio";
   return {
     model,
     base_url,
