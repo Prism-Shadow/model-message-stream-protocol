@@ -3,7 +3,7 @@
 - Feature Name: `message_protocol`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#__PR__](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/__PR__)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318)
 - Kind: spec
 
 [English](MMSP-RFC-0002-message-protocol.md)
@@ -22,7 +22,7 @@ MMSP 的用意，是让调用方只面对一种消息格式和一套流语法，
 
 2026-11-02，项目负责人要求加入网页搜索与网页抓取，做法与 embedding 相同，原话是：「在mmsp里面增加search和fetch的能力,实现方式和embedding类似」。它们以一种新的内容项类型 `webtool` 进入协议，它的 `webdata` 存放搜索找到的网页或抓取读到的那一页；另有一个新的 `UniConfig` 键 `webtool_config`，它的 `count` 是搜索返回的结果数。关于搜索结果携带什么，项目负责人的原话是：「search的content显示摘要,不要用need content参数 jina要加no content」。[#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308) 在原文上修改了本规范：在 §3.4 中加入 `webtool` 类型。
 
-2026-11-06，项目负责人要求支持 Gemini Omni 的视频生成，原话是：「支持一下google omni的视频生成能力」。视频以 `inline_data` 内容项进入协议，没有新增类型；服务商以 URI 交付的视频按它的 URI 以文本返回，因为项目负责人选择不为它新增内容项类型。[#__PR__](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/__PR__) 在原文上修改了本规范：在 §3.4 中写明 `inline_data` 承载的媒体。
+2026-11-06，项目负责人要求支持 Gemini Omni 的视频生成，原话是：「支持一下google omni的视频生成能力」。视频以 `inline_data` 内容项进入协议，没有新增类型；服务商以 URI 交付的视频按它的 URI 以文本返回，因为项目负责人选择不为它新增内容项类型。[#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318) 在原文上修改了本规范：在 §3.4 中写明 `inline_data` 承载的媒体。
 
 ## 2. Conventions and Terminology
 

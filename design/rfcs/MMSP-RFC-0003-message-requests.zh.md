@@ -3,7 +3,7 @@
 - Feature Name: `message_requests`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313), [#__PR__](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/__PR__)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313), [#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318)
 - Kind: spec
 
 [English](MMSP-RFC-0003-message-requests.md)
@@ -24,7 +24,7 @@
 
 2026-11-02，OpenAI 发布 GPT-6.1 Terra，项目负责人要求支持，原话是：「GPT 6.1 terra更新了」。与 GPT-6 Astra、GPT-6.1 Sol 不同，Terra 接受 `none` 这一 effort，所以两个 Responses 客户端在 Terra 上把 `none` 当作它自己的关闭开关。为它做的探测发现了所有 GPT-6 模型上的两处缺口：`tool_choice` 的列表形式发出时缺少 OpenAI 与 OpenRouter 要求的 `type`（400 `Missing required parameter: 'tool_choice.type'`）；超过 30,000 个 patch 的图片被拒绝，因为只有 GPT-5.6 会被发送 `detail: "high"`。项目负责人还把 `enhance` 映射到 OpenAI 的 12 小时缓存时长，GPT-5.6 及之后的模型在 Responses API 上接受它，GPT-5.5 拒绝。[#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313) 在原文上修改了本规范：§6.1 与 §6.3 写入 Terra 的 `none` 和这一代模型的 `detail`，§6.4 写入 allowed-tools 列表与 12 小时缓存。
 
-2026-11-06，项目负责人要求支持 Gemini Omni 的视频生成，原话是：「支持一下google omni的视频生成能力」。Gemini Omni 1.2 Flash 通过 Interactions API 作答，返回一段带音轨的 MP4 视频，整段放在一个流式增量里发出。项目负责人保留了 Google 的默认设置（16:9、720p、10 秒），不新增配置键；以 URI 交付的视频按它的 URI 返回；跨多轮编辑视频不在范围内。探测发现 Omni 只接受 `low` 和 `high` 两个思考级别，并把视频本身的 token 计入 `max_output_tokens`，所以按文本设定的上限要等视频生成之后才会失败。[#__PR__](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/__PR__) 在原文上修改了本规范：§6.1 加入 `gemini-omni` 标记，§6.2 写入不发送的 `max_tokens`，§6.3 写入 Omni 的级别。
+2026-11-06，项目负责人要求支持 Gemini Omni 的视频生成，原话是：「支持一下google omni的视频生成能力」。Gemini Omni 1.2 Flash 通过 Interactions API 作答，返回一段带音轨的 MP4 视频，整段放在一个流式增量里发出。项目负责人保留了 Google 的默认设置（16:9、720p、10 秒），不新增配置键；以 URI 交付的视频按它的 URI 返回；跨多轮编辑视频不在范围内。探测发现 Omni 只接受 `low` 和 `high` 两个思考级别，并把视频本身的 token 计入 `max_output_tokens`，所以按文本设定的上限要等视频生成之后才会失败。[#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318) 在原文上修改了本规范：§6.1 加入 `gemini-omni` 标记，§6.2 写入不发送的 `max_tokens`，§6.3 写入 Omni 的级别。
 
 ## 2. Conventions and Terminology
 

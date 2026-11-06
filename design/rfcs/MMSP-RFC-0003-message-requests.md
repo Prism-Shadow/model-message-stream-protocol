@@ -3,7 +3,7 @@
 - Feature Name: `message_requests`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313), [#__PR__](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/__PR__)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313), [#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318)
 - Kind: spec
 
 [中文版](MMSP-RFC-0003-message-requests.zh.md)
@@ -24,7 +24,7 @@ On 2026-11-02 the owner asked for web search and page fetch, done the way embedd
 
 On 2026-11-02 OpenAI released GPT-6.1 Terra, and the owner asked for it: GPT 6.1 terra更新了. Unlike GPT-6 Astra and GPT-6.1 Sol, Terra takes the `none` effort, so `none` runs as its own off switch on both Responses clients. The probes for it found two gaps on every GPT-6 model: the list form of `tool_choice` went out without the `type` that OpenAI and OpenRouter require (400 `Missing required parameter: 'tool_choice.type'`), and an image above 30,000 patches was refused, because only GPT-5.6 was sent `detail: "high"`. The owner also mapped `enhance` to OpenAI's 12-hour cache lifetime, which GPT-5.6 and later take on the Responses API and GPT-5.5 refuses. [#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313) amended this specification in place, with Terra's `none` and the generation's `detail` in §6.1 and §6.3, and the allowed-tools list and the 12-hour cache in §6.4.
 
-On 2026-11-06 the owner asked for Gemini Omni's video generation: 支持一下google omni的视频生成能力. Gemini Omni 1.2 Flash answers through the Interactions API with one video, an MP4 with its audio, sent whole in one stream delta. The owner kept Google's defaults (16:9, 720p, 10 seconds) without a new configuration key, and a video delivered by URI is returned as its URI; editing a video over several turns was left out. The probes found that Omni takes only the `low` and `high` thinking levels and counts the video's own tokens against `max_output_tokens`, so a limit sized for text fails only after the video has been made. [#__PR__](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/__PR__) amended this specification in place, with the `gemini-omni` marker in §6.1, the unsent `max_tokens` in §6.2 and Omni's levels in §6.3.
+On 2026-11-06 the owner asked for Gemini Omni's video generation: 支持一下google omni的视频生成能力. Gemini Omni 1.2 Flash answers through the Interactions API with one video, an MP4 with its audio, sent whole in one stream delta. The owner kept Google's defaults (16:9, 720p, 10 seconds) without a new configuration key, and a video delivered by URI is returned as its URI; editing a video over several turns was left out. The probes found that Omni takes only the `low` and `high` thinking levels and counts the video's own tokens against `max_output_tokens`, so a limit sized for text fails only after the video has been made. [#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318) amended this specification in place, with the `gemini-omni` marker in §6.1, the unsent `max_tokens` in §6.2 and Omni's levels in §6.3.
 
 ## 2. Conventions and Terminology
 

@@ -3,7 +3,7 @@
 - **Date:** 2026-11-06
 - **Type:** process
 - **Scope:** `design`
-- **PR:** [#__PR__](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/__PR__)
+- **PR:** [#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318)
 
 [中文版](2026-11-06-gemini-omni-rfcs.zh.md)
 
