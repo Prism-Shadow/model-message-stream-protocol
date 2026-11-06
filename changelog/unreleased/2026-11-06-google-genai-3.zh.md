@@ -3,6 +3,7 @@
 - **Date:** 2026-11-06
 - **Type:** fix
 - **Scope:** `google_official`, `google_genai`, `ci`
+- **PR:** [#319](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/319)
 
 [English](2026-11-06-google-genai-3.md)
 
