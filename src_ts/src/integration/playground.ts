@@ -1760,6 +1760,14 @@ export function createChatApp(): Express {
               box-shadow: var(--shadow-card);
           }
 
+          .media video {
+              display: block;
+              width: min(100%, 560px);
+              border-radius: 12px;
+              box-shadow: var(--shadow-card);
+              background: #000;
+          }
+
           .audio-box {
               display: inline-flex;
               align-items: center;
@@ -2600,6 +2608,9 @@ export function createChatApp(): Express {
               const mimeType = (item.mime_type || '').toLowerCase();
               if (mimeType.startsWith('image/')) {
                   return \`<figure class="media"><img src="data:\${mimeType || 'image/png'};base64,\${item.data}" alt="Generated image"></figure>\`;
+              }
+              if (mimeType.startsWith('video/')) {
+                  return \`<figure class="media"><video controls preload="metadata" src="data:\${mimeType};base64,\${item.data}"></video></figure>\`;
               }
 
               return \`<div class="inline-data">Inline data: \${escapeHtml(item.mime_type || 'application/octet-stream')}</div>\`;

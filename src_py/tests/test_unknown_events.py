@@ -770,6 +770,42 @@ async def test_gemini_client_labels_audio_deltas_without_a_mime_type_as_l16(case
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("case", GEMINI_STREAM_CASES, ids=[case.client_type for case in GEMINI_STREAM_CASES])
+async def test_gemini_client_streams_every_video_as_an_item_and_a_video_uri_as_text(case: StreamCase):
+    uri = "https://generativelanguage.googleapis.com/v1beta/files/abc123:download?alt=media"
+
+    def video(text: str, mime_type: str | None) -> object:
+        # Gemini Omni's whole MP4 in one delta, as the SDK parses it
+        return SimpleNamespace(
+            type="video", data=base64.b64encode(text.encode()).decode(), mime_type=mime_type, uri=None
+        )
+
+    client = _create_auto_client(case)
+    _install_fake_gemini_stream(
+        client,
+        [
+            SimpleNamespace(event_type="step.start", index=1, step=SimpleNamespace(type="model_output")),
+            _gemini_delta_event(1, video("mp4 1", "video/mp4")),
+            # a second video under the same step is an item of its own; one without a MIME type is an MP4
+            _gemini_delta_event(1, video("mp4 2", None)),
+            SimpleNamespace(event_type="step.stop", index=1),
+            # a video delivered by URI goes out as its URI
+            _gemini_delta_event(2, SimpleNamespace(type="video", data=None, mime_type="video/mp4", uri=uri)),
+            SimpleNamespace(event_type="step.stop", index=2),
+            _gemini_completed_event(),
+        ],
+    )
+
+    events = [event async for event in client.streaming_response(MESSAGES, {})]
+    assert_stream_grammar(events)
+    assert [item for event in events for item in event["content_items"] if item["type"].endswith(".done")] == [
+        {"type": "inline_data.done", "data": b"mp4 1", "mime_type": "video/mp4"},
+        {"type": "inline_data.done", "data": b"mp4 2", "mime_type": "video/mp4"},
+        {"type": "text.done", "text": uri},
+    ]
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "case", GENERATE_CONTENT_STREAM_CASES, ids=[case.client_type for case in GENERATE_CONTENT_STREAM_CASES]
 )

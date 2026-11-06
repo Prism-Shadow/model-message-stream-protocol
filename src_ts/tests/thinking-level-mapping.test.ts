@@ -114,6 +114,36 @@ describe("google_official thinking level clamping", () => {
   );
 });
 
+// Gemini Omni takes only "low" and "high" ("minimal" and "medium" are refused: "Allowed values are:
+// high, low.", verified live 2026-11-06); every level lands on the closer one, a tie rounding up.
+const GEMINI_OMNI_THINKING_LEVEL_CASES: Array<[string, ThinkingLevel, string]> =
+  [
+    ["gemini-omni-1.2-flash", ThinkingLevel.NONE, "low"],
+    ["gemini-omni-1.2-flash", ThinkingLevel.LOW, "low"],
+    ["gemini-omni-1.2-flash", ThinkingLevel.MEDIUM, "high"],
+    ["gemini-omni-1.2-flash", ThinkingLevel.HIGH, "high"],
+    ["gemini-omni-1.2-flash", ThinkingLevel.XHIGH, "high"],
+    ["gemini-omni-1.2-flash", ThinkingLevel.MAX, "high"],
+    ["gemini-omni-1.1-flash", ThinkingLevel.NONE, "low"],
+  ];
+
+describe("gemini omni thinking level clamping", () => {
+  test.each(GEMINI_OMNI_THINKING_LEVEL_CASES)(
+    "%s clamps %s to %s",
+    (model, level, expected) => {
+      const client = new AutoLLMClient({ model, apiKey: "test-key" });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((client as any)._client.constructor.name).toBe(
+        "GoogleOfficialClient",
+      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((client as any)._client._convertThinkingLevel(level)).toBe(
+        expected,
+      );
+    },
+  );
+});
+
 // The generateContent client clamps like the Interactions client, onto the SDK's ThinkingLevel
 // enum, whose values are the uppercase names.
 function createGenerateContentAutoClient(model: string): AutoLLMClient {

@@ -38,6 +38,7 @@ class Model:
     support_text: bool = True
     support_image_understanding: bool = True
     support_image_generation: bool = False
+    support_video_generation: bool = False
     support_tts: bool = False
     support_embedding: bool = False
     support_webtool: Literal["search", "fetch"] | None = None
@@ -878,6 +879,39 @@ async def test_image_generation(model: Model):
     inline_items = [item for event in events for item in event["content_items"] if item["type"] == "inline_data.done"]
     assert inline_items, f"No inline data returned for generated image by {model.name}"
     assert any("image/" in item["mime_type"] for item in inline_items)
+    assert all(isinstance(item["data"], bytes) and item["data"] for item in inline_items)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("model", AVAILABLE_MODELS, ids=[str(model) for model in AVAILABLE_MODELS])
+async def test_video_generation(model: Model):
+    """Test a generated video, which arrives whole as one inline data item."""
+    if not model.support_video_generation:
+        pytest.skip(f"Video generation is not supported by {model.name}.")
+
+    client = await _create_client(model)
+    events = []
+    async for event in client.streaming_response(
+        messages=[
+            {
+                "role": "user",
+                "content_items": [
+                    {
+                        "type": "text.done",
+                        "text": "A paper boat drifting down a calm forest stream. One continuous shot, no dialogue.",
+                    }
+                ],
+            }
+        ],
+        config={},
+    ):
+        await _check_event_integrity(event)
+        events.append(event)
+
+    assert_stream_grammar(events)
+    inline_items = [item for event in events for item in event["content_items"] if item["type"] == "inline_data.done"]
+    assert inline_items, f"No inline data returned for generated video by {model.name}"
+    assert any("video/" in item["mime_type"] for item in inline_items)
     assert all(isinstance(item["data"], bytes) and item["data"] for item in inline_items)
 
 

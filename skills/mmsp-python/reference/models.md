@@ -11,6 +11,7 @@ Use exact model IDs, and pass the model's client type as `client_type`. If a mod
 | Gemini 3 Image | Official / Vertex AI | `gemini-3.1-flash-image`, `gemini-3.1-flash-lite-image`, `gemini-3-pro-image` | `google-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
 | Gemini 3.8 TTS | Official | `gemini-3.8-flash-tts`, `gemini-3.8-flash-lite-tts` | `google-official` | `GEMINI_API_KEY` (not served on Vertex AI) | `GEMINI_BASE_URL` |
 | Gemini 3 TTS | Official / Vertex AI | `gemini-3.1-flash-tts-preview` | `google-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
+| Gemini Omni | Official | `gemini-omni-1.2-flash` (video generation) | `google-official` | `GEMINI_API_KEY` | `GEMINI_BASE_URL` |
 | Gemini Embedding | Official / Vertex AI | `gemini-embedding-2` | `google-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
 | Claude 4.6 | Official / ModelVerse | `claude-sonnet-4-6` | `anthropic-official` | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` |
 | Claude 4.6 | Bedrock | `global.anthropic.claude-sonnet-4-6` | `anthropic-official` | `ANTHROPIC_API_KEY` (`ACCESS_KEY,SECRET_KEY`) | `ANTHROPIC_BASE_URL` (`bedrock://us-east-1`) |
@@ -62,6 +63,8 @@ Use exact model IDs, and pass the model's client type as `client_type`. If a mod
 | Jina Search/Reader | Official | `jina-search`, `jina-fetch` | `jina-webtool` | `JINA_API_KEY` | `JINA_BASE_URL` |
 
 `google-official` serves Gemini models through the Interactions API with a Gemini API key. On Vertex AI, pass `client_type: "google-genai"`, which speaks generateContent, with the service-account JSON key; Vertex AI serves no Gemini model through Interactions, and `google-official` refuses a service-account key. Embedding models use `embedContent` on either client. Thought signatures only replay on the endpoint that issued them, so a history recorded with an API key cannot move to a Vertex AI key with its signatures, or the reverse.
+
+Gemini Omni (`gemini-omni-1.2-flash`) answers with one `inline_data` item holding an MP4 with its audio, at Google's defaults (16:9, 720p, 10 seconds; about $0.70 a video). `google-official` sends only the newest message (its text and images) and no `max_tokens`, since the video's own tokens count against Google's limit; `tools`, `tool_choice`, `image_config` and `fast_mode` raise `UnsupportedParameterError`.
 
 Common gateway base URLs:
 

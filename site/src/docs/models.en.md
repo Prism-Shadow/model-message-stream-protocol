@@ -12,7 +12,7 @@ Use exact model ids. A model id that begins with a known family names its offici
 | --- | --- | --- | --- |
 | `openai-official` | `gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-astra`, `gpt-5.6-sol`, `gpt-5.5`; `text-embedding-3-large`, `text-embedding-3-small` | OpenAI Responses; Embeddings for `text-embedding-*` | `OPENAI_API_KEY` `OPENAI_BASE_URL` |
 | `anthropic-official` | `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5`, `claude-fable-5-1`, `claude-opus-5`, `claude-sonnet-5` | Anthropic Messages | `ANTHROPIC_API_KEY` `ANTHROPIC_BASE_URL` |
-| `google-official` | `gemini-4-argon`, `gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-3.1-pro-preview`; `gemini-3.1-flash-image`, `gemini-3.8-flash-tts`; `gemini-embedding-2` | Gemini Interactions | `GEMINI_API_KEY` `GEMINI_BASE_URL` |
+| `google-official` | `gemini-4-argon`, `gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-3.1-pro-preview`; `gemini-3.1-flash-image`, `gemini-3.8-flash-tts`, `gemini-omni-1.2-flash`; `gemini-embedding-2` | Gemini Interactions | `GEMINI_API_KEY` `GEMINI_BASE_URL` |
 | `zai-official` | `glm-5.3`, `glm-5.3-flash`, `glm-5.2` | Chat Completions | `ZAI_API_KEY` `ZAI_BASE_URL` |
 | `moonshot-official` | `kimi-k3.1-pro`, `kimi-k3.1-pro-highspeed`, `kimi-k3`, `kimi-k2.6` | Chat Completions | `MOONSHOT_API_KEY` `MOONSHOT_BASE_URL` |
 | `deepseek-official` | `deepseek-flash`, `deepseek-v4-pro`; `deepseek-search`, `deepseek-fetch` | Responses; Search and Fetch for `deepseek-search` and `deepseek-fetch` | `DEEPSEEK_API_KEY` `DEEPSEEK_BASE_URL` |
@@ -22,6 +22,8 @@ Use exact model ids. A model id that begins with a known family names its offici
 Each row names the environment variables the client reads: the key, then the endpoint, which defaults to the vendor's own. An official client reads them whatever endpoint it is given, so it also serves a gateway that mirrors the vendor's API: OpenRouter serves `deepseek/deepseek-v4-pro` through `deepseek-official`, and SiliconFlow serves `Pro/moonshotai/Kimi-K2.6` through `moonshot-official`, each with the gateway's `base_url` and `api_key`.
 
 Gemini 4 Argon (`gemini-4-argon`) supports `low`, `medium` (default), and `high` thinking. MMSP maps `none` to `low` and `xhigh`/`max` to `high`. Its 1,048,576-token context window is shared by input, thinking, and output; synchronous streaming is limited to 65,536 output tokens. Longer outputs require Google's stored background execution, outside MMSP's stateless streaming interface. Caching is implicit only.
+
+Gemini Omni 1.2 Flash (`gemini-omni-1.2-flash`) generates video: it answers with one `inline_data` item holding an MP4 with its audio, at Google's defaults (16:9, 720p, 10 seconds; about $0.70 a video). MMSP sends only the newest message, its text and images, and leaves `max_tokens` unsent, since the video's own tokens count against Google's limit. It supports `low` and `high` thinking: `none` and `low` run at `low`, the rest at `high`. `tools`, `tool_choice`, `image_config` and `fast_mode` raise `UnsupportedParameterError`.
 
 MiniMax-M3.1-Flash (`MiniMax-M3.1-Flash`) always thinks and supports `low` through `max` (default `max`). MMSP maps `none` to `low` and passes `xhigh` and `max` through. It has no priority tier and ignores `tool_choice: "none"`, so `fast_mode` and `tool_choice: "none"` raise `UnsupportedParameterError`.
 
