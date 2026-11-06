@@ -43,7 +43,7 @@ group  := K.delta+ K.done        K = text | thinking | tool_call | inline_data |
 | `text.delta` | `text` | |
 | `thinking.delta` | `thinking` | |
 | `tool_call.delta` | `arguments`，JSON 字符串片段 | `name` 和 `tool_call_id` 仅在调用的第一个片段设置，后续为空 |
-| `inline_data.delta` | `data` 字节 | 音频分块到达，每块一项；每张图片独立为一项 |
+| `inline_data.delta` | `data` 字节 | 音频分块到达，每块一项；每张图片或每段视频独立为一项 |
 | `inline_thinking.delta` | `data` 字节 | |
 | `embedding.delta` | `embedding` | 整个向量 |
 | `webtool.delta` | `webdata` | 一次请求的完整结果 |

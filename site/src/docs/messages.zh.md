@@ -38,7 +38,7 @@ description: UniMessage，每个服务商都能读写的消息，以及它所包
 | --- | --- | --- |
 | `text.done` | `text` | 用户和助手 |
 | `image_url.done` | `image_url`，一个 URL 或 data URI | 用户 |
-| `inline_data.done` | `data` 字节，`mime_type` | 用户和助手：图片、音频 |
+| `inline_data.done` | `data` 字节，`mime_type` | 用户和助手：图片、音频、视频 |
 | `thinking.done` | `thinking` | 助手 |
 | `inline_thinking.done` | `data` 字节，`mime_type` | 助手：图像生成模型用来思考的图片 |
 | `tool_call.done` | `name`、作为对象的 `arguments`、`tool_call_id` | 助手 |

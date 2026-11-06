@@ -25,7 +25,8 @@ class ModelPricing(TypedDict):
 
     Keys mirror ``usage_metadata``: ``cached_tokens`` (cache-hit price, absent when the
     platform publishes none), ``prompt_tokens`` (non-cached input), and
-    ``thoughts_tokens``/``response_tokens``, which both carry the output price.
+    ``thoughts_tokens``/``response_tokens``, which both carry the output price unless the vendor
+    prices thinking apart (Gemini Omni bills its thoughts as text and its response as video).
     Values are in the currency requested from ``list_supported_models``.
     """
 
@@ -94,12 +95,13 @@ _JINA_READER = "https://r.jina.ai"
 _CNY_PER_USD = 7.0
 
 
-def _usd(prompt: float, output: float, cached: float | None = None) -> ModelPricing:
-    # thoughts and response tokens are both billed at the vendor's output price
+def _usd(prompt: float, output: float, cached: float | None = None, thoughts: float | None = None) -> ModelPricing:
+    # thoughts and response tokens are both billed at the vendor's output price, except where the
+    # vendor prices the thinking apart (Gemini Omni's thoughts are text, its response video)
     pricing: ModelPricing = {
         "currency": "USD",
         "prompt_tokens": prompt,
-        "thoughts_tokens": output,
+        "thoughts_tokens": output if thoughts is None else thoughts,
         "response_tokens": output,
     }
     if cached is not None:
@@ -121,7 +123,7 @@ def _cny(prompt: float, output: float, cached: float | None = None) -> ModelPric
 # its notes. Gateway rows list only the input modalities their client can send: the
 # OpenAI-protocol clients carry text and images, not video or audio.
 _SUPPORTED_MODELS: list[SupportedModel] = [
-    # --- Official vendor endpoints (58 rows; each vendor's own key variable; list prices from each
+    # --- Official vendor endpoints (59 rows; each vendor's own key variable; list prices from each
     # vendor's pricing page, the rows added 2026-10-24 naming their page and read date)
     {
         "model": "gemini-4-argon",
@@ -247,6 +249,18 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "client": "google-official",
         "input_modalities": ["Text"],
         "output_modalities": ["Audio"],
+    },
+    {
+        # the video is billed per output token (5,792 a second at the default 720p, ~$0.70 for the default
+        # 10 s), its thoughts at the text output price; context window = input token limit (pricing page and
+        # model page, read 2026-11-06)
+        "model": "gemini-omni-1.2-flash",
+        "base_url": _GOOGLE,
+        "client": "google-official",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Video"],
+        "context_window": 131072,
+        "pricing": _usd(1.5, 12.0, thoughts=9.0),
     },
     {
         "model": "gemini-embedding-2",

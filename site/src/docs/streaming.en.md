@@ -43,7 +43,7 @@ group  := K.delta+ K.done        K = text | thinking | tool_call | inline_data |
 | `text.delta` | `text` | |
 | `thinking.delta` | `thinking` | |
 | `tool_call.delta` | `arguments`, a fragment of a JSON string | `name` and `tool_call_id` are set on the first fragment of a call and empty afterwards |
-| `inline_data.delta` | `data` bytes | Audio arrives in chunks of one item; every image is an item of its own |
+| `inline_data.delta` | `data` bytes | Audio arrives in chunks of one item; every image or video is an item of its own |
 | `inline_thinking.delta` | `data` bytes | |
 | `embedding.delta` | `embedding` | One whole vector |
 | `webtool.delta` | `webdata` | One request's whole answer |

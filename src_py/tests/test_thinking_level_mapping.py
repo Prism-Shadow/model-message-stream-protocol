@@ -98,6 +98,26 @@ def test_gemini3_8_thinking_level_clamps_to_model_support(model: str, level: Thi
     assert client._client._convert_thinking_level(level) == expected  # noqa: SLF001
 
 
+# Gemini Omni takes only "low" and "high" ("minimal" and "medium" are refused: "Allowed values are:
+# high, low.", verified live 2026-11-06); every level lands on the closer one, a tie rounding up.
+GEMINI_OMNI_THINKING_LEVEL_CASES = [
+    ("gemini-omni-1.2-flash", ThinkingLevel.NONE, "low"),
+    ("gemini-omni-1.2-flash", ThinkingLevel.LOW, "low"),
+    ("gemini-omni-1.2-flash", ThinkingLevel.MEDIUM, "high"),
+    ("gemini-omni-1.2-flash", ThinkingLevel.HIGH, "high"),
+    ("gemini-omni-1.2-flash", ThinkingLevel.XHIGH, "high"),
+    ("gemini-omni-1.2-flash", ThinkingLevel.MAX, "high"),
+    ("gemini-omni-1.1-flash", ThinkingLevel.NONE, "low"),
+]
+
+
+@pytest.mark.parametrize(("model", "level", "expected"), GEMINI_OMNI_THINKING_LEVEL_CASES)
+def test_gemini_omni_thinking_level_clamps_to_low_and_high(model: str, level: ThinkingLevel, expected: str):
+    client = AutoLLMClient(model=model, api_key="test-key")
+    assert client._client.__class__.__name__ == "GoogleOfficialClient"
+    assert client._client._convert_thinking_level(level) == expected  # noqa: SLF001
+
+
 # The generateContent client clamps like the Interactions client, onto the SDK's ThinkingLevel, a
 # str enum whose values are the uppercase names.
 def _create_generate_content_auto_client(model: str) -> AutoLLMClient:

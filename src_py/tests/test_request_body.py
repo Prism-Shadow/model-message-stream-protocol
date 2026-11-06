@@ -13,6 +13,7 @@
 # limitations under the License.
 
 
+import base64
 import json
 import threading
 from dataclasses import dataclass, field
@@ -23,7 +24,7 @@ import anthropic
 import openai
 import pytest
 
-from mmsp import AutoLLMClient, PromptCaching, UnsupportedParameterError
+from mmsp import AutoLLMClient, PromptCaching, ThinkingLevel, UnsupportedParameterError
 from mmsp.utils import prompt_cache_key
 
 
@@ -370,3 +371,135 @@ def test_openai_clients_refuse_the_prompt_caching_they_cannot_send(
 
     with pytest.raises(UnsupportedParameterError, match="prompt_caching"):
         client.transform_uni_config_to_model_config({"prompt_caching": prompt_caching})
+
+
+# Gemini Omni: a local Interactions endpoint that records the request and streams the events the live
+# API streamed for the default video on 2026-11-06 (a signed thought step, then one video delta)
+OMNI_MODEL = "gemini-omni-1.2-flash"
+OMNI_VIDEO = b"\x00\x00\x00\x18ftypmp42 a whole video"
+OMNI_URI = "https://generativelanguage.googleapis.com/v1beta/files/abc123:download?alt=media"
+
+
+def _omni_stream(video_delta: dict[str, Any]) -> bytes:
+    usage = {
+        "total_tokens": 58539,
+        "total_input_tokens": 33,
+        "total_cached_tokens": 0,
+        "total_output_tokens": 57920,
+        "output_tokens_by_modality": [{"modality": "video", "tokens": 57920}],
+        "total_thought_tokens": 586,
+    }
+    events = [
+        {"event_type": "interaction.created", "interaction": {"id": "", "status": "in_progress", "model": OMNI_MODEL}},
+        {"event_type": "step.start", "index": 0, "step": {"type": "thought"}},
+        {"event_type": "step.delta", "index": 0, "delta": {"type": "thought_signature", "signature": "c2ln"}},
+        {"event_type": "step.stop", "index": 0},
+        {"event_type": "step.start", "index": 1, "step": {"type": "model_output"}},
+        {"event_type": "step.delta", "index": 1, "delta": video_delta},
+        {"event_type": "step.stop", "index": 1},
+        {
+            "event_type": "interaction.completed",
+            "interaction": {"id": "", "status": "completed", "usage": usage, "model": OMNI_MODEL},
+        },
+    ]
+    frames = "".join(f"event: {event['event_type']}\ndata: {json.dumps(event)}\n\n" for event in events)
+    return (frames + "event: done\ndata: [DONE]\n\n").encode()
+
+
+class _OmniHandler(BaseHTTPRequestHandler):
+    """Records the JSON body of a request and answers with a recorded Interactions stream."""
+
+    received_body: dict[str, Any] = {}
+    stream: bytes = b""
+
+    def do_POST(self) -> None:  # noqa: N802 - the name is BaseHTTPRequestHandler's
+        length = int(self.headers.get("Content-Length", "0"))
+        type(self).received_body = json.loads(self.rfile.read(length) or b"{}")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Content-Length", str(len(type(self).stream)))
+        self.end_headers()
+        self.wfile.write(type(self).stream)
+
+    def log_message(self, *args: object) -> None:
+        """Keep the request log out of the test output."""
+
+
+@pytest.fixture
+def omni_server():
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _OmniHandler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        yield f"http://127.0.0.1:{server.server_address[1]}"
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+@pytest.mark.asyncio
+async def test_gemini_omni_sends_the_newest_message_at_the_video_defaults_and_streams_the_video(omni_server: str):
+    _OmniHandler.received_body = {}
+    _OmniHandler.stream = _omni_stream(
+        {"type": "video", "mime_type": "video/mp4", "data": base64.b64encode(OMNI_VIDEO).decode()}
+    )
+    client = AutoLLMClient(model=OMNI_MODEL, api_key="test-key", base_url=omni_server)
+    messages = [
+        {"role": "user", "content_items": [{"type": "text.done", "text": "A paper boat on a stream."}]},
+        {"role": "assistant", "content_items": [{"type": "text.done", "text": "Here it is."}]},
+        {"role": "user", "content_items": [{"type": "text.done", "text": "The same boat at night."}]},
+    ]
+    config = {"max_tokens": 1000, "thinking_level": ThinkingLevel.MEDIUM, "system_prompt": "Shoot it on film."}
+
+    events = [event async for event in client.streaming_response(messages=messages, config=config)]
+
+    body = _OmniHandler.received_body
+    # the newest message alone, no max_output_tokens and no response_format (16:9, 720p, 10 s, inline)
+    assert body["model"] == OMNI_MODEL
+    assert body["input"] == [{"type": "user_input", "content": [{"type": "text", "text": "The same boat at night."}]}]
+    assert body["generation_config"] == {"thinking_level": "high"}
+    assert body["system_instruction"] == "Shoot it on film."
+    assert body["stream"] is True
+    assert body["store"] is False
+    assert "response_format" not in body
+    assert [item for event in events for item in event["content_items"] if item["type"].endswith(".done")] == [
+        {"type": "thinking.done", "thinking": "", "fidelity": {"signature": "c2ln"}},
+        {"type": "inline_data.done", "data": OMNI_VIDEO, "mime_type": "video/mp4"},
+    ]
+    assert events[-1]["usage_metadata"] == {
+        "cached_tokens": 0,
+        "prompt_tokens": 33,
+        "thoughts_tokens": 586,
+        "response_tokens": 57920,
+    }
+    assert events[-1]["finish_reason"] == "stop"
+
+
+@pytest.mark.asyncio
+async def test_gemini_omni_returns_a_video_delivered_by_uri_as_text(omni_server: str):
+    _OmniHandler.stream = _omni_stream({"type": "video", "mime_type": "video/mp4", "uri": OMNI_URI})
+    client = AutoLLMClient(model=OMNI_MODEL, api_key="test-key", base_url=omni_server)
+    messages = [{"role": "user", "content_items": [{"type": "text.done", "text": "A paper boat on a stream."}]}]
+
+    events = [event async for event in client.streaming_response(messages=messages, config={})]
+
+    done_items = [item for event in events for item in event["content_items"] if item["type"].endswith(".done")]
+    assert done_items[-1] == {"type": "text.done", "text": OMNI_URI}
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        {"tools": [{"name": "get_weather", "description": "Get the weather", "parameters": {"type": "object"}}]},
+        {"tool_choice": "auto"},
+        {"image_config": {"aspect_ratio": "16:9"}},
+        {"fast_mode": True},
+    ],
+    ids=["tools", "tool_choice", "image_config", "fast_mode"],
+)
+def test_gemini_omni_refuses_what_it_cannot_send(config: dict[str, Any]):
+    client = AutoLLMClient(model=OMNI_MODEL, api_key="test-key")._client  # noqa: SLF001
+
+    with pytest.raises(UnsupportedParameterError, match="Gemini Omni does not support") as exc_info:
+        client.transform_uni_config_to_model_config(config)
+
+    assert exc_info.value.parameter == next(iter(config))

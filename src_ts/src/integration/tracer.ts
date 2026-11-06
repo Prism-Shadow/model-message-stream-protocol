@@ -859,6 +859,14 @@ const TRACER_HEAD = `
         height: 36px;
     }
 
+    .item-video {
+        display: block;
+        width: min(100%, 480px);
+        border-radius: 8px;
+        box-shadow: 0 0 0 1px var(--ring);
+        background: #000;
+    }
+
     .tool-sig, .result-text, .embedding {
         font-family: var(--mono);
         font-size: 12.5px;
@@ -1337,6 +1345,8 @@ export class Tracer {
       label += "Inline Image";
     } else if (mimeType.startsWith("audio/")) {
       label += "Inline Audio";
+    } else if (mimeType.startsWith("video/")) {
+      label += "Inline Video";
     } else {
       label += "Inline Data";
     }
@@ -1736,6 +1746,8 @@ export class Tracer {
                       inner += `<img class="item-img" src="${esc(this._inlineDataUrl(item))}" alt="Inline image">`;
                     } else if (this._inlineDataIsAudio(item)) {
                       inner += `<audio class="item-audio" controls preload="metadata"><source src="${esc(this._inlineDataUrl(item))}" type="${esc(this._inlineDataAudioType(item))}"></audio>`;
+                    } else if (item.mime_type?.startsWith("video/")) {
+                      inner += `<video class="item-video" controls preload="metadata" src="${esc(this._inlineDataUrl(item))}"></video>`;
                     }
                   } else if (item.type === "embedding.done") {
                     inner = `<div class="embedding">${esc(this._formatEmbeddingPreview(item))}</div>`;

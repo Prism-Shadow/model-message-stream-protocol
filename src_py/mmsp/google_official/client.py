@@ -50,9 +50,8 @@ class GoogleOfficialClient(LLMClient):
     """Official client for the Gemini family, including Gemini 4 Argon and Gemini 3.x.
 
     It speaks the Gemini API's Interactions endpoint statelessly (store=false, the whole history in every
-    request) for Gemini 4 Argon and the 3.x text, image, and TTS models. Vertex AI service-account
-    keys belong to google_genai. It embeds through
-    embedContent, because the Interactions API does not serve the embedding models. The API deprecated
+    request) for Gemini 4 Argon, the 3.x text, image, and TTS models, and Gemini Omni's video. Vertex AI
+    service-account keys belong to google_genai. It embeds through embedContent, because the Interactions API does not serve the embedding models. The API deprecated
     the temperature/top_p/top_k sampling parameters starting with the 3.6 generation (silently ignored
     today, HTTP 400 in future generations), and this client applies that contract to the whole family:
     temperature is rejected everywhere.
@@ -122,6 +121,9 @@ class GoogleOfficialClient(LLMClient):
         An empty tuple means the model rejects the thinking_level parameter
         entirely, so it must be omitted from the request.
         """
+        if "gemini-omni" in self._model:
+            # "minimal" and "medium" are refused: "Allowed values are: high, low." (verified live 2026-11-06)
+            return ("low", "high")
         if "-image" in self._model:
             return ("minimal", "high")
         if "gemini-3-pro" in self._model:
@@ -207,11 +209,29 @@ class GoogleOfficialClient(LLMClient):
                 self.__class__.__name__, "prompt_caching", "prompt_caching must be ENABLE for Gemini."
             )
 
+        # Gemini Omni makes a video at its defaults (16:9, 720p, 10 s, inline); it declares no
+        # functions ("Function calling is not enabled for this model", verified live 2026-11-06), takes
+        # no image settings and has no priority tier
+        if "gemini-omni" in self._model:
+            for parameter in ("tools", "tool_choice", "image_config"):
+                if config.get(parameter) is not None:
+                    raise UnsupportedParameterError(
+                        self.__class__.__name__, parameter, f"Gemini Omni does not support {parameter}."
+                    )
+
+            if config.get("fast_mode"):
+                raise UnsupportedParameterError(
+                    self.__class__.__name__, "fast_mode", "Gemini Omni does not support fast mode."
+                )
+
         # the history travels in every request, so nothing needs to be stored server-side
         gemini_config: dict[str, Any] = {"model": self._model, "stream": True, "store": False}
         generation_config: dict[str, Any] = {}
 
-        if config.get("max_tokens") is not None:
+        # Gemini Omni counts the video's own tokens against max_output_tokens (57,920 for the default
+        # video), so a limit sized for text fails after the video is made: 400 "Request contains an
+        # invalid argument." (verified live 2026-11-06)
+        if config.get("max_tokens") is not None and "gemini-omni" not in self._model:
             generation_config["max_output_tokens"] = config["max_tokens"]
 
         if config.get("fast_mode"):
@@ -443,8 +463,8 @@ class GoogleOfficialClient(LLMClient):
         Transform one Interactions API stream event into a universal event, its items identified by step index.
 
         A step streams one item per run of a content kind: an image generation model's thought summary can
-        go text, image, text, which is three items. Every image delta is a whole image and an item of its
-        own, while audio streams in chunks of one item.
+        go text, image, text, which is three items. Every image or video delta is a whole image or video and
+        an item of its own, while audio streams in chunks of one item.
 
         Args:
             model_output: Interactions API stream event
@@ -522,6 +542,20 @@ class GoogleOfficialClient(LLMClient):
                         "type": "inline_data.delta",
                         "data": base64.b64decode(delta.data or ""),
                         "mime_type": delta.mime_type or "image/jpeg",
+                        "fidelity": {"item_id": item_id},
+                    }
+                )
+            elif delta.type == "video" and delta.uri:
+                # a video delivered by URI (delivery "uri", which needs store=true) goes out as its URI;
+                # the Files API serves it only with the API key, so it is not downloaded here
+                content_items.append({"type": "text.delta", "text": delta.uri, "fidelity": {"item_id": item_id}})
+            elif delta.type == "video":
+                # Gemini Omni sends its whole video, an MP4 with its audio, in one delta (verified live 2026-11-06)
+                content_items.append(
+                    {
+                        "type": "inline_data.delta",
+                        "data": base64.b64decode(delta.data or ""),
+                        "mime_type": delta.mime_type or "video/mp4",
                         "fidelity": {"item_id": item_id},
                     }
                 )
@@ -671,6 +705,11 @@ class GoogleOfficialClient(LLMClient):
                     invalid_item["type"],
                     f"Gemini TTS only supports text input, got content item type={invalid_item['type']}.",
                 )
+
+        # Gemini Omni makes one video from one request (its text and images); editing an earlier video
+        # through the conversation is not supported, so only the newest message is sent, as for TTS
+        if "gemini-omni" in self._model:
+            messages = messages[-1:]
 
         steps = await self.transform_uni_message_to_model_input(messages)
 

@@ -43,6 +43,7 @@ interface Model {
   supportTextGeneration: boolean;
   supportImageUnderstanding: boolean;
   supportImageGeneration: boolean;
+  supportVideoGeneration: boolean;
   supportAudioGeneration: boolean;
   supportEmbedding: boolean;
   supportWebtool?: "search" | "fetch";
@@ -72,6 +73,7 @@ interface ModelCase {
   support_text?: boolean;
   support_image_understanding?: boolean;
   support_image_generation?: boolean;
+  support_video_generation?: boolean;
   support_tts?: boolean;
   support_embedding?: boolean;
   support_webtool?: "search" | "fetch";
@@ -116,6 +118,7 @@ for (const [client, group] of Object.entries(MODEL_CATALOG)) {
       supportTextGeneration: entry.support_text ?? true,
       supportImageUnderstanding: entry.support_image_understanding ?? true,
       supportImageGeneration: entry.support_image_generation ?? false,
+      supportVideoGeneration: entry.support_video_generation ?? false,
       supportAudioGeneration: entry.support_tts ?? false,
       supportEmbedding: entry.support_embedding ?? false,
       supportWebtool: entry.support_webtool,
@@ -139,6 +142,7 @@ if (
     supportTextGeneration: true,
     supportImageUnderstanding: true,
     supportImageGeneration: false,
+    supportVideoGeneration: false,
     supportAudioGeneration: false,
     supportEmbedding: false,
     provider: "mmsp",
@@ -1014,6 +1018,46 @@ if (AVAILABLE_MODELS.length > 0) {
       expect(inlineItems.length).toBeGreaterThan(0);
       expect(
         inlineItems.some((item) => item.mime_type.startsWith("image/")),
+      ).toBe(true);
+      expect(inlineItems.every((item) => item.data.length > 0)).toBe(true);
+    });
+
+    modelTest("should handle video generation", 300000, async (model) => {
+      if (!model.supportVideoGeneration) {
+        return;
+      }
+      const client = createClient(model);
+      const messages: UniMessage[] = [
+        {
+          role: "user",
+          content_items: [
+            {
+              type: "text.done",
+              text: "A paper boat drifting down a calm forest stream. One continuous shot, no dialogue.",
+            },
+          ],
+        },
+      ];
+
+      const events: UniEvent[] = [];
+      const inlineItems: { data: Buffer; mime_type: string }[] = [];
+      for await (const event of client.streamingResponse({
+        messages,
+        config: {},
+      })) {
+        checkEventIntegrity(event);
+        events.push(event);
+        for (const item of event.content_items) {
+          if (item.type === "inline_data.done") {
+            inlineItems.push(item);
+          }
+        }
+      }
+
+      assertStreamGrammar(events);
+      expect(inlineItems.length).toBeGreaterThan(0);
+      expect(
+        inlineItems.some((item) => item.mime_type.startsWith("video/")),
       ).toBe(true);
       expect(inlineItems.every((item) => item.data.length > 0)).toBe(true);
     });
