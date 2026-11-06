@@ -68,8 +68,11 @@ class GoogleOfficialClient(LLMClient):
         """Initialize the official Gemini client with a model and API key."""
         self._model = model
         api_key, base_url = resolve_credentials(self.__class__.__name__, "google-official", api_key, base_url)
-        # the Gemini SDK carries connection headers inside http_options rather than its own argument
-        http_options: dict[str, Any] = {}
+        # The SDK picks the API version unless told: v1beta up to 2.x, v1 from 3.0, or GOOGLE_GENAI_API_VERSION.
+        # Speech output and the priority service tier exist on v1beta only, and a TTS model is a 404 on
+        # v1/interactions (llmsdk_docs/gemini_interactions/docs/api-versions.md), so the version is named here.
+        # The Gemini SDK carries connection headers inside http_options rather than its own argument.
+        http_options: dict[str, Any] = {"api_version": "v1beta"}
         if base_url:
             http_options["base_url"] = base_url
         if default_headers:
@@ -82,7 +85,7 @@ class GoogleOfficialClient(LLMClient):
                 "GoogleOfficialClient does not serve a Vertex AI service-account key; "
                 "pass client_type='google-genai' for Vertex AI.",
             )
-        self._client = genai.Client(api_key=api_key, http_options=http_options or None)
+        self._client = genai.Client(api_key=api_key, http_options=http_options)
 
         self._history: list[UniMessage] = []
 
