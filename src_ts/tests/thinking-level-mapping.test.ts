@@ -585,3 +585,101 @@ describe("vLLM thinking switch", () => {
     expect(config.chat_template_kwargs).toBeUndefined();
   });
 });
+
+// Mistral's endpoint validates `reasoning_effort` per model and rejects the whole request over a
+// value it does not take, so the parameter is sent only to a model whose own model list says
+// `capabilities.reasoning`, and `medium` — absent from that scale — goes out as `high`.
+describe("openai_chat reasoning_effort", () => {
+  const originalFetch = globalThis.fetch;
+
+  const createChatClient = (model: string) =>
+    new AutoLLMClient({
+      model,
+      apiKey: "test-key",
+      baseUrl: "https://api.test.invalid/v1",
+      clientType: "openai-chat",
+    });
+
+  const stubModelList = (reasoning: boolean) => {
+    globalThis.fetch = (async () => ({
+      ok: true,
+      json: async () => ({
+        data: [{ id: "glm-5.3", capabilities: { reasoning } }],
+      }),
+    })) as unknown as typeof fetch;
+  };
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  test.each([
+    [ThinkingLevel.LOW, "low"],
+    [ThinkingLevel.MEDIUM, "high"],
+    [ThinkingLevel.HIGH, "high"],
+    [ThinkingLevel.XHIGH, "xhigh"],
+    [ThinkingLevel.MAX, "max"],
+    [ThinkingLevel.NONE, undefined],
+  ])("sends %s as %s", async (level, expected) => {
+    stubModelList(true);
+    const client = createChatClient("glm-5.3");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect(await (client as any)._client._reasoningEffort(level)).toBe(
+      expected,
+    );
+  });
+
+  test("sends nothing to a model that does not reason", async () => {
+    stubModelList(false);
+    const client = createChatClient("glm-5.3");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect(
+      await (client as any)._client._reasoningEffort(ThinkingLevel.MEDIUM),
+    ).toBeUndefined();
+  });
+
+  test("sends nothing when the endpoint publishes no capabilities", async () => {
+    globalThis.fetch = (async () => ({
+      ok: true,
+      json: async () => ({ data: [{ id: "glm-5.3" }] }),
+    })) as unknown as typeof fetch;
+    const client = createChatClient("glm-5.3");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect(
+      await (client as any)._client._reasoningEffort(ThinkingLevel.MEDIUM),
+    ).toBeUndefined();
+  });
+
+  test("carries the mapped effort on the request", async () => {
+    stubModelList(true);
+    const client = createChatClient("glm-5.3");
+    let body: Record<string, unknown> | undefined;
+    const routed = client as unknown as {
+      _client: {
+        _client: {
+          chat: { completions: { create: unknown } };
+        };
+        _streamingResponseInternal: (options: unknown) => AsyncIterable<unknown>;
+      };
+    };
+    routed._client._client.chat.completions.create = async (
+      params: Record<string, unknown>,
+    ) => {
+      body = params;
+      return (async function* () {
+        yield* [];
+      })();
+    };
+
+    for await (const _ of routed._client._streamingResponseInternal({
+      messages: [
+        { role: "user", content_items: [{ type: "text.done", text: "hi" }] },
+      ],
+      config: { thinking_level: ThinkingLevel.MEDIUM },
+    })) {
+      // an empty stream
+    }
+
+    expect(body?.reasoning_effort).toBe("high");
+  });
+});

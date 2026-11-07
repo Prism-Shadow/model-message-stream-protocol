@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import base64
 import json
 import mimetypes
@@ -30,6 +31,7 @@ from ..types import (
     Fidelity,
     FinishReason,
     PromptCaching,
+    ThinkingLevel,
     ToolChoice,
     UniConfig,
     UniEvent,
@@ -50,6 +52,19 @@ class OpenaiChatClient(LLMClient):
 
     # the client type whose credentials this class reads; the vLLM adapter subclass names its own
     _CLIENT_TYPE = "openai-chat"
+
+    #: How a thinking level reaches an endpoint that takes OpenAI's ``reasoning_effort``. Mistral's
+    #: scale has no ``medium``, so the middle level takes ``high``, the next value it does know;
+    #: ``none`` names nothing to send, because a model that reasons by default offers no way to turn
+    #: it off and one that waits to be asked is off already.
+    _REASONING_EFFORT: dict[str, str | None] = {
+        "none": None,
+        "low": "low",
+        "medium": "high",
+        "high": "high",
+        "xhigh": "xhigh",
+        "max": "max",
+    }
 
     def __init__(
         self,
@@ -73,6 +88,8 @@ class OpenaiChatClient(LLMClient):
             **openai_client_options(self._CLIENT_TYPE, base_url, sdk_key, default_headers),
         )
         self._history: list[UniMessage] = []
+        #: whether this model reasons, asked of the endpoint once and cached (see _reasoning_effort)
+        self._reasoning_task: asyncio.Task[bool] | None = None
 
     async def _convert_image_url_to_base64(self, url: str) -> str:
         """Convert image URL to base64-encoded string.
@@ -438,6 +455,51 @@ class OpenaiChatClient(LLMClient):
             "finish_reason": finish_reason,
         }
 
+    async def _model_reasons(self) -> bool:
+        """
+        Whether the endpoint says this model reasons, read from its model list.
+
+        An endpoint that publishes no capabilities, which is every OpenAI-compatible server but
+        Mistral's, answers False: it takes no reasoning parameter, and a request that carries one
+        is rejected whole. So does a model that answers False itself, one that reasons without
+        being asked.
+        """
+        try:
+            base_url = str(self._client.base_url)
+            if not base_url.endswith("/"):
+                base_url += "/"
+
+            headers = {"Authorization": f"Bearer {self._client.api_key}"} if self._client.api_key else {}
+            async with httpx.AsyncClient() as client:
+                response = await client.get(f"{base_url}models", headers=headers)
+
+            if response.status_code != 200:
+                return False
+
+            entry = next(
+                (model for model in response.json().get("data") or [] if model.get("id") == self._model), None
+            )
+            return bool(entry and (entry.get("capabilities") or {}).get("reasoning") is True)
+        except Exception:
+            return False
+
+    async def _reasoning_effort(self, thinking_level: ThinkingLevel | None) -> str | None:
+        """
+        The ``reasoning_effort`` this model takes for a thinking level, or None to send none.
+
+        Whether a model reasons is the endpoint's to say, so it is asked once per client and the
+        answer is cached; until then, and for every endpoint that publishes no capabilities, the
+        request is exactly what it was.
+        """
+        effort = self._REASONING_EFFORT.get(str(thinking_level)) if thinking_level else None
+        if effort is None:
+            return None
+
+        if self._reasoning_task is None:
+            self._reasoning_task = asyncio.ensure_future(self._model_reasons())
+
+        return effort if await self._reasoning_task else None
+
     async def _streaming_response_internal(
         self,
         messages: list[UniMessage],
@@ -445,6 +507,9 @@ class OpenaiChatClient(LLMClient):
     ) -> AsyncIterator[UniEvent]:
         """Stream generate using OpenAI Chat Completions-compatible API."""
         openai_config = self.transform_uni_config_to_model_config(config)
+        reasoning_effort = await self._reasoning_effort(config.get("thinking_level"))
+        if reasoning_effort is not None:
+            openai_config["reasoning_effort"] = reasoning_effort
 
         openai_messages = await self.transform_uni_message_to_model_input(messages)
 
