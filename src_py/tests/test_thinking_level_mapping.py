@@ -431,3 +431,81 @@ def test_openai_chat_does_not_receive_the_vllm_extension():
     )
     assert "chat_template_kwargs" not in config
     assert "extra_body" not in config
+
+
+# Mistral's endpoint validates `reasoning_effort` per model and rejects the whole request over a
+# value it does not take, so the parameter is sent only to a model whose own model list says
+# `capabilities.reasoning`, and `medium` — absent from that scale — goes out as `high`.
+class _FakeModelsResponse:
+    def __init__(self, payload: dict[str, Any]) -> None:
+        self.status_code = 200
+        self._payload = payload
+
+    def json(self) -> dict[str, Any]:
+        return self._payload
+
+
+class _FakeModelsClient:
+    def __init__(self, payload: dict[str, Any]) -> None:
+        self._payload = payload
+
+    async def __aenter__(self) -> "_FakeModelsClient":
+        return self
+
+    async def __aexit__(self, *_exc_info: object) -> None:
+        return None
+
+    async def get(self, *_args: object, **_kwargs: object) -> _FakeModelsResponse:
+        return _FakeModelsResponse(self._payload)
+
+
+def _stub_model_list(monkeypatch: pytest.MonkeyPatch, reasoning: bool | None) -> None:
+    entry: dict[str, Any] = {"id": "glm-5.3"}
+    if reasoning is not None:
+        entry["capabilities"] = {"reasoning": reasoning}
+
+    monkeypatch.setattr(
+        "mmsp.openai_chat.client.httpx.AsyncClient",
+        lambda *args, **kwargs: _FakeModelsClient({"data": [entry]}),
+    )
+
+
+def _chat_client() -> AutoLLMClient:
+    return AutoLLMClient(
+        model="glm-5.3",
+        api_key="test-key",
+        base_url="https://api.test.invalid/v1",
+        client_type="openai-chat",
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("level", "expected"),
+    [
+        (ThinkingLevel.LOW, "low"),
+        (ThinkingLevel.MEDIUM, "high"),
+        (ThinkingLevel.HIGH, "high"),
+        (ThinkingLevel.XHIGH, "xhigh"),
+        (ThinkingLevel.MAX, "max"),
+        (ThinkingLevel.NONE, None),
+    ],
+)
+async def test_openai_chat_sends_the_mapped_reasoning_effort(
+    monkeypatch: pytest.MonkeyPatch, level: ThinkingLevel, expected: str | None
+):
+    _stub_model_list(monkeypatch, True)
+    client = _chat_client()
+    effort = await client._client._reasoning_effort(level)  # noqa: SLF001
+    assert effort == expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reasoning", [False, None])
+async def test_openai_chat_sends_no_reasoning_effort_where_the_model_does_not_reason(
+    monkeypatch: pytest.MonkeyPatch, reasoning: bool | None
+):
+    _stub_model_list(monkeypatch, reasoning)
+    client = _chat_client()
+    effort = await client._client._reasoning_effort(ThinkingLevel.MEDIUM)  # noqa: SLF001
+    assert effort is None

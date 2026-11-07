@@ -28,6 +28,7 @@ import {
   Fidelity,
   FinishReason,
   PromptCaching,
+  ThinkingLevel,
   ToolChoice,
   UniConfig,
   UniEvent,
@@ -43,6 +44,21 @@ import {
 } from "../utils";
 
 /**
+ * How a thinking level reaches an endpoint that takes OpenAI's `reasoning_effort`. Mistral's
+ * scale has no `medium`, so the middle level takes `high`, the next value it does know; `NONE`
+ * names nothing to send, because a model that reasons by default offers no way to turn it off
+ * and one that waits to be asked is off already.
+ */
+const REASONING_EFFORT: Record<ThinkingLevel, string | undefined> = {
+  [ThinkingLevel.NONE]: undefined,
+  [ThinkingLevel.LOW]: "low",
+  [ThinkingLevel.MEDIUM]: "high",
+  [ThinkingLevel.HIGH]: "high",
+  [ThinkingLevel.XHIGH]: "xhigh",
+  [ThinkingLevel.MAX]: "max",
+};
+
+/**
  * OpenAI Chat Completions-compatible client implementation.
  */
 export class OpenaiChatClient extends LLMClient {
@@ -50,6 +66,8 @@ export class OpenaiChatClient extends LLMClient {
   protected static readonly clientType: string = "openai-chat";
   protected _model: string;
   private _client: OpenAI;
+  /** Whether this model reasons, asked of the endpoint once and cached (see _reasoningEffort). */
+  private _modelReasoning: Promise<boolean> | undefined;
 
   /**
    * Initialize OpenAI-compatible chat client with model, API key, and base URL.
@@ -526,6 +544,50 @@ export class OpenaiChatClient extends LLMClient {
   }
 
   /**
+   * The `reasoning_effort` this model takes for a thinking level, or undefined to send none.
+   *
+   * Whether a model reasons is the endpoint's to say: one that publishes `capabilities.reasoning`
+   * in its model list (Mistral's) is asked once per client, and only a model that answers true is
+   * sent the parameter — an endpoint that takes no such field rejects the whole request over it.
+   * Every other OpenAI-compatible server publishes no capabilities, which reads as "no reasoning
+   * parameter" and leaves its requests exactly as they were; so does a model that reasons without
+   * being asked, which keeps the endpoint's own default.
+   */
+  async _reasoningEffort(
+    thinkingLevel: ThinkingLevel | undefined,
+  ): Promise<string | undefined> {
+    const effort =
+      thinkingLevel === undefined ? undefined : REASONING_EFFORT[thinkingLevel];
+    if (effort === undefined) return undefined;
+
+    this._modelReasoning ??= (async () => {
+      try {
+        const base = this._client.baseURL.endsWith("/")
+          ? this._client.baseURL
+          : `${this._client.baseURL}/`;
+        const response = await fetch(new URL("models", base), {
+          headers: this._client.apiKey
+            ? { Authorization: `Bearer ${this._client.apiKey}` }
+            : {},
+        });
+        if (!response.ok) return false;
+
+        const body = (await response.json()) as {
+          data?: { id?: string; capabilities?: { reasoning?: boolean } }[];
+        };
+        const entry = (body.data ?? []).find(
+          (model) => model?.id === this._model,
+        );
+        return entry?.capabilities?.reasoning === true;
+      } catch {
+        return false;
+      }
+    })();
+
+    return (await this._modelReasoning) ? effort : undefined;
+  }
+
+  /**
    * Stream generate using OpenAI Chat Completions-compatible API.
    */
   async *_streamingResponseInternal(options: {
@@ -534,6 +596,13 @@ export class OpenaiChatClient extends LLMClient {
     signal?: AbortSignal;
   }): AsyncGenerator<UniEvent> {
     const openaiConfig = this.transformUniConfigToModelConfig(options.config);
+    const reasoningEffort = await this._reasoningEffort(
+      options.config.thinking_level,
+    );
+    if (reasoningEffort !== undefined) {
+      openaiConfig.reasoning_effort = reasoningEffort;
+    }
+
     const openaiMessages = await this.transformUniMessageToModelInput(
       options.messages,
       options.signal,
