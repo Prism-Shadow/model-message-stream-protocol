@@ -4,6 +4,7 @@
 - **Type:** fix
 - **Scope:** `openai_chat`
 - **Issue:** [#321](https://github.com/Prism-Shadow/model-message-stream-protocol/issues/321)
+- **PR:** [#323](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/323)
 
 [中文版](2026-11-07-openai-chat-reasoning-effort.zh.md)
 
