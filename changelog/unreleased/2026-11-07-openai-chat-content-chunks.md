@@ -4,6 +4,7 @@
 - **Type:** fix
 - **Scope:** `openai_chat`
 - **Issue:** [#320](https://github.com/Prism-Shadow/model-message-stream-protocol/issues/320)
+- **PR:** [#322](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/322)
 
 [中文版](2026-11-07-openai-chat-content-chunks.zh.md)
 
