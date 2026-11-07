@@ -866,3 +866,46 @@ async def test_generate_content_replays_a_bytes_signature_of_a_thinking_item_on_
     model_input = await _transform_history(client, history)
     assert model_input[1].parts[0].thought_signature is None
     assert model_input[1].parts[1].thought_signature == b"sig-1"
+
+
+@pytest.mark.asyncio
+async def test_content_chunks_become_thinking_and_text_and_replay_inside_content():
+    client = _create_auto_client(ReasoningReplayCase(model="gpt-5.5", client_type="openai-chat"))
+    _install_fake_openai_compatible_stream(
+        client,
+        [
+            _delta_chunk([{"type": "thinking", "thinking": [{"type": "text", "text": "Let me think "}], "closed": True}]),
+            _delta_chunk(
+                [
+                    {"type": "thinking", "thinking": [{"type": "text", "text": "about the memo."}], "closed": True},
+                    {"type": "text", "text": "Here is"},
+                ]
+            ),
+            _delta_chunk(" the memo."),
+            _stop_chunk(),
+        ],
+    )
+
+    events, history_message, model_input = await _run_turn_and_replay(client)
+    replayed_message = model_input[-1]
+    thinking_items = [item for item in history_message["content_items"] if item["type"] == "thinking.done"]
+    assert thinking_items == [
+        {
+            "type": "thinking.done",
+            "thinking": "Let me think about the memo.",
+            "fidelity": {"reasoning_field": "content"},
+        }
+    ]
+    assert "".join(item["text"] for event in events for item in event["content_items"] if item["type"] == "text.delta") == (
+        "Here is the memo."
+    )
+    assert "reasoning_content" not in replayed_message
+    assert "reasoning" not in replayed_message
+    assert replayed_message["content"] == [
+        {
+            "type": "thinking",
+            "thinking": [{"type": "text", "text": "Let me think about the memo."}],
+            "closed": True,
+        },
+        {"type": "text", "text": "Here is the memo."},
+    ]

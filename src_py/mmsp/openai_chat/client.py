@@ -45,6 +45,46 @@ from ..utils import (
 )
 
 
+def _chunk_text(value: Any) -> str:
+    """The text of one content chunk's own field, which is a string or a list of text blocks."""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        return "".join(_chunk_text(block) for block in value)
+    if isinstance(value, dict):
+        text = value.get("text")
+        return text if isinstance(text, str) else ""
+
+    return ""
+
+
+def _content_chunks(content: Any) -> list[tuple[str, str]]:
+    """
+    The parts of one ``delta.content``.
+
+    The classic form is a plain string, one text delta; a thinking model (Mistral-compatible
+    endpoints, and the gateways that follow them) streams a content chunk list instead, the thinking
+    and the answer in the same list: ``[{"type": "thinking", "thinking": [{"type": "text", "text": "…"}]},
+    {"type": "text", "text": "…"}]``, which read as one delta is a list no fragment can be joined onto.
+    """
+    if isinstance(content, str):
+        return [("text", content)] if content else []
+
+    parts: list[tuple[str, str]] = []
+    for chunk in content if isinstance(content, list) else []:
+        if isinstance(chunk, str):
+            if chunk:
+                parts.append(("text", chunk))
+            continue
+
+        thinking = isinstance(chunk, dict) and chunk.get("type") == "thinking"
+        text = _chunk_text(chunk.get("thinking") if thinking else chunk.get("text"))
+        if text:
+            parts.append(("thinking" if thinking else "text", text))
+
+    return parts
+
+
 class OpenaiChatClient(LLMClient):
     """OpenAI Chat Completions-compatible client implementation."""
 
@@ -179,6 +219,9 @@ class OpenaiChatClient(LLMClient):
             content_parts = []  # may be empty for tool results
             tool_calls = []  # may be empty for no tool calls
             thinking = ""
+            # thinking that arrived inside content chunks; it goes back inside them, because an
+            # endpoint that streams its thinking that way takes no reasoning field back
+            chunk_thinking = ""
             thinking_fields: set[str | None] = set()
             reasoning_details: list[dict[str, Any]] = []
             for item in msg["content_items"]:
@@ -188,8 +231,12 @@ class OpenaiChatClient(LLMClient):
                     base64_image = await self._convert_image_url_to_base64(item["image_url"])
                     content_parts.append(self._convert_image_url(base64_image))
                 elif item["type"] == "thinking.done":
-                    thinking += item["thinking"]
                     fidelity = item.get("fidelity") or {}
+                    if fidelity.get("reasoning_field") == "content":
+                        chunk_thinking += item["thinking"]
+                        continue
+
+                    thinking += item["thinking"]
                     thinking_fields.add(fidelity.get("reasoning_field"))
                     if item["thinking"]:
                         replay_fields.add(fidelity.get("reasoning_field"))
@@ -253,7 +300,13 @@ class OpenaiChatClient(LLMClient):
                     )
 
             message = {"role": msg["role"]}
-            if content_parts:
+            if chunk_thinking:
+                # content chunks, the form the endpoint streamed: the thinking first, then the answer
+                message["content"] = [
+                    {"type": "thinking", "thinking": [{"type": "text", "text": chunk_thinking}], "closed": True},
+                    *content_parts,
+                ]
+            elif content_parts:
                 message["content"] = content_parts
 
             if tool_calls:
@@ -281,7 +334,7 @@ class OpenaiChatClient(LLMClient):
 
             # a message of tool results went out as its tool messages; one of thinking alone is an
             # assistant turn with neither content nor tool calls
-            if not content_parts and not tool_calls and len(openai_messages) == message_start:
+            if not content_parts and not chunk_thinking and not tool_calls and len(openai_messages) == message_start:
                 raise InvalidMessageError(
                     self.__class__.__name__,
                     f"message {message_index} has nothing {self.__class__.__name__} can send",
@@ -375,7 +428,20 @@ class OpenaiChatClient(LLMClient):
                 )
 
             if delta.content:
-                content_items.append({"type": "text.delta", "text": delta.content, "fidelity": {"item_id": "content"}})
+                for kind, text in _content_chunks(delta.content):
+                    if kind == "thinking":
+                        # the endpoint streamed its thinking inside content chunks: the item keeps
+                        # the wire field as its id, and the fidelity says how it came so a replay
+                        # puts it back the same way
+                        content_items.append(
+                            {
+                                "type": "thinking.delta",
+                                "thinking": text,
+                                "fidelity": {"item_id": "content", "reasoning_field": "content"},
+                            }
+                        )
+                    else:
+                        content_items.append({"type": "text.delta", "text": text, "fidelity": {"item_id": "content"}})
 
             if delta.tool_calls:
                 for tool_call in delta.tool_calls:
