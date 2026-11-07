@@ -43,6 +43,49 @@ import {
 } from "../utils";
 
 /**
+ * The text of one content chunk's own field, which is a string or a list of text blocks.
+ */
+function chunkText(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.map(chunkText).join("");
+  if (value && typeof value === "object" && "text" in value) {
+    const text = (value as { text?: unknown }).text;
+    return typeof text === "string" ? text : "";
+  }
+
+  return "";
+}
+
+/**
+ * The parts of one `delta.content`. The classic form is a plain string, one text delta; a
+ * thinking model (Mistral-compatible endpoints, and the gateways that follow them) streams a
+ * content chunk list instead, the thinking and the answer in the same list:
+ * `[{type: "thinking", thinking: [{type: "text", text: "…"}]}, {type: "text", text: "…"}]`,
+ * which read as one delta is the string "[object Object]".
+ */
+function contentChunks(content: unknown): { kind: "text" | "thinking"; text: string }[] {
+  if (typeof content === "string") {
+    return content ? [{ kind: "text", text: content }] : [];
+  }
+
+  const parts: { kind: "text" | "thinking"; text: string }[] = [];
+  for (const chunk of Array.isArray(content) ? content : []) {
+    if (typeof chunk === "string") {
+      if (chunk) parts.push({ kind: "text", text: chunk });
+      continue;
+    }
+
+    const thinking = (chunk as { type?: unknown })?.type === "thinking";
+    const text = chunkText(
+      thinking ? (chunk as { thinking?: unknown }).thinking : (chunk as { text?: unknown }).text,
+    );
+    if (text) parts.push({ kind: thinking ? "thinking" : "text", text });
+  }
+
+  return parts;
+}
+
+/**
  * OpenAI Chat Completions-compatible client implementation.
  */
 export class OpenaiChatClient extends LLMClient {
@@ -243,6 +286,9 @@ export class OpenaiChatClient extends LLMClient {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const toolCalls: any[] = [];
       let thinking = "";
+      // thinking that arrived inside content chunks; it goes back inside them, because an
+      // endpoint that streams its thinking that way takes no reasoning field back
+      let chunkThinking = "";
       const thinkingFields = new Set<string | undefined>();
       const reasoningDetails: Record<string, unknown>[] = [];
 
@@ -256,8 +302,13 @@ export class OpenaiChatClient extends LLMClient {
           );
           contentParts.push(this._convertImageUrl(base64Image));
         } else if (item.type === "thinking.done") {
-          thinking += item.thinking;
           const fidelity = item.fidelity ?? {};
+          if (fidelity.reasoning_field === "content") {
+            chunkThinking += item.thinking;
+            continue;
+          }
+
+          thinking += item.thinking;
           thinkingFields.add(fidelity.reasoning_field);
           if (item.thinking) replayFields.add(fidelity.reasoning_field);
 
@@ -326,7 +377,17 @@ export class OpenaiChatClient extends LLMClient {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const message: any = { role: msg.role };
-      if (contentParts.length > 0) {
+      if (chunkThinking) {
+        // content chunks, the form the endpoint streamed: the thinking first, then the answer
+        message.content = [
+          {
+            type: "thinking",
+            thinking: [{ type: "text", text: chunkThinking }],
+            closed: true,
+          },
+          ...contentParts,
+        ];
+      } else if (contentParts.length > 0) {
         message.content = contentParts;
       }
 
@@ -362,6 +423,7 @@ export class OpenaiChatClient extends LLMClient {
       // assistant turn with neither content nor tool calls
       if (
         contentParts.length === 0 &&
+        !chunkThinking &&
         toolCalls.length === 0 &&
         openaiMessages.length === messageStart
       ) {
@@ -456,11 +518,24 @@ export class OpenaiChatClient extends LLMClient {
       }
 
       if (delta?.content) {
-        contentItems.push({
-          type: "text.delta",
-          text: delta.content,
-          fidelity: { item_id: "content" },
-        });
+        for (const part of contentChunks(delta.content)) {
+          if (part.kind === "thinking") {
+            // the endpoint streamed its thinking inside content chunks: the item keeps the
+            // wire field as its id, and the fidelity says how it came so a replay puts it
+            // back the same way
+            contentItems.push({
+              type: "thinking.delta",
+              thinking: part.text,
+              fidelity: { item_id: "content", reasoning_field: "content" },
+            });
+          } else {
+            contentItems.push({
+              type: "text.delta",
+              text: part.text,
+              fidelity: { item_id: "content" },
+            });
+          }
+        }
       }
 
       if (delta?.tool_calls) {

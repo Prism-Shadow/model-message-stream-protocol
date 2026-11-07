@@ -103,7 +103,7 @@ function createAutoClient(testCase: ReasoningReplayCase): AutoLLMClient {
 }
 
 function deltaChunk(delta: {
-  content?: string;
+  content?: unknown;
   reasoning_content?: string;
   reasoning?: string | null;
   reasoning_details?: Record<string, unknown>[];
@@ -920,5 +920,113 @@ describe("generateContent signature replay", () => {
         { text: "The weather in Beijing is sunny.", thoughtSignature: "sig-2" },
       ],
     });
+  });
+});
+
+describe("Content chunks on an OpenAI-compatible endpoint", () => {
+  test("chunks become thinking and text, and replay inside content", async () => {
+    const client = createAutoClient({
+      model: "gpt-5.5",
+      clientType: "openai-chat",
+    });
+    installFakeOpenAICompatibleStream(client, [
+      deltaChunk({
+        content: [
+          {
+            type: "thinking",
+            thinking: [{ type: "text", text: "Let me think " }],
+            closed: true,
+          },
+        ],
+      }),
+      deltaChunk({
+        content: [
+          {
+            type: "thinking",
+            thinking: [{ type: "text", text: "about the memo." }],
+            closed: true,
+          },
+          { type: "text", text: "Here is" },
+        ],
+      }),
+      deltaChunk({ content: " the memo." }),
+      stopChunk(),
+    ]);
+
+    const { events, historyMessage, replayedMessage } =
+      await runTurnAndReplay(client);
+
+    expect(thinkingItems(historyMessage)).toEqual([
+      {
+        type: "thinking.done",
+        thinking: "Let me think about the memo.",
+        fidelity: { reasoning_field: "content" },
+      },
+    ]);
+    expect(
+      streamedItems(events)
+        .filter((item) => item.type === "text.delta")
+        .map((item) => (item as { text: string }).text)
+        .join(""),
+    ).toBe("Here is the memo.");
+    expect(replayedMessage).not.toHaveProperty("reasoning_content");
+    expect(replayedMessage).not.toHaveProperty("reasoning");
+    expect(replayedMessage.content).toEqual([
+      {
+        type: "thinking",
+        thinking: [{ type: "text", text: "Let me think about the memo." }],
+        closed: true,
+      },
+      { type: "text", text: "Here is the memo." },
+    ]);
+  });
+
+  test("a tool-call turn replays its chunk thinking without a reasoning field", async () => {
+    const client = createAutoClient({
+      model: "gpt-5.5",
+      clientType: "openai-chat",
+    });
+    installFakeOpenAICompatibleStream(client, [
+      deltaChunk({
+        content: [
+          {
+            type: "thinking",
+            thinking: [{ type: "text", text: "I need the weather." }],
+            closed: true,
+          },
+        ],
+      }),
+      {
+        choices: [
+          {
+            delta: {
+              tool_calls: [
+                {
+                  index: 0,
+                  id: "call_1",
+                  function: { name: "get_weather", arguments: '{"city":"Paris"}' },
+                },
+              ],
+            },
+            finish_reason: null,
+          },
+        ],
+        usage: null,
+      },
+      stopChunk("tool_calls"),
+    ]);
+
+    const { historyMessage, replayedMessage } =
+      await runTurnAndReplay(client);
+
+    expect(thinkingItems(historyMessage)).toEqual([
+      {
+        type: "thinking.done",
+        thinking: "I need the weather.",
+        fidelity: { reasoning_field: "content" },
+      },
+    ]);
+    expect(replayedMessage).not.toHaveProperty("reasoning_content");
+    expect(replayedMessage.tool_calls).toHaveLength(1);
   });
 });
