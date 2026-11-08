@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-11-07T11:15:49Z",
-  "run_id": "42367387398",
+  "generated_at": "2026-11-08T11:28:08Z",
+  "run_id": "42475825157",
   "samples": 3,
   "targets": {
     "deepseek-official+https://api.deepseek.com+deepseek-flash": {
@@ -9,17 +9,17 @@
       "base_url": "https://api.deepseek.com",
       "status": "up",
       "ok": 3,
-      "ttft_ms": 810,
-      "tps": 104.6,
+      "ttft_ms": 1121,
+      "tps": 108.2,
       "usage": {
         "cached_tokens": 0,
         "prompt_tokens": 168,
-        "thoughts_tokens": 199,
-        "response_tokens": 1028
+        "thoughts_tokens": 179,
+        "response_tokens": 1009
       },
-      "cost_usd": 0.00072514,
+      "cost_usd": 0.00070286,
       "error": null,
-      "checked_at": "2026-11-07T11:15:42Z"
+      "checked_at": "2026-11-08T11:28:01Z"
     },
     "google-genai+https://aiplatform.googleapis.com+gemini-3.8-flash": {
       "model": "gemini-3.8-flash",
@@ -27,17 +27,17 @@
       "base_url": "https://aiplatform.googleapis.com",
       "status": "up",
       "ok": 3,
-      "ttft_ms": 1606,
-      "tps": 106.7,
+      "ttft_ms": 1894,
+      "tps": 86.5,
       "usage": {
         "cached_tokens": 0,
         "prompt_tokens": 84,
         "thoughts_tokens": 0,
-        "response_tokens": 1157
+        "response_tokens": 1124
       },
-      "cost_usd": 0.0088035,
+      "cost_usd": 0.008556,
       "error": null,
-      "checked_at": "2026-11-07T11:15:44Z"
+      "checked_at": "2026-11-08T11:28:05Z"
     },
     "openai-chat+https://tokendance.space/gateway/v1+deepseek-v4.1-flash": {
       "model": "deepseek-v4.1-flash",
@@ -45,17 +45,17 @@
       "base_url": "https://tokendance.space/gateway/v1",
       "status": "up",
       "ok": 3,
-      "ttft_ms": 1144,
-      "tps": 91.6,
+      "ttft_ms": 1037,
+      "tps": 94.5,
       "usage": {
         "cached_tokens": 0,
         "prompt_tokens": 168,
-        "thoughts_tokens": 672,
-        "response_tokens": 1037
+        "thoughts_tokens": 641,
+        "response_tokens": 1061
       },
-      "cost_usd": 0.00080046,
+      "cost_usd": 0.00079726,
       "error": null,
-      "checked_at": "2026-11-07T11:15:49Z"
+      "checked_at": "2026-11-08T11:28:08Z"
     }
   }
 }
