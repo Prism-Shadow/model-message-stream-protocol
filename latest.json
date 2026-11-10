@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-11-09T13:15:20Z",
-  "run_id": "42623741760",
+  "generated_at": "2026-11-10T12:54:17Z",
+  "run_id": "42819609989",
   "samples": 3,
   "targets": {
     "deepseek-official+https://api.deepseek.com+deepseek-flash": {
@@ -9,17 +9,17 @@
       "base_url": "https://api.deepseek.com",
       "status": "up",
       "ok": 3,
-      "ttft_ms": 623,
-      "tps": 96.4,
+      "ttft_ms": 685,
+      "tps": 111.7,
       "usage": {
         "cached_tokens": 0,
         "prompt_tokens": 168,
-        "thoughts_tokens": 311,
-        "response_tokens": 940
+        "thoughts_tokens": 231,
+        "response_tokens": 1060
       },
-      "cost_usd": 0.00073886,
+      "cost_usd": 0.00076171,
       "error": null,
-      "checked_at": "2026-11-09T13:15:07Z"
+      "checked_at": "2026-11-10T12:54:04Z"
     },
     "google-genai+https://aiplatform.googleapis.com+gemini-3.8-flash": {
       "model": "gemini-3.8-flash",
@@ -27,17 +27,17 @@
       "base_url": "https://aiplatform.googleapis.com",
       "status": "up",
       "ok": 3,
-      "ttft_ms": 1855,
-      "tps": 69.3,
+      "ttft_ms": 1351,
+      "tps": 81.8,
       "usage": {
         "cached_tokens": 0,
         "prompt_tokens": 84,
         "thoughts_tokens": 0,
-        "response_tokens": 1146
+        "response_tokens": 1184
       },
-      "cost_usd": 0.008721,
+      "cost_usd": 0.009006,
       "error": null,
-      "checked_at": "2026-11-09T13:15:11Z"
+      "checked_at": "2026-11-10T12:54:11Z"
     },
     "openai-chat+https://tokendance.space/gateway/v1+deepseek-v4.1-flash": {
       "model": "deepseek-v4.1-flash",
@@ -45,17 +45,17 @@
       "base_url": "https://tokendance.space/gateway/v1",
       "status": "up",
       "ok": 3,
-      "ttft_ms": 1195,
-      "tps": 91.0,
+      "ttft_ms": 1012,
+      "tps": 89.7,
       "usage": {
         "cached_tokens": 0,
         "prompt_tokens": 168,
-        "thoughts_tokens": 1579,
-        "response_tokens": 994
+        "thoughts_tokens": 1224,
+        "response_tokens": 1004
       },
-      "cost_usd": 0.00119543,
+      "cost_usd": 0.00103771,
       "error": null,
-      "checked_at": "2026-11-09T13:15:20Z"
+      "checked_at": "2026-11-10T12:54:17Z"
     }
   }
 }

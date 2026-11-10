@@ -160,6 +160,15 @@
         "cost_usd": 0.00073886,
         "error": null,
         "samples": 3
+      },
+      "2026-11-10": {
+        "status": "up",
+        "ok": 3,
+        "ttft_ms": 685,
+        "tps": 111.7,
+        "cost_usd": 0.00076171,
+        "error": null,
+        "samples": 3
       }
     },
     "google-genai+https://aiplatform.googleapis.com+gemini-3.8-flash": {
@@ -319,6 +328,15 @@
         "ttft_ms": 1855,
         "tps": 69.3,
         "cost_usd": 0.008721,
+        "error": null,
+        "samples": 3
+      },
+      "2026-11-10": {
+        "status": "up",
+        "ok": 3,
+        "ttft_ms": 1351,
+        "tps": 81.8,
+        "cost_usd": 0.009006,
         "error": null,
         "samples": 3
       }
@@ -482,6 +500,15 @@
         "ttft_ms": 1195,
         "tps": 91.0,
         "cost_usd": 0.00119543,
+        "error": null,
+        "samples": 3
+      },
+      "2026-11-10": {
+        "status": "up",
+        "ok": 3,
+        "ttft_ms": 1012,
+        "tps": 89.7,
+        "cost_usd": 0.00103771,
         "error": null,
         "samples": 3
       }
