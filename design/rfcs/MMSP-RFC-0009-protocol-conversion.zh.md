@@ -3,19 +3,22 @@
 - Feature Name: `protocol_conversion`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
+- Updated by: [#__PR__](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/__PR__)
 - Kind: spec
 
 [English](MMSP-RFC-0009-protocol-conversion.md)
 
 ## Abstract
 
-协议转换是服务商的线上协议与 MMSP 之间的翻译，每个客户端都以 MMSP 为中间表示：请求从 MMSP 转换成线上格式，每个线上事件再转换回 MMSP，一段对话从一个服务商换到另一个服务商，只经过 MMSP。本文规定 MMSP 的这一角色、客户端做转换的三个转换方法、它们保持的顺序与唯一的输入形状、仍然读取的旧形状，以及把客户端的事件变成公开流的基类；这些都写成直接的代码，没有自己的中间层。
+协议转换是服务商的线上协议与 MMSP 之间的翻译，每个客户端都以 MMSP 为中间表示：请求从 MMSP 转换成线上格式，每个线上事件再转换回 MMSP，一段对话从一个服务商换到另一个服务商，只经过 MMSP。本文规定 MMSP 的这一角色、客户端做转换的三个转换方法、它们保持的顺序与唯一的输入形状、仍然读取的旧形状、把客户端的事件变成公开流的基类，以及让某一个端点或某一家厂商的模型所需的处理不进入兼容客户端转换方法的插件；这些都写成直接的代码，没有自己的中间层。
 
 ## 1. Introduction
 
 项目负责人为本规范提出的要求是：「写一下把 MMSP 作为 IR 的转换逻辑，实现代码减少抽象，尽量直观」。中间只有一种表示，客户端就只是两次转换，转成自己的线上格式，再转回来；经一个客户端记录的对话能经另一个客户端继续，两个客户端都不必知道对方的形状。
 
 审阅一个客户端，就是把它当作对其参考客户端的 diff 来看；读者顺着一次请求或一次响应，把整个文件从头读到尾。每多一层辅助函数、每一个接受同一输入两种形状的垫片，都是两种语言彼此走样、服务商的怪癖藏身的地方。项目负责人早先的原话是「转换代码尽量减少抽象，保持易懂」，对基类客户端则是「base client也减少一些抽象,尽量让代码容易看懂」，后者由 [#297](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/297) 完成。顺序规则来自一次故障：一个 Responses 风格的转换把收集到的文本追加在它之前的工具调用后面，DeepSeek 因此回答 "No tool output found for tool call"，直到 [#185](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/185) 修复。[#287](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/287) 把 0.5.5 整块保存的网关推理块改为共用的 fidelity 键，同时把这种整块的形状加入了从早先版本读取的形状。本规范最初在 [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265) 中写作 MMSP-RFC-0012，在 [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) 中写作 MMSP-RFC-0013；顺序规则在这两次中都属于 MMSP-RFC-0002。
+
+2026-11-11，项目负责人审阅了两份贡献，它们让 `openai-chat` 学会了 Mistral 端点的不同之处：把思考作为内容块流式返回，以及它的 `reasoning_effort`（[#322](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/322)、[#323](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/323)）。项目负责人认为这两份改动没有问题，但要求这类代码不进入客户端本身，原话是：「这些代码进入到主干以后,最后就没法控制了,能不能把他重构成一个比较解耦的文件,就是每个client都可以有n个plugin,每个plugin可以用模型id或者baseurl来匹配和启用,启用后就可以实现一些比较特殊的处理逻辑,比如openai-chat客户端可以对openrouter.ai和mistral.ai进行一些处理」。项目负责人选定的做法是：插件由基类提供给每个客户端，随包发布，匹配时启用，调用方既不能增加插件也不能关闭插件；兼容客户端原有的特殊处理也移入插件，即 `openai-chat` 和 `ant-messages` 中 OpenRouter 的用量修正，以及 `openai-chat` 和 `openai-responses` 中 GPT-5.6 与 GPT-6 的需要。[#__PR__](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/__PR__) 在原文上修改了本规范，在 §2 和 §9 写入插件。
 
 ## 2. Conventions and Terminology
 
@@ -28,6 +31,7 @@
 - *参考客户端*：同一协议的新客户端对照着读 diff 的那个客户端：Responses 协议是 `openai-official`，Chat Completions 是 `openai-chat`。
 - *适配器*：继承其所服务协议的客户端、只覆盖其服务端读法不同之处的客户端，如 `openai-chat-vllm-adapter` 之于 `openai-chat`。
 - *Fidelity*：见 [MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.zh.md#5-消息携带什么) §5 的定义。
+- *插件*：某一个端点或某一家厂商的模型在客户端所讲的协议之外需要的处理，放在该客户端 `plugins/` 文件夹下单独的文件里，在它的主机与模型模式匹配时启用（§9）。
 
 ## 3. MMSP 作为中间表示
 
@@ -63,7 +67,17 @@
 - 客户端的事件与公开的流之间，除 `StreamItems` 外不得有其他类或辅助层。
 - `mmsp` 客户端覆盖 `streaming_response` / `streamingResponse`：它打上 `created_at`，把旧类型的转换和消息的校验留给服务端的上游客户端，并把服务端的公开流按到达的样子转发，因为那个客户端已经构建好了它（[MMSP-RFC-0003](MMSP-RFC-0003-message-requests.zh.md#7-mmsp-客户端) §7）。
 
-## 9. Conformance
+## 9. 插件
+
+- 兼容客户端（[MMSP-RFC-0005](MMSP-RFC-0005-client-routing.zh.md#2-conventions-and-terminology) §2）必须在转换方法中像它的参考客户端那样讲它的协议，不得在转换方法中按 base URL 或模型 id 分支。某一个端点，或经这个协议提供的某一家厂商的模型，在协议之外需要的处理，例如换了名字的字段、换了形状的流、只有它们接受的参数、它们报错的计数，必须写成插件。官方客户端、适配器，以及协议只服务 Google 模型的 `google-genai`，在自己的代码里区分各自的模型（[MMSP-RFC-0003](MMSP-RFC-0003-message-requests.zh.md#61-明确匹配) §6.1）。
+- 插件是 `ClientPlugin`（`src_py/mmsp/plugin.py` / `src_ts/src/plugin.ts`）的子类，单独放在 `<client>/plugins/<name>.py` / `<client>/plugins/<name>.ts` 文件中，该文件夹的 `PLUGINS` 按运行顺序列出客户端的插件。插件声明 `hosts` 与 `models`：前者是若干 base URL 主机，每个主机匹配它本身及其子域名；后者是一个正则表达式，在模型 id 中不区分大小写地查找。插件必须至少声明其中之一，客户端的 base URL 与模型 id 匹配它声明的每一项时才启用。
+- 客户端必须在构造函数中，按模型 id 与其 SDK 实际调用的 base URL，一次构建启用的插件（`enabled_plugins` / `enabledPlugins`）；每个插件持有模型 id、这个 base URL 和客户端的 SDK 对象。基类保存这个列表（`_plugins`），没有插件的客户端列表为空。
+- 插件是包的一部分：调用方不得能增加插件或关闭插件，`AutoLLMClient` 和各客户端的构造函数都不接受插件参数。
+- 有插件的客户端必须在 `_streaming_response_internal` / `_streamingResponseInternal` 中、并且只在那里调用插件的钩子，按 `PLUGINS` 的顺序依次调用每个启用的插件。`on_request(config, request)` / `onRequest(config, request, signal)` 可以 await，在配置与消息转换之后、请求发出之前运行，作用于 SDK 调用的关键字参数，线上消息也在其中。`on_wire_event(wire_event)` / `onWireEvent(wireEvent)` 在事件转换读取每个线上事件之前运行，`on_event(event)` / `onEvent(event)` 作用于事件转换生成的 `UniEvent`。钩子就地修改它的参数，不返回值；插件没有定义的钩子什么也不做。
+- 插件必须把它的端点的线上格式改成转换方法读取的形状，并把转换方法写出的形状改成它的端点的形状，使内容项、它们的 `fidelity` 和流的规则仍由转换方法和基类决定（[MMSP-RFC-0003](MMSP-RFC-0003-message-requests.zh.md#41-客户端产出什么) §4.1、[MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.zh.md#4-每种线上格式需要发回什么) §4）：Mistral 的思考块读作 `reasoning_content`，`reasoning_content` 作为思考块发回 Mistral。
+- 转换保持无状态（§3）。插件可以在其客户端的生命周期内保留它从端点读到的信息，例如某个模型是否推理，但不保留对话的任何内容。插件发出的请求经客户端的 SDK 对象发往客户端的 base URL，带客户端的凭据（[MMSP-RFC-0006](MMSP-RFC-0006-upstream-credentials.zh.md#4-解析规则) §4），并传递中断信号（[MMSP-RFC-0008](MMSP-RFC-0008-request-interruption.zh.md#3-中断一条流) §3）。
+
+## 10. Conformance
 
 - 按 `.agents/skills/mmsp-dev/SKILL.md` 所述，对照参考客户端审阅。
 - `src_py/mmsp/base_client.py` / `src_ts/src/baseClient.ts`；`src_py/mmsp/stream_items.py` / `src_ts/src/streamItems.ts`；`src_py/mmsp/legacy.py` / `src_ts/src/legacy.ts`；`src_py/mmsp/wire.py` / `src_ts/src/wire.ts`；`src_py/mmsp/<client>/client.py` 与 `src_ts/src/<client>/client.ts` 下每个客户端的转换方法。
@@ -71,3 +85,4 @@
 - `test_message_order.py` / `message-order.test.ts`，让一轮先思考、再文本、再工具调用的消息经过每种协议的客户端，检查线上的顺序。
 - `test_reasoning_fidelity.py` / `reasoning-fidelity.test.ts`，检查回传时发出的确切内容项。
 - `test_mmsp_server.py` / `mmsp-server.test.ts`，检查经过服务端的流与上游的流相同。
+- `src_py/mmsp/plugin.py` / `src_ts/src/plugin.ts` 与每个客户端的 `plugins/` 文件夹；`test_plugins.py` / `plugins.test.ts`，检查插件在它声明的每一项都匹配时启用、否则从不启用，以及每个钩子都在 §9 规定的位置运行；每个插件自己的用例放在它所改变内容的测试中，例如 Mistral 思考块的用例放在 `test_reasoning_fidelity.py`。

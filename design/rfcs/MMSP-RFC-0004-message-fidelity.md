@@ -3,6 +3,7 @@
 - Feature Name: `message_fidelity`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
+- Updated by: [#__PR__](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/__PR__)
 - Kind: spec
 
 [中文版](MMSP-RFC-0004-message-fidelity.zh.md)
@@ -18,6 +19,8 @@ Every reasoning model degrades when its earlier thinking is missing from a tool-
 A conversation is a prefix the provider caches and the caller pays for. A history that changes between turns changes the model's context and its cost without anyone deciding to: an event mutated after it was yielded, a caller's edit to a list it was given back, a second call recording a turn generated without the first. [#291](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/291) made the history hold copies, one stateful call run at a time, and a message with nothing to send be refused. On timestamps the owner decided: 给历史消息加时间戳created at不会影响输入token,也不会破坏前缀缓存,所以可以放心做.
 
 The owner's words for this document: 讲一下 fidelity 来保护思考，前缀不发生改变，是 identical 的. Stated in [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265) as MMSP-RFC-0011 and the `tool_call_id` and unsigned-thinking bullets of MMSP-RFC-0008, and in [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) as MMSP-RFC-0005 and MMSP-RFC-0008.
+
+On 2026-11-11 Mistral's endpoint was found to stream its thinking as content chunks and to refuse a replayed reasoning field with 422 `extra_forbidden`, taking the thinking back only as a chunk ([#322](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/322)). [#__PR__](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/__PR__) amended this specification in place, with that form in §4, written by a plugin of `openai-chat` ([MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.md#9-plugins) §9).
 
 ## 2. Conventions and Terminology
 
@@ -42,7 +45,7 @@ A client MUST replay the thinking its own model produced with everything that mo
 - a Messages thinking block's `signature`, and a redacted block's `data`;
 - an Interactions thought step's signature;
 - a generateContent part's `thought_signature`, on the part it came with;
-- a Chat Completions turn's reasoning field name, with the text in that field; the text goes in both fields when the name is unknown, and `openai-chat` sends the field empty on a tool-calling turn that thought nothing once an earlier turn of the conversation has produced it;
+- a Chat Completions turn's reasoning field name, with the text in that field; the text goes in both fields when the name is unknown, and `openai-chat` sends the field empty on a tool-calling turn that thought nothing once an earlier turn of the conversation has produced it; Mistral's endpoint, which refuses either field, takes the text back as a thinking chunk ahead of the turn's content, and no field at all where the text is empty;
 - a gateway's encrypted reasoning block, as `encrypted_content`, `format` and `reasoning_id`, rebuilt on replay.
 
 A field joins this list only when a probe shows the request fails or the model degrades without it. A client rebuilds a replayed assistant turn from the universal fields plus this fidelity plus the stand-ins a provider requires; it does not reproduce the wire item field for field.

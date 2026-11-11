@@ -3,6 +3,7 @@
 - Feature Name: `message_fidelity`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
+- Updated by: [#__PR__](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/__PR__)
 - Kind: spec
 
 [English](MMSP-RFC-0004-message-fidelity.md)
@@ -18,6 +19,8 @@
 一段对话就是一个前缀，服务商缓存它，调用方为它付费。历史如果在两个回合之间变了，模型的上下文和开销也就跟着变了，而没有人做过这个决定：事件产出之后又被改动，调用方改动了拿回去的列表，第二次调用记下一个生成时没有看到第一次的回合。[#291](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/291) 让历史保存副本，同一时间只运行一次有状态调用，没有可发送内容的消息被拒绝。关于时间戳，项目负责人的决定是：给历史消息加时间戳created at不会影响输入token,也不会破坏前缀缓存,所以可以放心做。
 
 项目负责人对本文的要求：讲一下 fidelity 来保护思考，前缀不发生改变，是 identical 的。这些内容最初在 [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265) 中写作 MMSP-RFC-0011 以及 MMSP-RFC-0008 中关于 `tool_call_id` 和不带签名的思考的条目，在 [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) 中写作 MMSP-RFC-0005 与 MMSP-RFC-0008。
+
+2026-11-11 发现 Mistral 的端点把思考作为内容块流式返回，并以 422 `extra_forbidden` 拒绝回传的推理字段，只接受以内容块形式发回的思考（[#322](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/322)）。[#__PR__](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/__PR__) 在原文上修改了本规范，在 §4 写入这一形式，由 `openai-chat` 的一个插件写出（[MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.zh.md#9-插件) §9）。
 
 ## 2. Conventions and Terminology
 
@@ -42,7 +45,7 @@
 - Messages 思考块的 `signature`，以及 redacted 思考块的 `data`；
 - Interactions 思考步骤的签名；
 - generateContent 中 part 的 `thought_signature`，放回它当初所在的那个 part；
-- Chat Completions 回合的推理字段名，文本放在该字段中；字段名未知时两个字段都放，对话中较早的回合产生过该字段之后，`openai-chat` 在只做工具调用、没有思考的回合中把这个字段发成空值；
+- Chat Completions 回合的推理字段名，文本放在该字段中；字段名未知时两个字段都放，对话中较早的回合产生过该字段之后，`openai-chat` 在只做工具调用、没有思考的回合中把这个字段发成空值；Mistral 的端点两个字段都拒绝，它把文本作为思考块放在该回合内容之前发回，文本为空时不发送任何字段；
 - 网关加密的推理块，以 `encrypted_content`、`format` 与 `reasoning_id` 记录，回传时重建。
 
 一个字段只有在探测表明缺了它请求会失败或模型会退化时，才加入这份清单。客户端用通用字段、这些 fidelity 以及服务商要求的替身重建回传的助手回合；它不逐字段复刻线上的内容项。
