@@ -3,7 +3,7 @@
 - Feature Name: `client_routing`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316)
 - Kind: spec
 
 [English](MMSP-RFC-0005-client-routing.md)
@@ -17,6 +17,8 @@
 在 [#228](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/228) 之前，有些模型 id 按子串路由，于是像 `moonshotai/kimi-k3` 这样的网关 id 会因为拼写上的巧合落到某个客户端，新一代模型也要新增一条匹配规则，而不是新增一行。有了一张客户端类型表和一张模型族表，读者看表就能说出一个模型 id 会到达哪个客户端；不属于任何已知模型族的 id 会要求传入 `client_type`，而不是去猜。本规范最初在 [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265) 中写作 MMSP-RFC-0004，在 [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) 中写作 MMSP-RFC-0006。
 
 2026-11-02，项目负责人要求加入网页搜索与网页抓取，做法与 embedding 相同，原话是：「在mmsp里面增加search和fetch的能力,实现方式和embedding类似」。正如 `openai-official` 经由 `openai-embedding` 服务 OpenAI 的 embedding 模型，`deepseek-official` 经由 `deepseek-webtool` 服务 DeepSeek 的 Search 与 Fetch，即 `deepseek-search` 与 `deepseek-fetch`；`deepseek-webtool` 是这套 JSON API 的兼容客户端，也可用于提供相同路径的网关。Jina 的网页工具有自己的模型族 `jina-`。这两个端点都不列出模型，Bedrock 也不列出，`anthropic-official` 在 Bedrock 上早已从 `list_models` 抛出 `UnsupportedOperationError`。[#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308) 在原文上修改了本规范：在 §3 中加入 `deepseek-official` 的规则，在 §5 中加入不列出模型的端点。
+
+2026-11-04，项目负责人要求通过 OpenAI 的格式支持图像生成、语音合成与语音转写，各由一个兼容客户端负责：`openai-image`、`openai-speech` 与 `openai-transcription`。正如 `openai-official` 经由 `openai-embedding` 服务 OpenAI 的 embedding 模型，它经由 `openai-image` 服务 OpenAI 的图像模型 `gpt-image-`。网关后面其他厂商的模型，例如 `bytedance-seed/seedream-5-0-flash` 或 `fish-audio/drama-3`，不以任何模型族开头，用 `client_type` 指定客户端。[#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316) 在原文上修改了本规范：在 §3 中加入 `gpt-image-` 的规则。
 
 ## 2. Conventions and Terminology
 
@@ -33,7 +35,7 @@
 - 官方客户端服务其厂商的每一代模型：厂商的新一代模型放进它，旧的各代继续可用，直到项目负责人决定下线其中一代。
 - 代码中传入的客户端类型必须优先于 `CLIENT_TYPE`；代码没有传入时，才由 `CLIENT_TYPE` 指定客户端。
 - 客户端类型必须不区分大小写地被接受，旧名称 `openai`（即 `openai-chat`）、`gemini-official`（即 `google-official`）与 `gemini-generate-content`（即 `google-genai`）也必须被接受。
-- `openai-official` 必须经由 `openai-embedding` 服务 `text-embedding-` 模型，无论这个客户端是指定的还是推断出的。
+- `openai-official` 必须经由 `openai-embedding` 服务 `text-embedding-` 模型，经由 `openai-image` 服务 `gpt-image-` 模型，前缀不区分大小写，无论这个客户端是指定的还是推断出的。
 - `deepseek-official` 必须经由 `deepseek-webtool` 服务 `deepseek-search` 与 `deepseek-fetch` 这两个 id，按整个 id 不区分大小写地匹配，无论这个客户端是指定的还是推断出的。
 
 ## 4. 按模型 id 路由
