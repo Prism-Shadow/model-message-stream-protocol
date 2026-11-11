@@ -484,9 +484,9 @@ async def test_list_supported_models():
         "cached_tokens": 0.285714,
     }
 
-    # Pricing is always the list price: Google's launch discount on the three Gemini flash
+    # Pricing is always the list price: Google's launch discount on the two Gemini flash
     # rows is not recorded here, so the catalog rate is what every entry reports.
-    for model in ("gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash"):
+    for model in ("gemini-3.8-flash", "gemini-3.6-flash"):
         gemini = next(entry for entry in entries if entry["model"] == model)
         assert gemini["client"] == "google-official"
         assert gemini["pricing"]["prompt_tokens"] == 1.5

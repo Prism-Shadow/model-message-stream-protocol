@@ -234,7 +234,8 @@ export class GoogleGenaiClient extends LLMClient {
     if (
       this._model.includes("gemini-3.7") ||
       this._model.includes("gemini-3.8") ||
-      this._model.includes("gemini-4-argon")
+      this._model.includes("gemini-4-argon") ||
+      this._model.includes("gemini-4-carbon")
     ) {
       // These generations support low, medium, and high, but not minimal.
       return [

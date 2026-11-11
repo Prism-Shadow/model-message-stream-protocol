@@ -174,7 +174,9 @@ class GoogleGenaiClient(LLMClient):
             # would have accepted costs a little accuracy, forwarding an
             # unsupported one is a 400).
             return (types.ThinkingLevel.LOW, types.ThinkingLevel.MEDIUM, types.ThinkingLevel.HIGH)
-        if "gemini-3.7" in self._model or "gemini-3.8" in self._model or "gemini-4-argon" in self._model:
+        if any(
+            version in self._model for version in ("gemini-3.7", "gemini-3.8", "gemini-4-argon", "gemini-4-carbon")
+        ):
             # These generations support low, medium, and high, but not minimal.
             return (types.ThinkingLevel.LOW, types.ThinkingLevel.MEDIUM, types.ThinkingLevel.HIGH)
         return self._GEMINI_LEVEL_ORDER

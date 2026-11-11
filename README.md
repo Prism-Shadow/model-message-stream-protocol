@@ -47,7 +47,7 @@ Audit LLM executions by adding **a single `trace_id` parameter**, no database re
 
 | Model Name     | Vendor                              | Example Model ID       | Input Modalities | Output Modalities              |
 | -------------- | ----------------------------------- | ---------------------- | ---------------- | ------------------------------ |
-| Gemini 4 Argon | Official/Google Vertex AI/OpenRouter/OpenCode Go/Penguin Go | `gemini-4-argon` | Text, Image | Text |
+| Gemini 4 Carbon/Argon | Official/Google Vertex AI/OpenRouter/OpenCode Go/Penguin Go | `gemini-4-carbon` | Text, Image | Text |
 | Gemini 3-3.8   | Official/Google Vertex AI/OpenRouter/Penguin Go | `gemini-3.8-flash` | Text, Image | Text, Image, Speech, Embedding |
 | Claude 4.5-5.5 | Official/Amazon Bedrock/OpenRouter/OpenCode Go/UModelVerse | `claude-opus-5-5` | Text, Image | Text |
 | GPT-5.3-6.1    | Official/OpenRouter/OpenCode Go/UModelVerse | `gpt-6.1-sol` | Text, Image | Text, Embedding |
@@ -68,7 +68,7 @@ Audit LLM executions by adding **a single `trace_id` parameter**, no database re
 | DeepSeek Search/Fetch | Official/TokenDance | `deepseek-search` | Text | Web search, Page fetch |
 | Jina Search/Reader | Official | `jina-search` | Text | Web search, Page fetch |
 
-OpenRouter also serves Cohere Command A, Amazon Nova, Perplexity Sonar and Inception Mercury,
+OpenRouter also serves Cohere Command A, Amazon Nova and Perplexity Sonar,
 OpenRouter and TokenDance serve inclusionAI Ling, and TokenDance serves iFlytek Spark and Dots;
 `list_supported_models()` lists every entry.
 
@@ -541,7 +541,7 @@ from mmsp import AutoLLMClient
 
 async def main():
     client = AutoLLMClient(
-        model="deepseek-v4-flash",
+        model="deepseek-flash",
         api_key=os.environ["DEEPSEEK_API_KEY"],
         base_url="https://api.deepseek.com",
         client_type="openai-responses",
@@ -566,7 +566,7 @@ import { AutoLLMClient } from "@prismshadow/mmsp";
 
 async function main() {
   const client = new AutoLLMClient({
-    model: "deepseek-v4-flash",
+    model: "deepseek-flash",
     apiKey: process.env.DEEPSEEK_API_KEY,
     baseUrl: "https://api.deepseek.com",
     clientType: "openai-responses",
@@ -597,7 +597,7 @@ from mmsp import AutoLLMClient
 
 async def main():
     client = AutoLLMClient(
-        model="deepseek-v4-flash",
+        model="deepseek-flash",
         api_key=os.environ["DEEPSEEK_API_KEY"],
         base_url="https://api.deepseek.com/anthropic",
         client_type="ant-messages",
@@ -622,7 +622,7 @@ import { AutoLLMClient } from "@prismshadow/mmsp";
 
 async function main() {
   const client = new AutoLLMClient({
-    model: "deepseek-v4-flash",
+    model: "deepseek-flash",
     apiKey: process.env.DEEPSEEK_API_KEY,
     baseUrl: "https://api.deepseek.com/anthropic",
     clientType: "ant-messages",

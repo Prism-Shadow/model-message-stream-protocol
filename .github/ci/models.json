@@ -102,7 +102,7 @@
     "models": [
       {
         "api_key_env": "GEMINI_API_KEY",
-        "name": "gemini-4-argon",
+        "name": "gemini-3.8-flash",
         "client_type": "google-genai"
       },
       {
@@ -122,7 +122,7 @@
       },
       {
         "api_key_env": "VERTEX_API_KEY",
-        "name": "gemini-3.1-flash-tts-preview",
+        "name": "gemini-3.8-flash-tts",
         "support_text": false,
         "support_image_understanding": false,
         "support_tts": true,
@@ -144,7 +144,7 @@
     "models": [
       {
         "api_key_env": "GEMINI_API_KEY",
-        "name": "gemini-4-argon"
+        "name": "gemini-3.8-flash"
       },
       {
         "api_key_env": "GEMINI_API_KEY",

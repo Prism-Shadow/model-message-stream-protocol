@@ -5,8 +5,6 @@
 // a provider with no public page, as a vLLM server on this machine, has no rule.
 
 const VERTEX = "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models";
-// Vertex AI's docs have no page for these, so they open the list of Google's models
-const VERTEX_UNLISTED = new Set(["gemini-3.1-flash-tts-preview"]);
 // Fireworks files these under DeepSeek's account and the rest of the registry's under its own
 const FIREWORKS_DEEPSEEK = new Set(["deepseek-v4p1-flash", "deepseek-v4-flash-0731", "deepseek-v4-pro-0813"]);
 
@@ -16,7 +14,7 @@ const RULES: Record<string, (model: string) => string> = {
   openai: (model) => `https://developers.openai.com/api/docs/models/${model}`,
   google: (model) => `https://ai.google.dev/gemini-api/docs/models/${model}`,
   // gemini-3.8-flash is gemini/3-8-flash
-  vertex: (model) => (VERTEX_UNLISTED.has(model) ? `${VERTEX}/google-models` : `${VERTEX}/gemini/${model.replace(/^gemini-/, "").replaceAll(".", "-")}`),
+  vertex: (model) => `${VERTEX}/gemini/${model.replace(/^gemini-/, "").replaceAll(".", "-")}`,
   anthropic: () => "https://platform.claude.com/docs/en/models/overview",
   // global.anthropic.claude-sonnet-4-6 is model-card-anthropic-claude-sonnet-4-6, without the
   // inference profile's geography

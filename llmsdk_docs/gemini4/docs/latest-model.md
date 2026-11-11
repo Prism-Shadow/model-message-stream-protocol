@@ -1,349 +1,254 @@
-> Source: https://ai.google.dev/gemini-api/docs/latest-model.md.txt (snapshot 2026-10-14)
+> Source: https://ai.google.dev/gemini-api/docs/latest-model.md.txt (snapshot 2026-11-10)
 
-<br />
+# Latest Gemini models
 
-Gemini 4 Argon (`gemini-4-argon`) is our latest, most capable model. It can reason longer on hard problems for better results on complex coding, agentic, math, and science tasks. Gemini 4 Argon is available through the Gemini API and in Google AI Studio.
+Build with Google's latest models for reasoning, coding, and native media generation through one unified API. Start with `gemini-3.8-flash` for everyday apps and agents. Use `gemini-4-carbon` or `gemini-4-argon` for complex reasoning, or pick a specialized model below.
 
-Gemini 4 Argon supports a unified 1M-token context window, long decode up to 1M tokens, and tunable thinking levels (`low`, `medium`, `high`).
-[Try it in AI Studio
-Build apps from scratch with Gemini 4 Argon and AI Studio.](https://aistudio.google.com/apps?model=gemini-4-argon) [App Gallery
-Play and remix apps, built with Gemini 4 Argon.](https://aistudio.google.com/learn/gemini-4-argon-showcase) [Get started
-Get started with Gemini 4 Argon with starter prompts.](https://aistudio.google.com/learn/gemini-4-argon)
+{% button href="/docs/thinking" variant="ais" %}Choosing a model{% /button %} {% button href="/docs/models" variant="primary" %}View all models{% /button %}
 
-This guide explains what's new in Gemini 4 Argon, API changes, code examples, and migration guidance.
+## Compare Gemini models  {% class="hide-from-toc" id="compare-models" %}
 
-## New model
+Every Gemini model below accepts text, images, audio, video, and PDFs. All four models support [Google Search grounding](/docs/google-search), [code execution](/docs/code-execution), [function calling](/docs/function-calling), [computer use](/docs/computer-use), and [structured outputs](/docs/structured-output).
 
-| Model | Model ID | Default thinking level | Pricing | Description |
-|---|---|---|---|---|
-| Gemini 4 Argon | `gemini-4-argon` | `medium` | Available through Nov 30, 2026 at an introductory price of $2/1M input tokens and $10/1M output tokens ($4/1M input and $20/1M output thereafter). See [pricing](https://ai.google.dev/gemini-api/docs/pricing) for more details. | Our most capable model, built to solve the hardest problems with depth and precision across real-world software engineering and knowledge work tasks. |
+{% card-grid columns="4" %}
+  {% card title="Gemini 4 Carbon" variant="model-card" %}
+  {% section class="model-specs" %}
+  *   *Model ID* **`gemini-4-carbon`**
+  *   *Price (1M)* **$2.00 / $10.00 (intro thru Nov 30)**
+  *   *Speed* **Deliberate**
+  *   *Context* **1M unified tokens**
+  *   *Max output* **64K default / 1M [long decode](/docs/long-decode)**
+  *   *Thinking* **`low`, `medium` (default), `high`**
 
-For complete details, see the [Gemini 4 Argon model page](https://ai.google.dev/gemini-api/docs/models/gemini-4-argon). For introductory pricing details, see the [pricing section](https://ai.google.dev/gemini-api/docs/latest-model#pricing) later on this page or the [pricing page](https://ai.google.dev/gemini-api/docs/pricing#gemini-4-argon).
+  {% /section %}
 
-## Quickstart
+  {% section class="card-actions" %}
+  {% button href="https://aistudio.google.com/prompts/new_chat?model=gemini-4-carbon" tooltip="Try Gemini 4 Carbon in AI Studio" variant="primary" %}Try in AI Studio{% /button %} {% button href="/docs/models/gemini-4-carbon" icon="arrow_forward" tooltip="View Gemini 4 Carbon model specs" variant="icon-primary" /%}
 
-Use the following example to send a request to `gemini-4-argon` with the recommended default `thinking_level` (`medium`) and a 64K output token limit:
+  {% /section %}
 
-### Python
+  {% /card %}
 
-    from google import genai
+  {% card title="Gemini 4 Argon" variant="model-card" %}
+  {% section class="model-specs" %}
+  *   *Model ID* **`gemini-4-argon`**
+  *   *Price (1M)* **$2.00 / $10.00 (intro thru Nov 30)**
+  *   *Speed* **Moderate**
+  *   *Context* **1M unified tokens**
+  *   *Max output* **64K default / 1M [long decode](/docs/long-decode)**
+  *   *Thinking* **`low`, `medium` (default), `high`**
 
-    client = genai.Client()
+  {% /section %}
 
-    interaction = client.interactions.create(
-        model="gemini-4-argon",
-        input="Write a three.js script that renders a realistic 3D black hole with gravitational lensing."
-    )
+  {% section class="card-actions" %}
+  {% button href="https://aistudio.google.com/prompts/new_chat?model=gemini-4-argon" tooltip="Try Gemini 4 Argon in AI Studio" variant="primary" %}Try in AI Studio{% /button %} {% button href="/docs/models/gemini-4-argon" icon="arrow_forward" tooltip="View Gemini 4 Argon model specs" variant="icon-primary" /%}
 
-    print(interaction.output_text)
+  {% /section %}
 
-### JavaScript
+  {% /card %}
 
-    import { GoogleGenAI } from "@google/genai";
+  {% card title="Gemini 3.8 Flash" variant="model-card" %}
+  {% section class="model-specs" %}
+  *   *Model ID* **`gemini-3.8-flash`**
+  *   *Price (1M)* **$0.75 / $3.75 (intro thru Dec 31)**
+  *   *Speed* **Fast**
+  *   *Context* **1M input tokens**
+  *   *Max output* **64K tokens**
+  *   *Thinking* **`low`, `medium` (default), `high`**
 
-    const client = new GoogleGenAI({});
+  {% /section %}
 
-    const interaction = await client.interactions.create({
-      model: "gemini-4-argon",
-      input: "Write a three.js script that renders a realistic 3D black hole with gravitational lensing.",
-    });
+  {% section class="card-actions" %}
+  {% button href="https://aistudio.google.com/prompts/new_chat?model=gemini-3.8-flash" tooltip="Try Gemini 3.8 Flash in AI Studio" variant="primary" %}Try in AI Studio{% /button %} {% button href="/docs/models/gemini-3.8-flash" icon="arrow_forward" tooltip="View Gemini 3.8 Flash model specs" variant="icon-primary" /%}
 
-    console.log(interaction.output_text);
+  {% /section %}
 
-### REST
+  {% /card %}
 
-    curl "https://generativelanguage.googleapis.com/v1beta/interactions" \
-      -H "x-goog-api-key: $GEMINI_API_KEY" \
-      -H 'Content-Type: application/json' \
-      -X POST \
-      -d '{
-        "model": "gemini-4-argon",
-        "input": "Write a three.js script that renders a realistic 3D black hole with gravitational lensing."
-      }'
+  {% card title="Gemini 3.5 Flash-Lite" variant="model-card" %}
+  {% section class="model-specs" %}
+  *   *Model ID* **`gemini-3.5-flash-lite`**
+  *   *Price (1M)* **$0.30 / $2.50**
+  *   *Speed* **Fastest**
+  *   *Context* **1M input tokens**
+  *   *Max output* **64K tokens**
+  *   *Thinking* **`minimal` (default), `low`, `medium`, `high`**
 
-## What's new in Gemini 4 Argon
+  {% /section %}
 
-- **Unified 1M input-output token limit:** Input, thinking, and output share one window of 1,048,576 tokens.
-- **Long decode:** A single response can now go past 64K tokens, up to 1M tokens minus your input. See [Long decode](https://ai.google.dev/gemini-api/docs/long-decode).
-- **Agentic video understanding is generally available:** [Agentic video understanding](https://ai.google.dev/gemini-api/docs/video-understanding#agentic-video-understanding) is now generally available.
-- **Supported in Managed Agents:** The [Antigravity agent](https://ai.google.dev/gemini-api/docs/antigravity-agent) in Gemini Managed Agents now supports Gemini 4 Argon.
-
-For complete specs, see the [Gemini 4 Argon model page](https://ai.google.dev/gemini-api/docs/models/gemini-4-argon). For pricing details, see the [pricing page](https://ai.google.dev/gemini-api/docs/pricing#gemini-4-argon).
+  {% section class="card-actions" %}
+  {% button href="https://aistudio.google.com/prompts/new_chat?model=gemini-3.5-flash-lite" tooltip="Try Gemini 3.5 Flash-Lite in AI Studio" variant="primary" %}Try in AI Studio{% /button %} {% button href="/docs/models/gemini-3.5-flash-lite" icon="arrow_forward" tooltip="View Gemini 3.5 Flash-Lite model specs" variant="icon-primary" /%}
 
-## Larger output and long decode
+  {% /section %}
 
-Gemini 4 Argon can think longer on hard math, science, and coding problems.
+  {% /card %}
 
-- **Use `thinking_level` to control reasoning depth:** The thinking level decides how deeply the model reasons before it answers. `max_output_tokens` is a hard limit: the response stops once thinking and output together reach it, so set it high enough that it doesn't cut the answer short.
-- **Generate up to 1M tokens with background execution:** Use background execution with `max_output_tokens` greater than 65,536 to let a single response go past 64K tokens, up to 1M tokens. The model generates long responses in hops of up to 64K tokens, and each hop continues from where the previous one stopped. With background execution, our servers run these continuation hops for you. Because each hop adds a `model_output` step to `interaction.steps`, join the text across all `model_output` steps when the interaction completes.
+{% /card-grid %}
 
-### Python
+## What's new guides  {% class="hide-from-toc" id="whats-new-guides" %}
 
-    import time
-    from google import genai
+Read the What's new guides for new features, API changes, code examples, and migration steps.
 
-    client = genai.Client()
+{% card-grid columns="4" %}
+  {% card description="Our strongest reasoning model for agentic coding, multimodal precision, scientific and security reasoning, and choosing between Carbon and Argon." href="/docs/whats-new-gemini-4-carbon" icon="spark" title="What's new in Gemini 4 Carbon" variant="stacked-icon" /%}
 
-    interaction = client.interactions.create(
-        model="gemini-4-argon",
-        input="Write a complete, rigorous proof of the prime number theorem.",
-        background=True,
-        generation_config={
-            "max_output_tokens": 262144,
-            "thinking_level": "high",
-        },
-    )
+  {% card description="Our efficient Gemini 4 frontier reasoning model, with faster responses and lower token spend per turn compared to Carbon, unified 1M context, and long decode." href="/docs/whats-new-gemini-4-argon" icon="psychology" title="What's new in Gemini 4 Argon" variant="stacked-icon" /%}
 
-    while interaction.status in ("in_progress", "queued"):
-        time.sleep(5)
-        interaction = client.interactions.get(id=interaction.id)
+  {% card description="Recommended default for everyday apps and agents, plus low-latency Live voice agents and 130-language Flash TTS." href="/docs/whats-new-gemini-3.8" icon="rocket_launch" title="What's new in Gemini 3.8 Flash" variant="stacked-icon" /%}
 
-    # Each hop adds a model_output step, so join the text of all of them.
-    text = "".join(
-        content.text
-        for step in interaction.steps
-        if step.type == "model_output"
-        for content in step.content
-        if content.type == "text"
-    )
-    print(text)
-    print("Status:", interaction.status)
-    print("Usage:", interaction.usage)
-
-### JavaScript
-
-    import { GoogleGenAI } from "@google/genai";
-
-    const client = new GoogleGenAI({});
-
-    let interaction = await client.interactions.create({
-      model: "gemini-4-argon",
-      input: "Write a complete, rigorous proof of the prime number theorem.",
-      background: true,
-      generation_config: {
-        max_output_tokens: 262144,
-        thinking_level: "high",
-      },
-    });
-
-    while (interaction.status === "in_progress" || interaction.status === "queued") {
-      await new Promise((resolve) => setTimeout(resolve, 5000));
-      interaction = await client.interactions.get(interaction.id);
-    }
-
-    // Each hop adds a model_output step, so join the text of all of them.
-    const text = interaction.steps
-      .filter((step) => step.type === "model_output")
-      .flatMap((step) => step.content ?? [])
-      .filter((content) => content.type === "text")
-      .map((content) => content.text)
-      .join("");
-    console.log(text);
-    console.log("Status:", interaction.status);
-    console.log("Usage:", interaction.usage);
-
-### REST
-
-    ID=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/interactions" \
-      -H "x-goog-api-key: $GEMINI_API_KEY" \
-      -H "Content-Type: application/json" \
-      -d '{
-        "model": "gemini-4-argon",
-        "input": "Write a complete, rigorous proof of the prime number theorem.",
-        "background": true,
-        "generation_config": {
-          "max_output_tokens": 262144,
-          "thinking_level": "high"
-        }
-      }' | jq -r '.id')
-
-    while true; do
-      RESP=$(curl -s "https://generativelanguage.googleapis.com/v1beta/interactions/$ID" \
-        -H "x-goog-api-key: $GEMINI_API_KEY")
-      STATUS=$(echo "$RESP" | jq -r '.status')
-      if [[ "$STATUS" != "in_progress" && "$STATUS" != "queued" ]]; then
-        echo "$RESP" | jq -r '[.steps[]? | select(.type == "model_output") | .content[]? | select(.type == "text") | .text] | join("")'
-        break
-      fi
-      sleep 5
-    done
-
-> [!NOTE]
-> **Note:** If you set `background: true` without defining `max_output_tokens`, the server stops after 64K tokens.
-
-Background execution is the easiest way to run long decode. It runs the continuation loop server-side until the model finishes or reaches `max_output_tokens`. If you need finer-grained control over retries, backoff, and error handling (or don't want your interactions stored), you can use client-side continuation in the [GenerateContent API](https://ai.google.dev/gemini-api/docs/generate-content/long-decode). Client-side continuation is also coming soon to the Interactions API. For streaming, reconnection, token counting, and when to use long decode, see the [long decode guide](https://ai.google.dev/gemini-api/docs/long-decode).
-
-### Setting output token limits
-
-`max_output_tokens` sets the total thinking and output tokens for a response. Set it high enough that thinking doesn't cut the answer short, and low enough to limit spend when a hard prompt uses all of it.
-
-Use these values as a starting point:
-
-- **Standard tasks:** Keep the default of 65,536 or don't set any value.
-- **Existing apps with a limit lower than 32K:** Raise `max_output_tokens` to at least 32,768. Gemini 4 Argon can spend more of the limit on thinking than earlier models. To use fewer tokens, lower the thinking level instead.
-- **Complex reasoning and coding:** Set `background: true` and set `max_output_tokens` to 131,072 or 262,144, up to 1,048,576 minus your input tokens.
-
-## Understanding thinking levels
-
-The [thinking level](https://ai.google.dev/gemini-api/docs/thinking) is your main control over quality, latency, and token use in Gemini 4 Argon:
-
-| Thinking level | Token use | When to use |
-|---|---|---|
-| `low` | Fewest tokens, lowest latency | Simpler tasks and cost-sensitive work. Also works for analysis and writing tasks that need light thinking. Quality can drop on hard tasks. |
-| `medium` (default) | Balanced | Recommended for most tasks, including complex code and agentic use cases. |
-| `high` | Most tokens, slowest first token | Complex reasoning, hard math and science, and the most difficult code or agent tasks. Pairs well with long decode for long outputs. |
-
-Run your evaluations at all three levels, then pick the lowest level that meets your quality bar. To learn more, see the [thinking guide](https://ai.google.dev/gemini-api/docs/thinking).
-
-### Python
-
-    from google import genai
-
-    client = genai.Client()
-
-    interaction = client.interactions.create(
-        model="gemini-4-argon",
-        input="Analyze this payment processing pipeline for race conditions during retry attempts and rewrite the transaction locks safely.",
-        generation_config={
-            "thinking_level": "medium"  # Balanced reasoning effort for complex tasks
-        }
-    )
-
-    print(interaction.output_text)
-
-### JavaScript
-
-    import { GoogleGenAI } from "@google/genai";
-
-    const client = new GoogleGenAI({});
-
-    const interaction = await client.interactions.create({
-      model: "gemini-4-argon",
-      input: "Analyze this payment processing pipeline for race conditions during retry attempts and rewrite the transaction locks safely.",
-      generation_config: {
-        thinking_level: "medium", // Balanced reasoning effort for complex tasks
-      },
-    });
-
-    console.log(interaction.output_text);
-
-### REST
-
-    curl "https://generativelanguage.googleapis.com/v1beta/interactions" \
-      -H "x-goog-api-key: $GEMINI_API_KEY" \
-      -H 'Content-Type: application/json' \
-      -X POST \
-      -d '{
-        "model": "gemini-4-argon",
-        "input": "Analyze this payment processing pipeline for race conditions during retry attempts and rewrite the transaction locks safely.",
-        "generation_config": {
-          "thinking_level": "medium"
-        }
-      }'
-
-## Gemini 4 Argon in Managed Agents
-
-The [Antigravity agent](https://ai.google.dev/gemini-api/docs/antigravity-agent) in Gemini Managed Agents supports Gemini 4 Argon. To use it, set the model in `agent_config`:
-
-### Python
-
-    from google import genai
-
-    client = genai.Client()
-
-    interaction = client.interactions.create(
-        agent="antigravity-preview-09-2026",
-        input=(
-            "Audit https://web.dev for performance, Core Web Vitals, and SEO. "
-            "Query Google's PageSpeed Insights API for both Mobile and Desktop strategies. "
-            "Check search indexing with Google Search for site:web.dev. "
-            "Format the output as a side-by-side scorecard table with prioritized fixes."
-        ),
-        environment="remote",
-        agent_config={
-            "type": "antigravity",
-            "model": "gemini-4-argon",
-        },
-    )
-
-    print(interaction.output_text)
-
-### JavaScript
-
-    import { GoogleGenAI } from "@google/genai";
-
-    const client = new GoogleGenAI({});
-
-    const interaction = await client.interactions.create({
-      agent: "antigravity-preview-09-2026",
-      input:
-        "Audit https://web.dev for performance, Core Web Vitals, and SEO. " +
-        "Query Google's PageSpeed Insights API for both Mobile and Desktop strategies. " +
-        "Check search indexing with Google Search for site:web.dev. " +
-        "Format the output as a side-by-side scorecard table with prioritized fixes.",
-      environment: "remote",
-      agent_config: {
-        type: "antigravity",
-        model: "gemini-4-argon",
-      },
-    }, { timeout: 300000 });
-
-    console.log(interaction.output_text);
-
-### REST
-
-    curl -X POST "https://generativelanguage.googleapis.com/v1beta/interactions" \
-      -H "Content-Type: application/json" \
-      -H "x-goog-api-key: $GEMINI_API_KEY" \
-      -d '{
-        "agent": "antigravity-preview-09-2026",
-        "input": "Audit https://web.dev for performance, Core Web Vitals, and SEO. Query Google'\''s PageSpeed Insights API for both Mobile and Desktop strategies. Check search indexing with Google Search for site:web.dev. Format the output as a side-by-side scorecard table with prioritized fixes.",
-        "environment": "remote",
-        "agent_config": {
-          "type": "antigravity",
-          "model": "gemini-4-argon"
-        }
-      }'
-
-For more options, see [model selection](https://ai.google.dev/gemini-api/docs/antigravity-agent#model-selection) in the Antigravity agent guide.
-
-## Migration checklist
-
-> [!NOTE]
-> **Note:** **Automate this migration with a coding agent.** If you use a coding agent that supports skills (like Antigravity), install the [gemini-api-dev skill](https://ai.google.dev/gemini-api/docs/coding-agents#gemini-api-dev) and run:
-
-      `/gemini-api-dev migrate my app to Gemini 4 Argon`
-
-### Migrate to gemini-4-argon
-
-- **Update model ID:** Change your target model string to `gemini-4-argon`.
-- **Review `max_output_tokens`:** If you set it explicitly today, consider raising it. We recommend at least 32,768, since Gemini 4 Argon can spend more of the limit on thinking.
-- **Configure thinking level:** Choose `low`, `medium` (default), or `high`, and test your workload at all three.
-- **Move off explicit context caching:** Explicit caching (`cachedContents` / `caches.create`) is not supported on Gemini 4 Argon. Remove calls that create or reference `cached_content` from your requests. [Implicit caching](https://ai.google.dev/gemini-api/docs/caching) is enabled by default for prompts of at least 4,096 tokens and discounts cached input tokens by 95% on cache hits.
-- **Remove sampling parameters:** Remove `temperature`, `top_p`, and `top_k` from your requests. If provided, they are ignored.
-- **Use background execution for long outputs:** For tasks that need more than 64K tokens, set `background` to true and `max_output_tokens` greater than 65,536.
-- **Increase client timeouts:** Hard prompts can take several minutes. Use background execution, or set HTTP client timeouts to at least 15 minutes.
-- **Keep conversation state on the server:** Use `previous_interaction_id` for multi-turn and function calling conversations.
-
-## Pricing
-
-Gemini 4 Argon is available at introductory pricing through November 30, 2026:
-
-- **Input tokens:** $2.00 per 1M tokens ($4.00 starting December 1, 2026)
-  - **Cached input tokens:** Implicit caching discounts cached input by 95%, to $0.10 per 1M tokens ($0.20 starting December 1, 2026).
-- **Output tokens, including thinking tokens:** $10.00 per 1M tokens ($20.00 starting December 1, 2026)
-
-Gemini 4 Argon is not available on the Free tier or on the [Google AI Pro](https://ai.google.dev/gemini-api/docs/google-ai-plans) plan. For complete pricing tiers, see the [pricing page](https://ai.google.dev/gemini-api/docs/pricing#gemini-4-argon).
-
-## Other models
-
-- [Gemini 3.8 Flash](https://ai.google.dev/gemini-api/docs/whats-new-gemini-3.8)
-- [Gemini 3.6 Flash and 3.5 Flash-Lite](https://ai.google.dev/gemini-api/docs/whats-new-gemini-3.6)
-- [See all models](https://ai.google.dev/gemini-api/docs/models)
-
-## What's next
-
-- Read the [long decode guide](https://ai.google.dev/gemini-api/docs/long-decode) for streaming, reconnection, and token counting.
-- Learn how thinking levels and thought summaries work in the [thinking guide](https://ai.google.dev/gemini-api/docs/thinking).
-- Learn about long-running jobs in the [background execution guide](https://ai.google.dev/gemini-api/docs/background-execution).
-- Test and refine prompts in [Google AI Studio](https://aistudio.google.com/prompts/new_chat?model=gemini-4-argon).
+  {% card description="Fastest, lowest-cost Flash-Lite model for high-throughput subagents, routing, and step-by-step migration from Gemini 2.5." href="/docs/whats-new-gemini-3.6" icon="bolt" title="What's new in Gemini 3.6 and 3.5 Flash-Lite" variant="stacked-icon" /%}
+
+{% /card-grid %}
+
+## Latest models across modalities  {% class="hide-from-toc" id="latest-by-modality" %}
+
+Pick the current recommended model ID when starting a project across text, images, video, or speech.
+
+{% card-grid columns="2" %}
+  {% card description="Multimodal understanding, software engineering, structured extraction, and tool-using agents." icon="psychology" title="Text, code, and reasoning" variant="stacked-icon" %}
+  {% section class="model-specs" %}
+  *   *Flagship reasoning* **[`gemini-4-carbon`](/docs/models/gemini-4-carbon), [`gemini-4-argon`](/docs/models/gemini-4-argon)**
+  *   *Default general-purpose* **[`gemini-3.8-flash`](/docs/models/gemini-3.8-flash)**
+  *   *High-volume and low-cost* **[`gemini-3.5-flash-lite`](/docs/models/gemini-3.5-flash-lite)**
+
+  {% /section %}
+
+  {% section class="card-actions" %}
+  {% button href="https://aistudio.google.com/prompts/new_chat?model=gemini-3.8-flash" tooltip="Open text chat in AI Studio" variant="primary" %}Try in AI Studio{% /button %} {% button href="/docs/text-generation" icon="arrow_forward" tooltip="Read text generation guide" variant="icon-primary" /%}
+
+  {% /section %}
+
+  {% /card %}
+
+  {% card description="Conversational image generation, multi-turn editing, character consistency, and accurate text rendering up to 4K." icon="banana_spark" title=Images (Nano Banana) variant="stacked-icon" %}
+  {% section class="model-specs" %}
+  *   *Default high-efficiency* **[`gemini-nano-banana-2.1`](/docs/models/gemini-nano-banana-2.1)**
+  *   *Studio 4K and layouts* **[`gemini-3-pro-image`](/docs/models/gemini-3-pro-image)**
+  *   *Ultra-low latency* **[`gemini-3.1-flash-lite-image`](/docs/models/gemini-3.1-flash-lite-image)**
+
+  {% /section %}
+
+  {% section class="card-actions" %}
+  {% button href="https://aistudio.google.com/prompts/new_chat?model=gemini-nano-banana-2.1" tooltip="Try Nano Banana 2.1 in AI Studio" variant="primary" %}Try in AI Studio{% /button %} {% button href="/docs/image-generation" icon="arrow_forward" tooltip="Read image generation guide" variant="icon-primary" /%}
+
+  {% /section %}
+
+  {% /card %}
+
+  {% card description="Generate and edit up to 4K video with synchronized audio using Gemini Omni, stream live video, or analyze long videos." icon="movie_filter" title="Video" variant="stacked-icon" %}
+  {% section class="model-specs" %}
+  *   *Video generation and editing* **[`gemini-omni-1.2-flash`](/docs/models/gemini-omni-flash)**
+  *   *Video understanding* **[`gemini-4-carbon`](/docs/models/gemini-4-carbon), [`gemini-4-argon`](/docs/models/gemini-4-argon), [`gemini-3.8-flash`](/docs/models/gemini-3.8-flash)**
+  *   *Live video streaming* **[`gemini-3.8-live`](/docs/models/gemini-3.8-live)**
+
+  {% /section %}
+
+  {% section class="card-actions" %}
+  {% button href="https://aistudio.google.com/prompts/new_chat?model=gemini-omni-1.2-flash" tooltip="Try Gemini Omni 1.2 Flash in AI Studio" variant="primary" %}Try in AI Studio{% /button %} {% button href="/docs/omni" icon="arrow_forward" tooltip="Read Gemini Omni Flash guide" variant="icon-primary" /%}
+
+  {% /section %}
+
+  {% /card %}
+
+  {% card description="Sub-second bidirectional voice agents, expressive text-to-speech in 130 languages, and diarized transcription." icon="graphic_eq" title="Audio and speech" variant="stacked-icon" %}
+  {% section class="model-specs" %}
+  *   *Live voice agents* **[`gemini-3.8-live`](/docs/models/gemini-3.8-live)**
+  *   *Studio text-to-speech* **[`gemini-3.8-flash-tts`](/docs/models/gemini-3.8-flash-tts)**
+  *   *Speech-to-text* **[`gemini-3.5-transcribe`](/docs/models/gemini-3.5-transcribe)**
+
+  {% /section %}
+
+  {% section class="card-actions" %}
+  {% button href="https://aistudio.google.com/live" tooltip="Try Gemini 3.8 Live in AI Studio" variant="primary" %}Try in AI Studio{% /button %} {% button href="/docs/live-api" icon="arrow_forward" tooltip="Read Live API guide" variant="icon-primary" /%}
+
+  {% /section %}
+
+  {% /card %}
+
+{% /card-grid %}
+
+## Quickstart  {% class="hide-from-toc" id="quickstart" %}
+
+Send your first request using the Google GenAI SDK and the [Interactions API](/docs/interactions-overview). Swap `model` to test any tier.
+
+{% tabs %}
+  {% tab filename="quickstart.py" label="Python" %}
+  ```python
+  from google import genai
+  
+  client = genai.Client()
+  
+  interaction = client.interactions.create(
+      model="gemini-4-carbon",
+      input="Explain gravity to a skeptical cat in three short sentences.",
+  )
+  
+  print(interaction.output_text)
+  ```
+
+  {% /tab %}
+
+  {% tab filename="quickstart.js" label="JavaScript" %}
+  ```javascript
+  import { GoogleGenAI } from "@google/genai";
+  
+  const client = new GoogleGenAI({});
+  
+  const interaction = await client.interactions.create({
+    model: "gemini-4-carbon",
+    input: "Explain gravity to a skeptical cat in three short sentences.",
+  });
+  
+  console.log(interaction.output_text);
+  ```
+
+  {% /tab %}
+
+  {% tab label="REST" %}
+  ```bash
+  curl -X POST "https://generativelanguage.googleapis.com/v1beta/interactions" \
+    -H "x-goog-api-key: $GEMINI_API_KEY" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "model": "gemini-4-carbon",
+      "input": "Explain gravity to a skeptical cat in three short sentences."
+    }'
+  ```
+
+  {% /tab %}
+
+{% /tabs %}
+
+## Set up your coding agent  {% class="hide-from-toc" id="coding-agents" %}
+
+Give your coding agent live access to the latest Gemini models, SDK syntax, and documentation so it always builds with up-to-date information.
+
+```bash
+# Connect the live Gemini Docs MCP server
+npx add-mcp "https://gemini-api-docs-mcp.dev"
+
+# Install official Gemini API agent skills
+npx skills add google-gemini/gemini-skills --skill gemini-api-dev --global
+
+# Or install the bundled Antigravity plugin
+agy plugin install https://github.com/google-gemini/gemini-skills
+```
+
+You can also append `.md` to any documentation URL or feed [`llms.txt`](https://aistudio.google.com/llms.txt) to your agent. See [Coding agent setup](/docs/coding-agents) for editor configs and `AGENTS.md` templates.
+
+## Specialized models  {% class="hide-from-toc" id="specialized-models" %}
+
+Beyond the general-purpose and media models above, the Gemini API includes specialized endpoints:
+
+* **[Managed Agents](/docs/agents):** [`antigravity-preview-09-2026`](/docs/antigravity-agent) for coding and tool orchestration, and [`deep-research-preview-04-2026`](/docs/deep-research) for autonomous multi-step research.
+* **[Embeddings](/docs/embeddings):** [`gemini-embedding-2`](/docs/models/gemini-embedding-2) for multimodal text, image, audio, video, and PDF search and RAG.
+* **[Music generation](/docs/music-generation):** [`lyria-3.5`](/docs/models/lyria-3.5) for studio-grade instrumental and vocal tracks.
+* **[Robotics](/docs/robotics-overview):** [`gemini-robotics-er-2-preview`](/docs/models/gemini-robotics-er-2-preview) for spatial reasoning and embodied planning.
+
+## What's next  {% class="hide-from-toc" id="whats-next" %}
+
+* Browse the full endpoint catalog on [All models](/docs/models).
+* Tune reasoning depth and latency in the [Thinking guide](/docs/thinking).
+* Review [Pricing](/docs/pricing), [Rate limits](/docs/rate-limits), [Context caching](/docs/caching), and [Batch API (50% cost reduction)](/docs/batch-api).
+* Check sunset dates on [Deprecations](/docs/deprecations) and recent updates in [Release notes](/docs/changelog).
+
