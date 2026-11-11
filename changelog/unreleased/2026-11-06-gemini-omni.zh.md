@@ -12,7 +12,7 @@
 - 两种语言的 `google-official` 流式返回 Gemini Omni 的视频（`gemini-omni-1.2-flash`；`gemini-omni-1.1-flash` 在 2026-12-03 被 Google 转到 1.2 之前同样适用）：带 `data` 的 Interactions `video` 增量成为一个 `inline_data` 内容项，MIME 类型为 `video/mp4`，除非增量给出了别的类型；带 `uri` 的增量成为一个装着该 URI 的 `text` 内容项。此前客户端丢弃视频增量，流以 `EmptyResponseError` 结束。
 - 请求保留 Google 的默认设置（16:9、720p、10 秒，视频内联返回），流式、不存储，不带 `response_format`；与 TTS 模型一样，只发送最新一条消息中的文本和图片。
 - `StreamItems` 遇到 MIME 类型为 `video/*` 的 `inline_data` 增量时开始一个新内容项，与图片相同。
-- 注册表在 Gemini API 上列出 `gemini-omni-1.2-flash`（从 353 条增至 354 条）；`_usd()` / `usd()` 增加了可选的思考价格，其他各行的价格不变。`/models.json` 在某行的 `thoughts_tokens` 与 `response_tokens` 不同时写出 `thoughts_tokens`。
+- 注册表在 Gemini API 上列出 `gemini-omni-1.2-flash`（从 352 条增至 353 条）；`_usd()` / `usd()` 增加了可选的思考价格，其他各行的价格不变。`/models.json` 在某行的 `thoughts_tokens` 与 `response_tokens` 不同时写出 `thoughts_tokens`。
 - 模型索引用 Lucide 的 `video` 图标显示视频输出，视频行的集成代码写出 `video.mp4`。两个服务端中的 playground 与 tracer 用 `<video controls>` 元素播放 `video/*` 的 `inline_data` 内容项，tracer 把它标为 `Inline Video`。
 - `.github/ci/models.json` 在 `google-official` 下加入 `gemini-omni-1.2-flash`，标为 slow，新增 `support_video_generation` 能力标记，两套 e2e 测试各加入一个共享的视频测试。`llmsdk_docs/gemini_omni/` 收录了 Omni 指南、模型页、价格、Interactions API 参考、Files API 与 API 错误页。
 
