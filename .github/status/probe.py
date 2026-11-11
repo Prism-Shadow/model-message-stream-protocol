@@ -147,10 +147,10 @@ def utc_stamp(moment: datetime) -> str:
     return moment.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-async def probe_sample(
+async def probe_answer(
     client: AutoLLMClient, prompt: str, config: dict[str, Any], secrets: list[str]
-) -> dict[str, Any]:
-    """Stream one answer and measure it.
+) -> tuple[dict[str, Any], Exception | None]:
+    """Stream one answer and measure it; the error is returned too, for probe_sample to judge.
 
     TTFT runs from the request to the first non-empty text or thinking delta; TPS is the output
     tokens (thoughts and response) over the time from that delta to the last one.
@@ -166,6 +166,7 @@ async def probe_sample(
     messages = [{"role": "user", "content_items": [{"type": "text.done", "text": prompt}]}]
     usage = None
     first = last = None
+    failure: Exception | None = None
     start = time.perf_counter()
     try:
         async with asyncio.timeout(SAMPLE_TIMEOUT_S):
@@ -180,9 +181,11 @@ async def probe_sample(
                         if first is None:
                             first = last
     except Exception as exc:
+        failure = exc
         # a thinking-only answer is rejected, but its tokens were still billed
         if isinstance(exc, EmptyResponseError):
             usage = exc.usage_metadata
+            sample["finish_reason"] = exc.finish_reason
         sample["error"] = describe_error(exc, secrets)
     sample["elapsed_ms"] = round((time.perf_counter() - start) * 1000)
     if first is not None:
@@ -192,7 +195,32 @@ async def probe_sample(
         tokens = sample["usage"]["thoughts_tokens"] + sample["usage"]["response_tokens"]
         if first is not None and last > first and tokens:
             sample["tps"] = round(tokens / (last - first), 1)
-    return sample
+    return sample, failure
+
+
+async def probe_sample(
+    client: AutoLLMClient, prompt: str, config: dict[str, Any], secrets: list[str]
+) -> dict[str, Any]:
+    """One sample: an answer, asked once more when the thinking took every token it was allowed.
+
+    A thinking-only answer cut at max_tokens says the probe's budget was too small for that answer,
+    not that the channel failed, so the sample is asked again with twice the max_tokens and is the
+    second answer, measured on its own. Both answers' tokens were billed, so its usage is their sum,
+    and `retried` keeps the first answer's error.
+    """
+    sample, failure = await probe_answer(client, prompt, config, secrets)
+    if not (isinstance(failure, EmptyResponseError) and failure.finish_reason == "length"):
+        return sample
+    roomier = dict(config)
+    if "max_tokens" in roomier:
+        roomier["max_tokens"] = 2 * roomier["max_tokens"]
+    await asyncio.sleep(SAMPLE_GAP_S)
+    retry, _ = await probe_answer(client, prompt, roomier, secrets)
+    if sample["usage"] is not None:
+        spent = retry["usage"] or zero_usage()
+        retry["usage"] = {field: sample["usage"][field] + spent[field] for field in USAGE_FIELDS}
+    retry["retried"] = sample["error"]
+    return retry
 
 
 async def probe_target(
