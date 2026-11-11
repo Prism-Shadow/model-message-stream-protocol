@@ -145,7 +145,7 @@ Each client sends the level as its protocol's effort: `output_config.effort` wit
 | `zai-official`: other GLM models | `disabled` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `google-official`, `google-genai`: image models | `minimal` | `minimal` | `high` | `high` | `high` | `high` |
 | `google-official`, `google-genai`: Gemini 3 Pro | `low` | `low` | `high` | `high` | `high` | `high` |
-| `google-official`, `google-genai`: other Pro models, Gemini 3.7, 3.8, 4 Argon | `low` | `low` | `medium` | `high` | `high` | `high` |
+| `google-official`, `google-genai`: other Pro models, Gemini 3.7, 3.8, 4 Argon, 4 Carbon | `low` | `low` | `medium` | `high` | `high` | `high` |
 | `google-official`, `google-genai`: other Gemini models | `minimal` | `low` | `medium` | `high` | `high` | `high` |
 
 `openai-chat-vllm-adapter` sends no `reasoning_effort` either. It sets the switch the served model's chat template reads, as `chat_template_kwargs`:

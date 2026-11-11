@@ -1383,13 +1383,9 @@ test("should list supported model entries", () => {
     cached_tokens: 0.285714,
   });
 
-  // Pricing is always the list price: Google's launch discount on the three Gemini flash
+  // Pricing is always the list price: Google's launch discount on the two Gemini flash
   // rows is not recorded here, so the catalog rate is what every entry reports.
-  for (const model of [
-    "gemini-3.8-flash",
-    "gemini-3.7-flash",
-    "gemini-3.6-flash",
-  ]) {
+  for (const model of ["gemini-3.8-flash", "gemini-3.6-flash"]) {
     const gemini = entries.find((entry) => entry.model === model);
     expect(gemini?.client).toBe("google-official");
     expect([

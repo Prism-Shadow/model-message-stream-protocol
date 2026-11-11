@@ -33,8 +33,8 @@ async def main():
     print("Speech Generation Example")
     print("=" * 60)
 
-    # Get model from environment variable, default to gemini-3.1-flash-tts-preview
-    model = os.getenv("MODEL", "gemini-3.1-flash-tts-preview")
+    # Get model from environment variable, default to gemini-3.8-flash-tts
+    model = os.getenv("MODEL", "gemini-3.8-flash-tts")
     print(f"Using model: {model}")
 
     client = AutoLLMClient(model=model)

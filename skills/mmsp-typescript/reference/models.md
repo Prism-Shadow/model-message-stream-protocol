@@ -4,13 +4,12 @@ Use exact model IDs, and pass the model's client type as `clientType`. If a mode
 
 | Family | Provider | Model IDs | Client type | API Key | Base URL |
 | --- | --- | --- | --- | --- | --- |
-| Gemini 3 | Official / Vertex AI | `gemini-3.1-pro-preview`, `gemini-3.5-flash`, `gemini-3.1-flash-lite` | `google-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
+| Gemini 4 | Official | `gemini-4-carbon`, `gemini-4-argon` | `google-official` | `GEMINI_API_KEY` | `GEMINI_BASE_URL` |
+| Gemini 3 | Official / Vertex AI | `gemini-3.1-pro-preview`, `gemini-3.1-flash-lite` | `google-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
 | Gemini 3.6 | Official / Vertex AI | `gemini-3.6-flash`, `gemini-3.5-flash-lite` | `google-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
 | Gemini 3.8 | Official / Vertex AI | `gemini-3.8-flash` | `google-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
-| Gemini 3.7 | Official / Vertex AI | `gemini-3.7-flash` | `google-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
 | Gemini 3 Image | Official / Vertex AI | `gemini-3.1-flash-image`, `gemini-3.1-flash-lite-image`, `gemini-3-pro-image` | `google-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
-| Gemini 3.8 TTS | Official | `gemini-3.8-flash-tts`, `gemini-3.8-flash-lite-tts` | `google-official` | `GEMINI_API_KEY` (not served on Vertex AI) | `GEMINI_BASE_URL` |
-| Gemini 3 TTS | Official / Vertex AI | `gemini-3.1-flash-tts-preview` | `google-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
+| Gemini 3.8 TTS | Official / Vertex AI | `gemini-3.8-flash-tts`, `gemini-3.8-flash-lite-tts` | `google-official` (Vertex AI: `google-genai`, `gemini-3.8-flash-tts`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
 | Gemini Embedding | Official / Vertex AI | `gemini-embedding-2` | `google-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
 | Claude 4.6 | Official / ModelVerse | `claude-sonnet-4-6` | `anthropic-official` | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` |
 | Claude 4.6 | Bedrock | `global.anthropic.claude-sonnet-4-6` | `anthropic-official` | `ANTHROPIC_API_KEY` (`ACCESS_KEY,SECRET_KEY`) | `ANTHROPIC_BASE_URL` (`bedrock://us-east-1`) |
