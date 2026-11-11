@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-- [2026-11-11] 注册表新增 OpenRouter 与 TokenDance 上的腾讯 `hy4`，以及 TokenDance 上的百度 `ernie-5.5-flash-preview`（从 344 条增至 347 条），模型索引用百度文心图标显示 ERNIE。([详情](2026-11-11-hy4-ernie-registry.zh.md))
+- [2026-11-11] 注册表新增 OpenRouter 与 TokenDance 上的腾讯 `hy4`，以及 TokenDance 上的百度 `ernie-5.5-flash-preview`（从 344 条增至 347 条），模型索引用百度文心图标显示 ERNIE。([详情](2026-11-11-hy4-ernie-registry.zh.md), [#325](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/325))
 - [2026-11-10] `gemini-4-carbon` 加入注册表，经 `google-official` 走 Gemini API，另有 OpenRouter 条目，思考档位与 Gemini 4 Argon 相同；12 个模型已退役的条目移出注册表，包括 `gemini-3.7-flash`、`gemini-3.5-flash`、`gemini-3.1-flash-tts-preview`、`deepseek-v4-flash` 与 `deepseek-v4-flash-vision-exp`（加上新条目后从 353 条变为 344 条），共享模型测试目录中的 Gemini 文本实测用例改为 `gemini-3.8-flash`。([详情](2026-11-10-gemini-4-carbon.zh.md), [#324](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/324))
 - [2026-11-04] 回答只有思考内容且在 `max_tokens` 处被截断时，状态探测会把 `max_tokens` 加倍再试一次；每日探测新增四个渠道（TokenDance 的 `glm-5.3-flash`、`qwen3.8-flash`、`mimo-v2.6-flash`，Bedrock 的 `global.anthropic.claude-sonnet-4-6`）。`/status/` 上的每日卡片可以移入并复制文字，柱状条止于最近一次有探测的那天，没有更早数据时 ‹ 置灰。([详情](2026-11-04-status-probe-and-board.zh.md), [#315](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/315))
 - [2026-11-04] 模型索引的每一行在代码按钮前新增一个链接，在新标签页打开该模型在服务商处的页面，353 行中有 345 行带有链接（vLLM 条目除外），集成代码对话框里的服务商名称也链接到同一个页面；链接由页面脚本依据服务商和模型 id 通过 `site/src/shared/pages.ts` 计算，`/models/` 的 gzip 体积因此增加 213 字节，脚本增加 957 字节。([详情](2026-11-04-model-index-source-pages.zh.md), [#314](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/314))

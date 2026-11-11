@@ -3,7 +3,7 @@
 - **Date:** 2026-11-11
 - **Type:** feature
 - **Scope:** `registry`, `site`
-- **PR:** pending
+- **PR:** [#325](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/325)
 
 [中文版](2026-11-11-hy4-ernie-registry.zh.md)
 
