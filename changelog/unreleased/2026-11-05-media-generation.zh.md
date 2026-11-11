@@ -17,7 +17,7 @@
 - 路由：`openai-official` 通过 `openai-image` 服务 `gpt-image-*`，显式指定和按 ID 推断都是如此。
 - Playground 的附件按钮可以选择音频文件，以 base64 的 `data` 作为 `inline_data.done` 发送，两个服务端的 `/api/chat` 把它解码成字节；用户气泡中可以播放这段音频。Playground 和 server 页面为三个客户端类型加上了说明。Tracer 按 MIME 类型中的采样率与声道数把 PCM 封装成 WAV，没有写明时为 24 kHz 单声道。
 - `.github/ci/models.json` 新增 `openai-image` 组（`gpt-image-2.5-flare`，以及作为慢用例的 OpenRouter 上的 `bytedance-seed/seedream-5-0-flash` 和 TokenDance 上的 `seedream-5.0-lite`）、`openai-speech` 组（`fish-audio/drama-3`）和 `openai-transcription` 组（`fish-audio/transcribe-1`）。共享 e2e 测试新增 `support_transcription` 能力标记和读取 Whisper 的 `jfk.flac` 的转写用例，Python 的 concat 用例跳过转写模型，图像用例改为请求 `image_size: "2K"`，单说话人语音用例不再发送 `tts_config`。
-- 注册表从 353 条增至 358 条，见下表。模型索引的集成代码为图像行请求 2K，语音行的播放说明改为按程序打印的 MIME 类型中的采样率与声道数播放，为转写行提供一个下载 `jfk.flac` 并打印文字的程序，以及一个先把 base64 请求写入 `request.json` 的 Server 标签页。`VENDORS` 新增 Fish Audio，并把 `seedream-` 归入 ByteDance Seed。`/models/` 从 1,204,979 字节增至 1,221,118 字节（gzip 后从 56,258 增至 56,974），`/zh/models/` 从 1,217,675 增至 1,233,948（57,140 增至 57,871），目录脚本从 16,543 增至 17,629（6,814 增至 7,158）。
+- 注册表从 347 条增至 352 条，见下表。模型索引的集成代码为图像行请求 2K，语音行的播放说明改为按程序打印的 MIME 类型中的采样率与声道数播放，为转写行提供一个下载 `jfk.flac` 并打印文字的程序，以及一个先把 base64 请求写入 `request.json` 的 Server 标签页。`VENDORS` 新增 Fish Audio，并把 `seedream-` 归入 ByteDance Seed。`/models/` 从 1,187,556 字节增至 1,203,692 字节（gzip 后从 56,697 增至 57,408），`/zh/models/` 从 1,200,048 增至 1,216,318（57,580 增至 58,307），目录脚本从 18,916 增至 20,002（7,739 增至 8,082）。
 - 文档：configuration、models、streaming、errors 各页，README，两个包的 README，`skills/` 和开发 skill 都写入了三个客户端。
 
 ## 配置行为
