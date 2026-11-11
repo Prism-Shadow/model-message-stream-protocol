@@ -381,17 +381,25 @@ function wireEffort(config: any): string | undefined {
 describe("thinking level to vendor effort", () => {
   test.each(THINKING_EFFORT_CASES)(
     "%s (%s) maps %s to %s",
-    (model, clientType, level, expected) => {
+    async (model, clientType, level, expected) => {
       const client = new AutoLLMClient({
         model,
         apiKey: "test-key",
         clientType,
       });
+      const config = { thinking_level: level };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const config = (client as any)._client.transformUniConfigToModelConfig({
-        thinking_level: level,
-      });
-      expect(wireEffort(config)).toBe(expected);
+      const routedClient = (client as any)._client;
+      const request = {
+        ...routedClient.transformUniConfigToModelConfig(config),
+        input: [],
+        messages: [],
+      };
+      // the client's plugins complete the request before it is sent (MMSP-RFC-0009 §9)
+      for (const plugin of routedClient._plugins) {
+        await plugin.onRequest(config, request);
+      }
+      expect(wireEffort(request)).toBe(expected);
     },
   );
 });
@@ -617,5 +625,88 @@ describe("vLLM thinking switch", () => {
       thinking_level: ThinkingLevel.NONE,
     });
     expect(config.chat_template_kwargs).toBeUndefined();
+  });
+});
+
+// Mistral's endpoint validates `reasoning_effort` per model and refuses the whole request over a
+// value a model does not take, so the `mistral` plugin of openai-chat sends the parameter only to
+// a model whose entry in the model list says `capabilities.reasoning`, and `medium`, absent from
+// that scale, goes out as `high` (ported from #323).
+function mistralClient(
+  reasoning: boolean | undefined,
+  baseUrl: string = "https://api.mistral.ai/v1",
+): { client: AutoLLMClient; reads: () => number } {
+  const client = new AutoLLMClient({
+    model: "glm-5.3",
+    apiKey: "test-key",
+    baseUrl,
+    clientType: "openai-chat",
+  });
+  const entry: Record<string, unknown> = { id: "glm-5.3" };
+  if (reasoning !== undefined) entry.capabilities = { reasoning };
+  let reads = 0;
+  const models = {
+    list: () => ({
+      async *[Symbol.asyncIterator]() {
+        reads += 1;
+        yield { id: "mistral-small-latest" };
+        yield entry;
+      },
+    }),
+  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const plugin of (client as any)._client._plugins) {
+    plugin.sdk = { models };
+  }
+  return { client, reads: () => reads };
+}
+
+async function mistralEffort(
+  client: AutoLLMClient,
+  level: ThinkingLevel,
+): Promise<unknown> {
+  const config = { thinking_level: level };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const routedClient = (client as any)._client;
+  const request = {
+    ...routedClient.transformUniConfigToModelConfig(config),
+    messages: [],
+  };
+  for (const plugin of routedClient._plugins) {
+    await plugin.onRequest(config, request);
+  }
+  return request.reasoning_effort;
+}
+
+describe("openai-chat on Mistral's endpoint", () => {
+  test.each([
+    [ThinkingLevel.LOW, "low"],
+    [ThinkingLevel.MEDIUM, "high"],
+    [ThinkingLevel.HIGH, "high"],
+    [ThinkingLevel.XHIGH, "xhigh"],
+    [ThinkingLevel.MAX, "max"],
+    [ThinkingLevel.NONE, undefined],
+  ])("sends %s as the reasoning_effort %s", async (level, expected) => {
+    const { client, reads } = mistralClient(true);
+    expect(await mistralEffort(client, level)).toBe(expected);
+    await mistralEffort(client, level);
+    // the model list is read once per client, and not at all for a level that sends nothing
+    expect(reads()).toBe(expected ? 1 : 0);
+  });
+
+  test.each([[false], [undefined]])(
+    "sends no reasoning_effort where the model list says reasoning is %s",
+    async (reasoning) => {
+      const { client } = mistralClient(reasoning);
+      expect(await mistralEffort(client, ThinkingLevel.MEDIUM)).toBeUndefined();
+    },
+  );
+
+  test("another endpoint gets no reasoning_effort", async () => {
+    const { client, reads } = mistralClient(true, "https://api.test.invalid/v1");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((client as any)._client._plugins).toEqual([]);
+    expect(await mistralEffort(client, ThinkingLevel.HIGH)).toBeUndefined();
+    expect(reads()).toBe(0);
   });
 });

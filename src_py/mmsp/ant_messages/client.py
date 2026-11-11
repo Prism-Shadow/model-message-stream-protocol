@@ -20,6 +20,7 @@ from anthropic.types.beta import BetaMessageParam, BetaRawMessageStreamEvent
 
 from ..base_client import LLMClient
 from ..errors import InvalidMessageError, UnknownEventError, UnsupportedParameterError
+from ..plugin import enabled_plugins
 from ..types import (
     EventContentItem,
     EventType,
@@ -32,7 +33,8 @@ from ..types import (
     UniMessage,
     UsageMetadata,
 )
-from ..utils import fix_openrouter_usage_metadata, is_debug_enabled, resolve_credentials
+from ..utils import is_debug_enabled, resolve_credentials
+from .plugins import PLUGINS
 
 
 REDACTED_THINKING = "_REDACTED_THINKING"
@@ -61,6 +63,7 @@ class AntMessagesClient(LLMClient):
         self._model = model
         api_key, base_url = resolve_credentials(self.__class__.__name__, "ant-messages", api_key, base_url)
         self._client = _AsyncAnthropic(api_key=api_key, base_url=base_url, default_headers=default_headers)
+        self._plugins = enabled_plugins(PLUGINS, model, str(self._client.base_url), self._client)
         self._history: list[UniMessage] = []
 
     def _convert_image_url_to_source(self, url: str) -> dict[str, Any]:
@@ -344,15 +347,12 @@ class AntMessagesClient(LLMClient):
 
                 output_details = getattr(usage, "output_tokens_details", None)
                 thinking_tokens = getattr(output_details, "thinking_tokens", None) if output_details else None
-                usage_metadata = fix_openrouter_usage_metadata(
-                    {
-                        "cached_tokens": usage.cache_read_input_tokens,
-                        "prompt_tokens": prompt_tokens,
-                        "thoughts_tokens": thinking_tokens,
-                        "response_tokens": usage.output_tokens - (thinking_tokens or 0),
-                    },
-                    str(self._client.base_url),
-                )
+                usage_metadata = {
+                    "cached_tokens": usage.cache_read_input_tokens,
+                    "prompt_tokens": prompt_tokens,
+                    "thoughts_tokens": thinking_tokens,
+                    "response_tokens": usage.output_tokens - (thinking_tokens or 0),
+                }
 
         elif ant_event_type in [
             "content_block_stop",
@@ -396,10 +396,21 @@ class AntMessagesClient(LLMClient):
         # Use unified message conversion
         ant_messages = self.transform_uni_message_to_model_input(messages)
 
-        stream = await self._client.beta.messages.create(**ant_config, messages=ant_messages)
+        request = {**ant_config, "messages": ant_messages}
+        for plugin in self._plugins:
+            await plugin.on_request(config, request)
+
+        stream = await self._client.beta.messages.create(**request)
         async with stream:
-            async for event in stream:
-                yield self.transform_model_output_to_uni_event(event)
+            async for wire_event in stream:
+                for plugin in self._plugins:
+                    plugin.on_wire_event(wire_event)
+
+                event = self.transform_model_output_to_uni_event(wire_event)
+                for plugin in self._plugins:
+                    plugin.on_event(event)
+
+                yield event
 
     async def list_models(self) -> list[str]:
         """

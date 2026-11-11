@@ -281,6 +281,11 @@ async def test_image_parts_go_out_at_the_detail_the_client_needs_or_are_refused_
     if inspect.isawaitable(model_input):
         model_input = await model_input
 
+    # the client's plugins complete the request before it is sent (MMSP-RFC-0009 §9)
+    request = {"input" if case.protocol == "responses" else "messages": model_input}
+    for plugin in client._client._plugins:  # noqa: SLF001
+        await plugin.on_request({}, request)
+
     shrunk = "high" if case.shrinks else "absent"
     assert _details(case, model_input) == [shrunk, "absent", shrunk, "absent"]
     if case.protocol == "responses":

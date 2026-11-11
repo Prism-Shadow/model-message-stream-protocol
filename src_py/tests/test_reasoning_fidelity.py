@@ -866,3 +866,63 @@ async def test_generate_content_replays_a_bytes_signature_of_a_thinking_item_on_
     model_input = await _transform_history(client, history)
     assert model_input[1].parts[0].thought_signature is None
     assert model_input[1].parts[1].thought_signature == b"sig-1"
+
+
+@pytest.mark.asyncio
+async def test_mistral_thinking_chunks_are_read_as_thinking_and_go_back_as_a_chunk():
+    # Mistral streams the thinking inside `delta.content` as content chunks and refuses a replayed
+    # reasoning field; the `mistral` plugin of openai-chat reads the chunks as `reasoning_content`
+    # and writes that field back as a chunk (ported from #322)
+    client = AutoLLMClient(
+        model="magistral-medium-latest",
+        api_key="test-key",
+        base_url="https://api.mistral.ai/v1",
+        client_type="openai-chat",
+    )
+    _install_fake_openai_compatible_stream(
+        client,
+        [
+            _delta_chunk(
+                [{"type": "thinking", "thinking": [{"type": "text", "text": "Let me think "}], "closed": True}]
+            ),
+            _delta_chunk(
+                [
+                    {"type": "thinking", "thinking": [{"type": "text", "text": "about the memo."}], "closed": True},
+                    {"type": "text", "text": "Here is"},
+                ]
+            ),
+            _delta_chunk(" the memo."),
+            _stop_chunk(),
+        ],
+    )
+
+    events = [event async for event in client.streaming_response_stateful(_user_message(), {})]
+    assert_stream_grammar(events)
+    assert "".join(
+        item["text"] for event in events for item in event["content_items"] if item["type"] == "text.delta"
+    ) == ("Here is the memo.")
+    assert [item for item in client.get_history()[-1]["content_items"] if item["type"] == "thinking.done"] == [
+        {
+            "type": "thinking.done",
+            "thinking": "Let me think about the memo.",
+            "fidelity": {"reasoning_field": "reasoning_content"},
+        }
+    ]
+
+    requests: list[dict[str, Any]] = []
+
+    async def create(**kwargs: Any) -> _FakeStream:
+        requests.append(kwargs)
+        return _FakeStream([_delta_chunk("Done."), _stop_chunk()])
+
+    client._client._client.chat.completions.create = create  # noqa: SLF001
+    async for _event in client.streaming_response_stateful(_user_message(), {}):
+        pass
+
+    replayed_message = requests[0]["messages"][1]
+    assert "reasoning_content" not in replayed_message
+    assert "reasoning" not in replayed_message
+    assert replayed_message["content"] == [
+        {"type": "thinking", "thinking": [{"type": "text", "text": "Let me think about the memo."}], "closed": True},
+        {"type": "text", "text": "Here is the memo."},
+    ]

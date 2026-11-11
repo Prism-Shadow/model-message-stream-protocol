@@ -127,7 +127,7 @@ Claude Opus 5.5、Sonnet 5.5、Haiku 5.5 和 Fable 5.1 不能强制调用工具�
 
 ### `thinking_level`
 
-每个客户端都把级别作为其协议的思考档位发送：Anthropic 的两个客户端上是自适应思考加 `output_config.effort`，Responses 客户端上是 `reasoning.effort`，Kimi K3、K3.1 Pro 和 GLM（同时开启思考）上是 `reasoning_effort`，Gemini 上是 `thinking_level`。Kimi K2 改为发送思考类型；`disabled` 和 `between_tools` 也是思考类型。`openai-chat` 不发送级别，由端点使用其默认值。取第一个匹配的行。
+每个客户端都把级别作为其协议的思考档位发送：Anthropic 的两个客户端上是自适应思考加 `output_config.effort`，Responses 客户端上是 `reasoning.effort`，Kimi K3、K3.1 Pro 和 GLM（同时开启思考）上是 `reasoning_effort`，Gemini 上是 `thinking_level`。Kimi K2 改为发送思考类型；`disabled` 和 `between_tools` 也是思考类型。`openai-chat` 不发送级别，由端点使用其默认值；Mistral 的端点除外，在那里它对 Mistral 模型列表标明会推理的模型发送 `reasoning_effort`。取第一个匹配的行。
 
 | 客户端与模型 | `none` | `low` | `medium` | `high` | `xhigh` | `max` |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -137,7 +137,8 @@ Claude Opus 5.5、Sonnet 5.5、Haiku 5.5 和 Fable 5.1 不能强制调用工具�
 | `anthropic-official`：其他 Claude 模型；`ant-messages` | `disabled` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `openai-official`、`openai-responses`：GPT-6 Luna 与 GPT-6.1 Terra 以外的 GPT-6 模型 | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `openai-official`、`openai-responses`：其他模型 | `none` | `low` | `medium` | `high` | `xhigh` | `max` |
-| `openai-chat` | 不发送 | 不发送 | 不发送 | 不发送 | 不发送 | 不发送 |
+| `openai-chat`：Mistral 端点上会推理的模型 | 不发送 | `low` | `high` | `high` | `xhigh` | `max` |
+| `openai-chat`：其他模型 | 不发送 | 不发送 | 不发送 | 不发送 | 不发送 | 不发送 |
 | `deepseek-official` | `none` | `low` | `high` | `high` | `high` | `max` |
 | `minimax-official`：MiniMax-M3.1-Flash | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `minimax-official`：MiniMax-M3 | `none` | `low` | `medium` | `high` | `high` | `high` |
