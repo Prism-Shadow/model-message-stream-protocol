@@ -20,6 +20,7 @@ from openai.types.responses import ResponseInputParam, ResponseStreamEvent
 
 from ..base_client import LLMClient
 from ..errors import InvalidMessageError, UnknownEventError, UnsupportedParameterError
+from ..plugin import enabled_plugins
 from ..types import (
     EventContentItem,
     EventType,
@@ -32,20 +33,8 @@ from ..types import (
     UniMessage,
     UsageMetadata,
 )
-from ..utils import (
-    is_debug_enabled,
-    openai_client_options,
-    openai_image_detail,
-    prompt_cache_key,
-    resolve_credentials,
-)
-
-
-# The GPT-6 models that take the "none" reasoning effort. A gateway serving GPT-6 Astra or GPT-6.1 Sol
-# forwards the effort to OpenAI, which rejects "none" and "minimal" with a 400 (verified live 2026-09-09
-# against api.openai.com); GPT-6 Luna and GPT-6.1 Terra accept it, on OpenRouter too (verified live
-# 2026-10-14 and 2026-11-02).
-_GPT6_NONE_EFFORT = ("gpt-6-luna", "gpt-6.1-terra")
+from ..utils import is_debug_enabled, openai_client_options, prompt_cache_key, resolve_credentials
+from .plugins import PLUGINS
 
 
 class OpenaiResponsesClient(LLMClient):
@@ -66,18 +55,11 @@ class OpenaiResponsesClient(LLMClient):
             base_url=url,
             **openai_client_options("openai-responses", base_url, key, default_headers),
         )
+        self._plugins = enabled_plugins(PLUGINS, model, str(self._client.base_url), self._client)
         self._history: list[UniMessage] = []
 
     def _convert_thinking_level_to_effort(self, thinking_level: ThinkingLevel) -> str:
         """Convert ThinkingLevel enum to the Responses API reasoning effort."""
-        if (
-            thinking_level == ThinkingLevel.NONE
-            and "gpt-6" in self._model
-            and not any(model in self._model for model in _GPT6_NONE_EFFORT)
-        ):
-            # the rest of the generation has no off switch, so NONE runs at the lowest effort it accepts
-            return "low"
-
         mapping = {
             ThinkingLevel.NONE: "none",
             ThinkingLevel.LOW: "low",
@@ -102,12 +84,8 @@ class OpenaiResponsesClient(LLMClient):
         return tool_choice
 
     def _convert_image_url(self, image_url: str) -> dict[str, str]:
-        """Convert an image URL to an input_image item, at the detail the API needs to read it."""
-        item = {"type": "input_image", "image_url": image_url}
-        if detail := openai_image_detail(self._model, image_url):
-            item["detail"] = detail
-
-        return item
+        """Convert an image URL to an input_image item."""
+        return {"type": "input_image", "image_url": image_url}
 
     def transform_uni_config_to_model_config(self, config: UniConfig) -> dict[str, Any]:
         """
@@ -436,11 +414,22 @@ class OpenaiResponsesClient(LLMClient):
         # Use unified message conversion
         input_list = self.transform_uni_message_to_model_input(messages)
 
+        request = {**openai_config, "input": input_list, "stream": True}
+        for plugin in self._plugins:
+            await plugin.on_request(config, request)
+
         # Stream generate
-        stream = await self._client.responses.create(**openai_config, input=input_list, stream=True)
+        stream = await self._client.responses.create(**request)
         async with stream:
             async for model_event in stream:
-                yield self.transform_model_output_to_uni_event(model_event)
+                for plugin in self._plugins:
+                    plugin.on_wire_event(model_event)
+
+                event = self.transform_model_output_to_uni_event(model_event)
+                for plugin in self._plugins:
+                    plugin.on_event(event)
+
+                yield event
 
     async def list_models(self) -> list[str]:
         """

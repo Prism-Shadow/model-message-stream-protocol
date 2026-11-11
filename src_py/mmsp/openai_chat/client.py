@@ -24,6 +24,7 @@ from openai.types.chat import ChatCompletionChunk, ChatCompletionMessageParam
 from ..base_client import LLMClient
 from ..credentials import CLIENT_CREDENTIALS
 from ..errors import InvalidMessageError, UnsupportedParameterError
+from ..plugin import enabled_plugins
 from ..types import (
     EventContentItem,
     EventType,
@@ -36,13 +37,8 @@ from ..types import (
     UniMessage,
     UsageMetadata,
 )
-from ..utils import (
-    fix_openrouter_usage_metadata,
-    openai_client_options,
-    openai_image_detail,
-    prompt_cache_key,
-    resolve_credentials,
-)
+from ..utils import openai_client_options, prompt_cache_key, resolve_credentials
+from .plugins import PLUGINS
 
 
 class OpenaiChatClient(LLMClient):
@@ -72,6 +68,7 @@ class OpenaiChatClient(LLMClient):
             base_url=url or credentials.default_base_url,
             **openai_client_options(self._CLIENT_TYPE, base_url, sdk_key, default_headers),
         )
+        self._plugins = enabled_plugins(PLUGINS, model, str(self._client.base_url), self._client)
         self._history: list[UniMessage] = []
 
     async def _convert_image_url_to_base64(self, url: str) -> str:
@@ -108,12 +105,8 @@ class OpenaiChatClient(LLMClient):
         return tool_choice
 
     def _convert_image_url(self, data_url: str) -> dict[str, Any]:
-        """Convert a fetched image to an image_url part, at the detail the API needs to read it."""
-        image_url = {"url": data_url}
-        if detail := openai_image_detail(self._model, data_url):
-            image_url["detail"] = detail
-
-        return {"type": "image_url", "image_url": image_url}
+        """Convert a fetched image to an image_url part."""
+        return {"type": "image_url", "image_url": {"url": data_url}}
 
     def transform_uni_config_to_model_config(self, config: UniConfig) -> dict[str, Any]:
         """
@@ -428,7 +421,6 @@ class OpenaiChatClient(LLMClient):
                 "thoughts_tokens": reasoning_tokens,
                 "response_tokens": response_tokens,
             }
-            usage_metadata = fix_openrouter_usage_metadata(usage_metadata, str(self._client.base_url))
 
         return {
             "role": "assistant",
@@ -451,11 +443,22 @@ class OpenaiChatClient(LLMClient):
         if config.get("system_prompt"):
             openai_messages.insert(0, {"role": "system", "content": config["system_prompt"]})
 
-        stream = await self._client.chat.completions.create(**openai_config, messages=openai_messages)
+        request = {**openai_config, "messages": openai_messages}
+        for plugin in self._plugins:
+            await plugin.on_request(config, request)
+
+        stream = await self._client.chat.completions.create(**request)
 
         async with stream:
             async for chunk in stream:
-                yield self.transform_model_output_to_uni_event(chunk)
+                for plugin in self._plugins:
+                    plugin.on_wire_event(chunk)
+
+                event = self.transform_model_output_to_uni_event(chunk)
+                for plugin in self._plugins:
+                    plugin.on_event(event)
+
+                yield event
 
     async def list_models(self) -> list[str]:
         """

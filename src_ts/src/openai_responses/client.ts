@@ -37,22 +37,14 @@ import {
   PromptCaching,
   UsageMetadata,
 } from "../types";
+import { enabledPlugins } from "../plugin";
 import {
   isDebugEnabled,
   openaiClientOptions,
-  openaiImageDetail,
   promptCacheKey,
   resolveCredentials,
 } from "../utils";
-
-/**
- * The GPT-6 models that take the "none" reasoning effort. A gateway serving
- * GPT-6 Astra or GPT-6.1 Sol forwards the effort to OpenAI, which rejects
- * "none" and "minimal" with a 400 (verified live 2026-09-09 against
- * api.openai.com); GPT-6 Luna and GPT-6.1 Terra accept it, on OpenRouter too
- * (verified live 2026-10-14 and 2026-11-02).
- */
-const GPT6_NONE_EFFORT = ["gpt-6-luna", "gpt-6.1-terra"];
+import { PLUGINS } from "./plugins";
 
 /**
  * OpenAI Responses-compatible client implementation.
@@ -86,21 +78,18 @@ export class OpenaiResponsesClient extends LLMClient {
         defaultHeaders: options.defaultHeaders,
       }),
     });
+    this._plugins = enabledPlugins(
+      PLUGINS,
+      options.model,
+      this._client.baseURL,
+      this._client,
+    );
   }
 
   /**
    * Convert ThinkingLevel enum to the Responses API reasoning effort.
    */
   private _convertThinkingLevelToEffort(thinkingLevel: ThinkingLevel): string {
-    if (
-      thinkingLevel === ThinkingLevel.NONE &&
-      this._model.includes("gpt-6") &&
-      !GPT6_NONE_EFFORT.some((model) => this._model.includes(model))
-    ) {
-      // the rest of the generation has no off switch, so NONE runs at the lowest effort it accepts
-      return "low";
-    }
-
     const mapping: { [key: string]: string } = {
       [ThinkingLevel.NONE]: "none",
       [ThinkingLevel.LOW]: "low",
@@ -132,18 +121,13 @@ export class OpenaiResponsesClient extends LLMClient {
   }
 
   /**
-   * Convert an image URL to an input_image item, at the detail the API needs
-   * to read it.
+   * Convert an image URL to an input_image item.
    */
   private _convertImageUrl(imageUrl: string): {
     type: "input_image";
     image_url: string;
-    detail?: "high";
   } {
-    const detail = openaiImageDetail(this._model, imageUrl);
-    return detail
-      ? { type: "input_image", image_url: imageUrl, detail }
-      : { type: "input_image", image_url: imageUrl };
+    return { type: "input_image", image_url: imageUrl };
   }
 
   /**
@@ -555,12 +539,20 @@ export class OpenaiResponsesClient extends LLMClient {
       input: inputList,
       stream: true,
     };
+    for (const plugin of this._plugins) {
+      await plugin.onRequest(options.config, params, options.signal);
+    }
 
     const stream = await this._client.responses.create(params, {
       signal: options.signal,
     });
-    for await (const event of stream) {
-      yield this.transformModelOutputToUniEvent(event);
+    for await (const wireEvent of stream) {
+      for (const plugin of this._plugins) plugin.onWireEvent(wireEvent);
+
+      const event = this.transformModelOutputToUniEvent(wireEvent);
+      for (const plugin of this._plugins) plugin.onEvent(event);
+
+      yield event;
     }
   }
 

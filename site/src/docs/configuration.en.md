@@ -127,7 +127,7 @@ Claude Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.1 cannot be forced to call a 
 
 ### `thinking_level`
 
-Each client sends the level as its protocol's effort: `output_config.effort` with adaptive thinking on the Anthropic clients, `reasoning.effort` on the Responses clients, `reasoning_effort` on Kimi K3 and K3.1 Pro and on GLM (with thinking enabled), `thinking_level` on Gemini. Kimi K2 gets a thinking type instead; `disabled` and `between_tools` are thinking types too. `openai-chat` sends no level, so the endpoint runs its default. The first row that matches applies.
+Each client sends the level as its protocol's effort: `output_config.effort` with adaptive thinking on the Anthropic clients, `reasoning.effort` on the Responses clients, `reasoning_effort` on Kimi K3 and K3.1 Pro and on GLM (with thinking enabled), `thinking_level` on Gemini. Kimi K2 gets a thinking type instead; `disabled` and `between_tools` are thinking types too. `openai-chat` sends no level, so the endpoint runs its default, except on Mistral's endpoint, where it sends `reasoning_effort` to a model Mistral's model list says reasons. The first row that matches applies.
 
 | Client and model | `none` | `low` | `medium` | `high` | `xhigh` | `max` |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -137,7 +137,8 @@ Each client sends the level as its protocol's effort: `output_config.effort` wit
 | `anthropic-official`: other Claude models; `ant-messages` | `disabled` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `openai-official`, `openai-responses`: GPT-6 models except GPT-6 Luna and GPT-6.1 Terra | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `openai-official`, `openai-responses`: other models | `none` | `low` | `medium` | `high` | `xhigh` | `max` |
-| `openai-chat` | not sent | not sent | not sent | not sent | not sent | not sent |
+| `openai-chat`: on Mistral's endpoint, a model that reasons | not sent | `low` | `high` | `high` | `xhigh` | `max` |
+| `openai-chat`: other models | not sent | not sent | not sent | not sent | not sent | not sent |
 | `deepseek-official` | `none` | `low` | `high` | `high` | `high` | `max` |
 | `minimax-official`: MiniMax-M3.1-Flash | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `minimax-official`: MiniMax-M3 | `none` | `low` | `medium` | `high` | `high` | `high` |

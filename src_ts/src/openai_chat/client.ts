@@ -34,13 +34,13 @@ import {
   UniMessage,
   UsageMetadata,
 } from "../types";
+import { enabledPlugins } from "../plugin";
 import {
-  fixOpenrouterUsageMetadata,
   openaiClientOptions,
-  openaiImageDetail,
   promptCacheKey,
   resolveCredentials,
 } from "../utils";
+import { PLUGINS } from "./plugins";
 
 /**
  * OpenAI Chat Completions-compatible client implementation.
@@ -83,6 +83,12 @@ export class OpenaiChatClient extends LLMClient {
         defaultHeaders: options.defaultHeaders,
       }),
     });
+    this._plugins = enabledPlugins(
+      PLUGINS,
+      options.model,
+      this._client.baseURL,
+      this._client,
+    );
   }
 
   /**
@@ -151,17 +157,13 @@ export class OpenaiChatClient extends LLMClient {
   }
 
   /**
-   * Convert a fetched image to an image_url part, at the detail the API needs
-   * to read it.
+   * Convert a fetched image to an image_url part.
    */
   private _convertImageUrl(dataUrl: string): {
     type: "image_url";
-    image_url: { url: string; detail?: "high" };
+    image_url: { url: string };
   } {
-    const detail = openaiImageDetail(this._model, dataUrl);
-    return detail
-      ? { type: "image_url", image_url: { url: dataUrl, detail } }
-      : { type: "image_url", image_url: { url: dataUrl } };
+    return { type: "image_url", image_url: { url: dataUrl } };
   }
 
   /**
@@ -510,10 +512,6 @@ export class OpenaiChatClient extends LLMClient {
         thoughts_tokens: reasoningTokens,
         response_tokens: responseTokens,
       };
-      usageMetadata = fixOpenrouterUsageMetadata(
-        usageMetadata,
-        this._client.baseURL,
-      );
     }
 
     return {
@@ -552,12 +550,21 @@ export class OpenaiChatClient extends LLMClient {
       stream: true,
     };
 
+    for (const plugin of this._plugins) {
+      await plugin.onRequest(options.config, params, options.signal);
+    }
+
     const stream = await this._client.chat.completions.create(params, {
       signal: options.signal,
     });
 
     for await (const chunk of stream) {
-      yield this.transformModelOutputToUniEvent(chunk);
+      for (const plugin of this._plugins) plugin.onWireEvent(chunk);
+
+      const event = this.transformModelOutputToUniEvent(chunk);
+      for (const plugin of this._plugins) plugin.onEvent(event);
+
+      yield event;
     }
   }
 
