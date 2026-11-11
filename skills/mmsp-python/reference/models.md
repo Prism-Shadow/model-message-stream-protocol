@@ -66,7 +66,7 @@ Common gateway base URLs:
 
 - OpenRouter: `https://openrouter.ai/api/v1`
 - SiliconFlow: `https://api.siliconflow.cn/v1`
-- TokenDance: `https://tokendance.space/gateway/v1` (`https://tokendance.space/gateway` for Anthropic Messages, `https://tokendance.space/gateway/deepseek` for `deepseek-webtool`); it also serves `qwen3.8-flash`, `qwen3.8-max`, `mimo-v2.6-flash`, `step-5-preview` and `hy4-preview` through `openai-responses`, and `qwen3.7-text-embedding` through `openai-embedding`
+- TokenDance: `https://tokendance.space/gateway/v1` (`https://tokendance.space/gateway` for Anthropic Messages, `https://tokendance.space/gateway/deepseek` for `deepseek-webtool`); it also serves `qwen3.8-flash`, `qwen3.8-max`, `mimo-v2.6-flash`, `step-5-preview`, `hy4` and `hy4-preview` through `openai-responses`, `ernie-5.5-flash-preview` through `openai-chat`, and `qwen3.7-text-embedding` through `openai-embedding`
 - Google Vertex AI: `https://aiplatform.googleapis.com` (`google-genai`, the service-account JSON as the key)
 - Amazon Bedrock: `bedrock://<region>`, such as `bedrock://us-east-1` (`anthropic-official`, `ACCESS_KEY,SECRET_KEY` as the key)
 - ModelVerse: `https://api.modelverse.cn/v1` (`https://api.modelverse.cn/` for Claude)
