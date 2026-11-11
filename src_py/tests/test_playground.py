@@ -124,6 +124,8 @@ def test_chat_app_index_route():
         assert b"baseUrlInput" in response.data
         assert b"type: 'text.done', text: message" in response.data
         assert b"type: 'image_url.done', image_url: img" in response.data
+        assert b"type: 'inline_data.done', data: clip.data, mime_type: clip.mimeType" in response.data
+        assert b'accept="image/*,audio/*"' in response.data
         assert b"event.event_type === 'stop'" in response.data
         assert b"item.type === 'text.delta'" in response.data
         assert b"item.type === 'thinking.done'" in response.data
@@ -402,6 +404,54 @@ def test_chat_app_accepts_large_image_payload(monkeypatch):
 
     assert captured["message"]["content_items"][0] == {"type": "image_url.done", "image_url": large_image}
     assert isinstance(captured["signal"], AbortSignal)
+
+
+def test_chat_app_hands_an_attached_audio_file_to_the_client_as_bytes(monkeypatch):
+    """Test that the page's base64 audio reaches the client as the item's bytes."""
+    captured = {}
+
+    class FakeClient:
+        def __init__(self, model, api_key=None, base_url=None, client_type=None, default_headers=None):
+            pass
+
+        async def streaming_response_stateful(self, message, config, signal=None):
+            captured["message"] = message
+            for event in EVENTS:
+                yield event
+
+        def get_history(self):
+            return []
+
+        def set_history(self, history):
+            pass
+
+        def clear_history(self):
+            pass
+
+    playground._session_clients.clear()
+    playground._session_client_options.clear()
+    monkeypatch.setattr(playground, "AutoLLMClient", FakeClient)
+
+    app = create_chat_app()
+    with app.test_client() as client:
+        response = client.post(
+            "/api/chat",
+            json={
+                "session_id": "audio",
+                "message": {
+                    "role": "user",
+                    "content_items": [{"type": "inline_data.done", "data": "AAEC/w==", "mime_type": "audio/flac"}],
+                },
+                "config": {"model": "fish-audio/transcribe-1", "client_type": "openai-transcription"},
+            },
+        )
+        assert response.status_code == 200
+
+    assert captured["message"]["content_items"] == [
+        {"type": "inline_data.done", "data": b"\x00\x01\x02\xff", "mime_type": "audio/flac"}
+    ]
+    playground._session_clients.clear()
+    playground._session_client_options.clear()
 
 
 def test_chat_app_streams_every_event_then_the_done_marker(monkeypatch):

@@ -286,8 +286,9 @@ class UniConfig(TypedDict):
     # fast processing at premium pricing: openai-official, openai-responses, openai-chat (with its
     # vLLM adapter), google-official and minimax-official send service_tier="priority";
     # anthropic-official and ant-messages send speed="fast"; google-genai, deepseek-official,
-    # moonshot-official, zai-official, openai-embedding, deepseek-webtool and jina-webtool raise
-    # UnsupportedParameterError, and so does a sending client for a model without a fast tier
+    # moonshot-official, zai-official, openai-embedding, openai-image, openai-speech,
+    # openai-transcription, deepseek-webtool and jina-webtool raise UnsupportedParameterError, and
+    # so does a sending client for a model without a fast tier
     fast_mode: NotRequired[bool]
     image_config: NotRequired[ImageConfig]
     tts_config: NotRequired[list[SpeakerConfig]]

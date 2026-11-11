@@ -67,6 +67,9 @@ Audit LLM executions by adding **a single `trace_id` parameter**, no database re
 | Nemotron 3/3.5 | OpenRouter | `nvidia/nemotron-3.5-super-vl` | Text, Image | Text |
 | DeepSeek Search/Fetch | Official/TokenDance | `deepseek-search` | Text | Web search, Page fetch |
 | Jina Search/Reader | Official | `jina-search` | Text | Web search, Page fetch |
+| GPT Image 2.5  | Official | `gpt-image-2.5-flare` | Text | Image |
+| Seedream 5.0   | OpenRouter/TokenDance | `bytedance-seed/seedream-5-0-flash` | Text | Image |
+| Fish Audio Drama 3/Transcribe 1 | OpenRouter | `fish-audio/drama-3` | Text, Audio | Speech, Text |
 
 OpenRouter also serves Cohere Command A, Amazon Nova and Perplexity Sonar,
 OpenRouter and TokenDance serve inclusionAI Ling, and TokenDance serves Baidu ERNIE, iFlytek Spark and Dots;
@@ -80,7 +83,7 @@ a **compatible client** speaks one wire protocol for any endpoint that serves it
 
 | `client_type`              | Speaks                                                                 | Key and endpoint                         |
 | -------------------------- | ---------------------------------------------------------------------- | ---------------------------------------- |
-| `openai-official`          | OpenAI Responses; `text-embedding-*` models through OpenAI Embeddings  | `OPENAI_API_KEY`, `OPENAI_BASE_URL`      |
+| `openai-official`          | OpenAI Responses; `text-embedding-*` models through OpenAI Embeddings, `gpt-image-*` through OpenAI Images | `OPENAI_API_KEY`, `OPENAI_BASE_URL`      |
 | `anthropic-official`       | Anthropic Messages                                                     | `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL` |
 | `google-official`          | Gemini Interactions                                                    | `GEMINI_API_KEY`, `GEMINI_BASE_URL`      |
 | `zai-official`             | Z.AI Chat Completions                                                  | `ZAI_API_KEY`, `ZAI_BASE_URL`            |
@@ -92,6 +95,9 @@ a **compatible client** speaks one wire protocol for any endpoint that serves it
 | `openai-chat` (`openai`)   | OpenAI Chat Completions, served by most gateways, SiliconFlow, vLLM    | `OPENAI_API_KEY`, `OPENAI_BASE_URL`      |
 | `openai-chat-vllm-adapter` | Chat Completions as vLLM serves it, mapping `thinking_level` onto the template's switches | `VLLM_API_KEY`, `VLLM_BASE_URL`          |
 | `openai-embedding`         | OpenAI Embeddings, served by any embedding endpoint                    | `OPENAI_API_KEY`, `OPENAI_BASE_URL`      |
+| `openai-image`             | OpenAI Images, served by OpenAI, OpenRouter, TokenDance                | `OPENAI_API_KEY`, `OPENAI_BASE_URL`      |
+| `openai-speech`            | OpenAI Audio Speech, served by OpenAI, OpenRouter                      | `OPENAI_API_KEY`, `OPENAI_BASE_URL`      |
+| `openai-transcription`     | OpenAI Audio Transcriptions, served by OpenAI, OpenRouter              | `OPENAI_API_KEY`, `OPENAI_BASE_URL`      |
 | `ant-messages`             | Anthropic Messages, served by Anthropic, OpenRouter, DeepSeek, Z.AI, MiniMax | `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL` |
 | `google-genai`             | Google generateContent, served by Vertex AI, the Gemini API, and gateways that proxy it | `GEMINI_API_KEY`, `GEMINI_BASE_URL` |
 | `deepseek-webtool`         | DeepSeek's web search and page fetch, served by DeepSeek, TokenDance   | `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`  |
@@ -112,7 +118,7 @@ Claude on Amazon Bedrock takes `client_type="anthropic-official"`, `base_url="be
 and `"ACCESS_KEY,SECRET_KEY"` as the API key, with a Bedrock inference profile as the model id, such
 as `global.anthropic.claude-opus-5-5`.
 
-TokenDance serves Chat Completions, Responses and Embeddings at `https://tokendance.space/gateway/v1`,
+TokenDance serves Chat Completions, Responses, Embeddings and Images at `https://tokendance.space/gateway/v1`,
 Anthropic Messages at `https://tokendance.space/gateway` and DeepSeek's web tools at
 `https://tokendance.space/gateway/deepseek`, all with one key.
 
@@ -190,7 +196,7 @@ A key goes only where it was given for. A key passed in is used, with the `base_
 
 - `(async) streaming_response(messages, config)`: Streams the response of LLMs in a stateless manner.
 - `(async) streaming_response_stateful(message, config)`: Streams the response of LLMs in a stateful manner.
-- `(async) list_models()`: Lists the model ids the configured endpoint serves. A protocol client (`openai-chat`, `openai-chat-vllm-adapter`, `openai-responses`, `ant-messages`, `openai-embedding`, `google-genai`, `mmsp`) is named explicitly and lists everything the endpoint serves; a client deduced from a model id lists only the ids that deduce back to it. `deepseek-webtool` and `jina-webtool` raise `UnsupportedOperationError`: their endpoints list no models.
+- `(async) list_models()`: Lists the model ids the configured endpoint serves. A protocol client (`openai-chat`, `openai-chat-vllm-adapter`, `openai-responses`, `ant-messages`, `openai-embedding`, `openai-image`, `openai-speech`, `openai-transcription`, `google-genai`, `mmsp`) is named explicitly and lists everything the endpoint serves; a client deduced from a model id lists only the ids that deduce back to it. `deepseek-webtool` and `jina-webtool` raise `UnsupportedOperationError`: their endpoints list no models.
 - `clear_history()`: Clears the history of the stateful LLM client.
 - `get_history()`: Returns the history of the stateful LLM client.
 - `set_history(history)`: Replaces the history of the stateful LLM client with a copy of the provided list.
@@ -517,6 +523,62 @@ async function main() {
   for await (const event of client.streamingResponse({
     messages: [{ role: "user", content_items: [{ type: "text.done", text: "DeepSeek V4" }] }],
     config: { webtool_config: { count: 5 } },
+  })) {
+    console.log(event);
+  }
+}
+
+main().catch(console.error);
+```
+</details>
+
+### Images, speech and transcription
+
+`openai-image`, `openai-speech` and `openai-transcription` speak OpenAI's Images and Audio APIs for any endpoint that serves them. Each message is one request: a prompt answered by an image, a text spoken as audio that streams as it is made, or one audio file answered by its text. `openai-official` serves `gpt-image-*` through `openai-image` on its own.
+
+<details><summary><strong>Python Example</strong></summary>
+
+```python
+import asyncio
+import os
+from mmsp import AutoLLMClient
+
+async def main():
+    client = AutoLLMClient(
+        model="fish-audio/transcribe-1",
+        client_type="openai-transcription",
+        base_url="https://openrouter.ai/api/v1",
+        api_key=os.environ["OPENROUTER_API_KEY"],
+    )
+    audio = open("speech.mp3", "rb").read()
+
+    async for event in client.streaming_response(
+        messages=[{"role": "user", "content_items": [{"type": "inline_data.done", "data": audio, "mime_type": "audio/mpeg"}]}],
+        config={},
+    ):
+        print(event)
+
+asyncio.run(main())
+```
+</details>
+
+<details><summary><strong>TypeScript Example</strong></summary>
+
+```typescript
+import { readFileSync } from "node:fs";
+import { AutoLLMClient } from "@prismshadow/mmsp";
+
+async function main() {
+  const client = new AutoLLMClient({
+    model: "fish-audio/transcribe-1",
+    clientType: "openai-transcription",
+    baseUrl: "https://openrouter.ai/api/v1",
+    apiKey: process.env.OPENROUTER_API_KEY,
+  });
+  const audio = readFileSync("speech.mp3");
+  for await (const event of client.streamingResponse({
+    messages: [{ role: "user", content_items: [{ type: "inline_data.done", data: audio, mime_type: "audio/mpeg" }] }],
+    config: {},
   })) {
     console.log(event);
   }
@@ -853,6 +915,9 @@ Every client speaks one protocol on the wire, whichever `client_type` reaches it
 | `zai-official`, `moonshot-official`                         | `openai-chat`      |
 | `openai-chat` (alias `openai`), `openai-chat-vllm-adapter`  | `openai-chat`      |
 | `openai-embedding`, and `openai-official` for `text-embedding-*` | `openai-embedding` |
+| `openai-image`, and `openai-official` for `gpt-image-*`     | `openai-image`     |
+| `openai-speech`                                             | `openai-speech`    |
+| `openai-transcription`                                      | `openai-transcription` |
 | `deepseek-webtool`, and `deepseek-official` for `deepseek-search`, `deepseek-fetch` | `deepseek-webtool` |
 | `jina-webtool`                                              | `jina-webtool`     |
 | `mmsp`                                                      | `mmsp`             |

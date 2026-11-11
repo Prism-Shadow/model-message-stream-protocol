@@ -1223,13 +1223,20 @@ class Tracer:
         return data
 
     def _build_wave_bytes_from_pcm(self, item: dict[str, Any]) -> bytes:
-        """Wrap raw PCM bytes in a WAV header using Gemini TTS defaults."""
+        """Wrap raw 16-bit PCM in a WAV header of the rate and channels its MIME type names.
+
+        `audio/l16; rate=44100; channels=1` names both; without them, Gemini TTS's 24 kHz mono.
+        """
         pcm_bytes = self._decode_inline_data(item)
+        pcm_format = {}
+        for parameter in (item.get("mime_type") or "").split(";")[1:]:
+            name, _, value = parameter.partition("=")
+            pcm_format[name.strip().lower()] = value.strip()
         buffer = io.BytesIO()
         with wave.open(buffer, "wb") as wav_file:
-            wav_file.setnchannels(1)
+            wav_file.setnchannels(int(pcm_format.get("channels") or 1))
             wav_file.setsampwidth(2)
-            wav_file.setframerate(24000)
+            wav_file.setframerate(int(pcm_format.get("rate") or 24000))
             wav_file.writeframes(pcm_bytes)
         return buffer.getvalue()
 

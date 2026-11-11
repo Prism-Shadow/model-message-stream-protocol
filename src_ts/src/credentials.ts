@@ -37,6 +37,9 @@ export const COMPATIBLE_CLIENT_TYPES = [
   "openai-chat",
   "openai-chat-vllm-adapter",
   "openai-embedding",
+  "openai-image",
+  "openai-speech",
+  "openai-transcription",
   "ant-messages",
   "google-genai",
   "deepseek-webtool",
@@ -142,6 +145,9 @@ export const CLIENT_CREDENTIALS: Readonly<Record<string, ClientCredentials>> = {
     openServer: true,
   },
   "openai-embedding": OPENAI,
+  "openai-image": OPENAI,
+  "openai-speech": OPENAI,
+  "openai-transcription": OPENAI,
   "ant-messages": ANTHROPIC,
   "google-genai": GEMINI,
   "deepseek-webtool": DEEPSEEK,
@@ -206,8 +212,9 @@ export function clientTypeForModel(model: string): string | null {
 /**
  * The client AutoLLMClient builds for a model: the client type passed in (in any casing, an
  * earlier name accepted), else the official client of the model id's family. `openai-official`
- * serves a `text-embedding-` model through `openai-embedding`, and `deepseek-official` serves
- * `deepseek-search` and `deepseek-fetch` through `deepseek-webtool`.
+ * serves a `text-embedding-` model through `openai-embedding` and a `gpt-image-` model through
+ * `openai-image`, and `deepseek-official` serves `deepseek-search` and `deepseek-fetch` through
+ * `deepseek-webtool`.
  *
  * @param model - The model id
  * @param clientType - The client type passed in, if any
@@ -225,6 +232,12 @@ export function routedClientType(
     model.toLowerCase().startsWith("text-embedding-")
   ) {
     return "openai-embedding";
+  }
+  if (
+    routed === "openai-official" &&
+    model.toLowerCase().startsWith("gpt-image-")
+  ) {
+    return "openai-image";
   }
   if (
     routed === "deepseek-official" &&

@@ -48,8 +48,8 @@ description: UniConfig，请求的配置选项，以及每个客户端为它们�
 | `prompt_caching` | `"enable"`、`"disable"`、`"enhance"` | 提示词缓存策略。 |
 | `session_id` | 字符串 | 请求所属的对话。推荐设置：每个对话一个固定的 id，能提高提示词缓存的命中率。 |
 | `fast_mode` | 布尔 | 请求使用服务商的快速档位。 |
-| `image_config` | 对象 | Gemini 图像输出配置：`aspect_ratio`（`1:1`、`2:3`、`3:2`、`3:4`、`4:3`、`9:16`、`16:9`、`21:9`）和 `image_size`（`1K`、`2K`）。 |
-| `tts_config` | 列表 | Gemini 语音合成配置：每个说话人对应一项，包含 `voice` 和可选的 `speaker`。两个说话人时，文本写成台词稿，每轮一行 `Name: 台词`。 |
+| `image_config` | 对象 | 图像输出配置，用于 Gemini 和 `openai-image`：`aspect_ratio`（`1:1`、`2:3`、`3:2`、`3:4`、`4:3`、`9:16`、`16:9`、`21:9`）和 `image_size`（`1K`、`2K`）。 |
+| `tts_config` | 列表 | 语音合成配置：每个说话人对应一项，包含 `voice` 和可选的 `speaker`。Gemini 语音支持两个说话人，此时文本写成台词稿，每轮一行 `Name: 台词`；`openai-speech` 只接受一项。 |
 | `embedding_config` | 对象 | 向量生成配置：`dimensions` 指定向量维度。 |
 | `webtool_config` | 对象 | 网页搜索配置：`count` 指定一次搜索返回的结果条数。 |
 | `trace_id` | 字符串 | 用此 ID 保存当前轮次。详见 [Tracer 与 Playground](/zh/docs/tracing/)。 |
@@ -62,7 +62,7 @@ description: UniConfig，请求的配置选项，以及每个客户端为它们�
 
 ## 每个客户端发送什么
 
-客户端以 `client_type` 命名（见[模型与端点](/zh/docs/models/)）；`openai-official` 通过 `openai-embedding` 服务 `text-embedding-*` 模型，`deepseek-official` 通过 `deepseek-webtool` 服务 `deepseek-search` 和 `deepseek-fetch`。两个网页工具客户端 `deepseek-webtool` 和 `jina-webtool` 按 ID 里的 `-search` 或 `-fetch` 区分搜索和抓取。在两个 Google 客户端上，ID 含 `tts` 的是语音模型，含 `embedding` 的是向量模型。`mmsp` 客户端原样发送配置，由服务端交给该模型自己的客户端处理，因此适用那个客户端的行。
+客户端以 `client_type` 命名（见[模型与端点](/zh/docs/models/)）；`openai-official` 通过 `openai-embedding` 服务 `text-embedding-*` 模型，通过 `openai-image` 服务 `gpt-image-*` 模型，`deepseek-official` 通过 `deepseek-webtool` 服务 `deepseek-search` 和 `deepseek-fetch`。三个媒体客户端 `openai-image`、`openai-speech` 和 `openai-transcription` 只发送模型、提示词、输入文本或文件，以及 `image_config` 或 `tts_config`。两个网页工具客户端 `deepseek-webtool` 和 `jina-webtool` 按 ID 里的 `-search` 或 `-fetch` 区分搜索和抓取。在两个 Google 客户端上，ID 含 `tts` 的是语音模型，含 `embedding` 的是向量模型。`mmsp` 客户端原样发送配置，由服务端交给该模型自己的客户端处理，因此适用那个客户端的行。
 
 ### `max_tokens`
 
@@ -72,7 +72,7 @@ description: UniConfig，请求的配置选项，以及每个客户端为它们�
 | `zai-official` | `max_tokens` |
 | `openai-official`、`openai-responses`、`deepseek-official`、`minimax-official`、`google-official`、`google-genai` | `max_output_tokens`，语音模型也一样 |
 | `openai-chat`、`openai-chat-vllm-adapter`、`moonshot-official` | `max_completion_tokens` |
-| `openai-embedding`、`deepseek-webtool`、`jina-webtool`、Gemini 向量模型 | 忽略 |
+| `openai-embedding`、`deepseek-webtool`、`jina-webtool`、媒体客户端、Gemini 向量模型 | 忽略 |
 
 ### `temperature`
 
@@ -82,7 +82,7 @@ description: UniConfig，请求的配置选项，以及每个客户端为它们�
 | `minimax-official` | 0 到 1 之间的 `temperature`；超出范围时抛错 |
 | `anthropic-official`、`openai-official`、`deepseek-official`、`moonshot-official` | 1.0 不发送；其他值抛错 |
 | `google-official`、`google-genai` | 任何值都抛错，语音模型也一样 |
-| `openai-embedding`、`deepseek-webtool`、`jina-webtool`、Gemini 向量模型 | 忽略 |
+| `openai-embedding`、`deepseek-webtool`、`jina-webtool`、媒体客户端、Gemini 向量模型 | 忽略 |
 
 ### `system_prompt`
 
@@ -92,7 +92,7 @@ description: UniConfig，请求的配置选项，以及每个客户端为它们�
 | `openai-official`、`openai-responses`、`deepseek-official`、`minimax-official` | `instructions` |
 | `google-official`、`google-genai` | `system_instruction`；语音模型忽略 |
 | `openai-chat`、`openai-chat-vllm-adapter`、`moonshot-official`、`zai-official` | 一条角色为 `system` 的首条消息；空字符串不发送 |
-| `openai-embedding`、`deepseek-webtool`、`jina-webtool`、Gemini 向量模型 | 忽略 |
+| `openai-embedding`、`deepseek-webtool`、`jina-webtool`、媒体客户端、Gemini 向量模型 | 忽略 |
 
 ### `tools`
 
@@ -102,7 +102,7 @@ description: UniConfig，请求的配置选项，以及每个客户端为它们�
 | `openai-official`、`openai-responses`、`deepseek-official`、`minimax-official`、`google-official` | `tools`，每项带 `type: "function"` |
 | `openai-chat`、`openai-chat-vllm-adapter`、`moonshot-official`、`zai-official` | `tools`，每项作为一个 `type: "function"` 工具的 `function` |
 | `google-genai` | 一个由 `function_declarations` 组成的工具 |
-| `openai-embedding`、`deepseek-webtool`、`jina-webtool`、Gemini 语音和向量模型 | 忽略 |
+| `openai-embedding`、`deepseek-webtool`、`jina-webtool`、媒体客户端、Gemini 语音和向量模型 | 忽略 |
 
 ### `tool_choice`
 
@@ -121,7 +121,7 @@ description: UniConfig，请求的配置选项，以及每个客户端为它们�
 | `minimax-official` | `auto` | `none`；MiniMax-M3.1-Flash 上抛错 | 抛错 | 抛错 |
 | `zai-official` | `auto` | 抛错 | 抛错 | 抛错 |
 
-Claude Opus 5.5、Sonnet 5.5、Haiku 5.5 和 Fable 5.1 不能强制调用工具，在它们上面传 `"required"` 或工具名列表会抛错。两个 Google 客户端只在有 `tools` 时发送 `tool_choice`，语音模型忽略它。`openai-embedding`、网页工具客户端和 Gemini 向量模型忽略它。
+Claude Opus 5.5、Sonnet 5.5、Haiku 5.5 和 Fable 5.1 不能强制调用工具，在它们上面传 `"required"` 或工具名列表会抛错。两个 Google 客户端只在有 `tools` 时发送 `tool_choice`，语音模型忽略它。`openai-embedding`、网页工具客户端、媒体客户端和 Gemini 向量模型忽略它。
 
 ### `thinking_level`
 
@@ -157,7 +157,7 @@ Claude Opus 5.5、Sonnet 5.5、Haiku 5.5 和 Fable 5.1 不能强制调用工具�
 | DeepSeek-V4-Pro、DeepSeek-V4-Flash | 同上，但 `low` 的 `reasoning_effort` 也是 `high` |
 | Qwen3.6-35B-A3B、Qwen3.5-0.8B、Qwen3.5-9B 及其他任何模型 | `enable_thinking`：`none` 为 `false`，其余为 `true` |
 
-`openai-embedding`、网页工具客户端和 Gemini 语音、向量模型忽略 `thinking_level`。
+`openai-embedding`、网页工具客户端、媒体客户端和 Gemini 语音、向量模型忽略 `thinking_level`。
 
 ### `thinking_summary`
 
@@ -170,7 +170,7 @@ Claude Opus 5.5、Sonnet 5.5、Haiku 5.5 和 Fable 5.1 不能强制调用工具�
 | `google-genai` | `include_thoughts: true` | `include_thoughts: false` |
 | `openai-chat`、`openai-chat-vllm-adapter`、`minimax-official`、`moonshot-official`、`zai-official` | 忽略 | 忽略 |
 
-在 Anthropic 的两个客户端上，没有 `thinking_level` 时请求摘要会开启自适应思考；思考类型为 `disabled` 或 `between_tools` 时不发送。`openai-embedding`、网页工具客户端和 Gemini 语音、向量模型忽略它。
+在 Anthropic 的两个客户端上，没有 `thinking_level` 时请求摘要会开启自适应思考；思考类型为 `disabled` 或 `between_tools` 时不发送。`openai-embedding`、网页工具客户端、媒体客户端和 Gemini 语音、向量模型忽略它。
 
 ### `prompt_caching`
 
@@ -181,7 +181,7 @@ Claude Opus 5.5、Sonnet 5.5、Haiku 5.5 和 Fable 5.1 不能强制调用工具�
 | `moonshot-official`（Kimi K3 与 K3.1 Pro） | 不发送 | `prompt_cache_options: {"mode": "implicit", "ttl": "1h"}` | 抛错 |
 | `openai-official`（GPT-5.6 与 GPT-6） | 不发送 | `prompt_cache_options: {"ttl": "12h"}` | 抛错 |
 | 其他所有客户端；`moonshot-official`（Kimi K2）；`openai-official`（更早的 GPT 模型） | 不发送 | 抛错 | 抛错 |
-| `openai-embedding`、`deepseek-webtool`、`jina-webtool`、Gemini 向量模型 | 忽略 | 忽略 | 忽略 |
+| `openai-embedding`、`deepseek-webtool`、`jina-webtool`、媒体客户端、Gemini 向量模型 | 忽略 | 忽略 | 忽略 |
 
 GPT-5.6 与 GPT-6 上，12 小时的缓存写入按 30 分钟写入价格的两倍计费；缓存写入计入 `prompt_tokens`，没有单独的计数。
 
@@ -192,7 +192,7 @@ GPT-5.6 与 GPT-6 上，12 小时的缓存写入按 30 分钟写入价格的两�
 | 客户端 | 发送为 |
 | --- | --- |
 | `openai-official`、`openai-responses`、`openai-chat`、`openai-chat-vllm-adapter`、`moonshot-official`、`minimax-official` | `prompt_cache_key`：64 个字符以内为 id 本身，超过时为它的 SHA-256 十六进制摘要 |
-| `anthropic-official`、`ant-messages`、`google-official`、`google-genai`、`deepseek-official`、`zai-official`、`openai-embedding` | 忽略 |
+| `anthropic-official`、`ant-messages`、`google-official`、`google-genai`、`deepseek-official`、`zai-official`、`openai-embedding`、媒体客户端 | 忽略 |
 
 空字符串不发送。
 
@@ -206,7 +206,7 @@ GPT-5.6 与 GPT-6 上，12 小时的缓存写入按 30 分钟写入价格的两�
 | `minimax-official` | MiniMax-M3 上为 `service_tier: "priority"`；MiniMax-M3.1-Flash 上抛错 |
 | `ant-messages` | `speed: "fast"` 加 beta `fast-mode-2026-02-01` |
 | `anthropic-official` | 同上；Bedrock 上以及 Claude 4.6、Sonnet 5.5、Haiku 5.5 和 Fable 5.1 上抛错 |
-| `google-genai`、`deepseek-official`、`moonshot-official`、`zai-official`、`openai-embedding`、`deepseek-webtool`、`jina-webtool` | 抛错 |
+| `google-genai`、`deepseek-official`、`moonshot-official`、`zai-official`、`openai-embedding`、`deepseek-webtool`、`jina-webtool`、媒体客户端 | 抛错 |
 | Gemini 向量模型 | 忽略 |
 
 ### `image_config`
@@ -215,7 +215,21 @@ GPT-5.6 与 GPT-6 上，12 小时的缓存写入按 30 分钟写入价格的两�
 | --- | --- |
 | `google-genai` | `image_config` |
 | `google-official` | `response_format`：先是一个文本项，再是一个带 `aspect_ratio` 和 `image_size` 的图像项 |
+| `openai-image` | `size`，取自下表；只有 `aspect_ratio` 时取该比例的 1K 尺寸，只有 `image_size` 时取 1:1，没有 `image_config` 时不发送 `size` |
 | 其他所有客户端；Gemini 语音和向量模型 | 忽略 |
+
+这些尺寸取自 Gemini 每个比例的尺寸，每一个都符合 OpenAI 对 GPT Image 的规则：两边都是 16 的倍数，像素数在 655,360 到 8,294,400 之间，最长边不超过 3840，长宽比不超过 3:1。TokenDance 的 `seedream-5.0-lite` 要求至少 3,686,400 像素，对 1K 尺寸返回它自己的错误。
+
+| `aspect_ratio` | `1K` | `2K` |
+| --- | --- | --- |
+| `1:1` | `1024x1024` | `2048x2048` |
+| `2:3` | `848x1264` | `1696x2528` |
+| `3:2` | `1264x848` | `2528x1696` |
+| `3:4` | `896x1200` | `1792x2400` |
+| `4:3` | `1200x896` | `2400x1792` |
+| `9:16` | `768x1376` | `1536x2752` |
+| `16:9` | `1376x768` | `2752x1536` |
+| `21:9` | `1584x672` | `3168x1344` |
 
 ### `tts_config`
 
@@ -227,6 +241,14 @@ Gemini 语音模型，两个 Google 客户端相同：
 | 一项 | 该项的 `voice` |
 | 两项 | 每个 `speaker` 一个音色；缺少 `speaker` 的项会抛错。Gemini 3.8 语音模型收到的台词稿按轮次拆成多段，说话人作为元数据。 |
 | 三项及以上 | 抛错 |
+
+`openai-speech`：
+
+| `tts_config` | 发送为 |
+| --- | --- |
+| 未设置 | 不发送 `voice`：使用端点的默认音色 |
+| 一项 | 该项的 `voice` |
+| 两项及以上 | 抛错 |
 
 其他模型和客户端忽略它。
 

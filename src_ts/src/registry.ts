@@ -118,9 +118,9 @@ function cny(prompt: number, output: number, cached?: number): ModelPricing {
 // Each platform's section opens with one header,
 // `--- <platform> (<rows>; <key>; <sources>, read <date>)`, then its notes.
 // Gateway rows list only the input modalities their client can send: the
-// OpenAI-protocol clients carry text and images, not video or audio.
+// OpenAI-protocol clients carry text and images, not video, and audio only to a transcription.
 const SUPPORTED_MODELS: SupportedModel[] = [
-  // --- Official vendor endpoints (54 rows; each vendor's own key variable; list prices from each
+  // --- Official vendor endpoints (55 rows; each vendor's own key variable; list prices from each
   // vendor's pricing page, the rows added 2026-10-24 naming their page and read date)
   {
     model: "gemini-4-argon",
@@ -514,6 +514,17 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(0.13, 0.0),
   },
   {
+    // developers.openai.com/api/docs/models/gpt-image-2.5-flare (read 2026-11-04): $5 per million
+    // text input tokens, $1.25 cached, $30 per million image output tokens; openai-image sends no
+    // input image, which bills $8
+    model: "gpt-image-2.5-flare",
+    base_url: OPENAI,
+    client: "openai-official",
+    input_modalities: ["Text"],
+    output_modalities: ["Image"],
+    pricing: usd(5.0, 30.0, 1.25),
+  },
+  {
     model: "glm-5.3",
     base_url: ZAI,
     client: "zai-official",
@@ -675,7 +686,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Web"],
     pricing: usd(0.05, 0.0),
   },
-  // --- OpenRouter (122 rows; key OPENROUTER_API_KEY; USD prices, context windows and modalities
+  // --- OpenRouter (125 rows; key OPENROUTER_API_KEY; USD prices, context windows and modalities
   // from the live models API https://openrouter.ai/api/v1/models and each model's
   // /api/v1/models/{slug}/endpoints list, read 2026-10-24). The API quotes one endpoint per model;
   // where that endpoint runs a promotion (a nonzero `discount` in its /endpoints entry), the row
@@ -844,6 +855,18 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(0.1, 0.4),
   },
   {
+    // $0.018 per image whatever its size (the model page and /api/v1/images/models, read
+    // 2026-11-04), not a price per token: the stored rate is the image_output price the models API
+    // quotes, which comes to about $0.018 for a 1K image (4,096 completion tokens) and four times
+    // that for a 2K one (16,384)
+    model: "bytedance-seed/seedream-5-0-flash",
+    base_url: OPENROUTER,
+    client: "openai-image",
+    input_modalities: ["Text"],
+    output_modalities: ["Image"],
+    pricing: usd(0.0, 4.311377),
+  },
+  {
     model: "cohere/command-a-plus",
     base_url: OPENROUTER,
     client: "openai-responses",
@@ -942,6 +965,25 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Text"],
     context_window: 163840,
     pricing: usd(0.28, 0.42, 0.028),
+  },
+  {
+    // prompt tokens are the input's UTF-8 bytes, $10 per million; the endpoint runs an 80% launch
+    // discount ($2, the API's 0.000002 with discount 0.8, read 2026-11-04)
+    model: "fish-audio/drama-3",
+    base_url: OPENROUTER,
+    client: "openai-speech",
+    input_modalities: ["Text"],
+    output_modalities: ["Audio"],
+    pricing: usd(10.0, 0.0),
+  },
+  {
+    // prompt tokens are the audio's seconds, rounded up: $0.0001 a second (read 2026-11-04)
+    model: "fish-audio/transcribe-1",
+    base_url: OPENROUTER,
+    client: "openai-transcription",
+    input_modalities: ["Audio"],
+    output_modalities: ["Text"],
+    pricing: usd(100.0, 0.0),
   },
   {
     // Google's introductory 50% off runs on every endpoint through 2026-11-30 (the API quotes $2
@@ -2148,13 +2190,13 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     context_window: 1000000,
     pricing: usd(3.0, 15.0, 0.3),
   },
-  // --- TokenDance (64 rows; key TOKENDANCE_API_KEY; CNY prices at the `items` rate of the public
+  // --- TokenDance (65 rows; key TOKENDANCE_API_KEY; CNY prices at the `items` rate of the public
   // catalog https://tokendance.space/portal/api/models/all, read 2026-10-24). The `items` rate is
   // what TokenDance bills, below the `reference` price the catalog shows beside some models. Each
   // row's client speaks a protocol the catalog lists for the model, and its price is that
   // protocol's, at the lowest tier where the catalog tiers it by prompt length. The two web tool
-  // rows at the end bill ¥0.005 per request (TokenDance's console, read 2026-11-02), stored as
-  // ¥5,000 per million prompt tokens, one per request.
+  // rows near the end bill ¥0.005 per request (TokenDance's console, read 2026-11-02), stored as
+  // ¥5,000 per million prompt tokens, one per request; the image row after them bills by the image.
   {
     // this row and the next take the gateway's Chat Completions path; weekday peak rates
     // (09:00-12:00, 14:00-18:00 Beijing) are double on both
@@ -2763,6 +2805,17 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     input_modalities: ["Text"],
     output_modalities: ["Web"],
     pricing: cny(5000.0, 0.0),
+  },
+  {
+    // ¥0.22 per image (the catalog's items rate, read 2026-11-04), not a price per token: stored
+    // over the 16,384 output tokens of a 2048x2048 image, the smallest square TokenDance takes and
+    // its default; a larger image bills the same ¥0.22 over more tokens
+    model: "seedream-5.0-lite",
+    base_url: TOKENDANCE,
+    client: "openai-image",
+    input_modalities: ["Text"],
+    output_modalities: ["Image"],
+    pricing: cny(0.0, 13.427734),
   },
   // --- OpenCode Go (28 rows; key OPENCODE_API_KEY; ids and each row's protocol from the endpoints
   // table of https://opencode.ai/v2/docs/console/go/, USD per-token rates from its usage-limits

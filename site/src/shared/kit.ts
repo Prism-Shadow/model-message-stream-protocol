@@ -4,7 +4,7 @@
 // agent puts on the clipboard. The page assembles a kit in the browser when a row's code button is
 // pressed, from what the row carries (its model, endpoint, client, kind, modalities, context window
 // and USD prices) and one table of the providers the page names, so the page ships one template
-// instead of 347 programs. Nothing here reads the registry or the build's environment: catalog.ts
+// instead of 352 programs. Nothing here reads the registry or the build's environment: catalog.ts
 // decides an entry's kind, and the caller passes the site's origin.
 import { localePath, type Locale } from "./i18n";
 import type { Modality } from "../../../src_ts/src/registry.ts";
@@ -25,8 +25,8 @@ export interface KitProvider {
 
 // what a program asks a model of each output kind, and how it shows the answer: text as it
 // streams, an embedding by its size, an image or speech as the file it writes, a web tool's pages
-// by their titles and URLs
-export type Kind = "text" | "embed" | "image" | "audio" | "web";
+// by their titles and URLs, a transcription's text as it streams
+export type Kind = "text" | "embed" | "image" | "audio" | "web" | "transcribe";
 
 export interface KitEntry {
   model: string;
@@ -85,9 +85,11 @@ interface Ask {
 const ASK: Record<Kind, Ask> = {
   text: { prompt: "Say 'Hello, World!'", config: {} },
   embed: { prompt: "Hello, World!", config: {} },
-  image: { prompt: "A lighthouse at dusk, in watercolor", config: { image_config: { aspect_ratio: "1:1", image_size: "1K" } } },
+  image: { prompt: "A lighthouse at dusk, in watercolor", config: { image_config: { aspect_ratio: "1:1", image_size: "2K" } } },
   audio: { prompt: "Hello, World!", config: {} },
   web: { prompt: "Hello, World!", config: { webtool_config: { count: 3 } } },
+  // the prompt is the audio's address, which the program downloads and sends
+  transcribe: { prompt: "https://raw.githubusercontent.com/openai/whisper/main/tests/jfk.flac", config: {} },
 };
 // a web tool whose id names a fetch reads one page; the clients tell it from a search the same way
 const FETCH: Ask = { prompt: "https://example.com", config: {} };
@@ -102,8 +104,8 @@ export function literal(value: unknown, style: "ts" | "json"): string {
   return style === "ts" ? `{ ${entries.join(", ")} }` : `{${entries.join(", ")}}`;
 }
 
-// every speech model of the registry answers audio/l16; rate=24000; channels=1
-const PLAYBACK = "16-bit PCM, 24 kHz, mono: ffplay -f s16le -ar 24000 -ac 1 speech.pcm";
+// a speech model answers 16-bit PCM, its rate and channels in the MIME type the program prints
+const PLAYBACK = "audio/l16; rate=24000; channels=1 plays with ffplay -f s16le -ar 24000 -ac 1 speech.pcm";
 
 const TS_BODY: Record<Kind, string[]> = {
   text: ['if (item.type === "text.delta") process.stdout.write(item.text);'],
@@ -127,6 +129,7 @@ const TS_BODY: Record<Kind, string[]> = {
     "}",
   ],
   web: ['if (item.type === "webtool.done") {', "  for (const page of item.webdata) console.log(page.title, page.url);", "}"],
+  transcribe: ['if (item.type === "text.delta") process.stdout.write(item.text);'],
 };
 
 const PY_BODY: Record<Kind, string[]> = {
@@ -146,16 +149,20 @@ const PY_BODY: Record<Kind, string[]> = {
     "    print(f\"wrote speech.pcm, {len(item['data'])} bytes, {item['mime_type']}\")",
   ],
   web: ['if item["type"] == "webtool.done":', '    for page in item["webdata"]:', '        print(page["title"], page["url"])'],
+  transcribe: ['if item["type"] == "text.delta":', '    print(item["text"], end="", flush=True)'],
 };
 
 const prompt = (ask: Ask) => ({ type: "text.done", text: ask.prompt });
+// the audio a transcription is sent, in the programs a variable and in the server's request its base64
+const AUDIO_ITEM = { type: "inline_data.done", data: "$AUDIO", mime_type: "audio/flac" };
+// a web tool or a transcription cannot replay its answer, so its program makes the stateless call
+const stateless = (kind: Kind) => kind === "web" || kind === "transcribe";
 const indent = (lines: string[], spaces: number) => lines.map((line) => " ".repeat(spaces) + line);
 
 function typescriptProgram(kind: Kind, ask: Ask, constructor: string[]): string {
-  const input = literal(prompt(ask), "ts");
-  // a web tool cannot replay its own answer, so its program makes the stateless call, as the README's does
+  const input = kind === "transcribe" ? '{ type: "inline_data.done", data: audio, mime_type: "audio/flac" }' : literal(prompt(ask), "ts");
   const call =
-    kind === "web"
+    stateless(kind)
       ? [
           "for await (const event of client.streamingResponse({",
           "  messages: [",
@@ -172,6 +179,7 @@ function typescriptProgram(kind: Kind, ask: Ask, constructor: string[]): string 
     "",
     "async function main() {",
     ...indent(constructor, 2),
+    ...(kind === "transcribe" ? [`  const audio = Buffer.from(await (await fetch(${JSON.stringify(ask.prompt)})).arrayBuffer());`] : []),
     ...indent(call, 2),
     `    config: ${literal(ask.config, "ts")},`,
     "  })) {",
@@ -179,7 +187,7 @@ function typescriptProgram(kind: Kind, ask: Ask, constructor: string[]): string 
     ...indent(TS_BODY[kind], 6),
     "    }",
     "  }",
-    ...(kind === "text" ? ["  console.log();"] : []),
+    ...(kind === "text" || kind === "transcribe" ? ["  console.log();"] : []),
     "}",
     "",
     "main().catch(console.error);",
@@ -188,9 +196,9 @@ function typescriptProgram(kind: Kind, ask: Ask, constructor: string[]): string 
 }
 
 function pythonProgram(kind: Kind, ask: Ask, constructor: string[]): string {
-  const input = literal(prompt(ask), "json");
+  const input = kind === "transcribe" ? '{"type": "inline_data.done", "data": audio, "mime_type": "audio/flac"}' : literal(prompt(ask), "json");
   const call =
-    kind === "web"
+    stateless(kind)
       ? [
           "async for event in client.streaming_response(",
           "    messages=[",
@@ -204,6 +212,7 @@ function pythonProgram(kind: Kind, ask: Ask, constructor: string[]): string {
   return [
     "import asyncio",
     "import os",
+    ...(kind === "transcribe" ? ["import urllib.request"] : []),
     ...(kind === "image" || kind === "audio" ? ["from pathlib import Path"] : []),
     "",
     "from mmsp import AutoLLMClient",
@@ -211,12 +220,13 @@ function pythonProgram(kind: Kind, ask: Ask, constructor: string[]): string {
     "",
     "async def main():",
     ...indent(constructor, 4),
+    ...(kind === "transcribe" ? [`    audio = urllib.request.urlopen(${JSON.stringify(ask.prompt)}).read()`] : []),
     ...indent(call, 4),
     `        config=${literal(ask.config, "json")},`,
     "    ):",
     '        for item in event["content_items"]:',
     ...indent(PY_BODY[kind], 12),
-    ...(kind === "text" ? ["    print()"] : []),
+    ...(kind === "text" || kind === "transcribe" ? ["    print()"] : []),
     "",
     "",
     "asyncio.run(main())",
@@ -256,7 +266,7 @@ export function kitFor(entry: KitEntry, provider: KitProvider): Kit {
   const server: ServerRow = { model_id: model, base_url, api_key: `$${env}`, server_model_id: serverModelId, client_type: client };
   const request = {
     model: serverModelId,
-    messages: [{ role: "user", content_items: [prompt(ask)] }],
+    messages: [{ role: "user", content_items: [kind === "transcribe" ? AUDIO_ITEM : prompt(ask)] }],
     ...(Object.keys(ask.config).length ? { config: ask.config } : {}),
   };
   return { typescript, python, server, request };
@@ -396,6 +406,10 @@ export function catalogKit(entry: KitEntry, provider: KitProvider, locale: Local
   // an embedding, an image, speech or a page streams as long lines of numbers, base64 or Markdown;
   // their heads show it
   const heads = entry.output_modalities.includes("Text") ? "" : " | cut -c 1-160";
+  // a transcription's request holds its audio as base64, too long for one shell word, so it is
+  // written to a file first
+  const transcribe = entry.kind === "transcribe";
+  const [head, tail] = body.split("$AUDIO");
   return {
     typescript: kit.typescript,
     python: kit.python,
@@ -409,9 +423,10 @@ export function catalogKit(entry: KitEntry, provider: KitProvider, locale: Local
         keyLine,
         "export MMSP_SERVER_API_KEY=secret",
         "python -m mmsp.integration.server --config mmsp-server.json &",
+        ...(transcribe ? [`{ printf %s '${head}'; curl -sSL ${ASK.transcribe.prompt} | base64 | tr -d '\\n'; printf %s '${tail}'; } > request.json`] : []),
         "curl -sSN --retry 5 --retry-connrefused http://127.0.0.1:25752/v1/stream \\",
         '  -H "Authorization: Bearer $MMSP_SERVER_API_KEY" -H "Content-Type: application/json" \\',
-        `  -d '${body}'${heads}`,
+        transcribe ? "  --data-binary @request.json" : `  -d '${body}'${heads}`,
       ].join("\n"),
     },
   };
