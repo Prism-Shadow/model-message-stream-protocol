@@ -3,7 +3,7 @@
 - Feature Name: `message_requests`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313), [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316), [#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318), [#__PR__](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/__PR__)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313), [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316), [#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318), [#326](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/326)
 - Kind: spec
 
 [English](MMSP-RFC-0003-message-requests.md)
@@ -27,7 +27,7 @@
 2026-11-04，项目负责人要求通过 OpenAI 的格式支持图像生成、语音合成与语音转写，由 OpenAI、OpenRouter 与 TokenDance 提供，各由一个兼容客户端负责：`openai-image`、`openai-speech` 与 `openai-transcription`。每个客户端读取什么，由抓包决定。对流式的图像请求，OpenAI 只用一个携带整张图片的 `image_generation.completed` 事件作答，OpenRouter 忽略 `stream`，TokenDance 发送它自己的事件，所以图像从一个 JSON 中读取；语音端点边生成边发送音频字节，第一块约 0.7 秒后到达；转写端点用一个 JSON 作答。映射由项目负责人确定：`image_config` 变成 Gemini 1K 与 2K 尺寸表中的 `size`，表中每个尺寸都符合 OpenAI 的尺寸规则；`tts_config` 变成那一个 `voice`；用量对图像是端点的 token 数，对语音是输入的 UTF-8 字节数（Fish Audio 按字节计费），对转写是音频的秒数。拒绝 1K 尺寸的 TokenDance 模型以它自己的错误作答。[#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316) 在原文上修改了本规范：§3.2 加入媒体端点，§5 加入下载失败，§6.3 加入不思考的模型，§6.4 加入尺寸与音色。
 2026-11-06，项目负责人要求支持 Gemini Omni 的视频生成，原话是：「支持一下google omni的视频生成能力」。Gemini Omni 1.2 Flash 通过 Interactions API 作答，返回一段带音轨的 MP4 视频，整段放在一个流式增量里发出。项目负责人保留了 Google 的默认设置（16:9、720p、10 秒），不新增配置键；以 URI 交付的视频按它的 URI 返回；跨多轮编辑视频不在范围内。探测发现 Omni 只接受 `low` 和 `high` 两个思考级别，并把视频本身的 token 计入 `max_output_tokens`，所以按文本设定的上限要等视频生成之后才会失败。[#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318) 在原文上修改了本规范：§6.1 加入 `gemini-omni` 标记，§6.2 写入不发送的 `max_tokens`，§6.3 写入 Omni 的级别。
 
-2026-11-11，项目负责人把某一个端点或某一家厂商的模型需要兼容客户端做的特殊处理移入插件（[MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.zh.md#9-插件) §9），[#322](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/322) 与 [#323](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/323) 贡献的 Mistral 处理也随之写成插件：Mistral 只在被要求时、通过 `reasoning_effort` 打开模型的推理，它的等级没有 `medium`，它的模型列表说明哪些模型会推理。[#__PR__](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/__PR__) 在原文上修改了本规范，在 §6.1 写入兼容客户端读取模型 id 的规则，在 §6.3 写入 `openai-chat` 在 Mistral 上的等级。
+2026-11-11，项目负责人把某一个端点或某一家厂商的模型需要兼容客户端做的特殊处理移入插件（[MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.zh.md#9-插件) §9），[#322](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/322) 与 [#323](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/323) 贡献的 Mistral 处理也随之写成插件：Mistral 只在被要求时、通过 `reasoning_effort` 打开模型的推理，它的等级没有 `medium`，它的模型列表说明哪些模型会推理。[#326](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/326) 在原文上修改了本规范，在 §6.1 写入兼容客户端读取模型 id 的规则，在 §6.3 写入 `openai-chat` 在 Mistral 上的等级。
 
 ## 2. Conventions and Terminology
 

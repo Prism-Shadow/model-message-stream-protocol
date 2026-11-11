@@ -3,7 +3,7 @@
 - **Date:** 2026-11-11
 - **Type:** process
 - **Scope:** `design`
-- **PR:** pending
+- **PR:** [#326](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/326)
 
 [中文版](2026-11-11-client-plugins-rfcs.zh.md)
 

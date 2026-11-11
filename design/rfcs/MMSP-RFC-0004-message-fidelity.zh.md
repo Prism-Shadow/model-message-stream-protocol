@@ -3,7 +3,7 @@
 - Feature Name: `message_fidelity`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#__PR__](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/__PR__)
+- Updated by: [#326](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/326)
 - Kind: spec
 
 [English](MMSP-RFC-0004-message-fidelity.md)
@@ -20,7 +20,7 @@
 
 项目负责人对本文的要求：讲一下 fidelity 来保护思考，前缀不发生改变，是 identical 的。这些内容最初在 [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265) 中写作 MMSP-RFC-0011 以及 MMSP-RFC-0008 中关于 `tool_call_id` 和不带签名的思考的条目，在 [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) 中写作 MMSP-RFC-0005 与 MMSP-RFC-0008。
 
-2026-11-11 发现 Mistral 的端点把思考作为内容块流式返回，并以 422 `extra_forbidden` 拒绝回传的推理字段，只接受以内容块形式发回的思考（[#322](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/322)）。[#__PR__](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/__PR__) 在原文上修改了本规范，在 §4 写入这一形式，由 `openai-chat` 的一个插件写出（[MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.zh.md#9-插件) §9）。
+2026-11-11 发现 Mistral 的端点把思考作为内容块流式返回，并以 422 `extra_forbidden` 拒绝回传的推理字段，只接受以内容块形式发回的思考（[#322](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/322)）。[#326](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/326) 在原文上修改了本规范，在 §4 写入这一形式，由 `openai-chat` 的一个插件写出（[MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.zh.md#9-插件) §9）。
 
 ## 2. Conventions and Terminology
 

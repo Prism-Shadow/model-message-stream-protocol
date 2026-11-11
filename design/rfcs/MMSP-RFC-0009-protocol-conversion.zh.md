@@ -3,7 +3,7 @@
 - Feature Name: `protocol_conversion`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#__PR__](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/__PR__)
+- Updated by: [#326](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/326)
 - Kind: spec
 
 [English](MMSP-RFC-0009-protocol-conversion.md)
@@ -18,7 +18,7 @@
 
 审阅一个客户端，就是把它当作对其参考客户端的 diff 来看；读者顺着一次请求或一次响应，把整个文件从头读到尾。每多一层辅助函数、每一个接受同一输入两种形状的垫片，都是两种语言彼此走样、服务商的怪癖藏身的地方。项目负责人早先的原话是「转换代码尽量减少抽象，保持易懂」，对基类客户端则是「base client也减少一些抽象,尽量让代码容易看懂」，后者由 [#297](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/297) 完成。顺序规则来自一次故障：一个 Responses 风格的转换把收集到的文本追加在它之前的工具调用后面，DeepSeek 因此回答 "No tool output found for tool call"，直到 [#185](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/185) 修复。[#287](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/287) 把 0.5.5 整块保存的网关推理块改为共用的 fidelity 键，同时把这种整块的形状加入了从早先版本读取的形状。本规范最初在 [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265) 中写作 MMSP-RFC-0012，在 [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) 中写作 MMSP-RFC-0013；顺序规则在这两次中都属于 MMSP-RFC-0002。
 
-2026-11-11，项目负责人审阅了两份贡献，它们让 `openai-chat` 学会了 Mistral 端点的不同之处：把思考作为内容块流式返回，以及它的 `reasoning_effort`（[#322](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/322)、[#323](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/323)）。项目负责人认为这两份改动没有问题，但要求这类代码不进入客户端本身，原话是：「这些代码进入到主干以后,最后就没法控制了,能不能把他重构成一个比较解耦的文件,就是每个client都可以有n个plugin,每个plugin可以用模型id或者baseurl来匹配和启用,启用后就可以实现一些比较特殊的处理逻辑,比如openai-chat客户端可以对openrouter.ai和mistral.ai进行一些处理」。项目负责人选定的做法是：插件由基类提供给每个客户端，随包发布，匹配时启用，调用方既不能增加插件也不能关闭插件；兼容客户端原有的特殊处理也移入插件，即 `openai-chat` 和 `ant-messages` 中 OpenRouter 的用量修正，以及 `openai-chat` 和 `openai-responses` 中 GPT-5.6 与 GPT-6 的需要。[#__PR__](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/__PR__) 在原文上修改了本规范，在 §2 和 §9 写入插件。
+2026-11-11，项目负责人审阅了两份贡献，它们让 `openai-chat` 学会了 Mistral 端点的不同之处：把思考作为内容块流式返回，以及它的 `reasoning_effort`（[#322](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/322)、[#323](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/323)）。项目负责人认为这两份改动没有问题，但要求这类代码不进入客户端本身，原话是：「这些代码进入到主干以后,最后就没法控制了,能不能把他重构成一个比较解耦的文件,就是每个client都可以有n个plugin,每个plugin可以用模型id或者baseurl来匹配和启用,启用后就可以实现一些比较特殊的处理逻辑,比如openai-chat客户端可以对openrouter.ai和mistral.ai进行一些处理」。项目负责人选定的做法是：插件由基类提供给每个客户端，随包发布，匹配时启用，调用方既不能增加插件也不能关闭插件；兼容客户端原有的特殊处理也移入插件，即 `openai-chat` 和 `ant-messages` 中 OpenRouter 的用量修正，以及 `openai-chat` 和 `openai-responses` 中 GPT-5.6 与 GPT-6 的需要。[#326](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/326) 在原文上修改了本规范，在 §2 和 §9 写入插件。
 
 ## 2. Conventions and Terminology
 
