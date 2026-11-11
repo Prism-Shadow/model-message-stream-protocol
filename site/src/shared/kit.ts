@@ -4,7 +4,7 @@
 // agent puts on the clipboard. The page assembles a kit in the browser when a row's code button is
 // pressed, from what the row carries (its model, endpoint, client, kind, modalities, context window
 // and USD prices) and one table of the providers the page names, so the page ships one template
-// instead of 352 programs. Nothing here reads the registry or the build's environment: catalog.ts
+// instead of 353 programs. Nothing here reads the registry or the build's environment: catalog.ts
 // decides an entry's kind, and the caller passes the site's origin.
 import { localePath, type Locale } from "./i18n";
 import type { Modality } from "../../../src_ts/src/registry.ts";
@@ -24,9 +24,9 @@ export interface KitProvider {
 }
 
 // what a program asks a model of each output kind, and how it shows the answer: text as it
-// streams, an embedding by its size, an image or speech as the file it writes, a web tool's pages
-// by their titles and URLs, a transcription's text as it streams
-export type Kind = "text" | "embed" | "image" | "audio" | "web" | "transcribe";
+// streams, an embedding by its size, an image, a video or speech as the file it writes, a web
+// tool's pages by their titles and URLs, a transcription's text as it streams
+export type Kind = "text" | "embed" | "image" | "video" | "audio" | "web" | "transcribe";
 
 export interface KitEntry {
   model: string;
@@ -86,6 +86,7 @@ const ASK: Record<Kind, Ask> = {
   text: { prompt: "Say 'Hello, World!'", config: {} },
   embed: { prompt: "Hello, World!", config: {} },
   image: { prompt: "A lighthouse at dusk, in watercolor", config: { image_config: { aspect_ratio: "1:1", image_size: "2K" } } },
+  video: { prompt: "A paper boat drifting down a forest stream, one continuous shot", config: {} },
   audio: { prompt: "Hello, World!", config: {} },
   web: { prompt: "Hello, World!", config: { webtool_config: { count: 3 } } },
   // the prompt is the audio's address, which the program downloads and sends
@@ -122,6 +123,12 @@ const TS_BODY: Record<Kind, string[]> = {
     "  console.log(`\\nwrote ${name}, ${item.data.length} bytes`);",
     "}",
   ],
+  video: [
+    'if (item.type === "inline_data.done") {',
+    '  writeFileSync("video.mp4", item.data);',
+    "  console.log(`wrote video.mp4, ${item.data.length} bytes`);",
+    "}",
+  ],
   audio: [
     'if (item.type === "inline_data.done") {',
     '  writeFileSync("speech.pcm", item.data);',
@@ -142,6 +149,11 @@ const PY_BODY: Record<Kind, string[]> = {
     '    name = "image." + item["mime_type"].split("/")[1]',
     '    Path(name).write_bytes(item["data"])',
     "    print(f\"\\nwrote {name}, {len(item['data'])} bytes\")",
+  ],
+  video: [
+    'if item["type"] == "inline_data.done":',
+    '    Path("video.mp4").write_bytes(item["data"])',
+    "    print(f\"wrote video.mp4, {len(item['data'])} bytes\")",
   ],
   audio: [
     'if item["type"] == "inline_data.done":',
@@ -174,7 +186,7 @@ function typescriptProgram(kind: Kind, ask: Ask, constructor: string[]): string 
         ]
       : ["for await (const event of client.streamingResponseStateful({", "  message: {", '    role: "user",', `    content_items: [${input}],`, "  },"];
   return [
-    ...(kind === "image" || kind === "audio" ? ['import { writeFileSync } from "node:fs";', ""] : []),
+    ...(kind === "image" || kind === "video" || kind === "audio" ? ['import { writeFileSync } from "node:fs";', ""] : []),
     'import { AutoLLMClient } from "@prismshadow/mmsp";',
     "",
     "async function main() {",
@@ -213,7 +225,7 @@ function pythonProgram(kind: Kind, ask: Ask, constructor: string[]): string {
     "import asyncio",
     "import os",
     ...(kind === "transcribe" ? ["import urllib.request"] : []),
-    ...(kind === "image" || kind === "audio" ? ["from pathlib import Path"] : []),
+    ...(kind === "image" || kind === "video" || kind === "audio" ? ["from pathlib import Path"] : []),
     "",
     "from mmsp import AutoLLMClient",
     "",
@@ -237,7 +249,7 @@ function pythonProgram(kind: Kind, ask: Ask, constructor: string[]): string {
 /**
  * The code that calls an entry: complete TypeScript and Python programs, the README's quickstart
  * for this entry, that print what the model answers (its text as it streams; an embedding, image,
- * speech or web tool model by its output kind), and the row of an MMSP server's models table
+ * video, speech or web tool model by its output kind), and the row of an MMSP server's models table
  * (site/src/docs/server.en.md). Every entry gets the full constructor, the one /models.json's `call`
  * writes, so an entry at its vendor's own endpoint reads the same as one behind a gateway.
  */

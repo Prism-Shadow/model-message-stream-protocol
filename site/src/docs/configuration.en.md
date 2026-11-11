@@ -62,7 +62,7 @@ A value a client cannot send raises `UnsupportedParameterError` before the reque
 
 ## What each client sends
 
-Clients are named by their `client_type` ([Models and endpoints](/docs/models/)); `openai-official` serves the `text-embedding-*` models through `openai-embedding` and the `gpt-image-*` models through `openai-image`, and `deepseek-official` serves `deepseek-search` and `deepseek-fetch` through `deepseek-webtool`. The media clients, `openai-image`, `openai-speech` and `openai-transcription`, send nothing but the model, the prompt, input or file, and `image_config` or `tts_config`. The web tool clients, `deepseek-webtool` and `jina-webtool`, tell a search from a fetch by the `-search` or `-fetch` in the id. On both Google clients, a speech model is one whose id contains `tts` and an embedding model one whose id contains `embedding`. The `mmsp` client sends the configuration unchanged, and the server applies it through the model's own client, so that client's rows hold.
+Clients are named by their `client_type` ([Models and endpoints](/docs/models/)); `openai-official` serves the `text-embedding-*` models through `openai-embedding` and the `gpt-image-*` models through `openai-image`, and `deepseek-official` serves `deepseek-search` and `deepseek-fetch` through `deepseek-webtool`. The media clients, `openai-image`, `openai-speech` and `openai-transcription`, send nothing but the model, the prompt, input or file, and `image_config` or `tts_config`. The web tool clients, `deepseek-webtool` and `jina-webtool`, tell a search from a fetch by the `-search` or `-fetch` in the id. On both Google clients, a speech model is one whose id contains `tts` and an embedding model one whose id contains `embedding`; on `google-official`, Gemini Omni is a model whose id contains `gemini-omni`. The `mmsp` client sends the configuration unchanged, and the server applies it through the model's own client, so that client's rows hold.
 
 ### `max_tokens`
 
@@ -71,6 +71,7 @@ Clients are named by their `client_type` ([Models and endpoints](/docs/models/))
 | `anthropic-official`, `ant-messages` | `max_tokens`; 64000 when not set, because the Messages API requires it |
 | `zai-official` | `max_tokens` |
 | `openai-official`, `openai-responses`, `deepseek-official`, `minimax-official`, `google-official`, `google-genai` | `max_output_tokens`, speech models included |
+| Gemini Omni on `google-official` | not sent: the video's own tokens count against the limit (57,920 for the default video), so a limit sized for text fails after the video is made |
 | `openai-chat`, `openai-chat-vllm-adapter`, `moonshot-official` | `max_completion_tokens` |
 | `openai-embedding`, `deepseek-webtool`, `jina-webtool`, the media clients, Gemini embedding models | ignored |
 
@@ -102,6 +103,7 @@ Clients are named by their `client_type` ([Models and endpoints](/docs/models/))
 | `openai-official`, `openai-responses`, `deepseek-official`, `minimax-official`, `google-official` | `tools`, each with `type: "function"` |
 | `openai-chat`, `openai-chat-vllm-adapter`, `moonshot-official`, `zai-official` | `tools`, each as the `function` of a `type: "function"` tool |
 | `google-genai` | one tool of `function_declarations` |
+| Gemini Omni on `google-official` | raises |
 | `openai-embedding`, `deepseek-webtool`, `jina-webtool`, the media clients, Gemini speech and embedding models | ignored |
 
 ### `tool_choice`
@@ -121,7 +123,7 @@ A cell is the value sent: the `type` on the Anthropic clients, the function call
 | `minimax-official` | `auto` | `none`; raises on MiniMax-M3.1-Flash | raises | raises |
 | `zai-official` | `auto` | raises | raises | raises |
 
-Claude Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.1 cannot be forced to call a tool, so `"required"` and a list raise on them. The Google clients send `tool_choice` only with `tools`, and speech models ignore it. `openai-embedding`, the web tool clients, the media clients and Gemini embedding models ignore it.
+Claude Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.1 cannot be forced to call a tool, so `"required"` and a list raise on them. The Google clients send `tool_choice` only with `tools`, and speech models ignore it; Gemini Omni raises on any value. `openai-embedding`, the web tool clients, the media clients and Gemini embedding models ignore it.
 
 ### `thinking_level`
 
@@ -143,6 +145,7 @@ Each client sends the level as its protocol's effort: `output_config.effort` wit
 | `moonshot-official`: Kimi K3, Kimi K3.1 Pro | `none` | `low` | `high` | `high` | `max` | `max` |
 | `zai-official`: GLM-5.3, GLM-5.3-Flash | `low` | `low` | `high` | `high` | `max` | `max` |
 | `zai-official`: other GLM models | `disabled` | `low` | `medium` | `high` | `xhigh` | `max` |
+| `google-official`: Gemini Omni | `low` | `low` | `high` | `high` | `high` | `high` |
 | `google-official`, `google-genai`: image models | `minimal` | `minimal` | `high` | `high` | `high` | `high` |
 | `google-official`, `google-genai`: Gemini 3 Pro | `low` | `low` | `high` | `high` | `high` | `high` |
 | `google-official`, `google-genai`: other Pro models, Gemini 3.7, 3.8, 4 Argon, 4 Carbon | `low` | `low` | `medium` | `high` | `high` | `high` |
@@ -202,7 +205,8 @@ An empty string sends nothing.
 
 | Client | `true` |
 | --- | --- |
-| `openai-official`, `openai-responses`, `openai-chat`, `openai-chat-vllm-adapter`, `google-official` | `service_tier: "priority"` |
+| `openai-official`, `openai-responses`, `openai-chat`, `openai-chat-vllm-adapter` | `service_tier: "priority"` |
+| `google-official` | `service_tier: "priority"`; raises on Gemini Omni |
 | `minimax-official` | `service_tier: "priority"` on MiniMax-M3; raises on MiniMax-M3.1-Flash |
 | `ant-messages` | `speed: "fast"` with the beta `fast-mode-2026-02-01` |
 | `anthropic-official` | the same; raises on Bedrock and on Claude 4.6, Sonnet 5.5, Haiku 5.5 and Fable 5.1 |
@@ -214,7 +218,7 @@ An empty string sends nothing.
 | Client | Sent as |
 | --- | --- |
 | `google-genai` | `image_config` |
-| `google-official` | `response_format`: a text entry, then an image entry carrying `aspect_ratio` and `image_size` |
+| `google-official` | `response_format`: a text entry, then an image entry carrying `aspect_ratio` and `image_size`; raises on Gemini Omni |
 | `openai-image` | `size`, from the table below; an `aspect_ratio` alone takes its 1K size, an `image_size` alone 1:1, and no `image_config` sends no `size` |
 | Every other client; Gemini speech and embedding models | ignored |
 

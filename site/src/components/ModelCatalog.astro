@@ -35,7 +35,7 @@ const targets = rows.map((row) => latest?.targets[row.key]);
 const SORT_FIRST: Record<string, "asc" | "desc"> = { latency: "asc", throughput: "desc" };
 
 const INPUTS: Modality[] = ["Text", "Image", "Video", "Audio"];
-const OUTPUTS: Modality[] = ["Text", "Image", "Audio", "Embed", "Web"];
+const OUTPUTS: Modality[] = ["Text", "Image", "Video", "Audio", "Embed", "Web"];
 // Lucide: type, image, video, audio-lines, axis-3d, globe
 const MODALITY_ICONS: Record<Modality, string> = {
   Text: '<path d="M4 7V4h16v3"></path><path d="M9 20h6"></path><path d="M12 4v16"></path>',

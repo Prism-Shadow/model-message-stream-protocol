@@ -3,7 +3,7 @@
 - Feature Name: `message_requests`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313), [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313), [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316), [#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318)
 - Kind: spec
 
 [English](MMSP-RFC-0003-message-requests.md)
@@ -25,6 +25,7 @@
 2026-11-02，OpenAI 发布 GPT-6.1 Terra，项目负责人要求支持，原话是：「GPT 6.1 terra更新了」。与 GPT-6 Astra、GPT-6.1 Sol 不同，Terra 接受 `none` 这一 effort，所以两个 Responses 客户端在 Terra 上把 `none` 当作它自己的关闭开关。为它做的探测发现了所有 GPT-6 模型上的两处缺口：`tool_choice` 的列表形式发出时缺少 OpenAI 与 OpenRouter 要求的 `type`（400 `Missing required parameter: 'tool_choice.type'`）；超过 30,000 个 patch 的图片被拒绝，因为只有 GPT-5.6 会被发送 `detail: "high"`。项目负责人还把 `enhance` 映射到 OpenAI 的 12 小时缓存时长，GPT-5.6 及之后的模型在 Responses API 上接受它，GPT-5.5 拒绝。[#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313) 在原文上修改了本规范：§6.1 与 §6.3 写入 Terra 的 `none` 和这一代模型的 `detail`，§6.4 写入 allowed-tools 列表与 12 小时缓存。
 
 2026-11-04，项目负责人要求通过 OpenAI 的格式支持图像生成、语音合成与语音转写，由 OpenAI、OpenRouter 与 TokenDance 提供，各由一个兼容客户端负责：`openai-image`、`openai-speech` 与 `openai-transcription`。每个客户端读取什么，由抓包决定。对流式的图像请求，OpenAI 只用一个携带整张图片的 `image_generation.completed` 事件作答，OpenRouter 忽略 `stream`，TokenDance 发送它自己的事件，所以图像从一个 JSON 中读取；语音端点边生成边发送音频字节，第一块约 0.7 秒后到达；转写端点用一个 JSON 作答。映射由项目负责人确定：`image_config` 变成 Gemini 1K 与 2K 尺寸表中的 `size`，表中每个尺寸都符合 OpenAI 的尺寸规则；`tts_config` 变成那一个 `voice`；用量对图像是端点的 token 数，对语音是输入的 UTF-8 字节数（Fish Audio 按字节计费），对转写是音频的秒数。拒绝 1K 尺寸的 TokenDance 模型以它自己的错误作答。[#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316) 在原文上修改了本规范：§3.2 加入媒体端点，§5 加入下载失败，§6.3 加入不思考的模型，§6.4 加入尺寸与音色。
+2026-11-06，项目负责人要求支持 Gemini Omni 的视频生成，原话是：「支持一下google omni的视频生成能力」。Gemini Omni 1.2 Flash 通过 Interactions API 作答，返回一段带音轨的 MP4 视频，整段放在一个流式增量里发出。项目负责人保留了 Google 的默认设置（16:9、720p、10 秒），不新增配置键；以 URI 交付的视频按它的 URI 返回；跨多轮编辑视频不在范围内。探测发现 Omni 只接受 `low` 和 `high` 两个思考级别，并把视频本身的 token 计入 `max_output_tokens`，所以按文本设定的上限要等视频生成之后才会失败。[#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318) 在原文上修改了本规范：§6.1 加入 `gemini-omni` 标记，§6.2 写入不发送的 `max_tokens`，§6.3 写入 Omni 的级别。
 
 ## 2. Conventions and Terminology
 
@@ -93,7 +94,7 @@
 
 ### 6.1 明确匹配
 
-- 客户端为某个模型发送什么，必须由明确的匹配决定，绝不靠猜。在官方客户端内部，各代模型靠 id 中的版本区分（`"4-6"`；`"gpt-6"` 但既不是 `"gpt-6-luna"` 也不是 `"gpt-6.1-terra"`；`"gpt-5.6"`；`"k2."`；`"m3.1"`；`"glm-5.3"`），写在有名字的元组或直白的条件里；先匹配上的那一行生效。表示档位或模态的标记（`-pro`、`-image`、`tts`、`embedding`、`-search`、`-fetch`）也以同样的方式选定模型的类别。`"claude"`、`"gpt"` 这类只有系列名的子串不得决定任何事。新的一代模型加一行或一个条件，绝不放宽匹配。
+- 客户端为某个模型发送什么，必须由明确的匹配决定，绝不靠猜。在官方客户端内部，各代模型靠 id 中的版本区分（`"4-6"`；`"gpt-6"` 但既不是 `"gpt-6-luna"` 也不是 `"gpt-6.1-terra"`；`"gpt-5.6"`；`"k2."`；`"m3.1"`；`"glm-5.3"`），写在有名字的元组或直白的条件里；先匹配上的那一行生效。表示档位或模态的标记（`-pro`、`-image`、`tts`、`gemini-omni`、`embedding`、`-search`、`-fetch`）也以同样的方式选定模型的类别。`"claude"`、`"gpt"` 这类只有系列名的子串不得决定任何事。新的一代模型加一行或一个条件，绝不放宽匹配。
 - 兼容客户端只在发送的内容因模型而异时才读取模型 id，而且同样按明确的名字或标记：vLLM 适配器从自己的表中选出聊天模板的思考开关，找不到时退回 Qwen3 的开关；`openai-responses` 在 Luna 与 GPT-6.1 Terra 以外的 GPT-6 上把 `none` 变成 `low`；`openai-chat` 和 `openai-responses` 对 GPT-5.6 或 GPT-6 原本会拒绝的图片请求 `detail: "high"`；`deepseek-webtool` 按 id 中的 `-search` 或 `-fetch` 决定搜索还是抓取。
 - 模型 id 由哪个客户端处理，见 [MMSP-RFC-0005](MMSP-RFC-0005-client-routing.zh.md)。
 
@@ -101,10 +102,12 @@
 
 客户端无法为该模型发送的 `UniConfig` 值，必须在请求发出之前抛出 `UnsupportedParameterError`，指明客户端与参数。客户端用不上的键会被忽略。`thinking_level` 是例外（§6.3）。
 
+`max_tokens` 不会发送给 Gemini Omni：视频本身的 token 也计入 Google 的 `max_output_tokens`（默认视频为 57,920），按文本设定的上限要等视频生成之后才会失败。
+
 ### 6.3 思考等级
 
 - 客户端不得拒绝任何 `ThinkingLevel`：无论什么模型，都没有客户端为 `thinking_level` 抛出 `UnsupportedParameterError`。
-- 每个官方客户端按一张固定的表，把每个级别映射到该模型这一代的某个设置上，不发出警告：模型有这个级别时，就用它本身；模型没有时，用模型接受的另一个级别（Claude 4.6 以 `high` 运行 `xhigh`；Gemini 以 `high` 运行 `xhigh` 和 `max`）；对于 `none`，模型有自己的关闭开关时就用它（Claude Sonnet 5 上的 `disabled`，GPT-6 Luna、GPT-6.1 Terra 和 Kimi K3 系列上的 `none`）；对于没有关闭开关的模型上的 `none`，用它允许的最少思考（Claude Opus 5.5 上的最低 effort，Claude Sonnet 5.5 上的 `between_tools`，Gemini 上的 `minimal` 或 `low`）。不思考的模型，例如 embedding 模型、网页工具，或 `openai-image`、`openai-speech`、`openai-transcription` 的模型，没有这样的设置，级别被忽略。
+- 每个官方客户端按一张固定的表，把每个级别映射到该模型这一代的某个设置上，不发出警告：模型有这个级别时，就用它本身；模型没有时，用模型接受的另一个级别（Claude 4.6 以 `high` 运行 `xhigh`；Gemini 以 `high` 运行 `xhigh` 和 `max`，只接受 `low` 和 `high` 的 Gemini Omni 也以 `high` 运行 `medium`）；对于 `none`，模型有自己的关闭开关时就用它（Claude Sonnet 5 上的 `disabled`，GPT-6 Luna、GPT-6.1 Terra 和 Kimi K3 系列上的 `none`）；对于没有关闭开关的模型上的 `none`，用它允许的最少思考（Claude Opus 5.5 上的最低 effort，Claude Sonnet 5.5 上的 `between_tools`，Gemini 上的 `minimal` 或 `low`）。不思考的模型，例如 embedding 模型、网页工具，或 `openai-image`、`openai-speech`、`openai-transcription` 的模型，没有这样的设置，级别被忽略。
 - 经由兼容客户端时，由端点决定某个级别实际如何运行，端点可以拒绝这个值：`ant-messages` 对 `none` 发送 `disabled`；`openai-responses` 把级别作为它的 effort 发送，在 Luna 与 GPT-6.1 Terra 以外的 GPT-6 上把 `none` 发成 `low`；`openai-chat` 不发送级别；它的 vLLM 适配器只发送聊天模板的思考开关；`mmsp` 客户端把级别转发给它的服务端。
 
 ### 6.4 有另一种形式的值

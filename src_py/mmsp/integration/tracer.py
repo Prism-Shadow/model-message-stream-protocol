@@ -871,6 +871,14 @@ _TRACER_HEAD = """
         height: 36px;
     }
 
+    .item-video {
+        display: block;
+        width: min(100%, 480px);
+        border-radius: 8px;
+        box-shadow: 0 0 0 1px var(--ring);
+        background: #000;
+    }
+
     .tool-sig, .result-text, .embedding {
         font-family: var(--mono);
         font-size: 12.5px;
@@ -1286,6 +1294,8 @@ class Tracer:
             label += "Inline Image"
         elif mime_type.startswith("audio/"):
             label += "Inline Audio"
+        elif mime_type.startswith("video/"):
+            label += "Inline Video"
         else:
             label += "Inline Data"
 
@@ -1692,6 +1702,8 @@ class Tracer:
                             <img class="item-img" src="{{ item|inline_data_url }}" alt="Inline image">
                             {% elif item.mime_type and item.mime_type.startswith('audio/') %}
                             <audio class="item-audio" controls preload="metadata"><source src="{{ item|inline_data_url }}"></audio>
+                            {% elif item.mime_type and item.mime_type.startswith('video/') %}
+                            <video class="item-video" controls preload="metadata" src="{{ item|inline_data_url }}"></video>
                             {% endif %}
                             {% elif item.type == 'embedding.done' %}
                             <div class="embedding">{{ item|embedding_preview }}</div>

@@ -12,7 +12,7 @@ description: MMSP 的客户端构成、各客户端支持的模型，以及如�
 | --- | --- | --- | --- |
 | `openai-official` | `gpt-6.1-sol`、`gpt-6.1-terra`、`gpt-6-astra`、`gpt-5.6-sol`、`gpt-5.5`；`text-embedding-3-large`、`text-embedding-3-small`；`gpt-image-2.5-flare` | OpenAI Responses；`text-embedding-*` 走 Embeddings；`gpt-image-*` 走 Images | `OPENAI_API_KEY` `OPENAI_BASE_URL` |
 | `anthropic-official` | `claude-opus-5-5`、`claude-sonnet-5-5`、`claude-haiku-5-5`、`claude-fable-5-1`、`claude-opus-5`、`claude-sonnet-5` | Anthropic Messages | `ANTHROPIC_API_KEY` `ANTHROPIC_BASE_URL` |
-| `google-official` | `gemini-4-carbon`、`gemini-4-argon`、`gemini-3.8-flash`、`gemini-3.1-pro-preview`；`gemini-3.1-flash-image`、`gemini-3.8-flash-tts`；`gemini-embedding-2` | Gemini Interactions | `GEMINI_API_KEY` `GEMINI_BASE_URL` |
+| `google-official` | `gemini-4-carbon`、`gemini-4-argon`、`gemini-3.8-flash`、`gemini-3.1-pro-preview`；`gemini-3.1-flash-image`、`gemini-3.8-flash-tts`、`gemini-omni-1.2-flash`；`gemini-embedding-2` | Gemini Interactions | `GEMINI_API_KEY` `GEMINI_BASE_URL` |
 | `zai-official` | `glm-5.3`、`glm-5.3-flash`、`glm-5.2` | Chat Completions | `ZAI_API_KEY` `ZAI_BASE_URL` |
 | `moonshot-official` | `kimi-k3.1-pro`、`kimi-k3.1-pro-highspeed`、`kimi-k3`、`kimi-k2.6` | Chat Completions | `MOONSHOT_API_KEY` `MOONSHOT_BASE_URL` |
 | `deepseek-official` | `deepseek-flash`、`deepseek-v4-pro`；`deepseek-search`、`deepseek-fetch` | Responses；`deepseek-search` 和 `deepseek-fetch` 走 Search 和 Fetch | `DEEPSEEK_API_KEY` `DEEPSEEK_BASE_URL` |
@@ -22,6 +22,8 @@ description: MMSP 的客户端构成、各客户端支持的模型，以及如�
 每行列出了客户端读取的环境变量：先是 key，然后是端点。端点默认为厂商官方地址。官方客户端始终读取这些变量，因此也能用于对接镜像了厂商 API 的网关。例如，OpenRouter 上的 `deepseek/deepseek-v4-pro` 可通过 `deepseek-official` 调用，SiliconFlow 上的 `Pro/moonshotai/Kimi-K2.6` 可通过 `moonshot-official` 调用，只需传入网关的 `base_url` 和 `api_key` 即可。
 
 Gemini 4 Carbon（`gemini-4-carbon`）和 Gemini 4 Argon（`gemini-4-argon`）支持 `low`、`medium`（默认）和 `high` 思考档位，Carbon 每轮的思考更多。MMSP 将 `none` 映射为 `low`，将 `xhigh`/`max` 映射为 `high`。二者的 1,048,576-token 上下文窗口由输入、思考和输出共享，同步流式输出最多 65,536 tokens。更长输出需要 Google 的存储式后台执行，不在 MMSP 的无状态流式接口范围内。缓存仅支持隐式缓存。
+
+Gemini Omni 1.2 Flash（`gemini-omni-1.2-flash`）生成视频：它以一个 `inline_data` 内容项返回带音轨的 MP4，采用 Google 的默认设置（16:9、720p、10 秒；每段视频约 0.70 美元）。MMSP 只发送最新一条消息中的文本和图片，并且不发送 `max_tokens`，因为视频本身的 token 也计入 Google 的上限。它支持 `low` 和 `high` 两档思考：`none` 和 `low` 按 `low` 运行，其余按 `high`。`tools`、`tool_choice`、`image_config` 和 `fast_mode` 会抛出 `UnsupportedParameterError`。
 
 MiniMax-M3.1-Flash（`MiniMax-M3.1-Flash`）始终思考，支持 `low` 到 `max` 档位（默认 `max`）。MMSP 将 `none` 映射为 `low`，`xhigh` 和 `max` 原样传递。它没有 priority 档位，也会忽略 `tool_choice: "none"`，因此 `fast_mode` 和 `tool_choice: "none"` 会抛出 `UnsupportedParameterError`。
 
