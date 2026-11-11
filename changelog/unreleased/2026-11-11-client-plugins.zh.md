@@ -3,7 +3,7 @@
 - **Date:** 2026-11-11
 - **Type:** fix
 - **Scope:** `base_client`, `plugin`, `openai_chat`, `openai_responses`, `ant_messages`, `tests`, `site`
-- **PR:** pending
+- **PR:** [#327](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/327)
 - **Issue:** [#320](https://github.com/Prism-Shadow/model-message-stream-protocol/issues/320), [#321](https://github.com/Prism-Shadow/model-message-stream-protocol/issues/321)
 
 [English](2026-11-11-client-plugins.md)
