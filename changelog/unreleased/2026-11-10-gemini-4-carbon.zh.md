@@ -3,7 +3,7 @@
 - **Date:** 2026-11-10
 - **Type:** feature
 - **Scope:** `google_official`, `google_genai`, `registry`, `tests`, `site`, `docs`
-- **PR:** pending
+- **PR:** [#324](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/324)
 
 [English](2026-11-10-gemini-4-carbon.md)
 
