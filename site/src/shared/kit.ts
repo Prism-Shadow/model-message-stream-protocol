@@ -4,7 +4,7 @@
 // agent puts on the clipboard. The page assembles a kit in the browser when a row's code button is
 // pressed, from what the row carries (its model, endpoint, client, kind, modalities, context window
 // and USD prices) and one table of the providers the page names, so the page ships one template
-// instead of 344 programs. Nothing here reads the registry or the build's environment: catalog.ts
+// instead of 347 programs. Nothing here reads the registry or the build's environment: catalog.ts
 // decides an entry's kind, and the caller passes the site's origin.
 import { localePath, type Locale } from "./i18n";
 import type { Modality } from "../../../src_ts/src/registry.ts";

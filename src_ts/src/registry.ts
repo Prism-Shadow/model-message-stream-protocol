@@ -675,7 +675,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Web"],
     pricing: usd(0.05, 0.0),
   },
-  // --- OpenRouter (121 rows; key OPENROUTER_API_KEY; USD prices, context windows and modalities
+  // --- OpenRouter (122 rows; key OPENROUTER_API_KEY; USD prices, context windows and modalities
   // from the live models API https://openrouter.ai/api/v1/models and each model's
   // /api/v1/models/{slug}/endpoints list, read 2026-10-24). The API quotes one endpoint per model;
   // where that endpoint runs a promotion (a nonzero `discount` in its /endpoints entry), the row
@@ -1648,6 +1648,17 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(0.1, 0.3),
   },
   {
+    // Tencent's endpoint, the only one, runs a 50% discount ($0.417 input, $1.2505 output, $0.021
+    // cache read)
+    model: "tencent/hy4",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.834, 2.501, 0.042),
+  },
+  {
     // Tencent's endpoint at its UTC 16:00-24:00 rate; UTC 00:00-16:00 costs $0.834 input, $2.501
     // output, $0.042 cache read
     model: "tencent/hy4-preview",
@@ -2137,7 +2148,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     context_window: 1000000,
     pricing: usd(3.0, 15.0, 0.3),
   },
-  // --- TokenDance (62 rows; key TOKENDANCE_API_KEY; CNY prices at the `items` rate of the public
+  // --- TokenDance (64 rows; key TOKENDANCE_API_KEY; CNY prices at the `items` rate of the public
   // catalog https://tokendance.space/portal/api/models/all, read 2026-10-24). The `items` rate is
   // what TokenDance bills, below the `reference` price the catalog shows beside some models. Each
   // row's client speaks a protocol the catalog lists for the model, and its price is that
@@ -2552,6 +2563,15 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: cny(0.7, 2.1, 0.14),
   },
   {
+    model: "hy4",
+    base_url: TOKENDANCE,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1024000,
+    pricing: cny(3.0, 9.0, 0.15),
+  },
+  {
     model: "hy4-preview",
     base_url: TOKENDANCE,
     client: "openai-responses",
@@ -2578,6 +2598,16 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Text"],
     context_window: 256000,
     pricing: cny(1.2, 4.0, 0.4),
+  },
+  {
+    // the catalog serves it on Chat Completions only; its 08:00-22:00 (Beijing) rates are 1/4/0.1 CNY
+    model: "ernie-5.5-flash-preview",
+    base_url: TOKENDANCE,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(0.5, 2.0, 0.05),
   },
   {
     model: "seed-2.1-pro",

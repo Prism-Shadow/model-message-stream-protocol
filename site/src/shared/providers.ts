@@ -178,6 +178,7 @@ const VENDORS: [RegExp, Vendor][] = [
   [/inception\/|mercury/, { id: "inception", name: "Inception", mark: "inception" }],
   [/inclusionai\/|(^|\/)ling-/, { id: "inclusionai", name: "inclusionAI", mark: "ling" }],
   [/xinghuo|spark-x/, { id: "iflytek", name: "iFlytek Spark", mark: "spark" }],
+  [/baidu\/|(^|\/)ernie-/, { id: "baidu", name: "Baidu", mark: "wenxin" }],
   [/dots-/, { id: "dots", name: "Dots" }],
   [/thinkingmachines\/|(^|\/)inkling/, { id: "thinkingmachines", name: "Thinking Machines" }],
   [/^recursive\//, { id: "recursive", name: "Recursive" }],

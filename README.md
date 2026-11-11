@@ -59,7 +59,7 @@ Audit LLM executions by adding **a single `trace_id` parameter**, no database re
 | Grok 4.3-4.7   | OpenRouter/OpenCode Go | `x-ai/grok-4.7` | Text, Image | Text |
 | MiMo-V2.5/V2.6 | OpenRouter/TokenDance/OpenCode Go | `mimo-v2.6-pro` | Text, Image | Text |
 | Seed 2.0/2.1   | OpenRouter/TokenDance | `seed-2.1-pro` | Text, Image | Text |
-| Hy3/Hy4        | OpenRouter/SiliconFlow/TokenDance/OpenCode Go | `hy4-preview` | Text | Text |
+| Hy3/Hy4        | OpenRouter/SiliconFlow/TokenDance/OpenCode Go | `hy4` | Text, Image | Text |
 | Step 3.5-5     | OpenRouter/TokenDance/OpenCode Go | `step-5-preview` | Text, Image | Text |
 | LongCat 2.0    | OpenRouter/SiliconFlow/TokenDance/OpenCode Go | `longcat-2.0` | Text | Text |
 | Muse Spark/Llama 4 | OpenRouter/OpenCode Go | `meta/muse-spark-1.3` | Text, Image | Text |
@@ -69,7 +69,7 @@ Audit LLM executions by adding **a single `trace_id` parameter**, no database re
 | Jina Search/Reader | Official | `jina-search` | Text | Web search, Page fetch |
 
 OpenRouter also serves Cohere Command A, Amazon Nova and Perplexity Sonar,
-OpenRouter and TokenDance serve inclusionAI Ling, and TokenDance serves iFlytek Spark and Dots;
+OpenRouter and TokenDance serve inclusionAI Ling, and TokenDance serves Baidu ERNIE, iFlytek Spark and Dots;
 `list_supported_models()` lists every entry.
 
 ### Clients
