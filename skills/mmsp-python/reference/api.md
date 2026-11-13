@@ -27,7 +27,7 @@ client = AutoLLMClient(
 )
 ```
 
-`client_type` is one of the official clients (`openai-official`, `anthropic-official`, `google-official`, `zai-official`, `moonshot-official`, `deepseek-official`, `minimax-official`) or one of the compatible clients (`openai-responses`, `openai-chat`, `openai-chat-vllm-adapter`, `openai-embedding`, `ant-messages`, `google-genai`, `mmsp`). It may be omitted for a model id that begins with a known family (`gpt-`, `text-embedding-`, `claude-`, `gemini-`, `glm-`, `kimi-`, `deepseek-`, `minimax-`); any other id raises `RoutingError` and asks for one. See [Model selection](models.md).
+`client_type` is one of the official clients (`openai-official`, `anthropic-official`, `google-official`, `zai-official`, `moonshot-official`, `deepseek-official`, `minimax-official`, `jina-webtool`) or one of the compatible clients (`openai-responses`, `openai-chat`, `openai-chat-vllm-adapter`, `openai-embedding`, `openai-image`, `openai-speech`, `openai-transcription`, `ant-messages`, `google-genai`, `deepseek-webtool`, `mmsp`). It may be omitted for a model id that begins with a known family (`gpt-`, `text-embedding-`, `claude-`, `gemini-`, `glm-`, `kimi-`, `deepseek-`, `minimax-`, `jina-`); any other id raises `RoutingError` and asks for one. See [Model selection](models.md).
 
 A key goes only where it was given for. A key passed in is used, with the `base_url` passed in, else the client's `<P>_BASE_URL`, else its default endpoint. Without a key, a client reads its `<P>_API_KEY` only when it is given no `base_url` or its own default endpoint (`deepseek-official` with `https://api.deepseek.com` uses `DEEPSEEK_API_KEY`); any other `base_url` raises `ApiKeyRequiredError` at construction, so pass `api_key` with it, or drop it and set `<P>_API_KEY` (plus `<P>_BASE_URL` for another endpoint). The `mmsp` and `openai-chat-vllm-adapter` clients call a `base_url` given without a key keyless, as an open server, and their default endpoint too when `<P>_API_KEY` is unset. `mmsp.credentials.environment_credential(client_type, base_url)` says what a client will do.
 
@@ -57,7 +57,7 @@ def list_supported_models(currency: Literal["USD", "CNY"] = "USD") -> list[Suppo
     """List supported models covering official endpoints plus OpenRouter and SiliconFlow.
     Each entry carries (model, base_url, client) - mapping onto the AutoLLMClient
     constructor (model, base_url, client_type) - plus input/output modalities
-    (Text/Image/Video/Audio/Embed), context_window, and per-million-token pricing in the
+    (Text/Image/Video/Audio/Embed/Web), context_window, and per-million-token pricing in the
     requested currency (official list prices, converted at 7 CNY/USD)."""
 
 def normalize_legacy_messages(messages: list[UniMessage]) -> list[UniMessage]:
@@ -80,7 +80,7 @@ The others, with their attributes:
 - `InvalidMessageError` (`client`, `item_type`, `message_index`): a message that cannot be sent as it is, such as a tool result without `tool_call_id`, an unknown item, an invalid image, or a message with nothing to send.
 - `RoutingError` (`model`, `client_type`): neither `client_type` nor the model id names a client.
 - `ApiKeyRequiredError` (`client`, `client_type`, `api_key_env`, `base_url_env`, `base_url`): the client has no key it may use; `base_url` is `None` when no key was passed or set at all.
-- `UnsupportedOperationError` (`client`, `operation`): a call the client cannot make at all, such as listing models on Amazon Bedrock.
+- `UnsupportedOperationError` (`client`, `operation`): a call the client cannot make at all, such as listing models on Amazon Bedrock or a web tool.
 - `ConcurrentCallError` (`client`): `streaming_response_stateful` called while another stateful call on the same client is in flight.
 - `ProviderStreamError` (`client`, `code`): the provider reported an error inside an open stream.
 - `UnknownEventError` (`client`, `event`): a wire event the client does not recognize, raised only with `MMSP_DEBUG` set.

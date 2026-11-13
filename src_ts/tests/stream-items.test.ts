@@ -121,6 +121,24 @@ describe("one assembly rule for every kind", () => {
     ]);
   });
 
+  test("every video is an item of its own, like an image", () => {
+    // Gemini Omni sends a whole video in one delta, so the next video delta, under the same step id
+    // or not, begins the next item
+    const items = new StreamItems("Test");
+    items.delta(data("0", "clip one", "video/mp4"));
+    expect(items.delta(data("0", "clip two", "video/mp4"))).toMatchObject([
+      { type: "inline_data.done", data: Buffer.from("clip one") },
+      { type: "inline_data.delta", data: Buffer.from("clip two") },
+    ]);
+    expect(items.end()).toEqual([
+      {
+        type: "inline_data.done",
+        data: Buffer.from("clip two"),
+        mime_type: "video/mp4",
+      },
+    ]);
+  });
+
   test("a vector is an item of its own, and an empty one goes out all the same", () => {
     const items = new StreamItems("Test");
     expect(
@@ -132,6 +150,24 @@ describe("one assembly rule for every kind", () => {
       { type: "embedding.delta", embedding: [] },
     ]);
     expect(items.end()).toEqual([{ type: "embedding.done", embedding: [] }]);
+  });
+
+  test("a web tool's answer is an item of its own, and one that found nothing goes out all the same", () => {
+    const page = {
+      title: "Example Domain",
+      content: "This domain is for use in examples.",
+      url: "https://example.com",
+    };
+    const items = new StreamItems("Test");
+    expect(items.delta({ type: "webtool.delta", webdata: [page] })).toEqual([
+      { type: "webtool.delta", webdata: [page] },
+    ]);
+    // a search that found nothing answered all the same
+    expect(items.delta({ type: "webtool.delta", webdata: [] })).toEqual([
+      { type: "webtool.done", webdata: [page] },
+      { type: "webtool.delta", webdata: [] },
+    ]);
+    expect(items.end()).toEqual([{ type: "webtool.done", webdata: [] }]);
   });
 });
 

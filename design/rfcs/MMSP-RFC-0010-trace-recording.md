@@ -3,6 +3,7 @@
 - Feature Name: `trace_recording`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
+- Updated by: [#307](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/307)
 - Kind: spec
 
 [中文版](MMSP-RFC-0010-trace-recording.zh.md)
@@ -16,6 +17,8 @@ A trace is the record MMSP writes of a conversation when a request's `UniConfig`
 The owner asked for this specification in these words: 写一下 trace 的逻辑. A caller that can read every turn as it happened finds a wrong tool argument or a runaway thought in seconds rather than reconstructing it from logs, and a harness that reviews its own traces can change its prompts, tools or code and run again. The trace is one record in one format for every model, so it is specified with the protocol rather than left to each client.
 
 [#17](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/17) added `trace_id` and the tracer, which saved the history after a stateful turn; [#34](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/34) and [#38](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/38) brought the writer and the viewer to TypeScript; [#96](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/96) added `created_at` and the viewer's rounds; [#223](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/223) moved the save into `streaming_response`, before the `stop` is yielded, so that a caller who stops reading at the `stop` still finds the trace. The two writers differed in how they named the files, in the timestamp, and in where a trace id could reach; [#300](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/300) made them one and has `streaming_response` refuse an id outside the cache directory.
+
+On 2026-11-02 `session_id` took over the prompt cache key ([#307](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/307), [MMSP-RFC-0014](MMSP-RFC-0014-prompt-cache-sessions.md)). `moonshot-official` had sent the trace id as `prompt_cache_key` on Kimi K2 and stopped, so the trace id reaches no provider.
 
 ## 2. Conventions and Terminology
 
@@ -31,7 +34,7 @@ The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY in this document are to
 - A `streaming_response` that raises before it yields its `stop`, whether with a provider's error, `IncompleteStreamError`, `EmptyResponseError`, `StreamProtocolError` or the abort error ([MMSP-RFC-0008](MMSP-RFC-0008-request-interruption.md#3-interrupting-a-stream) §3), saves no trace, and neither does one whose generator is closed before its `stop`.
 - A stateful call saves through `streaming_response`, so its trace is the whole conversation so far.
 - Through the `mmsp` client the `trace_id` travels in the config: the server's upstream client saves the trace under the server's cache directory, and the `mmsp` client MUST NOT save one.
-- `moonshot-official` also sends the trace id as `prompt_cache_key` on the Kimi K2 generation. No other provider client sends it to its provider.
+- No provider client sends the trace id to its provider; the prompt cache key comes from `session_id` ([MMSP-RFC-0014](MMSP-RFC-0014-prompt-cache-sessions.md)).
 
 ## 4. Trace Ids
 

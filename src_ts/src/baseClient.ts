@@ -21,6 +21,7 @@ import {
 } from "./errors";
 import type { Tracer } from "./integration/tracer";
 import { normalizeLegacyMessages } from "./legacy";
+import type { ClientPlugin } from "./plugin";
 import { StreamItems } from "./streamItems";
 import {
   ContentItem,
@@ -73,6 +74,8 @@ export abstract class LLMClient {
   private _history: UniMessage[];
   // the stateful call that holds the history until its stop event, its end or its abort, if any
   private _inFlight: { signal?: AbortSignal } | null;
+  // the plugins the client runs, built in its constructor from its plugins/ folder (MMSP-RFC-0009 §9)
+  protected _plugins: readonly ClientPlugin[] = [];
 
   constructor() {
     this._model = "";

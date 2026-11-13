@@ -38,12 +38,13 @@ Every item in a message is complete, and its type ends in `.done`.
 | --- | --- | --- |
 | `text.done` | `text` | User and assistant |
 | `image_url.done` | `image_url`, a URL or a data URI | User |
-| `inline_data.done` | `data` bytes, `mime_type` | User and assistant: images, audio |
+| `inline_data.done` | `data` bytes, `mime_type` | User and assistant: images, audio, video |
 | `thinking.done` | `thinking` | Assistant |
 | `inline_thinking.done` | `data` bytes, `mime_type` | Assistant: images an image generation model thinks with |
 | `tool_call.done` | `name`, `arguments` as an object, `tool_call_id` | Assistant |
 | `tool_result.done` | `text`, optional `images`, `tool_call_id` | User |
 | `embedding.done` | `embedding`, a list of numbers | Assistant |
+| `webtool.done` | `webdata`, a list of pages, each with `title`, `content` and `url` | Assistant: a search's results, or the page a fetch read |
 
 Any item the assistant wrote may carry [`fidelity`](/docs/fidelity/): what the provider needs back to accept the item on the next turn.
 

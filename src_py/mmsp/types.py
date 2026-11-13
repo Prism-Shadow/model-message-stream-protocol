@@ -105,6 +105,21 @@ class EmbeddingDoneItem(TypedDict):
     embedding: list[float]
 
 
+class WebData(TypedDict):
+    """One web page a web tool returned."""
+
+    title: str
+    # the page's text: its Markdown body for a fetch, its summary for a search result
+    content: str
+    url: str
+
+
+class WebtoolDoneItem(TypedDict):
+    type: Literal["webtool.done"]
+    # a search's results in rank order, or the one page a fetch read
+    webdata: list[WebData]
+
+
 ContentItem = (
     TextDoneItem
     | ImageUrlDoneItem
@@ -114,6 +129,7 @@ ContentItem = (
     | ToolCallDoneItem
     | ToolResultDoneItem
     | EmbeddingDoneItem
+    | WebtoolDoneItem
 )
 
 
@@ -163,6 +179,11 @@ class EmbeddingDeltaItem(TypedDict):
     embedding: list[float]
 
 
+class WebtoolDeltaItem(TypedDict):
+    type: Literal["webtool.delta"]
+    webdata: list[WebData]
+
+
 DeltaContentItem = (
     TextDeltaItem
     | InlineDataDeltaItem
@@ -170,6 +191,7 @@ DeltaContentItem = (
     | InlineThinkingDeltaItem
     | ToolCallDeltaItem
     | EmbeddingDeltaItem
+    | WebtoolDeltaItem
 )
 
 EventContentItem = DeltaContentItem | ContentItem
@@ -237,6 +259,13 @@ class EmbeddingConfig(TypedDict):
     dimensions: NotRequired[int]
 
 
+class WebtoolConfig(TypedDict):
+    """Web search configuration."""
+
+    # how many results a search returns; a fetch reads one page whatever it is
+    count: NotRequired[int]
+
+
 class UniConfig(TypedDict):
     """Universal configuration format for LLM requests."""
 
@@ -248,13 +277,21 @@ class UniConfig(TypedDict):
     tool_choice: NotRequired[ToolChoice]
     system_prompt: NotRequired[str]
     prompt_caching: NotRequired[PromptCaching]
+    # the conversation a request belongs to, recommended on every request since one stable id per
+    # conversation raises the prompt cache hit rate: openai-official, openai-responses, openai-chat
+    # (with its vLLM adapter), moonshot-official and minimax-official send it as prompt_cache_key,
+    # beyond 64 characters as its SHA-256 hex digest; every other client ignores it, and so does
+    # every client for an empty string
+    session_id: NotRequired[str]
     # fast processing at premium pricing: openai-official, openai-responses, openai-chat (with its
     # vLLM adapter), google-official and minimax-official send service_tier="priority";
     # anthropic-official and ant-messages send speed="fast"; google-genai, deepseek-official,
-    # moonshot-official, zai-official and openai-embedding raise UnsupportedParameterError, and
+    # moonshot-official, zai-official, openai-embedding, openai-image, openai-speech,
+    # openai-transcription, deepseek-webtool and jina-webtool raise UnsupportedParameterError, and
     # so does a sending client for a model without a fast tier
     fast_mode: NotRequired[bool]
     image_config: NotRequired[ImageConfig]
     tts_config: NotRequired[list[SpeakerConfig]]
     embedding_config: NotRequired[EmbeddingConfig]
+    webtool_config: NotRequired[WebtoolConfig]
     trace_id: NotRequired[str]

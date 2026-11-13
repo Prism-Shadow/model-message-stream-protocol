@@ -59,12 +59,14 @@ const KINDS: Record<string, Kind> = {
     // a call's name comes once, on its first delta
     begins: (delta) => Boolean(delta.name),
   },
-  // an image arrives whole, while audio streams in chunks
+  // an image or a video arrives whole, while audio streams in chunks
   inline_data: {
     field: "data",
     header: [],
     join: (chunks) => Buffer.concat(chunks),
-    begins: (delta) => delta.mime_type.startsWith("image/"),
+    begins: (delta) =>
+      delta.mime_type.startsWith("image/") ||
+      delta.mime_type.startsWith("video/"),
   },
   inline_thinking: {
     field: "data",
@@ -75,6 +77,14 @@ const KINDS: Record<string, Kind> = {
   // one whole vector per delta, and an empty one still stands for the input it was made of
   embedding: {
     field: "embedding",
+    header: [],
+    join: (chunks) => chunks.flat(),
+    begins: () => true,
+    keepsEmpty: true,
+  },
+  // one web tool call's whole answer per delta, and a search that found nothing is an answer too
+  webtool: {
+    field: "webdata",
     header: [],
     join: (chunks) => chunks.flat(),
     begins: () => true,
@@ -113,10 +123,10 @@ function isEmpty(kind: Kind, fields: Fields): boolean {
  * the next item arrives, or when the stream ends.
  *
  * A delta belongs to the next item when it carries another `fidelity.item_id`, is of another
- * kind, or begins an item by itself (a call's name, an image, a vector). Otherwise it continues
- * the item streaming now: a delta without an id does, and so do a call's arguments whatever id a
- * gateway puts on them. Fidelity sent alone under the item's id is that item's, whatever kind
- * carries it.
+ * kind, or begins an item by itself (a call's name, an image or a video, a vector, a web tool's
+ * answer). Otherwise it continues the item streaming now: a delta without an id does, and so do a
+ * call's arguments whatever id a gateway puts on them. Fidelity sent alone under the item's id is
+ * that item's, whatever kind carries it.
  *
  * Every delta goes out as it arrives, without its `item_id`. A done item is the item's first
  * delta with the growing field replaced by the join of every delta's, plus the item's fidelity.

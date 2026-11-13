@@ -872,6 +872,91 @@ describe.each(GEMINI_STREAM_CASES)(
         },
       ]);
     });
+
+    test("streams every video as an item of its own and a video URI as text", async () => {
+      const uri =
+        "https://generativelanguage.googleapis.com/v1beta/files/abc123:download?alt=media";
+      // Gemini Omni's whole MP4 in one delta
+      const video = (text: string, mimeType?: string) => ({
+        type: "video",
+        data: Buffer.from(text).toString("base64"),
+        ...(mimeType ? { mime_type: mimeType } : {}),
+      });
+      const client = createAutoClient(testCase);
+      installFakeGeminiStream(client, [
+        { event_type: "step.start", index: 1, step: { type: "model_output" } },
+        geminiDeltaEvent(1, video("mp4 1", "video/mp4")),
+        // a second video under the same step is an item of its own; one without a MIME type is an MP4
+        geminiDeltaEvent(1, video("mp4 2")),
+        { event_type: "step.stop", index: 1 },
+        // a video delivered by URI goes out as its URI
+        geminiDeltaEvent(2, { type: "video", mime_type: "video/mp4", uri }),
+        { event_type: "step.stop", index: 2 },
+        geminiCompletedEvent(),
+      ]);
+
+      const events = await collectEvents(
+        client.streamingResponse({ messages, config: {} }),
+      );
+      assertStreamGrammar(events);
+      const doneItems = events
+        .flatMap((event): EventContentItem[] => event.content_items)
+        .filter((item) => item.type.endsWith(".done"));
+      expect(doneItems).toEqual([
+        {
+          type: "inline_data.done",
+          data: Buffer.from("mp4 1"),
+          mime_type: "video/mp4",
+        },
+        {
+          type: "inline_data.done",
+          data: Buffer.from("mp4 2"),
+          mime_type: "video/mp4",
+        },
+        { type: "text.done", text: uri },
+      ]);
+    });
+
+    test("labels audio deltas without a MIME type as audio/l16", async () => {
+      // the audio delta as the API streams it since 2026-11-02: no mime_type
+      const audio = (text: string) => ({
+        type: "audio",
+        data: Buffer.from(text).toString("base64"),
+        sample_rate: 24000,
+        channels: 1,
+      });
+      const client = createAutoClient(testCase);
+      installFakeGeminiStream(client, [
+        { event_type: "step.start", index: 0, step: { type: "model_output" } },
+        geminiDeltaEvent(0, audio("pcm 1")),
+        geminiDeltaEvent(0, audio("pcm 2")),
+        { event_type: "step.stop", index: 0 },
+        geminiCompletedEvent(),
+      ]);
+
+      const events = await collectEvents(
+        client.streamingResponse({ messages, config: {} }),
+      );
+      assertStreamGrammar(events);
+      const mimeType = "audio/l16; rate=24000; channels=1";
+      expect(events.flatMap((event) => event.content_items)).toEqual([
+        {
+          type: "inline_data.delta",
+          data: Buffer.from("pcm 1"),
+          mime_type: mimeType,
+        },
+        {
+          type: "inline_data.delta",
+          data: Buffer.from("pcm 2"),
+          mime_type: mimeType,
+        },
+        {
+          type: "inline_data.done",
+          data: Buffer.from("pcm 1pcm 2"),
+          mime_type: mimeType,
+        },
+      ]);
+    });
   },
 );
 

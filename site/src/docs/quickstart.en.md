@@ -211,3 +211,4 @@ asyncio.run(main())
 - Read the usage and the finish reason from the `stop` event. It is always the last event and arrives exactly once.
 - Keep `thinking.done` items and every `fidelity` field as they arrived. The stateful call does this for you.
 - When the arguments of a call do not parse, MMSP raises `ToolCallArgumentParseError` in place of the `tool_call.done`. Retry or re-prompt; never run a tool from partial arguments.
+- Set one [`session_id`](/docs/configuration/#session_id) per conversation, such as a UUID. It raises the prompt cache hit rate, and clients without a cache key ignore it.

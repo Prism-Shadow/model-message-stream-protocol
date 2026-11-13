@@ -211,3 +211,4 @@ asyncio.run(main())
 - 用量和结束原因从 `stop` 事件读取。该事件总是最后一个，且只出现一次。
 - 保持 `thinking.done` 项和所有 `fidelity` 字段不变。有状态调用会自动处理。
 - 当工具调用的参数无法解析时，MMSP 会抛出 `ToolCallArgumentParseError` 而非返回 `tool_call.done`。此时应重试或重新提示，切勿使用不完整的参数运行工具。
+- 每个对话设一个 [`session_id`](/zh/docs/configuration/#session_id)，例如一个 UUID。它能提高提示词缓存的命中率，没有缓存键的客户端会忽略它。

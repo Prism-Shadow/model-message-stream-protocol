@@ -36,7 +36,7 @@ from ..types import (
     UniMessage,
     UsageMetadata,
 )
-from ..utils import fix_openrouter_usage_metadata, openai_client_options, resolve_credentials
+from ..utils import fix_openrouter_usage_metadata, openai_client_options, prompt_cache_key, resolve_credentials
 
 
 class MoonshotOfficialClient(LLMClient):
@@ -175,9 +175,8 @@ class MoonshotOfficialClient(LLMClient):
                 "Kimi does not support this prompt_caching (disable has no equivalent; enhance needs Kimi K3).",
             )
 
-        # K3 context caching is automatic; the K2 generation keys its prompt cache on trace_id
-        if config.get("trace_id") is not None and "k2." in self._model.lower():
-            kimi_config["prompt_cache_key"] = config["trace_id"]
+        if config.get("session_id"):
+            kimi_config["prompt_cache_key"] = prompt_cache_key(config["session_id"])
 
         return kimi_config
 

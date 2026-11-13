@@ -97,6 +97,19 @@ def test_audio_chunks_join_into_one_buffer_while_every_image_is_an_item_of_its_o
     assert [item["type"] for item in out] == ["inline_data.done", "inline_thinking.delta"]
 
 
+def test_every_video_is_an_item_of_its_own_like_an_image():
+    # Gemini Omni sends a whole video in one delta, so the next video delta, under the same step id
+    # or not, begins the next item
+    items = StreamItems("Test")
+    items.delta(data("0", "clip one", "video/mp4"))
+    out = items.delta(data("0", "clip two", "video/mp4"))
+    assert [(item["type"], item["data"]) for item in out] == [
+        ("inline_data.done", b"clip one"),
+        ("inline_data.delta", b"clip two"),
+    ]
+    assert items.end() == [{"type": "inline_data.done", "data": b"clip two", "mime_type": "video/mp4"}]
+
+
 def test_a_vector_is_an_item_of_its_own_and_an_empty_one_goes_out_all_the_same():
     items = StreamItems("Test")
     assert items.delta({"type": "embedding.delta", "embedding": [0.1, 0.2]}) == [
@@ -108,6 +121,18 @@ def test_a_vector_is_an_item_of_its_own_and_an_empty_one_goes_out_all_the_same()
         {"type": "embedding.delta", "embedding": []},
     ]
     assert items.end() == [{"type": "embedding.done", "embedding": []}]
+
+
+def test_a_web_tool_answer_is_an_item_of_its_own_and_one_that_found_nothing_goes_out_all_the_same():
+    page = {"title": "Example Domain", "content": "This domain is for use in examples.", "url": "https://example.com"}
+    items = StreamItems("Test")
+    assert items.delta({"type": "webtool.delta", "webdata": [page]}) == [{"type": "webtool.delta", "webdata": [page]}]
+    # a search that found nothing answered all the same
+    assert items.delta({"type": "webtool.delta", "webdata": []}) == [
+        {"type": "webtool.done", "webdata": [page]},
+        {"type": "webtool.delta", "webdata": []},
+    ]
+    assert items.end() == [{"type": "webtool.done", "webdata": []}]
 
 
 # ---------------------------------------------------------------- when an item is done

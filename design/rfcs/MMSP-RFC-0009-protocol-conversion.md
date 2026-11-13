@@ -3,19 +3,22 @@
 - Feature Name: `protocol_conversion`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
+- Updated by: [#326](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/326)
 - Kind: spec
 
 [中文版](MMSP-RFC-0009-protocol-conversion.zh.md)
 
 ## Abstract
 
-Protocol conversion is the translation between a provider's wire protocol and MMSP, which every client uses as its intermediate representation: a request is converted from MMSP to the wire, every wire event back to MMSP, and a conversation passes from one provider to another only through MMSP. This document specifies that role, the three transforms a client converts in, the order and the one input shape they keep, the legacy shapes still read, and the base class that turns a client's events into the public stream, all of it written as direct code with no layer of its own.
+Protocol conversion is the translation between a provider's wire protocol and MMSP, which every client uses as its intermediate representation: a request is converted from MMSP to the wire, every wire event back to MMSP, and a conversation passes from one provider to another only through MMSP. This document specifies that role, the three transforms a client converts in, the order and the one input shape they keep, the legacy shapes still read, the base class that turns a client's events into the public stream, and the plugins that keep what one endpoint or one vendor's models need out of a compatible client's transforms, all of it written as direct code with no layer of its own.
 
 ## 1. Introduction
 
 The owner asked for this specification in these words: 写一下把 MMSP 作为 IR 的转换逻辑，实现代码减少抽象，尽量直观. With one representation in the middle, a client is two conversions, to its own wire and back, and a conversation recorded through one client continues through another without either client knowing the other's shapes.
 
 A client is reviewed as a diff against its reference client, and a reader follows one request or one response straight through the file; every helper layer and every shim that takes two shapes of the same input is a place where the two languages drift apart and a provider's quirk hides. The owner's earlier words were 转换代码尽量减少抽象，保持易懂, and of the base client, base client也减少一些抽象,尽量让代码容易看懂, which [#297](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/297) carried out. The order rule comes from a failure: a Responses-style transform appended the collected text after the tool call it preceded, and DeepSeek answered "No tool output found for tool call" until [#185](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/185). [#287](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/287) added the 0.5.5 gateway reasoning block to the shapes read from earlier releases when it moved that block, which 0.5.5 kept whole, to the shared fidelity keys. Stated in [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265) as MMSP-RFC-0012 and in [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) as MMSP-RFC-0013; the order rule was part of MMSP-RFC-0002 in both.
+
+On 2026-11-11 the owner reviewed two contributions that taught `openai-chat` what Mistral's endpoint does differently, its thinking streamed as content chunks and its `reasoning_effort` ([#322](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/322), [#323](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/323)), found them sound, and asked that such code stay out of the client: 这些代码进入到主干以后,最后就没法控制了,能不能把他重构成一个比较解耦的文件,就是每个client都可以有n个plugin,每个plugin可以用模型id或者baseurl来匹配和启用,启用后就可以实现一些比较特殊的处理逻辑,比如openai-chat客户端可以对openrouter.ai和mistral.ai进行一些处理. The owner chose plugins the base class offers every client, carried in the package and enabled where they match, with no way for a caller to add one or turn one off, and the special cases the compatible clients already had moved into plugins too: OpenRouter's usage counts in `openai-chat` and `ant-messages`, and what GPT-5.6 and GPT-6 need in `openai-chat` and `openai-responses`. [#326](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/326) amended this specification in place, with the plugin in §2 and §9.
 
 ## 2. Conventions and Terminology
 
@@ -28,6 +31,7 @@ The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY in this document are to
 - *Reference client*: the client a new client of the same protocol is read as a diff against: `openai-official` for the Responses protocol, `openai-chat` for Chat Completions.
 - *Adapter*: a client that subclasses the client of the protocol it serves and overrides only what its servers read differently, as `openai-chat-vllm-adapter` does `openai-chat`.
 - *Fidelity*: as [MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.md#5-what-a-message-carries) §5 defines it.
+- *Plugin*: what one endpoint, or one vendor's models, need of a client beyond the protocol the client speaks, in a file of its own under the client's `plugins/` folder, enabled where its hosts and its model pattern match (§9).
 
 ## 3. MMSP as the Intermediate Representation
 
@@ -63,7 +67,17 @@ The message transform MUST keep the order of an assistant turn's items, thinking
 - A class or helper layer other than `StreamItems` MUST NOT stand between a client's events and the public stream.
 - The `mmsp` client overrides `streaming_response` / `streamingResponse`: it stamps `created_at`, leaves the legacy conversion and the message check to the server's upstream client, and forwards the server's public stream as it arrives, because that client has built it already ([MMSP-RFC-0003](MMSP-RFC-0003-message-requests.md#7-the-mmsp-client) §7).
 
-## 9. Conformance
+## 9. Plugins
+
+- A compatible client ([MMSP-RFC-0005](MMSP-RFC-0005-client-routing.md#2-conventions-and-terminology) §2) MUST speak its protocol in its transforms as its reference client does, and MUST NOT branch on its base URL or its model id there. What one endpoint, or one vendor's models served through the protocol, need beyond it, a field named otherwise, a shape streamed otherwise, a parameter only they take or a count they report wrong, MUST be a plugin. An official client, an adapter and `google-genai`, whose protocol serves Google's models only, tell their models apart in their own code ([MMSP-RFC-0003](MMSP-RFC-0003-message-requests.md#61-explicit-matching) §6.1).
+- A plugin is a subclass of `ClientPlugin` (`src_py/mmsp/plugin.py` / `src_ts/src/plugin.ts`) in a file of its own, `<client>/plugins/<name>.py` / `<client>/plugins/<name>.ts`, and the folder's `PLUGINS` lists the client's plugins in the order they run. A plugin declares `hosts`, base-URL hosts each of which matches itself and its subdomains, and `models`, a regular expression searched in the model id without regard to case. It MUST declare at least one of them, and it is enabled for a client whose base URL and model id match every one it declares.
+- A client MUST build its enabled plugins once, in its constructor, from its model id and the base URL its SDK calls (`enabled_plugins` / `enabledPlugins`); each holds the model id, that base URL and the client's SDK object. The base class keeps the list (`_plugins`), empty for a client with no plugins.
+- Plugins are part of the package: a caller MUST NOT be able to add one or turn one off, and `AutoLLMClient` and the client constructors take no plugin argument.
+- A client with plugins MUST call their hooks in `_streaming_response_internal` / `_streamingResponseInternal`, every enabled plugin in `PLUGINS` order, and only there. `on_request(config, request)` / `onRequest(config, request, signal)`, which MAY await, runs after the config and message transforms and before the request is sent, on the keyword arguments of the SDK call with the wire messages among them. `on_wire_event(wire_event)` / `onWireEvent(wireEvent)` runs on each wire event before the event transform reads it, and `on_event(event)` / `onEvent(event)` on the `UniEvent` it makes. A hook changes its argument in place, returns nothing and does nothing unless the plugin defines it.
+- A plugin MUST turn its endpoint's wire into the shape the transforms read, and the shape they write into its endpoint's, so that the items, their `fidelity` and the stream's rules stay the transforms' and the base class's ([MMSP-RFC-0003](MMSP-RFC-0003-message-requests.md#41-what-a-client-yields) §4.1, [MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.md#4-what-each-wire-needs-back) §4): Mistral's thinking chunks are read as `reasoning_content`, and `reasoning_content` goes back to Mistral as a thinking chunk.
+- Conversion stays stateless (§3). A plugin MAY keep what it read of its endpoint, such as whether a model reasons, for the life of its client, and nothing of a conversation. A request a plugin makes goes through the client's SDK object, to the client's base URL with the client's credential ([MMSP-RFC-0006](MMSP-RFC-0006-upstream-credentials.md#4-resolution) §4), and passes on the abort signal ([MMSP-RFC-0008](MMSP-RFC-0008-request-interruption.md#3-interrupting-a-stream) §3).
+
+## 10. Conformance
 
 - Review against the reference clients, as `.agents/skills/mmsp-dev/SKILL.md` describes.
 - `src_py/mmsp/base_client.py` / `src_ts/src/baseClient.ts`; `src_py/mmsp/stream_items.py` / `src_ts/src/streamItems.ts`; `src_py/mmsp/legacy.py` / `src_ts/src/legacy.ts`; `src_py/mmsp/wire.py` / `src_ts/src/wire.ts`; the transforms of every client under `src_py/mmsp/<client>/client.py` and `src_ts/src/<client>/client.ts`.
@@ -71,3 +85,4 @@ The message transform MUST keep the order of an assistant turn's items, thinking
 - `test_message_order.py` / `message-order.test.ts`, which send a turn of thinking, text and a tool call through the clients of every protocol and check the order on the wire.
 - `test_reasoning_fidelity.py` / `reasoning-fidelity.test.ts`, which check the exact item a replay sends.
 - `test_mmsp_server.py` / `mmsp-server.test.ts`, which check that the stream through the server equals the upstream stream.
+- `src_py/mmsp/plugin.py` / `src_ts/src/plugin.ts` and every client's `plugins/` folder; `test_plugins.py` / `plugins.test.ts`, which check that a plugin is enabled where every condition it declares matches and never otherwise, and that each hook runs where §9 places it; each plugin's own cases go with the tests of what it changes, such as `test_reasoning_fidelity.py` for Mistral's thinking chunks.

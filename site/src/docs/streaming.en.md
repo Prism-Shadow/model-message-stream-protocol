@@ -27,7 +27,7 @@ A streamed response is a sequence of `UniEvent` objects. There are two kinds: `d
 ```text
 stream := delta_event* stop_event
 items  := group*                 the items of the delta events, one per event, in order
-group  := K.delta+ K.done        K = text | thinking | tool_call | inline_data | inline_thinking | embedding
+group  := K.delta+ K.done        K = text | thinking | tool_call | inline_data | inline_thinking | embedding | webtool
 ```
 
 - **One item per delta event.** Taken in order, the items form groups: one or more `K.delta` fragments, then one `K.done` holding the complete item.
@@ -43,13 +43,14 @@ group  := K.delta+ K.done        K = text | thinking | tool_call | inline_data |
 | `text.delta` | `text` | |
 | `thinking.delta` | `thinking` | |
 | `tool_call.delta` | `arguments`, a fragment of a JSON string | `name` and `tool_call_id` are set on the first fragment of a call and empty afterwards |
-| `inline_data.delta` | `data` bytes | Audio arrives in chunks of one item; every image is an item of its own |
+| `inline_data.delta` | `data` bytes | Audio arrives in chunks of one item; every image or video is an item of its own |
 | `inline_thinking.delta` | `data` bytes | |
 | `embedding.delta` | `embedding` | One whole vector |
+| `webtool.delta` | `webdata` | One request's whole answer |
 
 `image_url` and `tool_result` are written by the user only, so they have no delta form.
 
-A `.done` item is the first fragment of its group with the growing field replaced by everything the fragments carried: the concatenated text, thinking or bytes, the parsed arguments, the vector.
+A `.done` item is the first fragment of its group with the growing field replaced by everything the fragments carried: the concatenated text, thinking or bytes, the parsed arguments, the vector, the pages.
 
 ## An example
 
@@ -79,3 +80,11 @@ The third event carries nothing but [`fidelity`](/docs/fidelity/): the signature
 ## Embeddings
 
 An embedding model streams one `embedding.delta` and one `embedding.done` per message you sent, in the order you sent them, then the `stop` event. The items of one message are embedded together as one vector.
+
+## Web search and fetch
+
+A web tool model (`deepseek-search`, `deepseek-fetch`, `jina-search`, `jina-fetch`) streams one `webtool.delta` and one `webtool.done` per message you sent, then the `stop` event. A message's text is the query of a search or the URL of a fetch. A search's `webdata` holds its results in rank order, each with its summary as `content`, and is empty when it found nothing; a fetch's holds the one page, with its Markdown as `content`. The `stop` event's `prompt_tokens` is what was billed: 1 per request on DeepSeek, the tokens Jina counts on Jina.
+
+## Images, speech and transcription
+
+The media clients make one request per message too. `openai-image` streams each image as one `inline_data.delta` and its `inline_data.done`. `openai-speech` streams the audio as it is made, as `inline_data.delta` chunks of one item per message, headerless PCM named `audio/l16; rate=<rate>; channels=<channels>`. `openai-transcription` takes one audio `inline_data.done` per message and streams its text as one `text.delta` and its `text.done`. The `stop` event's `prompt_tokens` is what was billed: an image's input tokens, with its output tokens as `response_tokens`; speech's input in UTF-8 bytes; a transcription's audio in seconds, rounded up.

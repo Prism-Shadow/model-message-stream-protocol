@@ -20,7 +20,7 @@ type FakeOpenAICompatibleClient = {
   baseURL: string;
   chat: {
     completions: {
-      create: () => Promise<AsyncIterable<unknown>>;
+      create: (params?: unknown) => Promise<AsyncIterable<unknown>>;
     };
   };
 };
@@ -103,7 +103,7 @@ function createAutoClient(testCase: ReasoningReplayCase): AutoLLMClient {
 }
 
 function deltaChunk(delta: {
-  content?: string;
+  content?: unknown;
   reasoning_content?: string;
   reasoning?: string | null;
   reasoning_details?: Record<string, unknown>[];
@@ -920,5 +920,94 @@ describe("generateContent signature replay", () => {
         { text: "The weather in Beijing is sunny.", thoughtSignature: "sig-2" },
       ],
     });
+  });
+});
+
+describe("Thinking chunks on Mistral's endpoint", () => {
+  test("are read as thinking and go back as a chunk", async () => {
+    // Mistral streams the thinking inside `delta.content` as content chunks and refuses a replayed
+    // reasoning field; the `mistral` plugin of openai-chat reads the chunks as `reasoning_content`
+    // and writes that field back as a chunk (ported from #322)
+    const client = new AutoLLMClient({
+      model: "magistral-medium-latest",
+      apiKey: "test-key",
+      baseUrl: "https://api.mistral.ai/v1",
+      clientType: "openai-chat",
+    });
+    installFakeOpenAICompatibleStream(client, [
+      deltaChunk({
+        content: [
+          {
+            type: "thinking",
+            thinking: [{ type: "text", text: "Let me think " }],
+            closed: true,
+          },
+        ],
+      }),
+      deltaChunk({
+        content: [
+          {
+            type: "thinking",
+            thinking: [{ type: "text", text: "about the memo." }],
+            closed: true,
+          },
+          { type: "text", text: "Here is" },
+        ],
+      }),
+      deltaChunk({ content: " the memo." }),
+      stopChunk(),
+    ]);
+
+    const events: UniEvent[] = [];
+    for await (const event of client.streamingResponseStateful({
+      message: userMessage(),
+      config: {},
+    })) {
+      events.push(event);
+    }
+    assertStreamGrammar(events);
+    expect(
+      streamedItems(events)
+        .filter((item) => item.type === "text.delta")
+        .map((item) => (item as { text: string }).text)
+        .join(""),
+    ).toBe("Here is the memo.");
+    expect(thinkingItems(client.getHistory()[1])).toEqual([
+      {
+        type: "thinking.done",
+        thinking: "Let me think about the memo.",
+        fidelity: { reasoning_field: "reasoning_content" },
+      },
+    ]);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const requests: Record<string, any>[] = [];
+    const routedClient = (
+      client as unknown as { _client: { _client: FakeOpenAICompatibleClient } }
+    )._client;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    routedClient._client.chat.completions.create = async (params: any) => {
+      requests.push(params);
+      return streamFromChunks([deltaChunk({ content: "Done." }), stopChunk()]);
+    };
+    const replayEvents: UniEvent[] = [];
+    for await (const event of client.streamingResponseStateful({
+      message: userMessage(),
+      config: {},
+    })) {
+      replayEvents.push(event);
+    }
+
+    const replayedMessage = requests[0].messages[1];
+    expect(replayedMessage).not.toHaveProperty("reasoning_content");
+    expect(replayedMessage).not.toHaveProperty("reasoning");
+    expect(replayedMessage.content).toEqual([
+      {
+        type: "thinking",
+        thinking: [{ type: "text", text: "Let me think about the memo." }],
+        closed: true,
+      },
+      { type: "text", text: "Here is the memo." },
+    ]);
   });
 });

@@ -13,6 +13,8 @@
 # limitations under the License.
 
 import inspect
+from collections.abc import AsyncIterator
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -70,12 +72,16 @@ def test_gemini3_thinking_config_carries_clamped_level():
 
 # The 3.7 and 3.8 generations drop "minimal" (3.7 verified live 2026-08-13, see
 # llmsdk_docs/gemini3_8/docs/thinking.md; 3.8 documented at
-# ai.google.dev/gemini-api/docs/latest-model), and so does gemini-4-argon; the
-# 3.6-generation models routed to the same client keep the full four-level set.
+# ai.google.dev/gemini-api/docs/latest-model), and so do gemini-4-argon and gemini-4-carbon
+# (Carbon's "minimal" answered 400 live on 2026-11-11); the 3.6-generation models routed to
+# the same client keep the full four-level set.
 GEMINI3_7_THINKING_LEVEL_CASES = [
     ("gemini-4-argon", ThinkingLevel.NONE, "low"),
     ("gemini-4-argon", ThinkingLevel.MEDIUM, "medium"),
     ("gemini-4-argon", ThinkingLevel.MAX, "high"),
+    ("gemini-4-carbon", ThinkingLevel.NONE, "low"),
+    ("gemini-4-carbon", ThinkingLevel.MEDIUM, "medium"),
+    ("gemini-4-carbon", ThinkingLevel.MAX, "high"),
     ("gemini-3.8-flash", ThinkingLevel.NONE, "low"),
     ("gemini-3.8-flash", ThinkingLevel.MAX, "high"),
     ("gemini-3.7-flash", ThinkingLevel.NONE, "low"),
@@ -93,6 +99,26 @@ GEMINI3_7_THINKING_LEVEL_CASES = [
 @pytest.mark.parametrize(("model", "level", "expected"), GEMINI3_7_THINKING_LEVEL_CASES)
 def test_gemini3_8_thinking_level_clamps_to_model_support(model: str, level: ThinkingLevel, expected: str):
     # These are real model ids, so automatic routing reaches GoogleOfficialClient directly.
+    client = AutoLLMClient(model=model, api_key="test-key")
+    assert client._client.__class__.__name__ == "GoogleOfficialClient"
+    assert client._client._convert_thinking_level(level) == expected  # noqa: SLF001
+
+
+# Gemini Omni takes only "low" and "high" ("minimal" and "medium" are refused: "Allowed values are:
+# high, low.", verified live 2026-11-06); every level lands on the closer one, a tie rounding up.
+GEMINI_OMNI_THINKING_LEVEL_CASES = [
+    ("gemini-omni-1.2-flash", ThinkingLevel.NONE, "low"),
+    ("gemini-omni-1.2-flash", ThinkingLevel.LOW, "low"),
+    ("gemini-omni-1.2-flash", ThinkingLevel.MEDIUM, "high"),
+    ("gemini-omni-1.2-flash", ThinkingLevel.HIGH, "high"),
+    ("gemini-omni-1.2-flash", ThinkingLevel.XHIGH, "high"),
+    ("gemini-omni-1.2-flash", ThinkingLevel.MAX, "high"),
+    ("gemini-omni-1.1-flash", ThinkingLevel.NONE, "low"),
+]
+
+
+@pytest.mark.parametrize(("model", "level", "expected"), GEMINI_OMNI_THINKING_LEVEL_CASES)
+def test_gemini_omni_thinking_level_clamps_to_low_and_high(model: str, level: ThinkingLevel, expected: str):
     client = AutoLLMClient(model=model, api_key="test-key")
     assert client._client.__class__.__name__ == "GoogleOfficialClient"
     assert client._client._convert_thinking_level(level) == expected  # noqa: SLF001
@@ -193,7 +219,7 @@ def test_thinking_switch_reaches_the_wire(model: str, client_type: str, level: T
 
 # What each remaining client puts on the wire for a level, per its vendor's effort
 # vocabulary: OpenAI takes the full set except on GPT-6, which rejects "none" and
-# "minimal" so NONE degrades to low (GPT-6 Luna takes none); Claude tops out at max (xhigh
+# "minimal" so NONE degrades to low (GPT-6 Luna and GPT-6.1 Terra take none); Claude tops out at max (xhigh
 # only from 4.7), DeepSeek and Kimi accept low/high/max, DeepSeek and the Kimi K3 series
 # turn thinking off with none, MiniMax-M3 has no level above high, and MiniMax-M3.1-Flash
 # cannot turn thinking off but takes low through max.
@@ -210,6 +236,10 @@ THINKING_EFFORT_CASES = [
     ("gpt-6.1-sol", None, ThinkingLevel.MAX, "max"),
     ("gpt-6-luna", None, ThinkingLevel.NONE, "none"),
     ("gpt-6-luna", "openai-responses", ThinkingLevel.NONE, "none"),
+    ("gpt-6.1-terra", None, ThinkingLevel.NONE, "none"),
+    ("gpt-6.1-terra", None, ThinkingLevel.MAX, "max"),
+    ("gpt-6.1-terra", "openai-responses", ThinkingLevel.NONE, "none"),
+    ("openai/gpt-6.1-terra", "openai-responses", ThinkingLevel.NONE, "none"),
     ("gpt-5.6", None, ThinkingLevel.NONE, "none"),
     ("gpt-5.6", None, ThinkingLevel.XHIGH, "xhigh"),
     ("gpt-5.6", None, ThinkingLevel.MAX, "max"),
@@ -286,13 +316,23 @@ def _wire_effort(config: dict) -> str | None:
     return config.get("reasoning_effort")
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize(("model", "client_type", "level", "expected"), THINKING_EFFORT_CASES)
-def test_thinking_level_maps_to_vendor_effort(
+async def test_thinking_level_maps_to_vendor_effort(
     model: str, client_type: str | None, level: ThinkingLevel, expected: str | None
 ):
     client = AutoLLMClient(model=model, api_key="test-key", client_type=client_type)
-    config = client._client.transform_uni_config_to_model_config({"thinking_level": level})  # noqa: SLF001
-    assert _wire_effort(config) == expected
+    config = {"thinking_level": level}
+    request = {
+        **client._client.transform_uni_config_to_model_config(config),  # noqa: SLF001
+        "input": [],
+        "messages": [],
+    }
+    # the client's plugins complete the request before it is sent (MMSP-RFC-0009 §9)
+    for plugin in client._client._plugins:  # noqa: SLF001
+        await plugin.on_request(config, request)
+
+    assert _wire_effort(request) == expected
 
 
 # thinking_summary reaches the wire on its own, not only when a thinking_level rides with
@@ -427,3 +467,80 @@ def test_openai_chat_does_not_receive_the_vllm_extension():
     )
     assert "chat_template_kwargs" not in config
     assert "extra_body" not in config
+
+
+# Mistral's endpoint validates `reasoning_effort` per model and refuses the whole request over a value
+# a model does not take, so the `mistral` plugin of openai-chat sends the parameter only to a model
+# whose entry in the model list says `capabilities.reasoning`, and `medium`, absent from that scale,
+# goes out as `high` (ported from #323).
+class _FakeModels:
+    def __init__(self, entries: list[SimpleNamespace]) -> None:
+        self._entries = entries
+        self.reads = 0
+
+    async def _iterate(self) -> AsyncIterator[SimpleNamespace]:
+        self.reads += 1
+        for entry in self._entries:
+            yield entry
+
+    def list(self) -> AsyncIterator[SimpleNamespace]:
+        return self._iterate()
+
+
+def _mistral_client(
+    reasoning: bool | None, base_url: str = "https://api.mistral.ai/v1"
+) -> tuple[AutoLLMClient, _FakeModels]:
+    client = AutoLLMClient(model="glm-5.3", api_key="test-key", base_url=base_url, client_type="openai-chat")
+    entry = SimpleNamespace(id="glm-5.3")
+    if reasoning is not None:
+        entry.capabilities = {"reasoning": reasoning}
+
+    models = _FakeModels([SimpleNamespace(id="mistral-small-latest"), entry])
+    for plugin in client._client._plugins:  # noqa: SLF001
+        plugin.sdk = SimpleNamespace(models=models)
+
+    return client, models
+
+
+async def _mistral_effort(client: AutoLLMClient, level: ThinkingLevel) -> str | None:
+    config = {"thinking_level": level}
+    request = {**client._client.transform_uni_config_to_model_config(config), "messages": []}  # noqa: SLF001
+    for plugin in client._client._plugins:  # noqa: SLF001
+        await plugin.on_request(config, request)
+
+    return request.get("reasoning_effort")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("level", "expected"),
+    [
+        (ThinkingLevel.LOW, "low"),
+        (ThinkingLevel.MEDIUM, "high"),
+        (ThinkingLevel.HIGH, "high"),
+        (ThinkingLevel.XHIGH, "xhigh"),
+        (ThinkingLevel.MAX, "max"),
+        (ThinkingLevel.NONE, None),
+    ],
+)
+async def test_openai_chat_sends_mistral_the_mapped_reasoning_effort(level: ThinkingLevel, expected: str | None):
+    client, models = _mistral_client(True)
+    assert await _mistral_effort(client, level) == expected
+    await _mistral_effort(client, level)
+    # the model list is read once per client, and not at all for a level that sends nothing
+    assert models.reads == (1 if expected else 0)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reasoning", [False, None])
+async def test_openai_chat_sends_mistral_no_reasoning_effort_where_the_model_does_not_reason(reasoning: bool | None):
+    client, _ = _mistral_client(reasoning)
+    assert await _mistral_effort(client, ThinkingLevel.MEDIUM) is None
+
+
+@pytest.mark.asyncio
+async def test_openai_chat_sends_no_reasoning_effort_to_another_endpoint():
+    client, models = _mistral_client(True, base_url="https://api.test.invalid/v1")
+    assert client._client._plugins == ()  # noqa: SLF001
+    assert await _mistral_effort(client, ThinkingLevel.HIGH) is None
+    assert models.reads == 0

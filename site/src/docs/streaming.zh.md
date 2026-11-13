@@ -27,7 +27,7 @@ description: UniEvent，以及每条流都遵循的同一套文法，无论来�
 ```text
 stream := delta_event* stop_event
 items  := group*                 delta 事件里的内容项，每个事件一项，按顺序
-group  := K.delta+ K.done        K = text | thinking | tool_call | inline_data | inline_thinking | embedding
+group  := K.delta+ K.done        K = text | thinking | tool_call | inline_data | inline_thinking | embedding | webtool
 ```
 
 - **每个 delta 事件只含一项内容。** 按顺序看，这些项组成一个个组：先是一个或多个 `K.delta` 片段，然后是一个持有完整内容项的 `K.done`。
@@ -43,13 +43,14 @@ group  := K.delta+ K.done        K = text | thinking | tool_call | inline_data |
 | `text.delta` | `text` | |
 | `thinking.delta` | `thinking` | |
 | `tool_call.delta` | `arguments`，JSON 字符串片段 | `name` 和 `tool_call_id` 仅在调用的第一个片段设置，后续为空 |
-| `inline_data.delta` | `data` 字节 | 音频分块到达，每块一项；每张图片独立为一项 |
+| `inline_data.delta` | `data` 字节 | 音频分块到达，每块一项；每张图片或每段视频独立为一项 |
 | `inline_thinking.delta` | `data` 字节 | |
 | `embedding.delta` | `embedding` | 整个向量 |
+| `webtool.delta` | `webdata` | 一次请求的完整结果 |
 
 `image_url` 和 `tool_result` 仅由用户侧写入，因此没有 delta 形式。
 
-`.done` 项相当于所在组的第一个片段，但将其增长字段替换为所有片段拼接后的完整内容：拼接的文本或思考、解析后的参数、完整的字节或向量。
+`.done` 项相当于所在组的第一个片段，但将其增长字段替换为所有片段拼接后的完整内容：拼接的文本或思考、解析后的参数、完整的字节、向量或网页。
 
 ## 示例
 
@@ -79,3 +80,11 @@ stop   usage_metadata={...}  finish_reason="tool_call"
 ## 向量
 
 向量模型对你发送的每条消息依次流式输出一个 `embedding.delta` 和一个 `embedding.done`，最后是 `stop` 事件。一条消息的所有内容项共同嵌入为一个向量。
+
+## 网页搜索与网页抓取
+
+网页工具模型（`deepseek-search`、`deepseek-fetch`、`jina-search`、`jina-fetch`）对你发送的每条消息流式输出一个 `webtool.delta` 和一个 `webtool.done`，最后是 `stop` 事件。消息的文本就是搜索的查询或抓取的 URL。搜索的 `webdata` 按排名存放结果，每条的 `content` 是摘要，什么也没搜到时为空列表；抓取的 `webdata` 只有读到的那一页，`content` 是它的 Markdown。`stop` 事件的 `prompt_tokens` 是计费量：DeepSeek 每次请求记 1，Jina 记它计费的 token 数。
+
+## 图像、语音合成与语音转写
+
+媒体客户端同样每条消息发一次请求。`openai-image` 把每张图片作为一个 `inline_data.delta` 及其 `inline_data.done` 流出。`openai-speech` 边生成边流出音频，每条消息一个内容项，分成多个 `inline_data.delta`，无文件头的 PCM 命名为 `audio/l16; rate=<rate>; channels=<channels>`。`openai-transcription` 每条消息接受一个音频 `inline_data.done`，把转写的文字作为一个 `text.delta` 及其 `text.done` 流出。`stop` 事件的 `prompt_tokens` 是计费量：图像为输入 token 数，输出 token 数记在 `response_tokens`；语音为输入的 UTF-8 字节数；转写为音频秒数，向上取整。

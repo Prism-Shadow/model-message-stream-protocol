@@ -28,6 +28,7 @@ from .errors import (
     StreamProtocolError,
 )
 from .legacy import normalize_legacy_messages
+from .plugin import ClientPlugin
 from .stream_items import StreamItems
 from .types import ContentItem, FinishReason, UniConfig, UniEvent, UniMessage, UsageMetadata
 
@@ -51,6 +52,8 @@ class LLMClient(ABC):
     _history: list[UniMessage]
     # the stateful call that holds the history until its stop event, its end or its abort, if any
     _in_flight: dict[str, AbortSignal | None] | None = None
+    # the plugins the client runs, built in its constructor from its plugins/ folder (MMSP-RFC-0009 §9)
+    _plugins: tuple[ClientPlugin, ...] = ()
 
     @abstractmethod
     def transform_uni_config_to_model_config(self, config: UniConfig) -> Any:

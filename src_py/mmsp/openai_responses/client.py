@@ -20,6 +20,7 @@ from openai.types.responses import ResponseInputParam, ResponseStreamEvent
 
 from ..base_client import LLMClient
 from ..errors import InvalidMessageError, UnknownEventError, UnsupportedParameterError
+from ..plugin import enabled_plugins
 from ..types import (
     EventContentItem,
     EventType,
@@ -32,7 +33,8 @@ from ..types import (
     UniMessage,
     UsageMetadata,
 )
-from ..utils import is_debug_enabled, openai_client_options, openai_image_detail, resolve_credentials
+from ..utils import is_debug_enabled, openai_client_options, prompt_cache_key, resolve_credentials
+from .plugins import PLUGINS
 
 
 class OpenaiResponsesClient(LLMClient):
@@ -53,17 +55,11 @@ class OpenaiResponsesClient(LLMClient):
             base_url=url,
             **openai_client_options("openai-responses", base_url, key, default_headers),
         )
+        self._plugins = enabled_plugins(PLUGINS, model, str(self._client.base_url), self._client)
         self._history: list[UniMessage] = []
 
     def _convert_thinking_level_to_effort(self, thinking_level: ThinkingLevel) -> str:
         """Convert ThinkingLevel enum to the Responses API reasoning effort."""
-        # GPT-6 Luna accepts none on official and gateway routes.
-        if thinking_level == ThinkingLevel.NONE and "gpt-6" in self._model and "gpt-6-luna" not in self._model:
-            # a gateway serving GPT-6 Astra or GPT-6.1 Sol forwards the effort to OpenAI, which rejects "none" and
-            # "minimal" with a 400 (verified live 2026-09-09 against api.openai.com), so NONE
-            # degrades to the lowest effort the generation accepts.
-            return "low"
-
         mapping = {
             ThinkingLevel.NONE: "none",
             ThinkingLevel.LOW: "low",
@@ -77,16 +73,19 @@ class OpenaiResponsesClient(LLMClient):
     def _convert_tool_choice(self, tool_choice: ToolChoice) -> str | dict[str, Any]:
         """Convert ToolChoice to the Responses API tool_choice format with allowed tools support."""
         if isinstance(tool_choice, list):
-            return {"mode": "required", "tools": [{"type": "function", "name": name} for name in tool_choice]}
+            # the documented allowed-tools object; without its type OpenAI and OpenRouter refuse it with a 400
+            # (verified live 2026-11-02; DeepSeek refuses every forced tool_choice in thinking mode, and
+            # MiniMax and Z.AI ignore it in either shape)
+            return {
+                "type": "allowed_tools",
+                "mode": "required",
+                "tools": [{"type": "function", "name": name} for name in tool_choice],
+            }
         return tool_choice
 
     def _convert_image_url(self, image_url: str) -> dict[str, str]:
-        """Convert an image URL to an input_image item, at the detail the API needs to read it."""
-        item = {"type": "input_image", "image_url": image_url}
-        if detail := openai_image_detail(self._model, image_url):
-            item["detail"] = detail
-
-        return item
+        """Convert an image URL to an input_image item."""
+        return {"type": "input_image", "image_url": image_url}
 
     def transform_uni_config_to_model_config(self, config: UniConfig) -> dict[str, Any]:
         """
@@ -132,6 +131,9 @@ class OpenaiResponsesClient(LLMClient):
             raise UnsupportedParameterError(
                 self.__class__.__name__, "prompt_caching", "prompt_caching must be ENABLE for the Responses API."
             )
+
+        if config.get("session_id"):
+            openai_config["prompt_cache_key"] = prompt_cache_key(config["session_id"])
 
         return openai_config
 
@@ -412,11 +414,22 @@ class OpenaiResponsesClient(LLMClient):
         # Use unified message conversion
         input_list = self.transform_uni_message_to_model_input(messages)
 
+        request = {**openai_config, "input": input_list, "stream": True}
+        for plugin in self._plugins:
+            await plugin.on_request(config, request)
+
         # Stream generate
-        stream = await self._client.responses.create(**openai_config, input=input_list, stream=True)
+        stream = await self._client.responses.create(**request)
         async with stream:
             async for model_event in stream:
-                yield self.transform_model_output_to_uni_event(model_event)
+                for plugin in self._plugins:
+                    plugin.on_wire_event(model_event)
+
+                event = self.transform_model_output_to_uni_event(model_event)
+                for plugin in self._plugins:
+                    plugin.on_event(event)
+
+                yield event
 
     async def list_models(self) -> list[str]:
         """

@@ -36,11 +36,9 @@ import {
   UniMessage,
   UsageMetadata,
 } from "../types";
-import {
-  fixOpenrouterUsageMetadata,
-  isDebugEnabled,
-  resolveCredentials,
-} from "../utils";
+import { enabledPlugins } from "../plugin";
+import { isDebugEnabled, resolveCredentials } from "../utils";
+import { PLUGINS } from "./plugins";
 
 const REDACTED_THINKING = "_REDACTED_THINKING";
 
@@ -77,6 +75,12 @@ export class AntMessagesClient extends LLMClient {
       baseURL: url,
       defaultHeaders: options.defaultHeaders,
     });
+    this._plugins = enabledPlugins(
+      PLUGINS,
+      options.model,
+      this._client.baseURL,
+      this._client,
+    );
   }
 
   /**
@@ -433,15 +437,12 @@ export class AntMessagesClient extends LLMClient {
         const thinkingTokens =
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (usage as any).output_tokens_details?.thinking_tokens ?? null;
-        usageMetadata = fixOpenrouterUsageMetadata(
-          {
-            cached_tokens: usage.cache_read_input_tokens ?? null,
-            prompt_tokens: promptTokens,
-            thoughts_tokens: thinkingTokens,
-            response_tokens: usage.output_tokens - (thinkingTokens || 0),
-          },
-          this._client.baseURL,
-        );
+        usageMetadata = {
+          cached_tokens: usage.cache_read_input_tokens ?? null,
+          prompt_tokens: promptTokens,
+          thoughts_tokens: thinkingTokens,
+          response_tokens: usage.output_tokens - (thinkingTokens || 0),
+        };
       }
     } else if (
       [
@@ -490,18 +491,22 @@ export class AntMessagesClient extends LLMClient {
       options.signal,
     );
 
-    const stream = (await this._client.beta.messages.create(
-      {
-        ...antConfig,
-        messages: antMessages,
-      },
-      {
-        signal: options.signal,
-      },
-    )) as unknown as Stream<BetaRawMessageStreamEvent>;
+    const request = { ...antConfig, messages: antMessages };
+    for (const plugin of this._plugins) {
+      await plugin.onRequest(options.config, request, options.signal);
+    }
 
-    for await (const event of stream) {
-      yield this.transformModelOutputToUniEvent(event);
+    const stream = (await this._client.beta.messages.create(request, {
+      signal: options.signal,
+    })) as unknown as Stream<BetaRawMessageStreamEvent>;
+
+    for await (const wireEvent of stream) {
+      for (const plugin of this._plugins) plugin.onWireEvent(wireEvent);
+
+      const event = this.transformModelOutputToUniEvent(wireEvent);
+      for (const plugin of this._plugins) plugin.onEvent(event);
+
+      yield event;
     }
   }
 

@@ -183,10 +183,14 @@ class ImageDetailCase:
 
 IMAGE_DETAIL_CASES = [
     ImageDetailCase("OpenAIOfficialClient", "gpt-5.6-terra", None, "responses", True),
+    ImageDetailCase("OpenAIOfficialClient", "gpt-6.1-terra", None, "responses", True),
+    ImageDetailCase("OpenAIOfficialClient", "gpt-6-astra", None, "responses", True),
     ImageDetailCase("OpenAIOfficialClient", "gpt-5.5", None, "responses", False),
     ImageDetailCase("OpenaiResponsesClient", "openai/gpt-5.6-terra", "openai-responses", "responses", True),
+    ImageDetailCase("OpenaiResponsesClient", "openai/gpt-6.1-terra", "openai-responses", "responses", True),
     ImageDetailCase("OpenaiResponsesClient", "deepseek-v4-flash-vision-exp", "openai-responses", "responses", False),
     ImageDetailCase("OpenaiChatClient", "GPT-5.6-Sol", "openai-chat", "chat", True),
+    ImageDetailCase("OpenaiChatClient", "gpt-6-luna", "openai-chat", "chat", True),
     ImageDetailCase("OpenaiChatClient", "gpt-5.5", "openai-chat", "chat", False),
     ImageDetailCase("MoonshotOfficialClient", "kimi-k3", None, "chat", False),
     ImageDetailCase("ZAIOfficialClient", "glm-5.3-flash", None, "chat", False),
@@ -276,6 +280,11 @@ async def test_image_parts_go_out_at_the_detail_the_client_needs_or_are_refused_
     model_input = client._client.transform_uni_message_to_model_input(MESSAGES)  # noqa: SLF001
     if inspect.isawaitable(model_input):
         model_input = await model_input
+
+    # the client's plugins complete the request before it is sent (MMSP-RFC-0009 §9)
+    request = {"input" if case.protocol == "responses" else "messages": model_input}
+    for plugin in client._client._plugins:  # noqa: SLF001
+        await plugin.on_request({}, request)
 
     shrunk = "high" if case.shrinks else "absent"
     assert _details(case, model_input) == [shrunk, "absent", shrunk, "absent"]

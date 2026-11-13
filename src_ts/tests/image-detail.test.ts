@@ -14,6 +14,7 @@
 
 import { expect, describe, test } from "@jest/globals";
 import { AutoLLMClient, UniMessage, UnsupportedContentError } from "../src";
+import type { ClientPlugin } from "../src/plugin";
 import { exceedsOpenaiPatchLimit, imageDimensions } from "../src/utils";
 
 // Header builders. Only the bytes the parser reads have to be right, so none of these is a
@@ -271,6 +272,18 @@ const IMAGE_DETAIL_CASES: ImageDetailCase[] = [
   },
   {
     expectedClient: "OpenAIOfficialClient",
+    model: "gpt-6.1-terra",
+    protocol: "responses",
+    shrinks: true,
+  },
+  {
+    expectedClient: "OpenAIOfficialClient",
+    model: "gpt-6-astra",
+    protocol: "responses",
+    shrinks: true,
+  },
+  {
+    expectedClient: "OpenAIOfficialClient",
     model: "gpt-5.5",
     protocol: "responses",
     shrinks: false,
@@ -278,6 +291,13 @@ const IMAGE_DETAIL_CASES: ImageDetailCase[] = [
   {
     expectedClient: "OpenaiResponsesClient",
     model: "openai/gpt-5.6-terra",
+    clientType: "openai-responses",
+    protocol: "responses",
+    shrinks: true,
+  },
+  {
+    expectedClient: "OpenaiResponsesClient",
+    model: "openai/gpt-6.1-terra",
     clientType: "openai-responses",
     protocol: "responses",
     shrinks: true,
@@ -292,6 +312,13 @@ const IMAGE_DETAIL_CASES: ImageDetailCase[] = [
   {
     expectedClient: "OpenaiChatClient",
     model: "GPT-5.6-Sol",
+    clientType: "openai-chat",
+    protocol: "chat",
+    shrinks: true,
+  },
+  {
+    expectedClient: "OpenaiChatClient",
+    model: "gpt-6-luna",
     clientType: "openai-chat",
     protocol: "chat",
     shrinks: true,
@@ -414,6 +441,7 @@ describe.each(IMAGE_DETAIL_CASES)(
         client as unknown as {
           _client: {
             constructor: { name: string };
+            _plugins: ClientPlugin[];
             transformUniMessageToModelInput(
               messages: UniMessage[],
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -440,6 +468,13 @@ describe.each(IMAGE_DETAIL_CASES)(
 
       const modelInput =
         await routedClient.transformUniMessageToModelInput(MESSAGES);
+      // the client's plugins complete the request before it is sent (MMSP-RFC-0009 §9)
+      const request = {
+        [testCase.protocol === "responses" ? "input" : "messages"]: modelInput,
+      };
+      for (const plugin of routedClient._plugins) {
+        await plugin.onRequest({}, request);
+      }
 
       const shrunk = testCase.shrinks ? "high" : "absent";
       expect(details(testCase, modelInput)).toEqual([

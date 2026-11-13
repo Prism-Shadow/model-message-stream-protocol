@@ -68,3 +68,4 @@ jobs:
           BEDROCK_API_KEY: ${{ secrets.BEDROCK_API_KEY }}
           VERTEX_API_KEY: ${{ secrets.VERTEX_API_KEY }}
           TOKENDANCE_API_KEY: ${{ secrets.TOKENDANCE_API_KEY }}
+          JINA_API_KEY: ${{ secrets.JINA_API_KEY }}

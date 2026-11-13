@@ -12,7 +12,7 @@
 | PR to `main`, push to `main`, manual CI run | All configured clients |
 | Package publication, including manual publication | All configured clients; both languages must pass before either package publishes |
 
-Python also reruns the offline tests with `anthropic[bedrock]<2` and `==0.87.0`, so both older SDK lines stay covered without extra model calls.
+Python also reruns the offline tests with `anthropic[bedrock]<2` and `==0.87.0`, and with `google-genai<3` and `==2.23.0`, so the older SDK lines stay covered without extra model calls.
 
 A live model case that fails on a rate limit or an `IncompleteStreamError` is retried up to 5 times, 30 s apart (`--only-rerun` in `pytest.yml`, `withTransientRetry` in `client.test.ts`); any other failure fails on its first attempt.
 

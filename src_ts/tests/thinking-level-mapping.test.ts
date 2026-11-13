@@ -77,12 +77,16 @@ describe("gemini3 thinking level clamping", () => {
 
 // The 3.7 and 3.8 generations drop "minimal" (3.7 verified live 2026-08-13, see
 // llmsdk_docs/gemini3_8/docs/thinking.md; 3.8 documented at
-// ai.google.dev/gemini-api/docs/latest-model), and so does gemini-4-argon; the
-// 3.6-generation models routed to the same client keep the full four-level set.
+// ai.google.dev/gemini-api/docs/latest-model), and so do gemini-4-argon and gemini-4-carbon
+// (Carbon's "minimal" answered 400 live on 2026-11-11); the 3.6-generation models routed to
+// the same client keep the full four-level set.
 const GEMINI3_7_THINKING_LEVEL_CASES: Array<[string, ThinkingLevel, string]> = [
   ["gemini-4-argon", ThinkingLevel.NONE, "low"],
   ["gemini-4-argon", ThinkingLevel.MEDIUM, "medium"],
   ["gemini-4-argon", ThinkingLevel.MAX, "high"],
+  ["gemini-4-carbon", ThinkingLevel.NONE, "low"],
+  ["gemini-4-carbon", ThinkingLevel.MEDIUM, "medium"],
+  ["gemini-4-carbon", ThinkingLevel.MAX, "high"],
   ["gemini-3.8-flash", ThinkingLevel.NONE, "low"],
   ["gemini-3.8-flash", ThinkingLevel.MAX, "high"],
   ["gemini-3.7-flash", ThinkingLevel.NONE, "low"],
@@ -101,6 +105,36 @@ describe("google_official thinking level clamping", () => {
     "%s clamps %s to %s",
     (model, level, expected) => {
       // These are real model ids, so automatic routing reaches GoogleOfficialClient directly.
+      const client = new AutoLLMClient({ model, apiKey: "test-key" });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((client as any)._client.constructor.name).toBe(
+        "GoogleOfficialClient",
+      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((client as any)._client._convertThinkingLevel(level)).toBe(
+        expected,
+      );
+    },
+  );
+});
+
+// Gemini Omni takes only "low" and "high" ("minimal" and "medium" are refused: "Allowed values are:
+// high, low.", verified live 2026-11-06); every level lands on the closer one, a tie rounding up.
+const GEMINI_OMNI_THINKING_LEVEL_CASES: Array<[string, ThinkingLevel, string]> =
+  [
+    ["gemini-omni-1.2-flash", ThinkingLevel.NONE, "low"],
+    ["gemini-omni-1.2-flash", ThinkingLevel.LOW, "low"],
+    ["gemini-omni-1.2-flash", ThinkingLevel.MEDIUM, "high"],
+    ["gemini-omni-1.2-flash", ThinkingLevel.HIGH, "high"],
+    ["gemini-omni-1.2-flash", ThinkingLevel.XHIGH, "high"],
+    ["gemini-omni-1.2-flash", ThinkingLevel.MAX, "high"],
+    ["gemini-omni-1.1-flash", ThinkingLevel.NONE, "low"],
+  ];
+
+describe("gemini omni thinking level clamping", () => {
+  test.each(GEMINI_OMNI_THINKING_LEVEL_CASES)(
+    "%s clamps %s to %s",
+    (model, level, expected) => {
       const client = new AutoLLMClient({ model, apiKey: "test-key" });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect((client as any)._client.constructor.name).toBe(
@@ -247,10 +281,10 @@ describe("thinking switch reaches the wire", () => {
 
 // What each remaining client puts on the wire for a level, per its vendor's effort
 // vocabulary: OpenAI takes the full set except on GPT-6, which rejects "none" and
-// "minimal" so NONE degrades to low (GPT-6 Luna takes none); Claude tops out at max (xhigh
-// only from 4.7), DeepSeek and Kimi accept low/high/max, DeepSeek and the Kimi K3 series
-// turn thinking off with none, MiniMax-M3 has no level above high, and
-// MiniMax-M3.1-Flash cannot turn thinking off but takes low through max.
+// "minimal" so NONE degrades to low (GPT-6 Luna and GPT-6.1 Terra take none); Claude
+// tops out at max (xhigh only from 4.7), DeepSeek and Kimi accept low/high/max,
+// DeepSeek and the Kimi K3 series turn thinking off with none, MiniMax-M3 has no level
+// above high, and MiniMax-M3.1-Flash cannot turn thinking off but takes low through max.
 const THINKING_EFFORT_CASES: Array<
   [string, string | undefined, ThinkingLevel, string | undefined]
 > = [
@@ -261,6 +295,10 @@ const THINKING_EFFORT_CASES: Array<
   ["gpt-6.1-sol", undefined, ThinkingLevel.MAX, "max"],
   ["gpt-6-luna", undefined, ThinkingLevel.NONE, "none"],
   ["gpt-6-luna", "openai-responses", ThinkingLevel.NONE, "none"],
+  ["gpt-6.1-terra", undefined, ThinkingLevel.NONE, "none"],
+  ["gpt-6.1-terra", undefined, ThinkingLevel.MAX, "max"],
+  ["gpt-6.1-terra", "openai-responses", ThinkingLevel.NONE, "none"],
+  ["openai/gpt-6.1-terra", "openai-responses", ThinkingLevel.NONE, "none"],
   // a gateway serving GPT-6 forwards the effort to OpenAI, so the generic Responses
   // client degrades NONE the same way
   ["gpt-6-astra", "openai-responses", ThinkingLevel.NONE, "low"],
@@ -343,17 +381,25 @@ function wireEffort(config: any): string | undefined {
 describe("thinking level to vendor effort", () => {
   test.each(THINKING_EFFORT_CASES)(
     "%s (%s) maps %s to %s",
-    (model, clientType, level, expected) => {
+    async (model, clientType, level, expected) => {
       const client = new AutoLLMClient({
         model,
         apiKey: "test-key",
         clientType,
       });
+      const config = { thinking_level: level };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const config = (client as any)._client.transformUniConfigToModelConfig({
-        thinking_level: level,
-      });
-      expect(wireEffort(config)).toBe(expected);
+      const routedClient = (client as any)._client;
+      const request = {
+        ...routedClient.transformUniConfigToModelConfig(config),
+        input: [],
+        messages: [],
+      };
+      // the client's plugins complete the request before it is sent (MMSP-RFC-0009 §9)
+      for (const plugin of routedClient._plugins) {
+        await plugin.onRequest(config, request);
+      }
+      expect(wireEffort(request)).toBe(expected);
     },
   );
 });
@@ -579,5 +625,88 @@ describe("vLLM thinking switch", () => {
       thinking_level: ThinkingLevel.NONE,
     });
     expect(config.chat_template_kwargs).toBeUndefined();
+  });
+});
+
+// Mistral's endpoint validates `reasoning_effort` per model and refuses the whole request over a
+// value a model does not take, so the `mistral` plugin of openai-chat sends the parameter only to
+// a model whose entry in the model list says `capabilities.reasoning`, and `medium`, absent from
+// that scale, goes out as `high` (ported from #323).
+function mistralClient(
+  reasoning: boolean | undefined,
+  baseUrl: string = "https://api.mistral.ai/v1",
+): { client: AutoLLMClient; reads: () => number } {
+  const client = new AutoLLMClient({
+    model: "glm-5.3",
+    apiKey: "test-key",
+    baseUrl,
+    clientType: "openai-chat",
+  });
+  const entry: Record<string, unknown> = { id: "glm-5.3" };
+  if (reasoning !== undefined) entry.capabilities = { reasoning };
+  let reads = 0;
+  const models = {
+    list: () => ({
+      async *[Symbol.asyncIterator]() {
+        reads += 1;
+        yield { id: "mistral-small-latest" };
+        yield entry;
+      },
+    }),
+  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const plugin of (client as any)._client._plugins) {
+    plugin.sdk = { models };
+  }
+  return { client, reads: () => reads };
+}
+
+async function mistralEffort(
+  client: AutoLLMClient,
+  level: ThinkingLevel,
+): Promise<unknown> {
+  const config = { thinking_level: level };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const routedClient = (client as any)._client;
+  const request = {
+    ...routedClient.transformUniConfigToModelConfig(config),
+    messages: [],
+  };
+  for (const plugin of routedClient._plugins) {
+    await plugin.onRequest(config, request);
+  }
+  return request.reasoning_effort;
+}
+
+describe("openai-chat on Mistral's endpoint", () => {
+  test.each([
+    [ThinkingLevel.LOW, "low"],
+    [ThinkingLevel.MEDIUM, "high"],
+    [ThinkingLevel.HIGH, "high"],
+    [ThinkingLevel.XHIGH, "xhigh"],
+    [ThinkingLevel.MAX, "max"],
+    [ThinkingLevel.NONE, undefined],
+  ])("sends %s as the reasoning_effort %s", async (level, expected) => {
+    const { client, reads } = mistralClient(true);
+    expect(await mistralEffort(client, level)).toBe(expected);
+    await mistralEffort(client, level);
+    // the model list is read once per client, and not at all for a level that sends nothing
+    expect(reads()).toBe(expected ? 1 : 0);
+  });
+
+  test.each([[false], [undefined]])(
+    "sends no reasoning_effort where the model list says reasoning is %s",
+    async (reasoning) => {
+      const { client } = mistralClient(reasoning);
+      expect(await mistralEffort(client, ThinkingLevel.MEDIUM)).toBeUndefined();
+    },
+  );
+
+  test("another endpoint gets no reasoning_effort", async () => {
+    const { client, reads } = mistralClient(true, "https://api.test.invalid/v1");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((client as any)._client._plugins).toEqual([]);
+    expect(await mistralEffort(client, ThinkingLevel.HIGH)).toBeUndefined();
+    expect(reads()).toBe(0);
   });
 });

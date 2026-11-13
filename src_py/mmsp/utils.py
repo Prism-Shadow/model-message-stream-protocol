@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import base64
+import hashlib
 import math
 import os
 import re
@@ -142,6 +143,25 @@ def is_debug_enabled() -> bool:
     return os.getenv("MMSP_DEBUG", "").strip().lower() not in ("", "0", "false", "no", "off")
 
 
+def prompt_cache_key(session_id: str) -> str:
+    """
+    The prompt cache key a session id goes out as (MMSP-RFC-0014).
+
+    OpenAI's Responses API refuses a key of more than 64 characters, counted in code points, and so
+    do OpenAI's models behind OpenRouter. A longer id goes out as its SHA-256 hex digest, which has
+    64 and keeps one session on one key.
+
+    Args:
+        session_id: The session id of the request, not empty
+
+    Returns:
+        str: The session id when it has at most 64 characters, else its SHA-256 hex digest.
+    """
+    if len(session_id) <= 64:
+        return session_id
+    return hashlib.sha256(session_id.encode("utf-8")).hexdigest()
+
+
 def image_dimensions(data: bytes) -> tuple[int, int] | None:
     """
     Read the pixel dimensions from the header of a PNG, JPEG, GIF or WebP image.
@@ -217,6 +237,9 @@ _OPENAI_PATCH_LIMIT = 30000
 # The longest side the OpenAI vision API keeps at `original` detail; a larger image is scaled
 # down to fit it before the patches are counted (the same guide, model sizing table).
 _OPENAI_ORIGINAL_MAX_SIDE = 65535
+
+# The OpenAI generations whose default `auto` detail sizes an image as `original`.
+_ORIGINAL_DETAIL_BY_DEFAULT = ("gpt-5.6", "gpt-6")
 
 # Base64 characters decoded first: 48 bytes, enough for any PNG, GIF or WebP header. A JPEG's
 # frame header may sit behind metadata segments, so its window grows by the factor below until
@@ -312,10 +335,11 @@ def openai_image_detail(model: str, image_url: str) -> Literal["high"] | None:
     """
     The `detail` an OpenAI image part needs so that the API reads the image.
 
-    GPT-5.6 reads the default `auto` detail as `original`, which keeps the image's own
+    GPT-5.6 and GPT-6 read the default `auto` detail as `original`, which keeps the image's own
     dimensions and rejects one over 30,000 patches instead of resizing it; `high` has the API
-    fit it into 2,500 patches, so the image is read instead of refused. Every other model keeps
-    a patch budget at every detail level, so no other model gets the field.
+    fit it into 2,500 patches, so the image is read instead of refused (verified live 2026-11-02
+    on every GPT-6 model, on Responses, Chat Completions and through OpenRouter). Every other
+    model keeps a patch budget at every detail level, so no other model gets the field.
 
     Args:
         model (str): The model id the request is sent with.
@@ -324,7 +348,8 @@ def openai_image_detail(model: str, image_url: str) -> Literal["high"] | None:
     Returns:
         Literal["high"] | None: "high" when the image needs it, otherwise None.
     """
-    if "gpt-5.6" in model.lower() and exceeds_openai_patch_limit(image_url):
+    reads_original = any(generation in model.lower() for generation in _ORIGINAL_DETAIL_BY_DEFAULT)
+    if reads_original and exceeds_openai_patch_limit(image_url):
         return "high"
 
     return None

@@ -13,23 +13,28 @@ To use a specific model, please refer to its dedicated README:
 - **[Claude 4.7](./claude4_7/README.md)** - Anthropic's Claude 4.7 API documentation and examples
 - **[Claude 4.8](./claude4_8/README.md)** - Anthropic's Claude 4.8 API documentation and examples
 - **[DeepSeek V4](./deepseek_v4/README.md)** - DeepSeek V4 API documentation and OpenAI-compatible usage guides
+- **[DeepSeek web tools](./deepseek_webtool/README.md)** - DeepSeek's Search and Fetch APIs (`deepseek-search`, `deepseek-fetch`; `deepseek-webtool` client), billed per request, also served by TokenDance
 - **[Gemini 3](./gemini3/README.md)** - Google's Gemini 3 API documentation and examples
 - **[Gemini 3.6](./gemini3_6/README.md)** - Google's Gemini 3.6 generation (gemini-3.6-flash, gemini-3.5-flash-lite): sampling-parameter deprecation and thinking levels
 - **[Gemini 3.7](./gemini3_7/README.md)** - Google's Gemini 3.7 generation (gemini-3.7-flash): same wire contract as 3.6, drops the `minimal` thinking level
 - **[Gemini 3.8](./gemini3_8/README.md)** - Google's Gemini 3.8 generation (gemini-3.8-flash, gemini-3.8-flash-tts, gemini-3.8-flash-lite-tts): same wire contract, capabilities and price table as 3.7
-- **[Gemini 4 Argon](./gemini4/README.md)** - Google's `gemini-4-argon`: low/medium/high thinking, a unified 1M-token context window, implicit caching, and long-decode limits
+- **[Gemini 4](./gemini4/README.md)** - Google's `gemini-4-carbon` and `gemini-4-argon`: low/medium/high thinking, a unified 1M-token context window, implicit caching, long-decode limits, and the Gemini API's deprecation schedule
+- **[Gemini Omni Flash](./gemini_omni/README.md)** - Google's video generation and editing model (`gemini-omni-1.2-flash`, `gemini-omni-1.1-flash`) on the Interactions API: `response_format` video entries, image to video, URI delivery, per-second video pricing
 - **[Gemini Interactions API](./gemini_interactions/README.md)** - Google's Interactions API (`/v1beta/interactions`, `steps` schema): thought steps and signatures, streaming step events, function calling, image and speech generation, usage, v1/v1beta and Vertex AI references
 - **[GLM-5.1](./glm5_1/README.md)** - Z.AI's GLM-5.1 API documentation and examples
 - **[GLM-5.2](./glm5_2/README.md)** - Z.AI's GLM-5.2 API documentation (reasoning_effort, thinking modes, tool streaming)
 - **[GLM-5.3](./glm5_3/README.md)** - Z.AI's GLM-5.3 API documentation (forced thinking, reasoning_effort restricted to low/high/max)
 - **[GPT-5.5](./gpt5_5/README.md)** - OpenAI's GPT-5.5 API documentation and examples
 - **[GPT-5.6](./gpt5_6/README.md)** - OpenAI's GPT-5.6 generation (sol/terra/luna): reasoning modes, fast mode, and Responses migration
-- **[GPT-6](./gpt6/README.md)** - OpenAI's GPT-6 generation (gpt-6-astra, gpt-6.1-sol, gpt-6-luna): Responses API, Luna supports `none`, cache-write billing
+- **[GPT-6](./gpt6/README.md)** - OpenAI's GPT-6 generation (gpt-6-astra, gpt-6.1-sol, gpt-6.1-terra, gpt-6-luna): Responses API, Terra and Luna support `none`, cache-write billing
+- **[Jina web tools](./jina_webtool/README.md)** - Jina's Reader (r.jina.ai) and Search (s.jina.ai) APIs (`jina-fetch`, `jina-search`; `jina-webtool` client), billed in tokens
 - **[Kimi K3](./kimi_k3/README.md)** - Moonshot's Kimi K3 API documentation (reasoning_effort, tool calling, vision, caching)
 - **[Kimi K3.1 Pro](./kimi_k3_1/README.md)** - Moonshot's Kimi K3.1 Pro (`kimi-k3.1-pro`, `kimi-k3.1-pro-highspeed`): K3's request contract, new prices, `prompt_cache_options` TTLs and cache-write usage
 - **[MiniMax M-series](./minimax_m3/README.md)** - Responses API-compatible documentation for MiniMax M3.1-Flash (always-on thinking, `effort` low to max, no priority tier) and M3, plus Subscription Key integration
 - **[openai-chat-vllm-adapter model artifacts](./openai_chat_vllm_adapter/README.md)** - Upstream chat templates for the Qwen models served through vLLM, and the encoding module that stands in for one on DeepSeek V4; the source behind the adapter's per-model thinking switch
+- **[OpenAI Images API](./openai_images/README.md)** - OpenAI's `POST /v1/images/generations` for the GPT Image models (`gpt-image-2.5-flare`): sizes, streaming events, usage, errors; plus TokenDance's OpenAI-format gateway for `seedream-5.0-lite`
 - **[OpenAI Responses protocol](./openai_responses/README.md)** - The OpenAI Responses-compatible protocol across OpenAI, OpenRouter, DeepSeek, Z.AI, and MiniMax (generic `openai_responses` client)
+- **[OpenRouter media APIs](./openrouter_media/README.md)** - OpenRouter's image generation (`/api/v1/images`, also answered at `/images/generations`, and Chat Completions `modalities`), text-to-speech (`/api/v1/audio/speech`) and speech-to-text (`/api/v1/audio/transcriptions`), with `bytedance-seed/seedream-5-0-flash`, `fish-audio/drama-3` and `fish-audio/transcribe-1`
 
 Each model directory contains:
 - `docs/` - Detailed documentation for the model's features and capabilities

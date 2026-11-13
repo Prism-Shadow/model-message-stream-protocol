@@ -76,6 +76,10 @@ def _client_class(client_type: str, model: str) -> type[LLMClient]:
             from .minimax_official import MiniMaxOfficialClient
 
             return MiniMaxOfficialClient
+        case "jina-webtool":
+            from .jina_webtool import JinaWebtoolClient
+
+            return JinaWebtoolClient
         case "openai-responses":
             from .openai_responses import OpenaiResponsesClient
 
@@ -92,6 +96,18 @@ def _client_class(client_type: str, model: str) -> type[LLMClient]:
             from .openai_embedding import OpenaiEmbeddingClient
 
             return OpenaiEmbeddingClient
+        case "openai-image":
+            from .openai_image import OpenaiImageClient
+
+            return OpenaiImageClient
+        case "openai-speech":
+            from .openai_speech import OpenaiSpeechClient
+
+            return OpenaiSpeechClient
+        case "openai-transcription":
+            from .openai_transcription import OpenaiTranscriptionClient
+
+            return OpenaiTranscriptionClient
         case "ant-messages":
             from .ant_messages import AntMessagesClient
 
@@ -100,6 +116,10 @@ def _client_class(client_type: str, model: str) -> type[LLMClient]:
             from .google_genai import GoogleGenaiClient
 
             return GoogleGenaiClient
+        case "deepseek-webtool":
+            from .deepseek_webtool import DeepSeekWebtoolClient
+
+            return DeepSeekWebtoolClient
         case "mmsp":
             from .mmsp import MmspClient
 

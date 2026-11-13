@@ -19,18 +19,32 @@ export function statusKey(entry: Pick<SupportedModel, "model" | "base_url" | "cl
 
 // what the page carries of a provider for its kits; a plain token is written as your-key
 export function kitProvider(provider: Provider): KitProvider {
-  const { name, keyEnv, keyHint } = provider;
-  return { name, keyEnv, keyValue: provider.keyValue ?? "your-key", ...(keyHint ? { keyHint } : {}) };
+  const { id, name, keyEnv, keyHint } = provider;
+  return { id, name, keyEnv, keyValue: provider.keyValue ?? "your-key", ...(keyHint ? { keyHint } : {}) };
 }
 
 /**
- * What kit.ts needs of an entry. Its kind follows its first output that is not text: an entry that
- * answers text is a text one even when it also draws images.
+ * What kit.ts needs of an entry. An entry that takes audio and no text transcribes it; any other
+ * entry's kind follows its first output that is not text: an entry that answers text is a text one
+ * even when it also draws images.
  */
 export function kitEntry(entry: SupportedModel): KitEntry {
   const { model, base_url, client, input_modalities, output_modalities, context_window, pricing } = entry;
   const out = output_modalities;
-  const kind: Kind = out.includes("Text") ? "text" : out.includes("Embed") ? "embed" : out.includes("Image") ? "image" : "audio";
+  const kind: Kind =
+    input_modalities.includes("Audio") && !input_modalities.includes("Text")
+      ? "transcribe"
+      : out.includes("Text")
+        ? "text"
+        : out.includes("Embed")
+          ? "embed"
+          : out.includes("Web")
+            ? "web"
+            : out.includes("Image")
+              ? "image"
+              : out.includes("Video")
+                ? "video"
+                : "audio";
   return {
     model,
     base_url,

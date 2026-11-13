@@ -41,6 +41,7 @@ import {
 import {
   fixOpenrouterUsageMetadata,
   openaiClientOptions,
+  promptCacheKey,
   resolveCredentials,
 } from "../utils";
 
@@ -267,13 +268,8 @@ export class MoonshotOfficialClient extends LLMClient {
       });
     }
 
-    // K3 context caching is automatic; the K2 generation keys its prompt
-    // cache on trace_id
-    if (
-      config.trace_id !== undefined &&
-      this._model.toLowerCase().includes("k2.")
-    ) {
-      kimiConfig.prompt_cache_key = config.trace_id;
+    if (config.session_id) {
+      kimiConfig.prompt_cache_key = promptCacheKey(config.session_id);
     }
 
     return kimiConfig;

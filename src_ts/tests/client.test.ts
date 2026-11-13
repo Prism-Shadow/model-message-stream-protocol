@@ -22,6 +22,7 @@ import {
 import {
   EmbeddingDoneItem,
   EventContentItem,
+  WebtoolDoneItem,
   ThinkingLevel,
   UniMessage,
   UniConfig,
@@ -36,14 +37,20 @@ import { assertStreamGrammar } from "./streamGrammar";
 const IMAGE =
   "https://sghimages.shobserver.com/img/catch/2022/01/22/c1ae0300-9402-4128-a7e6-1244d3874167.jpg";
 const IMAGE_KEYWORDS = ["flower", "narcissus", "daffodil", "bloom"];
+// eleven seconds of a speech, "...ask not what your country can do for you...", from the Whisper repository
+const AUDIO =
+  "https://raw.githubusercontent.com/openai/whisper/main/tests/jfk.flac";
 
 interface Model {
   name: string;
   supportTextGeneration: boolean;
   supportImageUnderstanding: boolean;
   supportImageGeneration: boolean;
+  supportVideoGeneration: boolean;
   supportAudioGeneration: boolean;
   supportEmbedding: boolean;
+  supportWebtool?: "search" | "fetch";
+  supportTranscription: boolean;
   clientType?: string;
   baseUrl?: string;
   provider:
@@ -70,8 +77,11 @@ interface ModelCase {
   support_text?: boolean;
   support_image_understanding?: boolean;
   support_image_generation?: boolean;
+  support_video_generation?: boolean;
   support_tts?: boolean;
   support_embedding?: boolean;
+  support_webtool?: "search" | "fetch";
+  support_transcription?: boolean;
 }
 
 const MODEL_CATALOG: Record<string, { models: ModelCase[] }> = JSON.parse(
@@ -113,8 +123,11 @@ for (const [client, group] of Object.entries(MODEL_CATALOG)) {
       supportTextGeneration: entry.support_text ?? true,
       supportImageUnderstanding: entry.support_image_understanding ?? true,
       supportImageGeneration: entry.support_image_generation ?? false,
+      supportVideoGeneration: entry.support_video_generation ?? false,
       supportAudioGeneration: entry.support_tts ?? false,
       supportEmbedding: entry.support_embedding ?? false,
+      supportWebtool: entry.support_webtool,
+      supportTranscription: entry.support_transcription ?? false,
     });
   }
 }
@@ -135,8 +148,10 @@ if (
     supportTextGeneration: true,
     supportImageUnderstanding: true,
     supportImageGeneration: false,
+    supportVideoGeneration: false,
     supportAudioGeneration: false,
     supportEmbedding: false,
+    supportTranscription: false,
     provider: "mmsp",
     clientType: "mmsp",
     baseUrl: process.env.MMSP_BASE_URL,
@@ -244,6 +259,14 @@ function checkEventIntegrity(event: UniEvent): void {
     } else if (item.type === "tool_result.done") {
       expect(typeof item.text).toBe("string");
       expect(typeof item.tool_call_id).toBe("string");
+    } else if (item.type === "webtool.delta" || item.type === "webtool.done") {
+      expect(Array.isArray(item.webdata)).toBe(true);
+      for (const page of item.webdata) {
+        expect(Object.keys(page).sort()).toEqual(["content", "title", "url"]);
+        expect(Object.values(page).every((v) => typeof v === "string")).toBe(
+          true,
+        );
+      }
     }
   }
 
@@ -969,7 +992,7 @@ if (AVAILABLE_MODELS.length > 0) {
       }
       const client = createClient(model);
       const config: UniConfig = {
-        image_config: { aspect_ratio: "1:1", image_size: "1K" },
+        image_config: { aspect_ratio: "1:1", image_size: "2K" },
       };
       const messages: UniMessage[] = [
         {
@@ -1006,15 +1029,53 @@ if (AVAILABLE_MODELS.length > 0) {
       expect(inlineItems.every((item) => item.data.length > 0)).toBe(true);
     });
 
+    modelTest("should handle video generation", 300000, async (model) => {
+      if (!model.supportVideoGeneration) {
+        return;
+      }
+      const client = createClient(model);
+      const messages: UniMessage[] = [
+        {
+          role: "user",
+          content_items: [
+            {
+              type: "text.done",
+              text: "A paper boat drifting down a calm forest stream. One continuous shot, no dialogue.",
+            },
+          ],
+        },
+      ];
+
+      const events: UniEvent[] = [];
+      const inlineItems: { data: Buffer; mime_type: string }[] = [];
+      for await (const event of client.streamingResponse({
+        messages,
+        config: {},
+      })) {
+        checkEventIntegrity(event);
+        events.push(event);
+        for (const item of event.content_items) {
+          if (item.type === "inline_data.done") {
+            inlineItems.push(item);
+          }
+        }
+      }
+
+      assertStreamGrammar(events);
+      expect(inlineItems.length).toBeGreaterThan(0);
+      expect(
+        inlineItems.some((item) => item.mime_type.startsWith("video/")),
+      ).toBe(true);
+      expect(inlineItems.every((item) => item.data.length > 0)).toBe(true);
+    });
+
     modelTest("should handle tts generation", 180000, async (model) => {
       if (!model.supportAudioGeneration) {
         return;
       }
 
       const client = createClient(model);
-      const config: UniConfig = {
-        tts_config: [{ voice: "Kore" }],
-      };
+      const config: UniConfig = {};
       const messages: UniMessage[] = [
         {
           role: "user",
@@ -1052,6 +1113,48 @@ if (AVAILABLE_MODELS.length > 0) {
         ),
       ).toBe(true);
       expect(inlineItems.every((item) => item.data.length > 0)).toBe(true);
+    });
+
+    modelTest("should transcribe audio", 120000, async (model) => {
+      if (!model.supportTranscription) {
+        return;
+      }
+
+      const response = await fetch(AUDIO);
+      expect(response.ok).toBe(true);
+      const audio = Buffer.from(await response.arrayBuffer());
+
+      const client = createClient(model);
+      const events: UniEvent[] = [];
+      for await (const event of client.streamingResponse({
+        messages: [
+          {
+            role: "user",
+            content_items: [
+              {
+                type: "inline_data.done",
+                data: audio,
+                mime_type: "audio/flac",
+              },
+            ],
+          },
+        ],
+        config: {},
+      })) {
+        checkEventIntegrity(event);
+        events.push(event);
+      }
+
+      assertStreamGrammar(events);
+      const text = events
+        .flatMap((event): EventContentItem[] => event.content_items)
+        .filter((item) => item.type === "text.done")
+        .map((item) => (item as { type: "text.done"; text: string }).text)
+        .join("");
+      expect(text.toLowerCase()).toContain("country");
+      const stop = events[events.length - 1];
+      expect(stop.finish_reason).toBe("stop");
+      expect(stop.usage_metadata?.prompt_tokens).toBeGreaterThan(0);
     });
 
     modelTest("should stream text embeddings", 60000, async (model) => {
@@ -1095,6 +1198,94 @@ if (AVAILABLE_MODELS.length > 0) {
         expect(item.embedding.every((v) => typeof v === "number")).toBe(true);
       }
     });
+
+    modelTest("should search the web", 120000, async (model) => {
+      if (model.supportWebtool !== "search") {
+        return;
+      }
+
+      const client = createClient(model);
+      const messages = [
+        {
+          role: "user" as const,
+          content_items: [
+            { type: "text.done" as const, text: "Python programming language" },
+          ],
+        },
+        {
+          role: "user" as const,
+          content_items: [
+            { type: "text.done" as const, text: "TypeScript " },
+            { type: "text.done" as const, text: "handbook" },
+          ],
+        },
+      ];
+
+      const events: UniEvent[] = [];
+      for await (const event of client.streamingResponse({
+        messages,
+        config: { webtool_config: { count: 3 } },
+      })) {
+        checkEventIntegrity(event);
+        events.push(event);
+      }
+
+      assertStreamGrammar(events);
+      const webtoolItems = events
+        .flatMap((event): EventContentItem[] => event.content_items)
+        .filter(
+          (item): item is WebtoolDoneItem => item.type === "webtool.done",
+        );
+      expect(webtoolItems.length).toBe(2);
+      for (const item of webtoolItems) {
+        expect(item.webdata.length).toBeGreaterThanOrEqual(1);
+        expect(item.webdata.length).toBeLessThanOrEqual(3);
+        for (const page of item.webdata) {
+          expect(page.url.startsWith("http")).toBe(true);
+          expect(Boolean(page.title || page.content)).toBe(true);
+        }
+      }
+      const stop = events[events.length - 1];
+      expect(stop.finish_reason).toBe("stop");
+      expect(stop.usage_metadata?.prompt_tokens).toBeGreaterThan(0);
+    });
+
+    modelTest("should fetch a page", 120000, async (model) => {
+      if (model.supportWebtool !== "fetch") {
+        return;
+      }
+
+      const client = createClient(model);
+      const events: UniEvent[] = [];
+      for await (const event of client.streamingResponse({
+        messages: [
+          {
+            role: "user",
+            content_items: [{ type: "text.done", text: "https://example.com" }],
+          },
+        ],
+        config: {},
+      })) {
+        checkEventIntegrity(event);
+        events.push(event);
+      }
+
+      assertStreamGrammar(events);
+      const webtoolItems = events
+        .flatMap((event): EventContentItem[] => event.content_items)
+        .filter(
+          (item): item is WebtoolDoneItem => item.type === "webtool.done",
+        );
+      expect(webtoolItems.length).toBe(1);
+      expect(webtoolItems[0].webdata.length).toBe(1);
+      const [page] = webtoolItems[0].webdata;
+      expect(page.url.startsWith("https://example.com")).toBe(true);
+      expect(page.title).toContain("Example Domain");
+      expect(page.content).not.toBe("");
+      const stop = events[events.length - 1];
+      expect(stop.finish_reason).toBe("stop");
+      expect(stop.usage_metadata?.prompt_tokens).toBeGreaterThan(0);
+    });
   });
 }
 
@@ -1105,6 +1296,16 @@ const ROUTING_CASES: [string, string | undefined, string][] = [
   ["GPT-5.5", undefined, "OpenAIOfficialClient"],
   ["text-embedding-3-large", undefined, "OpenaiEmbeddingClient"],
   ["text-embedding-3-large", "openai-official", "OpenaiEmbeddingClient"],
+  // openai-official serves OpenAI's image models through openai-image
+  ["gpt-image-2.5-flare", undefined, "OpenaiImageClient"],
+  ["gpt-image-2.5-flare", "openai-official", "OpenaiImageClient"],
+  ["seedream-5.0-lite", "openai-image", "OpenaiImageClient"],
+  ["fish-audio/drama-3", "openai-speech", "OpenaiSpeechClient"],
+  [
+    "fish-audio/transcribe-1",
+    "openai-transcription",
+    "OpenaiTranscriptionClient",
+  ],
   ["claude-sonnet-5", undefined, "AnthropicOfficialClient"],
   ["gemini-3.8-flash", undefined, "GoogleOfficialClient"],
   ["gemini-embedding-2", undefined, "GoogleOfficialClient"],
@@ -1117,6 +1318,12 @@ const ROUTING_CASES: [string, string | undefined, string][] = [
   // a version-free DeepSeek id routes on the family too
   ["deepseek-flash", undefined, "DeepSeekOfficialClient"],
   ["MiniMax-M3", undefined, "MiniMaxOfficialClient"],
+  // deepseek-official serves DeepSeek's web tools through deepseek-webtool
+  ["deepseek-search", undefined, "DeepSeekWebtoolClient"],
+  ["deepseek-fetch", "deepseek-official", "DeepSeekWebtoolClient"],
+  ["deepseek-search", "deepseek-webtool", "DeepSeekWebtoolClient"],
+  ["jina-search", undefined, "JinaWebtoolClient"],
+  ["jina-fetch", "jina-webtool", "JinaWebtoolClient"],
   ["deepseek-v4-pro", "OpenAI-Responses", "OpenaiResponsesClient"],
   ["qwen/qwen3.8-27b", "openai-responses", "OpenaiResponsesClient"],
   ["qwen3.6", "openai-chat", "OpenaiChatClient"],
@@ -1277,13 +1484,9 @@ test("should list supported model entries", () => {
     cached_tokens: 0.285714,
   });
 
-  // Pricing is always the list price: Google's launch discount on the three Gemini flash
+  // Pricing is always the list price: Google's launch discount on the two Gemini flash
   // rows is not recorded here, so the catalog rate is what every entry reports.
-  for (const model of [
-    "gemini-3.8-flash",
-    "gemini-3.7-flash",
-    "gemini-3.6-flash",
-  ]) {
+  for (const model of ["gemini-3.8-flash", "gemini-3.6-flash"]) {
     const gemini = entries.find((entry) => entry.model === model);
     expect(gemini?.client).toBe("google-official");
     expect([

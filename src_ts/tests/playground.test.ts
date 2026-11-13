@@ -205,6 +205,10 @@ describe("Playground", () => {
     expect(response.text).toContain("baseUrlInput");
     expect(response.text).toContain("type: 'text.done', text: message");
     expect(response.text).toContain("type: 'image_url.done', image_url: img");
+    expect(response.text).toContain(
+      "type: 'inline_data.done', data: clip.data, mime_type: clip.mimeType",
+    );
+    expect(response.text).toContain('accept="image/*,audio/*"');
     expect(response.text).toContain("event.event_type === 'stop'");
     expect(response.text).toContain("item.type === 'text.delta'");
     expect(response.text).toContain("item.type === 'thinking.done'");
@@ -367,8 +371,42 @@ describe("Playground", () => {
     });
     expect(mockLastStreamingOptions?.config).toEqual({
       thinking_level: "low",
+      session_id: "connection-options",
     });
     expect(mockLastStreamingOptions?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  test("should send the conversation id as session_id, and none for the fallback session", async () => {
+    const app = createChatApp();
+    const message: UniMessage = {
+      role: "user",
+      content_items: [{ type: "text.done", text: "Hello" }],
+    };
+    const configs: UniConfig[] = [];
+
+    for (const body of [
+      {
+        session_id: "0f8e4c3a-5b1d-4e2f-9a7c-6d5e4f3a2b1c",
+        message,
+        config: { model: "gpt-5.5" },
+      },
+      { message, config: { model: "gpt-5.5" } },
+      {
+        session_id: "page",
+        message,
+        config: { model: "gpt-5.5", session_id: "caller" },
+      },
+    ]) {
+      const response = await request(app).post("/api/chat").send(body);
+      expect(sseEvents(response.text).pop()).toBe("[DONE]");
+      configs.push(mockLastStreamingOptions!.config);
+    }
+
+    expect(configs).toEqual([
+      { session_id: "0f8e4c3a-5b1d-4e2f-9a7c-6d5e4f3a2b1c" },
+      {},
+      { session_id: "caller" },
+    ]);
   });
 
   test("should accept image payloads larger than the default JSON limit", async () => {
@@ -396,6 +434,39 @@ describe("Playground", () => {
       image_url: largeImage,
     });
     expect(mockLastStreamingOptions?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  test("should hand an attached audio file to the client as bytes", async () => {
+    const app = createChatApp();
+
+    const response = await request(app)
+      .post("/api/chat")
+      .send({
+        session_id: "audio",
+        message: {
+          role: "user",
+          content_items: [
+            {
+              type: "inline_data.done",
+              data: "AAEC/w==",
+              mime_type: "audio/flac",
+            },
+          ],
+        },
+        config: {
+          model: "fish-audio/transcribe-1",
+          client_type: "openai-transcription",
+        },
+      });
+
+    expect(response.status).toBe(200);
+    expect(mockLastStreamingOptions?.message.content_items).toEqual([
+      {
+        type: "inline_data.done",
+        data: Buffer.from([0, 1, 2, 255]),
+        mime_type: "audio/flac",
+      },
+    ]);
   });
 
   test("should stream every event of the response, then the done marker", async () => {

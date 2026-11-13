@@ -789,6 +789,7 @@ const TRACER_HEAD = `
     .kind-tool_result { --k: var(--green); }
     .kind-image_url, .kind-inline_data { --k: var(--violet); }
     .kind-embedding { --k: var(--indigo); }
+    .kind-webtool { --k: var(--green); }
 
     .item-head {
         grid-column: 1;
@@ -858,10 +859,60 @@ const TRACER_HEAD = `
         height: 36px;
     }
 
+    .item-video {
+        display: block;
+        width: min(100%, 480px);
+        border-radius: 8px;
+        box-shadow: 0 0 0 1px var(--ring);
+        background: #000;
+    }
+
     .tool-sig, .result-text, .embedding {
         font-family: var(--mono);
         font-size: 12.5px;
         line-height: 1.6;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+
+    .web-pages {
+        display: grid;
+        gap: 12px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .web-page {
+        display: grid;
+        gap: 2px;
+        min-width: 0;
+    }
+
+    .web-title {
+        font-weight: 500;
+        overflow-wrap: anywhere;
+    }
+
+    a.web-title:hover {
+        text-decoration: underline;
+    }
+
+    .web-url {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--subtle);
+        overflow-wrap: anywhere;
+    }
+
+    .web-content {
+        display: -webkit-box;
+        overflow: hidden;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 4;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.55;
         white-space: pre-wrap;
         overflow-wrap: anywhere;
     }
@@ -1232,15 +1283,25 @@ export class Tracer {
   }
 
   /**
-   * Wrap raw PCM bytes in a WAV header using Gemini TTS defaults.
+   * Wrap raw 16-bit PCM in a WAV header of the rate and channels its MIME type names.
+   *
+   * `audio/l16; rate=44100; channels=1` names both; without them, Gemini TTS's 24 kHz mono.
    *
    * @param item - inline_data content item
    * @returns WAV bytes
    */
-  private _buildWaveBytesFromPcm(item: { data?: Buffer | string }): Buffer {
+  private _buildWaveBytesFromPcm(item: {
+    mime_type?: string;
+    data?: Buffer | string;
+  }): Buffer {
     const pcmBytes = this._decodeInlineData(item);
-    const channels = 1;
-    const sampleRate = 24000;
+    const pcmFormat: Record<string, string> = {};
+    for (const parameter of (item.mime_type || "").split(";").slice(1)) {
+      const [name, value = ""] = parameter.split("=");
+      pcmFormat[name.trim().toLowerCase()] = value.trim();
+    }
+    const channels = Number(pcmFormat.channels || 1);
+    const sampleRate = Number(pcmFormat.rate || 24000);
     const bitsPerSample = 16;
     const byteRate = (sampleRate * channels * bitsPerSample) / 8;
     const blockAlign = (channels * bitsPerSample) / 8;
@@ -1294,6 +1355,8 @@ export class Tracer {
       label += "Inline Image";
     } else if (mimeType.startsWith("audio/")) {
       label += "Inline Audio";
+    } else if (mimeType.startsWith("video/")) {
+      label += "Inline Video";
     } else {
       label += "Inline Data";
     }
@@ -1486,6 +1549,11 @@ export class Tracer {
           lines.push(this._formatInlineDataSummary(item));
         } else if (item.type === "embedding.done") {
           lines.push(this._formatEmbeddingPreview(item));
+        } else if (item.type === "webtool.done") {
+          lines.push(`Web Tool: ${item.webdata.length} pages`);
+          for (const page of item.webdata) {
+            lines.push(`  ${page.title} <${page.url}>`);
+          }
         } else if (item.type === "tool_call.done") {
           lines.push(`Tool Call: ${item.name}`);
           lines.push(`  Arguments: ${JSON.stringify(item.arguments, null, 2)}`);
@@ -1688,9 +1756,29 @@ export class Tracer {
                       inner += `<img class="item-img" src="${esc(this._inlineDataUrl(item))}" alt="Inline image">`;
                     } else if (this._inlineDataIsAudio(item)) {
                       inner += `<audio class="item-audio" controls preload="metadata"><source src="${esc(this._inlineDataUrl(item))}" type="${esc(this._inlineDataAudioType(item))}"></audio>`;
+                    } else if (item.mime_type?.startsWith("video/")) {
+                      inner += `<video class="item-video" controls preload="metadata" src="${esc(this._inlineDataUrl(item))}"></video>`;
                     }
                   } else if (item.type === "embedding.done") {
                     inner = `<div class="embedding">${esc(this._formatEmbeddingPreview(item))}</div>`;
+                  } else if (item.type === "webtool.done") {
+                    inner =
+                      item.webdata.length > 0
+                        ? `<ol class="web-pages">${item.webdata
+                            .map((page) => {
+                              const title = esc(page.title || page.url);
+                              const link =
+                                page.url.startsWith("http://") ||
+                                page.url.startsWith("https://")
+                                  ? `<a class="web-title" href="${esc(page.url)}" target="_blank" rel="noopener noreferrer">${title}</a>`
+                                  : `<span class="web-title">${title}</span>`;
+                              const content = page.content
+                                ? `<div class="web-content">${esc(page.content)}</div>`
+                                : "";
+                              return `<li class="web-page">${link}<span class="web-url">${esc(page.url)}</span>${content}</li>`;
+                            })
+                            .join("")}</ol>`
+                        : `<div class="item-note">No results</div>`;
                   }
                   const callId =
                     item.type === "tool_call.done" ||

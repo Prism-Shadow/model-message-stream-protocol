@@ -24,9 +24,11 @@ const config = {
   thinking_level: ThinkingLevel.HIGH,
   system_prompt: "You are helpful.",
   prompt_caching: PromptCaching.ENABLE,
+  session_id: "8d2f0c4e-7a1b-4c3d-9e5f-0a1b2c3d4e5f",
   image_config: { aspect_ratio: "4:3", image_size: "1K" },
   tts_config: [{ voice: "Kore" }],
   embedding_config: { dimensions: 768 },
+  webtool_config: { count: 5 },
   trace_id: "agent1/conversation_001",
 };
 ```
@@ -41,9 +43,11 @@ Fields:
 - `tool_choice` (`ToolChoice`): `auto`, `required`, `none`, or a list of tool names; support varies by model. Claude Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.1 cannot be forced to call a tool: `"required"` and a list of names raise `UnsupportedParameterError` on them.
 - `system_prompt` (`string`): System instruction text.
 - `prompt_caching` (`PromptCaching`): `ENABLE`, `DISABLE`, or `ENHANCE`.
-- `image_config` (`ImageConfig`): `aspect_ratio` (`1:1`, `2:3`, `3:2`, `3:4`, `4:3`, `9:16`, `16:9`, `21:9`) and `image_size` (`1K`, `2K`).
-- `tts_config` (`SpeakerConfig[]`): Voice config; each item has `voice` and optional `speaker`. With two speakers, write the text as a script with one `Name: line` per turn, each name one of the configured speakers; Gemini 3.8 TTS receives each turn with its speaker as metadata.
+- `session_id` (`string`): The conversation the request belongs to. Recommended: one stable id per conversation raises the prompt cache hit rate; clients without a cache key ignore it.
+- `image_config` (`ImageConfig`): `aspect_ratio` (`1:1`, `2:3`, `3:2`, `3:4`, `4:3`, `9:16`, `16:9`, `21:9`) and `image_size` (`1K`, `2K`); `openai-image` sends them as the `size` of Gemini's table (1:1 is `1024x1024` / `2048x2048`, 16:9 `1376x768` / `2752x1536`), 1K without `image_size`, 1:1 without `aspect_ratio`, no `size` without `image_config`.
+- `tts_config` (`SpeakerConfig[]`): Voice config; each item has `voice` and optional `speaker`. With two speakers, write the text as a script with one `Name: line` per turn, each name one of the configured speakers; Gemini 3.8 TTS receives each turn with its speaker as metadata. `openai-speech` takes one entry's `voice`, and none without `tts_config`.
 - `embedding_config` (`EmbeddingConfig`): Embedding config, currently `dimensions`.
+- `webtool_config` (`WebtoolConfig`): Web search config, currently `count`, how many results a search returns (DeepSeek 1–50, Jina 0–20, 10 when unset); a fetch ignores it.
 - `trace_id` (`string`): Stable ID for tracer output.
 
 ## UniMessage
@@ -62,6 +66,7 @@ const message: UniMessage = {
     { type: "tool_call.done", name: "get_weather", arguments: { location: "Paris" }, tool_call_id: "call_1", fidelity: { signature: "sig" } },
     { type: "tool_result.done", text: "22 C", tool_call_id: "call_1" },
     { type: "embedding.done", embedding: [0.1, 0.2] },
+    { type: "webtool.done", webdata: [{ title: "DeepSeek", content: "Summary", url: "https://www.deepseek.com" }] },
   ],
 };
 ```
@@ -84,6 +89,7 @@ Content items (`ContentItem`):
 - `tool_call.done`: Complete model tool request with `name`, `arguments` parsed into an object, `tool_call_id`, and optional `fidelity`.
 - `tool_result.done`: Tool output text for a `tool_call_id`; may include image URLs.
 - `embedding.done`: Numeric embedding vector.
+- `webtool.done`: `webdata`, a list of `WebData` (`title`, `content`, `url`): a search's results in rank order, each summary as `content` (`[]` when it found nothing), or the one page a fetch read, its Markdown as `content`.
 
 `fidelity` is an arbitrary JSON object of wire-level data the client recorded to reproduce the original message on replay — thinking signatures, phase labels, the upstream reasoning field name, and the like. It is opaque: pass it back unchanged, never modify or drop it.
 
@@ -133,6 +139,7 @@ Delta items (`DeltaContentItem`, events only):
 - `inline_thinking.delta`: A chunk of binary reasoning bytes with `mime_type`; may carry `fidelity`.
 - `tool_call.delta`: A raw JSON string fragment of `arguments`; `name` and `tool_call_id` are non-empty on the first fragment of a call and `""` afterwards; may carry `fidelity`.
 - `embedding.delta`: An embedding vector.
+- `webtool.delta`: One request's whole `webdata`.
 
 `image_url` and `tool_result` are input-only and have no delta form.
 
@@ -143,10 +150,10 @@ Every client streams by the same grammar:
 ```text
 stream := delta_event* stop_event
 items  := group*                     the items of the delta events, one per event, in order
-group  := K.delta+ K.done            K = text | thinking | tool_call | inline_data | inline_thinking | embedding
+group  := K.delta+ K.done            K = text | thinking | tool_call | inline_data | inline_thinking | embedding | webtool
 ```
 
-- **One item per delta event.** Taken in order, the items of the `delta` events form groups: one or more `K.delta` fragments, then one `K.done` holding the complete item — the concatenated text, thinking, or bytes; the parsed tool call; the vector.
+- **One item per delta event.** Taken in order, the items of the `delta` events form groups: one or more `K.delta` fragments, then one `K.done` holding the complete item — the concatenated text, thinking, or bytes; the parsed tool call; the vector; the pages.
 - **The `.done` items are the message.** In stream order, with the `stop` event's `usage_metadata` and `finish_reason`, they form the assistant message that `streamingResponseStateful` records in history.
 - **Groups never interleave.** A group's `.done` arrives before the next group's first `.delta`, so every fragment belongs to the group currently open and no id is needed to attribute it.
 - **`stop` is always last.** It arrives exactly once, carries no content items, and always carries non-null `usage_metadata` and `finish_reason`. While events are `delta`, the response is still running; after `stop`, it has finished and nothing follows. Read usage from the `stop` event; do not add it up across events.

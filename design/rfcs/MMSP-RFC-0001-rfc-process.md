@@ -3,7 +3,7 @@
 - Feature Name: `rfc_process`
 - Start Date: 2026-10-19
 - RFC PR: [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265)
-- Updated by: [#285](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/285), [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298), [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
+- Updated by: [#285](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/285), [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298), [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301), [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308)
 - Kind: process
 
 [中文版](MMSP-RFC-0001-rfc-process.zh.md)
@@ -21,6 +21,8 @@ Decisions had no durable record. The changelog records what a change did and, by
 The owner's case: no client may raise for a thinking level. That is a promise to every caller, not a coding tip, and it held only as long as the author of each new client read the right bullet of the skill. The owner also asked that such rules be agreed the way any other decision is, one RFC each, rather than kept in a separate principles file.
 
 On 2026-10-24 the owner asked that an RFC specify a concept, protocol or algorithm that must stay fixed, titled by a noun as IETF RFCs are ([RFC 8200](https://datatracker.ietf.org/doc/html/rfc8200), "Internet Protocol, Version 6 (IPv6) Specification"), rather than state a rule: RFC 应该是讨论一些软件里必须固定下来的概念、协议、定律、算法，比如 IETF RFC-8200: IPv6 Specification 的标题就是名词。 This document's form, and that of every specification, follows it.
+
+On 2026-11-02 the owner had accepted RFCs, the specifications included, change in place: 原地修改吧. Until then a specification changed only by a new spec RFC restating it whole, and web search and page fetch had needed four of them, each with its Chinese twin, for one feature ([#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308)).
 
 ## 2. Conventions and Terminology
 
@@ -42,9 +44,9 @@ The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY in this document are to
 ## 4. Lifecycle
 
 - Starting: a change to a specification, to the message or stream shapes, to the public API, to what routing or the credential rule means, or anything that breaks a caller starts as an RFC: copy [`0000-template.md`](../0000-template.md) to `design/rfcs/MMSP-RFC-NNNN-<slug>.md`, set its kind, write it and its Chinese twin, and open a PR to `dev`. A new model, a client that follows the pattern, a bug fix and the like stay normal PRs; [`design/README.md`](../README.md) has the full list and the steps.
-- Lifecycle: an open PR proposes, a merge accepts, a close withdraws. The index in `design/README.md` has one row per accepted RFC, with its kind and its status, `Accepted` or `Superseded by MMSP-RFC-NNNN`; the RFC's own PR adds the row. A specification changes only by a spec RFC that states the whole specification as it now stands and supersedes the old one; the superseding RFC updates the old file's metadata and the old row in the same PR. The PR that implements a change RFC adds its `Implementation PR` line.
-- Precedence: when the code and an accepted RFC disagree, the RFC wins: the code is fixed, or the RFC is superseded first.
-- Metadata: `Feature Name`, `Start Date`, `RFC PR`, `Kind`, and where they apply `Updated by` (the PRs that changed a process RFC after it was accepted), `Supersedes`, `Superseded by` and `Implementation PR`; PR links are full URLs.
+- Lifecycle: an open PR proposes, a merge accepts, a close withdraws. The index in `design/README.md` has one row per accepted RFC, with its kind and its status, `Accepted` or `Superseded by MMSP-RFC-NNNN`; the RFC's own PR adds the row. An accepted RFC, a specification included, changes in place: its PR edits the file in both languages, keeps its number and row, and appends its link to the `Updated by` line. A specification that replaces another one whole names it on its `Supersedes:` line, and its PR updates the old file's metadata and the old row. The PR that implements a change RFC adds its `Implementation PR` line.
+- Precedence: when the code and an accepted RFC disagree, the RFC wins: the code is fixed, or the RFC is changed first.
+- Metadata: `Feature Name`, `Start Date`, `RFC PR`, `Kind`, and where they apply `Updated by` (the PRs that changed the RFC in place after it was accepted), `Supersedes`, `Superseded by` and `Implementation PR`; PR links are full URLs.
 - Changelog: an RFC PR carries a `process` entry with Scope `design`; the implementation PR carries its own entry, which links the RFC.
 
 ## 5. Numbering
@@ -85,6 +87,7 @@ One more place to read before a change, and the specifications are spread over f
 - Rules inside the skill: rejected. The skill is how-to and changes with every client; a specification changes only by decision. Kept apart, the skill can cite the specifications.
 - A sibling design repository linked in by symlinks: rejected. MMSP is one repository with two packages and many worktrees, and every worktree would need the links.
 - A status field in the file: rejected. The PR's state is the status; the index carries the one thing a reader cannot see from the file, whether a later RFC superseded it.
+- A new spec RFC restating the whole specification for every change, the rule until 2026-11-02: it kept an accepted text fixed, but restated a whole specification for a sentence or two and left every other RFC citing the replaced document. An edit in place keeps the numbers, the citations and the index; the `Updated by` line names the PRs, and `git log` keeps every earlier text.
 - Architecture decision records: their short form (context, decision, consequences) is close to what a rule RFC was; change RFCs keep the Rust sections because the alternatives and prior art are what was missing.
 - Normative key words: RFC 8200 itself writes must and should in lowercase; MMSP uses the BCP 14 capitals because every normative sentence is checked against the code, and a MUST can be checked where a lowercase must is prose.
 

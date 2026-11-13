@@ -37,12 +37,14 @@ import {
   PromptCaching,
   UsageMetadata,
 } from "../types";
+import { enabledPlugins } from "../plugin";
 import {
   isDebugEnabled,
   openaiClientOptions,
-  openaiImageDetail,
+  promptCacheKey,
   resolveCredentials,
 } from "../utils";
+import { PLUGINS } from "./plugins";
 
 /**
  * OpenAI Responses-compatible client implementation.
@@ -76,24 +78,18 @@ export class OpenaiResponsesClient extends LLMClient {
         defaultHeaders: options.defaultHeaders,
       }),
     });
+    this._plugins = enabledPlugins(
+      PLUGINS,
+      options.model,
+      this._client.baseURL,
+      this._client,
+    );
   }
 
   /**
    * Convert ThinkingLevel enum to the Responses API reasoning effort.
    */
   private _convertThinkingLevelToEffort(thinkingLevel: ThinkingLevel): string {
-    // GPT-6 Luna accepts none; keep the requested setting on official and gateway routes.
-    if (
-      thinkingLevel === ThinkingLevel.NONE &&
-      this._model.includes("gpt-6") &&
-      !this._model.includes("gpt-6-luna")
-    ) {
-      // a gateway serving GPT-6 Astra or GPT-6.1 Sol forwards the effort to OpenAI, which rejects "none" and
-      // "minimal" with a 400 (verified live 2026-09-09 against api.openai.com), so NONE
-      // degrades to the lowest effort the generation accepts.
-      return "low";
-    }
-
     const mapping: { [key: string]: string } = {
       [ThinkingLevel.NONE]: "none",
       [ThinkingLevel.LOW]: "low",
@@ -111,7 +107,11 @@ export class OpenaiResponsesClient extends LLMClient {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private _convertToolChoice(toolChoice: ToolChoice): any {
     if (Array.isArray(toolChoice)) {
+      // the documented allowed-tools object; without its type OpenAI and OpenRouter refuse it with a 400
+      // (verified live 2026-11-02; DeepSeek refuses every forced tool_choice in thinking mode, and
+      // MiniMax and Z.AI ignore it in either shape)
       return {
+        type: "allowed_tools",
         mode: "required",
         tools: toolChoice.map((name) => ({ type: "function", name })),
       };
@@ -121,18 +121,13 @@ export class OpenaiResponsesClient extends LLMClient {
   }
 
   /**
-   * Convert an image URL to an input_image item, at the detail the API needs
-   * to read it.
+   * Convert an image URL to an input_image item.
    */
   private _convertImageUrl(imageUrl: string): {
     type: "input_image";
     image_url: string;
-    detail?: "high";
   } {
-    const detail = openaiImageDetail(this._model, imageUrl);
-    return detail
-      ? { type: "input_image", image_url: imageUrl, detail }
-      : { type: "input_image", image_url: imageUrl };
+    return { type: "input_image", image_url: imageUrl };
   }
 
   /**
@@ -196,6 +191,10 @@ export class OpenaiResponsesClient extends LLMClient {
         parameter: "prompt_caching",
         message: "prompt_caching must be ENABLE for the Responses API.",
       });
+    }
+
+    if (config.session_id) {
+      openaiConfig.prompt_cache_key = promptCacheKey(config.session_id);
     }
 
     return openaiConfig;
@@ -540,12 +539,20 @@ export class OpenaiResponsesClient extends LLMClient {
       input: inputList,
       stream: true,
     };
+    for (const plugin of this._plugins) {
+      await plugin.onRequest(options.config, params, options.signal);
+    }
 
     const stream = await this._client.responses.create(params, {
       signal: options.signal,
     });
-    for await (const event of stream) {
-      yield this.transformModelOutputToUniEvent(event);
+    for await (const wireEvent of stream) {
+      for (const plugin of this._plugins) plugin.onWireEvent(wireEvent);
+
+      const event = this.transformModelOutputToUniEvent(wireEvent);
+      for (const plugin of this._plugins) plugin.onEvent(event);
+
+      yield event;
     }
   }
 

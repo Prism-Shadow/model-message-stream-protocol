@@ -69,11 +69,40 @@
       }
     ]
   },
+  "deepseek-webtool": {
+    "models": [
+      {
+        "api_key_env": "DEEPSEEK_API_KEY",
+        "name": "deepseek-search",
+        "support_text": false,
+        "support_image_understanding": false,
+        "support_webtool": "search"
+      },
+      {
+        "api_key_env": "DEEPSEEK_API_KEY",
+        "name": "deepseek-fetch",
+        "support_text": false,
+        "support_image_understanding": false,
+        "support_webtool": "fetch"
+      },
+      {
+        "api_key_env": "TOKENDANCE_API_KEY",
+        "name": "deepseek-search",
+        "support_text": false,
+        "support_image_understanding": false,
+        "support_webtool": "search",
+        "provider": "tokendance",
+        "client_type": "deepseek-webtool",
+        "base_url": "https://tokendance.space/gateway/deepseek",
+        "slow": true
+      }
+    ]
+  },
   "google-genai": {
     "models": [
       {
         "api_key_env": "GEMINI_API_KEY",
-        "name": "gemini-4-argon",
+        "name": "gemini-3.8-flash",
         "client_type": "google-genai"
       },
       {
@@ -93,7 +122,7 @@
       },
       {
         "api_key_env": "VERTEX_API_KEY",
-        "name": "gemini-3.1-flash-tts-preview",
+        "name": "gemini-3.8-flash-tts",
         "support_text": false,
         "support_image_understanding": false,
         "support_tts": true,
@@ -115,7 +144,7 @@
     "models": [
       {
         "api_key_env": "GEMINI_API_KEY",
-        "name": "gemini-4-argon"
+        "name": "gemini-3.8-flash"
       },
       {
         "api_key_env": "GEMINI_API_KEY",
@@ -133,10 +162,36 @@
       },
       {
         "api_key_env": "GEMINI_API_KEY",
+        "name": "gemini-omni-1.2-flash",
+        "support_text": false,
+        "support_image_understanding": false,
+        "support_video_generation": true,
+        "slow": true
+      },
+      {
+        "api_key_env": "GEMINI_API_KEY",
         "name": "gemini-embedding-2",
         "support_text": false,
         "support_image_understanding": false,
         "support_embedding": true
+      }
+    ]
+  },
+  "jina-webtool": {
+    "models": [
+      {
+        "api_key_env": "JINA_API_KEY",
+        "name": "jina-search",
+        "support_text": false,
+        "support_image_understanding": false,
+        "support_webtool": "search"
+      },
+      {
+        "api_key_env": "JINA_API_KEY",
+        "name": "jina-fetch",
+        "support_text": false,
+        "support_image_understanding": false,
+        "support_webtool": "fetch"
       }
     ]
   },
@@ -259,11 +314,46 @@
       }
     ]
   },
+  "openai-image": {
+    "models": [
+      {
+        "api_key_env": "OPENAI_API_KEY",
+        "name": "gpt-image-2.5-flare",
+        "support_text": false,
+        "support_image_understanding": false,
+        "support_image_generation": true
+      },
+      {
+        "api_key_env": "OPENROUTER_API_KEY",
+        "name": "bytedance-seed/seedream-5-0-flash",
+        "support_text": false,
+        "support_image_understanding": false,
+        "support_image_generation": true,
+        "provider": "openrouter",
+        "client_type": "openai-image",
+        "slow": true
+      },
+      {
+        "api_key_env": "TOKENDANCE_API_KEY",
+        "name": "seedream-5.0-lite",
+        "support_text": false,
+        "support_image_understanding": false,
+        "support_image_generation": true,
+        "provider": "tokendance",
+        "client_type": "openai-image",
+        "slow": true
+      }
+    ]
+  },
   "openai-official": {
     "models": [
       {
         "api_key_env": "OPENAI_API_KEY",
         "name": "gpt-6.1-sol"
+      },
+      {
+        "api_key_env": "OPENAI_API_KEY",
+        "name": "gpt-6.1-terra"
       },
       {
         "api_key_env": "OPENAI_API_KEY",
@@ -314,10 +404,44 @@
       },
       {
         "api_key_env": "OPENROUTER_API_KEY",
+        "name": "openai/gpt-6.1-terra",
+        "provider": "openrouter",
+        "client_type": "openai-responses",
+        "base_url": "https://openrouter.ai/api/v1",
+        "slow": true
+      },
+      {
+        "api_key_env": "OPENROUTER_API_KEY",
         "name": "qwen/qwen3.8-27b",
         "provider": "openrouter",
         "client_type": "openai-responses",
         "slow": true
+      }
+    ]
+  },
+  "openai-speech": {
+    "models": [
+      {
+        "api_key_env": "OPENROUTER_API_KEY",
+        "name": "fish-audio/drama-3",
+        "support_text": false,
+        "support_image_understanding": false,
+        "support_tts": true,
+        "provider": "openrouter",
+        "client_type": "openai-speech"
+      }
+    ]
+  },
+  "openai-transcription": {
+    "models": [
+      {
+        "api_key_env": "OPENROUTER_API_KEY",
+        "name": "fish-audio/transcribe-1",
+        "support_text": false,
+        "support_image_understanding": false,
+        "support_transcription": true,
+        "provider": "openrouter",
+        "client_type": "openai-transcription"
       }
     ]
   },

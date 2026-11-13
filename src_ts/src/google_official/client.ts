@@ -56,8 +56,8 @@ type TextImageBlocks = NonNullable<Interactions.ThoughtStep["summary"]>;
 /**
  * Official client for the Gemini family. It speaks the Gemini API's Interactions
  * endpoint statelessly (store=false, the whole history in every request) for
- * Gemini 4 Argon and the 3.x text, image, and TTS models. Vertex AI service-account
- * keys belong to google_genai. It
+ * Gemini 4 Argon, the 3.x text, image, and TTS models, and Gemini Omni's video.
+ * Vertex AI service-account keys belong to google_genai. It
  * embeds through embedContent, because the Interactions API does not serve
  * the embedding models, and applies the 3.6-generation parameter contract to
  * the whole family: temperature is rejected everywhere.
@@ -182,6 +182,10 @@ export class GoogleOfficialClient extends LLMClient {
    * entirely, so it must be omitted from the request.
    */
   private _supportedThinkingLevels(): GeminiThinkingLevel[] {
+    if (this._model.includes("gemini-omni")) {
+      // "minimal" and "medium" are refused: "Allowed values are: high, low." (verified live 2026-11-06)
+      return ["low", "high"];
+    }
     if (this._model.includes("-image")) {
       return ["minimal", "high"];
     }
@@ -199,7 +203,8 @@ export class GoogleOfficialClient extends LLMClient {
     if (
       this._model.includes("gemini-3.7") ||
       this._model.includes("gemini-3.8") ||
-      this._model.includes("gemini-4-argon")
+      this._model.includes("gemini-4-argon") ||
+      this._model.includes("gemini-4-carbon")
     ) {
       // These generations support low, medium, and high, but not minimal.
       return ["low", "medium", "high"];
@@ -298,6 +303,33 @@ export class GoogleOfficialClient extends LLMClient {
       });
     }
 
+    // Gemini Omni makes a video at its defaults (16:9, 720p, 10 s, inline); it declares no
+    // functions ("Function calling is not enabled for this model", verified live 2026-11-06), takes
+    // no image settings and has no priority tier
+    if (this._model.includes("gemini-omni")) {
+      for (const parameter of [
+        "tools",
+        "tool_choice",
+        "image_config",
+      ] as const) {
+        if (config[parameter] !== undefined) {
+          throw new UnsupportedParameterError({
+            client: this.constructor.name,
+            parameter,
+            message: `Gemini Omni does not support ${parameter}.`,
+          });
+        }
+      }
+
+      if (config.fast_mode) {
+        throw new UnsupportedParameterError({
+          client: this.constructor.name,
+          parameter: "fast_mode",
+          message: "Gemini Omni does not support fast mode.",
+        });
+      }
+    }
+
     // the history travels in every request, so nothing needs to be stored server-side
     const geminiConfig: InteractionRequest = {
       model: this._model,
@@ -306,7 +338,13 @@ export class GoogleOfficialClient extends LLMClient {
     };
     const generationConfig: Interactions.GenerationConfig = {};
 
-    if (config.max_tokens !== undefined) {
+    // Gemini Omni counts the video's own tokens against max_output_tokens (57,920 for the default
+    // video), so a limit sized for text fails after the video is made: 400 "Request contains an
+    // invalid argument." (verified live 2026-11-06)
+    if (
+      config.max_tokens !== undefined &&
+      !this._model.includes("gemini-omni")
+    ) {
       generationConfig.max_output_tokens = config.max_tokens;
     }
 
@@ -601,8 +639,8 @@ export class GoogleOfficialClient extends LLMClient {
   /**
    * Transform one Interactions API stream event into a universal event, its items identified by
    * step index. A step streams one item per run of a content kind: an image generation model's
-   * thought summary can go text, image, text, which is three items. Every image delta is a whole
-   * image and an item of its own, while audio streams in chunks of one item.
+   * thought summary can go text, image, text, which is three items. Every image or video delta is a
+   * whole image or video and an item of its own, while audio streams in chunks of one item.
    */
   transformModelOutputToUniEvent(
     modelOutput: Interactions.InteractionSSEEvent,
@@ -684,12 +722,30 @@ export class GoogleOfficialClient extends LLMClient {
           mime_type: delta.mime_type || "image/jpeg",
           fidelity: { item_id: itemId },
         });
-      } else if (delta.type === "audio") {
-        // TTS streams raw PCM in 40 ms chunks; the MIME type carries the format a player needs
+      } else if (delta.type === "video" && delta.uri) {
+        // a video delivered by URI (delivery "uri", which needs store=true) goes out as its URI;
+        // the Files API serves it only with the API key, so it is not downloaded here
+        contentItems.push({
+          type: "text.delta",
+          text: delta.uri,
+          fidelity: { item_id: itemId },
+        });
+      } else if (delta.type === "video") {
+        // Gemini Omni sends its whole video, an MP4 with its audio, in one delta (verified live 2026-11-06)
         contentItems.push({
           type: "inline_data.delta",
           data: Buffer.from(delta.data || "", "base64"),
-          mime_type: `${delta.mime_type}; rate=${delta.sample_rate}; channels=${delta.channels}`,
+          mime_type: delta.mime_type || "video/mp4",
+          fidelity: { item_id: itemId },
+        });
+      } else if (delta.type === "audio") {
+        // TTS streams raw PCM in chunks; the MIME type carries the format a player needs. The
+        // deltas stopped naming it on 2026-11-02, and headerless 16-bit PCM (audio/l16) is the
+        // documented streaming default.
+        contentItems.push({
+          type: "inline_data.delta",
+          data: Buffer.from(delta.data || "", "base64"),
+          mime_type: `${delta.mime_type || "audio/l16"}; rate=${delta.sample_rate}; channels=${delta.channels}`,
           fidelity: { item_id: itemId },
         });
       } else if (isDebugEnabled()) {
@@ -858,6 +914,12 @@ export class GoogleOfficialClient extends LLMClient {
           message: `Gemini TTS only supports text input, got content item type=${JSON.stringify(invalidItem.type)}.`,
         });
       }
+    }
+
+    // Gemini Omni makes one video from one request (its text and images); editing an earlier video
+    // through the conversation is not supported, so only the newest message is sent, as for TTS
+    if (this._model.includes("gemini-omni")) {
+      messages = messages.slice(-1);
     }
 
     const geminiConfig = this.transformUniConfigToModelConfig(options.config);

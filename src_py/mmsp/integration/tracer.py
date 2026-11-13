@@ -801,6 +801,7 @@ _TRACER_HEAD = """
     .kind-tool_result { --k: var(--green); }
     .kind-image_url, .kind-inline_data { --k: var(--violet); }
     .kind-embedding { --k: var(--indigo); }
+    .kind-webtool { --k: var(--green); }
 
     .item-head {
         grid-column: 1;
@@ -870,10 +871,60 @@ _TRACER_HEAD = """
         height: 36px;
     }
 
+    .item-video {
+        display: block;
+        width: min(100%, 480px);
+        border-radius: 8px;
+        box-shadow: 0 0 0 1px var(--ring);
+        background: #000;
+    }
+
     .tool-sig, .result-text, .embedding {
         font-family: var(--mono);
         font-size: 12.5px;
         line-height: 1.6;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+
+    .web-pages {
+        display: grid;
+        gap: 12px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .web-page {
+        display: grid;
+        gap: 2px;
+        min-width: 0;
+    }
+
+    .web-title {
+        font-weight: 500;
+        overflow-wrap: anywhere;
+    }
+
+    a.web-title:hover {
+        text-decoration: underline;
+    }
+
+    .web-url {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--subtle);
+        overflow-wrap: anywhere;
+    }
+
+    .web-content {
+        display: -webkit-box;
+        overflow: hidden;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 4;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.55;
         white-space: pre-wrap;
         overflow-wrap: anywhere;
     }
@@ -1180,13 +1231,20 @@ class Tracer:
         return data
 
     def _build_wave_bytes_from_pcm(self, item: dict[str, Any]) -> bytes:
-        """Wrap raw PCM bytes in a WAV header using Gemini TTS defaults."""
+        """Wrap raw 16-bit PCM in a WAV header of the rate and channels its MIME type names.
+
+        `audio/l16; rate=44100; channels=1` names both; without them, Gemini TTS's 24 kHz mono.
+        """
         pcm_bytes = self._decode_inline_data(item)
+        pcm_format = {}
+        for parameter in (item.get("mime_type") or "").split(";")[1:]:
+            name, _, value = parameter.partition("=")
+            pcm_format[name.strip().lower()] = value.strip()
         buffer = io.BytesIO()
         with wave.open(buffer, "wb") as wav_file:
-            wav_file.setnchannels(1)
+            wav_file.setnchannels(int(pcm_format.get("channels") or 1))
             wav_file.setsampwidth(2)
-            wav_file.setframerate(24000)
+            wav_file.setframerate(int(pcm_format.get("rate") or 24000))
             wav_file.writeframes(pcm_bytes)
         return buffer.getvalue()
 
@@ -1236,6 +1294,8 @@ class Tracer:
             label += "Inline Image"
         elif mime_type.startswith("audio/"):
             label += "Inline Audio"
+        elif mime_type.startswith("video/"):
+            label += "Inline Video"
         else:
             label += "Inline Data"
 
@@ -1456,6 +1516,10 @@ class Tracer:
                     lines.append(self._format_inline_data_summary(item))
                 elif item["type"] == "embedding.done":
                     lines.append(self._format_embedding_preview(item))
+                elif item["type"] == "webtool.done":
+                    lines.append(f"Web Tool: {len(item['webdata'])} pages")
+                    for page in item["webdata"]:
+                        lines.append(f"  {page['title']} <{page['url']}>")
                 elif item["type"] == "tool_call.done":
                     lines.append(f"Tool Call: {item['name']}")
                     lines.append(f"  Arguments: {json.dumps(item['arguments'], indent=2, ensure_ascii=False)}")
@@ -1638,9 +1702,25 @@ class Tracer:
                             <img class="item-img" src="{{ item|inline_data_url }}" alt="Inline image">
                             {% elif item.mime_type and item.mime_type.startswith('audio/') %}
                             <audio class="item-audio" controls preload="metadata"><source src="{{ item|inline_data_url }}"></audio>
+                            {% elif item.mime_type and item.mime_type.startswith('video/') %}
+                            <video class="item-video" controls preload="metadata" src="{{ item|inline_data_url }}"></video>
                             {% endif %}
                             {% elif item.type == 'embedding.done' %}
                             <div class="embedding">{{ item|embedding_preview }}</div>
+                            {% elif item.type == 'webtool.done' %}
+                            {% if item.webdata %}
+                            <ol class="web-pages">
+                                {% for page in item.webdata %}
+                                <li class="web-page">
+                                    {% if page.url.startswith('http://') or page.url.startswith('https://') %}<a class="web-title" href="{{ page.url }}" target="_blank" rel="noopener noreferrer">{{ page.title or page.url }}</a>{% else %}<span class="web-title">{{ page.title or page.url }}</span>{% endif %}
+                                    <span class="web-url">{{ page.url }}</span>
+                                    {% if page.content %}<div class="web-content">{{ page.content }}</div>{% endif %}
+                                </li>
+                                {% endfor %}
+                            </ol>
+                            {% else %}
+                            <div class="item-note">No results</div>
+                            {% endif %}
                             {% endif %}
                         </div>
                         {% endfor %}

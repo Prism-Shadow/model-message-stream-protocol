@@ -106,6 +106,22 @@ export interface EmbeddingDoneItem {
   embedding: number[];
 }
 
+/**
+ * One web page a web tool returned.
+ */
+export interface WebData {
+  title: string;
+  // the page's text: its Markdown body for a fetch, its summary for a search result
+  content: string;
+  url: string;
+}
+
+export interface WebtoolDoneItem {
+  type: "webtool.done";
+  // a search's results in rank order, or the one page a fetch read
+  webdata: WebData[];
+}
+
 export type ContentItem =
   | TextDoneItem
   | ImageUrlDoneItem
@@ -114,7 +130,8 @@ export type ContentItem =
   | InlineThinkingDoneItem
   | ToolCallDoneItem
   | ToolResultDoneItem
-  | EmbeddingDoneItem;
+  | EmbeddingDoneItem
+  | WebtoolDoneItem;
 
 // Streamed fragments. One or more deltas of a kind are followed by the done item of that kind;
 // at most one delta of an item carries fidelity, and it equals the done item's fidelity.
@@ -161,13 +178,19 @@ export interface EmbeddingDeltaItem {
   embedding: number[];
 }
 
+export interface WebtoolDeltaItem {
+  type: "webtool.delta";
+  webdata: WebData[];
+}
+
 export type DeltaContentItem =
   | TextDeltaItem
   | InlineDataDeltaItem
   | ThinkingDeltaItem
   | InlineThinkingDeltaItem
   | ToolCallDeltaItem
-  | EmbeddingDeltaItem;
+  | EmbeddingDeltaItem
+  | WebtoolDeltaItem;
 
 export type EventContentItem = DeltaContentItem | ContentItem;
 
@@ -240,6 +263,14 @@ export interface EmbeddingConfig {
 }
 
 /**
+ * Web search configuration.
+ */
+export interface WebtoolConfig {
+  // how many results a search returns; a fetch reads one page whatever it is
+  count?: number;
+}
+
+/**
  * Universal configuration format for LLM requests.
  */
 export interface UniConfig {
@@ -251,14 +282,22 @@ export interface UniConfig {
   tool_choice?: ToolChoice;
   system_prompt?: string;
   prompt_caching?: PromptCaching;
+  // the conversation a request belongs to, recommended on every request since one stable id per
+  // conversation raises the prompt cache hit rate: openai-official, openai-responses, openai-chat
+  // (with its vLLM adapter), moonshot-official and minimax-official send it as prompt_cache_key,
+  // beyond 64 characters as its SHA-256 hex digest; every other client ignores it, and so does
+  // every client for an empty string
+  session_id?: string;
   // fast processing at premium pricing: openai-official, openai-responses, openai-chat (with its
   // vLLM adapter), google-official and minimax-official send service_tier="priority";
   // anthropic-official and ant-messages send speed="fast"; google-genai, deepseek-official,
-  // moonshot-official, zai-official and openai-embedding raise UnsupportedParameterError, and
+  // moonshot-official, zai-official, openai-embedding, openai-image, openai-speech,
+  // openai-transcription, deepseek-webtool and jina-webtool raise UnsupportedParameterError, and
   // so does a sending client for a model without a fast tier
   fast_mode?: boolean;
   image_config?: ImageConfig;
   tts_config?: SpeakerConfig[];
   embedding_config?: EmbeddingConfig;
+  webtool_config?: WebtoolConfig;
   trace_id?: string;
 }

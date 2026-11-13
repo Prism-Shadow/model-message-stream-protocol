@@ -30,6 +30,8 @@ from mmsp import AutoLLMClient, RoutingError, ThinkingLevel, UnsupportedParamete
 
 IMAGE = "https://sghimages.shobserver.com/img/catch/2022/01/22/c1ae0300-9402-4128-a7e6-1244d3874167.jpg"
 IMAGE_KEYWORDS = ("flower", "narcissus", "daffodil", "bloom")
+# eleven seconds of a speech, "...ask not what your country can do for you...", from the Whisper repository
+AUDIO = "https://raw.githubusercontent.com/openai/whisper/main/tests/jfk.flac"
 
 
 @dataclass
@@ -38,8 +40,11 @@ class Model:
     support_text: bool = True
     support_image_understanding: bool = True
     support_image_generation: bool = False
+    support_video_generation: bool = False
     support_tts: bool = False
     support_embedding: bool = False
+    support_webtool: Literal["search", "fetch"] | None = None
+    support_transcription: bool = False
     provider: Literal[
         "official",
         "bedrock",
@@ -185,6 +190,11 @@ async def _check_event_integrity(event: dict) -> None:
         elif item["type"] == "tool_result.done":
             assert isinstance(item["text"], str)
             assert isinstance(item["tool_call_id"], str)
+        elif item["type"] in ("webtool.delta", "webtool.done"):
+            assert isinstance(item["webdata"], list)
+            for page in item["webdata"]:
+                assert set(page) == {"title", "content", "url"}
+                assert all(isinstance(value, str) for value in page.values())
 
     if event["usage_metadata"]:
         assert "cached_tokens" in event["usage_metadata"]
@@ -322,8 +332,8 @@ async def test_clear_history(model: Model):
 @pytest.mark.parametrize("model", AVAILABLE_MODELS, ids=[str(model) for model in AVAILABLE_MODELS])
 async def test_concat_uni_events_to_uni_message(model: Model):
     """Test concatenation of events into a single message."""
-    if model.support_embedding:
-        pytest.skip(f"Embedding model {model.name} do not need concatenation.")
+    if model.support_embedding or model.support_webtool or model.support_transcription:
+        pytest.skip(f"Embedding, web tool and transcription model {model.name} do not need concatenation.")
     client = await _create_client(model)
     messages = [
         {
@@ -356,6 +366,12 @@ ROUTING_CASES = [
     ("GPT-5.5", None, "OpenAIOfficialClient"),
     ("text-embedding-3-large", None, "OpenaiEmbeddingClient"),
     ("text-embedding-3-large", "openai-official", "OpenaiEmbeddingClient"),
+    # openai-official serves OpenAI's image models through openai-image
+    ("gpt-image-2.5-flare", None, "OpenaiImageClient"),
+    ("gpt-image-2.5-flare", "openai-official", "OpenaiImageClient"),
+    ("seedream-5.0-lite", "openai-image", "OpenaiImageClient"),
+    ("fish-audio/drama-3", "openai-speech", "OpenaiSpeechClient"),
+    ("fish-audio/transcribe-1", "openai-transcription", "OpenaiTranscriptionClient"),
     ("claude-sonnet-5", None, "AnthropicOfficialClient"),
     ("gemini-3.8-flash", None, "GoogleOfficialClient"),
     ("gemini-embedding-2", None, "GoogleOfficialClient"),
@@ -368,6 +384,12 @@ ROUTING_CASES = [
     # a version-free DeepSeek id routes on the family too
     ("deepseek-flash", None, "DeepSeekOfficialClient"),
     ("MiniMax-M3", None, "MiniMaxOfficialClient"),
+    # deepseek-official serves DeepSeek's web tools through deepseek-webtool
+    ("deepseek-search", None, "DeepSeekWebtoolClient"),
+    ("deepseek-fetch", "deepseek-official", "DeepSeekWebtoolClient"),
+    ("deepseek-search", "deepseek-webtool", "DeepSeekWebtoolClient"),
+    ("jina-search", None, "JinaWebtoolClient"),
+    ("jina-fetch", "jina-webtool", "JinaWebtoolClient"),
     ("deepseek-v4-pro", "OpenAI-Responses", "OpenaiResponsesClient"),
     ("qwen/qwen3.8-27b", "openai-responses", "OpenaiResponsesClient"),
     ("qwen3.6", "openai-chat", "OpenaiChatClient"),
@@ -472,9 +494,9 @@ async def test_list_supported_models():
         "cached_tokens": 0.285714,
     }
 
-    # Pricing is always the list price: Google's launch discount on the three Gemini flash
+    # Pricing is always the list price: Google's launch discount on the two Gemini flash
     # rows is not recorded here, so the catalog rate is what every entry reports.
-    for model in ("gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash"):
+    for model in ("gemini-3.8-flash", "gemini-3.6-flash"):
         gemini = next(entry for entry in entries if entry["model"] == model)
         assert gemini["client"] == "google-official"
         assert gemini["pricing"]["prompt_tokens"] == 1.5
@@ -857,7 +879,7 @@ async def test_image_generation(model: Model):
                 ],
             }
         ],
-        config={"image_config": {"aspect_ratio": "1:1", "image_size": "1K"}},
+        config={"image_config": {"aspect_ratio": "1:1", "image_size": "2K"}},
     ):
         await _check_event_integrity(event)
         events.append(event)
@@ -866,6 +888,39 @@ async def test_image_generation(model: Model):
     inline_items = [item for event in events for item in event["content_items"] if item["type"] == "inline_data.done"]
     assert inline_items, f"No inline data returned for generated image by {model.name}"
     assert any("image/" in item["mime_type"] for item in inline_items)
+    assert all(isinstance(item["data"], bytes) and item["data"] for item in inline_items)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("model", AVAILABLE_MODELS, ids=[str(model) for model in AVAILABLE_MODELS])
+async def test_video_generation(model: Model):
+    """Test a generated video, which arrives whole as one inline data item."""
+    if not model.support_video_generation:
+        pytest.skip(f"Video generation is not supported by {model.name}.")
+
+    client = await _create_client(model)
+    events = []
+    async for event in client.streaming_response(
+        messages=[
+            {
+                "role": "user",
+                "content_items": [
+                    {
+                        "type": "text.done",
+                        "text": "A paper boat drifting down a calm forest stream. One continuous shot, no dialogue.",
+                    }
+                ],
+            }
+        ],
+        config={},
+    ):
+        await _check_event_integrity(event)
+        events.append(event)
+
+    assert_stream_grammar(events)
+    inline_items = [item for event in events for item in event["content_items"] if item["type"] == "inline_data.done"]
+    assert inline_items, f"No inline data returned for generated video by {model.name}"
+    assert any("video/" in item["mime_type"] for item in inline_items)
     assert all(isinstance(item["data"], bytes) and item["data"] for item in inline_items)
 
 
@@ -890,7 +945,7 @@ async def test_tts_generation_single_speaker(model: Model):
                 ],
             }
         ],
-        config={"tts_config": [{"voice": "Kore"}]},
+        config={},
     ):
         await _check_event_integrity(event)
         events.append(event)
@@ -900,6 +955,38 @@ async def test_tts_generation_single_speaker(model: Model):
     assert inline_items, f"No inline data returned for TTS output by {model.name}"
     assert any("audio/" in item["mime_type"] for item in inline_items)
     assert all(isinstance(item["data"], bytes) and item["data"] for item in inline_items)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("model", AVAILABLE_MODELS, ids=[str(model) for model in AVAILABLE_MODELS])
+async def test_transcription(model: Model):
+    """Test transcription: one message of audio, answered by its text."""
+    if not model.support_transcription:
+        pytest.skip(f"Transcription is not supported by {model.name}.")
+
+    async with httpx.AsyncClient(follow_redirects=True) as http:
+        response = await http.get(AUDIO)
+        response.raise_for_status()
+
+    client = await _create_client(model)
+    events = []
+    async for event in client.streaming_response(
+        messages=[
+            {
+                "role": "user",
+                "content_items": [{"type": "inline_data.done", "data": response.content, "mime_type": "audio/flac"}],
+            }
+        ],
+        config={},
+    ):
+        await _check_event_integrity(event)
+        events.append(event)
+
+    assert_stream_grammar(events)
+    text = "".join(item["text"] for event in events for item in event["content_items"] if item["type"] == "text.done")
+    assert "country" in text.lower()
+    assert events[-1]["finish_reason"] == "stop"
+    assert events[-1]["usage_metadata"]["prompt_tokens"] > 0
 
 
 @pytest.mark.asyncio
@@ -932,6 +1019,65 @@ async def test_embedding(model: Model):
     for item in embedding_items:
         assert len(item["embedding"]) == 768
         assert all(isinstance(v, float) for v in item["embedding"])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("model", AVAILABLE_MODELS, ids=[str(model) for model in AVAILABLE_MODELS])
+async def test_web_search(model: Model):
+    """Test web search: one request per message, each answered by one web tool item of at most count results."""
+    if model.support_webtool != "search":
+        pytest.skip(f"Web search is not supported by {model.name}.")
+
+    client = await _create_client(model)
+    messages = [
+        {"role": "user", "content_items": [{"type": "text.done", "text": "Python programming language"}]},
+        {
+            "role": "user",
+            "content_items": [{"type": "text.done", "text": "TypeScript "}, {"type": "text.done", "text": "handbook"}],
+        },
+    ]
+
+    events = []
+    async for event in client.streaming_response(messages=messages, config={"webtool_config": {"count": 3}}):
+        await _check_event_integrity(event)
+        events.append(event)
+
+    assert_stream_grammar(events)
+    webtool_items = [item for event in events for item in event["content_items"] if item["type"] == "webtool.done"]
+    assert len(webtool_items) == 2
+    for item in webtool_items:
+        assert 1 <= len(item["webdata"]) <= 3
+        for page in item["webdata"]:
+            assert page["url"].startswith("http")
+            assert page["title"] or page["content"]
+    assert events[-1]["finish_reason"] == "stop"
+    assert events[-1]["usage_metadata"]["prompt_tokens"] > 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("model", AVAILABLE_MODELS, ids=[str(model) for model in AVAILABLE_MODELS])
+async def test_web_fetch(model: Model):
+    """Test page fetch: the one page read, as one web tool item."""
+    if model.support_webtool != "fetch":
+        pytest.skip(f"Page fetch is not supported by {model.name}.")
+
+    client = await _create_client(model)
+    messages = [{"role": "user", "content_items": [{"type": "text.done", "text": "https://example.com"}]}]
+
+    events = []
+    async for event in client.streaming_response(messages=messages, config={}):
+        await _check_event_integrity(event)
+        events.append(event)
+
+    assert_stream_grammar(events)
+    webtool_items = [item for event in events for item in event["content_items"] if item["type"] == "webtool.done"]
+    assert len(webtool_items) == 1
+    [page] = webtool_items[0]["webdata"]
+    assert page["url"].startswith("https://example.com")
+    assert "Example Domain" in page["title"]
+    assert page["content"]
+    assert events[-1]["finish_reason"] == "stop"
+    assert events[-1]["usage_metadata"]["prompt_tokens"] > 0
 
 
 if __name__ == "__main__":

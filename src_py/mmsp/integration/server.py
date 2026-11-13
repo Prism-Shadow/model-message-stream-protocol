@@ -3520,12 +3520,17 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             'moonshot-official': 'Moonshot',
             'deepseek-official': 'DeepSeek',
             'minimax-official': 'MiniMax',
+            'jina-webtool': 'Jina Reader and Search',
             'openai-responses': 'OpenAI Responses',
             'openai-chat': 'OpenAI Chat Completions',
             'openai-chat-vllm-adapter': 'Chat Completions on vLLM',
             'openai-embedding': 'OpenAI Embeddings',
+            'openai-image': 'OpenAI Images',
+            'openai-speech': 'OpenAI Speech',
+            'openai-transcription': 'OpenAI Transcriptions',
             'ant-messages': 'Anthropic Messages',
             'google-genai': 'Google generateContent',
+            'deepseek-webtool': 'DeepSeek Search and Fetch',
             'mmsp': 'MMSP server'
         };
         const DRAFT_KEY = 'mmsp.playground.server';

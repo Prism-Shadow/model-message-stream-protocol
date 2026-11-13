@@ -7,10 +7,14 @@
 Prompt caching reuses work when requests share the same prompt prefix. This provides three main benefits:
 
 - **Compute-efficient:** Avoid recalculating a prompt prefix that the model has already processed.
-- **Cheaper input tokens:** Pay the model's reduced cached-input rate for reused tokens, discounted up to 90%.
+- **Cheaper input tokens:** Pay the model's reduced cached-input rate for reused tokens, discounted up to 95%.
 - **Faster:** Reduce the time spent processing input before the response starts.
 
 Prompt caching is enabled by default for supported OpenAI models. Use the [Prompt Caching Dashboard](https://platform.openai.com/usage?usage_section=prompt-caching) to monitor cache read hit rates and use the [Prompt Cache Diagnostics tool](https://developers.openai.com/api/docs/guides/prompt-caching/diagnostics) to diagnose cache misses and improve cache reuse.
+
+Agents API model calls use the same prompt-caching behavior as the Responses API. Reusing context within a session can preserve a shared prompt prefix, but maintaining a session doesn't guarantee a cache hit. See [Observability and usage](https://developers.openai.com/api/docs/guides/agents-api/observability) for session usage fields and subagent accounting.
+
+Prompt caching pricing varies by model. See [API pricing](https://developers.openai.com/api/docs/pricing) for current cached-input and cache-write rates. Cache-write pricing is not an additive fee: input tokens use the uncached-input, cached-input, or cache-write rate.
 
 ## What is the prompt cache?
 
@@ -30,6 +34,10 @@ OpenAI caches the model's full rendered context including OpenAI-provided instru
 
 Cache reuse requires the entire rendered prefix to match. If content or a relevant setting changes before a breakpoint, the prefix after that change cannot match the existing cache entry.
 
+<a id="cache-affecting-settings"></a>
+
+
+
 <a id="which-settings-affect-the-cached-prefix"></a>
 
 
@@ -45,7 +53,7 @@ Changing a request does not necessarily discard an existing cache entry. What ma
 | [`model`](https://developers.openai.com/api/reference/resources/responses/methods/create#%28resource%29%20responses%20%3E%20%28method%29%20create%20%3E%20%28params%29%200.non_streaming%20%3E%20%28param%29%20model%20%3E%20%28schema%29)                                                                       | A different model can use different weights and caching behavior.                                                                                                                                            |
 | [`tools`](https://developers.openai.com/api/reference/resources/responses/methods/create#%28resource%29%20responses%20%3E%20%28method%29%20create%20%3E%20%28params%29%200.non_streaming%20%3E%20%28param%29%20tools%20%3E%20%28schema%29)                                                                       | Changes tool names, descriptions, schemas, ordering, or tool-specific instructions.                                                                                                                          |
 | [`parallel_tool_calls`](https://developers.openai.com/api/reference/resources/responses/methods/create#%28resource%29%20responses%20%3E%20%28method%29%20create%20%3E%20%28params%29%200.non_streaming%20%3E%20%28param%29%20parallel_tool_calls%20%3E%20%28schema%29)                                           | Can change instructions about calling multiple tools in one turn.                                                                                                                                            |
-| [`text.format`](https://developers.openai.com/api/reference/resources/responses/methods/create#%28resource%29%20responses%20%3E%20%28method%29%20create%20%3E%20%28params%29%200.non_streaming%20%3E%20%28param%29%20text%20%3E%20%28schema%29) ([Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs))      | Adds output-format instructions and the requested schema.                                                                                                                                                    |
+| [`text.format`](https://developers.openai.com/api/reference/resources/responses/methods/create#%28resource%29%20responses%20%3E%20%28method%29%20create%20%3E%20%28params%29%200.non_streaming%20%3E%20%28param%29%20text%20%3E%20%28schema%29) ([Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs))      | On supported GPT-6 and later models, [append a format update](https://developers.openai.com/api/docs/guides/structured-outputs?api-mode=responses#change-the-response-format-mid-conversation) to keep the original schema in the prefix. |
 | [`reasoning.effort`](https://developers.openai.com/api/reference/resources/responses/methods/create#%28resource%29%20responses%20%3E%20%28method%29%20create%20%3E%20%28params%29%200.non_streaming%20%3E%20%28param%29%20reasoning%20%3E%20%28schema%29)                                                        | Can change model-side reasoning instructions. On supported models, use a [configuration update](#change-reasoning-effort-without-rewriting-the-prefix) to change effort while preserving the earlier prefix. |
 | [`text.verbosity`](https://developers.openai.com/api/reference/resources/responses/methods/create#%28resource%29%20responses%20%3E%20%28method%29%20create%20%3E%20%28params%29%200.non_streaming%20%3E%20%28param%29%20text%20%3E%20%28schema%29)                                                               | Can change instructions about response detail.                                                                                                                                                               |
 | [`context_management`](https://developers.openai.com/api/reference/resources/responses/methods/create#%28resource%29%20responses%20%3E%20%28method%29%20create%20%3E%20%28params%29%200.non_streaming%20%3E%20%28param%29%20context_management%20%3E%20%28schema%29) ([Compaction](https://developers.openai.com/api/docs/guides/compaction)) | Replaces earlier conversation content with a compacted context that can prevent reuse from the first changed token onward.                                                                                   |
@@ -72,7 +80,9 @@ After the minimum cacheable token length, you can choose where to place cache br
 
 
 
-For GPT-5.6 and later, cache writes cost 1.25× the standard, uncached input-token rate. It is worth incurring this charge when you know a prefix will be reused, because subsequent reads cost only 0.1× that rate. Writing a prefix once and fully reusing it once costs 1.35× its ordinary input cost, compared with 2× for processing it twice without caching. The savings grow with each additional cache read: across ten requests, one write and nine full reads cost 2.15×, compared with 10× without caching.
+For GPT-5.6 and later, cache writes cost 1.25× the standard, uncached input-token rate for the default 30-minute lifetime. In the Responses API, you can choose a [12-hour minimum lifetime](#cache-lifetime) at a write rate of 2.5× ordinary input. Subsequent reads cost 0.1× the ordinary input rate on most of these models and 0.05× on [GPT-6.1 Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol) and [GPT-6.1 Terra](https://developers.openai.com/api/docs/models/gpt-6.1-terra), regardless of the selected lifetime.
+
+At the 0.1× read rate with 30-minute writes, writing a prefix once and fully reusing it once costs 1.35× its ordinary input cost, compared with 2× for processing it twice without caching. Across ten requests, one write and nine full reads cost 2.15× at that rate, compared with 10× without caching.
 
 Both implicit and explicit caching are supported, where explicit caching gives you more control over which context is written to cache.
 
@@ -127,7 +137,7 @@ For GPT-5.6 and later, the cache lookup boundaries in the incoming request are:
 
 ## Cache lifetime
 
-Cache entries are not stored indefinitely. A later request can reuse a cached prefix only while its entry remains available, and reusing the prefix refreshes its lifetime without another cache-write charge. The lifetime and retention settings [depend on the model](#summary-of-model-differences).
+Cache entries are not stored indefinitely. The minimum cache lifetime, retention settings, and behavior when a request reuses a prefix [depend on the model](#summary-of-model-differences).
 
 <a id="prompt-cache-retention"></a>
 
@@ -141,7 +151,77 @@ Cache entries are not stored indefinitely. A later request can reuse a cached pr
 
 
 
-Use `prompt_cache_options.ttl` to control the minimum cache lifetime. The only supported value, `30m`, is also the default. A cached prefix remains eligible for reuse for 30 minutes after its most recent write or reuse, though OpenAI may retain it longer.
+In the Responses API, set `prompt_cache_options.ttl` to choose the minimum cache lifetime:
+
+| Value             | Minimum lifetime | Cache-write rate                    | When to use it                                                       |
+| ----------------- | ---------------- | ----------------------------------- | -------------------------------------------------------------------- |
+| `"30m"` (default) | 30 minutes       | 1.25× the uncached input-token rate | Conversations and agent steps that reuse context frequently.         |
+| `"12h"`           | 12 hours         | 2.5× the uncached input-token rate  | Stable instructions or reference material reused across longer gaps. |
+
+These are total write rates, not surcharges on top of ordinary input. Cache-read rates are the same for both lifetimes. OpenAI may retain entries longer than the requested minimum; `"12h"` does not set a deletion deadline or change the [maximum data-retention policy](https://developers.openai.com/api/docs/guides/your-data#storage-requirements-and-retention-controls-per-endpoint).
+
+The request-level `ttl` applies to the implicit breakpoint and to explicit breakpoints without their own `ttl`. Set `prompt_cache_breakpoint.ttl` to override it for an individual explicit breakpoint. Omitting both settings preserves the default `"30m"` behavior. Unsupported values return `400 invalid_request_error`. These settings do not change the older-model `prompt_cache_retention` parameter.
+
+**Mix lifetimes in one request**
+
+Keep material reused throughout the day at the start of the prompt and give its breakpoint a `"12h"` lifetime. Use `"30m"` for session context that changes more frequently. This example sets a 30-minute request default and overrides it for the shared prefix. Explicit-only mode leaves the current question after the last breakpoint, so that content does not incur a cache-write charge.
+
+Responses API request with 12-hour and 30-minute breakpoints
+
+```json
+{
+  "model": "gpt-6.1-sol",
+  "prompt_cache_options": { "mode": "explicit", "ttl": "30m" },
+  "input": [
+    {
+      "role": "developer",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "Shared instructions and reference material reused throughout the day...",
+          "prompt_cache_breakpoint": { "mode": "explicit", "ttl": "12h" }
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "input_text",
+          "text": "Session context reused over the next few minutes...",
+          "prompt_cache_breakpoint": { "mode": "explicit" }
+        },
+        {
+          "type": "input_text",
+          "text": "The current question, which does not need a cache write..."
+        }
+      ]
+    }
+  ]
+}
+```
+
+
+Replace the placeholder text with your content. Each prefix you want to cache must meet the model's [minimum cacheable length](#summary-of-model-differences).
+
+**Overlapping writes and lifetime changes**
+
+A breakpoint covers the entire prefix before it. Within one request, each token is billed once at the longest lifetime of the selected writes covering it. A later 12-hour write also gives earlier selected breakpoints within that prefix 12-hour coverage.
+
+These examples assume any existing cached prefix matches an [eligible lookup boundary](#how-prefix-matching-works) in the new request.
+
+| Cache state before the request                | Selected breakpoints                           | Billed reads | Billed 30-minute writes | Billed 12-hour writes |
+| --------------------------------------------- | ---------------------------------------------- | ------------ | ----------------------- | --------------------- |
+| No cached prefix                              | `"12h"` at 2,000 tokens, then `"30m"` at 5,000 | 0            | 3,000                   | 2,000                 |
+| No cached prefix                              | `"30m"` at 2,000 tokens, then `"12h"` at 5,000 | 0            | 0                       | 5,000                 |
+| Valid 30-minute coverage through 2,000 tokens | `"12h"` at 5,000                               | 0            | 0                       | 5,000                 |
+| Valid 12-hour coverage through 2,000 tokens   | `"30m"` at 5,000                               | 2,000        | 3,000                   | 0                     |
+
+Upgrading valid 30-minute coverage to 12 hours charges a new 12-hour write for those tokens, without credit for the earlier write. Any portion already covered by a valid 12-hour entry remains a cache read.
+
+A 30-minute read refreshes coverage to at least 30 minutes after that read. If it uses an entry with valid 12-hour coverage, it preserves the later of the existing expiry and 30 minutes after the read. It does not restart a 12-hour clock or incur another write charge.
+
+The minimum lifetime governs eligibility for cache-read pricing. It does not guarantee that every request reuses stored KV tensors or has lower latency.
 
 
 
@@ -193,7 +273,7 @@ OpenAI handles routing automatically. Within an organization and processing regi
 
 - Current machine load and available capacity.
 - A hash of the initial tokens after the hidden OpenAI content, including tool definitions when present. The number of tokens hashed varies by model.
-- The optionally supplied [`prompt_cache_key`](#prompt-cache-keys) that controls grouping and distribution during higher-volume traffic, to mitigate request overflow to other machines and, therefore, cache misses.
+- A supplied [`prompt_cache_key`](#prompt-cache-keys), which separates cache reuse between groups of requests and helps optimize cache routing on models before GPT-5.6.
 
 
 
@@ -205,9 +285,11 @@ OpenAI handles routing automatically. Within an organization and processing regi
 
 
 
-When traffic exceeds a machine's available capacity, requests may overflow to another machine. If that machine does not have a matching cache entry, the initial overflow request incurs a cache miss.
+On models before GPT-5.6, use a stable [`prompt_cache_key`](https://developers.openai.com/api/reference/resources/responses/methods/create#%28resource%29%20responses%20%3E%20%28method%29%20create%20%3E%20%28params%29%200.non_streaming%20%3E%20%28param%29%20prompt_cache_key%20%3E%20%28schema%29) for requests that share a reusable prefix to help route related requests to the same cache. For busy groups, aim for about 15 requests per minute in total across all prefixes using each key. Partition higher-volume traffic across multiple keys using a stable, deterministic mapping. Keep related requests on the same `prompt_cache_key` so they can reuse its cache. Keys influence routing; they do not pin requests to a machine or guarantee a cache hit.
 
-Set [`prompt_cache_key`](https://developers.openai.com/api/reference/resources/responses/methods/create#%28resource%29%20responses%20%3E%20%28method%29%20create%20%3E%20%28params%29%200.non_streaming%20%3E%20%28param%29%20prompt_cache_key%20%3E%20%28schema%29) to help requests with the same prefix reach the same cache. Keys influence routing; they do not pin requests to a machine or guarantee a cache read hit. See [how to tune prompt cache keys](#tune-prompt-cache-keys).
+On GPT-5.6 and later, OpenAI handles cache routing automatically; the key is not needed to optimize caching. You can use separate keys to maintain separate cache accounting for customers or users within your application.
+
+Using separate keys can make cached token usage and billing easier to explain for each customer or user. For example, separate keys help prevent cache-hit probing across users: submitting candidate prompts and observing cache hits to learn whether matching content was previously cached. See [Separate cache accounting with keys](#separate-prompts-with-cache-keys).
 
 
 
@@ -217,17 +299,18 @@ Set [`prompt_cache_key`](https://developers.openai.com/api/reference/resources/r
 
 ## Summary of model differences
 
-| Behavior                   | GPT-5.6 and later                                   | GPT-5.5 and GPT-5.5 Pro                                     | Other earlier models                                                            |
-| -------------------------- | --------------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| Implicit breakpoints       | At the end of the latest eligible message.          | Spaced at regular 2,048-token intervals.                    | Spaced at regular, model-dependent intervals.                                   |
-| Explicit breakpoints       | Supported                                           | Not supported                                               | Not supported                                                                   |
-| Minimum cacheable prefix   | 1,024 visible input tokens                          | Varies by request settings                                  | Varies by request settings                                                      |
-| Cached-token reporting     | Exact eligible boundary, excluding hidden tokens    | Excludes hidden tokens and rounds down to a multiple of 128 | Excludes hidden tokens and rounds down to a multiple of 128                     |
-| Cache read charge          | 0.1× the uncached input-token rate                  | Model-dependent cached-input rate                           | Model-dependent cached-input rate                                               |
-| Cache write charge         | 1.25× the uncached input-token rate                 | No additional cache-write charge                            | No additional cache-write charge                                                |
-| Cache lifetime control     | `prompt_cache_options.ttl`                          | `prompt_cache_retention`                                    | `prompt_cache_retention`                                                        |
-| Supported retention values | `"30m"`                                             | `"24h"` only                                                | `"in_memory"` or `"24h"`<sup>[\*](#extended-retention-models)</sup>             |
-| Cache lifetime             | At least 30 minutes after the latest write or reuse | Typically around 30 minutes, up to 24 hours                 | Typically 5 to 10 minutes inactive for `in_memory`, or up to 24 hours for `24h` |
+| Behavior                   | GPT-5.6 and later                                                                   | GPT-5.5 and GPT-5.5 Pro                                     | Other earlier models                                                            |
+| -------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Implicit breakpoints       | At the end of the latest eligible message.                                          | Spaced at regular 2,048-token intervals.                    | Spaced at regular, model-dependent intervals.                                   |
+| Explicit breakpoints       | Supported                                                                           | Not supported                                               | Not supported                                                                   |
+| `prompt_cache_key`         | Optional for separate cache accounting                                              | Use a stable key to optimize cache routing                  | Use a stable key to optimize cache routing                                      |
+| Minimum cacheable prefix   | 1,024 visible input tokens                                                          | Varies by request settings                                  | Varies by request settings                                                      |
+| Cached-token reporting     | Exact eligible boundary, excluding hidden tokens                                    | Excludes hidden tokens and rounds down to a multiple of 128 | Excludes hidden tokens and rounds down to a multiple of 128                     |
+| Cache read charge          | 0.1× uncached input (0.05× for GPT-6.1 Sol and GPT-6.1 Terra)                       | Model-dependent cached-input rate                           | Model-dependent cached-input rate                                               |
+| Cache write charge         | 1.25× for `"30m"`; 2.5× for `"12h"` in the Responses API                            | No additional cache-write charge                            | No additional cache-write charge                                                |
+| Cache lifetime control     | `prompt_cache_options.ttl`                                                          | `prompt_cache_retention`                                    | `prompt_cache_retention`                                                        |
+| Supported retention values | `"30m"` (default), or `"12h"` in the Responses API                                  | `"24h"` only                                                | `"in_memory"` or `"24h"`<sup>[\*](#extended-retention-models)</sup>             |
+| Cache lifetime             | Minimum lifetime of 30 minutes or 12 hours; see [refresh behavior](#cache-lifetime) | Typically around 30 minutes, up to 24 hours                 | Typically 5 to 10 minutes inactive for `in_memory`, or up to 24 hours for `24h` |
 
 <a id="extended-retention-models"></a>
 
@@ -241,11 +324,17 @@ Set [`prompt_cache_key`](https://developers.openai.com/api/reference/resources/r
 
 For models before GPT-5.6, the minimum cacheable input length varies with request settings, including tools, images, output schemas, reasoning effort, and verbosity.
 
+
+
+Ask ChatGPT to find the cache minimum for my request
+
+
+
 <a id="best-practices"></a>
 
 ## How to optimize prompt caching
 
-Focus on [preserving conversation history](#preserve-conversation-history), [keeping tool definitions stable](#manage-tools-with-append-only-updates), and understanding the three main cache controls. Use [`prompt_cache_options.mode` and `prompt_cache_breakpoint`](#choose-a-caching-mode) to choose where caching occurs, and [`prompt_cache_key`](#tune-prompt-cache-keys) to help related requests reach the same cache.
+Focus on [preserving conversation history](#preserve-conversation-history), [keeping tool definitions stable](#manage-tools-with-append-only-updates), and choosing where caching occurs. On GPT-5.6 and later, use [`prompt_cache_options.mode` and `prompt_cache_breakpoint`](#choose-a-caching-mode) to control cache breakpoints. You can also use an optional [`prompt_cache_key`](#separate-prompts-with-cache-keys) if your application needs separate cache accounting for customers. On models before GPT-5.6, use a stable `prompt_cache_key` to optimize cache routing for requests that share a reusable prefix.
 
 
 
@@ -267,13 +356,13 @@ In multi-turn applications, reusing the growing conversation history can save mo
 
 - **Keep the prefix stable.** Put stable developer instructions and shared reference material first. If developer instructions or shared material contain timestamps, user-specific content, or other dynamic content, place those at the end rather than the beginning, or move them into later conversation messages.
 - **Preserve conversation history.** Append new messages rather than rewriting earlier turns. Summarization, [compaction](#compaction-can-reduce-cache-reuse), or context truncation can change the prefix and reset cache reuse.
-- **Change reasoning effort without rewriting the prefix.** On GPT-6 Astra, append a `configuration_update` input item to change reasoning effort between responses while keeping request-level `reasoning.effort` unchanged. This preserves the original prefix for cache reuse. See [Change reasoning mid-conversation](https://developers.openai.com/api/docs/guides/reasoning#change-reasoning-mid-conversation) for examples and compatibility limits.
+- **Change reasoning effort without rewriting the prefix.** On GPT-6 models, append a `configuration_update` input item to change reasoning effort between responses while keeping request-level `reasoning.effort` unchanged. This preserves the original prefix for cache reuse. See [Change reasoning mid-conversation](https://developers.openai.com/api/docs/guides/reasoning#change-reasoning-mid-conversation) for examples and compatibility limits.
 
 Keep changing content after the breakpoint
 
 ```json
 {
-  "model": "gpt-5.6",
+  "model": "gpt-6.1-sol",
   "reasoning": { "effort": "low", "context": "all_turns" },
   "text": { "verbosity": "medium" },
   "prompt_cache_options": { "mode": "explicit" },
@@ -317,7 +406,7 @@ Keep changing content after the breakpoint
 
 On supported GPT-6 and later models, append a `configuration_update` input item to [change reasoning effort during a conversation](https://developers.openai.com/api/docs/guides/reasoning?api-mode=responses#change-reasoning-mid-conversation) while preserving the earlier cached prefix. Keep the top-level `reasoning.effort` at its original value as changing that setting can rewrite instructions in the hidden system instructions.
 
-The latest configuration update controls the reasoning effort for subsequent responses. For example, append this item to the existing `input` array to switch to `high` reasoning for the subsequent requests:
+The latest update to `reasoning.effort` controls the effort for later responses. Append this item to `input` to switch to `high` effort.
 
 Item to append to the input array
 
@@ -332,6 +421,8 @@ Item to append to the input array
 
 
 
+
+<a id="tools"></a>
 
 
 
@@ -382,86 +473,84 @@ On GPT-5.6 and later, two controls determine where cache breakpoints are placed:
 
 
 
+<a id="prewarm-the-cache"></a>
+
+
+
+### Prewarm the cache
+
+
+
+For GPT-5.6 and later, prepare known context ahead of time to reduce time to first token on a subsequent request. For example, an interactive application can prewarm shared instructions, tool definitions, or reference material during startup, before the user asks their first question.
+
+Set [`prompt_cache_options.prewarm`](https://developers.openai.com/api/reference/resources/responses/methods/create#%28resource%29%20responses%20%3E%20%28method%29%20create%20%3E%20%28params%29%200.non_streaming%20%3E%20%28param%29%20prompt_cache_options%20%3E%20%28schema%29%20%3E%20%28property%29%20prewarm) to `true` in a Responses API request to prepare the prompt cache without generating output. Once it completes, send your actual request with the same prompt prefix and `prewarm` omitted or set to `false`.
+
+Prewarm the cache
+
+```json
+{
+  "model": "gpt-6.1-sol",
+  "input": [
+    {
+      "role": "developer",
+      "content": "Your app's shared instructions and reference material..."
+    }
+  ],
+  "prompt_cache_options": {
+    "prewarm": true
+  }
+}
+```
+
+
+Send a follow-up request
+
+```json
+{
+  "model": "gpt-6.1-sol",
+  "input": [
+    {
+      "role": "developer",
+      "content": "Your app's shared instructions and reference material..."
+    },
+    {
+      "role": "user",
+      "content": "The user's question..."
+    }
+  ]
+}
+```
+
+
+Tokens written to the cache during a prewarm request are billed at the [cache-write rate for the selected lifetime](#cache-lifetime).
+
+
+
+
+
+<a id="prompt-cache-key-best-practices"></a>
+
 <a id="tune-prompt-cache-keys"></a>
 
-
-
-### Tune prompt cache keys
+<a id="separate-prompts-with-cache-keys"></a>
 
 
 
-- **Group related requests.** Combine a prompt version with a stable user, workspace, session, or thread ID that matches how your application reuses context. For example:
-  - `prompt_name_v1:user_123` groups a user's related requests that share a prompt version.
-  - `prompt_name_v1:session_456` groups requests within one session.
-  - `prompt_name_v1:workspace_acme:shard_3` groups requests within a stable shard of a workspace.
-- **Keep keys stable.** Reuse the key while its prefix remains useful; do not generate a new key for every request.
-- **Split busy groups.** If a group receives high traffic and cache read hits decline, distribute it across more keys with a stable, deterministic mapping. Keep related requests on the same shard so they can reuse its cache.
+<a id="separate-cache-accounting-with-keys"></a>
 
-Create stable cache keys
 
-```javascript
-import { createHash } from "node:crypto";
 
-const tenantId = "acme";
-const sessionId = "session-42";
-const promptVersion = "support-v3";
-// Tune for peak traffic per tenant and reusable prompt group; monitor cache hits.
-const shardCount = 16;
+### Separate cache accounting with keys
 
-const digest = createHash("sha256")
-  .update(`${tenantId}:${sessionId}`)
-  .digest("hex");
-const shard = Number.parseInt(digest.slice(0, 8), 16) % shardCount;
-const promptCacheKey = `${promptVersion}:${tenantId}:shard-${shard}`;
-```
 
-```python
-import hashlib
 
-tenant_id = "acme"
-session_id = "session-42"
-prompt_version = "support-v3"
-# Tune for peak traffic per tenant and reusable prompt group; monitor cache hits.
-shard_count = 16
+On GPT-5.6 and later, use `prompt_cache_key` when you want to maintain separate cache accounting for customers, users, or workspaces within your application. This can make cached token usage and billing easier to explain within each group. The key is optional and is not needed to optimize caching on these models.
 
-digest = hashlib.sha256(f"{tenant_id}:{session_id}".encode()).hexdigest()
-shard = int(digest[:8], 16) % shard_count
-prompt_cache_key = f"{prompt_version}:{tenant_id}:shard-{shard}"
-```
+- **Choose how to separate cache accounting.** Assign a distinct key to each customer or user whose cache accounting should remain separate. For example, `support:customer_123` and `support:customer_456` maintain separate cache accounting for two customers, even when their requests contain the same prefix.
+- **Keep keys stable within each group.** Reuse the same key for a customer's related requests. Generate a separate key for a session or thread only when it needs its own cache accounting.
+- **Apply keys consistently.** Use the customer's key across their requests to maintain separate cache accounting. This also helps prevent cache-hit probing across customers.
 
-```java
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.util.HexFormat;
-
-String tenantId = "acme";
-String sessionId = "session-42";
-String promptVersion = "support-v3";
-int shardCount = 16;
-
-String digest =
-    HexFormat.of()
-        .formatHex(
-            MessageDigest.getInstance("SHA-256")
-                .digest((tenantId + ":" + sessionId).getBytes(StandardCharsets.UTF_8)));
-long shard = Long.parseLong(digest.substring(0, 8), 16) % shardCount;
-String promptCacheKey = promptVersion + ":" + tenantId + ":shard-" + shard;
-```
-
-```ruby
-require "digest"
-
-tenant_id = "acme"
-session_id = "session-42"
-prompt_version = "support-v3"
-# Tune for peak traffic per tenant and reusable prompt group; monitor cache hits.
-shard_count = 16
-
-digest = Digest::SHA256.hexdigest("#{tenant_id}:#{session_id}")
-shard = digest.slice(0, 8).to_s.to_i(16) % shard_count
-prompt_cache_key = "#{prompt_version}:#{tenant_id}:shard-#{shard}"
-```
-
+On models before GPT-5.6, `prompt_cache_key` is important for optimizing cache hit rates. Use a stable key for requests that share a reusable prefix to help route them to the same cache. For busy groups, follow the [guidance for distributing traffic across more keys](#prompt-cache-keys).
 
 
 
@@ -478,6 +567,8 @@ prompt_cache_key = "#{prompt_version}:#{tenant_id}:shard-#{shard}"
 ### Configure cache retention
 
 
+
+For Responses API models that support `prompt_cache_options`, use `"30m"` for frequently reused context and consider `"12h"` for stable prefixes reused across longer gaps. Compare the higher 12-hour write rate with the cost of rewriting the prefix after 30-minute coverage expires. Use breakpoint overrides to give shared material a longer lifetime than session-specific context. See [Cache lifetime](#cache-lifetime) for examples and billing rules.
 
 For earlier models, prefer setting `prompt_cache_retention` to `"24h"` for extended retention when the model and your data-retention requirements allow it. See [Cache lifetime](#cache-lifetime) for supported settings and defaults.
 
@@ -499,7 +590,7 @@ For earlier models, prefer setting `prompt_cache_retention` to `"24h"` for exten
 
 If many requests reuse the same developer instructions and tool definitions, but that shared prefix falls below the model's [minimum cacheable length](#summary-of-model-differences), consider shortening it or expanding it with useful, stable instructions, examples, or reference material. Measure whether cache reuse offsets the additional input tokens and any cache-write charges, and ensure evaluations and behaviour remain stable.
 
-The chart highlights the minimum cacheable length cost trap where short prefix lengths can cost more uncached than expanding to the minimum cacheable token length.
+The chart highlights the minimum cacheable length cost trap where short prefix lengths can cost more uncached than expanding to the minimum cacheable token length. It uses the 30-minute cache-write rate for GPT-5.6 and later.
 
 <a id="mathematical-details"></a>
 
@@ -517,7 +608,7 @@ $$
 
 Expand when $$L > L_{\mathrm{break\text{-}even}}$$; keeping the shorter prefix costs less when $$L < L_{\mathrm{break\text{-}even}}$$. At equality, the costs are the same. The smallest whole-token length for which expansion is cheaper is $$\left\lfloor L_{\mathrm{break\text{-}even}} \right\rfloor + 1$$. Conversely, shrinking a cacheable prefix below $$M$$ loses caching: under the same assumptions, the shorter uncached prefix must fall below $$L_{\mathrm{break\text{-}even}}$$ to cost less than caching $$M$$ tokens. There is no universal maximum-cost prompt length; the crossover depends on reuse and pricing.
 
-For example, with $$M = 1{,}024$$, $$r = 0.1$$, and $$w = 1.25$$, the crossover is $$102.4 + \frac{1{,}177.6}{N}$$ tokens. Across 10 requests, expanding an original prefix of at least 221 tokens to 1,024 tokens is cheaper. As reuse grows, the crossover approaches 102.4 tokens. A 103-token prefix needs at least 1,963 total requests to benefit; a prefix of 102 tokens or fewer never does under these assumptions. This comparison excludes performance, output tokens, and unchanged request costs. Additional misses, writes, or different model rates change the result.
+For example, using the usual cache-read rate and 30-minute writes with $$M = 1{,}024$$, $$r = 0.1$$, and $$w = 1.25$$, the crossover is $$102.4 + \frac{1{,}177.6}{N}$$ tokens. Across 10 requests, expanding an original prefix of at least 221 tokens to 1,024 tokens is cheaper. As reuse grows, the crossover approaches 102.4 tokens. A 103-token prefix needs at least 1,963 total requests to benefit; a prefix of 102 tokens or fewer never does under these assumptions. This comparison excludes performance, output tokens, and unchanged request costs. Additional misses, writes, or different model rates change the result.
 
 
 
@@ -537,11 +628,38 @@ For example, with $$M = 1{,}024$$, $$r = 0.1$$, and $$w = 1.25$$, the crossover 
 
 
 
-- **Measure actual cache performance.** Track `usage.input_tokens_details.cached_tokens`, `usage.input_tokens_details.cache_write_tokens`, input-token counts, latency, and realized cost. Track the token cache-hit rate by dividing total cached tokens by total input tokens, aggregating both counts by user, workspace, day, or another useful grouping.
+- **Measure actual cache performance.** Track `usage.input_tokens_details.cached_tokens`, `usage.input_tokens_details.cache_write_tokens`, the write counts by lifetime, input-token counts, latency, and realized cost. Track the token cache-hit rate by dividing total cached tokens by total input tokens, aggregating both counts by user, workspace, day, or another useful grouping.
 - **Calculate input cost.** Use the token counts in `response.usage` and the model's [prices per million tokens](https://developers.openai.com/api/docs/pricing).
 - **Use the prompt caching dashboard.** Monitor cache hit rates in the [Prompt Caching Dashboard](https://platform.openai.com/usage?usage_section=prompt-caching).
 
-Calculate input cost
+For Responses API models that support `prompt_cache_options`, `input_tokens_details.cache_write_tokens_details` breaks writes into `ttl_30m_tokens` and `ttl_12h_tokens`. These counts do not overlap and sum to `cache_write_tokens`. Both fields are returned, including when one is zero. `cached_tokens` counts billed reads and excludes tokens charged as writes, including upgrades from 30-minute to 12-hour coverage.
+
+Input usage fields with both write lifetimes
+
+```json
+{
+  "usage": {
+    "input_tokens": 12000,
+    "input_tokens_details": {
+      "cached_tokens": 4000,
+      "cache_write_tokens": 7000,
+      "cache_write_tokens_details": {
+        "ttl_30m_tokens": 3000,
+        "ttl_12h_tokens": 4000
+      }
+    }
+  }
+}
+```
+
+
+In this usage example, 1,000 input tokens are ordinary input: `12000 - 4000 - 7000`. To calculate input cost, multiply ordinary input tokens by the model's input price, `cached_tokens` by its cached-input price, `ttl_30m_tokens` by 1.25× its input price, and `ttl_12h_tokens` by 2.5× its input price. Add these amounts and divide by 1,000,000 when using prices per million tokens. Do not add `cache_write_tokens` again after counting its two components.
+
+For example, at an input price of $1 per million tokens and a cached-input price of $0.10 per million, this usage costs `(1000 + 4000 × 0.1 + 3000 × 1.25 + 4000 × 2.5) / 1000000 = $0.01515` for input. Use your model's actual rates, including its cached-input rate.
+
+The following helper uses one cache-write multiplier for all writes. Use `1.25` when all writes have a 30-minute lifetime, or `2.5` when all have a 12-hour lifetime. For requests with both lifetimes, calculate each write component separately as described here.
+
+Calculate input cost with one cache-write rate
 
 ```javascript
 function calculateInputCost(
@@ -588,6 +706,31 @@ def calculate_input_cost(
     return input_cost
 ```
 
+```go
+func calculateInputCost(usage responses.ResponseUsage, pricePerMillion, cacheInputMultiplier, cacheWriteMultiplier float64) float64 {
+	ordinary := usage.InputTokens - usage.InputTokensDetails.CachedTokens - usage.InputTokensDetails.CacheWriteTokens
+	weighted := float64(ordinary) + float64(usage.InputTokensDetails.CachedTokens)*cacheInputMultiplier + float64(usage.InputTokensDetails.CacheWriteTokens)*cacheWriteMultiplier
+	return weighted * pricePerMillion / 1_000_000
+}
+```
+
+```java
+import com.openai.models.responses.ResponseUsage;
+
+static double calculateInputCost(
+    ResponseUsage usage,
+    double pricePerMillion,
+    double cacheInputMultiplier,
+    double cacheWriteMultiplier) {
+  long cached = usage.inputTokensDetails().cachedTokens();
+  long written = usage.inputTokensDetails().cacheWriteTokens();
+  long ordinary = usage.inputTokens() - cached - written;
+  return (ordinary + cached * cacheInputMultiplier + written * cacheWriteMultiplier)
+      * pricePerMillion
+      / 1_000_000;
+}
+```
+
 ```ruby
 def calculate_input_cost(
   usage,
@@ -601,10 +744,9 @@ def calculate_input_cost(
   cache_write_tokens = details.cache_write_tokens
   ordinary_input_tokens = input_tokens - cached_tokens - cache_write_tokens
 
-  weighted_input_tokens =
-    ordinary_input_tokens +
-    (cached_tokens * cache_input_multiplier) +
-    (cache_write_tokens * cache_write_multiplier)
+  weighted_input_tokens = ordinary_input_tokens +
+                          (cached_tokens * cache_input_multiplier) +
+                          (cache_write_tokens * cache_write_multiplier)
   (weighted_input_tokens * input_price_per_million) / 1_000_000
 end
 ```
@@ -625,7 +767,7 @@ end
 
 
 - Keep existing stable prefixes.
-- Keep existing `prompt_cache_key` values.
+- If you use `prompt_cache_key`, keep existing values to preserve separate cache accounting for customers or users.
 - Replace `prompt_cache_retention` with `prompt_cache_options.ttl`.
 - Confirm that reusable prefixes meet the model's [minimum cacheable length](#summary-of-model-differences).
 - If the default breakpoint includes content that changes between requests, add an explicit breakpoint after the stable prefix.
@@ -637,6 +779,8 @@ end
 
 
 ## Examples
+
+The following examples apply to GPT-5.6 and later models.
 
 
 
@@ -651,7 +795,6 @@ end
 Consider a single-turn LLM judge that determines whether a completed interaction shows evidence that the user is satisfied after an interaction with a chatbot. Each request uses the same grading rubric and labeled few-shot examples to evaluate a different interaction.
 
 - **Preserving the prefix:** The fixed rubric and examples come first. Their combined length is deliberately kept just above the model's [minimum cacheable length](#summary-of-model-differences), using material that helps calibrate the judge. The interaction being evaluated comes last.
-- **Prompt cache key:** A stable `prompt_cache_key`, such as `satisfaction_judge_v1`, groups requests using the same rubric version.
 - **Caching mode and breakpoint:** Explicit-only caching is enabled, with a breakpoint after the fixed rubric and examples. The user–chatbot conversation being evaluated comes after that breakpoint and is not written to the cache, avoiding a cache-write charge for content that is unlikely to be reused.
 
 An example deployment using these principles reported a **token cache-hit rate of ~70%**. This figure illustrates a possible outcome. Actual cache-hit rate ceilings will depend upon your context and application usage.
@@ -660,10 +803,9 @@ Responses API request for a single-turn judge
 
 ```json
 {
-  "model": "gpt-5.6-sol",
+  "model": "gpt-6.1-sol",
   "reasoning": { "effort": "medium", "context": "all_turns" },
   "text": { "verbosity": "low" },
-  "prompt_cache_key": "satisfaction_judge_v1",
   "prompt_cache_options": { "mode": "explicit" },
   "input": [
     {
@@ -702,7 +844,7 @@ Responses API request for a single-turn judge
 Consider a multi-turn agent with long, shared developer instructions and frequent tool calls. Typical usage sees users running multiple sessions with the agent at once, and often forking the threads.
 
 - **Preserving the prefix**: Each turn appends new messages, tool calls, and results without rewriting earlier context, so the reusable prefix grows over time.
-- **Prompt cache key:** The `prompt_cache_key` is defined for each user-agent pair, shared across that user's sessions with the agent. For example, `agent_123_v1:user_456` groups user 456's sessions and forks with agent 123. The session and thread IDs are kept out of the key when those sessions should share the same reusable prefix.
+- **Optional prompt cache key:** This example uses `agent_123_v1:user_456` to maintain separate cache accounting for user 456, making their cached token usage and billing easier to explain. This also helps prevent cache-hit probing across users. The key stays the same across that user's sessions and forks with the agent. Omit it if your application does not need this separation.
 - **Implicit caching mode:** Implicit caching is enabled so the latest eligible user or tool message provides a breakpoint.
 - **Explicit breakpoints:** A breakpoint is added after each tool result to preserve earlier reusable prefixes and improve cache efficiency of forking.
 
@@ -712,7 +854,7 @@ Responses API request for a multi-turn agent
 
 ```json
 {
-  "model": "gpt-5.6-sol",
+  "model": "gpt-6.1-sol",
   "reasoning": { "effort": "medium", "context": "all_turns" },
   "text": { "verbosity": "medium" },
   "prompt_cache_key": "agent_123_v1:user_456",
@@ -781,10 +923,9 @@ Without a breakpoint after the static content
 
 ```json
 {
-  "model": "gpt-5.6-sol",
+  "model": "gpt-6.1-sol",
   "reasoning": { "effort": "medium", "context": "all_turns" },
   "text": { "verbosity": "low" },
-  "prompt_cache_key": "prompt_name_v1",
   "prompt_cache_options": { "mode": "implicit" },
   "input": [
     { "role": "developer", "content": "Static content..." },
@@ -800,10 +941,9 @@ With a breakpoint after the static content
 
 ```json
 {
-  "model": "gpt-5.6-sol",
+  "model": "gpt-6.1-sol",
   "reasoning": { "effort": "medium", "context": "all_turns" },
   "text": { "verbosity": "low" },
-  "prompt_cache_key": "prompt_name_v1",
   "prompt_cache_options": { "mode": "explicit" },
   "input": [
     {
@@ -975,3 +1115,15 @@ No. Manual cache clearing is not currently available. Cache entries expire accor
 
 
 Yes. Cached input tokens still count toward tokens-per-minute limits. Prompt caching does not change how [rate limits](https://developers.openai.com/api/docs/guides/rate-limits) are calculated.
+
+
+
+
+
+## Data retention
+
+All prompt caching features are compatible with [Zero Data Retention (ZDR)](https://developers.openai.com/api/docs/guides/your-data#zero-data-retention).
+
+The prompt cache stores key-value (KV) tensors rather than the original prompt text. These tensors may be stored as encrypted application state in GPU-local storage, with a maximum retention period of 24 hours. See [Cache lifetime](#cache-lifetime) for model-specific cache lifetimes and refresh behavior.
+
+Caches are not shared across organizations and cannot be reused across [regional processing boundaries](https://developers.openai.com/api/docs/guides/your-data#data-residency-controls). For details about data handling and ZDR eligibility across API features, see [Your data](https://developers.openai.com/api/docs/guides/your-data).

@@ -15,7 +15,8 @@
 from typing import Literal, NotRequired, TypedDict
 
 
-Modality = Literal["Text", "Image", "Video", "Audio", "Embed"]
+# "Embed" is an embedding vector, and "Web" the pages a web tool answers with (`webtool.done`)
+Modality = Literal["Text", "Image", "Video", "Audio", "Embed", "Web"]
 Currency = Literal["USD", "CNY"]
 
 
@@ -24,7 +25,8 @@ class ModelPricing(TypedDict):
 
     Keys mirror ``usage_metadata``: ``cached_tokens`` (cache-hit price, absent when the
     platform publishes none), ``prompt_tokens`` (non-cached input), and
-    ``thoughts_tokens``/``response_tokens``, which both carry the output price.
+    ``thoughts_tokens``/``response_tokens``, which both carry the output price unless the vendor
+    prices thinking apart (Gemini Omni bills its thoughts as text and its response as video).
     Values are in the currency requested from ``list_supported_models``.
     """
 
@@ -74,6 +76,7 @@ _VERTEX = "https://aiplatform.googleapis.com"
 _BEDROCK = "bedrock://us-east-1"
 _TOKENDANCE = "https://tokendance.space/gateway/v1"
 _TOKENDANCE_ANTHROPIC = "https://tokendance.space/gateway"
+_TOKENDANCE_DEEPSEEK = "https://tokendance.space/gateway/deepseek"
 _OPENCODE_GO = "https://opencode.ai/inference/go/openai/v1"
 _OPENCODE_GO_ANTHROPIC = "https://opencode.ai/inference/go/anthropic"
 _OPENCODE_GO_GOOGLE = "https://opencode.ai/inference/go/google"
@@ -84,18 +87,21 @@ _ATLASCLOUD = "https://api.atlascloud.ai/v1"
 _PENGUIN_GO = "https://go.penguin.ooo/api/v1"
 _MODELSCOPE = "https://api-inference.modelscope.cn/v1"
 _VLLM_LOCAL = "http://127.0.0.1:8000/v1"
+_JINA_SEARCH = "https://s.jina.ai"
+_JINA_READER = "https://r.jina.ai"
 
 # Display convention shared with the MMSP apps: prices are stored in USD (CNY prices
 # pre-converted at 7 CNY/USD), so requesting CNY shows the platform's numbers.
 _CNY_PER_USD = 7.0
 
 
-def _usd(prompt: float, output: float, cached: float | None = None) -> ModelPricing:
-    # thoughts and response tokens are both billed at the vendor's output price
+def _usd(prompt: float, output: float, cached: float | None = None, thoughts: float | None = None) -> ModelPricing:
+    # thoughts and response tokens are both billed at the vendor's output price, except where the
+    # vendor prices the thinking apart (Gemini Omni's thoughts are text, its response video)
     pricing: ModelPricing = {
         "currency": "USD",
         "prompt_tokens": prompt,
-        "thoughts_tokens": output,
+        "thoughts_tokens": output if thoughts is None else thoughts,
         "response_tokens": output,
     }
     if cached is not None:
@@ -115,12 +121,23 @@ def _cny(prompt: float, output: float, cached: float | None = None) -> ModelPric
 # Prices in USD per million tokens (CNY prices pre-converted at 7 CNY/USD). Each platform's
 # section opens with one header, `--- <platform> (<rows>; <key>; <sources>, read <date>)`, then
 # its notes. Gateway rows list only the input modalities their client can send: the
-# OpenAI-protocol clients carry text and images, not video or audio.
+# OpenAI-protocol clients carry text and images, not video, and audio only to a transcription.
 _SUPPORTED_MODELS: list[SupportedModel] = [
-    # --- Official vendor endpoints (55 rows; each vendor's own key variable; list prices from each
+    # --- Official vendor endpoints (56 rows; each vendor's own key variable; list prices from each
     # vendor's pricing page, the rows added 2026-10-24 naming their page and read date)
     {
         "model": "gemini-4-argon",
+        "base_url": _GOOGLE,
+        "client": "google-official",
+        "input_modalities": ["Text", "Image", "Video", "Audio"],
+        "output_modalities": ["Text"],
+        "context_window": 1048576,
+        "pricing": _usd(4.0, 20.0, cached=0.2),
+    },
+    {
+        # aistudio.google.com/docs/pricing (read 2026-11-10); the introductory price runs through
+        # 2026-11-30: $2 input, $10 output, $0.10 cache read
+        "model": "gemini-4-carbon",
         "base_url": _GOOGLE,
         "client": "google-official",
         "input_modalities": ["Text", "Image", "Video", "Audio"],
@@ -135,18 +152,9 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "input_modalities": ["Text", "Image", "Video", "Audio"],
         "output_modalities": ["Text"],
         "context_window": 1048576,
-        # Google runs a launch discount through 2026-12-31 on this row and on the two flash
-        # rows below; the list price is stored regardless, because applying a running
+        # Google runs a launch discount through 2026-12-31 on this row and on gemini-3.6-flash
+        # below; the list price is stored regardless, because applying a running
         # promotion belongs to the consumer, not to the registry.
-        "pricing": _usd(1.5, 7.5, cached=0.15),
-    },
-    {
-        "model": "gemini-3.7-flash",
-        "base_url": _GOOGLE,
-        "client": "google-official",
-        "input_modalities": ["Text", "Image", "Video", "Audio"],
-        "output_modalities": ["Text"],
-        "context_window": 1048576,
         "pricing": _usd(1.5, 7.5, cached=0.15),
     },
     {
@@ -166,15 +174,6 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "output_modalities": ["Text"],
         "context_window": 1048576,
         "pricing": _usd(0.3, 2.5, cached=0.03),
-    },
-    {
-        "model": "gemini-3.5-flash",
-        "base_url": _GOOGLE,
-        "client": "google-official",
-        "input_modalities": ["Text", "Image", "Video", "Audio"],
-        "output_modalities": ["Text"],
-        "context_window": 1048576,
-        "pricing": _usd(1.5, 9.0, cached=0.15),
     },
     {
         # ai.google.dev/gemini-api/docs/pricing (read 2026-10-24), the tier for prompts up to 200K
@@ -238,11 +237,16 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "output_modalities": ["Audio"],
     },
     {
-        "model": "gemini-3.1-flash-tts-preview",
+        # the video is billed per output token (5,792 a second at the default 720p, ~$0.70 for the default
+        # 10 s), its thoughts at the text output price; context window = input token limit (pricing page and
+        # model page, read 2026-11-06)
+        "model": "gemini-omni-1.2-flash",
         "base_url": _GOOGLE,
         "client": "google-official",
-        "input_modalities": ["Text"],
-        "output_modalities": ["Audio"],
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Video"],
+        "context_window": 131072,
+        "pricing": _usd(1.5, 12.0, thoughts=9.0),
     },
     {
         "model": "gemini-embedding-2",
@@ -357,6 +361,19 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "output_modalities": ["Text"],
         "context_window": 1050000,
         "pricing": _usd(2.5, 10.0, cached=0.1),
+    },
+    {
+        # developers.openai.com/api/docs/pricing (read 2026-11-02) per 1M tokens: $0.05 cached input,
+        # $1 uncached input, $1.25 cache writes ($2.50 with the 12-hour lifetime), $5 output, above
+        # 272K input tokens 2x input and cache and 1.5x output. The prompt bucket carries the
+        # 30-minute cache-write rate, as for gpt-6.1-sol.
+        "model": "gpt-6.1-terra",
+        "base_url": _OPENAI,
+        "client": "openai-official",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1050000,
+        "pricing": _usd(1.25, 5.0, cached=0.05),
     },
     {
         # official list price per 1M tokens: $1 cached input, $10 uncached input, $12.5 cache
@@ -512,6 +529,17 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "pricing": _usd(0.13, 0.0),
     },
     {
+        # developers.openai.com/api/docs/models/gpt-image-2.5-flare (read 2026-11-04): $5 per million
+        # text input tokens, $1.25 cached, $30 per million image output tokens; openai-image sends no
+        # input image, which bills $8
+        "model": "gpt-image-2.5-flare",
+        "base_url": _OPENAI,
+        "client": "openai-official",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Image"],
+        "pricing": _usd(5.0, 30.0, cached=1.25),
+    },
+    {
         "model": "glm-5.3",
         "base_url": _ZAI,
         "client": "zai-official",
@@ -611,8 +639,8 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "pricing": _cny(4.0, 21.0, cached=0.7),
     },
     {
-        # DeepSeek-V4.1-Flash; DeepSeek also serves deepseek-v4-flash and
-        # deepseek-v4-flash-vision-exp with it, at this price (official page 2026-09-30)
+        # DeepSeek-V4.1-Flash-1017 (api-docs.deepseek.com/zh-cn/quick_start/pricing, read
+        # 2026-11-10)
         "model": "deepseek-flash",
         "base_url": _DEEPSEEK,
         "client": "deepseek-official",
@@ -621,30 +649,6 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "context_window": 1000000,
         # official off-peak list price; peak-hour rates (Beijing 9:00-12:00, 14:00-18:00,
         # weekdays) are double
-        "pricing": _cny(1.0, 4.0, cached=0.02),
-    },
-    {
-        "model": "deepseek-v4-flash",
-        "base_url": _DEEPSEEK,
-        "client": "deepseek-official",
-        "input_modalities": ["Text"],
-        "output_modalities": ["Text"],
-        "context_window": 1000000,
-        # official off-peak list price effective 2026-09-10 (verified 2026-09-08 against
-        # the official adjustment); peak-hour rates (Beijing 9:00-12:00, 14:00-18:00) are
-        # double
-        "pricing": _cny(1.0, 4.0, cached=0.02),
-    },
-    {
-        "model": "deepseek-v4-flash-vision-exp",
-        "base_url": _DEEPSEEK,
-        "client": "deepseek-official",
-        "input_modalities": ["Text", "Image"],
-        "output_modalities": ["Text"],
-        "context_window": 1000000,
-        # priced as deepseek-v4-flash; official off-peak list price effective 2026-09-10
-        # (verified 2026-09-08 against the official adjustment), and peak-hour rates
-        # (Beijing 9:00-12:00, 14:00-18:00) are double
         "pricing": _cny(1.0, 4.0, cached=0.02),
     },
     {
@@ -658,7 +662,46 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         # (Beijing 9:00-12:00, 14:00-18:00) are double
         "pricing": _cny(4.5, 13.5, cached=0.15),
     },
-    # --- OpenRouter (123 rows; key OPENROUTER_API_KEY; USD prices, context windows and modalities
+    {
+        # deepseek-official serves this row and the next through deepseek-webtool. ¥5 per 1,000
+        # successful requests (api-docs.deepseek.com/zh-cn/guides/search, read 2026-11-02); a request
+        # counts as one prompt token, so ¥5,000 per million
+        "model": "deepseek-search",
+        "base_url": _DEEPSEEK,
+        "client": "deepseek-official",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Web"],
+        "pricing": _cny(5000.0, 0.0),
+    },
+    {
+        "model": "deepseek-fetch",
+        "base_url": _DEEPSEEK,
+        "client": "deepseek-official",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Web"],
+        "pricing": _cny(5000.0, 0.0),
+    },
+    # --- Jina (2 rows; key JINA_API_KEY; Search on https://s.jina.ai and Reader on https://r.jina.ai,
+    # the token price from Jina's models API https://api.jina.ai/v1/models, read 2026-11-02). The API
+    # lists $0.05 per million tokens for Jina's models, and the client counts the tokens Jina bills as
+    # prompt tokens: a flat 10,000 for a search, the page's tokens for a read.
+    {
+        "model": "jina-search",
+        "base_url": _JINA_SEARCH,
+        "client": "jina-webtool",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Web"],
+        "pricing": _usd(0.05, 0.0),
+    },
+    {
+        "model": "jina-fetch",
+        "base_url": _JINA_READER,
+        "client": "jina-webtool",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Web"],
+        "pricing": _usd(0.05, 0.0),
+    },
+    # --- OpenRouter (125 rows; key OPENROUTER_API_KEY; USD prices, context windows and modalities
     # from the live models API https://openrouter.ai/api/v1/models and each model's
     # /api/v1/models/{slug}/endpoints list, read 2026-10-24). The API quotes one endpoint per model;
     # where that endpoint runs a promotion (a nonzero `discount` in its /endpoints entry), the row
@@ -827,6 +870,18 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "pricing": _usd(0.1, 0.4),
     },
     {
+        # $0.018 per image whatever its size (the model page and /api/v1/images/models, read
+        # 2026-11-04), not a price per token: the stored rate is the image_output price the models API
+        # quotes, which comes to about $0.018 for a 1K image (4,096 completion tokens) and four times
+        # that for a 2K one (16,384)
+        "model": "bytedance-seed/seedream-5-0-flash",
+        "base_url": _OPENROUTER,
+        "client": "openai-image",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Image"],
+        "pricing": _usd(0.0, 4.311377),
+    },
+    {
         "model": "cohere/command-a-plus",
         "base_url": _OPENROUTER,
         "client": "openai-responses",
@@ -927,9 +982,39 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "pricing": _usd(0.28, 0.42, cached=0.028),
     },
     {
+        # prompt tokens are the input's UTF-8 bytes, $10 per million; the endpoint runs an 80% launch
+        # discount ($2, the API's 0.000002 with discount 0.8, read 2026-11-04)
+        "model": "fish-audio/drama-3",
+        "base_url": _OPENROUTER,
+        "client": "openai-speech",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Audio"],
+        "pricing": _usd(10.0, 0.0),
+    },
+    {
+        # prompt tokens are the audio's seconds, rounded up: $0.0001 a second (read 2026-11-04)
+        "model": "fish-audio/transcribe-1",
+        "base_url": _OPENROUTER,
+        "client": "openai-transcription",
+        "input_modalities": ["Audio"],
+        "output_modalities": ["Text"],
+        "pricing": _usd(100.0, 0.0),
+    },
+    {
         # Google's introductory 50% off runs on every endpoint through 2026-11-30 (the API quotes $2
         # input, $10 output); the Google AI Studio list rate is stored
         "model": "google/gemini-4-argon",
+        "base_url": _OPENROUTER,
+        "client": "openai-responses",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1048576,
+        "pricing": _usd(4.0, 20.0, cached=0.2),
+    },
+    {
+        # Google's introductory 50% off runs on every endpoint through 2026-11-30 (the API quotes $2
+        # input, $10 output); the Google AI Studio list rate is stored
+        "model": "google/gemini-4-carbon",
         "base_url": _OPENROUTER,
         "client": "openai-responses",
         "input_modalities": ["Text", "Image"],
@@ -949,17 +1034,6 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "pricing": _usd(1.5, 7.5, cached=0.15),
     },
     {
-        # a 50% discount runs on every endpoint (the API quotes $0.75 input, $3.75 output); the Google
-        # AI Studio list rate is stored. Google's own pricing page no longer lists 3.7 Flash
-        "model": "google/gemini-3.7-flash",
-        "base_url": _OPENROUTER,
-        "client": "openai-responses",
-        "input_modalities": ["Text", "Image"],
-        "output_modalities": ["Text"],
-        "context_window": 1048576,
-        "pricing": _usd(1.5, 7.5, cached=0.15),
-    },
-    {
         # the API quotes Google's launch price ($0.75 input, $3.75 output, $0.075 cache read) with no
         # discount flag; ai.google.dev/gemini-api/docs/pricing runs it through 2026-12-31 and lists
         # the stored price from 2027-01-01
@@ -970,15 +1044,6 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "output_modalities": ["Text"],
         "context_window": 1048576,
         "pricing": _usd(1.5, 7.5, cached=0.15),
-    },
-    {
-        "model": "google/gemini-3.5-flash",
-        "base_url": _OPENROUTER,
-        "client": "openai-responses",
-        "input_modalities": ["Text", "Image"],
-        "output_modalities": ["Text"],
-        "context_window": 1048576,
-        "pricing": _usd(1.5, 9.0, cached=0.15),
     },
     {
         "model": "google/gemini-3.5-flash-lite",
@@ -1016,26 +1081,6 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "output_modalities": ["Text"],
         "context_window": 262144,
         "pricing": _usd(0.0, 0.0),
-    },
-    {
-        # Inception's endpoint, the only one, runs a 50% discount ($0.10 input, $0.35 output)
-        "model": "inception/mercury-3",
-        "base_url": _OPENROUTER,
-        "client": "openai-responses",
-        "input_modalities": ["Text"],
-        "output_modalities": ["Text"],
-        "context_window": 1000000,
-        "pricing": _usd(0.2, 0.7, cached=0.02),
-    },
-    {
-        # Inception's endpoint, the only one, runs an 80% discount ($0.04 input, $0.15 output)
-        "model": "inception/mercury-2.5",
-        "base_url": _OPENROUTER,
-        "client": "openai-responses",
-        "input_modalities": ["Text"],
-        "output_modalities": ["Text"],
-        "context_window": 260000,
-        "pricing": _usd(0.2, 0.75, cached=0.02),
     },
     {
         # the quoted DeepInfra and Novita endpoints run a 75% discount ($0.075 input, $0.225 output);
@@ -1327,6 +1372,17 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "output_modalities": ["Text"],
         "context_window": 1050000,
         "pricing": _usd(2.5, 10.0, cached=0.1),
+    },
+    {
+        # $1 input, $5 output, $0.05 cache read, $1.25 cache write; the prompt bucket carries the
+        # cache-write rate
+        "model": "openai/gpt-6.1-terra",
+        "base_url": _OPENROUTER,
+        "client": "openai-responses",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1050000,
+        "pricing": _usd(1.25, 5.0, cached=0.05),
     },
     {
         # default OpenAI endpoint, no discount: $10 input, $50 output, $1 cache read, $12.5 cache
@@ -1647,6 +1703,17 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "output_modalities": ["Text"],
         "context_window": 262144,
         "pricing": _usd(0.1, 0.3),
+    },
+    {
+        # Tencent's endpoint, the only one, runs a 50% discount ($0.417 input, $1.2505 output, $0.021
+        # cache read)
+        "model": "tencent/hy4",
+        "base_url": _OPENROUTER,
+        "client": "openai-responses",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1048576,
+        "pricing": _usd(0.834, 2.501, cached=0.042),
     },
     {
         # Tencent's endpoint at its UTC 16:00-24:00 rate; UTC 00:00-16:00 costs $0.834 input, $2.501
@@ -2037,8 +2104,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "output_modalities": ["Image"],
     },
     {
-        # not on the pricing page
-        "model": "gemini-3.1-flash-tts-preview",
+        "model": "gemini-3.8-flash-tts",
         "base_url": _VERTEX,
         "client": "google-genai",
         "input_modalities": ["Text"],
@@ -2139,11 +2205,13 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "context_window": 1000000,
         "pricing": _usd(3.0, 15.0, cached=0.3),
     },
-    # --- TokenDance (61 rows; key TOKENDANCE_API_KEY; CNY prices at the `items` rate of the public
+    # --- TokenDance (65 rows; key TOKENDANCE_API_KEY; CNY prices at the `items` rate of the public
     # catalog https://tokendance.space/portal/api/models/all, read 2026-10-24). The `items` rate is
     # what TokenDance bills, below the `reference` price the catalog shows beside some models. Each
     # row's client speaks a protocol the catalog lists for the model, and its price is that
-    # protocol's, at the lowest tier where the catalog tiers it by prompt length.
+    # protocol's, at the lowest tier where the catalog tiers it by prompt length. The two web tool
+    # rows near the end bill ¥0.005 per request (TokenDance's console, read 2026-11-02), stored as
+    # ¥5,000 per million prompt tokens, one per request; the image row after them bills by the image.
     {
         # this row and the next take the gateway's Chat Completions path; weekday peak rates
         # (09:00-12:00, 14:00-18:00 Beijing) are double on both
@@ -2193,17 +2261,6 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "output_modalities": ["Text"],
         "context_window": 1048576,
         "pricing": _cny(1.5, 4.5, cached=0.05),
-    },
-    {
-        # the Chat Completions price names its output rate `output_tokens`; the Messages price is
-        # the same 1/2/0.2 CNY
-        "model": "deepseek-v4-flash",
-        "base_url": _TOKENDANCE,
-        "client": "openai-chat",
-        "input_modalities": ["Text"],
-        "output_modalities": ["Text"],
-        "context_window": 1048576,
-        "pricing": _cny(1.0, 2.0, cached=0.2),
     },
     {
         # the catalog prices this model on Chat Completions and Messages (2.1/8.4 CNY below 512K
@@ -2563,6 +2620,15 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "pricing": _cny(0.7, 2.1, cached=0.14),
     },
     {
+        "model": "hy4",
+        "base_url": _TOKENDANCE,
+        "client": "openai-responses",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1024000,
+        "pricing": _cny(3.0, 9.0, cached=0.15),
+    },
+    {
         "model": "hy4-preview",
         "base_url": _TOKENDANCE,
         "client": "openai-responses",
@@ -2589,6 +2655,16 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "output_modalities": ["Text"],
         "context_window": 256000,
         "pricing": _cny(1.2, 4.0, cached=0.4),
+    },
+    {
+        # the catalog serves it on Chat Completions only; its 08:00-22:00 (Beijing) rates are 1/4/0.1 CNY
+        "model": "ernie-5.5-flash-preview",
+        "base_url": _TOKENDANCE,
+        "client": "openai-chat",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Text"],
+        "context_window": 1000000,
+        "pricing": _cny(0.5, 2.0, cached=0.05),
     },
     {
         "model": "seed-2.1-pro",
@@ -2728,6 +2804,33 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "output_modalities": ["Embed"],
         "context_window": 8000,
         "pricing": _cny(0.5, 0.0),
+    },
+    {
+        "model": "deepseek-search",
+        "base_url": _TOKENDANCE_DEEPSEEK,
+        "client": "deepseek-webtool",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Web"],
+        "pricing": _cny(5000.0, 0.0),
+    },
+    {
+        "model": "deepseek-fetch",
+        "base_url": _TOKENDANCE_DEEPSEEK,
+        "client": "deepseek-webtool",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Web"],
+        "pricing": _cny(5000.0, 0.0),
+    },
+    {
+        # ¥0.22 per image (the catalog's items rate, read 2026-11-04), not a price per token: stored
+        # over the 16,384 output tokens of a 2048x2048 image, the smallest square TokenDance takes and
+        # its default; a larger image bills the same ¥0.22 over more tokens
+        "model": "seedream-5.0-lite",
+        "base_url": _TOKENDANCE,
+        "client": "openai-image",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Image"],
+        "pricing": _cny(0.0, 13.427734),
     },
     # --- OpenCode Go (28 rows; key OPENCODE_API_KEY; ids and each row's protocol from the endpoints
     # table of https://opencode.ai/v2/docs/console/go/, USD per-token rates from its usage-limits
@@ -3313,7 +3416,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "context_window": 262144,
         "pricing": _usd(0.248, 1.485),
     },
-    # --- Penguin Go (9 rows; key PENGUIN_GO_API_KEY; ids, context windows, image input and the
+    # --- Penguin Go (8 rows; key PENGUIN_GO_API_KEY; ids, context windows, image input and the
     # relay's list prices from the penguin-harness catalog, which carries the owner-confirmed relay
     # prices of 2026-10-14, read 2026-10-24; unverified: no live call was made, for want of a key).
     # Prism Shadow's MMSP relay, reached through the mmsp client; it lists its models only to a key
@@ -3346,15 +3449,6 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "output_modalities": ["Text"],
         "context_window": 1048576,
         "pricing": _usd(0.75, 3.75, cached=0.075),
-    },
-    {
-        "model": "gemini-3.5-flash",
-        "base_url": _PENGUIN_GO,
-        "client": "mmsp",
-        "input_modalities": ["Text", "Image"],
-        "output_modalities": ["Text"],
-        "context_window": 1048576,
-        "pricing": _usd(1.5, 9.0, cached=0.15),
     },
     {
         "model": "gemini-3.5-flash-lite",

@@ -4,7 +4,7 @@
 
 **Reasoning models** use internal reasoning tokens before producing a response. This helps the model plan, use tools effectively, inspect alternatives, recover from ambiguity, and solve harder multi-step tasks. Reasoning models work especially well for complex problem solving, coding, scientific reasoning, and multi-step agentic workflows. They're also the best models for [Codex CLI](https://github.com/openai/codex), our lightweight coding agent.
 
-Start with `gpt-6-astra` for most reasoning workloads. For lower cost, consider [`gpt-5.6-terra`](https://developers.openai.com/api/docs/models/gpt-5.6-terra), or [`gpt-5.6-luna`](https://developers.openai.com/api/docs/models/gpt-5.6-luna) for the lowest cost and latency. If you're using a GPT-5.6 model, see [reasoning mode](#reasoning-mode) for its `pro` option.
+Start with `gpt-6-astra` for most reasoning workloads. For lower cost, consider [`gpt-5.6-terra`](https://developers.openai.com/api/docs/models/gpt-5.6-terra), or [`gpt-5.6-luna`](https://developers.openai.com/api/docs/models/gpt-5.6-luna) for the lowest cost and latency. If you're using a GPT-5.6 or GPT-6 model, see [reasoning mode](#reasoning-mode) for its `pro` option.
 
 **Reasoning models work better with the [Responses
   API](https://developers.openai.com/api/docs/guides/migrate-to-responses)**. While the Chat Completions API
@@ -159,7 +159,7 @@ PROMPT
 
 response = client.responses.create(
   model: "gpt-6-astra",
-  reasoning: {effort: :low},
+  reasoning: { effort: :low },
   input: prompt
 )
 
@@ -191,10 +191,12 @@ Supported values are model-dependent and can include `none`, `minimal`, `low`, `
 
 [GPT-6 Astra](https://developers.openai.com/api/docs/models/gpt-6-astra) does not support `none` reasoning
   effort. Setting `reasoning.effort` (Responses) or `reasoning_effort` (Chat
-  Completions) to `none` returns HTTP 400.
+  Completions) to `none` returns HTTP 400. [GPT-6.1 Sol](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-6-astra#gpt-61-sol)
+  does not support `none` or `minimal` and defaults to `medium`.
 
 Use the [Responses API](https://developers.openai.com/api/docs/guides/migrate-to-responses) for function
-calling. Chat Completions does not support function calling with GPT-6 Astra.
+calling. Chat Completions does not support function calling with GPT-6 Astra or
+GPT-6.1 Sol.
 
 Defaults are also model-dependent rather than universal. `gpt-5.5` defaults to `medium` reasoning effort. This is the best starting point for `gpt-5.5`’s full balance of quality, reliability and performance.
 
@@ -213,9 +215,9 @@ Some models support only a subset of these values, so check the relevant [model 
 
 ## Reasoning mode
 
-GPT-5.6 models support `standard` and `pro` reasoning modes in the Responses API. `standard` is the default. Set `reasoning.mode` to `pro` for difficult tasks that need more model work and can tolerate higher latency and token usage.
+GPT-5.6 and GPT-6 models support `standard` and `pro` reasoning modes in the Responses API. `standard` is the default. Set `reasoning.mode` to `pro` for difficult tasks that need more model work and can tolerate higher latency and token usage.
 
-Reasoning mode and reasoning effort are independent. Mode selects standard or pro execution, while `reasoning.effort` controls how much reasoning the model applies within that mode. If you omit `reasoning.effort`, GPT-5.6 defaults to `medium` in both modes.
+Reasoning mode and reasoning effort are independent. Mode selects standard or pro execution, while `reasoning.effort` controls how much reasoning the model applies within that mode. If you omit `reasoning.effort`, GPT-5.6 defaults to `medium` in both modes. GPT-6.1 Sol, GPT-6 Sol, and GPT-6 Luna also default to `medium` reasoning effort.
 
 Using pro reasoning mode
 
@@ -224,7 +226,7 @@ curl https://api.openai.com/v1/responses \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $OPENAI_API_KEY" \
   -d '{
-    "model": "gpt-5.6",
+    "model": "gpt-6.1-sol",
     "reasoning": {
       "mode": "pro",
       "effort": "medium"
@@ -486,7 +488,7 @@ PROMPT
 response = client.responses.create(
   model: "gpt-6-astra",
   max_output_tokens: 300,
-  reasoning: {effort: :medium},
+  reasoning: { effort: :medium },
   input: prompt
 )
 
@@ -504,16 +506,16 @@ Conversation state and reasoning state serve different purposes. Passing message
 Persisted reasoning provides continuity; it does not expose the model's raw reasoning. The reasoning items remain opaque, and the API does not return their reasoning text. Set `reasoning.context` to control which available reasoning items the model can use:
 
 The [GPT-5.6 model family](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-5.6)
-  supports
-  `all_turns` and uses it by default. Earlier models default to
-  `current_turn`. Omit `reasoning.context` or set it to
-  `auto` to use the selected model's default.
+  supports `all_turns` and uses it by default. Earlier models default
+  to `current_turn`. [GPT-6.1 Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol) also
+  supports `all_turns`. Omit `reasoning.context` or set it
+  to `auto` to use the selected model's default.
 
-| Value          | Behavior                                                                                                                  |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `auto`         | Uses the selected model's default. Omitting `reasoning.context` has the same effect as `auto`.                            |
-| `current_turn` | Makes reasoning from the active turn available, but does not render reasoning from earlier turns into the next sample.    |
-| `all_turns`    | Renders available, compatible reasoning items from earlier turns into the next sample. GPT-5.6 models support this value. |
+| Value          | Behavior                                                                                                                                  |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `auto`         | Uses the selected model's default. Omitting `reasoning.context` has the same effect as `auto`.                                            |
+| `current_turn` | Makes reasoning from the active turn available, but does not render reasoning from earlier turns into the next sample.                    |
+| `all_turns`    | Renders available, compatible reasoning items from earlier turns into the next sample. GPT-5.6 models and GPT-6.1 Sol support this value. |
 
 The response's `reasoning.context` field contains the effective mode, either `current_turn` or `all_turns`. Check this field on each response to confirm which mode the model used. The setting does not create reasoning items that are not already available.
 
@@ -535,13 +537,13 @@ import OpenAI from "openai";
 const client = new OpenAI();
 
 const first = await client.responses.create({
-  model: "gpt-5.6",
+  model: "gpt-6.1-sol",
   input: "Inspect this repository and identify the likely bug.",
   reasoning: { context: "current_turn" },
 });
 
 const second = await client.responses.create({
-  model: "gpt-5.6",
+  model: "gpt-6.1-sol",
   previous_response_id: first.id,
   input: "Now patch the bug and explain the change.",
   reasoning: { context: "all_turns" },
@@ -554,7 +556,7 @@ console.log(second.output_text);
 from openai import OpenAI
 
 client = OpenAI()
-model = "gpt-5.6"
+model = "gpt-6.1-sol"
 
 first = client.responses.create(
     model=model,
@@ -585,7 +587,7 @@ import (
 
 func main() {
 	client := openai.NewClient()
-	model := "gpt-5.6"
+	model := "gpt-6.1-sol"
 
 	first, err := client.Responses.New(context.Background(), responses.ResponseNewParams{
 		Model: model,
@@ -630,7 +632,7 @@ var first =
         .responses()
         .create(
             ResponseCreateParams.builder()
-                .model("gpt-5.6")
+                .model("gpt-6.1-sol")
                 .input("Inspect this repository and identify the likely bug.")
                 .reasoning(
                     Reasoning.builder()
@@ -643,7 +645,7 @@ var second =
         .responses()
         .create(
             ResponseCreateParams.builder()
-                .model("gpt-5.6")
+                .model("gpt-6.1-sol")
                 .input("Now patch the bug and explain the change.")
                 .previousResponseId(first.id())
                 .reasoning(
@@ -664,16 +666,16 @@ require "openai"
 client = OpenAI::Client.new
 
 first = client.responses.create(
-  model: "gpt-5.6",
+  model: "gpt-6.1-sol",
   input: "Inspect this repository and identify the likely bug.",
-  reasoning: {context: :current_turn}
+  reasoning: { context: :current_turn }
 )
 
 second = client.responses.create(
-  model: "gpt-5.6",
+  model: "gpt-6.1-sol",
   previous_response_id: first.id,
   input: "Now patch the bug and explain the change.",
-  reasoning: {context: :all_turns}
+  reasoning: { context: :all_turns }
 )
 
 puts(second.output_text)
@@ -710,10 +712,10 @@ Preserve reasoning without storing responses
 
 ```javascript
 import OpenAI from "openai";
+import { toResponseInputItems } from "openai/lib/responses/ResponseInputItems";
 
 const client = new OpenAI();
 
-/** @type {OpenAI.Responses.ResponseInput} */
 const history = [
   {
     role: "user",
@@ -722,21 +724,21 @@ const history = [
 ];
 
 const first = await client.responses.create({
-  model: "gpt-5.6",
+  model: "gpt-6.1-sol",
   store: false,
   input: history,
   reasoning: { context: "current_turn" },
 });
 
-// Keep every output item, including encrypted reasoning and assistant phase.
-history.push(...first.output);
+// Keep replayable output, including encrypted reasoning and assistant phase.
+history.push(...toResponseInputItems(first.output));
 history.push({
   role: "user",
   content: "Now patch the bug and explain the change.",
 });
 
 const second = await client.responses.create({
-  model: "gpt-5.6",
+  model: "gpt-6.1-sol",
   store: false,
   input: history,
   reasoning: { context: "all_turns" },
@@ -749,7 +751,7 @@ console.log(second.output_text);
 from openai import OpenAI
 
 client = OpenAI()
-model = "gpt-5.6"
+model = "gpt-6.1-sol"
 
 history = [
     {
@@ -766,7 +768,7 @@ first = client.responses.create(
 )
 
 # Keep every output item, including encrypted reasoning and assistant phase.
-history.extend(item.model_dump() for item in first.output)
+history.extend(item.to_dict() for item in first.output)
 history.append(
     {
         "role": "user",
@@ -803,7 +805,7 @@ func main() {
 		responses.ResponseInputItemParamOfMessage("Inspect this repository and identify the likely bug.", responses.EasyInputMessageRoleUser),
 	}
 	first, err := client.Responses.New(context.Background(), responses.ResponseNewParams{
-		Model:     "gpt-5.6",
+		Model:     "gpt-6.1-sol",
 		Store:     openai.Bool(false),
 		Input:     responses.ResponseNewParamsInputUnion{OfInputItemList: history},
 		Reasoning: shared.ReasoningParam{Context: shared.ReasoningContextCurrentTurn},
@@ -817,7 +819,7 @@ func main() {
 		responses.EasyInputMessageRoleUser,
 	))
 	second, err := client.Responses.New(context.Background(), responses.ResponseNewParams{
-		Model:     "gpt-5.6",
+		Model:     "gpt-6.1-sol",
 		Store:     openai.Bool(false),
 		Input:     responses.ResponseNewParamsInputUnion{OfInputItemList: history},
 		Reasoning: shared.ReasoningParam{Context: shared.ReasoningContextAllTurns},
@@ -864,7 +866,7 @@ var first =
         .responses()
         .create(
             ResponseCreateParams.builder()
-                .model("gpt-5.6")
+                .model("gpt-6.1-sol")
                 .inputOfResponse(history)
                 .store(false)
                 .reasoning(
@@ -886,7 +888,7 @@ client
     .responses()
     .create(
         ResponseCreateParams.builder()
-            .model("gpt-5.6")
+            .model("gpt-6.1-sol")
             .inputOfResponse(history)
             .store(false)
             .reasoning(
@@ -907,23 +909,29 @@ require "openai"
 
 client = OpenAI::Client.new
 history = [
-  {role: :user, content: "Inspect this repository and identify the likely bug."}
+  {
+    role: :user,
+    content: "Inspect this repository and identify the likely bug."
+  }
 ]
 
 first = client.responses.create(
-  model: "gpt-5.6",
+  model: "gpt-6.1-sol",
   store: false,
   input: history,
-  reasoning: {context: :current_turn}
+  reasoning: { context: :current_turn }
 )
 history.concat(first.output)
-history << {role: :user, content: "Now patch the bug and explain the change."}
+history << {
+  role: :user,
+  content: "Now patch the bug and explain the change."
+}
 
 second = client.responses.create(
-  model: "gpt-5.6",
+  model: "gpt-6.1-sol",
   store: false,
   input: history,
-  reasoning: {context: :all_turns}
+  reasoning: { context: :all_turns }
 )
 
 puts(second.output_text)
@@ -944,8 +952,8 @@ Check out [this guide](https://developers.openai.com/api/docs/guides/conversatio
 
 Use `configuration_update` to increase reasoning effort for difficult work or reduce it for routine follow-ups. Add the update between responses while leaving the request-level `reasoning.effort` unchanged. This preserves the original prompt prefix for [prompt caching](https://developers.openai.com/api/docs/guides/prompt-caching).
 
-Configuration updates are supported only by GPT-6 Astra (`gpt-6-astra`) in
-  standard, single-agent mode. They change only reasoning effort.
+On supported GPT-6 and later models, you can update reasoning effort and
+  response format in standard, single-agent mode.
 
 Add the following item before the next user message in the `input` array of an HTTP Responses request or a WebSocket `response.create` request:
 
@@ -1152,11 +1160,11 @@ puts(response.output_text)
 
 Preserve updates with `previous_response_id`, or replay them in their original positions when [managing conversation history manually](https://developers.openai.com/api/docs/guides/conversation-state#manually-manage-conversation-state). The response's `reasoning.effort` continues to report the request-level setting, not the effort selected by the update.
 
-Do not place two `configuration_update` items directly next to each other in the conversation history; the API rejects adjacent updates.
+You can set `reasoning.effort` and [`text.format`](https://developers.openai.com/api/docs/guides/structured-outputs?api-mode=responses#change-the-response-format-mid-conversation) in the same `configuration_update` item. An update to either setting alone preserves the other.
 
 Do not combine configuration updates with automatic compaction or automatic truncation. The standalone `/responses/compact` endpoint also rejects histories containing these updates.
 
-You can still explicitly compact history by including a `compaction_trigger` item in a `/responses` request. After compaction, add a fresh `configuration_update` with the desired effort before the next user message.
+You can still explicitly compact history by including a `compaction_trigger` item in a `/responses` request. After compaction, add a fresh `configuration_update` before the next user message. Restate each setting you changed, including the format if you changed it.
 
 Normal prompt caching requirements still apply. To send user instructions while a response is running, use [Mid-turn steering](https://developers.openai.com/api/docs/guides/steering).
 
@@ -1292,7 +1300,10 @@ client = OpenAI::Client.new
 response = client.responses.create(
   model: "gpt-6-astra",
   input: "What is the capital of France?",
-  reasoning: {effort: :low, summary: :auto}
+  reasoning: {
+    effort: :low,
+    summary: :auto
+  }
 )
 
 puts(response.output)
@@ -1542,7 +1553,7 @@ Coding (refactoring)
 
     
 
-OpenAI o-series models are able to implement complex algorithms and produce code. This prompt asks o1 to refactor a React component based on some specific criteria.
+Reasoning models can implement complex algorithms and produce code. This prompt asks the model to refactor a React component based on specific criteria.
 
 
 
@@ -1785,7 +1796,7 @@ Coding (planning)
 
     
 
-OpenAI o-series models are also adept in creating multi-step plans. This example prompt asks o1 to create a filesystem structure for a full solution, along with Python code that implements the desired use case.
+Reasoning models can also create multi-step plans. This example prompt asks the model to create a filesystem structure for a full solution, along with Python code that implements the desired use case.
 
 
 

@@ -49,6 +49,8 @@ _CREDENTIAL_ENV = [
     "MOONSHOT_BASE_URL",
     "MINIMAX_API_KEY",
     "MINIMAX_BASE_URL",
+    "JINA_API_KEY",
+    "JINA_BASE_URL",
     "ANTHROPIC_API_KEY",
     "ANTHROPIC_AUTH_TOKEN",
     "ANTHROPIC_BASE_URL",
@@ -103,6 +105,8 @@ VENDOR_CASES = [
     VendorCase(expected_client="ZAIOfficialClient", model="glm-5.3", key_env="ZAI_API_KEY"),
     VendorCase(expected_client="MoonshotOfficialClient", model="kimi-k3", key_env="MOONSHOT_API_KEY"),
     VendorCase(expected_client="MiniMaxOfficialClient", model="MiniMax-M3", key_env="MINIMAX_API_KEY"),
+    VendorCase(expected_client="DeepSeekWebtoolClient", model="deepseek-search", key_env="DEEPSEEK_API_KEY"),
+    VendorCase(expected_client="JinaWebtoolClient", model="jina-fetch", key_env="JINA_API_KEY"),
 ]
 VENDOR_IDS = [case.expected_client for case in VENDOR_CASES]
 
@@ -192,12 +196,18 @@ CLIENT_CASES = {
     "moonshot-official": ClientCase("kimi-k3", _openai_held),
     "deepseek-official": ClientCase("deepseek-v4-flash", _openai_held),
     "minimax-official": ClientCase("MiniMax-M3", _openai_held),
+    # a read is served on Jina's default endpoint, a search on its other one
+    "jina-webtool": ClientCase("jina-fetch", _openai_held),
     "openai-responses": ClientCase("gpt-5.6", _openai_held),
     "openai-chat": ClientCase("gpt-5.6", _openai_held),
     "openai-chat-vllm-adapter": ClientCase("Qwen/Qwen3.6-35B-A3B", _openai_held),
     "openai-embedding": ClientCase("text-embedding-3-large", _openai_held),
+    "openai-image": ClientCase("gpt-image-2.5-flare", _openai_held),
+    "openai-speech": ClientCase("fish-audio/drama-3", _openai_held),
+    "openai-transcription": ClientCase("fish-audio/transcribe-1", _openai_held),
     "ant-messages": ClientCase("claude-sonnet-5", _anthropic_held),
     "google-genai": ClientCase("gemini-3.8-flash", _google_held),
+    "deepseek-webtool": ClientCase("deepseek-search", _openai_held),
     "mmsp": ClientCase("gpt-5.5", _mmsp_held),
 }
 CLIENT_TYPES = list(CLIENT_CREDENTIALS)
@@ -288,6 +298,32 @@ def test_the_default_endpoint_spelled_otherwise_takes_the_environments_key_and_i
 
     assert environment_credential(client_type, passed) == EnvironmentCredential("env", credentials.api_key_env, None)
     assert _held(client_type, base_url=passed) == ("sk-env-PROBE", _endpoint(credentials.default_base_url))
+
+
+@pytest.mark.parametrize(
+    ("client_type", "other_base_url"),
+    [(name, url) for name, credentials in CLIENT_CREDENTIALS.items() for url in credentials.other_base_urls],
+)
+def test_another_default_endpoint_of_the_client_takes_the_environments_key_as_well(
+    client_type: str, other_base_url: str, monkeypatch: pytest.MonkeyPatch
+):
+    credentials = CLIENT_CREDENTIALS[client_type]
+    monkeypatch.setenv(credentials.api_key_env, "sk-env-PROBE")
+    monkeypatch.setenv(credentials.base_url_env, _ENV_BASE_URL)
+
+    assert environment_credential(client_type, _respelled(other_base_url)) == EnvironmentCredential(
+        "env", credentials.api_key_env, None
+    )
+
+
+def test_a_jina_search_without_a_base_url_calls_jinas_search_endpoint_with_the_environments_key(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("JINA_API_KEY", "sk-env-PROBE")
+
+    for base_url in (None, "https://S.jina.ai/"):
+        api_key, held_url = _openai_held(AutoLLMClient(model="jina-search", base_url=base_url))
+        assert (api_key, _endpoint(held_url)) == ("sk-env-PROBE", "https://s.jina.ai")
 
 
 @pytest.mark.parametrize("client_type", REFUSING_CLIENT_TYPES)
@@ -599,6 +635,9 @@ def _none_of_it(authorization: str) -> dict[str, str | None]:
         ("openai-responses", "gpt-5.6"),
         ("openai-chat", "gpt-5.6"),
         ("openai-embedding", "text-embedding-3-large"),
+        ("openai-image", "gpt-image-2.5-flare"),
+        ("openai-speech", "fish-audio/drama-3"),
+        ("openai-transcription", "fish-audio/transcribe-1"),
         ("deepseek-official", "deepseek-v4-flash"),
         ("zai-official", "glm-5.3"),
         ("moonshot-official", "kimi-k3"),

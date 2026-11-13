@@ -3,7 +3,7 @@
 - Feature Name: `rfc_process`
 - Start Date: 2026-10-19
 - RFC PR: [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265)
-- Updated by: [#285](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/285), [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298), [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
+- Updated by: [#285](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/285), [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298), [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301), [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308)
 - Kind: process
 
 [English](MMSP-RFC-0001-rfc-process.md)
@@ -21,6 +21,8 @@ MMSP 要遵守的规则原先写在 mmsp-dev skill 里，写法是操作指南�
 项目负责人举的例子：任何客户端都不能因为思考级别而抛出异常。这是对每个调用方的承诺，不是编码技巧，而它能否成立，只取决于每个新客户端的作者有没有读到 skill 里对的那一条。项目负责人还要求，这类规则要像其他决定一样议定，一条规则一篇 RFC，而不是另写一份原则文件。
 
 2026-10-24，项目负责人要求 RFC 规范软件里需要固定下来的一个概念、协议或算法，并像 IETF RFC 那样以名词为题（[RFC 8200](https://datatracker.ietf.org/doc/html/rfc8200)，"Internet Protocol, Version 6 (IPv6) Specification"），而不是陈述一条规则。原话是：「RFC 应该是讨论一些软件里必须固定下来的概念、协议、定律、算法，比如 IETF RFC-8200: IPv6 Specification 的标题就是名词。」本文的形式，以及每一篇规范的形式，都依此而定。
+
+2026-11-02，项目负责人决定已采纳的 RFC（包括规范）都在原文上修改，原话是：「原地修改吧」。在此之前，规范只能经由一篇完整重述它的新 `spec` 类 RFC 修改；网页搜索与网页抓取这一个功能，就需要重述四项规范，每项还有中文对照（[#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308)）。
 
 ## 2. Conventions and Terminology
 
@@ -42,9 +44,9 @@ MMSP 要遵守的规则原先写在 mmsp-dev skill 里，写法是操作指南�
 ## 4. 生命周期
 
 - 发起：修改规范、消息或流的结构、公开 API、路由或凭据规则的含义，或者任何会破坏调用方的改动，都从 RFC 开始：把 [`0000-template.md`](../0000-template.md) 复制为 `design/rfcs/MMSP-RFC-NNNN-<slug>.md`，设定它的类别，写好它和它的中文对照，向 `dev` 提交 PR。新模型、遵循既有模式的客户端、缺陷修复这类改动，仍然提普通 PR；完整的清单与步骤见 [`design/README.md`](../README.zh.md)。
-- 生命周期：PR 打开即提议，合并即采纳，关闭即撤回。`design/README.md` 中的索引为每篇已采纳的 RFC 列一行，写明类别与状态，状态为「已采纳」或「被 MMSP-RFC-NNNN 取代」；这一行由 RFC 自己的 PR 添加。规范只能经由一篇 `spec` 类 RFC 修改：它完整陈述修改后的规范，并取代旧的那篇；取代旧 RFC 的 RFC，在同一个 PR 中更新旧文件的元数据与索引中旧的那一行。实现某篇 `change` 类 RFC 的 PR 加上它的 `Implementation PR` 一行。
-- 优先级：代码与已采纳的 RFC 不一致时，以 RFC 为准：要么修正代码，要么先取代这篇 RFC。
-- 元数据：`Feature Name`、`Start Date`、`RFC PR`、`Kind`，适用时还有 `Updated by`（`process` 类 RFC 采纳之后修改过它的 PR）、`Supersedes`、`Superseded by` 与 `Implementation PR`；PR 链接写完整 URL。
+- 生命周期：PR 打开即提议，合并即采纳，关闭即撤回。`design/README.md` 中的索引为每篇已采纳的 RFC 列一行，写明类别与状态，状态为「已采纳」或「被 MMSP-RFC-NNNN 取代」；这一行由 RFC 自己的 PR 添加。已采纳的 RFC，包括规范，都在原文上修改：修改它的 PR 同时改两种语言的文件，保留编号与索引中的行，并在 `Updated by` 一行追加自己的链接。整篇取代另一项规范的规范在 `Supersedes:` 一行写明旧的那篇，它的 PR 更新旧文件的元数据与索引中旧的那一行。实现某篇 `change` 类 RFC 的 PR 加上它的 `Implementation PR` 一行。
+- 优先级：代码与已采纳的 RFC 不一致时，以 RFC 为准：要么修正代码，要么先修改这篇 RFC。
+- 元数据：`Feature Name`、`Start Date`、`RFC PR`、`Kind`，适用时还有 `Updated by`（RFC 采纳之后在原文上修改过它的 PR）、`Supersedes`、`Superseded by` 与 `Implementation PR`；PR 链接写完整 URL。
 - 变更记录：RFC 的 PR 附一条 `process` 类型、Scope 为 `design` 的记录；实现 PR 附自己的记录，并链接这篇 RFC。
 
 ## 5. 编号
@@ -85,6 +87,7 @@ RFC 取目录与未关闭的 PR 都没有用过的下一个 `MMSP-RFC-NNNN`，�
 - 把规则写在 skill 里：不采用。skill 是操作指南，每加一个客户端都会改；规范只因决定而改变。两者分开，skill 才能引用规范。
 - 另建一个设计仓库，再用软链接接入：不采用。MMSP 是一个仓库、两个包，工作树很多，每个工作树都要建一遍链接。
 - 在文件里设状态字段：不采用。PR 的状态就是 RFC 的状态；索引只记录读者从文件本身看不出的那一件事，即后来有没有别的 RFC 取代了它。
+- 每次修改都写一篇完整重述规范的新 `spec` 类 RFC，即 2026-11-02 之前的规则：已采纳的文本保持不变，但改一两句也要重述整项规范，其他 RFC 的引用仍指向被取代的文档。在原文上修改，编号、引用与索引都不变；`Updated by` 一行写明修改过它的 PR，更早的文本都在 `git log` 里。
 - 架构决策记录（ADR）：它的简短格式（背景、决定、后果）与当初的规则 RFC 很接近；`change` 类 RFC 保留 Rust 的节次，因为原先缺的正是备选方案与先例。
 - 规范性关键词：RFC 8200 本身用小写的 must 与 should；MMSP 采用 BCP 14 的大写形式，因为每一句规范性语句都要对照代码核查，大写的 MUST 能逐条核查，小写的 must 只是行文。
 

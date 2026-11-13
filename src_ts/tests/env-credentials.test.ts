@@ -49,6 +49,8 @@ const CREDENTIAL_ENV = [
   "MOONSHOT_BASE_URL",
   "MINIMAX_API_KEY",
   "MINIMAX_BASE_URL",
+  "JINA_API_KEY",
+  "JINA_BASE_URL",
   "ANTHROPIC_API_KEY",
   "ANTHROPIC_AUTH_TOKEN",
   "ANTHROPIC_BASE_URL",
@@ -157,6 +159,16 @@ const VENDOR_CASES: VendorCase[] = [
     model: "MiniMax-M3",
     keyEnv: "MINIMAX_API_KEY",
   },
+  {
+    expectedClient: "DeepSeekWebtoolClient",
+    model: "deepseek-search",
+    keyEnv: "DEEPSEEK_API_KEY",
+  },
+  {
+    expectedClient: "JinaWebtoolClient",
+    model: "jina-fetch",
+    keyEnv: "JINA_API_KEY",
+  },
 ];
 
 describe.each(VENDOR_CASES)("$expectedClient credentials", (testCase) => {
@@ -255,6 +267,8 @@ const CLIENT_CASES: Record<
   "moonshot-official": { model: "kimi-k3", held: openaiHeld },
   "deepseek-official": { model: "deepseek-v4-flash", held: openaiHeld },
   "minimax-official": { model: "MiniMax-M3", held: openaiHeld },
+  // a read is served on Jina's default endpoint, a search on its other one
+  "jina-webtool": { model: "jina-fetch", held: openaiHeld },
   "openai-responses": { model: "gpt-5.6", held: openaiHeld },
   "openai-chat": { model: "gpt-5.6", held: openaiHeld },
   "openai-chat-vllm-adapter": {
@@ -262,8 +276,12 @@ const CLIENT_CASES: Record<
     held: openaiHeld,
   },
   "openai-embedding": { model: "text-embedding-3-large", held: openaiHeld },
+  "openai-image": { model: "gpt-image-2.5-flare", held: openaiHeld },
+  "openai-speech": { model: "fish-audio/drama-3", held: openaiHeld },
+  "openai-transcription": { model: "fish-audio/transcribe-1", held: openaiHeld },
   "ant-messages": { model: "claude-sonnet-5", held: anthropicHeld },
   "google-genai": { model: "gemini-3.8-flash", held: googleHeld },
+  "deepseek-webtool": { model: "deepseek-search", held: openaiHeld },
   mmsp: { model: "gpt-5.5", held: mmspHeld },
 };
 
@@ -289,6 +307,38 @@ test("every client type has a row of CLIENT_CREDENTIALS and a case here", () => 
 
   expect(Object.keys(CLIENT_CREDENTIALS).sort()).toEqual(clientTypes.sort());
   expect(Object.keys(CLIENT_CASES).sort()).toEqual(clientTypes.sort());
+});
+
+describe.each(
+  Object.entries(CLIENT_CREDENTIALS).flatMap(([clientType, credentials]) =>
+    (credentials.otherBaseUrls ?? []).map((url) => [clientType, url]),
+  ),
+)("%s at its other default endpoint %s", (clientType, otherBaseUrl) => {
+  test("takes the environment's key as well", () => {
+    const { apiKeyEnv, baseUrlEnv } = CLIENT_CREDENTIALS[clientType];
+    process.env[apiKeyEnv] = "sk-env-PROBE";
+    process.env[baseUrlEnv] = ENV_BASE_URL;
+
+    expect(environmentCredential(clientType, respelled(otherBaseUrl))).toEqual({
+      kind: "env",
+      apiKeyEnv,
+      baseUrlEnv: null,
+    });
+  });
+});
+
+test("a Jina search without a base URL calls Jina's search endpoint with the environment's key", async () => {
+  process.env.JINA_API_KEY = "sk-env-PROBE";
+
+  for (const baseUrl of [undefined, "https://S.jina.ai/"]) {
+    const held = await openaiHeld(
+      new AutoLLMClient({ model: "jina-search", baseUrl }),
+    );
+    expect([held.apiKey, endpoint(held.baseUrl)]).toEqual([
+      "sk-env-PROBE",
+      "https://s.jina.ai",
+    ]);
+  }
 });
 
 // Each scenario reads what environmentCredential says the client does, then builds the client and
@@ -725,6 +775,9 @@ describe("OpenAI's environment beyond the key", () => {
     ["openai-responses", "gpt-5.6"],
     ["openai-chat", "gpt-5.6"],
     ["openai-embedding", "text-embedding-3-large"],
+    ["openai-image", "gpt-image-2.5-flare"],
+    ["openai-speech", "fish-audio/drama-3"],
+    ["openai-transcription", "fish-audio/transcribe-1"],
     ["deepseek-official", "deepseek-v4-flash"],
     ["zai-official", "glm-5.3"],
     ["moonshot-official", "kimi-k3"],
