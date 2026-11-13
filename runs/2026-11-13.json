@@ -1,0 +1,425 @@
+{
+  "date": "2026-11-13",
+  "runs": [
+    {
+      "generated_at": "2026-11-13T12:32:18Z",
+      "run_id": "43425788835",
+      "samples": 3,
+      "targets": {
+        "deepseek-official+https://api.deepseek.com+deepseek-flash": {
+          "model": "deepseek-flash",
+          "client": "deepseek-official",
+          "base_url": "https://api.deepseek.com",
+          "status": "up",
+          "ok": 3,
+          "ttft_ms": 825,
+          "tps": 119.4,
+          "usage": {
+            "cached_tokens": 0,
+            "prompt_tokens": 168,
+            "thoughts_tokens": 292,
+            "response_tokens": 1017
+          },
+          "cost_usd": 0.000772,
+          "error": null,
+          "checked_at": "2026-11-13T12:31:20Z",
+          "samples": [
+            {
+              "ttft_ms": 1658,
+              "tps": 121.7,
+              "elapsed_ms": 5202,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 56,
+                "thoughts_tokens": 43,
+                "response_tokens": 343
+              },
+              "finish_reason": "stop",
+              "error": null
+            },
+            {
+              "ttft_ms": 685,
+              "tps": 114.6,
+              "elapsed_ms": 3862,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 56,
+                "thoughts_tokens": 45,
+                "response_tokens": 319
+              },
+              "finish_reason": "stop",
+              "error": null
+            },
+            {
+              "ttft_ms": 825,
+              "tps": 119.4,
+              "elapsed_ms": 5510,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 56,
+                "thoughts_tokens": 204,
+                "response_tokens": 355
+              },
+              "finish_reason": "stop",
+              "error": null
+            }
+          ]
+        },
+        "google-genai+https://aiplatform.googleapis.com+gemini-3.8-flash": {
+          "model": "gemini-3.8-flash",
+          "client": "google-genai",
+          "base_url": "https://aiplatform.googleapis.com",
+          "status": "up",
+          "ok": 3,
+          "ttft_ms": 2402,
+          "tps": 90.6,
+          "usage": {
+            "cached_tokens": 0,
+            "prompt_tokens": 84,
+            "thoughts_tokens": 0,
+            "response_tokens": 1147
+          },
+          "cost_usd": 0.0087285,
+          "error": null,
+          "checked_at": "2026-11-13T12:31:27Z",
+          "samples": [
+            {
+              "ttft_ms": 2508,
+              "tps": 78.6,
+              "elapsed_ms": 7505,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 28,
+                "thoughts_tokens": 0,
+                "response_tokens": 373
+              },
+              "finish_reason": "stop",
+              "error": null
+            },
+            {
+              "ttft_ms": 1846,
+              "tps": 93.1,
+              "elapsed_ms": 6110,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 28,
+                "thoughts_tokens": 0,
+                "response_tokens": 386
+              },
+              "finish_reason": "stop",
+              "error": null
+            },
+            {
+              "ttft_ms": 2402,
+              "tps": 90.6,
+              "elapsed_ms": 6794,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 28,
+                "thoughts_tokens": 0,
+                "response_tokens": 388
+              },
+              "finish_reason": "stop",
+              "error": null
+            }
+          ]
+        },
+        "openai-chat+https://tokendance.space/gateway/v1+deepseek-v4.1-flash": {
+          "model": "deepseek-v4.1-flash",
+          "client": "openai-chat",
+          "base_url": "https://tokendance.space/gateway/v1",
+          "status": "up",
+          "ok": 3,
+          "ttft_ms": 968,
+          "tps": 95.6,
+          "usage": {
+            "cached_tokens": 0,
+            "prompt_tokens": 168,
+            "thoughts_tokens": 650,
+            "response_tokens": 927
+          },
+          "cost_usd": 0.00074011,
+          "error": null,
+          "checked_at": "2026-11-13T12:31:26Z",
+          "samples": [
+            {
+              "ttft_ms": 1556,
+              "tps": 106.8,
+              "elapsed_ms": 6448,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 56,
+                "thoughts_tokens": 196,
+                "response_tokens": 326
+              },
+              "finish_reason": "stop",
+              "error": null
+            },
+            {
+              "ttft_ms": 863,
+              "tps": 95.6,
+              "elapsed_ms": 6481,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 56,
+                "thoughts_tokens": 208,
+                "response_tokens": 328
+              },
+              "finish_reason": "stop",
+              "error": null
+            },
+            {
+              "ttft_ms": 968,
+              "tps": 85.9,
+              "elapsed_ms": 7048,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 56,
+                "thoughts_tokens": 246,
+                "response_tokens": 273
+              },
+              "finish_reason": "stop",
+              "error": null
+            }
+          ]
+        },
+        "zai-official+https://tokendance.space/gateway/v1+glm-5.3-flash": {
+          "model": "glm-5.3-flash",
+          "client": "zai-official",
+          "base_url": "https://tokendance.space/gateway/v1",
+          "status": "up",
+          "ok": 3,
+          "ttft_ms": 1770,
+          "tps": 41.9,
+          "usage": {
+            "cached_tokens": 0,
+            "prompt_tokens": 117,
+            "thoughts_tokens": 432,
+            "response_tokens": 800
+          },
+          "cost_usd": 0.00045555,
+          "error": null,
+          "checked_at": "2026-11-13T12:31:40Z",
+          "samples": [
+            {
+              "ttft_ms": 2279,
+              "tps": 41.9,
+              "elapsed_ms": 12708,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 39,
+                "thoughts_tokens": 432,
+                "response_tokens": 1
+              },
+              "finish_reason": "stop",
+              "error": null
+            },
+            {
+              "ttft_ms": 1770,
+              "tps": 53.8,
+              "elapsed_ms": 9134,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 39,
+                "thoughts_tokens": 0,
+                "response_tokens": 391
+              },
+              "finish_reason": "stop",
+              "error": null
+            },
+            {
+              "ttft_ms": 1250,
+              "tps": 41.7,
+              "elapsed_ms": 11121,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 39,
+                "thoughts_tokens": 0,
+                "response_tokens": 408
+              },
+              "finish_reason": "stop",
+              "error": null
+            }
+          ]
+        },
+        "openai-responses+https://tokendance.space/gateway/v1+qwen3.8-flash": {
+          "model": "qwen3.8-flash",
+          "client": "openai-responses",
+          "base_url": "https://tokendance.space/gateway/v1",
+          "status": "up",
+          "ok": 3,
+          "ttft_ms": 998,
+          "tps": 71.0,
+          "usage": {
+            "cached_tokens": 0,
+            "prompt_tokens": 330,
+            "thoughts_tokens": 275,
+            "response_tokens": 1334
+          },
+          "cost_usd": 0.00065833,
+          "error": null,
+          "checked_at": "2026-11-13T12:31:51Z",
+          "samples": [
+            {
+              "ttft_ms": 1550,
+              "tps": 69.0,
+              "elapsed_ms": 8583,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 110,
+                "thoughts_tokens": 63,
+                "response_tokens": 422
+              },
+              "finish_reason": "stop",
+              "error": null
+            },
+            {
+              "ttft_ms": 998,
+              "tps": 71.6,
+              "elapsed_ms": 9146,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 110,
+                "thoughts_tokens": 125,
+                "response_tokens": 456
+              },
+              "finish_reason": "stop",
+              "error": null
+            },
+            {
+              "ttft_ms": 961,
+              "tps": 71.0,
+              "elapsed_ms": 8627,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 110,
+                "thoughts_tokens": 87,
+                "response_tokens": 456
+              },
+              "finish_reason": "stop",
+              "error": null
+            }
+          ]
+        },
+        "openai-responses+https://tokendance.space/gateway/v1+mimo-v2.6-flash": {
+          "model": "mimo-v2.6-flash",
+          "client": "openai-responses",
+          "base_url": "https://tokendance.space/gateway/v1",
+          "status": "up",
+          "ok": 3,
+          "ttft_ms": 1004,
+          "tps": 23.4,
+          "usage": {
+            "cached_tokens": 0,
+            "prompt_tokens": 108,
+            "thoughts_tokens": 94,
+            "response_tokens": 1089
+          },
+          "cost_usd": 0.00035343,
+          "error": null,
+          "checked_at": "2026-11-13T12:32:18Z",
+          "samples": [
+            {
+              "ttft_ms": 2301,
+              "tps": 23.0,
+              "elapsed_ms": 19876,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 36,
+                "thoughts_tokens": 26,
+                "response_tokens": 371
+              },
+              "finish_reason": "stop",
+              "error": null
+            },
+            {
+              "ttft_ms": 779,
+              "tps": 41.8,
+              "elapsed_ms": 10798,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 36,
+                "thoughts_tokens": 35,
+                "response_tokens": 381
+              },
+              "finish_reason": "stop",
+              "error": null
+            },
+            {
+              "ttft_ms": 1004,
+              "tps": 23.4,
+              "elapsed_ms": 17003,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 36,
+                "thoughts_tokens": 33,
+                "response_tokens": 337
+              },
+              "finish_reason": "stop",
+              "error": null
+            }
+          ]
+        },
+        "anthropic-official+bedrock://us-east-1+global.anthropic.claude-sonnet-4-6": {
+          "model": "global.anthropic.claude-sonnet-4-6",
+          "client": "anthropic-official",
+          "base_url": "bedrock://us-east-1",
+          "status": "up",
+          "ok": 3,
+          "ttft_ms": 800,
+          "tps": 71.5,
+          "usage": {
+            "cached_tokens": 0,
+            "prompt_tokens": 102,
+            "thoughts_tokens": 0,
+            "response_tokens": 1254
+          },
+          "cost_usd": 0.019116,
+          "error": null,
+          "checked_at": "2026-11-13T12:31:53Z",
+          "samples": [
+            {
+              "ttft_ms": 1264,
+              "tps": 73.3,
+              "elapsed_ms": 6906,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 34,
+                "thoughts_tokens": 0,
+                "response_tokens": 413
+              },
+              "finish_reason": "stop",
+              "error": null
+            },
+            {
+              "ttft_ms": 800,
+              "tps": 67.2,
+              "elapsed_ms": 7181,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 34,
+                "thoughts_tokens": 0,
+                "response_tokens": 428
+              },
+              "finish_reason": "stop",
+              "error": null
+            },
+            {
+              "ttft_ms": 751,
+              "tps": 71.5,
+              "elapsed_ms": 6532,
+              "usage": {
+                "cached_tokens": 0,
+                "prompt_tokens": 34,
+                "thoughts_tokens": 0,
+                "response_tokens": 413
+              },
+              "finish_reason": "stop",
+              "error": null
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

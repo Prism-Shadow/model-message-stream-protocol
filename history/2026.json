@@ -187,6 +187,15 @@
         "cost_usd": 0.00078857,
         "error": null,
         "samples": 3
+      },
+      "2026-11-13": {
+        "status": "up",
+        "ok": 3,
+        "ttft_ms": 825,
+        "tps": 119.4,
+        "cost_usd": 0.000772,
+        "error": null,
+        "samples": 3
       }
     },
     "google-genai+https://aiplatform.googleapis.com+gemini-3.8-flash": {
@@ -373,6 +382,15 @@
         "ttft_ms": 3277,
         "tps": 78.0,
         "cost_usd": 0.009111,
+        "error": null,
+        "samples": 3
+      },
+      "2026-11-13": {
+        "status": "up",
+        "ok": 3,
+        "ttft_ms": 2402,
+        "tps": 90.6,
+        "cost_usd": 0.0087285,
         "error": null,
         "samples": 3
       }
@@ -563,6 +581,59 @@
         "ttft_ms": 932,
         "tps": 93.5,
         "cost_usd": 0.0007456,
+        "error": null,
+        "samples": 3
+      },
+      "2026-11-13": {
+        "status": "up",
+        "ok": 3,
+        "ttft_ms": 968,
+        "tps": 95.6,
+        "cost_usd": 0.00074011,
+        "error": null,
+        "samples": 3
+      }
+    },
+    "zai-official+https://tokendance.space/gateway/v1+glm-5.3-flash": {
+      "2026-11-13": {
+        "status": "up",
+        "ok": 3,
+        "ttft_ms": 1770,
+        "tps": 41.9,
+        "cost_usd": 0.00045555,
+        "error": null,
+        "samples": 3
+      }
+    },
+    "openai-responses+https://tokendance.space/gateway/v1+qwen3.8-flash": {
+      "2026-11-13": {
+        "status": "up",
+        "ok": 3,
+        "ttft_ms": 998,
+        "tps": 71.0,
+        "cost_usd": 0.00065833,
+        "error": null,
+        "samples": 3
+      }
+    },
+    "openai-responses+https://tokendance.space/gateway/v1+mimo-v2.6-flash": {
+      "2026-11-13": {
+        "status": "up",
+        "ok": 3,
+        "ttft_ms": 1004,
+        "tps": 23.4,
+        "cost_usd": 0.00035343,
+        "error": null,
+        "samples": 3
+      }
+    },
+    "anthropic-official+bedrock://us-east-1+global.anthropic.claude-sonnet-4-6": {
+      "2026-11-13": {
+        "status": "up",
+        "ok": 3,
+        "ttft_ms": 800,
+        "tps": 71.5,
+        "cost_usd": 0.019116,
         "error": null,
         "samples": 3
       }

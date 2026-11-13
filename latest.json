@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-11-12T13:06:57Z",
-  "run_id": "43224100833",
+  "generated_at": "2026-11-13T12:32:18Z",
+  "run_id": "43425788835",
   "samples": 3,
   "targets": {
     "deepseek-official+https://api.deepseek.com+deepseek-flash": {
@@ -9,17 +9,17 @@
       "base_url": "https://api.deepseek.com",
       "status": "up",
       "ok": 3,
-      "ttft_ms": 1038,
-      "tps": 114.5,
+      "ttft_ms": 825,
+      "tps": 119.4,
       "usage": {
         "cached_tokens": 0,
         "prompt_tokens": 168,
-        "thoughts_tokens": 353,
-        "response_tokens": 985
+        "thoughts_tokens": 292,
+        "response_tokens": 1017
       },
-      "cost_usd": 0.00078857,
+      "cost_usd": 0.000772,
       "error": null,
-      "checked_at": "2026-11-12T13:06:49Z"
+      "checked_at": "2026-11-13T12:31:20Z"
     },
     "google-genai+https://aiplatform.googleapis.com+gemini-3.8-flash": {
       "model": "gemini-3.8-flash",
@@ -27,17 +27,17 @@
       "base_url": "https://aiplatform.googleapis.com",
       "status": "up",
       "ok": 3,
-      "ttft_ms": 3277,
-      "tps": 78.0,
+      "ttft_ms": 2402,
+      "tps": 90.6,
       "usage": {
         "cached_tokens": 0,
         "prompt_tokens": 84,
         "thoughts_tokens": 0,
-        "response_tokens": 1198
+        "response_tokens": 1147
       },
-      "cost_usd": 0.009111,
+      "cost_usd": 0.0087285,
       "error": null,
-      "checked_at": "2026-11-12T13:06:57Z"
+      "checked_at": "2026-11-13T12:31:27Z"
     },
     "openai-chat+https://tokendance.space/gateway/v1+deepseek-v4.1-flash": {
       "model": "deepseek-v4.1-flash",
@@ -45,17 +45,89 @@
       "base_url": "https://tokendance.space/gateway/v1",
       "status": "up",
       "ok": 3,
-      "ttft_ms": 932,
-      "tps": 93.5,
+      "ttft_ms": 968,
+      "tps": 95.6,
       "usage": {
         "cached_tokens": 0,
         "prompt_tokens": 168,
-        "thoughts_tokens": 657,
-        "response_tokens": 932
+        "thoughts_tokens": 650,
+        "response_tokens": 927
       },
-      "cost_usd": 0.0007456,
+      "cost_usd": 0.00074011,
       "error": null,
-      "checked_at": "2026-11-12T13:06:53Z"
+      "checked_at": "2026-11-13T12:31:26Z"
+    },
+    "zai-official+https://tokendance.space/gateway/v1+glm-5.3-flash": {
+      "model": "glm-5.3-flash",
+      "client": "zai-official",
+      "base_url": "https://tokendance.space/gateway/v1",
+      "status": "up",
+      "ok": 3,
+      "ttft_ms": 1770,
+      "tps": 41.9,
+      "usage": {
+        "cached_tokens": 0,
+        "prompt_tokens": 117,
+        "thoughts_tokens": 432,
+        "response_tokens": 800
+      },
+      "cost_usd": 0.00045555,
+      "error": null,
+      "checked_at": "2026-11-13T12:31:40Z"
+    },
+    "openai-responses+https://tokendance.space/gateway/v1+qwen3.8-flash": {
+      "model": "qwen3.8-flash",
+      "client": "openai-responses",
+      "base_url": "https://tokendance.space/gateway/v1",
+      "status": "up",
+      "ok": 3,
+      "ttft_ms": 998,
+      "tps": 71.0,
+      "usage": {
+        "cached_tokens": 0,
+        "prompt_tokens": 330,
+        "thoughts_tokens": 275,
+        "response_tokens": 1334
+      },
+      "cost_usd": 0.00065833,
+      "error": null,
+      "checked_at": "2026-11-13T12:31:51Z"
+    },
+    "openai-responses+https://tokendance.space/gateway/v1+mimo-v2.6-flash": {
+      "model": "mimo-v2.6-flash",
+      "client": "openai-responses",
+      "base_url": "https://tokendance.space/gateway/v1",
+      "status": "up",
+      "ok": 3,
+      "ttft_ms": 1004,
+      "tps": 23.4,
+      "usage": {
+        "cached_tokens": 0,
+        "prompt_tokens": 108,
+        "thoughts_tokens": 94,
+        "response_tokens": 1089
+      },
+      "cost_usd": 0.00035343,
+      "error": null,
+      "checked_at": "2026-11-13T12:32:18Z"
+    },
+    "anthropic-official+bedrock://us-east-1+global.anthropic.claude-sonnet-4-6": {
+      "model": "global.anthropic.claude-sonnet-4-6",
+      "client": "anthropic-official",
+      "base_url": "bedrock://us-east-1",
+      "status": "up",
+      "ok": 3,
+      "ttft_ms": 800,
+      "tps": 71.5,
+      "usage": {
+        "cached_tokens": 0,
+        "prompt_tokens": 102,
+        "thoughts_tokens": 0,
+        "response_tokens": 1254
+      },
+      "cost_usd": 0.019116,
+      "error": null,
+      "checked_at": "2026-11-13T12:31:53Z"
     }
   }
 }
