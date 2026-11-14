@@ -196,6 +196,15 @@
         "cost_usd": 0.000772,
         "error": null,
         "samples": 3
+      },
+      "2026-11-14": {
+        "status": "up",
+        "ok": 3,
+        "ttft_ms": 694,
+        "tps": 118.7,
+        "cost_usd": 0.00095886,
+        "error": null,
+        "samples": 3
       }
     },
     "google-genai+https://aiplatform.googleapis.com+gemini-3.8-flash": {
@@ -391,6 +400,15 @@
         "ttft_ms": 2402,
         "tps": 90.6,
         "cost_usd": 0.0087285,
+        "error": null,
+        "samples": 3
+      },
+      "2026-11-14": {
+        "status": "up",
+        "ok": 3,
+        "ttft_ms": 1026,
+        "tps": 86.0,
+        "cost_usd": 0.0093885,
         "error": null,
         "samples": 3
       }
@@ -592,6 +610,15 @@
         "cost_usd": 0.00074011,
         "error": null,
         "samples": 3
+      },
+      "2026-11-14": {
+        "status": "up",
+        "ok": 3,
+        "ttft_ms": 931,
+        "tps": 103.1,
+        "cost_usd": 0.0008288,
+        "error": null,
+        "samples": 3
       }
     },
     "zai-official+https://tokendance.space/gateway/v1+glm-5.3-flash": {
@@ -601,6 +628,15 @@
         "ttft_ms": 1770,
         "tps": 41.9,
         "cost_usd": 0.00045555,
+        "error": null,
+        "samples": 3
+      },
+      "2026-11-14": {
+        "status": "up",
+        "ok": 3,
+        "ttft_ms": 3234,
+        "tps": 42.3,
+        "cost_usd": 0.00044043,
         "error": null,
         "samples": 3
       }
@@ -614,6 +650,15 @@
         "cost_usd": 0.00065833,
         "error": null,
         "samples": 3
+      },
+      "2026-11-14": {
+        "status": "up",
+        "ok": 3,
+        "ttft_ms": 935,
+        "tps": 53.3,
+        "cost_usd": 0.00061821,
+        "error": null,
+        "samples": 3
       }
     },
     "openai-responses+https://tokendance.space/gateway/v1+mimo-v2.6-flash": {
@@ -625,6 +670,15 @@
         "cost_usd": 0.00035343,
         "error": null,
         "samples": 3
+      },
+      "2026-11-14": {
+        "status": "up",
+        "ok": 3,
+        "ttft_ms": 3518,
+        "tps": 25.8,
+        "cost_usd": 0.00037257,
+        "error": null,
+        "samples": 3
       }
     },
     "anthropic-official+bedrock://us-east-1+global.anthropic.claude-sonnet-4-6": {
@@ -634,6 +688,15 @@
         "ttft_ms": 800,
         "tps": 71.5,
         "cost_usd": 0.019116,
+        "error": null,
+        "samples": 3
+      },
+      "2026-11-14": {
+        "status": "up",
+        "ok": 3,
+        "ttft_ms": 680,
+        "tps": 68.1,
+        "cost_usd": 0.018876,
         "error": null,
         "samples": 3
       }
