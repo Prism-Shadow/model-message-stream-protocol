@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-11-14T11:42:55Z",
-  "run_id": "43591202377",
+  "generated_at": "2026-11-15T12:11:32Z",
+  "run_id": "43712441491",
   "samples": 3,
   "targets": {
     "deepseek-official+https://api.deepseek.com+deepseek-flash": {
@@ -9,17 +9,17 @@
       "base_url": "https://api.deepseek.com",
       "status": "up",
       "ok": 3,
-      "ttft_ms": 694,
-      "tps": 118.7,
+      "ttft_ms": 939,
+      "tps": 120.2,
       "usage": {
         "cached_tokens": 0,
         "prompt_tokens": 168,
-        "thoughts_tokens": 632,
-        "response_tokens": 1004
+        "thoughts_tokens": 182,
+        "response_tokens": 1026
       },
-      "cost_usd": 0.00095886,
+      "cost_usd": 0.00071429,
       "error": null,
-      "checked_at": "2026-11-14T11:41:44Z"
+      "checked_at": "2026-11-15T12:10:27Z"
     },
     "google-genai+https://aiplatform.googleapis.com+gemini-3.8-flash": {
       "model": "gemini-3.8-flash",
@@ -27,17 +27,17 @@
       "base_url": "https://aiplatform.googleapis.com",
       "status": "up",
       "ok": 3,
-      "ttft_ms": 1026,
-      "tps": 86.0,
+      "ttft_ms": 1621,
+      "tps": 89.8,
       "usage": {
         "cached_tokens": 0,
         "prompt_tokens": 84,
         "thoughts_tokens": 0,
-        "response_tokens": 1235
+        "response_tokens": 1147
       },
-      "cost_usd": 0.0093885,
+      "cost_usd": 0.0087285,
       "error": null,
-      "checked_at": "2026-11-14T11:41:46Z"
+      "checked_at": "2026-11-15T12:10:32Z"
     },
     "openai-chat+https://tokendance.space/gateway/v1+deepseek-v4.1-flash": {
       "model": "deepseek-v4.1-flash",
@@ -45,17 +45,17 @@
       "base_url": "https://tokendance.space/gateway/v1",
       "status": "up",
       "ok": 3,
-      "ttft_ms": 931,
-      "tps": 103.1,
+      "ttft_ms": 876,
+      "tps": 104.8,
       "usage": {
         "cached_tokens": 0,
         "prompt_tokens": 168,
-        "thoughts_tokens": 719,
-        "response_tokens": 1052
+        "thoughts_tokens": 1437,
+        "response_tokens": 961
       },
-      "cost_usd": 0.0008288,
+      "cost_usd": 0.00111543,
       "error": null,
-      "checked_at": "2026-11-14T11:41:50Z"
+      "checked_at": "2026-11-15T12:10:38Z"
     },
     "zai-official+https://tokendance.space/gateway/v1+glm-5.3-flash": {
       "model": "glm-5.3-flash",
@@ -63,17 +63,17 @@
       "base_url": "https://tokendance.space/gateway/v1",
       "status": "up",
       "ok": 3,
-      "ttft_ms": 3234,
-      "tps": 42.3,
+      "ttft_ms": 2448,
+      "tps": 41.7,
       "usage": {
         "cached_tokens": 0,
         "prompt_tokens": 117,
-        "thoughts_tokens": 0,
-        "response_tokens": 1190
+        "thoughts_tokens": 391,
+        "response_tokens": 794
       },
-      "cost_usd": 0.00044043,
+      "cost_usd": 0.00043863,
       "error": null,
-      "checked_at": "2026-11-14T11:42:10Z"
+      "checked_at": "2026-11-15T12:10:47Z"
     },
     "openai-responses+https://tokendance.space/gateway/v1+qwen3.8-flash": {
       "model": "qwen3.8-flash",
@@ -81,17 +81,17 @@
       "base_url": "https://tokendance.space/gateway/v1",
       "status": "up",
       "ok": 3,
-      "ttft_ms": 935,
-      "tps": 53.3,
+      "ttft_ms": 834,
+      "tps": 44.5,
       "usage": {
         "cached_tokens": 0,
         "prompt_tokens": 330,
-        "thoughts_tokens": 292,
-        "response_tokens": 1213
+        "thoughts_tokens": 270,
+        "response_tokens": 1261
       },
-      "cost_usd": 0.00061821,
+      "cost_usd": 0.00062824,
       "error": null,
-      "checked_at": "2026-11-14T11:42:18Z"
+      "checked_at": "2026-11-15T12:11:08Z"
     },
     "openai-responses+https://tokendance.space/gateway/v1+mimo-v2.6-flash": {
       "model": "mimo-v2.6-flash",
@@ -99,17 +99,17 @@
       "base_url": "https://tokendance.space/gateway/v1",
       "status": "up",
       "ok": 3,
-      "ttft_ms": 3518,
-      "tps": 25.8,
+      "ttft_ms": 1213,
+      "tps": 25.2,
       "usage": {
         "cached_tokens": 0,
         "prompt_tokens": 108,
-        "thoughts_tokens": 105,
-        "response_tokens": 1145
+        "thoughts_tokens": 101,
+        "response_tokens": 1076
       },
-      "cost_usd": 0.00037257,
+      "cost_usd": 0.00035171,
       "error": null,
-      "checked_at": "2026-11-14T11:42:55Z"
+      "checked_at": "2026-11-15T12:11:32Z"
     },
     "anthropic-official+bedrock://us-east-1+global.anthropic.claude-sonnet-4-6": {
       "model": "global.anthropic.claude-sonnet-4-6",
@@ -117,17 +117,17 @@
       "base_url": "bedrock://us-east-1",
       "status": "up",
       "ok": 3,
-      "ttft_ms": 680,
-      "tps": 68.1,
+      "ttft_ms": 721,
+      "tps": 61.8,
       "usage": {
         "cached_tokens": 0,
         "prompt_tokens": 102,
         "thoughts_tokens": 0,
-        "response_tokens": 1238
+        "response_tokens": 1221
       },
-      "cost_usd": 0.018876,
+      "cost_usd": 0.018621,
       "error": null,
-      "checked_at": "2026-11-14T11:42:16Z"
+      "checked_at": "2026-11-15T12:11:05Z"
     }
   }
 }
