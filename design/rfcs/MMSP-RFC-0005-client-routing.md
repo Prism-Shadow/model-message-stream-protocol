@@ -20,6 +20,8 @@ On 2026-11-02 the owner asked for web search and page fetch, done the way embedd
 
 On 2026-11-04 the owner asked for image generation, speech and transcription through OpenAI's formats, each by a compatible client: `openai-image`, `openai-speech` and `openai-transcription`. As `openai-official` serves OpenAI's embedding models through `openai-embedding`, it serves OpenAI's image models, `gpt-image-`, through `openai-image`. A model of another vendor behind a gateway, such as `bytedance-seed/seedream-5-0-flash` or `fish-audio/drama-3`, begins with no family and names its client with `client_type`. [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316) amended this specification in place, with the `gpt-image-` rule added to §3.
 
+On 2026-11-16 the owner asked for DeepSeek's speech and transcription: 把deepseek的tts和asr包一下. DeepSeek names no model for either; its endpoints are `/v1/tools/tts` and `/v1/tools/asr`, beside the web tools' paths, so the ids follow the paths as `deepseek-search` and `deepseek-fetch` do, and `deepseek-official` serves `deepseek-tts` through `deepseek-speech` and `deepseek-asr` through `deepseek-transcription`, the compatible clients of the two endpoints. Neither endpoint lists models. [#PR](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/PR) amended this specification in place, with the two ids added to the `deepseek-official` rule of §3.
+
 ## 2. Conventions and Terminology
 
 The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY in this document are to be interpreted as described in BCP 14 ([RFC 2119](https://www.rfc-editor.org/rfc/rfc2119), [RFC 8174](https://www.rfc-editor.org/rfc/rfc8174)) when, and only when, they appear in all capitals.
@@ -36,7 +38,7 @@ The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY in this document are to
 - A client type passed in code MUST win over `CLIENT_TYPE`, which names the client when the code does not.
 - A client type MUST be accepted in any casing, and so MUST the earlier names `openai` (for `openai-chat`), `gemini-official` (for `google-official`) and `gemini-generate-content` (for `google-genai`).
 - `openai-official` MUST serve a `text-embedding-` model through `openai-embedding` and a `gpt-image-` model through `openai-image`, named or deduced, the prefix matched in any casing.
-- `deepseek-official` MUST serve the ids `deepseek-search` and `deepseek-fetch`, matched whole and in any casing, through `deepseek-webtool`, named or deduced.
+- `deepseek-official` MUST serve the ids `deepseek-search` and `deepseek-fetch` through `deepseek-webtool`, `deepseek-tts` through `deepseek-speech` and `deepseek-asr` through `deepseek-transcription`, each id matched whole and in any casing, named or deduced.
 
 ## 4. Routing by Model Id
 
