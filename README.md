@@ -47,7 +47,7 @@ Audit LLM executions by adding **a single `trace_id` parameter**, no database re
 
 | Model Name     | Vendor                              | Example Model ID       | Input Modalities | Output Modalities              |
 | -------------- | ----------------------------------- | ---------------------- | ---------------- | ------------------------------ |
-| Gemini 4 Carbon/Argon | Official/Google Vertex AI/OpenRouter/OpenCode Go/Penguin Go | `gemini-4-carbon` | Text, Image | Text |
+| Gemini 4 Hydrogen/Carbon/Argon | Official/Google Vertex AI/OpenRouter/OpenCode Go/Penguin Go | `gemini-4-carbon` | Text, Image | Text |
 | Gemini 3-3.8   | Official/Google Vertex AI/OpenRouter/Penguin Go | `gemini-3.8-flash` | Text, Image | Text, Image, Speech, Embedding |
 | Claude 4.5-5.5 | Official/Amazon Bedrock/OpenRouter/OpenCode Go/UModelVerse | `claude-opus-5-5` | Text, Image | Text |
 | GPT-5.3-6.1    | Official/OpenRouter/OpenCode Go/UModelVerse | `gpt-6.1-sol` | Text, Image | Text, Embedding |
@@ -55,7 +55,7 @@ Audit LLM executions by adding **a single `trace_id` parameter**, no database re
 | DeepSeek V3.2/V4 | Official/OpenRouter/SiliconFlow/TokenDance/OpenCode Go/Fireworks AI/DashScope/Qwen Token Plan/Atlas Cloud/Penguin Go/ModelScope/vLLM | `deepseek-flash` | Text, Image | Text |
 | GLM-4.5-5.3    | Official/OpenRouter/SiliconFlow/TokenDance/OpenCode Go/Fireworks AI/DashScope/Qwen Token Plan | `glm-5.3` | Text, Image | Text |
 | MiniMax-M2.5-M3.1 | Official/OpenRouter/TokenDance/OpenCode Go/Fireworks AI | `MiniMax-M3.1-Flash` | Text, Image | Text |
-| Qwen3-3.8      | OpenRouter/SiliconFlow/TokenDance/OpenCode Go/Fireworks AI/DashScope/Qwen Token Plan/Atlas Cloud/ModelScope/vLLM | `qwen/qwen3.8-27b` | Text, Image | Text, Embedding |
+| Qwen3-4        | OpenRouter/SiliconFlow/TokenDance/OpenCode Go/Fireworks AI/DashScope/Qwen Token Plan/Atlas Cloud/ModelScope/vLLM | `qwen4-max` | Text, Image | Text, Embedding |
 | Grok 4.3-4.7   | OpenRouter/OpenCode Go | `x-ai/grok-4.7` | Text, Image | Text |
 | MiMo-V2.5/V2.6 | OpenRouter/TokenDance/OpenCode Go | `mimo-v2.6-pro` | Text, Image | Text |
 | Seed 2.0/2.1   | OpenRouter/TokenDance | `seed-2.1-pro` | Text, Image | Text |
@@ -68,7 +68,7 @@ Audit LLM executions by adding **a single `trace_id` parameter**, no database re
 | DeepSeek Search/Fetch | Official/TokenDance | `deepseek-search` | Text | Web search, Page fetch |
 | Jina Search/Reader | Official | `jina-search` | Text | Web search, Page fetch |
 | GPT Image 2.5  | Official | `gpt-image-2.5-flare` | Text | Image |
-| Seedream 5.0   | OpenRouter/TokenDance | `bytedance-seed/seedream-5-0-flash` | Text | Image |
+| Seedream 5.0/5.5 | OpenRouter/TokenDance | `bytedance-seed/seedream-5-5` | Text | Image |
 | Fish Audio Drama 3/Transcribe 1 | OpenRouter | `fish-audio/drama-3` | Text, Audio | Speech, Text |
 
 OpenRouter also serves Cohere Command A, Amazon Nova and Perplexity Sonar,
