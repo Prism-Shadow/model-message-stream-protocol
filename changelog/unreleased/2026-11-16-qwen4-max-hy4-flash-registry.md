@@ -3,7 +3,7 @@
 - **Date:** 2026-11-16
 - **Type:** feature
 - **Scope:** `registry`, `site`
-- **PR:** [#TBD](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/TBD)
+- **PR:** [#331](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/331)
 
 [中文版](2026-11-16-qwen4-max-hy4-flash-registry.zh.md)
 
