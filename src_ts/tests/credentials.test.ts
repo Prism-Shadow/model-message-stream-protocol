@@ -121,8 +121,16 @@ describe("routedClientType", () => {
     ["fish-audio/transcribe-1", "openai-transcription", "openai-transcription"],
     ["deepseek-search", undefined, "deepseek-webtool"],
     ["DeepSeek-Fetch", "deepseek-official", "deepseek-webtool"],
-    // only the two web tool ids leave deepseek-official
+    ["deepseek-tts", undefined, "deepseek-speech"],
+    ["DeepSeek-TTS", "DeepSeek-Official", "deepseek-speech"],
+    ["deepseek-tts", "deepseek-speech", "deepseek-speech"],
+    ["DEEPSEEK-ASR", undefined, "deepseek-transcription"],
+    ["deepseek-asr", "deepseek-official", "deepseek-transcription"],
+    ["deepseek-asr", "Deepseek-Transcription", "deepseek-transcription"],
+    // only the web tool, speech and transcription ids, matched whole, leave deepseek-official
     ["deepseek-search-v2", undefined, "deepseek-official"],
+    ["deepseek-tts-2", undefined, "deepseek-official"],
+    ["deepseek-asr-pro", "deepseek-official", "deepseek-official"],
     ["jina-search", undefined, "jina-webtool"],
     ["claude-sonnet-5", "ant-messages", "ant-messages"],
     ["qwen3.8", "openai", "openai-chat"],

@@ -120,6 +120,14 @@ def _client_class(client_type: str, model: str) -> type[LLMClient]:
             from .deepseek_webtool import DeepSeekWebtoolClient
 
             return DeepSeekWebtoolClient
+        case "deepseek-speech":
+            from .deepseek_speech import DeepSeekSpeechClient
+
+            return DeepSeekSpeechClient
+        case "deepseek-transcription":
+            from .deepseek_transcription import DeepSeekTranscriptionClient
+
+            return DeepSeekTranscriptionClient
         case "mmsp":
             from .mmsp import MmspClient
 

@@ -3531,6 +3531,8 @@ SERVER_TEMPLATE = """<!DOCTYPE html>
             'ant-messages': 'Anthropic Messages',
             'google-genai': 'Google generateContent',
             'deepseek-webtool': 'DeepSeek Search and Fetch',
+            'deepseek-speech': 'DeepSeek Text to Speech',
+            'deepseek-transcription': 'DeepSeek Speech to Text',
             'mmsp': 'MMSP server'
         };
         const DRAFT_KEY = 'mmsp.playground.server';

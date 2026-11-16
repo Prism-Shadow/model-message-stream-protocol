@@ -50,6 +50,8 @@ COMPATIBLE_CLIENT_TYPES = (
     "ant-messages",
     "google-genai",
     "deepseek-webtool",
+    "deepseek-speech",
+    "deepseek-transcription",
     "mmsp",
 )
 
@@ -127,6 +129,8 @@ CLIENT_CREDENTIALS: dict[str, ClientCredentials] = {
     "ant-messages": _ANTHROPIC,
     "google-genai": _GEMINI,
     "deepseek-webtool": _DEEPSEEK,
+    "deepseek-speech": _DEEPSEEK,
+    "deepseek-transcription": _DEEPSEEK,
     "mmsp": ClientCredentials("MMSP_API_KEY", "MMSP_BASE_URL", "http://127.0.0.1:25752/v1", open_server=True),
 }
 
@@ -193,7 +197,8 @@ def routed_client_type(model: str, client_type: str | None = None) -> str | None
     The client type passed in (in any casing, an earlier name accepted), else the official client of
     the model id's family. `openai-official` serves a `text-embedding-` model through
     `openai-embedding` and a `gpt-image-` model through `openai-image`, and `deepseek-official` serves
-    `deepseek-search` and `deepseek-fetch` through `deepseek-webtool`.
+    `deepseek-search` and `deepseek-fetch` through `deepseek-webtool`, `deepseek-tts` through
+    `deepseek-speech` and `deepseek-asr` through `deepseek-transcription`.
 
     Args:
         model: The model id.
@@ -209,6 +214,10 @@ def routed_client_type(model: str, client_type: str | None = None) -> str | None
         return "openai-image"
     if routed == "deepseek-official" and model.lower() in ("deepseek-search", "deepseek-fetch"):
         return "deepseek-webtool"
+    if routed == "deepseek-official" and model.lower() == "deepseek-tts":
+        return "deepseek-speech"
+    if routed == "deepseek-official" and model.lower() == "deepseek-asr":
+        return "deepseek-transcription"
     return routed
 
 
