@@ -3,7 +3,7 @@
 - **Date:** 2026-11-16
 - **Type:** feature
 - **Scope:** `types`, `google_official`, `deepseek_speech`, `deepseek_transcription`, `registry`
-- **PR:** [#PR](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/PR)
+- **PR:** [#332](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/332)
 - **Breaking:** yes — `image_config`'s `image_size` was renamed `resolution`, and the `ImageSize` type `ImageResolution`
 
 [中文版](2026-11-16-video-config-hydrogen-deepseek-audio.zh.md)
