@@ -26,7 +26,8 @@ description: UniConfig，请求的配置选项，以及每个客户端为它们�
   "prompt_caching": "enable",
   "session_id": "8d2f0c4e-7a1b-4c3d-9e5f-0a1b2c3d4e5f",
   "fast_mode": false,
-  "image_config": {"aspect_ratio": "4:3", "image_size": "1K"},
+  "image_config": {"aspect_ratio": "4:3", "resolution": "1K"},
+  "video_config": {"aspect_ratio": "9:16", "resolution": "720p", "duration": 8},
   "tts_config": [{"voice": "Kore"}],
   "embedding_config": {"dimensions": 768},
   "webtool_config": {"count": 5},
@@ -48,7 +49,8 @@ description: UniConfig，请求的配置选项，以及每个客户端为它们�
 | `prompt_caching` | `"enable"`、`"disable"`、`"enhance"` | 提示词缓存策略。 |
 | `session_id` | 字符串 | 请求所属的对话。推荐设置：每个对话一个固定的 id，能提高提示词缓存的命中率。 |
 | `fast_mode` | 布尔 | 请求使用服务商的快速档位。 |
-| `image_config` | 对象 | 图像输出配置，用于 Gemini 和 `openai-image`：`aspect_ratio`（`1:1`、`2:3`、`3:2`、`3:4`、`4:3`、`9:16`、`16:9`、`21:9`）和 `image_size`（`1K`、`2K`）。 |
+| `image_config` | 对象 | 图像输出配置，用于 Gemini 和 `openai-image`：`aspect_ratio`（`1:1`、`2:3`、`3:2`、`3:4`、`4:3`、`9:16`、`16:9`、`21:9`）和 `resolution`（`1K`、`2K`）。 |
+| `video_config` | 对象 | 视频输出配置，用于 Gemini Omni：`aspect_ratio`、`resolution`（`360p`、`720p`、`1080p`、`4K`）和以整秒计的 `duration`。 |
 | `tts_config` | 列表 | 语音合成配置：每个说话人对应一项，包含 `voice` 和可选的 `speaker`。Gemini 语音支持两个说话人，此时文本写成台词稿，每轮一行 `Name: 台词`；`openai-speech` 只接受一项。 |
 | `embedding_config` | 对象 | 向量生成配置：`dimensions` 指定向量维度。 |
 | `webtool_config` | 对象 | 网页搜索配置：`count` 指定一次搜索返回的结果条数。 |
@@ -62,7 +64,7 @@ description: UniConfig，请求的配置选项，以及每个客户端为它们�
 
 ## 每个客户端发送什么
 
-客户端以 `client_type` 命名（见[模型与端点](/zh/docs/models/)）；`openai-official` 通过 `openai-embedding` 服务 `text-embedding-*` 模型，通过 `openai-image` 服务 `gpt-image-*` 模型，`deepseek-official` 通过 `deepseek-webtool` 服务 `deepseek-search` 和 `deepseek-fetch`。三个媒体客户端 `openai-image`、`openai-speech` 和 `openai-transcription` 只发送模型、提示词、输入文本或文件，以及 `image_config` 或 `tts_config`。两个网页工具客户端 `deepseek-webtool` 和 `jina-webtool` 按 ID 里的 `-search` 或 `-fetch` 区分搜索和抓取。在两个 Google 客户端上，ID 含 `tts` 的是语音模型，含 `embedding` 的是向量模型；在 `google-official` 上，ID 含 `gemini-omni` 的是 Gemini Omni。`mmsp` 客户端原样发送配置，由服务端交给该模型自己的客户端处理，因此适用那个客户端的行。
+客户端以 `client_type` 命名（见[模型与端点](/zh/docs/models/)）；`openai-official` 通过 `openai-embedding` 服务 `text-embedding-*` 模型，通过 `openai-image` 服务 `gpt-image-*` 模型，`deepseek-official` 通过 `deepseek-webtool` 服务 `deepseek-search` 和 `deepseek-fetch`，通过 `deepseek-speech` 服务 `deepseek-tts`，通过 `deepseek-transcription` 服务 `deepseek-asr`。媒体客户端 `openai-image`、`openai-speech`、`openai-transcription`、`deepseek-speech` 和 `deepseek-transcription` 只发送模型（DeepSeek 的两个不发送）、提示词、输入文本或文件，以及 `image_config` 或 `tts_config`；`deepseek-speech` 另外请求 `format: "pcm"`。两个网页工具客户端 `deepseek-webtool` 和 `jina-webtool` 按 ID 里的 `-search` 或 `-fetch` 区分搜索和抓取。在两个 Google 客户端上，ID 含 `tts` 的是语音模型，含 `embedding` 的是向量模型；在 `google-official` 上，ID 含 `gemini-omni` 的是 Gemini Omni。`mmsp` 客户端原样发送配置，由服务端交给该模型自己的客户端处理，因此适用那个客户端的行。
 
 ### `max_tokens`
 
@@ -147,6 +149,7 @@ Claude Opus 5.5、Sonnet 5.5、Haiku 5.5 和 Fable 5.1 不能强制调用工具�
 | `zai-official`：GLM-5.3、GLM-5.3-Flash | `low` | `low` | `high` | `high` | `max` | `max` |
 | `zai-official`：其他 GLM 模型 | `disabled` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `google-official`：Gemini Omni | `low` | `low` | `high` | `high` | `high` | `high` |
+| `google-official`：Gemini 4 Hydrogen | `low` | `low` | `medium` | `high` | `xhigh` | `xhigh` |
 | `google-official`、`google-genai`：图像模型 | `minimal` | `minimal` | `high` | `high` | `high` | `high` |
 | `google-official`、`google-genai`：Gemini 3 Pro | `low` | `low` | `high` | `high` | `high` | `high` |
 | `google-official`、`google-genai`：其他 Pro 模型，Gemini 3.7、3.8、4 Argon、4 Carbon | `low` | `low` | `medium` | `high` | `high` | `high` |
@@ -218,9 +221,9 @@ GPT-5.6 与 GPT-6 上，12 小时的缓存写入按 30 分钟写入价格的两�
 
 | 客户端 | 发送为 |
 | --- | --- |
-| `google-genai` | `image_config` |
-| `google-official` | `response_format`：先是一个文本项，再是一个带 `aspect_ratio` 和 `image_size` 的图像项；Gemini Omni 上抛错 |
-| `openai-image` | `size`，取自下表；只有 `aspect_ratio` 时取该比例的 1K 尺寸，只有 `image_size` 时取 1:1，没有 `image_config` 时不发送 `size` |
+| `google-genai` | `image_config`，`resolution` 发送为 `image_size` |
+| `google-official` | `response_format`：先是一个文本项，再是一个图像项，带 `aspect_ratio`，`resolution` 发送为 `image_size`；Gemini Omni 上抛错 |
+| `openai-image` | `size`，取自下表；只有 `aspect_ratio` 时取该比例的 1K 尺寸，只有 `resolution` 时取 1:1，没有 `image_config` 时不发送 `size` |
 | 其他所有客户端；Gemini 语音和向量模型 | 忽略 |
 
 这些尺寸取自 Gemini 每个比例的尺寸，每一个都符合 OpenAI 对 GPT Image 的规则：两边都是 16 的倍数，像素数在 655,360 到 8,294,400 之间，最长边不超过 3840，长宽比不超过 3:1。TokenDance 的 `seedream-5.0-lite` 要求至少 3,686,400 像素，对 1K 尺寸返回它自己的错误。
@@ -236,6 +239,16 @@ GPT-5.6 与 GPT-6 上，12 小时的缓存写入按 30 分钟写入价格的两�
 | `16:9` | `1376x768` | `2752x1536` |
 | `21:9` | `1584x672` | `3168x1344` |
 
+### `video_config`
+
+| 客户端 | 发送为 |
+| --- | --- |
+| `google-official` 上的 Gemini Omni | `response_format`：一个视频项，带 `aspect_ratio`、`resolution`（`4K` 发送为 `4k`）和写成 `"<n>s"` 的 `duration`，每个字段只在给出时发送；没有 `video_config` 时不发送 `response_format`，使用 Google 的默认值（16:9、720p、10 秒） |
+| `google-official` 上的其他模型 | 抛错 |
+| 其他所有客户端 | 忽略 |
+
+Gemini Omni 接受 `16:9` 和 `9:16`、`360p` 到 `4K`、3 到 15 秒；其他值由 Google 返回它自己的错误。
+
 ### `tts_config`
 
 Gemini 语音模型，两个 Google 客户端相同：
@@ -247,12 +260,12 @@ Gemini 语音模型，两个 Google 客户端相同：
 | 两项 | 每个 `speaker` 一个音色；缺少 `speaker` 的项会抛错。Gemini 3.8 语音模型收到的台词稿按轮次拆成多段，说话人作为元数据。 |
 | 三项及以上 | 抛错 |
 
-`openai-speech`：
+`openai-speech` 和 `deepseek-speech`：
 
 | `tts_config` | 发送为 |
 | --- | --- |
-| 未设置 | 不发送 `voice`：使用端点的默认音色 |
-| 一项 | 该项的 `voice` |
+| 未设置 | 不发送音色：使用端点的默认音色（DeepSeek 上是 `stella`） |
+| 一项 | 该项的 `voice`，在 `deepseek-speech` 上发送为 `voice_id`（`stella` 或 `tide`） |
 | 两项及以上 | 抛错 |
 
 其他模型和客户端忽略它。

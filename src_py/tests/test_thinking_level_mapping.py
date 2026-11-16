@@ -104,6 +104,25 @@ def test_gemini3_8_thinking_level_clamps_to_model_support(model: str, level: Thi
     assert client._client._convert_thinking_level(level) == expected  # noqa: SLF001
 
 
+# Gemini 4 Hydrogen is the one generation with "xhigh"; "minimal" and "max" are refused (verified live
+# 2026-11-16), so NONE runs at "low" and MAX at "xhigh".
+GEMINI_HYDROGEN_THINKING_LEVEL_CASES = [
+    ("gemini-4-hydrogen", ThinkingLevel.NONE, "low"),
+    ("gemini-4-hydrogen", ThinkingLevel.LOW, "low"),
+    ("gemini-4-hydrogen", ThinkingLevel.MEDIUM, "medium"),
+    ("gemini-4-hydrogen", ThinkingLevel.HIGH, "high"),
+    ("gemini-4-hydrogen", ThinkingLevel.XHIGH, "xhigh"),
+    ("gemini-4-hydrogen", ThinkingLevel.MAX, "xhigh"),
+]
+
+
+@pytest.mark.parametrize(("model", "level", "expected"), GEMINI_HYDROGEN_THINKING_LEVEL_CASES)
+def test_gemini_4_hydrogen_thinking_level_reaches_xhigh(model: str, level: ThinkingLevel, expected: str):
+    client = AutoLLMClient(model=model, api_key="test-key")
+    assert client._client.__class__.__name__ == "GoogleOfficialClient"
+    assert client._client._convert_thinking_level(level) == expected  # noqa: SLF001
+
+
 # Gemini Omni takes only "low" and "high" ("minimal" and "medium" are refused: "Allowed values are:
 # high, low.", verified live 2026-11-06); every level lands on the closer one, a tie rounding up.
 GEMINI_OMNI_THINKING_LEVEL_CASES = [

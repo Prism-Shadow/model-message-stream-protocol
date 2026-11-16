@@ -12,10 +12,10 @@ Use exact model ids. A model id that begins with a known family names its offici
 | --- | --- | --- | --- |
 | `openai-official` | `gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-astra`, `gpt-5.6-sol`, `gpt-5.5`; `text-embedding-3-large`, `text-embedding-3-small`; `gpt-image-2.5-flare` | OpenAI Responses; Embeddings for `text-embedding-*`; Images for `gpt-image-*` | `OPENAI_API_KEY` `OPENAI_BASE_URL` |
 | `anthropic-official` | `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5`, `claude-fable-5-1`, `claude-opus-5`, `claude-sonnet-5` | Anthropic Messages | `ANTHROPIC_API_KEY` `ANTHROPIC_BASE_URL` |
-| `google-official` | `gemini-4-carbon`, `gemini-4-argon`, `gemini-3.8-flash`, `gemini-3.1-pro-preview`; `gemini-3.1-flash-image`, `gemini-3.8-flash-tts`, `gemini-omni-1.2-flash`; `gemini-embedding-2` | Gemini Interactions | `GEMINI_API_KEY` `GEMINI_BASE_URL` |
+| `google-official` | `gemini-4-hydrogen`, `gemini-4-carbon`, `gemini-4-argon`, `gemini-3.8-flash`, `gemini-3.1-pro-preview`; `gemini-3.1-flash-image`, `gemini-3.8-flash-tts`, `gemini-omni-1.2-flash`; `gemini-embedding-2` | Gemini Interactions | `GEMINI_API_KEY` `GEMINI_BASE_URL` |
 | `zai-official` | `glm-5.3`, `glm-5.3-flash`, `glm-5.2` | Chat Completions | `ZAI_API_KEY` `ZAI_BASE_URL` |
 | `moonshot-official` | `kimi-k3.1-pro`, `kimi-k3.1-pro-highspeed`, `kimi-k3`, `kimi-k2.6` | Chat Completions | `MOONSHOT_API_KEY` `MOONSHOT_BASE_URL` |
-| `deepseek-official` | `deepseek-flash`, `deepseek-v4-pro`; `deepseek-search`, `deepseek-fetch` | Responses; Search and Fetch for `deepseek-search` and `deepseek-fetch` | `DEEPSEEK_API_KEY` `DEEPSEEK_BASE_URL` |
+| `deepseek-official` | `deepseek-flash`, `deepseek-v4-pro`; `deepseek-search`, `deepseek-fetch`; `deepseek-tts`, `deepseek-asr` | Responses; Search and Fetch for `deepseek-search` and `deepseek-fetch`; speech and recognition for `deepseek-tts` and `deepseek-asr` | `DEEPSEEK_API_KEY` `DEEPSEEK_BASE_URL` |
 | `minimax-official` | `MiniMax-M3.1-Flash`, `MiniMax-M3` | Responses | `MINIMAX_API_KEY` `MINIMAX_BASE_URL` |
 | `jina-webtool` | `jina-search`, `jina-fetch` | Jina Search on `https://s.jina.ai`, Reader on `https://r.jina.ai` | `JINA_API_KEY` `JINA_BASE_URL` |
 
@@ -23,7 +23,9 @@ Each row names the environment variables the client reads: the key, then the end
 
 Gemini 4 Carbon (`gemini-4-carbon`) and Gemini 4 Argon (`gemini-4-argon`) support `low`, `medium` (default), and `high` thinking; Carbon spends more thinking per turn. MMSP maps `none` to `low` and `xhigh`/`max` to `high`. Their 1,048,576-token context window is shared by input, thinking, and output; synchronous streaming is limited to 65,536 output tokens. Longer outputs require Google's stored background execution, outside MMSP's stateless streaming interface. Caching is implicit only.
 
-Gemini Omni 1.2 Flash (`gemini-omni-1.2-flash`) generates video: it answers with one `inline_data` item holding an MP4 with its audio, at Google's defaults (16:9, 720p, 10 seconds; about $0.70 a video). MMSP sends only the newest message, its text and images, and leaves `max_tokens` unsent, since the video's own tokens count against Google's limit. It supports `low` and `high` thinking: `none` and `low` run at `low`, the rest at `high`. `tools`, `tool_choice`, `image_config` and `fast_mode` raise `UnsupportedParameterError`.
+Gemini 4 Hydrogen (`gemini-4-hydrogen`), the fast one of the generation, supports `low`, `medium`, `high` (default) and `xhigh` thinking. MMSP maps `none` to `low` and `max` to `xhigh`. It shares Carbon's context window and caching.
+
+Gemini Omni 1.2 Flash (`gemini-omni-1.2-flash`) generates video: it answers with one `inline_data` item holding an MP4 with its audio, at Google's defaults (16:9, 720p, 10 seconds; about $0.70 a video) unless `video_config` sets the `aspect_ratio` (`16:9`, `9:16`), the `resolution` (`360p` to `4K`) or the `duration` (3 to 15 seconds). MMSP sends only the newest message, its text and images, and leaves `max_tokens` unsent, since the video's own tokens count against Google's limit. It supports `low` and `high` thinking: `none` and `low` run at `low`, the rest at `high`. `tools`, `tool_choice`, `image_config` and `fast_mode` raise `UnsupportedParameterError`.
 
 MiniMax-M3.1-Flash (`MiniMax-M3.1-Flash`) always thinks and supports `low` through `max` (default `max`). MMSP maps `none` to `low` and passes `xhigh` and `max` through. It has no priority tier and ignores `tool_choice: "none"`, so `fast_mode` and `tool_choice: "none"` raise `UnsupportedParameterError`.
 
@@ -64,7 +66,7 @@ models = list_supported_models(currency="CNY")  # "USD" by default
 
 ## Compatible clients
 
-Eleven compatible clients call any endpoint that serves their protocol. Name one with `client_type`, and give it the endpoint and its key together: as `base_url` and `api_key`, or as `OPENAI_BASE_URL` and `OPENAI_API_KEY` in the environment (the `ANTHROPIC_` pair for `ant-messages`, the `GEMINI_` pair for `google-genai`, the `DEEPSEEK_` pair for `deepseek-webtool`, the `VLLM_` pair for `openai-chat-vllm-adapter`, the `MMSP_` pair for `mmsp`). A `base_url` other than the client's default endpoint without an `api_key` raises: the environment's key is not sent to an endpoint named in code ([the rule](/docs/client/)). `openai-chat-vllm-adapter` and `mmsp` call it keyless instead, because their servers may take no key; without either, they reach `http://127.0.0.1:8000/v1` and `http://127.0.0.1:25752/v1`.
+Thirteen compatible clients call any endpoint that serves their protocol. Name one with `client_type`, and give it the endpoint and its key together: as `base_url` and `api_key`, or as `OPENAI_BASE_URL` and `OPENAI_API_KEY` in the environment (the `ANTHROPIC_` pair for `ant-messages`, the `GEMINI_` pair for `google-genai`, the `DEEPSEEK_` pair for `deepseek-webtool`, `deepseek-speech` and `deepseek-transcription`, the `VLLM_` pair for `openai-chat-vllm-adapter`, the `MMSP_` pair for `mmsp`). A `base_url` other than the client's default endpoint without an `api_key` raises: the environment's key is not sent to an endpoint named in code ([the rule](/docs/client/)). `openai-chat-vllm-adapter` and `mmsp` call it keyless instead, because their servers may take no key; without either, they reach `http://127.0.0.1:8000/v1` and `http://127.0.0.1:25752/v1`.
 
 | `client_type` | Protocol | Served by |
 | --- | --- | --- |
@@ -78,6 +80,8 @@ Eleven compatible clients call any endpoint that serves their protocol. Name one
 | `ant-messages` | Anthropic Messages | Anthropic, OpenRouter, DeepSeek, Z.AI, MiniMax |
 | `google-genai` | Google generateContent, as the Google GenAI SDK speaks it | Vertex AI, the Gemini API, gateways that proxy it |
 | `deepseek-webtool` | DeepSeek's web search and page fetch, `/v1/tools/search` and `/v1/tools/fetch` | DeepSeek, TokenDance |
+| `deepseek-speech` | DeepSeek's speech, `/v1/tools/tts`: raw PCM streams as it is made | DeepSeek |
+| `deepseek-transcription` | DeepSeek's recognition, `/v1/tools/asr`: one WAV or Ogg Opus item per message | DeepSeek |
 | `mmsp` | MMSP itself | An [MMSP server](/docs/server/) |
 
 Where a gateway serves more than one, prefer `openai-responses`. OpenRouter serves it for every model it hosts; SiliconFlow serves Chat Completions only.
@@ -194,5 +198,7 @@ Every client speaks one protocol on the wire, whichever `client_type` reaches it
 | `openai-speech` | `openai-speech` |
 | `openai-transcription` | `openai-transcription` |
 | `deepseek-webtool`, and `deepseek-official` for `deepseek-search` and `deepseek-fetch` | `deepseek-webtool` |
+| `deepseek-speech`, and `deepseek-official` for `deepseek-tts` | `deepseek-speech` |
+| `deepseek-transcription`, and `deepseek-official` for `deepseek-asr` | `deepseek-transcription` |
 | `jina-webtool` | `jina-webtool` |
 | `mmsp` | `mmsp` |

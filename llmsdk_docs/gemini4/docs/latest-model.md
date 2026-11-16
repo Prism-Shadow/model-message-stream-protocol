@@ -1,8 +1,8 @@
-> Source: https://ai.google.dev/gemini-api/docs/latest-model.md.txt (snapshot 2026-11-10)
+> Source: https://aistudio.google.com/docs/latest-model.md (snapshot 2026-11-16)
 
 # Latest Gemini models
 
-Build with Google's latest models for reasoning, coding, and native media generation through one unified API. Start with `gemini-3.8-flash` for everyday apps and agents. Use `gemini-4-carbon` or `gemini-4-argon` for complex reasoning, or pick a specialized model below.
+Build with Google's latest models for reasoning, coding, and native media generation through one unified API. Start with `gemini-4-hydrogen` for fast, dependable coding, agentic workflows, and multimodal knowledge work. Use `gemini-4-carbon` or `gemini-4-argon` for deep frontier reasoning, or pick a specialized model below.
 
 {% button href="/docs/thinking" variant="ais" %}Choosing a model{% /button %} {% button href="/docs/models" variant="primary" %}View all models{% /button %}
 
@@ -47,19 +47,19 @@ Every Gemini model below accepts text, images, audio, video, and PDFs. All four 
 
   {% /card %}
 
-  {% card title="Gemini 3.8 Flash" variant="model-card" %}
+  {% card title="Gemini 4 Hydrogen" variant="model-card" %}
   {% section class="model-specs" %}
-  *   *Model ID* **`gemini-3.8-flash`**
-  *   *Price (1M)* **$0.75 / $3.75 (intro thru Dec 31)**
+  *   *Model ID* **`gemini-4-hydrogen`**
+  *   *Price (1M)* **$1.50 / $7.50**
   *   *Speed* **Fast**
-  *   *Context* **1M input tokens**
-  *   *Max output* **64K tokens**
-  *   *Thinking* **`low`, `medium` (default), `high`**
+  *   *Context* **1M unified tokens**
+  *   *Max output* **64K default / 1M [long decode](/docs/long-decode)**
+  *   *Thinking* **`low`, `medium`, `high` (default), `xhigh`**
 
   {% /section %}
 
   {% section class="card-actions" %}
-  {% button href="https://aistudio.google.com/prompts/new_chat?model=gemini-3.8-flash" tooltip="Try Gemini 3.8 Flash in AI Studio" variant="primary" %}Try in AI Studio{% /button %} {% button href="/docs/models/gemini-3.8-flash" icon="arrow_forward" tooltip="View Gemini 3.8 Flash model specs" variant="icon-primary" /%}
+  {% button href="https://aistudio.google.com/prompts/new_chat?model=gemini-4-hydrogen" tooltip="Try Gemini 4 Hydrogen in AI Studio" variant="primary" %}Try in AI Studio{% /button %} {% button href="/docs/models/gemini-4-hydrogen" icon="arrow_forward" tooltip="View Gemini 4 Hydrogen model specs" variant="icon-primary" /%}
 
   {% /section %}
 
@@ -94,7 +94,7 @@ Read the What's new guides for new features, API changes, code examples, and mig
 
   {% card description="Our efficient Gemini 4 frontier reasoning model, with faster responses and lower token spend per turn compared to Carbon, unified 1M context, and long decode." href="/docs/whats-new-gemini-4-argon" icon="psychology" title="What's new in Gemini 4 Argon" variant="stacked-icon" /%}
 
-  {% card description="Recommended default for everyday apps and agents, plus low-latency Live voice agents and 130-language Flash TTS." href="/docs/whats-new-gemini-3.8" icon="rocket_launch" title="What's new in Gemini 3.8 Flash" variant="stacked-icon" /%}
+  {% card description="Cutting-edge intelligence with speed and efficiency for everyday coding and agentic workflows, featuring four thinking levels up to xhigh." href="/docs/whats-new-gemini-4-hydrogen" icon="spark" title="What's new in Gemini 4 Hydrogen" variant="stacked-icon" /%}
 
   {% card description="Fastest, lowest-cost Flash-Lite model for high-throughput subagents, routing, and step-by-step migration from Gemini 2.5." href="/docs/whats-new-gemini-3.6" icon="bolt" title="What's new in Gemini 3.6 and 3.5 Flash-Lite" variant="stacked-icon" /%}
 
@@ -108,13 +108,13 @@ Pick the current recommended model ID when starting a project across text, image
   {% card description="Multimodal understanding, software engineering, structured extraction, and tool-using agents." icon="psychology" title="Text, code, and reasoning" variant="stacked-icon" %}
   {% section class="model-specs" %}
   *   *Flagship reasoning* **[`gemini-4-carbon`](/docs/models/gemini-4-carbon), [`gemini-4-argon`](/docs/models/gemini-4-argon)**
-  *   *Default general-purpose* **[`gemini-3.8-flash`](/docs/models/gemini-3.8-flash)**
+  *   *Default general-purpose* **[`gemini-4-hydrogen`](/docs/models/gemini-4-hydrogen)**
   *   *High-volume and low-cost* **[`gemini-3.5-flash-lite`](/docs/models/gemini-3.5-flash-lite)**
 
   {% /section %}
 
   {% section class="card-actions" %}
-  {% button href="https://aistudio.google.com/prompts/new_chat?model=gemini-3.8-flash" tooltip="Open text chat in AI Studio" variant="primary" %}Try in AI Studio{% /button %} {% button href="/docs/text-generation" icon="arrow_forward" tooltip="Read text generation guide" variant="icon-primary" /%}
+  {% button href="https://aistudio.google.com/prompts/new_chat?model=gemini-4-hydrogen" tooltip="Open text chat in AI Studio" variant="primary" %}Try in AI Studio{% /button %} {% button href="/docs/text-generation" icon="arrow_forward" tooltip="Read text generation guide" variant="icon-primary" /%}
 
   {% /section %}
 
@@ -138,7 +138,7 @@ Pick the current recommended model ID when starting a project across text, image
   {% card description="Generate and edit up to 4K video with synchronized audio using Gemini Omni, stream live video, or analyze long videos." icon="movie_filter" title="Video" variant="stacked-icon" %}
   {% section class="model-specs" %}
   *   *Video generation and editing* **[`gemini-omni-1.2-flash`](/docs/models/gemini-omni-flash)**
-  *   *Video understanding* **[`gemini-4-carbon`](/docs/models/gemini-4-carbon), [`gemini-4-argon`](/docs/models/gemini-4-argon), [`gemini-3.8-flash`](/docs/models/gemini-3.8-flash)**
+  *   *Video understanding* **[`gemini-4-carbon`](/docs/models/gemini-4-carbon), [`gemini-4-argon`](/docs/models/gemini-4-argon), [`gemini-4-hydrogen`](/docs/models/gemini-4-hydrogen)**
   *   *Live video streaming* **[`gemini-3.8-live`](/docs/models/gemini-3.8-live)**
 
   {% /section %}
@@ -241,6 +241,7 @@ You can also append `.md` to any documentation URL or feed [`llms.txt`](https://
 Beyond the general-purpose and media models above, the Gemini API includes specialized endpoints:
 
 * **[Managed Agents](/docs/agents):** [`antigravity-preview-09-2026`](/docs/antigravity-agent) for coding and tool orchestration, and [`deep-research-preview-04-2026`](/docs/deep-research) for autonomous multi-step research.
+* **[Decisions](/docs/decisions-api):** [`gemini-decision-1`](/docs/models/gemini-decision-1) for fast, calibrated multimodal yes/no, choice, and rubric score decisions with zero output tokens.
 * **[Embeddings](/docs/embeddings):** [`gemini-embedding-2`](/docs/models/gemini-embedding-2) for multimodal text, image, audio, video, and PDF search and RAG.
 * **[Music generation](/docs/music-generation):** [`lyria-3.5`](/docs/models/lyria-3.5) for studio-grade instrumental and vocal tracks.
 * **[Robotics](/docs/robotics-overview):** [`gemini-robotics-er-2-preview`](/docs/models/gemini-robotics-er-2-preview) for spatial reasoning and embodied planning.

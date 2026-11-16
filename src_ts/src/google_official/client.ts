@@ -43,7 +43,7 @@ import {
 } from "../types";
 import { isDebugEnabled, resolveCredentials, speakerTurns } from "../utils";
 
-type GeminiThinkingLevel = "minimal" | "low" | "medium" | "high";
+type GeminiThinkingLevel = "minimal" | "low" | "medium" | "high" | "xhigh";
 
 type InteractionRequest = Omit<
   Interactions.CreateModelInteractionParamsStreaming,
@@ -173,6 +173,7 @@ export class GoogleOfficialClient extends LLMClient {
     "low",
     "medium",
     "high",
+    "xhigh",
   ];
 
   /**
@@ -200,6 +201,10 @@ export class GoogleOfficialClient extends LLMClient {
       // unsupported one is a 400).
       return ["low", "medium", "high"];
     }
+    if (this._model.includes("gemini-4-hydrogen")) {
+      // the one generation with "xhigh"; "minimal" and "max" are refused (verified live 2026-11-16)
+      return ["low", "medium", "high", "xhigh"];
+    }
     if (
       this._model.includes("gemini-3.7") ||
       this._model.includes("gemini-3.8") ||
@@ -209,7 +214,7 @@ export class GoogleOfficialClient extends LLMClient {
       // These generations support low, medium, and high, but not minimal.
       return ["low", "medium", "high"];
     }
-    return GoogleOfficialClient.GEMINI_LEVEL_ORDER;
+    return ["minimal", "low", "medium", "high"];
   }
 
   /**
@@ -225,9 +230,10 @@ export class GoogleOfficialClient extends LLMClient {
       [ThinkingLevel.LOW]: "low",
       [ThinkingLevel.MEDIUM]: "medium",
       [ThinkingLevel.HIGH]: "high",
-      [ThinkingLevel.XHIGH]: "high",
-      // Gemini stops at "high", so both top levels land there before per-model clamping
-      [ThinkingLevel.MAX]: "high",
+      [ThinkingLevel.XHIGH]: "xhigh",
+      // Gemini stops at "xhigh", which only Hydrogen takes; the clamping below runs both top
+      // levels at "high" on every other model
+      [ThinkingLevel.MAX]: "xhigh",
     };
     const level = mapping[thinkingLevel];
     if (level === undefined) {
@@ -303,9 +309,20 @@ export class GoogleOfficialClient extends LLMClient {
       });
     }
 
-    // Gemini Omni makes a video at its defaults (16:9, 720p, 10 s, inline); it declares no
-    // functions ("Function calling is not enabled for this model", verified live 2026-11-06), takes
-    // no image settings and has no priority tier
+    // Gemini Omni makes a video, at Google's defaults (16:9, 720p, 10 s, inline) unless video_config
+    // says otherwise; it declares no functions ("Function calling is not enabled for this model",
+    // verified live 2026-11-06), takes no image settings and has no priority tier
+    if (
+      !this._model.includes("gemini-omni") &&
+      config.video_config !== undefined
+    ) {
+      throw new UnsupportedParameterError({
+        client: this.constructor.name,
+        parameter: "video_config",
+        message: `${this._model} does not support video_config.`,
+      });
+    }
+
     if (this._model.includes("gemini-omni")) {
       for (const parameter of [
         "tools",
@@ -416,11 +433,35 @@ export class GoogleOfficialClient extends LLMClient {
     }
 
     if (config.image_config !== undefined) {
+      const imageFormat: Interactions.ImageResponseFormat = { type: "image" };
+      if (config.image_config.aspect_ratio !== undefined) {
+        imageFormat.aspect_ratio = config.image_config.aspect_ratio;
+      }
+      // MMSP's resolution is the Interactions API's image_size
+      if (config.image_config.resolution !== undefined) {
+        imageFormat.image_size = config.image_config.resolution;
+      }
       // an image entry alone suppresses the text the model writes beside its images
-      geminiConfig.response_format = [
-        { type: "text" },
-        { type: "image", ...config.image_config },
-      ];
+      geminiConfig.response_format = [{ type: "text" }, imageFormat];
+    }
+
+    if (config.video_config !== undefined) {
+      const videoFormat: Interactions.VideoResponseFormat = { type: "video" };
+      if (config.video_config.aspect_ratio !== undefined) {
+        videoFormat.aspect_ratio = config.video_config.aspect_ratio;
+      }
+      // Google spells 4K "4k" and refuses "4K" (verified live 2026-11-16)
+      if (config.video_config.resolution !== undefined) {
+        videoFormat.resolution =
+          config.video_config.resolution === "4K"
+            ? "4k"
+            : config.video_config.resolution;
+      }
+      // whole seconds with their unit, "3s" to "15s"; a bare number is refused
+      if (config.video_config.duration !== undefined) {
+        videoFormat.duration = `${config.video_config.duration}s`;
+      }
+      geminiConfig.response_format = [videoFormat];
     }
 
     if (Object.keys(generationConfig).length > 0) {

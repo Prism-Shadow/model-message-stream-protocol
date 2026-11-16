@@ -144,7 +144,7 @@
     "models": [
       {
         "api_key_env": "GEMINI_API_KEY",
-        "name": "gemini-3.8-flash"
+        "name": "gemini-4-hydrogen"
       },
       {
         "api_key_env": "GEMINI_API_KEY",

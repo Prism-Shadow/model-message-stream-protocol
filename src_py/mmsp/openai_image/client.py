@@ -83,15 +83,15 @@ class OpenaiImageClient(LLMClient):
         params: dict[str, Any] = {"model": self._model}
         image_config = config.get("image_config") or {}
         aspect_ratio = image_config.get("aspect_ratio")
-        image_size = image_config.get("image_size")
-        if aspect_ratio is not None or image_size is not None:
-            size = _SIZES.get(aspect_ratio or "1:1", {}).get(image_size or "1K")
+        resolution = image_config.get("resolution")
+        if aspect_ratio is not None or resolution is not None:
+            size = _SIZES.get(aspect_ratio or "1:1", {}).get(resolution or "1K")
             if size is None:
                 raise UnsupportedParameterError(
                     self.__class__.__name__,
                     "image_config",
                     "OpenAI image generation does not support this image_config: aspect_ratio takes 1:1, 2:3, "
-                    "3:2, 3:4, 4:3, 9:16, 16:9 or 21:9, and image_size 1K or 2K.",
+                    "3:2, 3:4, 4:3, 9:16, 16:9 or 21:9, and resolution 1K or 2K.",
                 )
             params["size"] = size
         return params

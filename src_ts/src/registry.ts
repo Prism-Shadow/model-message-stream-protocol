@@ -128,8 +128,18 @@ function cny(prompt: number, output: number, cached?: number): ModelPricing {
 // Gateway rows list only the input modalities their client can send: the
 // OpenAI-protocol clients carry text and images, not video, and audio only to a transcription.
 const SUPPORTED_MODELS: SupportedModel[] = [
-  // --- Official vendor endpoints (56 rows; each vendor's own key variable; list prices from each
+  // --- Official vendor endpoints (57 rows; each vendor's own key variable; list prices from each
   // vendor's pricing page, the rows added 2026-10-24 naming their page and read date)
+  {
+    // aistudio.google.com/docs/pricing (read 2026-11-16)
+    model: "gemini-4-hydrogen",
+    base_url: GOOGLE,
+    client: "google-official",
+    input_modalities: ["Text", "Image", "Video", "Audio"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(1.5, 7.5, 0.075),
+  },
   {
     model: "gemini-4-argon",
     base_url: GOOGLE,

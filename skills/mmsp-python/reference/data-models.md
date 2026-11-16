@@ -25,7 +25,8 @@ config = {
     "system_prompt": "You are helpful.",
     "prompt_caching": "enable",
     "session_id": "8d2f0c4e-7a1b-4c3d-9e5f-0a1b2c3d4e5f",
-    "image_config": {"aspect_ratio": "4:3", "image_size": "1K"},
+    "image_config": {"aspect_ratio": "4:3", "resolution": "1K"},
+    "video_config": {"aspect_ratio": "9:16", "resolution": "720p", "duration": 8},
     "tts_config": [{"voice": "Kore"}],
     "embedding_config": {"dimensions": 768},
     "webtool_config": {"count": 5},
@@ -44,7 +45,8 @@ Fields:
 - `system_prompt` (`str`): System instruction text.
 - `prompt_caching` (`PromptCaching`): `enable`, `disable`, or `enhance`.
 - `session_id` (`str`): The conversation the request belongs to. Recommended: one stable id per conversation raises the prompt cache hit rate; clients without a cache key ignore it.
-- `image_config` (`ImageConfig`): `aspect_ratio` (`1:1`, `2:3`, `3:2`, `3:4`, `4:3`, `9:16`, `16:9`, `21:9`) and `image_size` (`1K`, `2K`); `openai-image` sends them as the `size` of Gemini's table (1:1 is `1024x1024` / `2048x2048`, 16:9 `1376x768` / `2752x1536`), 1K without `image_size`, 1:1 without `aspect_ratio`, no `size` without `image_config`.
+- `image_config` (`ImageConfig`): `aspect_ratio` (`1:1`, `2:3`, `3:2`, `3:4`, `4:3`, `9:16`, `16:9`, `21:9`) and `resolution` (`1K`, `2K`), Gemini's `image_size`; `openai-image` sends them as the `size` of Gemini's table (1:1 is `1024x1024` / `2048x2048`, 16:9 `1376x768` / `2752x1536`), 1K without `resolution`, 1:1 without `aspect_ratio`, no `size` without `image_config`.
+- `video_config` (`VideoConfig`): `aspect_ratio`, `resolution` (`360p`, `720p`, `1080p`, `4K`) and `duration` in whole seconds, for Gemini Omni on `google-official` (16:9 or 9:16, 3 to 15 seconds); without it Omni makes 16:9, 720p, 10 seconds. Any other `google-official` model raises on it.
 - `tts_config` (`list[SpeakerConfig]`): Voice config; each item has `voice` and optional `speaker`. With two speakers, write the text as a script with one `Name: line` per turn, each name one of the configured speakers; Gemini 3.8 TTS receives each turn with its speaker as metadata. `openai-speech` takes one entry's `voice`, and none without `tts_config`.
 - `embedding_config` (`EmbeddingConfig`): Embedding config, currently `dimensions`.
 - `webtool_config` (`WebtoolConfig`): Web search config, currently `count`, how many results a search returns (DeepSeek 1–50, Jina 0–20, 10 when unset); a fetch ignores it.

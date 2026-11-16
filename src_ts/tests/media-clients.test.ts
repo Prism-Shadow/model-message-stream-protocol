@@ -156,7 +156,7 @@ describe("openai-image's size table", () => {
   test.each(SIZE_TABLE)(
     "%s is sent as the size of Gemini's table, within OpenAI's rules",
     (aspectRatio, size1k, size2k) => {
-      for (const [imageSize, size] of [
+      for (const [resolution, size] of [
         ["1K", size1k],
         ["2K", size2k],
       ] as const) {
@@ -164,7 +164,7 @@ describe("openai-image's size table", () => {
           imageParams({
             image_config: {
               aspect_ratio: aspectRatio as "1:1",
-              image_size: imageSize,
+              resolution,
             },
           }),
         ).toEqual({ model: "gpt-image-2.5-flare", size });
@@ -185,8 +185,8 @@ describe("openai-image's size table", () => {
     },
   );
 
-  test("an image size alone is square, and no image config sends no size", () => {
-    expect(imageParams({ image_config: { image_size: "2K" } })).toEqual({
+  test("a resolution alone is square, and no image config sends no size", () => {
+    expect(imageParams({ image_config: { resolution: "2K" } })).toEqual({
       model: "gpt-image-2.5-flare",
       size: "2048x2048",
     });
@@ -199,7 +199,7 @@ describe("openai-image's size table", () => {
   test("an image config outside the table is refused", () => {
     expect(() =>
       imageParams({
-        image_config: { aspect_ratio: "5:4" as "1:1", image_size: "1K" },
+        image_config: { aspect_ratio: "5:4" as "1:1", resolution: "1K" },
       }),
     ).toThrow(UnsupportedParameterError);
   });
@@ -347,7 +347,7 @@ describe("media clients", () => {
       "openai-official",
       [text("A red "), text("A paper boat")],
       {
-        image_config: { aspect_ratio: "16:9", image_size: "2K" },
+        image_config: { aspect_ratio: "16:9", resolution: "2K" },
         thinking_level: "high" as UniConfig["thinking_level"],
         max_tokens: 10,
       },
@@ -412,7 +412,7 @@ describe("media clients", () => {
       "seedream-5.0-lite",
       "openai-image",
       [text("A boat")],
-      { image_config: { image_size: "2K" } },
+      { image_config: { resolution: "2K" } },
       { "X-Gateway-Probe": "secret" },
     );
 

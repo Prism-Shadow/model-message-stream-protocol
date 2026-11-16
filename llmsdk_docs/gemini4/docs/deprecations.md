@@ -1,4 +1,4 @@
-> Source: https://ai.google.dev/gemini-api/docs/deprecations.md.txt (snapshot 2026-11-10)
+> Source: https://aistudio.google.com/docs/deprecations.md (snapshot 2026-11-16)
 
 # Gemini deprecations
 
@@ -29,6 +29,13 @@ and **Deprecated agents** sections.
   * Release date
   * Shutdown date
   * Recommended replacement
+
+  ---
+
+  * `gemini-4-hydrogen`
+  * November 12, 2026
+  * No shutdown date announced
+  * 
 
   ---
 
@@ -136,7 +143,7 @@ and **Deprecated agents** sections.
 
   * `gemini-3.1-flash-tts-preview`
   * February 26, 2026
-  * November 17, 2026
+  * December 18, 2026
   * `gemini-3.8-flash-tts` or `gemini-3.8-flash-lite-tts`
 
   ---
@@ -412,14 +419,14 @@ and **Deprecated agents** sections.
 
   * `gemini-3.1-flash-live-preview`
   * March 11, 2026
-  * November 17, 2026
+  * No shutdown date announced
   * `gemini-3.8-live`
 
   ---
 
   * `gemini-2.5-flash-native-audio-preview-12-2025`
   * December 12, 2025
-  * November 17, 2026
+  * March 31, 2027
   * `gemini-3.8-live`
 {% /table %}
 
@@ -474,14 +481,14 @@ and **Deprecated agents** sections.
 
   * `gemini-2.5-flash-preview-tts`
   * May 20, 2025
-  * November 17, 2026
+  * December 18, 2026
   * `gemini-3.8-flash-tts` or `gemini-3.8-flash-lite-tts`
 
   ---
 
   * `gemini-2.5-pro-preview-tts`
   * May 20, 2025
-  * November 17, 2026
+  * December 18, 2026
   * `gemini-3.8-flash-tts` or `gemini-3.8-flash-lite-tts`
 {% /table %}
 
@@ -893,6 +900,22 @@ and **Deprecated agents** sections.
   * September 25, 2025
   * April 30, 2026
   * `gemini-robotics-er-2-preview`
+{% /table %}
+
+## Gemini Decision models  {% id="gemini-decision-models" %}
+
+{% table %}
+  * Model
+  * Release date
+  * Shutdown date
+  * Recommended replacement
+
+  ---
+
+  * [`gemini-decision-1`](/docs/models/gemini-decision-1)
+  * November 11, 2026
+  * No shutdown date announced
+  * 
 {% /table %}
 
 ## Managed agents  {% id="managed-agents" %}

@@ -205,8 +205,8 @@ def _image_params(config: dict[str, Any]) -> dict[str, Any]:
 
 @pytest.mark.parametrize(("aspect_ratio", "size_1k", "size_2k"), _SIZE_TABLE)
 def test_an_image_config_is_sent_as_the_size_of_geminis_table(aspect_ratio: str, size_1k: str, size_2k: str):
-    for image_size, size in (("1K", size_1k), ("2K", size_2k)):
-        assert _image_params({"image_config": {"aspect_ratio": aspect_ratio, "image_size": image_size}}) == {
+    for resolution, size in (("1K", size_1k), ("2K", size_2k)):
+        assert _image_params({"image_config": {"aspect_ratio": aspect_ratio, "resolution": resolution}}) == {
             "model": "gpt-image-2.5-flare",
             "size": size,
         }
@@ -220,15 +220,15 @@ def test_an_image_config_is_sent_as_the_size_of_geminis_table(aspect_ratio: str,
     assert _image_params({"image_config": {"aspect_ratio": aspect_ratio}})["size"] == size_1k
 
 
-def test_an_image_size_alone_is_square_and_no_image_config_sends_no_size():
-    assert _image_params({"image_config": {"image_size": "2K"}})["size"] == "2048x2048"
+def test_a_resolution_alone_is_square_and_no_image_config_sends_no_size():
+    assert _image_params({"image_config": {"resolution": "2K"}})["size"] == "2048x2048"
     assert _image_params({}) == {"model": "gpt-image-2.5-flare"}
     assert _image_params({"image_config": {}}) == {"model": "gpt-image-2.5-flare"}
 
 
 def test_an_image_config_outside_the_table_is_refused():
     with pytest.raises(UnsupportedParameterError) as exc_info:
-        _image_params({"image_config": {"aspect_ratio": "5:4", "image_size": "1K"}})
+        _image_params({"image_config": {"aspect_ratio": "5:4", "resolution": "1K"}})
     assert exc_info.value.parameter == "image_config"
 
 
@@ -239,7 +239,7 @@ async def test_an_image_request_carries_the_model_prompt_and_size_alone(media_se
         "openai-official",
         media_server,
         [_text("A red "), _text("A paper boat")],
-        {"image_config": {"aspect_ratio": "16:9", "image_size": "2K"}, "thinking_level": "high", "max_tokens": 10},
+        {"image_config": {"aspect_ratio": "16:9", "resolution": "2K"}, "thinking_level": "high", "max_tokens": 10},
     )
 
     # one request per message, with neither response_format nor stream
@@ -281,7 +281,7 @@ async def test_a_linked_image_is_downloaded_without_any_credential_and_typed_by_
         "openai-image",
         media_server,
         [_text("A boat")],
-        {"image_config": {"image_size": "2K"}},
+        {"image_config": {"resolution": "2K"}},
         default_headers={"X-Gateway-Probe": "secret"},
     )
 

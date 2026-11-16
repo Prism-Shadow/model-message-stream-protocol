@@ -451,7 +451,8 @@ export class GoogleGenaiClient extends LLMClient {
     if (config.image_config !== undefined) {
       configParams.imageConfig = {
         aspectRatio: config.image_config.aspect_ratio,
-        imageSize: config.image_config.image_size,
+        // MMSP's resolution is Gemini's imageSize
+        imageSize: config.image_config.resolution,
       } as GeminiImageConfig;
     }
 
