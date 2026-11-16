@@ -199,7 +199,7 @@ A key goes only where it was given for. A key passed in is used, with the `base_
 
 - `(async) streaming_response(messages, config)`: Streams the response of LLMs in a stateless manner.
 - `(async) streaming_response_stateful(message, config)`: Streams the response of LLMs in a stateful manner.
-- `(async) list_models()`: Lists the model ids the configured endpoint serves. A protocol client (`openai-chat`, `openai-chat-vllm-adapter`, `openai-responses`, `ant-messages`, `openai-embedding`, `openai-image`, `openai-speech`, `openai-transcription`, `google-genai`, `mmsp`) is named explicitly and lists everything the endpoint serves; a client deduced from a model id lists only the ids that deduce back to it. `deepseek-webtool` and `jina-webtool` raise `UnsupportedOperationError`: their endpoints list no models.
+- `(async) list_models()`: Lists the model ids the configured endpoint serves. A protocol client (`openai-chat`, `openai-chat-vllm-adapter`, `openai-responses`, `ant-messages`, `openai-embedding`, `openai-image`, `openai-speech`, `openai-transcription`, `google-genai`, `mmsp`) is named explicitly and lists everything the endpoint serves; a client deduced from a model id lists only the ids that deduce back to it. `deepseek-webtool`, `jina-webtool`, `deepseek-speech` and `deepseek-transcription` raise `UnsupportedOperationError`: their endpoints list no models.
 - `clear_history()`: Clears the history of the stateful LLM client.
 - `get_history()`: Returns the history of the stateful LLM client.
 - `set_history(history)`: Replaces the history of the stateful LLM client with a copy of the provided list.
@@ -537,7 +537,7 @@ main().catch(console.error);
 
 ### Images, speech and transcription
 
-`openai-image`, `openai-speech` and `openai-transcription` speak OpenAI's Images and Audio APIs for any endpoint that serves them. Each message is one request: a prompt answered by an image, a text spoken as audio that streams as it is made, or one audio file answered by its text. `openai-official` serves `gpt-image-*` through `openai-image` on its own.
+`openai-image`, `openai-speech` and `openai-transcription` speak OpenAI's Images and Audio APIs for any endpoint that serves them. Each message is one request: a prompt answered by an image, a text spoken as audio that streams as it is made, or one audio file answered by its text. `openai-official` serves `gpt-image-*` through `openai-image` on its own. `deepseek-speech` and `deepseek-transcription` do the same for DeepSeek's text to speech and speech to text, which `deepseek-official` serves as `deepseek-tts` and `deepseek-asr`; DeepSeek transcribes WAV and Ogg Opus.
 
 <details><summary><strong>Python Example</strong></summary>
 
@@ -923,6 +923,8 @@ Every client speaks one protocol on the wire, whichever `client_type` reaches it
 | `openai-speech`                                             | `openai-speech`    |
 | `openai-transcription`                                      | `openai-transcription` |
 | `deepseek-webtool`, and `deepseek-official` for `deepseek-search`, `deepseek-fetch` | `deepseek-webtool` |
+| `deepseek-speech`, and `deepseek-official` for `deepseek-tts` | `deepseek-speech` |
+| `deepseek-transcription`, and `deepseek-official` for `deepseek-asr` | `deepseek-transcription` |
 | `jina-webtool`                                              | `jina-webtool`     |
 | `mmsp`                                                      | `mmsp`             |
 

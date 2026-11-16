@@ -30,6 +30,8 @@ import { DeepSeekOfficialClient } from "./deepseek_official";
 import { MiniMaxOfficialClient } from "./minimax_official";
 import { JinaWebtoolClient } from "./jina_webtool";
 import { DeepSeekWebtoolClient } from "./deepseek_webtool";
+import { DeepSeekSpeechClient } from "./deepseek_speech";
+import { DeepSeekTranscriptionClient } from "./deepseek_transcription";
 import { OpenaiChatVllmAdapterClient } from "./openai_chat_vllm_adapter";
 import { MmspClient } from "./mmsp";
 import {
@@ -99,6 +101,10 @@ function clientClass(clientType: string, model: string): LLMClientConstructor {
       return GoogleGenaiClient;
     case "deepseek-webtool":
       return DeepSeekWebtoolClient;
+    case "deepseek-speech":
+      return DeepSeekSpeechClient;
+    case "deepseek-transcription":
+      return DeepSeekTranscriptionClient;
     case "mmsp":
       return MmspClient;
     default:

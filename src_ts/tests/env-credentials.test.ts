@@ -165,6 +165,16 @@ const VENDOR_CASES: VendorCase[] = [
     keyEnv: "DEEPSEEK_API_KEY",
   },
   {
+    expectedClient: "DeepSeekSpeechClient",
+    model: "deepseek-tts",
+    keyEnv: "DEEPSEEK_API_KEY",
+  },
+  {
+    expectedClient: "DeepSeekTranscriptionClient",
+    model: "deepseek-asr",
+    keyEnv: "DEEPSEEK_API_KEY",
+  },
+  {
     expectedClient: "JinaWebtoolClient",
     model: "jina-fetch",
     keyEnv: "JINA_API_KEY",
@@ -282,6 +292,8 @@ const CLIENT_CASES: Record<
   "ant-messages": { model: "claude-sonnet-5", held: anthropicHeld },
   "google-genai": { model: "gemini-3.8-flash", held: googleHeld },
   "deepseek-webtool": { model: "deepseek-search", held: openaiHeld },
+  "deepseek-speech": { model: "deepseek-tts", held: openaiHeld },
+  "deepseek-transcription": { model: "deepseek-asr", held: openaiHeld },
   mmsp: { model: "gpt-5.5", held: mmspHeld },
 };
 

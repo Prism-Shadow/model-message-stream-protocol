@@ -34,8 +34,8 @@
 | 模型 | Base URL | 客户端 | 输入 | 输出 | 上下文 | 每百万计价 |
 | --- | --- | --- | --- | --- | --- | --- |
 | `gemini-4-hydrogen` | `https://generativelanguage.googleapis.com` | `google-official` | Text, Image, Video, Audio | Text | 1,048,576 | 输入 $1.50，输出 $7.50，缓存 $0.075 |
-| `deepseek-tts` | `https://api.deepseek.com` | `deepseek-speech` | Text | Audio | — | 每百万计费字符 ¥300（每万字符 ¥3） |
-| `deepseek-asr` | `https://api.deepseek.com` | `deepseek-transcription` | Audio | Text | — | 每百万秒 ¥216.666667（每小时 ¥0.78） |
+| `deepseek-tts` | `https://api.deepseek.com` | `deepseek-official` | Text | Audio | — | 每百万计费字符 ¥300（每万字符 ¥3） |
+| `deepseek-asr` | `https://api.deepseek.com` | `deepseek-official` | Audio | Text | — | 每百万秒 ¥216.666667（每小时 ¥0.78） |
 
 ## 兼容性
 

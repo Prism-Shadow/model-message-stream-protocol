@@ -13,6 +13,7 @@ To use a specific model, please refer to its dedicated README:
 - **[Claude 4.7](./claude4_7/README.md)** - Anthropic's Claude 4.7 API documentation and examples
 - **[Claude 4.8](./claude4_8/README.md)** - Anthropic's Claude 4.8 API documentation and examples
 - **[DeepSeek V4](./deepseek_v4/README.md)** - DeepSeek V4 API documentation and OpenAI-compatible usage guides
+- **[DeepSeek audio](./deepseek_audio/README.md)** - DeepSeek's text to speech and speech to text APIs (`deepseek-tts`, `deepseek-asr`; `deepseek-speech` and `deepseek-transcription` clients): streamed PCM or WAV, WAV and Ogg Opus uploads, billed by the character and by the second
 - **[DeepSeek web tools](./deepseek_webtool/README.md)** - DeepSeek's Search and Fetch APIs (`deepseek-search`, `deepseek-fetch`; `deepseek-webtool` client), billed per request, also served by TokenDance
 - **[Gemini 3](./gemini3/README.md)** - Google's Gemini 3 API documentation and examples
 - **[Gemini 3.6](./gemini3_6/README.md)** - Google's Gemini 3.6 generation (gemini-3.6-flash, gemini-3.5-flash-lite): sampling-parameter deprecation and thinking levels

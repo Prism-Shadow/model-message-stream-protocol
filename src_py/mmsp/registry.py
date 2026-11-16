@@ -123,7 +123,7 @@ def _cny(prompt: float, output: float, cached: float | None = None) -> ModelPric
 # its notes. Gateway rows list only the input modalities their client can send: the
 # OpenAI-protocol clients carry text and images, not video, and audio only to a transcription.
 _SUPPORTED_MODELS: list[SupportedModel] = [
-    # --- Official vendor endpoints (57 rows; each vendor's own key variable; list prices from each
+    # --- Official vendor endpoints (59 rows; each vendor's own key variable; list prices from each
     # vendor's pricing page, the rows added 2026-10-24 naming their page and read date)
     {
         # aistudio.google.com/docs/pricing (read 2026-11-16)
@@ -690,6 +690,28 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "input_modalities": ["Text"],
         "output_modalities": ["Web"],
         "pricing": _cny(5000.0, 0.0),
+    },
+    {
+        # ¥3 per 10,000 billed characters, a Han character counting two (api-docs.deepseek.com/zh-cn/
+        # guides/tts, read 2026-11-16); prompt tokens are the characters billed, so ¥300 per million.
+        # The limited-time 50% discount (¥1.5) is not stored
+        "model": "deepseek-tts",
+        "base_url": _DEEPSEEK,
+        "client": "deepseek-official",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Audio"],
+        "pricing": _cny(300.0, 0.0),
+    },
+    {
+        # ¥0.78 per hour of audio, billed by the second, a fraction rounded up (api-docs.deepseek.com/
+        # zh-cn/guides/asr, read 2026-11-16); prompt tokens are the seconds, so ¥216.67 per million.
+        # The limited-time 50% discount (¥0.39) is not stored
+        "model": "deepseek-asr",
+        "base_url": _DEEPSEEK,
+        "client": "deepseek-official",
+        "input_modalities": ["Audio"],
+        "output_modalities": ["Text"],
+        "pricing": _cny(216.666667, 0.0),
     },
     # --- Jina (2 rows; key JINA_API_KEY; Search on https://s.jina.ai and Reader on https://r.jina.ai,
     # the token price from Jina's models API https://api.jina.ai/v1/models, read 2026-11-02). The API

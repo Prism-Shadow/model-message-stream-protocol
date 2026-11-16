@@ -2891,6 +2891,8 @@ def create_chat_app() -> Flask:
                 'ant-messages': 'Anthropic Messages',
                 'google-genai': 'Google generateContent',
                 'deepseek-webtool': 'DeepSeek Search and Fetch',
+                'deepseek-speech': 'DeepSeek Text to Speech',
+                'deepseek-transcription': 'DeepSeek Speech to Text',
                 'mmsp': 'MMSP server'
             };
 

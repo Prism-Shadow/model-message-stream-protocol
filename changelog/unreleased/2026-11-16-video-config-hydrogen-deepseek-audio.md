@@ -34,8 +34,8 @@
 | Model | Base URL | Client | Input | Output | Context | Pricing per 1M |
 | --- | --- | --- | --- | --- | --- | --- |
 | `gemini-4-hydrogen` | `https://generativelanguage.googleapis.com` | `google-official` | Text, Image, Video, Audio | Text | 1,048,576 | $1.50 prompt, $7.50 response, $0.075 cached |
-| `deepseek-tts` | `https://api.deepseek.com` | `deepseek-speech` | Text | Audio | — | ¥300 per million billable characters (¥3 per 10,000) |
-| `deepseek-asr` | `https://api.deepseek.com` | `deepseek-transcription` | Audio | Text | — | ¥216.666667 per million seconds (¥0.78 per hour) |
+| `deepseek-tts` | `https://api.deepseek.com` | `deepseek-official` | Text | Audio | — | ¥300 per million billable characters (¥3 per 10,000) |
+| `deepseek-asr` | `https://api.deepseek.com` | `deepseek-official` | Audio | Text | — | ¥216.666667 per million seconds (¥0.78 per hour) |
 
 ## Compatibility
 
