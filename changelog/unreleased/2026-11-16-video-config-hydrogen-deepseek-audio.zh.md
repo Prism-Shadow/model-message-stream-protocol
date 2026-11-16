@@ -2,7 +2,7 @@
 
 - **Date:** 2026-11-16
 - **Type:** feature
-- **Scope:** `types`, `google_official`, `deepseek_speech`, `deepseek_transcription`, `registry`
+- **Scope:** `types`, `google_official`, `deepseek_speech`, `openai_speech`, `integration`
 - **PR:** [#332](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/332)
 - **Breaking:** yes — `image_config` 的 `image_size` 改名为 `resolution`，`ImageSize` 类型改名为 `ImageResolution`
 
@@ -15,6 +15,8 @@
 - `google-official` 支持 `gemini-4-hydrogen`：思考等级 `low`、`medium`、`high` 与 `xhigh`，`none` 按 `low` 运行，`max` 按 `xhigh` 运行；Gemini 4 Carbon、Argon 与 3.x 模型仍以 `high` 运行 `xhigh` 与 `max`。
 - `deepseek-speech` 在两个包中以流的形式调用 DeepSeek 的语音合成（`POST /v1/tools/tts`）：每条消息一次请求，带消息的文本、`format: "pcm"`，以及取自只有一项的 `tts_config` 的 `voice_id`；每一块一到达就作为同一个内容项的 `inline_data` 流出，类型为 `audio/l16; rate=24000; channels=1`。`prompt_tokens` 是 DeepSeek 计费的字符数，一个汉字算 2 个，其他字符算 1 个。
 - `deepseek-transcription` 以只含 `file` 的 multipart 表单调用 DeepSeek 的语音识别（`POST /v1/tools/asr`），文件是消息中唯一的音频内容项，PCM 封装成 WAV；转写文字作为一个 `text` 内容项流出，`prompt_tokens` 是 `duration_ms` 换算成的秒数，向上取整。
+- `deepseek-speech` 与 `openai-speech` 以完整的 16 位帧发送原始 PCM，见 [MMSP-RFC-0002](../../design/rfcs/MMSP-RFC-0002-message-protocol.zh.md) §3.4：HTTP 分块劈开的帧，其开头的字节等到下一个片段再发出（DeepSeek 与 OpenAI 的分块都会劈开采样）；不含完整帧的分块是空的增量事件；结束时剩下的字节最后发出。在最后一块之前中断的分块响应抛出异常，不会以 `stop` 结束。
+- 两个服务端的 Playground 通过 Web Audio 边接收边播放原始 PCM 语音，每个片段紧接着前一个片段排期播放，并有一个停止按钮；播完后变为可重放的播放器；其他音频格式仍在完整后播放。
 - `deepseek-official` 经由 `deepseek-speech` 服务 `deepseek-tts`，经由 `deepseek-transcription` 服务 `deepseek-asr`，见 [MMSP-RFC-0005](../../design/rfcs/MMSP-RFC-0005-client-routing.zh.md) §3；两个客户端类型都读取 `DEEPSEEK_API_KEY` 与 `DEEPSEEK_BASE_URL`。
 - 注册表新增 `gemini-4-hydrogen`、`deepseek-tts` 与 `deepseek-asr`（从 353 条增至 356 条）。
 - `.github/ci/models.json` 在 `google-official` 下以 `gemini-4-hydrogen` 取代 `gemini-3.8-flash`，并新增 `deepseek-speech` 组的 `deepseek-tts` 与 `deepseek-transcription` 组的 `deepseek-asr`。两个 e2e 测试套件中，共享的视频用例发送 `video_config`（9:16、360p、3 秒），图像用例发送 `resolution`，转写用例改为以 `audio/wav` 发送 whisper.cpp 的 `jfk.wav`，取代 Whisper 的 `jfk.flac`；模型索引的转写程序也改用这个文件。

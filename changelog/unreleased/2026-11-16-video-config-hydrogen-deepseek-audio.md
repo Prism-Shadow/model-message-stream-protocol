@@ -2,7 +2,7 @@
 
 - **Date:** 2026-11-16
 - **Type:** feature
-- **Scope:** `types`, `google_official`, `deepseek_speech`, `deepseek_transcription`, `registry`
+- **Scope:** `types`, `google_official`, `deepseek_speech`, `openai_speech`, `integration`
 - **PR:** [#332](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/332)
 - **Breaking:** yes — `image_config`'s `image_size` was renamed `resolution`, and the `ImageSize` type `ImageResolution`
 
@@ -15,6 +15,8 @@
 - `google-official` served `gemini-4-hydrogen`: `low`, `medium`, `high` and `xhigh` thinking, with `none` run at `low` and `max` at `xhigh`; Gemini 4 Carbon, Argon and the 3.x models kept running `xhigh` and `max` at `high`.
 - `deepseek-speech` streamed DeepSeek's text-to-speech (`POST /v1/tools/tts`) in both packages: one request per message with the message's text, `format: "pcm"`, and `voice_id` from a one-entry `tts_config`; each chunk went out as it arrived, as `inline_data` of one item, `audio/l16; rate=24000; channels=1`. `prompt_tokens` counted DeepSeek's billable characters, a Han character as 2 and any other as 1.
 - `deepseek-transcription` sent DeepSeek's recognition (`POST /v1/tools/asr`) a multipart form holding only the `file`, the message's one audio item, PCM wrapped as WAV; the text went out as one `text` item, and `prompt_tokens` was `duration_ms` in whole seconds, rounded up.
+- `deepseek-speech` and `openai-speech` sent raw PCM in whole 16-bit frames, as [MMSP-RFC-0002](../../design/rfcs/MMSP-RFC-0002-message-protocol.md) §3.4 requires: the first bytes of a frame an HTTP chunk split waited for the next fragment (DeepSeek's and OpenAI's chunks split samples), a chunk holding no whole frame was the empty delta event, and bytes left at the end went out last. A chunked answer that broke off before its last chunk raised, never ending in a `stop`.
+- The playground, in both servers, played raw PCM speech as it streamed through Web Audio, each fragment scheduled right behind the one before it, with a button to stop it; once played out it became a player to replay, and any other audio format still played when whole.
 - `deepseek-official` served `deepseek-tts` through `deepseek-speech` and `deepseek-asr` through `deepseek-transcription`, as [MMSP-RFC-0005](../../design/rfcs/MMSP-RFC-0005-client-routing.md) §3 specifies; both client types read `DEEPSEEK_API_KEY` and `DEEPSEEK_BASE_URL`.
 - The registry listed `gemini-4-hydrogen`, `deepseek-tts` and `deepseek-asr` (353 to 356 entries).
 - `.github/ci/models.json` tested `gemini-4-hydrogen` in place of `gemini-3.8-flash` under `google-official`, and gained `deepseek-tts` under `deepseek-speech` and `deepseek-asr` under `deepseek-transcription`. The shared video test sent `video_config` (9:16, 360p, 3 seconds), the image test sent `resolution`, and the transcription test sent whisper.cpp's `jfk.wav` as `audio/wav` in place of Whisper's `jfk.flac`, in both e2e suites; the Model Index's transcription programs sent the same file.

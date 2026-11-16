@@ -136,6 +136,8 @@ def test_chat_app_index_route():
         assert b"renderEmbedding" in response.data
         assert b"item.embedding.slice(0, 5)" in response.data
         assert b"appendAudioChunk(contentDiv, item, audioStream)" in response.data
+        # raw PCM plays as it streams, each fragment scheduled behind the one before it
+        assert b"playPcmChunk(audioStream, item.data)" in response.data
         assert b"finalizeAudioStream(audioStream)" in response.data
         assert b"renderAudioPlayer(audioStream.mimeType, audioStream.chunks)" in response.data
         assert b"finalizeAudioStream(audioStream, true)" in response.data

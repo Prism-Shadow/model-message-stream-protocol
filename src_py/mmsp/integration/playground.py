@@ -1663,6 +1663,12 @@ def create_chat_app() -> Flask:
                 max-width: 320px;
             }
 
+            .audio-stop {
+                width: 26px;
+                height: 26px;
+                border-radius: 6px;
+            }
+
             .inline-data {
                 display: inline-block;
                 margin: 4px 0 12px;
@@ -2341,7 +2347,8 @@ def create_chat_app() -> Flask:
                 copy: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"></rect><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"></path></svg>',
                 check: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>',
                 audio: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5Z"></path><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"></path></svg>',
-                close: '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg>'
+                close: '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg>',
+                stop: '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"></rect></svg>'
             };
 
             function escapeHtml(text) {
@@ -2471,7 +2478,91 @@ def create_chat_app() -> Flask:
                 // raw PCM carries no duration, so 16-bit samples turn the byte count into seconds
                 const format = pcmFormatFromMimeType(audioStream.mimeType);
                 const seconds = audioStream.bytes / (format.sampleRate * format.channels * 2);
+                if (audioStream.live) {
+                    return 'Playing audio, ' + seconds.toFixed(1) + ' s received';
+                }
                 return `Receiving audio, ${seconds.toFixed(1)} s`;
+            }
+
+            // Raw PCM plays as it streams: every fragment holds whole 16-bit frames (MMSP-RFC-0002
+            // §3.4), so each one is decoded and scheduled right behind the one before it. Any other
+            // format plays once the clip is whole.
+            let liveAudioContext = null;
+            let liveAudioStream = null;
+
+            function isPcmMimeType(mimeType) {
+                return mimeType.startsWith('audio/l16') || mimeType.startsWith('audio/pcm');
+            }
+
+            function playPcmChunk(audioStream, base64Data) {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContextClass || audioStream.stopped) {
+                    return;
+                }
+                if (!liveAudioContext) {
+                    liveAudioContext = new AudioContextClass();
+                }
+                if (liveAudioContext.state === 'suspended') {
+                    liveAudioContext.resume().catch(() => {});
+                }
+                // a newer answer's speech takes over from one still playing
+                if (liveAudioStream && liveAudioStream !== audioStream) {
+                    stopLiveAudio(liveAudioStream);
+                }
+                liveAudioStream = audioStream;
+
+                const format = pcmFormatFromMimeType(audioStream.mimeType);
+                const bytes = base64ToBytes(base64Data);
+                const frames = Math.floor(bytes.length / (2 * format.channels));
+                if (frames === 0) {
+                    return;
+                }
+                const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+                const buffer = liveAudioContext.createBuffer(format.channels, frames, format.sampleRate);
+                for (let channel = 0; channel < format.channels; channel++) {
+                    const samples = buffer.getChannelData(channel);
+                    for (let frame = 0; frame < frames; frame++) {
+                        samples[frame] = view.getInt16((frame * format.channels + channel) * 2, true) / 32768;
+                    }
+                }
+
+                const source = liveAudioContext.createBufferSource();
+                source.buffer = buffer;
+                source.connect(liveAudioContext.destination);
+                // a short lead lets the first chunk start whole, and a pause in the stream never
+                // schedules a chunk in the past
+                const startAt = Math.max(liveAudioContext.currentTime + 0.05, audioStream.playhead);
+                source.start(startAt);
+                audioStream.playhead = startAt + buffer.duration;
+                audioStream.sources.add(source);
+                source.onended = () => {
+                    audioStream.sources.delete(source);
+                    if (audioStream.sources.size === 0 && audioStream.finalized) {
+                        showAudioPlayer(audioStream);
+                    }
+                };
+            }
+
+            function stopLiveAudio(audioStream) {
+                audioStream.stopped = true;
+                for (const source of audioStream.sources) {
+                    source.onended = null;
+                    source.stop();
+                }
+                audioStream.sources.clear();
+                if (liveAudioStream === audioStream) {
+                    liveAudioStream = null;
+                }
+                if (audioStream.finalized) {
+                    showAudioPlayer(audioStream);
+                } else if (audioStream.container) {
+                    const stop = audioStream.container.querySelector('.audio-stop');
+                    if (stop) {
+                        stop.remove();
+                    }
+                    audioStream.live = false;
+                    audioStream.container.querySelector('span').textContent = audioProgressLabel(audioStream);
+                }
             }
 
             function appendAudioChunk(contentDiv, item, audioStream) {
@@ -2480,12 +2571,26 @@ def create_chat_app() -> Flask:
                     audioStream.container = document.createElement('div');
                     audioStream.container.className = 'audio-box';
                     audioStream.container.innerHTML = `${ICONS.audio}<span class="shimmer"></span>`;
+                    if (isPcmMimeType(audioStream.mimeType)) {
+                        audioStream.live = true;
+                        const stop = document.createElement('button');
+                        stop.type = 'button';
+                        stop.className = 'icon-btn audio-stop';
+                        stop.setAttribute('aria-label', 'Stop the audio');
+                        stop.title = 'Stop the audio';
+                        stop.innerHTML = ICONS.stop;
+                        stop.onclick = () => stopLiveAudio(audioStream);
+                        audioStream.container.appendChild(stop);
+                    }
                     contentDiv.appendChild(audioStream.container);
                 }
 
                 audioStream.chunks.push(item.data);
                 audioStream.bytes += Math.floor(item.data.length * 3 / 4);
                 audioStream.container.querySelector('span').textContent = audioProgressLabel(audioStream);
+                if (audioStream.live) {
+                    playPcmChunk(audioStream, item.data);
+                }
             }
 
             function finalizeAudioStream(audioStream, autoplay = false) {
@@ -2494,6 +2599,19 @@ def create_chat_app() -> Flask:
                 }
 
                 audioStream.finalized = true;
+                // speech still playing as it streamed keeps its stop button, and becomes a player to
+                // replay it once it has played out
+                if (audioStream.sources.size > 0) {
+                    return;
+                }
+                showAudioPlayer(audioStream, autoplay && !audioStream.live && !audioStream.stopped);
+            }
+
+            function showAudioPlayer(audioStream, autoplay = false) {
+                if (audioStream.shown) {
+                    return;
+                }
+                audioStream.shown = true;
                 audioStream.container.innerHTML = renderAudioPlayer(audioStream.mimeType, audioStream.chunks);
                 if (autoplay) {
                     // a browser that blocks autoplay leaves the player sitting there ready to press
@@ -3699,7 +3817,7 @@ def create_chat_app() -> Flask:
                                             openItem.root.querySelector('.tool-name').textContent = openItem.name;
                                             openItem.container.textContent = item.type === 'tool_call.done' ? openItem.text : prettyArguments(openItem.text);
                                         } else if (item.type === 'inline_data.delta' && isAudioMimeType(item.mime_type)) {
-                                            audioStream = audioStream || { mimeType: '', chunks: [], bytes: 0, container: null, finalized: false };
+                                            audioStream = audioStream || { mimeType: '', chunks: [], bytes: 0, container: null, finalized: false, live: false, stopped: false, shown: false, sources: new Set(), playhead: 0 };
                                             appendAudioChunk(contentDiv, item, audioStream);
                                         } else if (item.type === 'inline_data.done' && isAudioMimeType(item.mime_type)) {
                                             audioStream.chunks = [item.data];
@@ -3749,6 +3867,8 @@ def create_chat_app() -> Flask:
                 } catch (error) {
                     if (error.name === 'AbortError') {
                         if (audioStream) {
+                            // stopping the answer stops its speech too
+                            stopLiveAudio(audioStream);
                             finalizeAudioStream(audioStream);
                         }
                         markInterrupted(contentDiv);
@@ -3823,6 +3943,9 @@ def create_chat_app() -> Flask:
 
             // the earlier messages stay on screen above the divider; the backend forgets them with the old session
             async function startNewConversation() {
+                if (liveAudioStream) {
+                    stopLiveAudio(liveAudioStream);
+                }
                 const previous = sessionId;
                 sessionId = newSessionId();
                 try {

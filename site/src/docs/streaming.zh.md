@@ -87,4 +87,4 @@ stop   usage_metadata={...}  finish_reason="tool_call"
 
 ## 图像、语音合成与语音转写
 
-媒体客户端同样每条消息发一次请求。`openai-image` 把每张图片作为一个 `inline_data.delta` 及其 `inline_data.done` 流出。`openai-speech` 和 `deepseek-speech` 边生成边流出音频，每条消息一个内容项，分成多个 `inline_data.delta`，无文件头的 PCM 命名为 `audio/l16; rate=<rate>; channels=<channels>`。`openai-transcription` 和 `deepseek-transcription` 每条消息接受一个音频 `inline_data.done`，把转写的文字作为一个 `text.delta` 及其 `text.done` 流出。`stop` 事件的 `prompt_tokens` 是计费量：图像为输入 token 数，输出 token 数记在 `response_tokens`；语音为输入的 UTF-8 字节数，或 DeepSeek 计费的字符数（一个汉字算 2 个）；转写为音频秒数，向上取整。
+媒体客户端同样每条消息发一次请求。`openai-image` 把每张图片作为一个 `inline_data.delta` 及其 `inline_data.done` 流出。`openai-speech` 和 `deepseek-speech` 边生成边流出音频，每条消息一个内容项，分成多个 `inline_data.delta`，无文件头的 PCM 命名为 `audio/l16; rate=<rate>; channels=<channels>`，每一块都由完整的 16 位帧组成，一到达就能播放。`openai-transcription` 和 `deepseek-transcription` 每条消息接受一个音频 `inline_data.done`，把转写的文字作为一个 `text.delta` 及其 `text.done` 流出。`stop` 事件的 `prompt_tokens` 是计费量：图像为输入 token 数，输出 token 数记在 `response_tokens`；语音为输入的 UTF-8 字节数，或 DeepSeek 计费的字符数（一个汉字算 2 个）；转写为音频秒数，向上取整。

@@ -221,6 +221,8 @@ describe("Playground", () => {
     expect(response.text).toContain(
       "appendAudioChunk(contentDiv, item, audioStream)",
     );
+    // raw PCM plays as it streams, each fragment scheduled behind the one before it
+    expect(response.text).toContain("playPcmChunk(audioStream, item.data)");
     expect(response.text).toContain("finalizeAudioStream(audioStream)");
     expect(response.text).toContain(
       "renderAudioPlayer(audioStream.mimeType, audioStream.chunks)",
