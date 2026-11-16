@@ -3,7 +3,7 @@
 - Feature Name: `client_routing`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316), [#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330)
 - Kind: spec
 
 [中文版](MMSP-RFC-0005-client-routing.zh.md)
@@ -20,7 +20,7 @@ On 2026-11-02 the owner asked for web search and page fetch, done the way embedd
 
 On 2026-11-04 the owner asked for image generation, speech and transcription through OpenAI's formats, each by a compatible client: `openai-image`, `openai-speech` and `openai-transcription`. As `openai-official` serves OpenAI's embedding models through `openai-embedding`, it serves OpenAI's image models, `gpt-image-`, through `openai-image`. A model of another vendor behind a gateway, such as `bytedance-seed/seedream-5-0-flash` or `fish-audio/drama-3`, begins with no family and names its client with `client_type`. [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316) amended this specification in place, with the `gpt-image-` rule added to §3.
 
-On 2026-11-16 the owner asked for DeepSeek's speech and transcription: 把deepseek的tts和asr包一下. DeepSeek names no model for either; its endpoints are `/v1/tools/tts` and `/v1/tools/asr`, beside the web tools' paths, so the ids follow the paths as `deepseek-search` and `deepseek-fetch` do, and `deepseek-official` serves `deepseek-tts` through `deepseek-speech` and `deepseek-asr` through `deepseek-transcription`, the compatible clients of the two endpoints. Neither endpoint lists models. [#PR](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/PR) amended this specification in place, with the two ids added to the `deepseek-official` rule of §3.
+On 2026-11-16 the owner asked for DeepSeek's speech and transcription: 把deepseek的tts和asr包一下. DeepSeek names no model for either; its endpoints are `/v1/tools/tts` and `/v1/tools/asr`, beside the web tools' paths, so the ids follow the paths as `deepseek-search` and `deepseek-fetch` do, and `deepseek-official` serves `deepseek-tts` through `deepseek-speech` and `deepseek-asr` through `deepseek-transcription`, the compatible clients of the two endpoints. Neither endpoint lists models. [#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330) amended this specification in place, with the two ids added to the `deepseek-official` rule of §3.
 
 ## 2. Conventions and Terminology
 

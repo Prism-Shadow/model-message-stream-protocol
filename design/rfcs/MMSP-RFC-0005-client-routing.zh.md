@@ -3,7 +3,7 @@
 - Feature Name: `client_routing`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316), [#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330)
 - Kind: spec
 
 [English](MMSP-RFC-0005-client-routing.md)
@@ -20,7 +20,7 @@
 
 2026-11-04，项目负责人要求通过 OpenAI 的格式支持图像生成、语音合成与语音转写，各由一个兼容客户端负责：`openai-image`、`openai-speech` 与 `openai-transcription`。正如 `openai-official` 经由 `openai-embedding` 服务 OpenAI 的 embedding 模型，它经由 `openai-image` 服务 OpenAI 的图像模型 `gpt-image-`。网关后面其他厂商的模型，例如 `bytedance-seed/seedream-5-0-flash` 或 `fish-audio/drama-3`，不以任何模型族开头，用 `client_type` 指定客户端。[#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316) 在原文上修改了本规范：在 §3 中加入 `gpt-image-` 的规则。
 
-2026-11-16，项目负责人要求支持 DeepSeek 的语音合成与语音识别，原话是：「把deepseek的tts和asr包一下」。DeepSeek 没有为两者命名模型；它们的端点是 `/v1/tools/tts` 与 `/v1/tools/asr`，与网页工具的路径并列，所以 id 像 `deepseek-search` 与 `deepseek-fetch` 那样取自路径：`deepseek-official` 经由 `deepseek-speech` 服务 `deepseek-tts`，经由 `deepseek-transcription` 服务 `deepseek-asr`，这两个兼容客户端分别对应这两个端点。两个端点都不列出模型。[#PR](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/PR) 在原文上修改了本规范：在 §3 的 `deepseek-official` 规则中加入这两个 id。
+2026-11-16，项目负责人要求支持 DeepSeek 的语音合成与语音识别，原话是：「把deepseek的tts和asr包一下」。DeepSeek 没有为两者命名模型；它们的端点是 `/v1/tools/tts` 与 `/v1/tools/asr`，与网页工具的路径并列，所以 id 像 `deepseek-search` 与 `deepseek-fetch` 那样取自路径：`deepseek-official` 经由 `deepseek-speech` 服务 `deepseek-tts`，经由 `deepseek-transcription` 服务 `deepseek-asr`，这两个兼容客户端分别对应这两个端点。两个端点都不列出模型。[#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330) 在原文上修改了本规范：在 §3 的 `deepseek-official` 规则中加入这两个 id。
 
 ## 2. Conventions and Terminology
 

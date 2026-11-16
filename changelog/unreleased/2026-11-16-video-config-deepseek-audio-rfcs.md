@@ -3,7 +3,7 @@
 - **Date:** 2026-11-16
 - **Type:** process
 - **Scope:** `design`
-- **PR:** [#PR](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/PR)
+- **PR:** [#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330)
 
 [中文版](2026-11-16-video-config-deepseek-audio-rfcs.zh.md)
 

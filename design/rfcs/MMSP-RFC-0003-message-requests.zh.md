@@ -3,7 +3,7 @@
 - Feature Name: `message_requests`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313), [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316), [#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318), [#326](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/326)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313), [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316), [#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318), [#326](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/326), [#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330)
 - Kind: spec
 
 [English](MMSP-RFC-0003-message-requests.md)
@@ -29,7 +29,7 @@
 
 2026-11-11，项目负责人把某一个端点或某一家厂商的模型需要兼容客户端做的特殊处理移入插件（[MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.zh.md#9-插件) §9），[#322](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/322) 与 [#323](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/323) 贡献的 Mistral 处理也随之写成插件：Mistral 只在被要求时、通过 `reasoning_effort` 打开模型的推理，它的等级没有 `medium`，它的模型列表说明哪些模型会推理。[#326](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/326) 在原文上修改了本规范，在 §6.1 写入兼容客户端读取模型 id 的规则，在 §6.3 写入 `openai-chat` 在 Mistral 上的等级。
 
-2026-11-16，项目负责人要求支持视频的设置、DeepSeek 的语音合成与语音识别，以及 Gemini 4 Hydrogen，原话是：「视频也要支持aspect_ratio和size,还有duration参数」「把deepseek的tts和asr包一下,现在TTS必须支持流式」。`video_config` 承载视频的宽高比、分辨率与时长，Gemini Omni 在它的 `response_format` 中接收它们；关于图像的尺寸键，项目负责人的原话是「改uniconfig的字段,对应映射」「直接改就行了」：`image_config` 的 `image_size` 改名为 `resolution`，与视频共用这个名字，由每个客户端映射到它自己的字段。DeepSeek 的语音合成边合成边在响应体中发送音频，第一批字节约一秒后到达，所以 `deepseek-speech` 请求原始 PCM，每一块一到达就产出，与 Gemini 的流式语音相同；DeepSeek 的语音识别用一个 JSON 作答，只接受 16 位 PCM WAV 或 Ogg Opus。探测发现 Gemini 4 Hydrogen 接受 `xhigh`，拒绝 `minimal` 和 `max`；Gemini Omni 把 4K 写作 `4k`。[#PR](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/PR) 在原文上修改了本规范：§3.2 加入 DeepSeek 的端点，§6.2 与 §6.4 加入 `video_config`，§6.3 写入 Hydrogen 的级别，§6.4 写入 `resolution` 与 DeepSeek 的音色。
+2026-11-16，项目负责人要求支持视频的设置、DeepSeek 的语音合成与语音识别，以及 Gemini 4 Hydrogen，原话是：「视频也要支持aspect_ratio和size,还有duration参数」「把deepseek的tts和asr包一下,现在TTS必须支持流式」。`video_config` 承载视频的宽高比、分辨率与时长，Gemini Omni 在它的 `response_format` 中接收它们；关于图像的尺寸键，项目负责人的原话是「改uniconfig的字段,对应映射」「直接改就行了」：`image_config` 的 `image_size` 改名为 `resolution`，与视频共用这个名字，由每个客户端映射到它自己的字段。DeepSeek 的语音合成边合成边在响应体中发送音频，第一批字节约一秒后到达，所以 `deepseek-speech` 请求原始 PCM，每一块一到达就产出，与 Gemini 的流式语音相同；DeepSeek 的语音识别用一个 JSON 作答，只接受 16 位 PCM WAV 或 Ogg Opus。探测发现 Gemini 4 Hydrogen 接受 `xhigh`，拒绝 `minimal` 和 `max`；Gemini Omni 把 4K 写作 `4k`。[#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330) 在原文上修改了本规范：§3.2 加入 DeepSeek 的端点，§6.2 与 §6.4 加入 `video_config`，§6.3 写入 Hydrogen 的级别，§6.4 写入 `resolution` 与 DeepSeek 的音色。
 
 ## 2. Conventions and Terminology
 
