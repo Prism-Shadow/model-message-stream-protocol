@@ -16,7 +16,7 @@
 // what its answer becomes.
 
 import http from "http";
-import { AddressInfo } from "net";
+import net, { AddressInfo } from "net";
 import {
   afterAll,
   beforeAll,
@@ -96,10 +96,11 @@ const IMAGE_ANSWERS: Record<string, unknown> = {
   },
 };
 
-// The content type of each speech model's answer: OpenRouter's PCM, and OpenAI's MP3
+// The content type of each speech model's answer: OpenRouter's PCM, OpenAI's MP3, and a stereo PCM
 const SPEECH_TYPES: Record<string, string> = {
   "fish-audio/drama-3": "audio/pcm;rate=44100;channels=1",
   "tts-1": "audio/mpeg",
+  "stereo-pcm": "audio/pcm;rate=48000;channels=2",
 };
 
 // DeepSeek's speech names its PCM in full, and DeepSeek answers a refusal in OpenAI's error format
@@ -316,15 +317,21 @@ describe("media clients", () => {
             ),
           );
         } else {
-          // the audio arrives in pieces, as the endpoint makes it; DeepSeek's speech takes no model
+          // the audio arrives in pieces of an odd size, as DeepSeek's do, splitting 16-bit samples;
+          // DeepSeek's speech takes no model, and the text "cut" answers PCM whose last frame is cut
           const deepseek = path === "/v1/tools/tts";
-          const payload =
-            deepseek || body.model === "fish-audio/drama-3" ? PCM : MP3;
+          const payload = deepseek
+            ? body.text === "cut"
+              ? PCM.subarray(0, PCM.length - 1)
+              : PCM
+            : body.model === "tts-1"
+              ? MP3
+              : PCM;
           res.writeHead(200, {
             "Content-Type": deepseek ? DEEPSEEK_PCM : SPEECH_TYPES[body.model],
           });
-          for (let start = 0; start < payload.length; start += 500) {
-            res.write(payload.subarray(start, start + 500));
+          for (let start = 0; start < payload.length; start += 333) {
+            res.write(payload.subarray(start, start + 333));
             // a pause lets each piece reach the client by itself
             await new Promise((resolve) => setTimeout(resolve, 5));
           }
@@ -575,6 +582,81 @@ describe("media clients", () => {
     });
   });
 
+  test.each([
+    ["fish-audio/drama-3", "openai-speech", "/v1", 2],
+    ["stereo-pcm", "openai-speech", "/v1", 4],
+    ["deepseek-tts", "deepseek-official", "", 2],
+  ] as const)(
+    "%s sends PCM in whole frames whatever the chunks split",
+    async (model, clientType, basePath, frameSize) => {
+      const events = await run(
+        model,
+        clientType,
+        [text("Hi")],
+        {},
+        undefined,
+        `${origin}${basePath}`,
+      );
+
+      // the endpoint's 333-byte pieces split samples; every fragment holds whole frames, so it plays alone
+      const deltas = done(events, "inline_data.delta");
+      expect(deltas.length).toBeGreaterThanOrEqual(2);
+      expect(
+        deltas.every(
+          (delta) => (delta.data as Buffer).length % frameSize === 0,
+        ),
+      ).toBe(true);
+      expect(
+        Buffer.concat(deltas.map((delta) => delta.data as Buffer)),
+      ).toEqual(PCM);
+    },
+  );
+
+  test("speech sends the bytes of a cut last frame as the last fragment", async () => {
+    const events = await run(
+      "deepseek-tts",
+      "deepseek-official",
+      [text("cut")],
+      {},
+      undefined,
+      origin,
+    );
+
+    const deltas = done(events, "inline_data.delta");
+    expect(
+      deltas
+        .slice(0, -1)
+        .every((delta) => (delta.data as Buffer).length % 2 === 0),
+    ).toBe(true);
+    expect((deltas[deltas.length - 1].data as Buffer).length % 2).toBe(1);
+    expect(done(events, "inline_data.done").map((item) => item.data)).toEqual([
+      PCM.subarray(0, PCM.length - 1),
+    ]);
+  });
+
+  test.each([
+    ["fish-audio/drama-3", "openai-speech"],
+    ["deepseek-tts", undefined],
+  ] as const)(
+    "%s turns a chunk with no whole frame into the empty delta event",
+    (model, clientType) => {
+      const client = new AutoLLMClient({
+        model,
+        clientType,
+        apiKey: "sk-PROBE",
+      });
+
+      const event = client.transformModelOutputToUniEvent([
+        0,
+        "audio/pcm;rate=24000;channels=1",
+        Buffer.alloc(0),
+      ]);
+
+      expect(event.content_items).toEqual([]);
+      expect(event.event_type).toBe("delta");
+    },
+  );
+
   test("speech in another format keeps its content type and sends the voice", async () => {
     const events = await run("tts-1", "openai-speech", [text("Hi")], {
       tts_config: [{ voice: "alloy" }],
@@ -592,6 +674,74 @@ describe("media clients", () => {
       ]),
     ).toEqual([[MP3, "audio/mpeg"]]);
   });
+
+  test.each([
+    ["fish-audio/drama-3", "openai-speech", "/v1"],
+    ["deepseek-tts", "deepseek-official", ""],
+  ] as const)(
+    "%s raises on an answer cut off mid-way and never stops",
+    async (model, clientType, basePath) => {
+      // a chunked answer that breaks off before its last chunk, as DeepSeek's does when synthesis
+      // fails after the audio has begun: "请把提前结束的响应视为失败"
+      const cut = net.createServer((socket) => {
+        let request = Buffer.alloc(0);
+        socket.on("data", (data: Buffer) => {
+          request = Buffer.concat([request, data]);
+          const end = request.indexOf("\r\n\r\n");
+          const length = /content-length: *(\d+)/i.exec(
+            request.toString("latin1"),
+          );
+          if (
+            end < 0 ||
+            !length ||
+            request.length < end + 4 + Number(length[1])
+          ) {
+            return;
+          }
+          socket.write(
+            Buffer.concat([
+              Buffer.from(
+                "HTTP/1.1 200 OK\r\nContent-Type: audio/pcm; rate=24000; channels=1\r\n" +
+                  "Transfer-Encoding: chunked\r\n\r\n200\r\n",
+                "latin1",
+              ),
+              PCM.subarray(0, 512),
+              Buffer.from("\r\n", "latin1"),
+            ]),
+          );
+          socket.destroy();
+        });
+      });
+      await new Promise<void>((resolve) => cut.listen(0, "127.0.0.1", resolve));
+      const port = (cut.address() as AddressInfo).port;
+      const client = new AutoLLMClient({
+        model,
+        clientType,
+        apiKey: "sk-PROBE",
+        baseUrl: `http://127.0.0.1:${port}${basePath}`,
+      });
+
+      const events: UniEvent[] = [];
+      let caught: unknown;
+      try {
+        for await (const event of client.streamingResponse({
+          messages: [text("Hi")],
+          config: {},
+        })) {
+          events.push(event);
+        }
+      } catch (error) {
+        caught = error;
+      } finally {
+        await new Promise<void>((resolve) => cut.close(() => resolve()));
+      }
+
+      // undici's error, from another realm than Jest's Error
+      expect(String(caught)).toContain("terminated");
+      expect(done(events, "inline_data.delta").length).toBeGreaterThan(0);
+      expect(events.every((event) => event.event_type === "delta")).toBe(true);
+    },
+  );
 
   test.each(
     [

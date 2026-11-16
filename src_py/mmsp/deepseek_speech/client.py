@@ -120,6 +120,16 @@ class DeepSeekSpeechClient(LLMClient):
         any other format keeps its type.
         """
         message_index, content_type, chunk = model_output
+        # a chunk holding less than a frame adds nothing until the next one completes it
+        if not chunk:
+            return {
+                "role": "assistant",
+                "event_type": "delta",
+                "content_items": [],
+                "usage_metadata": None,
+                "finish_reason": None,
+            }
+
         media_type, _, parameters = content_type.partition(";")
         if media_type.strip().lower() == "audio/pcm":
             pcm_format = {}
@@ -166,8 +176,19 @@ class DeepSeekSpeechClient(LLMClient):
             # closed with this generator, so that closing it closes the provider's request
             try:
                 content_type = response.headers.get("content-type", "")
+                # raw PCM goes out in whole frames, one 16-bit sample per channel, so that each fragment
+                # plays as it arrives: the first bytes of a frame a chunk splits wait for the next chunk
+                channels = re.search(r"channels=(\d+)", content_type)
+                frame_size = 2 * int(channels.group(1)) if channels else 2
+                is_pcm = content_type.partition(";")[0].strip().lower() == "audio/pcm"
+                pending = b""
                 async for chunk in response.iter_bytes():
-                    yield self.transform_model_output_to_uni_event((message_index, content_type, chunk))
+                    pending += chunk
+                    whole = len(pending) - len(pending) % frame_size if is_pcm else len(pending)
+                    yield self.transform_model_output_to_uni_event((message_index, content_type, pending[:whole]))
+                    pending = pending[whole:]
+                if pending:
+                    yield self.transform_model_output_to_uni_event((message_index, content_type, pending))
             finally:
                 await response.close()
             # the endpoint reports no usage; DeepSeek bills characters, a Han character as two

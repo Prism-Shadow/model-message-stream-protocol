@@ -157,6 +157,17 @@ export class DeepSeekSpeechClient extends LLMClient {
     modelOutput: [number, string, Buffer],
   ): UniEvent {
     const [messageIndex, contentType, chunk] = modelOutput;
+    // a chunk holding less than a frame adds nothing until the next one completes it
+    if (chunk.length === 0) {
+      return {
+        role: "assistant",
+        event_type: "delta",
+        content_items: [],
+        usage_metadata: null,
+        finish_reason: null,
+      };
+    }
+
     const [mediaType, ...parameters] = contentType.split(";");
     let mimeType = contentType;
     if (mediaType.trim().toLowerCase() === "audio/pcm") {
@@ -210,6 +221,13 @@ export class DeepSeekSpeechClient extends LLMClient {
         })
         .asResponse();
       const contentType = response.headers.get("content-type") ?? "";
+      // raw PCM goes out in whole frames, one 16-bit sample per channel, so that each fragment
+      // plays as it arrives: the first bytes of a frame a chunk splits wait for the next chunk
+      const channels = /channels=(\d+)/.exec(contentType);
+      const frameSize = 2 * (channels ? Number(channels[1]) : 1);
+      const isPcm =
+        contentType.split(";")[0].trim().toLowerCase() === "audio/pcm";
+      let pending = Buffer.alloc(0);
       const reader = response.body!.getReader();
       try {
         for (;;) {
@@ -217,10 +235,22 @@ export class DeepSeekSpeechClient extends LLMClient {
           if (done) {
             break;
           }
+          pending = Buffer.concat([pending, value]);
+          const whole = isPcm
+            ? pending.length - (pending.length % frameSize)
+            : pending.length;
           yield this.transformModelOutputToUniEvent([
             messageIndex,
             contentType,
-            Buffer.from(value),
+            pending.subarray(0, whole),
+          ]);
+          pending = pending.subarray(whole);
+        }
+        if (pending.length > 0) {
+          yield this.transformModelOutputToUniEvent([
+            messageIndex,
+            contentType,
+            pending,
           ]);
         }
       } finally {
