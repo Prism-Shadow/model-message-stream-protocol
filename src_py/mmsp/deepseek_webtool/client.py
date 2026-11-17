@@ -140,14 +140,15 @@ class DeepSeekWebtoolClient(LLMClient):
             requests += 1
             yield self.transform_model_output_to_uni_event((text, answer))
 
-        # DeepSeek bills a request, not tokens, so each request counts as one prompt token
+        # DeepSeek bills a request, not tokens: each counts as 1,000 prompt tokens (MMSP-RFC-0003 §3.2), so
+        # the price per million tokens is the price of 1,000 requests
         yield {
             "role": "assistant",
             "event_type": "stop",
             "content_items": [],
             "usage_metadata": {
                 "cached_tokens": None,
-                "prompt_tokens": requests,
+                "prompt_tokens": requests * 1000,
                 "thoughts_tokens": None,
                 "response_tokens": None,
             },

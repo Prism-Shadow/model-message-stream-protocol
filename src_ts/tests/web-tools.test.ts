@@ -167,8 +167,8 @@ describe("web tools", () => {
       url: "https://example.com/v4",
     };
     expect(webdata(events)).toEqual([[page], [page]]);
-    // DeepSeek bills each request
-    expect(events[events.length - 1].usage_metadata?.prompt_tokens).toBe(2);
+    // DeepSeek bills each request, counted as 1,000 tokens
+    expect(events[events.length - 1].usage_metadata?.prompt_tokens).toBe(2000);
     expect(events[events.length - 1].finish_reason).toBe("stop");
   });
 
@@ -189,7 +189,7 @@ describe("web tools", () => {
         },
       ],
     ]);
-    expect(events[events.length - 1].usage_metadata?.prompt_tokens).toBe(1);
+    expect(events[events.length - 1].usage_metadata?.prompt_tokens).toBe(1000);
   });
 
   test("a Jina search asks for the descriptions only and counts the tokens Jina bills", async () => {

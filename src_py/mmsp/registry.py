@@ -675,13 +675,13 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     {
         # deepseek-official serves this row and the next through deepseek-webtool. ¥5 per 1,000
         # successful requests (api-docs.deepseek.com/zh-cn/guides/search, read 2026-11-02); a request
-        # counts as one prompt token, so ¥5,000 per million
+        # counts as 1,000 prompt tokens, so ¥5 per million
         "model": "deepseek-search",
         "base_url": _DEEPSEEK,
         "client": "deepseek-official",
         "input_modalities": ["Text"],
         "output_modalities": ["Web"],
-        "pricing": _cny(5000.0, 0.0),
+        "pricing": _cny(5.0, 0.0),
     },
     {
         "model": "deepseek-fetch",
@@ -689,7 +689,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "client": "deepseek-official",
         "input_modalities": ["Text"],
         "output_modalities": ["Web"],
-        "pricing": _cny(5000.0, 0.0),
+        "pricing": _cny(5.0, 0.0),
     },
     {
         # ¥3 per 10,000 billed characters, a Han character counting two (api-docs.deepseek.com/zh-cn/
@@ -2297,8 +2297,8 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     # `reference` price the catalog shows beside some models. Each row's client speaks a protocol
     # the catalog lists for the model, and its price is that protocol's, at the lowest tier where
     # the catalog tiers it by prompt length. The two web tool rows near the end bill ¥0.005 per
-    # request (TokenDance's console, read 2026-11-02), stored as ¥5,000 per million prompt tokens,
-    # one per request; the image row after them bills by the image.
+    # request (TokenDance's console, read 2026-11-02), stored as ¥5 per million prompt tokens,
+    # 1,000 per request; the image row after them bills by the image.
     {
         # this row and the next take the gateway's Chat Completions path; weekday peak rates
         # (09:00-12:00, 14:00-18:00 Beijing) are double on both
@@ -2908,7 +2908,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "client": "deepseek-webtool",
         "input_modalities": ["Text"],
         "output_modalities": ["Web"],
-        "pricing": _cny(5000.0, 0.0),
+        "pricing": _cny(5.0, 0.0),
     },
     {
         "model": "deepseek-fetch",
@@ -2916,7 +2916,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "client": "deepseek-webtool",
         "input_modalities": ["Text"],
         "output_modalities": ["Web"],
-        "pricing": _cny(5000.0, 0.0),
+        "pricing": _cny(5.0, 0.0),
     },
     {
         # ¥0.22 per image (the catalog's items rate, read 2026-11-04), not a price per token: stored
