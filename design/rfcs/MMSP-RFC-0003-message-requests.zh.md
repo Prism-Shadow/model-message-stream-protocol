@@ -3,7 +3,7 @@
 - Feature Name: `message_requests`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313), [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316), [#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318), [#326](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/326)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313), [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316), [#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318), [#326](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/326), [#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330)
 - Kind: spec
 
 [English](MMSP-RFC-0003-message-requests.md)
@@ -29,6 +29,8 @@
 
 2026-11-11，项目负责人把某一个端点或某一家厂商的模型需要兼容客户端做的特殊处理移入插件（[MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.zh.md#9-插件) §9），[#322](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/322) 与 [#323](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/323) 贡献的 Mistral 处理也随之写成插件：Mistral 只在被要求时、通过 `reasoning_effort` 打开模型的推理，它的等级没有 `medium`，它的模型列表说明哪些模型会推理。[#326](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/326) 在原文上修改了本规范，在 §6.1 写入兼容客户端读取模型 id 的规则，在 §6.3 写入 `openai-chat` 在 Mistral 上的等级。
 
+2026-11-16，项目负责人要求支持视频的设置、DeepSeek 的语音合成与语音识别，以及 Gemini 4 Hydrogen，原话是：「视频也要支持aspect_ratio和size,还有duration参数」「把deepseek的tts和asr包一下,现在TTS必须支持流式」。`video_config` 承载视频的宽高比、分辨率与时长，Gemini Omni 在它的 `response_format` 中接收它们；关于图像的尺寸键，项目负责人的原话是「改uniconfig的字段,对应映射」「直接改就行了」：`image_config` 的 `image_size` 改名为 `resolution`，与视频共用这个名字，由每个客户端映射到它自己的字段。DeepSeek 的语音合成边合成边在响应体中发送音频，第一批字节约一秒后到达，所以 `deepseek-speech` 请求原始 PCM，每一块一到达就产出，与 Gemini 的流式语音相同；DeepSeek 的语音识别用一个 JSON 作答，只接受 16 位 PCM WAV 或 Ogg Opus。探测发现 Gemini 4 Hydrogen 接受 `xhigh`，拒绝 `minimal` 和 `max`；Gemini Omni 把 4K 写作 `4k`。[#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330) 在原文上修改了本规范：§3.2 加入 DeepSeek 的端点，§6.2 与 §6.4 加入 `video_config`，§6.3 写入 Hydrogen 的级别，§6.4 写入 `resolution` 与 DeepSeek 的音色。
+
 ## 2. Conventions and Terminology
 
 本文中的关键词“必须”“不得”“应当”“不应”“可以”依次对应 BCP 14（[RFC 2119](https://www.rfc-editor.org/rfc/rfc2119)、[RFC 8174](https://www.rfc-editor.org/rfc/rfc8174)）中的 MUST、MUST NOT、SHOULD、SHOULD NOT 与 MAY，按其定义解释；本文只在这一含义上使用这五个词。
@@ -50,13 +52,13 @@
 
 网页工具端点也不是流式的：它对一次请求用一个 JSON 作答。随着网页加载把整个答案重发一遍的事件流（Jina 的就是这样）不算这里所说的流式端点，客户端必须改为读取 JSON。网页工具客户端必须每条消息发一次请求，消息中各文本内容项拼接起来就是查询或 URL。每个答案一到达就作为一个 `webtool` 内容项流出，什么也没搜到的搜索也不例外；然后是一个 `stop`，`finish_reason` 为 `stop`，`prompt_tokens` 是端点对各次请求计费之和：端点报告的 token 数，按请求计费的端点则每次请求记 1。搜索必须要求每个结果的摘要，不得要求其网页正文。
 
-图像生成端点也不是流式的：`openai-image` 必须读取它的 JSON，不得请求流式，也不得发送 `response_format`。语音端点以流的形式发送音频字节，`openai-speech` 必须在每一块到达时把它产出，作为一条消息的语音这一个内容项的 `inline_data` 片段。转写端点用一个 JSON 作答。这三个客户端都必须像网页工具客户端那样每条消息发一次请求：图像的提示词和语音的输入是消息中各文本内容项的拼接，其他内容项抛出 `UnsupportedContentError`；转写的文件是消息中唯一的音频 `inline_data` 内容项，文本、图片或其他内容项抛出 `UnsupportedContentError`，第二个音频内容项抛出 `InvalidMessageError`。
+图像生成端点也不是流式的：`openai-image` 必须读取它的 JSON，不得请求流式，也不得发送 `response_format`。语音端点以流的形式发送音频字节，`openai-speech` 与 `deepseek-speech` 必须在每一块到达时把它产出，作为一条消息的语音这一个内容项的 `inline_data` 片段。转写端点用一个 JSON 作答。这些客户端（包括 `openai-transcription` 与 `deepseek-transcription`）都必须像网页工具客户端那样每条消息发一次请求：图像的提示词和语音的输入是消息中各文本内容项的拼接，其他内容项抛出 `UnsupportedContentError`；转写的文件是消息中唯一的音频 `inline_data` 内容项，文本、图片或其他内容项抛出 `UnsupportedContentError`，第二个音频内容项抛出 `InvalidMessageError`。
 
 - 图像从答案的 `b64_json` 读取，没有时从它的 `url` 下载，且不带任何凭据（[MMSP-RFC-0006](MMSP-RFC-0006-upstream-credentials.zh.md#7-答案中的链接) §7）。它的 MIME 类型是答案的 `media_type`；没有时是 `image/` 加上它的 `output_format`；再没有时是它的字节所显示的类型。
-- 语音保持端点的默认格式，不发送 `response_format`。无文件头的 PCM（响应 `content-type` 中的 `audio/pcm`）以 `audio/l16; rate=<rate>; channels=<channels>` 流出，采样率与声道数取自该响应头；其他格式以它的 `content-type` 流出。
-- 转写以 OpenAI 的 multipart 表单上传：`file` 以其 MIME 类型对应的扩展名命名，另有 `model`，不发送 `prompt`。无文件头的 PCM（`audio/l16`、`audio/pcm`）按其 MIME 类型中的采样率与声道数封装成 WAV 发送；MIME 类型没有写明采样率的 PCM 抛出 `InvalidMessageError`。转写的文字作为一个 `text` 内容项流出。
+- `openai-speech` 保持端点的默认格式，不发送 `response_format`。`deepseek-speech` 请求原始 PCM（`format: "pcm"`），使每一块都是播放器一到达就能接收的音频；它不发送 `filter_markdown`，沿用 DeepSeek 的默认值。无文件头的 PCM（响应 `content-type` 中的 `audio/pcm`）以 `audio/l16; rate=<rate>; channels=<channels>` 流出，采样率与声道数取自该响应头；其他格式以它的 `content-type` 流出。无文件头的 PCM 以完整的帧流出（[MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.zh.md#34-内容项) §3.4）：HTTP 分块劈开的帧，其字节等下一块到达再发出。
+- `openai-transcription` 以 OpenAI 的 multipart 表单上传：`file` 以其 MIME 类型对应的扩展名命名，另有 `model`，不发送 `prompt`；`deepseek-transcription` 只上传 `file`，PCM 以外的类型原样发送，由 DeepSeek 按字节区分 WAV 与 Ogg Opus。无文件头的 PCM（`audio/l16`、`audio/pcm`）按其 MIME 类型中的采样率与声道数封装成 WAV 发送；MIME 类型没有写明采样率的 PCM 抛出 `InvalidMessageError`。转写的文字作为一个 `text` 内容项流出。
 
-然后是一个 `stop`，`finish_reason` 为 `stop`，用量是各次请求之和。对图像，`prompt_tokens` 是端点的 `input_tokens` 或 `prompt_tokens`，`response_tokens` 是它的 `output_tokens` 或 `completion_tokens`，以端点报告的为准，端点不报告的计数保持 `None`。对语音，端点不报告用量，`prompt_tokens` 是输入的 UTF-8 字节数，`response_tokens` 为 0。对转写，`prompt_tokens` 是端点报告的 `usage.seconds` 向上取整到整秒，`response_tokens` 为 0。
+然后是一个 `stop`，`finish_reason` 为 `stop`，用量是各次请求之和。对图像，`prompt_tokens` 是端点的 `input_tokens` 或 `prompt_tokens`，`response_tokens` 是它的 `output_tokens` 或 `completion_tokens`，以端点报告的为准，端点不报告的计数保持 `None`。对语音，端点不报告用量，`prompt_tokens` 是端点据以计费的量：在 `openai-speech` 上是输入的 UTF-8 字节数，在 `deepseek-speech` 上是 DeepSeek 计费的字符数，一个汉字算 2 个，其他字符算 1 个；`response_tokens` 为 0。对转写，`prompt_tokens` 是端点报告的 `usage.seconds`，或 DeepSeek 的 `duration_ms` 换算成的秒数，向上取整到整秒，`response_tokens` 为 0。
 
 ### 3.3 请求之前
 
@@ -104,19 +106,21 @@
 
 客户端无法为该模型发送的 `UniConfig` 值，必须在请求发出之前抛出 `UnsupportedParameterError`，指明客户端与参数。客户端用不上的键会被忽略。`thinking_level` 是例外（§6.3）。
 
+`video_config` 只发送给 Gemini Omni：对其他模型，`google-official` 抛出异常；没有视频模型的客户端忽略它。
+
 `max_tokens` 不会发送给 Gemini Omni：视频本身的 token 也计入 Google 的 `max_output_tokens`（默认视频为 57,920），按文本设定的上限要等视频生成之后才会失败。
 
 ### 6.3 思考等级
 
 - 客户端不得拒绝任何 `ThinkingLevel`：无论什么模型，都没有客户端为 `thinking_level` 抛出 `UnsupportedParameterError`。
-- 每个官方客户端按一张固定的表，把每个级别映射到该模型这一代的某个设置上，不发出警告：模型有这个级别时，就用它本身；模型没有时，用模型接受的另一个级别（Claude 4.6 以 `high` 运行 `xhigh`；Gemini 以 `high` 运行 `xhigh` 和 `max`，只接受 `low` 和 `high` 的 Gemini Omni 也以 `high` 运行 `medium`）；对于 `none`，模型有自己的关闭开关时就用它（Claude Sonnet 5 上的 `disabled`，GPT-6 Luna、GPT-6.1 Terra 和 Kimi K3 系列上的 `none`）；对于没有关闭开关的模型上的 `none`，用它允许的最少思考（Claude Opus 5.5 上的最低 effort，Claude Sonnet 5.5 上的 `between_tools`，Gemini 上的 `minimal` 或 `low`）。不思考的模型，例如 embedding 模型、网页工具，或 `openai-image`、`openai-speech`、`openai-transcription` 的模型，没有这样的设置，级别被忽略。
+- 每个官方客户端按一张固定的表，把每个级别映射到该模型这一代的某个设置上，不发出警告：模型有这个级别时，就用它本身；模型没有时，用模型接受的另一个级别（Claude 4.6 以 `high` 运行 `xhigh`；Gemini 以 `high` 运行 `xhigh` 和 `max`，Gemini 4 Hydrogen 除外，它原样运行 `xhigh`，以 `xhigh` 运行 `max`；只接受 `low` 和 `high` 的 Gemini Omni 也以 `high` 运行 `medium`）；对于 `none`，模型有自己的关闭开关时就用它（Claude Sonnet 5 上的 `disabled`，GPT-6 Luna、GPT-6.1 Terra 和 Kimi K3 系列上的 `none`）；对于没有关闭开关的模型上的 `none`，用它允许的最少思考（Claude Opus 5.5 上的最低 effort，Claude Sonnet 5.5 上的 `between_tools`，Gemini 上的 `minimal` 或 `low`）。不思考的模型，例如 embedding 模型、网页工具，或 `openai-image`、`openai-speech`、`openai-transcription`、`deepseek-speech`、`deepseek-transcription` 的模型，没有这样的设置，级别被忽略。
 - 经由兼容客户端时，由端点决定某个级别实际如何运行，端点可以拒绝这个值：`ant-messages` 对 `none` 发送 `disabled`；`openai-responses` 把级别作为它的 effort 发送，在 Luna 与 GPT-6.1 Terra 以外的 GPT-6 上把 `none` 发成 `low`；`openai-chat` 不发送级别，Mistral 的端点除外：在那里它的 `mistral` 插件对 Mistral 模型列表标明会推理的模型发送 `reasoning_effort`（`low` 发 `low`，`medium` 与 `high` 发 `high`，`xhigh` 与 `max` 原样发送，`none` 不发送），对其他模型不发送；它的 vLLM 适配器只发送聊天模板的思考开关；`mmsp` 客户端把级别转发给它的服务端。
 
 ### 6.4 有另一种形式的值
 
 协议对某个值有另一种形式时，映射写明用哪一种：工具名列表是 `allowed_tools`，在 `openai-chat` 上带 `mode: "auto"`，在 `openai-official` 和 `openai-responses` 上带 `mode: "required"`；只有一个名字的列表在 `ant-messages` 上是 `{type: "tool", name}`；没有设置的 `max_tokens` 在 Anthropic 客户端上是 64000；`prompt_caching` 的 `enhance` 在 `openai-official` 上对 GPT-5.6 及之后的模型是 `prompt_cache_options: {ttl: "12h"}`。
 
-`tts_config` 在 `openai-speech` 上是 `voice`：取它唯一一项的 `voice`；没有 `tts_config` 时不发送 `voice`，端点用它的默认音色朗读；多于一项抛出 `UnsupportedParameterError`。`image_config` 在 `openai-image` 上是 `size`，取自下表：只有 `aspect_ratio` 没有 `image_size` 时取该比例的 1K 尺寸，只有 `image_size` 没有 `aspect_ratio` 时取 1:1，没有 `image_config` 时不发送 `size`。表中每个尺寸两边都是 16 的倍数，像素数在 655,360 到 8,294,400 之间，最长边不超过 3840，长宽比不超过 3:1，符合 OpenAI 的要求。
+`tts_config` 在 `openai-speech` 上是 `voice`，在 `deepseek-speech` 上是 `voice_id`：取它唯一一项的 `voice`；没有 `tts_config` 时两者都不发送，端点用它的默认音色朗读；多于一项抛出 `UnsupportedParameterError`。`image_config` 的 `resolution` 在两个 Google 客户端上是 Gemini 的 `image_size`。`image_config` 在 `openai-image` 上是 `size`，取自下表：只有 `aspect_ratio` 没有 `resolution` 时取该比例的 1K 尺寸，只有 `resolution` 没有 `aspect_ratio` 时取 1:1，没有 `image_config` 时不发送 `size`。表中每个尺寸两边都是 16 的倍数，像素数在 655,360 到 8,294,400 之间，最长边不超过 3840，长宽比不超过 3:1，符合 OpenAI 的要求。
 
 | `aspect_ratio` | `1K` | `2K` |
 | --- | --- | --- |
@@ -128,6 +132,8 @@
 | `9:16` | `768x1376` | `1536x2752` |
 | `16:9` | `1376x768` | `2752x1536` |
 | `21:9` | `1584x672` | `3168x1344` |
+
+`video_config` 在 Gemini Omni 上是 `response_format` 中的一个 `video` 条目：`aspect_ratio` 与 `resolution` 原样发送，只有 `4K` 按 Google 的写法发成 `4k`；`duration` 以秒为单位，写成 Google 的 `"<n>s"`。只发送给出的字段；没有 `video_config` 时不发送 `response_format`，沿用 Google 的默认值（16:9、720p、10 秒）。Google 不接受的值，例如 `1:1` 或 2 秒，由 Google 自己的错误拒绝。
 
 ### 6.5 配置页
 
