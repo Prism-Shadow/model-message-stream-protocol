@@ -43,7 +43,8 @@ Role = Literal["user", "assistant"]
 EventType = Literal["delta", "stop"]
 FinishReason = Literal["stop", "length", "tool_call", "unknown"]
 AspectRatio = Literal["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9", "21:9"]
-ImageSize = Literal["1K", "2K"]
+ImageResolution = Literal["1K", "2K"]
+VideoResolution = Literal["360p", "720p", "1080p", "4K"]
 
 # Arbitrary JSON-style payload of wire-fidelity data recorded by a client, such as
 # thinking signatures, phase labels, or the upstream reasoning field name. Opaque to
@@ -243,7 +244,16 @@ class ImageConfig(TypedDict):
     """Image generation configuration for models that support image output."""
 
     aspect_ratio: NotRequired[AspectRatio]
-    image_size: NotRequired[ImageSize]
+    resolution: NotRequired[ImageResolution]
+
+
+class VideoConfig(TypedDict):
+    """Video generation configuration for models that support video output."""
+
+    aspect_ratio: NotRequired[AspectRatio]
+    resolution: NotRequired[VideoResolution]
+    # whole seconds
+    duration: NotRequired[int]
 
 
 class SpeakerConfig(TypedDict):
@@ -287,10 +297,12 @@ class UniConfig(TypedDict):
     # vLLM adapter), google-official and minimax-official send service_tier="priority";
     # anthropic-official and ant-messages send speed="fast"; google-genai, deepseek-official,
     # moonshot-official, zai-official, openai-embedding, openai-image, openai-speech,
-    # openai-transcription, deepseek-webtool and jina-webtool raise UnsupportedParameterError, and
-    # so does a sending client for a model without a fast tier
+    # openai-transcription, deepseek-webtool, deepseek-speech, deepseek-transcription and
+    # jina-webtool raise UnsupportedParameterError, and so does a sending client for a model without
+    # a fast tier
     fast_mode: NotRequired[bool]
     image_config: NotRequired[ImageConfig]
+    video_config: NotRequired[VideoConfig]
     tts_config: NotRequired[list[SpeakerConfig]]
     embedding_config: NotRequired[EmbeddingConfig]
     webtool_config: NotRequired[WebtoolConfig]

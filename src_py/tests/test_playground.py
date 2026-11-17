@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import re
 
 from flask import Flask
 
@@ -136,6 +137,8 @@ def test_chat_app_index_route():
         assert b"renderEmbedding" in response.data
         assert b"item.embedding.slice(0, 5)" in response.data
         assert b"appendAudioChunk(contentDiv, item, audioStream)" in response.data
+        # raw PCM plays as it streams, each fragment scheduled behind the one before it
+        assert b"playPcmChunk(audioStream, item.data)" in response.data
         assert b"finalizeAudioStream(audioStream)" in response.data
         assert b"renderAudioPlayer(audioStream.mimeType, audioStream.chunks)" in response.data
         assert b"finalizeAudioStream(audioStream, true)" in response.data
@@ -255,6 +258,68 @@ def test_chat_app_reports_a_failed_model_listing(monkeypatch):
 
     assert response.status_code == 400
     assert "401 unauthorized" in response.get_json()["error"]
+
+
+def test_chat_app_names_the_key_an_empty_key_field_sends(monkeypatch):
+    """Test that the key route names the variable a client reads and shows the key's last four characters only."""
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-0123456789abcd")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "short")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("MMSP_API_KEY", raising=False)
+
+    app = create_chat_app()
+    with app.test_client() as client:
+
+        def source(config):
+            response = client.post("/api/key", json={"config": config})
+            assert response.status_code == 200
+            assert "0123456789" not in response.get_data(as_text=True)
+            return response.get_json()
+
+        openai = {"source": "env", "variable": "OPENAI_API_KEY", "masked": "\u2022\u2022\u2022\u2022abcd"}
+        assert source({"model": "gpt-6.1-sol"}) == openai
+        # the client's own default endpoint takes the key as no base URL does, and a key typed in is not looked at
+        assert (
+            source({"model": "gpt-6.1-sol", "base_url": "https://api.openai.com/v1/", "api_key": "sk-typed"}) == openai
+        )
+        # a key shorter than twelve characters shows none of them
+        assert source({"model": "deepseek-asr"}) == {
+            "source": "env",
+            "variable": "DEEPSEEK_API_KEY",
+            "masked": "\u2022\u2022\u2022\u2022",
+        }
+        assert source({"model": "claude-opus-5-5"}) == {"source": "unset", "variable": "ANTHROPIC_API_KEY"}
+        assert source({"model": "gpt-6.1-sol", "base_url": "https://relay.test/v1"}) == {"source": "required"}
+        assert source({"model": "local", "client_type": "mmsp"}) == {"source": "keyless"}
+        assert source({"model": "local", "client_type": "mmsp", "base_url": "http://10.0.0.2:25752/v1"}) == {
+            "source": "keyless"
+        }
+        assert source({"model": "llama-4"}) == {"source": "unknown"}
+
+
+def test_chat_app_page_records_from_the_microphone_and_asks_where_the_key_comes_from():
+    """Test that the page records a WAV clip from the microphone and shows where an empty key field takes its key."""
+    app = create_chat_app()
+    with app.test_client() as client:
+        page = client.get("/").get_data(as_text=True)
+
+    assert 'id="micButton"' in page
+    assert "toggleRecording()" in page
+    assert "encodeWav(" in page
+    assert "mimeType: 'audio/wav'" in page
+    assert "fetch('/api/key'" in page
+    assert "key-missing" in page
+
+
+def test_chat_app_page_declares_each_function_once():
+    """Test that the page script declares no function twice, since the later one silently replaces the first."""
+    app = create_chat_app()
+    with app.test_client() as client:
+        page = client.get("/").get_data(as_text=True)
+
+    names = re.findall(r"^\s*(?:async\s+)?function\s+(\w+)\s*\(", page, re.MULTILINE)
+    assert len(names) > 50
+    assert sorted({name for name in names if names.count(name) > 1}) == []
 
 
 def test_chat_app_serves_the_registry_to_the_model_menu():

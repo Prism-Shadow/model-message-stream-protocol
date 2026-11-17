@@ -323,7 +323,11 @@ class GoogleGenaiClient(LLMClient):
                 config_params["tool_config"] = types.ToolConfig(function_calling_config=tool_config)
 
         if config.get("image_config") is not None:
-            config_params["image_config"] = types.ImageConfig(**config["image_config"])
+            image_config = config["image_config"]
+            # MMSP's resolution is Gemini's image_size
+            config_params["image_config"] = types.ImageConfig(
+                aspect_ratio=image_config.get("aspect_ratio"), image_size=image_config.get("resolution")
+            )
 
         return types.GenerateContentConfig(**config_params) if config_params else None
 

@@ -1,16 +1,19 @@
 # Gemini 4 SDK Documentation
 
-Official Google documentation for `gemini-4-argon` (retrieved 2026-10-14) and
-`gemini-4-carbon` (retrieved 2026-11-10). The documentation pages are saved from
-Google's Markdown endpoints; each model specification is summarized from its page.
-`latest-model.md`, `pricing.md` and `deprecations.md` are the 2026-11-10 snapshots.
+Official Google documentation for `gemini-4-argon` (retrieved 2026-10-14),
+`gemini-4-carbon` (retrieved 2026-11-10) and `gemini-4-hydrogen` (retrieved
+2026-11-16). The documentation pages are saved from Google's Markdown endpoints; each
+model specification is summarized from its page. `latest-model.md`, `pricing.md`,
+`deprecations.md` and `thinking.md` are the 2026-11-16 snapshots.
 
 ## Documentation
 
 - [latest-model.md](docs/latest-model.md) — the current models compared.
 - [gemini-4-argon.md](docs/gemini-4-argon.md) — Argon's modalities, capabilities, and token limits.
 - [gemini-4-carbon.md](docs/gemini-4-carbon.md) — Carbon's modalities, capabilities, and token limits.
+- [gemini-4-hydrogen.md](docs/gemini-4-hydrogen.md) — Hydrogen's modalities, capabilities, and token limits.
 - [whats-new-gemini-4-carbon.md](docs/whats-new-gemini-4-carbon.md) — Carbon against Argon, thinking levels, and migration.
+- [whats-new-gemini-4-hydrogen.md](docs/whats-new-gemini-4-hydrogen.md) — Hydrogen against Carbon, Argon and Gemini 3.8 Flash, `xhigh`, and migration.
 - [api-reference.md](docs/api-reference.md) — Interactions request, response, usage, and error schemas.
 - [streaming.md](docs/streaming.md) — SSE events and deltas.
 - [function-calling.md](docs/function-calling.md) — function declarations, calls, and results.
@@ -25,6 +28,8 @@ Google's Markdown endpoints; each model specification is summarized from its pag
 Gemini 4 Argon and Gemini 4 Carbon accept `low`, `medium`, and `high` thinking, defaulting
 to `medium`; Carbon spends more thinking tokens per turn and needs no other request change.
 MMSP maps `NONE` to `low` and `XHIGH`/`MAX` to `high`; an omitted level stays omitted.
+Gemini 4 Hydrogen accepts `low`, `medium`, `high` and `xhigh`, defaulting to `high`, with
+the same request schema; MMSP maps `NONE` to `low` and `MAX` to `xhigh`.
 Sampling parameters are ignored by the API, so MMSP continues to reject `temperature`.
 Only implicit caching is supported; `prompt_caching` accepts `ENABLE`.
 
@@ -35,7 +40,8 @@ outside MMSP's stateless streaming interface.
 
 The registry records standard list prices per million tokens: $4 input, $20
 output/thinking, and $0.20 cached input. Google's introductory prices through
-2026-11-30 are $2, $10, and $0.10 respectively.
+2026-11-30 are $2, $10, and $0.10 respectively. Hydrogen lists $1.50 input, $7.50
+output/thinking, and $0.075 cached input, with no introductory price.
 
 ## Protocol notes verified on 2026-10-14
 
@@ -64,3 +70,20 @@ The capture and probes are stored under
 - `thinking_level: "minimal"` returned HTTP 400 ("Thinking level THINKING_LEVEL_MINIMAL
   is not supported for this model"); `low`, `medium` and `high` succeeded, and
   `temperature` was accepted and ignored.
+
+## Protocol notes for Gemini 4 Hydrogen, verified on 2026-11-16
+
+The capture and probes are stored under `api_captures/gemini_4_hydrogen/` (git-ignored),
+raw SSE against `POST /v1beta/interactions`.
+
+- The stream had Carbon's steps and deltas: a `thought` step closed by a
+  `thought_signature` delta (no `thought_summary` deltas came back with
+  `thinking_summaries: "auto"` on these short turns), a `function_call` step whose
+  arguments arrived as one `arguments_delta`, and usage on `interaction.completed`.
+- Replay without the thought signature, or without the whole thought step, returned
+  HTTP 400 ("Request contains an invalid argument."); without the summary or the call
+  ids it succeeded.
+- `thinking_level` `low`, `medium`, `high` and `xhigh` succeeded; `minimal` returned
+  HTTP 400 ("Thinking level THINKING_LEVEL_MINIMAL is not supported for this model")
+  and `max` HTTP 400 ("Supported values: 'minimal', 'low', 'medium', 'high', 'xhigh'").
+- `service_tier: "priority"`, `system_instruction` and `temperature` were accepted.

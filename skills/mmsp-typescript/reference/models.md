@@ -4,7 +4,7 @@ Use exact model IDs, and pass the model's client type as `clientType`. If a mode
 
 | Family | Provider | Model IDs | Client type | API Key | Base URL |
 | --- | --- | --- | --- | --- | --- |
-| Gemini 4 | Official | `gemini-4-carbon`, `gemini-4-argon` | `google-official` | `GEMINI_API_KEY` | `GEMINI_BASE_URL` |
+| Gemini 4 | Official | `gemini-4-hydrogen`, `gemini-4-carbon`, `gemini-4-argon` | `google-official` | `GEMINI_API_KEY` | `GEMINI_BASE_URL` |
 | Gemini 3 | Official / Vertex AI | `gemini-3.1-pro-preview`, `gemini-3.1-flash-lite` | `google-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
 | Gemini 3.6 | Official / Vertex AI | `gemini-3.6-flash`, `gemini-3.5-flash-lite` | `google-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
 | Gemini 3.8 | Official / Vertex AI | `gemini-3.8-flash` | `google-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
@@ -58,9 +58,11 @@ Use exact model IDs, and pass the model's client type as `clientType`. If a mode
 | MiniMax-M3.1 | OpenRouter | `minimax/minimax-m3.1-flash` | `openai-responses` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
 | MiniMax-M3 | Official | `MiniMax-M3` | `minimax-official` | `MINIMAX_API_KEY` | `MINIMAX_BASE_URL` |
 | DeepSeek Search/Fetch | Official | `deepseek-search`, `deepseek-fetch` | `deepseek-official` | `DEEPSEEK_API_KEY` | `DEEPSEEK_BASE_URL` |
+| DeepSeek TTS/ASR | Official | `deepseek-tts` (speech), `deepseek-asr` (recognition) | `deepseek-official` | `DEEPSEEK_API_KEY` | `DEEPSEEK_BASE_URL` |
 | DeepSeek Search/Fetch | TokenDance | `deepseek-search`, `deepseek-fetch` | `deepseek-webtool` | `DEEPSEEK_API_KEY` | `DEEPSEEK_BASE_URL` (`https://tokendance.space/gateway/deepseek`) |
 | Jina Search/Reader | Official | `jina-search`, `jina-fetch` | `jina-webtool` | `JINA_API_KEY` | `JINA_BASE_URL` |
 | GPT Image 2.5 | Official | `gpt-image-2.5-flare` | `openai-official` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
+| Seedream 5.5 | OpenRouter | `bytedance-seed/seedream-5-5` | `openai-image` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
 | Seedream 5.0 | OpenRouter | `bytedance-seed/seedream-5-0-flash` | `openai-image` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
 | Seedream 5.0 | TokenDance | `seedream-5.0-lite` | `openai-image` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
 | Fish Audio Drama 3 | OpenRouter | `fish-audio/drama-3` | `openai-speech` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
@@ -68,13 +70,13 @@ Use exact model IDs, and pass the model's client type as `clientType`. If a mode
 
 `google-official` serves Gemini models through the Interactions API with a Gemini API key. On Vertex AI, pass `clientType: "google-genai"`, which speaks generateContent, with the service-account JSON key; Vertex AI serves no Gemini model through Interactions, and `google-official` refuses a service-account key. Embedding models use `embedContent` on either client. Thought signatures only replay on the endpoint that issued them, so a history recorded with an API key cannot move to a Vertex AI key with its signatures, or the reverse.
 
-Gemini Omni (`gemini-omni-1.2-flash`) answers with one `inline_data` item holding an MP4 with its audio, at Google's defaults (16:9, 720p, 10 seconds; about $0.70 a video). `google-official` sends only the newest message (its text and images) and no `max_tokens`, since the video's own tokens count against Google's limit; `tools`, `tool_choice`, `image_config` and `fast_mode` raise `UnsupportedParameterError`.
+Gemini Omni (`gemini-omni-1.2-flash`) answers with one `inline_data` item holding an MP4 with its audio, at Google's defaults (16:9, 720p, 10 seconds; about $0.70 a video) unless `video_config` sets `aspect_ratio` (`16:9`, `9:16`), `resolution` (`360p` to `4K`) or `duration` (3 to 15 seconds). `google-official` sends only the newest message (its text and images) and no `max_tokens`, since the video's own tokens count against Google's limit; `tools`, `tool_choice`, `image_config` and `fast_mode` raise `UnsupportedParameterError`.
 
 Common gateway base URLs:
 
 - OpenRouter: `https://openrouter.ai/api/v1`
 - SiliconFlow: `https://api.siliconflow.cn/v1`
-- TokenDance: `https://tokendance.space/gateway/v1` (`https://tokendance.space/gateway` for Anthropic Messages, `https://tokendance.space/gateway/deepseek` for `deepseek-webtool`); it also serves `qwen3.8-flash`, `qwen3.8-max`, `mimo-v2.6-flash`, `step-5-preview`, `hy4` and `hy4-preview` through `openai-responses`, `ernie-5.5-flash-preview` through `openai-chat`, and `qwen3.7-text-embedding` through `openai-embedding`
+- TokenDance: `https://tokendance.space/gateway/v1` (`https://tokendance.space/gateway` for Anthropic Messages, `https://tokendance.space/gateway/deepseek` for `deepseek-webtool`); it also serves `qwen4-max`, `qwen3.8-flash`, `qwen3.8-max`, `mimo-v2.6-flash`, `step-5-preview`, `hy4` and `hy4-preview` through `openai-responses`, `ernie-5.5-flash-preview` through `openai-chat`, and `qwen3.7-text-embedding` through `openai-embedding`
 - Google Vertex AI: `https://aiplatform.googleapis.com` (`google-genai`, the service-account JSON as the key)
 - Amazon Bedrock: `bedrock://<region>`, such as `bedrock://us-east-1` (`anthropic-official`, `ACCESS_KEY,SECRET_KEY` as the key)
 - ModelVerse: `https://api.modelverse.cn/v1` (`https://api.modelverse.cn/` for Claude)
@@ -89,8 +91,8 @@ Common gateway base URLs:
 
 Every client type, and what it speaks:
 
-- Official clients speak their vendor's own API and read the vendor's key and base URL from the environment, whatever endpoint they are given: `openai-official` (Responses; `text-embedding-*` models through Embeddings, `gpt-image-*` through Images), `anthropic-official` (Messages), `google-official` (Interactions), `zai-official` and `moonshot-official` (Chat Completions), `deepseek-official` (Responses; `deepseek-search` and `deepseek-fetch` through `deepseek-webtool`), `minimax-official` (Responses), `jina-webtool` (Jina Search on `https://s.jina.ai` and Reader on `https://r.jina.ai`).
-- Compatible clients speak one wire protocol for any endpoint that serves it, and read `OPENAI_API_KEY` / `OPENAI_BASE_URL` (`ANTHROPIC_*` for `ant-messages`, `GEMINI_*` for `google-genai`, `DEEPSEEK_*` for `deepseek-webtool`): `openai-responses`, `openai-chat` (bare `openai` is an alias), `openai-chat-vllm-adapter` (`VLLM_API_KEY` / `VLLM_BASE_URL`, by default `http://127.0.0.1:8000/v1`; keyless without a key), `openai-embedding`, `openai-image` (Images, `/images/generations`), `openai-speech` (Audio Speech, `/audio/speech`), `openai-transcription` (Audio Transcriptions, `/audio/transcriptions`), `ant-messages`, `google-genai` (generateContent, as the Google GenAI SDK speaks it, for Vertex AI, the Gemini API, and gateways), `deepseek-webtool` (DeepSeek's `/v1/tools/search` and `/v1/tools/fetch`, for DeepSeek and TokenDance), `mmsp` (MMSP itself, for an MMSP server started with `npm run server -- --config <file>`; `MMSP_API_KEY` / `MMSP_BASE_URL`, by default `http://127.0.0.1:25752/v1`).
+- Official clients speak their vendor's own API and read the vendor's key and base URL from the environment, whatever endpoint they are given: `openai-official` (Responses; `text-embedding-*` models through Embeddings, `gpt-image-*` through Images), `anthropic-official` (Messages), `google-official` (Interactions), `zai-official` and `moonshot-official` (Chat Completions), `deepseek-official` (Responses; `deepseek-search` and `deepseek-fetch` through `deepseek-webtool`, `deepseek-tts` through `deepseek-speech`, `deepseek-asr` through `deepseek-transcription`), `minimax-official` (Responses), `jina-webtool` (Jina Search on `https://s.jina.ai` and Reader on `https://r.jina.ai`).
+- Compatible clients speak one wire protocol for any endpoint that serves it, and read `OPENAI_API_KEY` / `OPENAI_BASE_URL` (`ANTHROPIC_*` for `ant-messages`, `GEMINI_*` for `google-genai`, `DEEPSEEK_*` for `deepseek-webtool`, `deepseek-speech` and `deepseek-transcription`): `openai-responses`, `openai-chat` (bare `openai` is an alias), `openai-chat-vllm-adapter` (`VLLM_API_KEY` / `VLLM_BASE_URL`, by default `http://127.0.0.1:8000/v1`; keyless without a key), `openai-embedding`, `openai-image` (Images, `/images/generations`), `openai-speech` (Audio Speech, `/audio/speech`), `openai-transcription` (Audio Transcriptions, `/audio/transcriptions`), `ant-messages`, `google-genai` (generateContent, as the Google GenAI SDK speaks it, for Vertex AI, the Gemini API, and gateways), `deepseek-webtool` (DeepSeek's `/v1/tools/search` and `/v1/tools/fetch`, for DeepSeek and TokenDance), `deepseek-speech` (DeepSeek's `/v1/tools/tts`, raw PCM streamed as it is made), `deepseek-transcription` (DeepSeek's `/v1/tools/asr`, WAV or Ogg Opus), `mmsp` (MMSP itself, for an MMSP server started with `npm run server -- --config <file>`; `MMSP_API_KEY` / `MMSP_BASE_URL`, by default `http://127.0.0.1:25752/v1`).
 
 Web tool models (`deepseek-search`, `deepseek-fetch`, `jina-search`, `jina-fetch`) take one query or URL per message and answer each with one `webtool.done`. They cannot replay their own answers, so call `streamingResponse`, not the stateful call.
 

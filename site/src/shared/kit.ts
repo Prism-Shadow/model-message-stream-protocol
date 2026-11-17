@@ -4,7 +4,7 @@
 // agent puts on the clipboard. The page assembles a kit in the browser when a row's code button is
 // pressed, from what the row carries (its model, endpoint, client, kind, modalities, context window
 // and USD prices) and one table of the providers the page names, so the page ships one template
-// instead of 353 programs. Nothing here reads the registry or the build's environment: catalog.ts
+// instead of 364 programs. Nothing here reads the registry or the build's environment: catalog.ts
 // decides an entry's kind, and the caller passes the site's origin.
 import { localePath, type Locale } from "./i18n";
 import type { Modality } from "../../../src_ts/src/registry.ts";
@@ -85,12 +85,12 @@ interface Ask {
 const ASK: Record<Kind, Ask> = {
   text: { prompt: "Say 'Hello, World!'", config: {} },
   embed: { prompt: "Hello, World!", config: {} },
-  image: { prompt: "A lighthouse at dusk, in watercolor", config: { image_config: { aspect_ratio: "1:1", image_size: "2K" } } },
+  image: { prompt: "A lighthouse at dusk, in watercolor", config: { image_config: { aspect_ratio: "1:1", resolution: "2K" } } },
   video: { prompt: "A paper boat drifting down a forest stream, one continuous shot", config: {} },
   audio: { prompt: "Hello, World!", config: {} },
   web: { prompt: "Hello, World!", config: { webtool_config: { count: 3 } } },
   // the prompt is the audio's address, which the program downloads and sends
-  transcribe: { prompt: "https://raw.githubusercontent.com/openai/whisper/main/tests/jfk.flac", config: {} },
+  transcribe: { prompt: "https://raw.githubusercontent.com/ggerganov/whisper.cpp/master/samples/jfk.wav", config: {} },
 };
 // a web tool whose id names a fetch reads one page; the clients tell it from a search the same way
 const FETCH: Ask = { prompt: "https://example.com", config: {} };
@@ -166,13 +166,13 @@ const PY_BODY: Record<Kind, string[]> = {
 
 const prompt = (ask: Ask) => ({ type: "text.done", text: ask.prompt });
 // the audio a transcription is sent, in the programs a variable and in the server's request its base64
-const AUDIO_ITEM = { type: "inline_data.done", data: "$AUDIO", mime_type: "audio/flac" };
+const AUDIO_ITEM = { type: "inline_data.done", data: "$AUDIO", mime_type: "audio/wav" };
 // a web tool or a transcription cannot replay its answer, so its program makes the stateless call
 const stateless = (kind: Kind) => kind === "web" || kind === "transcribe";
 const indent = (lines: string[], spaces: number) => lines.map((line) => " ".repeat(spaces) + line);
 
 function typescriptProgram(kind: Kind, ask: Ask, constructor: string[]): string {
-  const input = kind === "transcribe" ? '{ type: "inline_data.done", data: audio, mime_type: "audio/flac" }' : literal(prompt(ask), "ts");
+  const input = kind === "transcribe" ? '{ type: "inline_data.done", data: audio, mime_type: "audio/wav" }' : literal(prompt(ask), "ts");
   const call =
     stateless(kind)
       ? [
@@ -208,7 +208,7 @@ function typescriptProgram(kind: Kind, ask: Ask, constructor: string[]): string 
 }
 
 function pythonProgram(kind: Kind, ask: Ask, constructor: string[]): string {
-  const input = kind === "transcribe" ? '{"type": "inline_data.done", "data": audio, "mime_type": "audio/flac"}' : literal(prompt(ask), "json");
+  const input = kind === "transcribe" ? '{"type": "inline_data.done", "data": audio, "mime_type": "audio/wav"}' : literal(prompt(ask), "json");
   const call =
     stateless(kind)
       ? [

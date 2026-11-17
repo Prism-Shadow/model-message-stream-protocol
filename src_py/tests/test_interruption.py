@@ -56,8 +56,9 @@ MODELS = {
     "mmsp": "gpt-5.5",
 }
 
-# openai-embedding, the web tools, openai-image and openai-transcription answer with one response,
-# not a stream, and openai-speech streams audio, not text (test_media_clients.py interrupts it)
+# openai-embedding, the web tools, openai-image and the transcription clients answer with one
+# response, not a stream, and the speech clients stream audio, not text (test_media_clients.py
+# interrupts them)
 STREAMING_CLIENT_TYPES = [
     client_type
     for client_type in CLIENT_CREDENTIALS
@@ -69,6 +70,8 @@ STREAMING_CLIENT_TYPES = [
         "openai-image",
         "openai-speech",
         "openai-transcription",
+        "deepseek-speech",
+        "deepseek-transcription",
     )
 ]
 

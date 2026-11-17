@@ -106,8 +106,16 @@ def test_an_unknown_client_type_has_no_answer():
         ("fish-audio/transcribe-1", "openai-transcription", "openai-transcription"),
         ("deepseek-search", None, "deepseek-webtool"),
         ("DeepSeek-Fetch", "deepseek-official", "deepseek-webtool"),
-        # only the two web tool ids leave deepseek-official
+        ("deepseek-tts", None, "deepseek-speech"),
+        ("DeepSeek-TTS", "DeepSeek-Official", "deepseek-speech"),
+        ("deepseek-tts", "deepseek-speech", "deepseek-speech"),
+        ("DEEPSEEK-ASR", None, "deepseek-transcription"),
+        ("deepseek-asr", "deepseek-official", "deepseek-transcription"),
+        ("deepseek-asr", "Deepseek-Transcription", "deepseek-transcription"),
+        # only the web tool, speech and transcription ids, matched whole, leave deepseek-official
         ("deepseek-search-v2", None, "deepseek-official"),
+        ("deepseek-tts-2", None, "deepseek-official"),
+        ("deepseek-asr-pro", "deepseek-official", "deepseek-official"),
         ("jina-search", None, "jina-webtool"),
         ("claude-sonnet-5", "ant-messages", "ant-messages"),
         ("qwen3.8", "openai", "openai-chat"),

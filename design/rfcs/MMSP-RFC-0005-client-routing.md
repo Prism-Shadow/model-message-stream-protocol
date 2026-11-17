@@ -3,7 +3,7 @@
 - Feature Name: `client_routing`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316), [#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330)
 - Kind: spec
 
 [中文版](MMSP-RFC-0005-client-routing.zh.md)
@@ -19,6 +19,8 @@ Before [#228](https://github.com/Prism-Shadow/model-message-stream-protocol/pull
 On 2026-11-02 the owner asked for web search and page fetch, done the way embedding is: 在mmsp里面增加search和fetch的能力,实现方式和embedding类似. As `openai-official` serves OpenAI's embedding models through `openai-embedding`, `deepseek-official` serves DeepSeek's Search and Fetch, `deepseek-search` and `deepseek-fetch`, through `deepseek-webtool`, the compatible client of their JSON API, which also serves a gateway that offers the same paths. Jina's web tools have a family of their own, `jina-`. Neither endpoint lists its models, and neither does Bedrock, on which `anthropic-official` already raised `UnsupportedOperationError` from `list_models`. [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308) amended this specification in place, with the `deepseek-official` rule added to §3 and the endpoint that lists no models to §5.
 
 On 2026-11-04 the owner asked for image generation, speech and transcription through OpenAI's formats, each by a compatible client: `openai-image`, `openai-speech` and `openai-transcription`. As `openai-official` serves OpenAI's embedding models through `openai-embedding`, it serves OpenAI's image models, `gpt-image-`, through `openai-image`. A model of another vendor behind a gateway, such as `bytedance-seed/seedream-5-0-flash` or `fish-audio/drama-3`, begins with no family and names its client with `client_type`. [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316) amended this specification in place, with the `gpt-image-` rule added to §3.
+
+On 2026-11-16 the owner asked for DeepSeek's speech and transcription: 把deepseek的tts和asr包一下. DeepSeek names no model for either; its endpoints are `/v1/tools/tts` and `/v1/tools/asr`, beside the web tools' paths, so the ids follow the paths as `deepseek-search` and `deepseek-fetch` do, and `deepseek-official` serves `deepseek-tts` through `deepseek-speech` and `deepseek-asr` through `deepseek-transcription`, the compatible clients of the two endpoints. Neither endpoint lists models. [#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330) amended this specification in place, with the two ids added to the `deepseek-official` rule of §3.
 
 ## 2. Conventions and Terminology
 
@@ -36,7 +38,7 @@ The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY in this document are to
 - A client type passed in code MUST win over `CLIENT_TYPE`, which names the client when the code does not.
 - A client type MUST be accepted in any casing, and so MUST the earlier names `openai` (for `openai-chat`), `gemini-official` (for `google-official`) and `gemini-generate-content` (for `google-genai`).
 - `openai-official` MUST serve a `text-embedding-` model through `openai-embedding` and a `gpt-image-` model through `openai-image`, named or deduced, the prefix matched in any casing.
-- `deepseek-official` MUST serve the ids `deepseek-search` and `deepseek-fetch`, matched whole and in any casing, through `deepseek-webtool`, named or deduced.
+- `deepseek-official` MUST serve the ids `deepseek-search` and `deepseek-fetch` through `deepseek-webtool`, `deepseek-tts` through `deepseek-speech` and `deepseek-asr` through `deepseek-transcription`, each id matched whole and in any casing, named or deduced.
 
 ## 4. Routing by Model Id
 

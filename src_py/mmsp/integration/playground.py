@@ -41,7 +41,14 @@ from werkzeug.serving import BaseWSGIServer, make_server
 
 from .. import AutoLLMClient
 from ..abort_signal import AbortSignal
-from ..credentials import CLIENT_CREDENTIALS, COMPATIBLE_CLIENT_TYPES, MODEL_FAMILIES, OFFICIAL_CLIENT_TYPES
+from ..credentials import (
+    CLIENT_CREDENTIALS,
+    COMPATIBLE_CLIENT_TYPES,
+    MODEL_FAMILIES,
+    OFFICIAL_CLIENT_TYPES,
+    environment_credential,
+    routed_client_type,
+)
 from ..registry import list_supported_models
 from ..wire import DEFAULT_HOST, DEFAULT_PORT, decode_wire, server_base_url
 from .server import (
@@ -150,6 +157,41 @@ def _get_request_config(config: dict[str, Any]) -> dict[str, Any]:
     request_config.pop("client_type", None)
     request_config.pop("default_headers", None)
     return request_config
+
+
+def _key_source(config: dict[str, Any]) -> dict[str, str]:
+    """Where a client built from the page's options takes its key when the page sends none.
+
+    The answer names the variable the client reads and shows only the key's last four characters,
+    and none of a key shorter than twelve, so the page can tell which key a request goes with without
+    the key leaving the server.
+
+    Args:
+        config: The page's client options; a key among them is ignored
+
+    Returns:
+        `source` is `env` with `variable` and `masked` for a key the environment holds, `unset` with
+        `variable` for a variable the environment leaves empty, `keyless` for an open server called
+        without a key, `required` for a base URL the environment's key may not go to, and `unknown`
+        for options that name no client type
+    """
+    model, _, base_url, client_type, _ = _get_client_options(config)
+    routed = routed_client_type(model, client_type)
+    credential = environment_credential(routed, base_url) if routed else None
+    if credential is None:
+        return {"source": "unknown"}
+    if credential.kind == "required":
+        return {"source": "required"}
+    if credential.kind == "keyless":
+        return {"source": "keyless"}
+    key = os.getenv(credential.api_key_env)
+    if key:
+        masked = "\u2022" * 4 + (key[-4:] if len(key) >= 12 else "")
+        return {"source": "env", "variable": credential.api_key_env, "masked": masked}
+    # an open server whose variable is empty is called without a key
+    if CLIENT_CREDENTIALS[routed].open_server:
+        return {"source": "keyless"}
+    return {"source": "unset", "variable": credential.api_key_env}
 
 
 def _playground_defaults() -> str:
@@ -970,6 +1012,11 @@ def create_chat_app() -> Flask:
                 box-shadow: 0 0 0 1px var(--red), 0 0 0 4px var(--red-soft);
             }
 
+            /* an empty key field that sends no key where the request needs one */
+            .control.key-missing::placeholder {
+                color: var(--red);
+            }
+
             textarea.control {
                 resize: vertical;
                 min-height: 64px;
@@ -1663,6 +1710,12 @@ def create_chat_app() -> Flask:
                 max-width: 320px;
             }
 
+            .audio-stop {
+                width: 26px;
+                height: 26px;
+                border-radius: 6px;
+            }
+
             .inline-data {
                 display: inline-block;
                 margin: 4px 0 12px;
@@ -1976,6 +2029,31 @@ def create_chat_app() -> Flask:
             .composer-hint {
                 color: var(--subtle);
                 font-size: 12px;
+            }
+
+            .mic-btn .mic-stop, .mic-btn.recording .mic-idle {
+                display: none;
+            }
+
+            .mic-btn.recording .mic-stop {
+                display: block;
+            }
+
+            .mic-btn.recording, .mic-btn.recording:hover {
+                color: var(--red);
+                background: var(--red-soft);
+            }
+
+            .mic-btn:disabled {
+                opacity: 0.35;
+                background: none;
+                cursor: not-allowed;
+            }
+
+            .recording-time {
+                color: var(--red);
+                font-size: 12px;
+                font-variant-numeric: tabular-nums;
             }
 
             .send-btn {
@@ -2298,6 +2376,11 @@ def create_chat_app() -> Flask:
                             <button type="button" class="icon-btn" onclick="document.getElementById('imageInput').click()" aria-label="Attach images or audio" title="Attach images or audio">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.4 11.1-8.8 8.8a5.5 5.5 0 0 1-7.8-7.8l8.8-8.8a3.7 3.7 0 0 1 5.2 5.2l-8.8 8.8a1.8 1.8 0 0 1-2.6-2.6l8.1-8.1"></path></svg>
                             </button>
+                            <button type="button" class="icon-btn mic-btn" id="micButton" onclick="toggleRecording()" aria-label="Record audio" title="Record audio">
+                                <svg class="mic-idle" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"></path></svg>
+                                <svg class="mic-stop" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"></rect></svg>
+                            </button>
+                            <span class="recording-time hidden" id="recordingTime"></span>
                             <span class="composer-hint" id="composerHint">Enter to send, Shift+Enter for a new line</span>
                             <button type="button" class="send-btn" id="sendButton" onclick="sendMessage()" aria-label="Send" title="Send" disabled>
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"></path></svg>
@@ -2331,6 +2414,12 @@ def create_chat_app() -> Flask:
             let selectedImages = [];
             // audio files to send as the message's inline data, for a transcription model
             let selectedAudio = [];
+            // the microphone's recording under way, and the clip it is turned into once it stops
+            let recorder = null;
+            let clipEncoding = null;
+            // the latest look-up of the key an empty key field sends
+            let keySourceTimer = null;
+            let keySourceTicket = 0;
             let lastMessageTimestamp = null;
             let currentAbortController = null;
 
@@ -2341,7 +2430,8 @@ def create_chat_app() -> Flask:
                 copy: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"></rect><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"></path></svg>',
                 check: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>',
                 audio: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5Z"></path><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"></path></svg>',
-                close: '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg>'
+                close: '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg>',
+                stop: '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"></rect></svg>'
             };
 
             function escapeHtml(text) {
@@ -2471,7 +2561,91 @@ def create_chat_app() -> Flask:
                 // raw PCM carries no duration, so 16-bit samples turn the byte count into seconds
                 const format = pcmFormatFromMimeType(audioStream.mimeType);
                 const seconds = audioStream.bytes / (format.sampleRate * format.channels * 2);
+                if (audioStream.live) {
+                    return 'Playing audio, ' + seconds.toFixed(1) + ' s received';
+                }
                 return `Receiving audio, ${seconds.toFixed(1)} s`;
+            }
+
+            // Raw PCM plays as it streams: every fragment holds whole 16-bit frames (MMSP-RFC-0002
+            // §3.4), so each one is decoded and scheduled right behind the one before it. Any other
+            // format plays once the clip is whole.
+            let liveAudioContext = null;
+            let liveAudioStream = null;
+
+            function isPcmMimeType(mimeType) {
+                return mimeType.startsWith('audio/l16') || mimeType.startsWith('audio/pcm');
+            }
+
+            function playPcmChunk(audioStream, base64Data) {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContextClass || audioStream.stopped) {
+                    return;
+                }
+                if (!liveAudioContext) {
+                    liveAudioContext = new AudioContextClass();
+                }
+                if (liveAudioContext.state === 'suspended') {
+                    liveAudioContext.resume().catch(() => {});
+                }
+                // a newer answer's speech takes over from one still playing
+                if (liveAudioStream && liveAudioStream !== audioStream) {
+                    stopLiveAudio(liveAudioStream);
+                }
+                liveAudioStream = audioStream;
+
+                const format = pcmFormatFromMimeType(audioStream.mimeType);
+                const bytes = base64ToBytes(base64Data);
+                const frames = Math.floor(bytes.length / (2 * format.channels));
+                if (frames === 0) {
+                    return;
+                }
+                const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+                const buffer = liveAudioContext.createBuffer(format.channels, frames, format.sampleRate);
+                for (let channel = 0; channel < format.channels; channel++) {
+                    const samples = buffer.getChannelData(channel);
+                    for (let frame = 0; frame < frames; frame++) {
+                        samples[frame] = view.getInt16((frame * format.channels + channel) * 2, true) / 32768;
+                    }
+                }
+
+                const source = liveAudioContext.createBufferSource();
+                source.buffer = buffer;
+                source.connect(liveAudioContext.destination);
+                // a short lead lets the first chunk start whole, and a pause in the stream never
+                // schedules a chunk in the past
+                const startAt = Math.max(liveAudioContext.currentTime + 0.05, audioStream.playhead);
+                source.start(startAt);
+                audioStream.playhead = startAt + buffer.duration;
+                audioStream.sources.add(source);
+                source.onended = () => {
+                    audioStream.sources.delete(source);
+                    if (audioStream.sources.size === 0 && audioStream.finalized) {
+                        showAudioPlayer(audioStream);
+                    }
+                };
+            }
+
+            function stopLiveAudio(audioStream) {
+                audioStream.stopped = true;
+                for (const source of audioStream.sources) {
+                    source.onended = null;
+                    source.stop();
+                }
+                audioStream.sources.clear();
+                if (liveAudioStream === audioStream) {
+                    liveAudioStream = null;
+                }
+                if (audioStream.finalized) {
+                    showAudioPlayer(audioStream);
+                } else if (audioStream.container) {
+                    const stop = audioStream.container.querySelector('.audio-stop');
+                    if (stop) {
+                        stop.remove();
+                    }
+                    audioStream.live = false;
+                    audioStream.container.querySelector('span').textContent = audioProgressLabel(audioStream);
+                }
             }
 
             function appendAudioChunk(contentDiv, item, audioStream) {
@@ -2480,12 +2654,26 @@ def create_chat_app() -> Flask:
                     audioStream.container = document.createElement('div');
                     audioStream.container.className = 'audio-box';
                     audioStream.container.innerHTML = `${ICONS.audio}<span class="shimmer"></span>`;
+                    if (isPcmMimeType(audioStream.mimeType)) {
+                        audioStream.live = true;
+                        const stop = document.createElement('button');
+                        stop.type = 'button';
+                        stop.className = 'icon-btn audio-stop';
+                        stop.setAttribute('aria-label', 'Stop the audio');
+                        stop.title = 'Stop the audio';
+                        stop.innerHTML = ICONS.stop;
+                        stop.onclick = () => stopLiveAudio(audioStream);
+                        audioStream.container.appendChild(stop);
+                    }
                     contentDiv.appendChild(audioStream.container);
                 }
 
                 audioStream.chunks.push(item.data);
                 audioStream.bytes += Math.floor(item.data.length * 3 / 4);
                 audioStream.container.querySelector('span').textContent = audioProgressLabel(audioStream);
+                if (audioStream.live) {
+                    playPcmChunk(audioStream, item.data);
+                }
             }
 
             function finalizeAudioStream(audioStream, autoplay = false) {
@@ -2494,6 +2682,19 @@ def create_chat_app() -> Flask:
                 }
 
                 audioStream.finalized = true;
+                // speech still playing as it streamed keeps its stop button, and becomes a player to
+                // replay it once it has played out
+                if (audioStream.sources.size > 0) {
+                    return;
+                }
+                showAudioPlayer(audioStream, autoplay && !audioStream.live && !audioStream.stopped);
+            }
+
+            function showAudioPlayer(audioStream, autoplay = false) {
+                if (audioStream.shown) {
+                    return;
+                }
+                audioStream.shown = true;
                 audioStream.container.innerHTML = renderAudioPlayer(audioStream.mimeType, audioStream.chunks);
                 if (autoplay) {
                     // a browser that blocks autoplay leaves the player sitting there ready to press
@@ -2672,6 +2873,126 @@ def create_chat_app() -> Flask:
             function removeAudio(idx) {
                 selectedAudio.splice(idx, 1);
                 updateImagePreview();
+            }
+
+            // A recording is attached as a WAV clip of 16 kHz mono 16-bit PCM, whatever the browser's
+            // recorder writes (WebM in Chrome, Ogg in Firefox, MP4 in Safari): every speech recognition
+            // endpoint takes WAV, and DeepSeek's takes nothing else a recorder writes but Ogg Opus.
+            const RECORDING_RATE = 16000;
+            // within the 10 MB an attached file may take
+            const RECORDING_LIMIT_MS = 5 * 60 * 1000;
+
+            async function toggleRecording() {
+                if (recorder) {
+                    await stopRecording();
+                    return;
+                }
+                const button = document.getElementById('micButton');
+                // a second click while the browser asks for the microphone starts no second recording
+                button.disabled = true;
+                let stream;
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                } catch (error) {
+                    alert(`The microphone is not available: ${error.message || error.name}`);
+                    return;
+                } finally {
+                    button.disabled = false;
+                }
+                const mediaRecorder = new MediaRecorder(stream);
+                const chunks = [];
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        chunks.push(event.data);
+                    }
+                };
+                mediaRecorder.start();
+                recorder = { mediaRecorder, stream, chunks, started: performance.now(), timer: setInterval(updateRecordingState, 200) };
+                updateRecordingState();
+            }
+
+            function stopRecording() {
+                if (!recorder) {
+                    return clipEncoding;
+                }
+                const { mediaRecorder, stream, chunks, started, timer } = recorder;
+                recorder = null;
+                clearInterval(timer);
+                const name = `Recording ${formatRecordingTime(performance.now() - started)}.wav`;
+                const stopped = mediaRecorder.state === 'inactive' ? Promise.resolve() : new Promise((resolve) => {
+                    mediaRecorder.onstop = resolve;
+                    mediaRecorder.stop();
+                });
+                stream.getTracks().forEach((track) => track.stop());
+                clipEncoding = stopped
+                    .then(() => new Blob(chunks, { type: mediaRecorder.mimeType }).arrayBuffer())
+                    .then(encodeWav)
+                    .then((data) => {
+                        selectedAudio.push({ name, mimeType: 'audio/wav', data });
+                    })
+                    .catch((error) => alert(`The recording could not be read: ${error.message || error.name}`))
+                    .finally(() => {
+                        clipEncoding = null;
+                        updateImagePreview();
+                    });
+                updateRecordingState();
+                return clipEncoding;
+            }
+
+            function updateRecordingState() {
+                const button = document.getElementById('micButton');
+                const time = document.getElementById('recordingTime');
+                const label = recorder ? 'Stop recording' : 'Record audio';
+                button.classList.toggle('recording', Boolean(recorder));
+                button.setAttribute('aria-label', label);
+                button.title = label;
+                time.classList.toggle('hidden', !recorder);
+                if (recorder) {
+                    const elapsed = performance.now() - recorder.started;
+                    time.textContent = formatRecordingTime(elapsed);
+                    if (elapsed >= RECORDING_LIMIT_MS) {
+                        stopRecording();
+                    }
+                }
+                updateSendState();
+            }
+
+            function formatRecordingTime(ms) {
+                const seconds = Math.floor(ms / 1000);
+                return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+            }
+
+            // decoding at 16 kHz resamples the recording, and its channels are averaged into one
+            async function encodeWav(encoded) {
+                const OfflineContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+                const decoded = await new OfflineContext(1, 1, RECORDING_RATE).decodeAudioData(encoded);
+                const frames = decoded.length;
+                const view = new DataView(new ArrayBuffer(44 + frames * 2));
+                [['RIFF', 0], ['WAVE', 8], ['fmt ', 12], ['data', 36]].forEach(([tag, offset]) => {
+                    for (let i = 0; i < 4; i++) {
+                        view.setUint8(offset + i, tag.charCodeAt(i));
+                    }
+                });
+                view.setUint32(4, 36 + frames * 2, true);
+                // the fmt chunk: 16 bytes long, PCM, one channel, the rate, bytes a second, bytes a frame, bits a sample
+                view.setUint32(16, 16, true);
+                view.setUint16(20, 1, true);
+                view.setUint16(22, 1, true);
+                view.setUint32(24, RECORDING_RATE, true);
+                view.setUint32(28, RECORDING_RATE * 2, true);
+                view.setUint16(32, 2, true);
+                view.setUint16(34, 16, true);
+                view.setUint32(40, frames * 2, true);
+                const channels = Array.from({ length: decoded.numberOfChannels }, (_, channel) => decoded.getChannelData(channel));
+                for (let frame = 0; frame < frames; frame++) {
+                    let sample = 0;
+                    channels.forEach((data) => {
+                        sample += data[frame];
+                    });
+                    sample = Math.max(-1, Math.min(1, sample / channels.length));
+                    view.setInt16(44 + frame * 2, Math.round(sample * 32767), true);
+                }
+                return bytesToBase64(new Uint8Array(view.buffer));
             }
 
             function isNarrowScreen() {
@@ -2891,6 +3212,8 @@ def create_chat_app() -> Flask:
                 'ant-messages': 'Anthropic Messages',
                 'google-genai': 'Google generateContent',
                 'deepseek-webtool': 'DeepSeek Search and Fetch',
+                'deepseek-speech': 'DeepSeek Text to Speech',
+                'deepseek-transcription': 'DeepSeek Speech to Text',
                 'mmsp': 'MMSP server'
             };
 
@@ -2997,6 +3320,44 @@ def create_chat_app() -> Flask:
                 document.getElementById('messageInput').placeholder = `Message ${model}`;
                 const hint = document.getElementById('composerHint');
                 hint.textContent = switchPending() ? `Enter starts a new conversation with ${model}` : 'Enter to send, Shift+Enter for a new line';
+                // the key an empty key field sends follows the model, the client type and the base URL
+                scheduleKeySource();
+            }
+
+            function scheduleKeySource() {
+                clearTimeout(keySourceTimer);
+                keySourceTimer = setTimeout(updateKeySource, 150);
+            }
+
+            // An empty key field sends no key, and the client takes the environment's where the credential
+            // rule lets it. The server names the variable and shows the key's last characters, so the field
+            // tells which key a message goes with, or that there is none for it.
+            async function updateKeySource() {
+                const ticket = ++keySourceTicket;
+                const config = { model: getSelectedModel(), client_type: getSelectedClientType(), base_url: requestBaseUrl() };
+                let source = {};
+                try {
+                    const response = await fetch('/api/key', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ config })
+                    });
+                    source = await response.json();
+                } catch (error) {
+                    source = {};
+                }
+                if (ticket !== keySourceTicket) {
+                    return;
+                }
+                const placeholders = {
+                    env: `From ${source.variable} ${source.masked}`,
+                    unset: `${source.variable} is not set`,
+                    keyless: 'None needed',
+                    required: 'Needed for this base URL'
+                };
+                const input = document.getElementById('apiKeyInput');
+                input.placeholder = placeholders[source.source] || 'From the environment when empty';
+                input.classList.toggle('key-missing', source.source === 'unset' || source.source === 'required');
             }
 
             function handleModelSelectChange() {
@@ -3219,6 +3580,14 @@ def create_chat_app() -> Flask:
                 return tools;
             }
 
+            // the endpoint filled in for the client type is where it goes anyway, so it stays out of
+            // the request: a base URL sent without a key refuses the environment's OpenAI and
+            // Anthropic keys
+            function requestBaseUrl() {
+                const baseUrl = document.getElementById('baseUrlInput').value.trim();
+                return baseUrl !== filledBaseUrl ? baseUrl : '';
+            }
+
             function getConfig() {
                 const config = {
                     model: getSelectedModel()
@@ -3234,11 +3603,8 @@ def create_chat_app() -> Flask:
                     config.client_type = clientType;
                 }
 
-                // the endpoint filled in for the client type is where it goes anyway, so it stays out of
-                // the request: a base URL sent without a key refuses the environment's OpenAI and
-                // Anthropic keys
-                const baseUrl = document.getElementById('baseUrlInput').value.trim();
-                if (baseUrl && baseUrl !== filledBaseUrl) {
+                const baseUrl = requestBaseUrl();
+                if (baseUrl) {
                     config.base_url = baseUrl;
                 }
 
@@ -3502,7 +3868,7 @@ def create_chat_app() -> Flask:
 
             function updateSendState() {
                 const input = document.getElementById('messageInput');
-                document.getElementById('sendButton').disabled = isStreaming || (!input.value.trim() && selectedImages.length === 0 && selectedAudio.length === 0);
+                document.getElementById('sendButton').disabled = isStreaming || (!input.value.trim() && selectedImages.length === 0 && selectedAudio.length === 0 && !recorder && !clipEncoding);
             }
 
             function stopGeneration() {
@@ -3541,6 +3907,10 @@ def create_chat_app() -> Flask:
             }
 
             async function sendMessage() {
+                // a recording under way stops, and its clip goes with the message
+                if (!isStreaming && (recorder || clipEncoding)) {
+                    await stopRecording();
+                }
                 const input = document.getElementById('messageInput');
                 const message = input.value.trim();
 
@@ -3697,7 +4067,7 @@ def create_chat_app() -> Flask:
                                             openItem.root.querySelector('.tool-name').textContent = openItem.name;
                                             openItem.container.textContent = item.type === 'tool_call.done' ? openItem.text : prettyArguments(openItem.text);
                                         } else if (item.type === 'inline_data.delta' && isAudioMimeType(item.mime_type)) {
-                                            audioStream = audioStream || { mimeType: '', chunks: [], bytes: 0, container: null, finalized: false };
+                                            audioStream = audioStream || { mimeType: '', chunks: [], bytes: 0, container: null, finalized: false, live: false, stopped: false, shown: false, sources: new Set(), playhead: 0 };
                                             appendAudioChunk(contentDiv, item, audioStream);
                                         } else if (item.type === 'inline_data.done' && isAudioMimeType(item.mime_type)) {
                                             audioStream.chunks = [item.data];
@@ -3747,6 +4117,8 @@ def create_chat_app() -> Flask:
                 } catch (error) {
                     if (error.name === 'AbortError') {
                         if (audioStream) {
+                            // stopping the answer stops its speech too
+                            stopLiveAudio(audioStream);
                             finalizeAudioStream(audioStream);
                         }
                         markInterrupted(contentDiv);
@@ -3821,6 +4193,9 @@ def create_chat_app() -> Flask:
 
             // the earlier messages stay on screen above the divider; the backend forgets them with the old session
             async function startNewConversation() {
+                if (liveAudioStream) {
+                    stopLiveAudio(liveAudioStream);
+                }
                 const previous = sessionId;
                 sessionId = newSessionId();
                 try {
@@ -3891,6 +4266,14 @@ def create_chat_app() -> Flask:
             restoreConfig();
             updateHeader();
             resizeMessageInput();
+
+            // the browser gives a page the microphone only in a secure context: HTTPS, localhost or 127.0.0.1
+            if (!navigator.mediaDevices || !window.MediaRecorder) {
+                const mic = document.getElementById('micButton');
+                mic.disabled = true;
+                mic.title = 'The microphone needs HTTPS or localhost';
+                mic.setAttribute('aria-label', mic.title);
+            }
 
             updateThemeToggle();
             window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', updateThemeToggle);
@@ -4063,6 +4446,12 @@ def create_chat_app() -> Flask:
             return jsonify({"error": str(exc)}), 400
 
         return jsonify({"models": models})
+
+    @app.route("/api/key", methods=["POST"])
+    def key_source() -> Response:
+        """Say where the key comes from when the page's key field is empty."""
+        data = request.json or {}
+        return jsonify(_key_source(data.get("config") or {}))
 
     @app.route("/api/registry")
     def registry() -> Response:

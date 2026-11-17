@@ -39,7 +39,7 @@ const IMAGE =
 const IMAGE_KEYWORDS = ["flower", "narcissus", "daffodil", "bloom"];
 // eleven seconds of a speech, "...ask not what your country can do for you...", from the Whisper repository
 const AUDIO =
-  "https://raw.githubusercontent.com/openai/whisper/main/tests/jfk.flac";
+  "https://raw.githubusercontent.com/ggerganov/whisper.cpp/master/samples/jfk.wav";
 
 interface Model {
   name: string;
@@ -992,7 +992,7 @@ if (AVAILABLE_MODELS.length > 0) {
       }
       const client = createClient(model);
       const config: UniConfig = {
-        image_config: { aspect_ratio: "1:1", image_size: "2K" },
+        image_config: { aspect_ratio: "1:1", resolution: "2K" },
       };
       const messages: UniMessage[] = [
         {
@@ -1050,7 +1050,13 @@ if (AVAILABLE_MODELS.length > 0) {
       const inlineItems: { data: Buffer; mime_type: string }[] = [];
       for await (const event of client.streamingResponse({
         messages,
-        config: {},
+        config: {
+          video_config: {
+            aspect_ratio: "9:16",
+            resolution: "360p",
+            duration: 3,
+          },
+        },
       })) {
         checkEventIntegrity(event);
         events.push(event);
@@ -1134,7 +1140,7 @@ if (AVAILABLE_MODELS.length > 0) {
               {
                 type: "inline_data.done",
                 data: audio,
-                mime_type: "audio/flac",
+                mime_type: "audio/wav",
               },
             ],
           },

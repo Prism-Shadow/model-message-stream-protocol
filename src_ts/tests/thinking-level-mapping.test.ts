@@ -118,6 +118,36 @@ describe("google_official thinking level clamping", () => {
   );
 });
 
+// Gemini 4 Hydrogen is the one generation with "xhigh"; "minimal" and "max" are refused (verified live
+// 2026-11-16), so NONE runs at "low" and MAX at "xhigh".
+const GEMINI_HYDROGEN_THINKING_LEVEL_CASES: Array<
+  [string, ThinkingLevel, string]
+> = [
+  ["gemini-4-hydrogen", ThinkingLevel.NONE, "low"],
+  ["gemini-4-hydrogen", ThinkingLevel.LOW, "low"],
+  ["gemini-4-hydrogen", ThinkingLevel.MEDIUM, "medium"],
+  ["gemini-4-hydrogen", ThinkingLevel.HIGH, "high"],
+  ["gemini-4-hydrogen", ThinkingLevel.XHIGH, "xhigh"],
+  ["gemini-4-hydrogen", ThinkingLevel.MAX, "xhigh"],
+];
+
+describe("gemini 4 hydrogen thinking level mapping", () => {
+  test.each(GEMINI_HYDROGEN_THINKING_LEVEL_CASES)(
+    "%s maps %s to %s",
+    (model, level, expected) => {
+      const client = new AutoLLMClient({ model, apiKey: "test-key" });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((client as any)._client.constructor.name).toBe(
+        "GoogleOfficialClient",
+      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((client as any)._client._convertThinkingLevel(level)).toBe(
+        expected,
+      );
+    },
+  );
+});
+
 // Gemini Omni takes only "low" and "high" ("minimal" and "medium" are refused: "Allowed values are:
 // high, low.", verified live 2026-11-06); every level lands on the closer one, a tie rounding up.
 const GEMINI_OMNI_THINKING_LEVEL_CASES: Array<[string, ThinkingLevel, string]> =

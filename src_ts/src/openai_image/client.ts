@@ -112,15 +112,15 @@ export class OpenaiImageClient extends LLMClient {
 
     const params: Record<string, string> = { model: this._model };
     const aspectRatio = config.image_config?.aspect_ratio;
-    const imageSize = config.image_config?.image_size;
-    if (aspectRatio !== undefined || imageSize !== undefined) {
-      const size = SIZES[aspectRatio ?? "1:1"]?.[imageSize ?? "1K"];
+    const resolution = config.image_config?.resolution;
+    if (aspectRatio !== undefined || resolution !== undefined) {
+      const size = SIZES[aspectRatio ?? "1:1"]?.[resolution ?? "1K"];
       if (size === undefined) {
         throw new UnsupportedParameterError({
           client: this.constructor.name,
           parameter: "image_config",
           message:
-            "OpenAI image generation does not support this image_config: aspect_ratio takes 1:1, 2:3, 3:2, 3:4, 4:3, 9:16, 16:9 or 21:9, and image_size 1K or 2K.",
+            "OpenAI image generation does not support this image_config: aspect_ratio takes 1:1, 2:3, 3:2, 3:4, 4:3, 9:16, 16:9 or 21:9, and resolution 1K or 2K.",
         });
       }
       params.size = size;
