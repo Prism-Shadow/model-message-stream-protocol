@@ -26,6 +26,7 @@ from .errors import (
     IncompleteStreamError,
     InvalidMessageError,
     StreamProtocolError,
+    tool_call_arguments_error,
 )
 from .legacy import normalize_legacy_messages
 from .plugin import ClientPlugin
@@ -147,7 +148,8 @@ class LLMClient(ABC):
             carrying the usage and the finish reason
 
         Raises:
-            InvalidMessageError: A message has no content items, before anything is sent.
+            InvalidMessageError: A message has no content items, or a tool call whose arguments are not the
+                JSON text of an object, before anything is sent.
             UnsupportedParameterError: The trace_id leads outside the tracer's cache directory, before
                 anything is sent.
         """
@@ -159,6 +161,16 @@ class LLMClient(ABC):
                 raise InvalidMessageError(
                     client_name, f"message {index} has nothing {client_name} can send", message_index=index
                 )
+            for item in message["content_items"]:
+                # a replay sends the text as it is, or parses it where the wire takes an object
+                reason = tool_call_arguments_error(item["arguments"]) if item["type"] == "tool_call.done" else None
+                if reason is not None:
+                    raise InvalidMessageError(
+                        client_name,
+                        f"message {index} has a tool call whose arguments are not the JSON text of an object: {reason}",
+                        item_type="tool_call.done",
+                        message_index=index,
+                    )
 
         tracer = None
         if config.get("trace_id"):

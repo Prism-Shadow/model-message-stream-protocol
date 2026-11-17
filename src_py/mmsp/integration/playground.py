@@ -2795,14 +2795,6 @@ def create_chat_app() -> Flask:
                 return escapeHtml(text.trim()).replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>');
             }
 
-            function prettyArguments(text) {
-                try {
-                    return JSON.stringify(JSON.parse(text), null, 2);
-                } catch (error) {
-                    return text;
-                }
-            }
-
             function addImageFiles(files) {
                 const maxFileSize = 10 * 1024 * 1024;
                 const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
@@ -4061,11 +4053,11 @@ def create_chat_app() -> Flask:
                                             openItem.container.innerHTML = renderThinking(openItem.text);
                                         } else if (item.type === 'tool_call.delta' || item.type === 'tool_call.done') {
                                             openItem = openItem || openStreamItem(contentDiv, 'tool_call', itemMark);
-                                            // only the first delta names the call, and only the done item has parsed arguments
+                                            // only the first delta names the call; the arguments show as the model wrote them, since a parse would change their numbers
                                             openItem.name = item.name || openItem.name;
-                                            openItem.text = item.type === 'tool_call.done' ? JSON.stringify(item.arguments, null, 2) : openItem.text + item.arguments;
+                                            openItem.text = item.type === 'tool_call.done' ? item.arguments : openItem.text + item.arguments;
                                             openItem.root.querySelector('.tool-name').textContent = openItem.name;
-                                            openItem.container.textContent = item.type === 'tool_call.done' ? openItem.text : prettyArguments(openItem.text);
+                                            openItem.container.textContent = openItem.text;
                                         } else if (item.type === 'inline_data.delta' && isAudioMimeType(item.mime_type)) {
                                             audioStream = audioStream || { mimeType: '', chunks: [], bytes: 0, container: null, finalized: false, live: false, stopped: false, shown: false, sources: new Set(), playhead: 0 };
                                             appendAudioChunk(contentDiv, item, audioStream);

@@ -50,7 +50,7 @@ group  := K.delta+ K.done        K = text | thinking | tool_call | inline_data |
 
 `image_url` 和 `tool_result` 仅由用户侧写入，因此没有 delta 形式。
 
-`.done` 项相当于所在组的第一个片段，但将其增长字段替换为所有片段拼接后的完整内容：拼接的文本或思考、解析后的参数、完整的字节、向量或网页。
+`.done` 项相当于所在组的第一个片段，但将其增长字段替换为所有片段拼接后的完整内容：拼接的文本、思考或参数、完整的字节、向量或网页。
 
 ## 示例
 
@@ -64,7 +64,7 @@ delta  thinking.done    thinking="Let me check"  fidelity={"signature": "..."}
 delta  tool_call.delta  name="get_weather"  tool_call_id="toolu_1"  arguments=""
 delta  tool_call.delta  name=""  tool_call_id=""  arguments="{\"location\": "
 delta  tool_call.delta  name=""  tool_call_id=""  arguments="\"Paris\"}"
-delta  tool_call.done   name="get_weather"  tool_call_id="toolu_1"  arguments={"location": "Paris"}
+delta  tool_call.done   name="get_weather"  tool_call_id="toolu_1"  arguments="{\"location\": \"Paris\"}"
 stop   usage_metadata={...}  finish_reason="tool_call"
 ```
 
@@ -73,7 +73,7 @@ stop   usage_metadata={...}  finish_reason="tool_call"
 ## 工具调用
 
 - 一次工具调用的首个 `tool_call.delta` 携带 `name` 和 `tool_call_id`。后续片段只携带 `arguments`。
-- `tool_call.done` 携带解析为对象的 `arguments`。应从此读取工具调用，并使用对应的 `tool_call_id` 返回每个结果。
+- `tool_call.done` 携带完整的 `arguments`，即模型写出的 JSON 文本。MMSP 从不解析它再重新写出，所以数字的每一位都得以保留；运行工具时自行解析。应从此读取工具调用，并使用对应的 `tool_call_id` 返回每个结果。
 - 参数必须能解析为 JSON 对象。如果格式错误、被截断或解析出其他类型，MMSP 会在 `tool_call.done` 的位置抛出 `ToolCallArgumentParseError`。
 - `minimax-official` 从服务端已完成的项读取调用，因此其调用流为一个 `tool_call.delta`（携带名称、id 和完整参数）后接 `tool_call.done`。
 

@@ -19,6 +19,7 @@ This example shows how to use function calling with AutoLLMClient to query weath
 """
 
 import asyncio
+import json
 import os
 
 from mmsp import AutoLLMClient
@@ -97,7 +98,7 @@ async def main():
         print(f"Arguments: {tool_call1['arguments']}")
 
         # Call the function
-        result = get_current_temperature(**tool_call1["arguments"])
+        result = get_current_temperature(**json.loads(tool_call1["arguments"]))
         print(f"Function result: {result}")
 
         # Second step: Send function result back to the model
@@ -143,7 +144,7 @@ async def main():
             print(f"Arguments: {tool_call2['arguments']}")
 
             # Call the function again
-            result2 = get_current_temperature(**tool_call2["arguments"])
+            result2 = get_current_temperature(**json.loads(tool_call2["arguments"]))
             print(f"Function result: {result2}")
 
             # Send result back

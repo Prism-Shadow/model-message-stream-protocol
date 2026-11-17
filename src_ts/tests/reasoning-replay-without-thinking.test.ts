@@ -76,7 +76,7 @@ function toolCallItem(toolCallId: string): ContentItem {
   return {
     type: "tool_call.done",
     name: "get_weather",
-    arguments: { city: "Paris" },
+    arguments: '{"city": "Paris"}',
     tool_call_id: toolCallId,
   };
 }
@@ -253,7 +253,7 @@ function geminiHistory(): UniMessage[] {
     assistant({
       type: "tool_call.done",
       name: "get_weather",
-      arguments: { city: "Paris" },
+      arguments: '{"city": "Paris"}',
       tool_call_id: "call_3",
       fidelity: { signature: "sig-3" },
     }),

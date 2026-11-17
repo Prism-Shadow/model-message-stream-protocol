@@ -43,7 +43,7 @@ function runTool(call: ToolCallDoneItem): string {
   const tool = TOOLS[call.name];
   if (!tool) return `Unknown tool: ${call.name}`;
   try {
-    return tool(call.arguments);
+    return tool(JSON.parse(call.arguments));
   } catch (error) {
     // the model reads the failure and decides what to do
     return `Error: ${error}`;
@@ -81,6 +81,8 @@ console.log(await runAgent(client, "What's the weather in London and in Paris?")
 
 ```python
 import asyncio
+import json
+
 from mmsp import AutoLLMClient
 
 
@@ -110,7 +112,7 @@ def run_tool(call: dict) -> str:
     if tool is None:
         return f"Unknown tool: {call['name']}"
     try:
-        return tool(**call["arguments"])
+        return tool(**json.loads(call["arguments"]))
     except Exception as error:  # the model reads the failure and decides what to do
         return f"Error: {error}"
 
@@ -153,7 +155,7 @@ Change the model id to `claude-opus-5-5`, `gemini-3.8-flash` or `deepseek-flash`
 
 ## What the loop relies on
 
-- **Tool calls come complete.** `tool_call.done` carries the name, the id and the parsed arguments. The `tool_call.delta` items before it are fragments, good for showing progress and nothing else.
+- **Tool calls come complete.** `tool_call.done` carries the name, the id and the whole arguments, the JSON text the model wrote; parse it to run the tool. The `tool_call.delta` items before it are fragments, good for showing progress and nothing else.
 - **Results are matched by id.** Every `tool_result.done` carries the `tool_call_id` of its call. Several results go in one message, in any order.
 - **The history is kept for you.** The stateful call records the assistant turn, thinking and `fidelity` included, so a model that thinks between tool calls continues the same turn. Keep the history yourself with `streaming_response` and the whole message list instead.
 - **A failed tool is a result.** Return the error as the result text; the model reads it and retries, asks the user, or gives up. Never run a tool from partial arguments: when the arguments do not parse, MMSP raises `ToolCallArgumentParseError` in place of the `tool_call.done`.

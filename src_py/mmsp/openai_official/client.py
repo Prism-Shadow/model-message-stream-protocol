@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 from typing import Any, AsyncIterator
 
 from openai import AsyncOpenAI
@@ -251,7 +250,7 @@ class OpenAIOfficialClient(LLMClient):
                             "type": "function_call",
                             "call_id": item["tool_call_id"],
                             "name": item["name"],
-                            "arguments": json.dumps(item["arguments"], ensure_ascii=False),
+                            "arguments": item["arguments"],
                         }
                     )
                 elif item["type"] == "tool_result.done":

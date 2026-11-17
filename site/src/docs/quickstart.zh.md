@@ -126,7 +126,7 @@ for await (const event of client.streamingResponseStateful({
 }
 
 if (toolCall) {
-  const result = TOOLS[toolCall.name](toolCall.arguments);
+  const result = TOOLS[toolCall.name](JSON.parse(toolCall.arguments));
   for await (const event of client.streamingResponseStateful({
     message: {
       role: "user",
@@ -143,6 +143,8 @@ if (toolCall) {
 
 ```python
 import asyncio
+import json
+
 from mmsp import AutoLLMClient
 
 
@@ -180,7 +182,7 @@ async def main():
                 tool_call = item
 
     if tool_call:
-        result = TOOLS[tool_call["name"]](**tool_call["arguments"])
+        result = TOOLS[tool_call["name"]](**json.loads(tool_call["arguments"]))
         async for event in client.streaming_response_stateful(
             message={
                 "role": "user",

@@ -10,7 +10,7 @@ A `UniMessage` is one message of a conversation. It is what you send, what the s
   "content_items": [
     {"type": "thinking.done", "thinking": "The user wants the weather.", "fidelity": {"signature": "EuYB..."}},
     {"type": "text.done", "text": "Let me check."},
-    {"type": "tool_call.done", "name": "get_weather", "arguments": {"location": "Paris"}, "tool_call_id": "call_1"}
+    {"type": "tool_call.done", "name": "get_weather", "arguments": "{\"location\": \"Paris\"}", "tool_call_id": "call_1"}
   ],
   "usage_metadata": {"cached_tokens": 0, "prompt_tokens": 412, "thoughts_tokens": 31, "response_tokens": 27},
   "finish_reason": "tool_call",
@@ -41,7 +41,7 @@ Every item in a message is complete, and its type ends in `.done`.
 | `inline_data.done` | `data` bytes, `mime_type` | User and assistant: images, audio, video |
 | `thinking.done` | `thinking` | Assistant |
 | `inline_thinking.done` | `data` bytes, `mime_type` | Assistant: images an image generation model thinks with |
-| `tool_call.done` | `name`, `arguments` as an object, `tool_call_id` | Assistant |
+| `tool_call.done` | `name`, `arguments` as the JSON text of an object, `tool_call_id` | Assistant |
 | `tool_result.done` | `text`, optional `images`, `tool_call_id` | User |
 | `embedding.done` | `embedding`, a list of numbers | Assistant |
 | `webtool.done` | `webdata`, a list of pages, each with `title`, `content` and `url` | Assistant: a search's results, or the page a fetch read |
@@ -56,6 +56,6 @@ Items stay in the order the model produced them: thinking, then text, then a too
 
 ## Messages saved before 0.5.0
 
-Before 0.5.0 the item types had no suffix: `text`, `tool_call`, and so on. MMSP still accepts them until 0.6.0. It converts them to the `.done` types, drops stray `partial_tool_call` items, and warns once per process.
+Before 0.5.0 the item types had no suffix: `text`, `tool_call`, and so on. MMSP still accepts them until 0.6.0. It converts them to the `.done` types, drops stray `partial_tool_call` items, and warns once per process. A tool call whose `arguments` is an object, as releases up to 0.5.8 recorded it, is read until 0.6.0 too and sent as its JSON text.
 
 The conversion runs on request messages, on the message given to the stateful call, in `set_history`, and on trace files the tracer loads. To convert stored data yourself, call `normalize_legacy_messages` in Python or `normalizeLegacyMessages` in TypeScript.

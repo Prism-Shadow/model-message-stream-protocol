@@ -250,7 +250,7 @@ function checkEventIntegrity(event: UniEvent): void {
       expect(typeof item.mime_type).toBe("string");
     } else if (item.type === "tool_call.done") {
       expect(typeof item.name).toBe("string");
-      expect(typeof item.arguments).toBe("object");
+      expect(typeof item.arguments).toBe("string");
       expect(typeof item.tool_call_id).toBe("string");
     } else if (item.type === "tool_call.delta") {
       expect(typeof item.name).toBe("string");
@@ -602,7 +602,7 @@ if (AVAILABLE_MODELS.length > 0) {
         tool_call_id?: string;
       } = {};
       let toolName: string | undefined;
-      let toolArguments: Record<string, unknown> | undefined;
+      let toolArguments: string | undefined;
 
       const message1: UniMessage = {
         role: "user",
@@ -639,15 +639,11 @@ if (AVAILABLE_MODELS.length > 0) {
 
       assertStreamGrammar(events1);
       expect(toolName).toBe(weatherTool.name);
-      expect(toolArguments).toHaveProperty("location");
+      expect(JSON.parse(toolArguments ?? "{}")).toHaveProperty("location");
       expect(toolCallId).toBeDefined();
       expect(partialToolCallData.name).toBe(toolName);
       expect(partialToolCallData.tool_call_id).toBe(toolCallId);
-      if (partialToolCallData.arguments && toolArguments) {
-        expect(JSON.parse(partialToolCallData.arguments)).toEqual(
-          toolArguments,
-        );
-      }
+      expect(partialToolCallData.arguments).toBe(toolArguments);
 
       const message2: UniMessage = {
         role: "user",

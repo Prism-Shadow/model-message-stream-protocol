@@ -71,7 +71,7 @@ export const SCENARIOS: Scenario[] = [
       delta({
         type: "tool_call.done",
         name: "get_weather",
-        arguments: { location: "Paris" },
+        arguments: '{"location": "Paris"}',
         tool_call_id: "toolu_01A3",
       }),
       stop("tool_call", { cached_tokens: 0, prompt_tokens: 412, thoughts_tokens: 31, response_tokens: 27 }),
@@ -100,7 +100,7 @@ export const SCENARIOS: Scenario[] = [
       delta({
         type: "tool_call.done",
         name: "get_weather",
-        arguments: { location: "Paris" },
+        arguments: '{"location":"Paris"}',
         tool_call_id: "call_x7Kq",
       }),
       stop("tool_call", { cached_tokens: 256, prompt_tokens: 138, thoughts_tokens: 64, response_tokens: 19 }),
@@ -127,7 +127,7 @@ export const SCENARIOS: Scenario[] = [
       delta({
         type: "tool_call.done",
         name: "get_weather",
-        arguments: { location: "Paris" },
+        arguments: '{"location": "Paris"}',
         tool_call_id: "fc_9d2e",
       }),
       stop("tool_call", { cached_tokens: 0, prompt_tokens: 97, thoughts_tokens: 22, response_tokens: 12 }),

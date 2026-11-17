@@ -770,7 +770,7 @@ Example UniMessage:
     {"type": "inline_data.done", "mime_type": "image/jpeg", "data": "base64-encoded-image"},
     {"type": "thinking.done", "thinking": "I am thinking.", "fidelity": {"signature": "0x123456"}},
     {"type": "inline_thinking.done", "mime_type": "image/jpeg", "data": "base64-encoded-image"},
-    {"type": "tool_call.done", "name": "math", "arguments": {"expression": "2 + 3"}, "tool_call_id": "123"},
+    {"type": "tool_call.done", "name": "math", "arguments": "{\"expression\": \"2 + 3\"}", "tool_call_id": "123"},
     {"type": "tool_result.done", "text": "2 + 3 = 5", "images": [], "tool_call_id": "123"}
   ]
 }
@@ -787,7 +787,7 @@ Example UniEvents for a tool call:
 ```jsonl
 {"role": "assistant", "event_type": "delta", "content_items": [{"type": "tool_call.delta", "name": "math", "arguments": "{\"expression\": ", "tool_call_id": "123"}], "usage_metadata": null, "finish_reason": null, "created_at": 1694502400000}
 {"role": "assistant", "event_type": "delta", "content_items": [{"type": "tool_call.delta", "name": "", "arguments": "\"2 + 3\"}", "tool_call_id": ""}], "usage_metadata": null, "finish_reason": null, "created_at": 1694502400010}
-{"role": "assistant", "event_type": "delta", "content_items": [{"type": "tool_call.done", "name": "math", "arguments": {"expression": "2 + 3"}, "tool_call_id": "123"}], "usage_metadata": null, "finish_reason": null, "created_at": 1694502400010}
+{"role": "assistant", "event_type": "delta", "content_items": [{"type": "tool_call.done", "name": "math", "arguments": "{\"expression\": \"2 + 3\"}", "tool_call_id": "123"}], "usage_metadata": null, "finish_reason": null, "created_at": 1694502400010}
 {"role": "assistant", "event_type": "stop", "content_items": [], "usage_metadata": {"cached_tokens": null, "prompt_tokens": 10, "thoughts_tokens": null, "response_tokens": 12}, "finish_reason": "tool_call", "created_at": 1694502400020}
 ```
 

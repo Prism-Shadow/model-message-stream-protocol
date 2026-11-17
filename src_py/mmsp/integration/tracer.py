@@ -1522,7 +1522,7 @@ class Tracer:
                         lines.append(f"  {page['title']} <{page['url']}>")
                 elif item["type"] == "tool_call.done":
                     lines.append(f"Tool Call: {item['name']}")
-                    lines.append(f"  Arguments: {json.dumps(item['arguments'], indent=2, ensure_ascii=False)}")
+                    lines.append(f"  Arguments: {item['arguments']}")
                     lines.append(f"  Tool Call ID: {item['tool_call_id']}")
                 elif item["type"] == "tool_result.done":
                     lines.append(f"Tool Result (ID: {item['tool_call_id']}): {item['text']}")
@@ -1690,7 +1690,7 @@ class Tracer:
                             <div class="item-note">{{ item|inline_thinking_summary }}</div>
                             {% if item.mime_type and item.mime_type.startswith('image/') %}<img class="item-img" src="{{ item|inline_data_url }}" alt="Thinking image">{% endif %}
                             {% elif item.type == 'tool_call.done' %}
-                            <div class="tool-sig">{{ item.name }}({% for key, value in item.arguments.items() %}{{ key }}="{{ value }}"{% if not loop.last %}, {% endif %}{% endfor %})</div>
+                            <div class="tool-sig">{{ item.name }}({{ item.arguments }})</div>
                             {% elif item.type == 'tool_result.done' %}
                             <div class="result-text">{{ item.text }}</div>
                             {% if item.images %}<div class="item-images">{% for image_url in item.images %}<img class="item-img" src="{{ image_url }}" alt="Tool result image">{% endfor %}</div>{% endif %}

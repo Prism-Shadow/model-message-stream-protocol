@@ -89,7 +89,9 @@ class InlineThinkingDoneItem(TypedDict):
 class ToolCallDoneItem(TypedDict):
     type: Literal["tool_call.done"]
     name: str
-    arguments: dict[str, Any]
+    # the JSON text of the arguments, an object, as the model wrote it: a parse turns each number into
+    # one of the language's own, so nothing between the model and the caller parses it
+    arguments: str
     tool_call_id: str
     fidelity: NotRequired[Fidelity]
 

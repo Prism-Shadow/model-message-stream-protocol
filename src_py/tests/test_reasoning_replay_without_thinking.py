@@ -64,7 +64,7 @@ def _tool_call_item(tool_call_id: str) -> dict[str, Any]:
     return {
         "type": "tool_call.done",
         "name": "get_weather",
-        "arguments": {"city": "Paris"},
+        "arguments": '{"city": "Paris"}',
         "tool_call_id": tool_call_id,
     }
 
