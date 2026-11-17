@@ -3,55 +3,59 @@
 - Feature Name: `rfc_process`
 - Start Date: 2026-10-19
 - RFC PR: [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265)
-- Updated by: [#285](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/285), [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298), [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301), [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308)
+- Updated by: [#285](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/285), [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298), [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301), [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#341](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/341)
 - Kind: process
 
 [中文版](MMSP-RFC-0001-rfc-process.zh.md)
 
 ## Abstract
 
-Adopt `design/`: every specification MMSP conforms to and every decision that changes the protocol or the public API is an RFC, one decision per file, accepted by merging its PR. The specifications in force are the accepted spec RFCs, indexed in [`design/README.md`](../README.md); there is no other statement of them.
+Adopt `design/` so every **specification** MMSP conforms to and every **protocol or public API change** is recorded as an RFC (one decision per file, accepted on PR merge). The specifications in force are the accepted `spec` RFCs indexed in [`design/README.md`](../README.md).
 
 ## 1. Introduction
 
-The rules MMSP keeps lived in the mmsp-dev skill, written as how-to: how to build a client, with what every client must guarantee in the same bullets. Nothing told an invariant from current practice, so a contributor could not know which sentence a change may bend.
-
-Decisions had no durable record. The changelog records what a change did and, by rule, keeps the reasoning off disk; the reasoning went into PR descriptions, where a later reader has to know which PR to open.
-
-The owner's case: no client may raise for a thinking level. That is a promise to every caller, not a coding tip, and it held only as long as the author of each new client read the right bullet of the skill. The owner also asked that such rules be agreed the way any other decision is, one RFC each, rather than kept in a separate principles file.
-
-On 2026-10-24 the owner asked that an RFC specify a concept, protocol or algorithm that must stay fixed, titled by a noun as IETF RFCs are ([RFC 8200](https://datatracker.ietf.org/doc/html/rfc8200), "Internet Protocol, Version 6 (IPv6) Specification"), rather than state a rule: RFC 应该是讨论一些软件里必须固定下来的概念、协议、定律、算法，比如 IETF RFC-8200: IPv6 Specification 的标题就是名词。 This document's form, and that of every specification, follows it.
-
-On 2026-11-02 the owner had accepted RFCs, the specifications included, change in place: 原地修改吧. Until then a specification changed only by a new spec RFC restating it whole, and web search and page fetch had needed four of them, each with its Chinese twin, for one feature ([#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308)).
+- **Invariants buried in how-to guides**: Core guarantees (such as *no client may raise for a thinking level*) lived inside the `mmsp-dev` skill alongside coding tips, hiding which rules were unbreakable contracts.
+- **Reasoning lost in PRs**: The changelog records only what changed, leaving design rationale scattered across PR descriptions instead of in the repository.
+- **Evolution of the RFC process**:
+  - **2026-10-19 ([#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265))**: Adopted one RFC per decision instead of a separate principles file.
+  - **2026-10-24 ([#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298), [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301))**: Per the owner's direction ("RFC 应该是讨论一些软件里必须固定下来的概念、协议、定律、算法，比如 IETF RFC-8200: IPv6 Specification 的标题就是名词"), reshaped RFCs after IETF [RFC 8200](https://datatracker.ietf.org/doc/html/rfc8200) to specify fixed concepts, protocols, or algorithms with noun titles.
+  - **2026-11-02 ([#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308))**: Switched accepted RFCs to **in-place edits** ("原地修改吧") after web search and page fetch required rewriting four full bilingual spec RFCs for a single feature.
+  - **2026-11-18 ([#341](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/341))**: Added the visual-hierarchy rule ("RFC 太啰嗦了，没有主次分明，优化一下，让阅读障碍的人也能看懂") — 1–3 sentence abstracts, separated revision tables in `Introduction`, one bullet per term in `Conventions and Terminology`, and bold lead-in bullets or tables in place of prose walls.
 
 ## 2. Conventions and Terminology
 
-The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY in this document are to be interpreted as described in BCP 14 ([RFC 2119](https://www.rfc-editor.org/rfc/rfc2119), [RFC 8174](https://www.rfc-editor.org/rfc/rfc8174)) when, and only when, they appear in all capitals. In a spec RFC, a sentence about what the code does uses MUST or MUST NOT, and SHOULD and SHOULD NOT are for callers and contributors. The Chinese twin of an RFC renders the key words 必须, 不得, 应当, 不应 and 可以.
+The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY in this document are to be interpreted as described in BCP 14 ([RFC 2119](https://www.rfc-editor.org/rfc/rfc2119), [RFC 8174](https://www.rfc-editor.org/rfc/rfc8174)) when, and only when, they appear in all capitals. In a `spec` RFC, `MUST` and `MUST NOT` govern code behavior, `SHOULD` and `SHOULD NOT` apply to callers and contributors, and the Chinese twin renders them as 必须, 不得, 应当, 不应, and 可以.
 
-- *Spec*: an RFC that fixes a concept, protocol or algorithm the code conforms to.
-- *Change*: an RFC that changes the protocol or the public API.
-- *Process*: an RFC on how this folder works.
-- *Accepted*: the status of an RFC whose PR merged.
-- *Superseded*: the status of an accepted RFC a later RFC replaced, written `Superseded by MMSP-RFC-NNNN`.
+- **Spec**: An RFC that fixes a concept, protocol, or algorithm the code conforms to.
+- **Change**: An RFC that changes the protocol or the public API.
+- **Process**: An RFC defining how `design/` works.
+- **Accepted**: The status of an RFC whose PR has merged.
+- **Superseded**: The status of an accepted RFC replaced whole by a later RFC (`Superseded by MMSP-RFC-NNNN`).
 
 ## 3. Documents
 
-- Layout: `design/README.md` (the index and the process), `design/0000-template.md` (English only) and `design/rfcs/MMSP-RFC-NNNN-<slug>.md`, each file but the template with a `.zh.md` twin. The folder holds only Markdown, so CI classifies a change to it as documentation and runs no model tests.
-- Sections: a spec RFC has Abstract, Introduction, Conventions and Terminology, numbered body sections named by nouns, and Conformance, which names the modules and tests that hold it at file level. A change or process RFC has Abstract, Introduction and the Rust RFC sections, numbered. A section with nothing to say is omitted.
-- Languages: the section names of the template stay English in both files; a spec's body headings are translated in the Chinese twin, and the section numbers keep the two aligned.
-- Reading: before changing a client, read the index in `design/README.md`: the rows of kind `spec` whose status is Accepted are the specifications in force.
+- **Layout**: `design/README.md` (index and process), `design/0000-template.md` (English only), and `design/rfcs/MMSP-RFC-NNNN-<slug>.md` with `.zh.md` twins. Because `design/` holds only Markdown, CI classifies edits as documentation and skips model tests.
+- **Sections**:
+  - **`spec` RFCs**: `Abstract`, `Introduction`, `Conventions and Terminology`, numbered noun-titled body sections, and `Conformance` (file-level modules and tests).
+  - **`change` and `process` RFCs**: `Abstract`, `Introduction`, and numbered Rust RFC sections. Empty sections are omitted.
+- **Languages**: Template section names stay English in both files; `spec` body headings are translated in `.zh.md` with matching section numbers.
+- **Reading before changes**: Before modifying a client, check `design/README.md`—the `Accepted` `spec` rows are the specifications in force.
 
 ## 4. Lifecycle
 
-- Starting: a change to a specification, to the message or stream shapes, to the public API, to what routing or the credential rule means, or anything that breaks a caller starts as an RFC: copy [`0000-template.md`](../0000-template.md) to `design/rfcs/MMSP-RFC-NNNN-<slug>.md`, set its kind, write it and its Chinese twin, and open a PR to `dev`. A new model, a client that follows the pattern, a bug fix and the like stay normal PRs; [`design/README.md`](../README.md) has the full list and the steps.
-- Lifecycle: an open PR proposes, a merge accepts, a close withdraws. The index in `design/README.md` has one row per accepted RFC, with its kind and its status, `Accepted` or `Superseded by MMSP-RFC-NNNN`; the RFC's own PR adds the row. An accepted RFC, a specification included, changes in place: its PR edits the file in both languages, keeps its number and row, and appends its link to the `Updated by` line. A specification that replaces another one whole names it on its `Supersedes:` line, and its PR updates the old file's metadata and the old row. The PR that implements a change RFC adds its `Implementation PR` line.
-- Precedence: when the code and an accepted RFC disagree, the RFC wins: the code is fixed, or the RFC is changed first.
-- Metadata: `Feature Name`, `Start Date`, `RFC PR`, `Kind`, and where they apply `Updated by` (the PRs that changed the RFC in place after it was accepted), `Supersedes`, `Superseded by` and `Implementation PR`; PR links are full URLs.
-- Changelog: an RFC PR carries a `process` entry with Scope `design`; the implementation PR carries its own entry, which links the RFC.
+- **Starting an RFC**: Required for changes to a specification, message/stream shapes, public API, routing/credential semantics, or caller compatibility. Copy [`0000-template.md`](../0000-template.md) to `design/rfcs/MMSP-RFC-NNNN-<slug>.md`, write both language files, and open a PR to `dev` (routine models, clients, and bug fixes use normal PRs; see [`design/README.md`](../README.md)).
+- **State transitions**: Open PR = proposed, merged = accepted, closed = withdrawn. The RFC PR adds its own row (`Accepted` or `Superseded by MMSP-RFC-NNNN`) to `design/README.md`.
+- **Editing in place vs. superseding**:
+  - **In-place edit**: Accepted RFCs (including specs) are edited in place in both languages, keeping their number and index row while appending the PR URL to `Updated by`.
+  - **Full replacement**: Replacing a spec whole requires a new RFC with `Supersedes:`, updating the old file's metadata (`Superseded by`) and index row.
+  - **Implementation link**: The PR implementing a `change` RFC adds `Implementation PR` to the RFC metadata.
+- **Precedence**: When code and an accepted RFC disagree, the RFC wins—fix the code or change the RFC first.
+- **Metadata**: `Feature Name`, `Start Date`, `RFC PR`, `Kind`, plus optional `Updated by`, `Supersedes`, `Superseded by`, and `Implementation PR` (all PR links as full URLs).
+- **Changelog**: Every RFC PR includes a `process` changelog entry (`Scope: design`); implementation PRs link the RFC in their own entry.
 
 ## 5. Numbering
 
-An RFC takes the next `MMSP-RFC-NNNN` that neither the folder nor an open PR uses, and a number is never reused. The exceptions are the two reassignments of 2026-10-24, both by the owner's order. [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) gave the rules MMSP-RFC-0002 to MMSP-RFC-0013 in the order of the owner's titles. [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301) then restated them as nine specifications, MMSP-RFC-0002 to MMSP-RFC-0009, added MMSP-RFC-0010, and gave each a noun title, again in the owner's order. The content moved as this table says:
+Each RFC takes the next `MMSP-RFC-NNNN` unused in `design/rfcs/` or open PRs, and numbers are never reused. The only exceptions are two owner-ordered reassignments on 2026-10-24: [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) numbered rules `0002`–`0013`, and [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301) consolidated them into noun-titled specifications `0002`–`0009` plus `0010`:
 
 | 0.5.5 number | First renumbering (#298) | Content now in |
 | --- | --- | --- |
@@ -70,39 +74,40 @@ An RFC takes the next `MMSP-RFC-NNNN` that neither the folder nor an open PR use
 | — | MMSP-RFC-0012 A request can be interrupted | [MMSP-RFC-0008](MMSP-RFC-0008-request-interruption.md) |
 | — | — | [MMSP-RFC-0010](MMSP-RFC-0010-trace-recording.md), new |
 
-The site redirects every URL of both earlier sets to the document that holds its content.
+- **Redirects**: The site redirects all URLs from both earlier numbering sets to the current documents.
 
 ## 6. Pointers and Site
 
-- Pointers: `AGENTS.md` and the mmsp-dev skill say how to do the work, and a rule there that serves an RFC cites it as `(MMSP-RFC-NNNN)`. `AGENTS.md` names the folder and when an RFC is needed; the skill sends a contributor to the specifications before a client changes; the README links the folder.
-- Site: an RFC area at `/rfcs/` renders `design/README.md` and every `design/rfcs/MMSP-RFC-*.md` from the repository's files in both languages, so a new RFC is a new page without a change to the site's code.
+- **Pointers**: `AGENTS.md` and the `mmsp-dev` skill cite governing RFCs as `(MMSP-RFC-NNNN)` and direct contributors to read the specifications before changing a client; the root README links `design/`.
+- **Site rendering**: `/rfcs/` renders `design/README.md` and every `design/rfcs/MMSP-RFC-*.md` in both languages directly from repo files, requiring no site code changes for new RFCs.
 
 ## 7. Drawbacks
 
-One more place to read before a change, and the specifications are spread over files rather than one page; the index is what keeps them at a glance. A specification can drift from the code: every sentence was checked against the code when it was written, and a later change can make one false until a review reads both.
+- **Multi-file reading**: Specifications live across multiple files rather than a single page, relying on the index for a single view.
+- **Risk of drift**: Code changes after an RFC is written can cause temporary drift until caught in review.
 
 ## 8. Rationale and Alternatives
 
-- A principles file beside the RFCs, as penguin-harness-design keeps one: rejected by the owner. Two documents would state the specifications, one as the current state and one as the decision; with one specification per RFC, the file that states it is the decision that made it, and the index is the current state.
-- Rules inside the skill: rejected. The skill is how-to and changes with every client; a specification changes only by decision. Kept apart, the skill can cite the specifications.
-- A sibling design repository linked in by symlinks: rejected. MMSP is one repository with two packages and many worktrees, and every worktree would need the links.
-- A status field in the file: rejected. The PR's state is the status; the index carries the one thing a reader cannot see from the file, whether a later RFC superseded it.
-- A new spec RFC restating the whole specification for every change, the rule until 2026-11-02: it kept an accepted text fixed, but restated a whole specification for a sentence or two and left every other RFC citing the replaced document. An edit in place keeps the numbers, the citations and the index; the `Updated by` line names the PRs, and `git log` keeps every earlier text.
-- Architecture decision records: their short form (context, decision, consequences) is close to what a rule RFC was; change RFCs keep the Rust sections because the alternatives and prior art are what was missing.
-- Normative key words: RFC 8200 itself writes must and should in lowercase; MMSP uses the BCP 14 capitals because every normative sentence is checked against the code, and a MUST can be checked where a lowercase must is prose.
+- **Separate principles file (`penguin-harness-design` style)**: Rejected by the owner to avoid duplicating current state and decision history; each `spec` RFC is both the decision and the current specification, indexed in `design/README.md`.
+- **Keeping rules inside `mmsp-dev` skill**: Rejected because the skill is a frequently updated how-to guide, whereas specifications change only by explicit decision.
+- **Sibling design repo via symlinks**: Rejected because MMSP uses two packages and many git worktrees that would each require symlink setup.
+- **In-file status field**: Rejected because PR state already tracks proposal/acceptance, and the index table tracks whether an RFC was superseded.
+- **New spec RFC for every change (pre-2026-11-02 rule)**: Replaced by in-place edits so small updates preserve RFC numbers, cross-references, and the index while `Updated by` and `git log` preserve history.
+- **Architecture Decision Records (ADRs)**: Short ADR sections suited rule RFCs, but `change` RFCs keep the richer Rust sections to capture alternatives and prior art.
+- **Uppercase BCP 14 keywords**: Adopted over lowercase prose (`must`/`should` in RFC 8200) so every `MUST` statement can be audited directly against the code.
 
 ## 9. Prior Art
 
-- [Rust RFCs](https://github.com/rust-lang/rfcs): the template and one decision per file.
-- [IETF RFCs](https://www.ietf.org/process/rfcs/): the noun title, the Abstract, numbered sections and BCP 14; [RFC 8200](https://datatracker.ietf.org/doc/html/rfc8200) as the shape.
-- Prism-Shadow/penguin-harness-design (private): `PRN-NNN` principles beside `PRFC-NNNN` RFCs. This process keeps the RFCs and drops the principles file.
-- [Architecture decision records](https://adr.github.io/).
-- [Python PEPs](https://peps.python.org/pep-0001/): their status workflow is deliberately not copied.
+- **[Rust RFCs](https://github.com/rust-lang/rfcs)**: Template structure and one-decision-per-file model.
+- **[IETF RFCs](https://www.ietf.org/process/rfcs/)**: Noun titles, `Abstract`, numbered sections, BCP 14 keywords, and [RFC 8200](https://datatracker.ietf.org/doc/html/rfc8200) structure.
+- **`Prism-Shadow/penguin-harness-design` (private)**: Kept the RFCs (`PRFC-NNNN`) while dropping the separate principles file (`PRN-NNN`).
+- **[Architecture Decision Records](https://adr.github.io/)**: Lightweight decision record format.
+- **[Python PEPs](https://peps.python.org/pep-0001/)**: Referenced for prior art; its in-file status workflow was deliberately omitted.
 
 ## 10. Unresolved Questions
 
-Whether the Conformance sections stay. They name files, and files move; they are kept because they tell a reader where to check a specification.
+- **Keeping `Conformance` file lists**: Retained despite file moves because they tell readers exactly where to verify each specification in the codebase.
 
 ## 11. Future Possibilities
 
-A CI check that every path a Conformance section names exists, and that every spec RFC has a row in the index.
+- **Automated CI verification**: Check that every file path in `Conformance` exists and every `spec` RFC appears in the `design/README.md` index.

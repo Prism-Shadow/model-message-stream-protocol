@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-MMSP 遵守的规范，以及改变过它的决定，每一项都是一篇 RFC。代码与已采纳的 RFC 不一致时，以 RFC 为准：要么修正代码，要么先修改这篇 RFC。
+MMSP 遵守的每项**规范**，以及每个修改**协议或公开 API 的决定**，都记录为一篇 RFC。**优先级**：代码与已采纳的 RFC 不一致时，以 RFC 为准——要么修正代码，要么先修改 RFC。
 
 ## 全部 RFC
 
@@ -20,55 +20,53 @@ MMSP 遵守的规范，以及改变过它的决定，每一项都是一篇 RFC�
 | [MMSP-RFC-0010](rfcs/MMSP-RFC-0010-trace-recording.zh.md) | 轨迹记录 | spec | 已采纳 |
 | [MMSP-RFC-0014](rfcs/MMSP-RFC-0014-prompt-cache-sessions.zh.md) | 提示缓存会话 | change | 已采纳 |
 
-`spec` 固定代码遵守的一个概念、协议或算法；`change` 修改协议或公开 API；`process` 是这个目录的运作方式。状态为「已采纳」或「被 MMSP-RFC-NNNN 取代」，因此现行的规范就是状态为「已采纳」的 `spec` 行。提议中的 RFC 是一个未关闭的 PR（`gh pr list --search "MMSP-RFC-"`），撤回的 RFC 是一个已关闭的 PR；两者在表中都没有行。
-
-RFC 曾于 2026-10-24 按项目负责人的要求重编号两次；[MMSP-RFC-0001](rfcs/MMSP-RFC-0001-rfc-process.zh.md#5-编号) §5 列出 0.5.5 的编号、第一次重编号后的编号与现在编号的对应关系。
+- **类别**：`spec` 固定代码遵守的概念、协议或算法；`change` 修改协议或公开 API；`process` 定义本目录的运作方式。
+- **状态**：取值为「已采纳」或「被 MMSP-RFC-NNNN 取代」。现行规范即状态为「已采纳」的 `spec` 行。
+- **未合入的 RFC**：提议中的 RFC 是未关闭的 PR（`gh pr list --search "MMSP-RFC-"`），撤回的 RFC 是已关闭的 PR；两者均不列入上表。
+- **历史重编号**：RFC 曾于 2026-10-24 按项目负责人要求重编号两次；0.5.5 编号、第一次重编号与现行编号的对应关系见 [MMSP-RFC-0001](rfcs/MMSP-RFC-0001-rfc-process.zh.md#5-编号) §5。
 
 | 文件 | 内容 |
 | --- | --- |
-| [`rfcs/`](rfcs/) | 一个文件记录一个决定，`MMSP-RFC-NNNN-<slug>.md` |
-| [`0000-template.md`](0000-template.md) | 新 RFC 的起点 |
+| [`rfcs/`](rfcs/) | 一个文件记录一个决定（`MMSP-RFC-NNNN-<slug>.md`）及其中文对照 `.zh.md` |
+| [`0000-template.md`](0000-template.md) | 新 RFC 的英文模板起点 |
 
-除模板外，每个文件都有一份中文对照 `<name>.zh.md`，逐节对应。网站直接用这些文件在 `/rfcs/` 渲染这份索引与每一篇 RFC。
+- **双语对齐**：除 `0000-template.md` 外，每个文件都有逐节对应的 `<name>.zh.md`，由网站直接渲染于 `/rfcs/`。
 
 ## 哪些改动需要 RFC
 
-- 修改任何一项规范。
-- 修改消息或流的结构：内容项的类型或字段，`UniEvent`、`UniMessage` 或 `UniConfig` 的键，`StreamItems` 的判定方式。
-- 修改公开 API：`AutoLLMClient` 的方法与构造参数、包的导出、错误类。
-- 改变路由表或凭据规则的含义。新增一行不算。
-- 修改 MMSP 服务端的线上协议（`/v1/stream`、`/v1/models`）。
-- 任何会破坏调用方的改动。
+- **修改规范**：修改任何现有规范。
+- **消息或流结构**：修改内容项类型或字段、`UniEvent` / `UniMessage` / `UniConfig` 的键，或 `StreamItems` 的判定方式。
+- **公开 API**：修改 `AutoLLMClient` 的方法与构造参数、包导出项或错误类。
+- **路由或凭据规则**：改变路由表或凭据规则的语义（仅新增一行无需 RFC）。
+- **线上协议**：修改 MMSP 服务端接口（`/v1/stream`、`/v1/models`）。
+- **破坏性变更**：任何会破坏现有调用方的改动。
 
-新模型或新一代模型、遵循既有模式的新厂商或新协议客户端、新增的模型族或客户端类型行、注册表条目、文档、网站、CI 与缺陷修复，提普通 PR 即可。
+**仅需普通 PR**（无需 RFC）：新增模型、遵循既有模式的新厂商或新协议客户端、新增模型族或客户端类型行、注册表条目、文档、网站、CI 及缺陷修复。
 
 ## 编写 RFC
 
-1. 从 `origin/dev` 拉出 `rfc/<slug>` 分支，把 `0000-template.md` 复制为 `rfcs/MMSP-RFC-NNNN-<slug>.md`。`NNNN` 取 `ls design/rfcs/` 与未关闭的 PR（`gh pr list --search "MMSP-RFC-"`）都没有用过的下一个编号；编号永不复用。一篇 RFC 只记一个决定。把 `Kind` 设为 `spec`、`change` 或 `process`：`spec` 类 RFC 包含 Abstract、Introduction、Conventions and Terminology、正文各节与 Conformance；`change` 与 `process` 类 RFC 包含 Abstract、Introduction 与 Rust RFC 的各节，全部编号。无话可说的小节直接删去。
-2. 在同一个 PR 中写好中文对照 `MMSP-RFC-NNNN-<slug>.zh.md`。模板中的节名（Abstract、Introduction、Conventions and Terminology、Conformance 与 Rust RFC 的各节）在两份文件中都保持英文；`spec` 类 RFC 正文各节的标题在中文对照中翻译，两份文件靠节号逐节对齐。两份文件在元数据下方的一行互相链接：`[中文版](MMSP-RFC-NNNN-<slug>.zh.md)` 与 `[English](MMSP-RFC-NNNN-<slug>.md)`。
-3. 在上表中添加这篇 RFC 的一行，状态为「已采纳」：这一行随 PR 合并落地，而合并正是采纳这篇 RFC 的方式。
-4. 按 [`changelog/README.md`](../changelog/README.zh.md) 的格式添加一条 `Type: process`、`Scope: design` 的变更记录。
-5. 用 `gh pr create --base dev` 提交 PR，标题为 `MMSP-RFC-NNNN: <Title>`，然后在后续提交中把 PR 链接填进 `RFC PR` 一行。
+1. **创建文件与编号**：从 `origin/dev` 拉出 `rfc/<slug>` 分支，把 `0000-template.md` 复制为 `rfcs/MMSP-RFC-NNNN-<slug>.md`（一篇只记一个决定）。`NNNN` 取 `ls design/rfcs/` 与未关闭 PR（`gh pr list --search "MMSP-RFC-"`）均未用过的下一个编号，永不复用。
+2. **设置类别与小节**：将 `Kind` 设为 `spec`（含 Abstract、Introduction、Conventions and Terminology、编号正文各节、Conformance）或 `change` / `process`（含 Abstract、Introduction 与编号的 Rust RFC 各节）。删去空白小节。
+3. **编写中文对照**：在同一 PR 中添加 `MMSP-RFC-NNNN-<slug>.zh.md`。模板节名保持英文，`spec` 正文标题翻译为中文并靠节号对齐，元数据下方互链 `[中文版](MMSP-RFC-NNNN-<slug>.zh.md)` 与 `[English](MMSP-RFC-NNNN-<slug>.md)`。
+4. **更新索引与变更记录**：在上表新增一行（状态设为「已采纳」，随 PR 合并生效），并按 [`changelog/README.md`](../changelog/README.zh.md) 添加 `Type: process`、`Scope: design` 记录。
+5. **提交 PR**：运行 `gh pr create --base dev`（标题 `MMSP-RFC-NNNN: <Title>`），随后将 PR 链接填入 `RFC PR`。
 
 ## 修改已采纳的 RFC
 
-已采纳的 RFC，包括规范，都在原文上修改：
+已采纳的 RFC（含规范）一律**原地修改**：
 
-1. 从 `origin/dev` 拉出 `rfc/<slug>` 分支，修改这篇 RFC 及其中文对照。编号、标题与索引中的行都不变；规范修改后仍完整陈述它所固定的一切。
-2. 在它的 Introduction 中加一段，说明这次修改依据的具体情形，附上 PR 链接。
-3. 在文件的 `- Updated by:` 一行末尾追加这个 PR 的链接，两种语言都要加；没有这一行的文件，把它加在 `RFC PR` 一行之后。
-4. 添加一条 `Type: process`、`Scope: design` 的变更记录，用 `gh pr create --base dev` 提交 PR，标题为 `MMSP-RFC-NNNN: <改了什么>`。
+1. **双语原地修改**：从 `origin/dev` 拉出 `rfc/<slug>` 分支，同时修改中英文文件（保留编号、标题、索引行及完整现行规范）。
+2. **记录背景与 PR**：在 `Introduction` 补充本次修改的具体情形与 PR 链接，并在两份文件的 `- Updated by:` 末尾追加该 PR 链接（若无则加在 `RFC PR` 之后）。
+3. **提交 PR**：添加 `Type: process`、`Scope: design` 变更记录，运行 `gh pr create --base dev`（标题 `MMSP-RFC-NNNN: <改了什么>`）。
 
-整篇取代另一项规范的规范是一篇新的 RFC：它在 `Supersedes:` 一行写明旧的那篇；它的 PR 往旧文件的元数据末尾追加 `- Superseded by: [MMSP-RFC-NNNN](MMSP-RFC-NNNN-<slug>.md)`，两种语言都要加，并在上表中更新旧行的状态。
-
-未关闭的 PR 是提议中的 RFC，合并即被采纳，关闭即被撤回，编号作废。RFC 文件没有状态字段；它是「已采纳」还是「被取代」，由上表记录。实现某篇已采纳的 `change` 类 RFC 的 PR 在 `RFC PR` 一行之后加上 `- Implementation PR: [#N](<url>)`，并在自己的变更记录中链接这篇 RFC。
+- **整篇取代旧规范**：新建一篇 RFC 并在 `Supersedes:` 写明旧编号；其 PR 在中英文旧文件元数据末尾追加 `- Superseded by: [MMSP-RFC-NNNN](MMSP-RFC-NNNN-<slug>.md)` 并更新上表旧行状态。
+- **PR 状态与实现关联**：PR 打开即提议，合并即采纳，关闭即撤回（编号作废）。实现 `change` 类 RFC 的 PR 在 `RFC PR` 后添加 `- Implementation PR: [#N](<url>)`，并在其变更记录中链接该 RFC。
 
 ## 写作规则
 
-- `spec` 类 RFC 读起来是对一件固定不变之事的规范：Abstract 用一到三句话说明规范了什么，正文分编号的小节陈述它，Conformance 一节在文件层面列出保证它成立的模块与测试。
-- 规范性语句使用大写的 MUST、MUST NOT、SHOULD、SHOULD NOT 或 MAY，含义按 BCP 14 的定义；描述代码行为的句子用 MUST 或 MUST NOT，SHOULD 只用于对调用方与贡献者的要求。中文对照把它们写作 必须、不得、应当、不应、可以。
-- 每一句规范性语句都要符合代码。不符合时，要么修正代码，要么修改这项规范。
-- 数字要么是不变量，要么带有时态。不写数量，也不写当下的清单：有哪些客户端，某个客户端支持哪些模型。
-- 代码标识符、文件路径与模板中的节名在两种语言中都保持英文。
-- PR 与 issue 链接写完整 URL；指向仓库内文件的链接用相对路径。
-- 上表是唯一的索引。`grep -l MMSP-RFC-0004 design/rfcs/` 找出引用某项规范的 RFC。
+- **视觉层级优先**：使用短句、列表项**加粗引导词**与表格代替密集长段落，让读者一眼抓住重点。
+- **规范结构**：`Abstract` 用 1–2 句话写明固定了什么，正文分编号小节陈述，最后在 `Conformance` 列出文件级的实现模块与测试。
+- **规范性关键词（BCP 14）**：描述代码行为用 `MUST` / `MUST NOT`（`必须` / `不得`），对调用方与贡献者的要求用 `SHOULD` / `SHOULD NOT` / `MAY`（`应当` / `不应` / `可以`）。每句规范性语句必须与代码一致。
+- **数字只写不变量**：数字要么是不变量，要么带明确历史时间，不写当前客户端或模型的数量与清单。
+- **格式与链接**：代码标识符、文件路径与模板节名在中英文中均保持英文；PR / issue 用完整 URL，仓库内文件用相对路径。
+- **唯一索引**：上表是唯一索引，可用 `grep -l MMSP-RFC-0004 design/rfcs/` 查找引用某项规范的 RFC。
