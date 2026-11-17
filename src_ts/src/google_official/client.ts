@@ -591,7 +591,8 @@ export class GoogleOfficialClient extends LLMClient {
               ? { id: item.tool_call_id }
               : {}),
             name: item.name,
-            arguments: item.arguments,
+            // Interactions takes the arguments as an object, so the text is parsed here only
+            arguments: JSON.parse(item.arguments),
           } as Interactions.FunctionCallStep);
         } else if (item.type === "tool_result.done") {
           content = null;

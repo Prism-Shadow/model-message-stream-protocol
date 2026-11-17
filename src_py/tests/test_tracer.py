@@ -25,6 +25,7 @@ from pathlib import Path
 
 import pytest
 from flask import Flask
+from markupsafe import escape
 
 from mmsp.base_client import LLMClient
 from mmsp.errors import UnsupportedParameterError
@@ -560,6 +561,7 @@ async def test_traced_response_saves_its_fidelity_without_the_item_id(temp_cache
 
 
 @pytest.mark.filterwarnings("ignore:Content item types without the .done suffix")
+@pytest.mark.filterwarnings("ignore:A tool call whose arguments is an object")
 def test_web_app_shows_trace_files_saved_before_0_5_with_current_item_types(temp_cache_dir):
     """Test that a trace file with the item types used before 0.5.0 renders as the current types."""
     tracer = Tracer(cache_dir=temp_cache_dir)
@@ -603,7 +605,8 @@ def test_web_app_shows_trace_files_saved_before_0_5_with_current_item_types(temp
         assert f'class="item-type">{item_type}</div>' in html
     assert "Weather in Paris?" in html
     assert "Look it up." in html
-    assert 'get_weather(city="Paris")' in html
+    # the 0.4 trace recorded the arguments as an object, which reads back as its JSON text
+    assert f"get_weather({escape(json.dumps({'city': 'Paris'}))})" in html
     assert "22 C" in html
     assert "<span>2 items</span>" in html
     assert "partial_tool_call" not in html

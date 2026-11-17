@@ -287,7 +287,7 @@ export class DeepSeekOfficialClient extends LLMClient {
             type: "function_call",
             call_id: item.tool_call_id,
             name: item.name,
-            arguments: JSON.stringify(item.arguments),
+            arguments: item.arguments,
           });
         } else if (item.type === "tool_result.done") {
           if (!item.tool_call_id) {

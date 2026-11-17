@@ -3,89 +3,98 @@
 - Feature Name: `message_protocol`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318), [#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318), [#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330), [#339](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/339)
 - Kind: spec
 
 [中文版](MMSP-RFC-0002-message-protocol.zh.md)
 
 ## Abstract
 
-MMSP is one message protocol for every model. A model is called with three shapes, `UniConfig` in, `UniMessage` in and out and `UniEvent` out, whose content items are a closed set of kinds defined once in `types.py` / `types.ts`. This document specifies those shapes, what a message may carry (its items' universal fields and a lean per-item `fidelity`), how a provider feature enters the protocol, and the parity of the Python and TypeScript packages, which are one protocol.
+MMSP is one unified message protocol across all models, built on three shapes: **`UniConfig`** (in), **`UniMessage`** (in/out), and **`UniEvent`** (out) over a closed set of content item kinds in `types.py` / `types.ts`. Items carry only universal fields and a lean **`fidelity`** object for replay, while **`mmsp`** (Python) and **`@prismshadow/mmsp`** (TypeScript) operate as one identical protocol.
 
 ## 1. Introduction
 
-MMSP exists so that a caller writes to one message format and one stream grammar and changes models by changing a string. A provider feature that enters as one client's own key is a provider the caller has to know about again, and a package that behaves differently is a second protocol. The audit that wrote the parity rule found the packages apart on the wire in two places: a key the OpenAI Python SDK rejects as a keyword ([#266](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/266)) and a key openai-node does not unwrap from a literal `extra_body` ([#267](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/267)). The shared e2e tests and the one model catalog ([#255](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/255)) check the parity rather than promise it.
+- **One format and two-package parity**: Callers use one message format and stream grammar, switching models by changing a string. Provider-specific keys or divergent package behaviors break this contract. A wire audit fixed two SDK divergences—a keyword rejected by the OpenAI Python SDK ([#266](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/266)) and a literal `extra_body` not unwrapped by `openai-node` ([#267](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/267))—now enforced by shared e2e tests and one model catalog ([#255](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/255)).
+- **Lean `fidelity` ("转换只保留必要的部分，冗余字段不需要保留")**: Replayed turns must preserve model behavior without cloning raw wire items into histories and traces. [#159](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/159) added `fidelity` for upstream reasoning fields, and [#287](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/287) reduced whole gateway reasoning blocks to the three keys that rebuild them.
+- **RFC lineage**: Stated in [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265) (MMSP-RFC-0002, MMSP-RFC-0009, part of MMSP-RFC-0008, second half of MMSP-RFC-0012) and [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) (MMSP-RFC-0002, MMSP-RFC-0004). Item order is now [MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.md#6-order) §6.
 
-A replayed turn has to be accepted by the API with the model's behavior intact; it does not have to reproduce the wire item field for field, and every field mirrored into `fidelity` is one more provider shape that consumers, traces and histories carry. [#159](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/159) added `fidelity` for the exact reasoning field a strict upstream demands back; [#287](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/287) replaced a gateway's reasoning block, which had been kept whole, with the three keys that rebuild it. The owner's words: 转换只保留必要的部分，冗余字段不需要保留.
-
-Stated in [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265) as MMSP-RFC-0002, MMSP-RFC-0009, part of MMSP-RFC-0008 and the second half of MMSP-RFC-0012, and in [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) as MMSP-RFC-0002 and MMSP-RFC-0004. The order rule of the earlier MMSP-RFC-0002 is now [MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.md#6-order) §6.
-
-On 2026-11-02 the owner asked for web search and page fetch, done the way embedding is: 在mmsp里面增加search和fetch的能力,实现方式和embedding类似. They entered the protocol as one more kind of item, `webtool`, whose `webdata` holds the pages a search found or the page a fetch read, and one more `UniConfig` key, `webtool_config`, whose `count` is how many results a search returns. On what a search result carries, the owner's words: search的content显示摘要,不要用need content参数 jina要加no content. [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308) amended this specification in place, with the `webtool` kinds added to §3.4.
-
-On 2026-11-06 the owner asked for Gemini Omni's video generation: 支持一下google omni的视频生成能力. A video entered the protocol as an `inline_data` item, without a new kind; one the provider delivers by URI is returned as its URI, in text, because the owner chose no new item type for it. [#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318) amended this specification in place, with the media of `inline_data` in §3.4.
-
-On 2026-11-16 the owner asked whether speech streams so that a listener hears it part by part: 音频输出是真正的音频流式吗?就是说我能不能每次只听到一部分. It did stream, one fragment per chunk the endpoint sent, but DeepSeek's chunks split 16-bit samples (74 of 418 fragments of one answer held an odd number of bytes), so a fragment played as it arrived could put every later sample out of step. No new item kind was needed: a fragment of raw PCM holds whole frames, so each can be played the moment it arrives. [#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330) amended this specification in place, with whole frames in §3.4.
+| Date / PR | Change & Reason |
+| :--- | :--- |
+| **2026-11-02** ([#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308)) | **Web search & fetch (`webtool`)**: Added `webtool` (`webdata`) and `UniConfig.webtool_config` (`count`), modeled on embedding ("在mmsp里面增加search和fetch的能力,实现方式和embedding类似"). Search stores summaries only ("search的content显示摘要,不要用need content参数 jina要加no content", §3.4). |
+| **2026-11-06** ([#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318)) | **Video in `inline_data`**: Added Gemini Omni video generation ("支持一下google omni的视频生成能力") via `inline_data`. URI videos return as `text` holding the URI (§3.4). |
+| **2026-11-16** ([#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330)) | **Whole-frame PCM streaming**: Ensured part-by-part playback ("音频输出是真正的音频流式吗?就是说我能不能每次只听到一部分"). DeepSeek chunks split 16-bit samples (74/418 fragments had odd byte counts), so raw PCM (`audio/l16`) fragments hold whole frames (§3.4). |
+| **2026-11-17** ([#339](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/339)) | **Tool-call `arguments` as JSON text**: Kept `tool_call.arguments` as the JSON string the model wrote ("这个丢精度确实会有问题,在中间多做一次精度转换就会丢东西,UniMessage的工具参数还是保留字符串类型吧"), preventing number precision loss (`9007199254740993` -> `9007199254740992` in JS `number` / Python `float`) on replay ([MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.md), §3.4). |
 
 ## 2. Conventions and Terminology
 
 The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY in this document are to be interpreted as described in BCP 14 ([RFC 2119](https://www.rfc-editor.org/rfc/rfc2119), [RFC 8174](https://www.rfc-editor.org/rfc/rfc8174)) when, and only when, they appear in all capitals.
 
-- *Item*: one entry of a message's or an event's `content_items`. A *complete item* has a `.done` type; a *fragment* has a `.delta` type.
-- *Universal field*: a field other than `fidelity` that `types.py` / `types.ts` define on an item, such as `text`, `thinking`, `arguments` or `tool_call_id`.
-- *Fidelity*: the `fidelity` object of an item, the wire data no universal field carries (§5).
-- *Public stream*: as [MMSP-RFC-0003](MMSP-RFC-0003-message-requests.md#2-conventions-and-terminology) §2 defines it. *Replay*: as [MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.md#2-conventions-and-terminology) §2 defines it.
+- **Item**: One entry of `content_items` in a message or event.
+- **Complete item**: An item with a `.done` type.
+- **Fragment**: An item with a `.delta` type.
+- **Universal field**: Any item field other than `fidelity` in `types.py` / `types.ts` (e.g., `text`, `thinking`, `arguments`, `tool_call_id`).
+- **Fidelity**: An item's `fidelity` object for wire data outside universal fields (§5).
+- **Public stream**: Defined in [MMSP-RFC-0003](MMSP-RFC-0003-message-requests.md#2-conventions-and-terminology) §2.
+- **Replay**: Defined in [MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.md#2-conventions-and-terminology) §2.
 
 ## 3. The Three Shapes
 
 ### 3.1 `UniConfig`
 
-A request's configuration is a `UniConfig`: the keys `types.py` / `types.ts` define, every one optional. A key MUST mean the same thing on every client; how a client sends, ignores or refuses a key is [MMSP-RFC-0003](MMSP-RFC-0003-message-requests.md#6-request-parameters) §6.
+- **Optional keys**: Request configuration is a `UniConfig` of optional keys in `types.py` / `types.ts`.
+- **Uniform meaning**: Each key MUST mean the same thing on every client. How clients send, ignore, or refuse keys is [MMSP-RFC-0003](MMSP-RFC-0003-message-requests.md#6-request-parameters) §6.
 
 ### 3.2 `UniMessage`
 
-A message has a `role` (`user` or `assistant`), `content_items`, and optionally `usage_metadata`, `finish_reason` and `created_at` (milliseconds since the epoch). A message MUST hold complete items only: the base class builds an assistant message from the complete items of its stream, and any other item a caller sends is refused ([MMSP-RFC-0007](MMSP-RFC-0007-error-types.md#31-before-the-request) §3.1), apart from the item types of histories recorded before 0.5.0, which are converted ([MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.md#7-one-shape-per-input) §7). The order of the items is part of the message ([MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.md#6-order) §6). An assistant message built from a stream carries the stream's `usage_metadata` and `finish_reason` ([MMSP-RFC-0003](MMSP-RFC-0003-message-requests.md#44-the-assistant-message) §4.4); a message a caller builds by hand MAY carry neither.
+- **Fields**: `role` (`user` or `assistant`), `content_items`, and optional `usage_metadata`, `finish_reason`, and `created_at` (epoch ms).
+- **Complete items only**: Messages MUST hold `.done` items only. The base class builds assistant messages from stream `.done` items. Non-`.done` caller items are refused ([MMSP-RFC-0007](MMSP-RFC-0007-error-types.md#31-before-the-request) §3.1), except pre-0.5.0 history item types, which are converted ([MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.md#7-one-shape-per-input) §7).
+- **Order & metadata**: Item order is preserved ([MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.md#6-order) §6). Stream-built assistant messages carry `usage_metadata` and `finish_reason` ([MMSP-RFC-0003](MMSP-RFC-0003-message-requests.md#44-the-assistant-message) §4.4); hand-built messages MAY omit both.
 
 ### 3.3 `UniEvent`
 
-An event has `role`, `event_type` (`delta` or `stop`), `content_items`, `usage_metadata`, `finish_reason` and `created_at`. In the public stream a `delta` event MUST carry exactly one item, a fragment or a complete item, and neither usage nor finish reason; the one `stop` event MUST carry no items and both ([MMSP-RFC-0003](MMSP-RFC-0003-message-requests.md#4-the-stream-grammar) §4). What a client yields to the base class is [MMSP-RFC-0003](MMSP-RFC-0003-message-requests.md#41-what-a-client-yields) §4.1.
+- **Fields**: `role`, `event_type` (`delta` or `stop`), `content_items`, `usage_metadata`, `finish_reason`, and `created_at`.
+- **`delta` event**: In the public stream, MUST carry one item (`.delta` or `.done`) and neither usage nor finish reason.
+- **`stop` event**: The single `stop` event MUST carry no items and both usage and finish reason ([MMSP-RFC-0003](MMSP-RFC-0003-message-requests.md#4-the-stream-grammar) §4). Client yields to the base class are in [MMSP-RFC-0003](MMSP-RFC-0003-message-requests.md#41-what-a-client-yields) §4.1.
 
 ### 3.4 Content Items
 
-The complete kinds are `text.done`, `image_url.done`, `inline_data.done`, `thinking.done`, `inline_thinking.done`, `tool_call.done`, `tool_result.done`, `embedding.done` and `webtool.done`. The fragment kinds are the `.delta` forms of all of them but `image_url` and `tool_result`, which a caller writes and no stream carries. A message or an event MUST NOT carry any other kind of item, a provider's own types included.
+- **Closed set**: Messages and events MUST NOT carry any item kind outside this table (including provider types).
 
-An `inline_data` item's `mime_type` names its medium: an image, audio or a video. An image or a video arrives whole, one fragment to an item; audio streams as the fragments of one item. A fragment of raw PCM, `audio/l16` with its `rate` and `channels`, MUST hold whole frames, a frame being one 16-bit sample of each channel, so that a player can take each fragment as it arrives; a client whose endpoint splits a frame across its chunks holds the frame's first bytes back for the next fragment, and bytes left when the response ends go out as the last one. A video the provider delivers by URI rather than by its bytes is a `text` item holding the URI.
-
-A `webtool` item's `webdata` is a list of `WebData` objects, each with a `title`, a `content` and a `url`, all three strings. For a search it MUST hold the results in rank order, each result's `content` being the summary the search endpoint gives of the page, never the page's body; a search that found nothing is an item whose `webdata` is empty. For a fetch it MUST hold the one page read, its `content` being the page's Markdown and its `url` the page's address, or the URL sent where the endpoint returns none.
+| Category | Kinds & Rules |
+| :--- | :--- |
+| **Complete (`.done`)** | `text.done`, `image_url.done`, `inline_data.done`, `thinking.done`, `inline_thinking.done`, `tool_call.done`, `tool_result.done`, `embedding.done`, `webtool.done`. |
+| **Fragment (`.delta`)** | `.delta` forms of all complete kinds **except** `image_url` and `tool_result` (written by callers, never streamed). |
+| **`inline_data` media** | `mime_type` names image, audio, or video. Image/video arrives whole (one fragment per item). Audio streams as fragments of one item. URI videos return as `text` holding the URI. |
+| **Raw PCM (`audio/l16`)** | Carries `rate` and `channels`. Each fragment MUST hold whole frames (one 16-bit sample per channel) for immediate playback. Split frame bytes wait for the next fragment, and trailing bytes flush at stream end. |
+| **`tool_call` (`arguments`)** | `arguments` is a string: the JSON text of the call's argument object as written by the model (fragments are pieces of that text, and `.done` is their join; [MMSP-RFC-0003](MMSP-RFC-0003-message-requests.md#43-items) §4.3). Nothing between provider and caller re-parses and re-serializes it: replays send it as-is on string-argument wires (Responses, Chat Completions) and parse it only on object-argument wires (Messages `input`, generateContent `args`, Interactions `arguments`); where a provider delivers an object (Gemini), the text is that object's JSON. Callers parse the text to run the tool. |
+| **`webtool` (`webdata`)** | List of `WebData` (`title`, `content`, `url` strings). **Search**: MUST keep rank order, with `content` as the endpoint summary (never page body), or `[]` when empty. **Fetch**: MUST hold the one page read, with `content` as Markdown and `url` as the page address (or sent URL if none returned). |
 
 ## 4. Provider Features
 
-- A provider feature MUST enter MMSP as a `UniConfig` key or an item field of the protocol, or as opaque `fidelity` on the item it belongs to (§5), never as a key or field of one client's own.
-- A change to a shape (an item kind or field, a key of `UniConfig`, a field of `UniMessage` or `UniEvent`) changes the protocol and MUST go through an RFC.
+- **Entry paths**: Provider features MUST enter MMSP as a `UniConfig` key, an item universal field, or opaque item `fidelity` (§5)—never as a client-specific key or field.
+- **RFC gated**: Any shape change (item kind/field, `UniConfig` key, `UniMessage` or `UniEvent` field) MUST go through an RFC.
 
 ## 5. What a Message Carries
 
-- A message holds its items' universal fields and, per item, only the `fidelity` a replay needs: wire data no universal field carries, such as a thinking signature, encrypted reasoning, a phase, or the reasoning field name a strict upstream demands. What each wire needs back, and what a field needs to join it, is [MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.md#4-what-each-wire-needs-back) §4.
-- `fidelity` MUST NOT hold a copy of a universal field, an id the provider regenerates or ignores, or a field no replay uses.
-- `fidelity` MUST give a kind of data the same name in every client: `signature`, `encrypted_content`, `format`, `channel`, `phase`, `reasoning_field`, `reasoning_id`. A client MUST NOT keep a wire item, or a list of them, whole under the wire's own name. `reasoning_id` is kept only for a gateway's encrypted reasoning block, whose id the gateway needs back.
-- `fidelity.item_id` is the id a client identifies its items with while streaming. `StreamItems` MUST strip it before an item goes out, so it reaches no consumer, trace or history.
-- A consumer SHOULD treat `fidelity` as opaque and pass it back unchanged.
-- The shapes earlier releases recorded inside an item are read until 0.6.0 ([MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.md#7-one-shape-per-input) §7).
+- **Replay-only `fidelity`**: Items hold universal fields plus only the `fidelity` needed for replay (e.g., thinking signature, encrypted reasoning, phase, or upstream reasoning field name; [MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.md#4-what-each-wire-needs-back) §4).
+- **Forbidden data**: `fidelity` MUST NOT hold copies of universal fields, regenerated/ignored provider IDs, unused fields, or whole wire items/lists under wire names.
+- **Canonical keys**: Clients MUST use these exact names: `signature`, `encrypted_content`, `format`, `channel`, `phase`, `reasoning_field`, `reasoning_id` (kept only for gateway encrypted reasoning blocks whose ID the gateway needs back).
+- **`fidelity.item_id` stripping**: Used internally during streaming; `StreamItems` MUST strip `item_id` before emission so it never reaches consumers, traces, or histories.
+- **Opacity & legacy**: Consumers SHOULD pass `fidelity` back unchanged. Legacy in-item shapes remain readable until 0.6.0 ([MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.md#7-one-shape-per-input) §7).
 
 ## 6. One Protocol in Two Packages
 
-- `mmsp` and `@prismshadow/mmsp` MUST have the same clients, mappings, error classes and stream under the same names, up to each language's casing and idiom. A behavior one package lacks or does differently is a bug.
-- Both packages MUST put the same request body on the wire. A key outside an SDK's typed parameters travels through that SDK's own channel: `extra_body` in the OpenAI and Anthropic Python SDKs, and a top-level body key in their TypeScript SDKs.
-- A change MUST land in both packages in one PR, with mirrored tests.
+- **Behavioral parity**: `mmsp` and `@prismshadow/mmsp` MUST expose the same clients, mappings, error classes, and stream under the same names (up to language casing/idiom). Divergent or missing behavior is a bug.
+- **Identical wire bodies**: Both packages MUST send identical request bodies. Untyped SDK keys use `extra_body` in OpenAI/Anthropic Python SDKs and top-level body keys in TypeScript SDKs.
+- **Single-PR changes**: Every change MUST land in both packages in one PR with mirrored tests.
 
 ## 7. Conformance
 
-- `src_py/mmsp/types.py`, `src_ts/src/types.ts`; the abstract transforms of `src_py/mmsp/base_client.py` / `src_ts/src/baseClient.ts`, and `concat_uni_events_to_uni_message` / `concatUniEventsToUniMessage`, which keeps the complete items of a stream.
-- `src_py/mmsp/stream_items.py` / `src_ts/src/streamItems.ts`, which keep one fidelity per item and strip `item_id`; `src_py/tests/stream_grammar.py` / `src_ts/tests/streamGrammar.ts`, which reject an item that still carries it.
-- The paired tests under `src_py/tests/` and `src_ts/tests/`, among them `test_request_body.py` / `request-body.test.ts`, which read the body the Anthropic clients send on every SDK line, and `test_reasoning_fidelity.py` / `reasoning-fidelity.test.ts`, which assert the exact reasoning item a replay sends, with no id and no partial ciphertext.
-- The shared e2e tests, `src_py/tests/test_client.py` and `src_ts/tests/client.test.ts`, are one contract every client satisfies:
-  - a model enters them as its entry in `.github/ci/models.json`, with its capability flags and key variable;
-  - no shared test branches on a model name, and no model gets a test file of its own;
-  - a failing shared test means the client is wrong until proven otherwise;
-  - any broader test edit needs the owner's explicit approval, per change.
-- `.github/ci/models.json`, the one catalog both suites load, with `.github/ci/plan.py`, `.github/ci/README.md` and `.github/workflows/ci.yml`. The catalog keeps the newest generation of a family; a generation that leaves it stays supported and routed ([MMSP-RFC-0005](MMSP-RFC-0005-client-routing.md#3-client-types) §3).
-- The routing case of `test_client.py` / `client.test.ts` that checks every catalog entry reaches its client group.
+- **Types & base client**: `src_py/mmsp/types.py`, `src_ts/src/types.ts`, `src_py/mmsp/base_client.py` / `src_ts/src/baseClient.ts`, and `concat_uni_events_to_uni_message` / `concatUniEventsToUniMessage` (`.done` items only).
+- **Stream items & grammar**: `src_py/mmsp/stream_items.py` / `src_ts/src/streamItems.ts` (one fidelity per item, strips `item_id`) and `src_py/tests/stream_grammar.py` / `src_ts/tests/streamGrammar.ts` (rejects leftover `item_id`).
+- **Paired unit tests (`src_py/tests/` & `src_ts/tests/`)**: `test_request_body.py` / `request-body.test.ts` (Anthropic SDK wire bodies) and `test_reasoning_fidelity.py` / `reasoning-fidelity.test.ts` (exact replayed reasoning items, no ID or partial ciphertext).
+- **Shared e2e contract (`src_py/tests/test_client.py` & `src_ts/tests/client.test.ts`)**:
+  - Models enter via `.github/ci/models.json` with capability flags and key variables.
+  - No test branches on model name, and no model gets its own test file.
+  - A failing shared test means the client is wrong until proven otherwise; broader test edits need explicit owner approval per change.
+- **Catalog & routing**: `.github/ci/models.json` (with `.github/ci/plan.py`, `.github/ci/README.md`, `.github/workflows/ci.yml`) tracks each family's newest generation while older generations stay supported and routed ([MMSP-RFC-0005](MMSP-RFC-0005-client-routing.md#3-client-types) §3), verified by the routing case in `test_client.py` / `client.test.ts`.

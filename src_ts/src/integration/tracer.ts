@@ -1556,7 +1556,7 @@ export class Tracer {
           }
         } else if (item.type === "tool_call.done") {
           lines.push(`Tool Call: ${item.name}`);
-          lines.push(`  Arguments: ${JSON.stringify(item.arguments, null, 2)}`);
+          lines.push(`  Arguments: ${item.arguments}`);
           lines.push(`  Tool Call ID: ${item.tool_call_id}`);
         } else if (item.type === "tool_result.done") {
           lines.push(`Tool Result (ID: ${item.tool_call_id}): ${item.text}`);
@@ -1733,10 +1733,7 @@ export class Tracer {
                       inner += `<img class="item-img" src="${esc(this._inlineDataUrl(item))}" alt="Thinking image">`;
                     }
                   } else if (item.type === "tool_call.done") {
-                    const args = Object.entries(item.arguments)
-                      .map(([key, value]) => `${esc(key)}="${esc(value)}"`)
-                      .join(", ");
-                    inner = `<div class="tool-sig">${esc(item.name)}(${args})</div>`;
+                    inner = `<div class="tool-sig">${esc(item.name)}(${esc(item.arguments)})</div>`;
                   } else if (item.type === "tool_result.done") {
                     const images =
                       item.images && item.images.length > 0

@@ -312,7 +312,7 @@ describe.each(OPENAI_COMPATIBLE_TOOL_STREAM_CASES)(
       expect(toolCalls[0]).toEqual({
         type: "tool_call.done",
         name: "exec_command",
-        arguments: { cmd: "echo ok" },
+        arguments: '{"cmd":"echo ok"}',
         tool_call_id: "call_ok",
       });
 
@@ -325,9 +325,9 @@ describe.each(OPENAI_COMPATIBLE_TOOL_STREAM_CASES)(
         name: "exec_command",
         tool_call_id: "call_ok",
       });
-      expect(
-        JSON.parse(fragments.map((fragment) => fragment.arguments).join("")),
-      ).toEqual(toolCalls[0].arguments);
+      expect(fragments.map((fragment) => fragment.arguments).join("")).toBe(
+        toolCalls[0].arguments,
+      );
       const kinds = streamedItems(events)
         .filter(
           (item) =>
@@ -484,8 +484,8 @@ describe.each(RESPONSES_CASES)(
       expect(
         toolCalls.map((call) => [call.tool_call_id, call.name, call.arguments]),
       ).toEqual([
-        ["call_first", "tool_first", { city: "Paris" }],
-        ["call_second", "tool_second", { city: "Paris" }],
+        ["call_first", "tool_first", '{"city":"Paris"}'],
+        ["call_second", "tool_second", '{"city":"Paris"}'],
       ]);
     });
   },
@@ -532,10 +532,65 @@ describe.each(RESPONSES_CASES)(
         {
           type: "tool_call.done",
           name: "list_files",
-          arguments: {},
+          arguments: "{}",
           tool_call_id: "call_list",
         },
       ]);
+    });
+  },
+);
+
+// A parse turns 9007199254740993 into 9007199254740992 in TypeScript, and the decimal into
+// 0.12345678901234568 in both languages, so the arguments stay the text the model wrote.
+const EXACT_ARGUMENTS =
+  '{"id": 9007199254740993, "ratio": 0.12345678901234567890}';
+
+/** The arguments of every tool call in a Responses or a Chat Completions input. */
+function replayedArguments(modelInput: unknown): string[] {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (modelInput as any[]).flatMap((entry) => [
+    ...(entry.type === "function_call" ? [entry.arguments] : []),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ...(entry.tool_calls ?? []).map((call: any) => call.function.arguments),
+  ]);
+}
+
+describe.each(OPENAI_COMPATIBLE_TOOL_STREAM_CASES)(
+  "Tool call arguments as the model wrote them for $clientType",
+  (testCase) => {
+    test("keeps and replays the arguments' text", async () => {
+      const client = createAutoClient(testCase);
+      installFakeStream(
+        client,
+        testCase,
+        toolStream(
+          testCase,
+          "call_exact",
+          "exec_command",
+          EXACT_ARGUMENTS.slice(0, 21),
+          EXACT_ARGUMENTS.slice(21),
+        ),
+      );
+
+      const events = await collectEvents(
+        client.streamingResponse({ messages, config: {} }),
+      );
+      assertStreamGrammar(events);
+      const doneItems = streamedItems(events).filter((item) =>
+        item.type.endsWith(".done"),
+      );
+      expect(doneItems).toEqual([
+        expect.objectContaining({
+          type: "tool_call.done",
+          arguments: EXACT_ARGUMENTS,
+        }),
+      ]);
+
+      const modelInput = await client.transformUniMessageToModelInput([
+        ...messages,
+        { role: "assistant", content_items: doneItems } as UniMessage,
+      ]);
+      expect(replayedArguments(modelInput)).toEqual([EXACT_ARGUMENTS]);
     });
   },
 );

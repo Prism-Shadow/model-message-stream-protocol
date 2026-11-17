@@ -50,7 +50,7 @@ group  := K.delta+ K.done        K = text | thinking | tool_call | inline_data |
 
 `image_url` and `tool_result` are written by the user only, so they have no delta form.
 
-A `.done` item is the first fragment of its group with the growing field replaced by everything the fragments carried: the concatenated text, thinking or bytes, the parsed arguments, the vector, the pages.
+A `.done` item is the first fragment of its group with the growing field replaced by everything the fragments carried: the concatenated text, thinking, arguments or bytes, the vector, the pages.
 
 ## An example
 
@@ -64,7 +64,7 @@ delta  thinking.done    thinking="Let me check"  fidelity={"signature": "..."}
 delta  tool_call.delta  name="get_weather"  tool_call_id="toolu_1"  arguments=""
 delta  tool_call.delta  name=""  tool_call_id=""  arguments="{\"location\": "
 delta  tool_call.delta  name=""  tool_call_id=""  arguments="\"Paris\"}"
-delta  tool_call.done   name="get_weather"  tool_call_id="toolu_1"  arguments={"location": "Paris"}
+delta  tool_call.done   name="get_weather"  tool_call_id="toolu_1"  arguments="{\"location\": \"Paris\"}"
 stop   usage_metadata={...}  finish_reason="tool_call"
 ```
 
@@ -73,7 +73,7 @@ The third event carries nothing but [`fidelity`](/docs/fidelity/): the signature
 ## Tool calls
 
 - The first `tool_call.delta` of a call carries its `name` and `tool_call_id`. Later fragments carry only `arguments`.
-- `tool_call.done` carries the `arguments` parsed into an object. Read tool calls from it, and send each result back with its `tool_call_id`.
+- `tool_call.done` carries the whole `arguments`, the JSON text the model wrote. MMSP never parses it and writes it again, so a number keeps every digit; parse it to run the tool. Read tool calls from it, and send each result back with its `tool_call_id`.
 - The arguments must parse to a JSON object. When they are malformed, cut short, or parse to something else, MMSP raises `ToolCallArgumentParseError` in place of the `tool_call.done`.
 - `minimax-official` reads each call from the server's completed item, so its call streams as a single `tool_call.delta` carrying the name, the id and the whole arguments, then the `tool_call.done`.
 
@@ -83,7 +83,7 @@ An embedding model streams one `embedding.delta` and one `embedding.done` per me
 
 ## Web search and fetch
 
-A web tool model (`deepseek-search`, `deepseek-fetch`, `jina-search`, `jina-fetch`) streams one `webtool.delta` and one `webtool.done` per message you sent, then the `stop` event. A message's text is the query of a search or the URL of a fetch. A search's `webdata` holds its results in rank order, each with its summary as `content`, and is empty when it found nothing; a fetch's holds the one page, with its Markdown as `content`. The `stop` event's `prompt_tokens` is what was billed: 1 per request on DeepSeek, the tokens Jina counts on Jina.
+A web tool model (`deepseek-search`, `deepseek-fetch`, `jina-search`, `jina-fetch`) streams one `webtool.delta` and one `webtool.done` per message you sent, then the `stop` event. A message's text is the query of a search or the URL of a fetch. A search's `webdata` holds its results in rank order, each with its summary as `content`, and is empty when it found nothing; a fetch's holds the one page, with its Markdown as `content`. The `stop` event's `prompt_tokens` is what was billed: 1,000 per request on DeepSeek, which bills by the request, so that its price per million tokens is the price of 1,000 requests, and the tokens Jina counts on Jina.
 
 ## Images, speech and transcription
 

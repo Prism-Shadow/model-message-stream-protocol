@@ -15,7 +15,7 @@
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-from .errors import StreamProtocolError, parse_tool_call_arguments
+from .errors import StreamProtocolError, check_tool_call_arguments
 from .types import ContentItem, DeltaContentItem, EventContentItem, Fidelity
 
 
@@ -30,9 +30,9 @@ class _Kind:
     field: str
     header: tuple[str, ...]
     join: Callable[[list[Any]], Any]
-    # the joined value becomes the done item's; tool call arguments stream as a JSON string and are
-    # parsed into an object
-    parse: Callable[[str, str, dict[str, Any]], Any] | None = None
+    # the joined value becomes the done item's; tool call arguments stream as a JSON string, which is
+    # checked to hold an object and kept as the text the model wrote
+    check: Callable[[str, str, dict[str, Any]], Any] | None = None
     # whether a delta begins an item by itself, whatever id it carries
     begins: Callable[[dict[str, Any]], bool] | None = None
     # an empty delta of this kind goes out all the same
@@ -46,7 +46,7 @@ _KINDS = {
         "arguments",
         ("name", "tool_call_id"),
         "".join,
-        parse=lambda joined, client, header: parse_tool_call_arguments(
+        check=lambda joined, client, header: check_tool_call_arguments(
             joined, client, header["name"], header["tool_call_id"]
         ),
         # a call's name comes once, on its first delta
@@ -193,7 +193,7 @@ class StreamItems:
         done = {
             **item.first,
             "type": f"{item.kind}.done",
-            spec.field: spec.parse(joined, self._client, item.first) if spec.parse else joined,
+            spec.field: spec.check(joined, self._client, item.first) if spec.check else joined,
         }
         if item.fidelity is not None:
             done["fidelity"] = item.fidelity

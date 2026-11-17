@@ -22,6 +22,7 @@ This example shows how to:
 """
 
 import asyncio
+import json
 import os
 import threading
 import time
@@ -106,7 +107,7 @@ async def run_traced_chat():
 
     if tool_call:
         # Execute the tool
-        result = get_weather(tool_call["arguments"]["location"])
+        result = get_weather(json.loads(tool_call["arguments"])["location"])
 
         # Send tool result back
         async for _ in client2.streaming_response_stateful(

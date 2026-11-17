@@ -86,7 +86,7 @@ def _messages(thought_signature: str = "sig-1") -> list[dict[str, Any]]:
                 {
                     "type": "tool_call.done",
                     "name": "get_weather",
-                    "arguments": {"city": "Paris"},
+                    "arguments": '{"city": "Paris"}',
                     "tool_call_id": "call_1",
                 },
             ],

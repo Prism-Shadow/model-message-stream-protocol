@@ -50,7 +50,7 @@ group  := K.delta+ K.done        K = text | thinking | tool_call | inline_data |
 
 `image_url` 和 `tool_result` 仅由用户侧写入，因此没有 delta 形式。
 
-`.done` 项相当于所在组的第一个片段，但将其增长字段替换为所有片段拼接后的完整内容：拼接的文本或思考、解析后的参数、完整的字节、向量或网页。
+`.done` 项相当于所在组的第一个片段，但将其增长字段替换为所有片段拼接后的完整内容：拼接的文本、思考或参数、完整的字节、向量或网页。
 
 ## 示例
 
@@ -64,7 +64,7 @@ delta  thinking.done    thinking="Let me check"  fidelity={"signature": "..."}
 delta  tool_call.delta  name="get_weather"  tool_call_id="toolu_1"  arguments=""
 delta  tool_call.delta  name=""  tool_call_id=""  arguments="{\"location\": "
 delta  tool_call.delta  name=""  tool_call_id=""  arguments="\"Paris\"}"
-delta  tool_call.done   name="get_weather"  tool_call_id="toolu_1"  arguments={"location": "Paris"}
+delta  tool_call.done   name="get_weather"  tool_call_id="toolu_1"  arguments="{\"location\": \"Paris\"}"
 stop   usage_metadata={...}  finish_reason="tool_call"
 ```
 
@@ -73,7 +73,7 @@ stop   usage_metadata={...}  finish_reason="tool_call"
 ## 工具调用
 
 - 一次工具调用的首个 `tool_call.delta` 携带 `name` 和 `tool_call_id`。后续片段只携带 `arguments`。
-- `tool_call.done` 携带解析为对象的 `arguments`。应从此读取工具调用，并使用对应的 `tool_call_id` 返回每个结果。
+- `tool_call.done` 携带完整的 `arguments`，即模型写出的 JSON 文本。MMSP 从不解析它再重新写出，所以数字的每一位都得以保留；运行工具时自行解析。应从此读取工具调用，并使用对应的 `tool_call_id` 返回每个结果。
 - 参数必须能解析为 JSON 对象。如果格式错误、被截断或解析出其他类型，MMSP 会在 `tool_call.done` 的位置抛出 `ToolCallArgumentParseError`。
 - `minimax-official` 从服务端已完成的项读取调用，因此其调用流为一个 `tool_call.delta`（携带名称、id 和完整参数）后接 `tool_call.done`。
 
@@ -83,7 +83,7 @@ stop   usage_metadata={...}  finish_reason="tool_call"
 
 ## 网页搜索与网页抓取
 
-网页工具模型（`deepseek-search`、`deepseek-fetch`、`jina-search`、`jina-fetch`）对你发送的每条消息流式输出一个 `webtool.delta` 和一个 `webtool.done`，最后是 `stop` 事件。消息的文本就是搜索的查询或抓取的 URL。搜索的 `webdata` 按排名存放结果，每条的 `content` 是摘要，什么也没搜到时为空列表；抓取的 `webdata` 只有读到的那一页，`content` 是它的 Markdown。`stop` 事件的 `prompt_tokens` 是计费量：DeepSeek 每次请求记 1，Jina 记它计费的 token 数。
+网页工具模型（`deepseek-search`、`deepseek-fetch`、`jina-search`、`jina-fetch`）对你发送的每条消息流式输出一个 `webtool.delta` 和一个 `webtool.done`，最后是 `stop` 事件。消息的文本就是搜索的查询或抓取的 URL。搜索的 `webdata` 按排名存放结果，每条的 `content` 是摘要，什么也没搜到时为空列表；抓取的 `webdata` 只有读到的那一页，`content` 是它的 Markdown。`stop` 事件的 `prompt_tokens` 是计费量：DeepSeek 按请求计费，每次请求记 1,000，这样它每百万 token 的价格就是 1,000 次请求的价格；Jina 记它计费的 token 数。
 
 ## 图像、语音合成与语音转写
 

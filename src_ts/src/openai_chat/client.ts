@@ -285,7 +285,7 @@ export class OpenaiChatClient extends LLMClient {
             type: "function",
             function: {
               name: item.name,
-              arguments: JSON.stringify(item.arguments, null, 0),
+              arguments: item.arguments,
             },
           });
         } else if (item.type === "tool_result.done") {

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import base64
+import json
 import mimetypes
 import re
 from typing import Any, AsyncIterator
@@ -312,7 +313,8 @@ class AnthropicOfficialClient(LLMClient):
                             "type": "tool_use",
                             "id": item["tool_call_id"],
                             "name": item["name"],
-                            "input": item["arguments"],
+                            # Messages takes the arguments as an object, so the text is parsed here only
+                            "input": json.loads(item["arguments"]),
                         }
                     )
                 elif item["type"] == "tool_result.done":

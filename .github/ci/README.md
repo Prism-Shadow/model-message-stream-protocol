@@ -12,13 +12,13 @@
 | PR to `main`, push to `main`, manual CI run | All configured clients |
 | Package publication, including manual publication | All configured clients; both languages must pass before either package publishes |
 
-Python also reruns the offline tests with `anthropic[bedrock]<2` and `==0.87.0`, and with `google-genai<3` and `==2.23.0`, so the older SDK lines stay covered without extra model calls.
+`pytest-sdk-lines.yml` reruns the Python offline tests with `anthropic[bedrock]<2` and `==0.87.0`, and with `google-genai<3` and `==2.23.0`, so the older SDK lines stay covered without extra model calls. Each line is its own job and they start with the Python tests, since they call no model and need not wait in line.
 
-A live model case that fails on a rate limit or an `IncompleteStreamError` is retried up to 5 times, 30 s apart (`--only-rerun` in `pytest.yml`, `withTransientRetry` in `client.test.ts`); any other failure fails on its first attempt.
+A live model case that fails on a rate limit, an overloaded server's 529 or an `IncompleteStreamError` is retried up to 5 times, 30 s apart (`--only-rerun` in `pytest.yml`, `withTransientRetry` in `client.test.ts`); any other failure fails on its first attempt.
 
 All CI model runs set `RUN_SLOW_TEST=0`, including full coverage and publication gates. Full coverage means every client's default cases; cases marked `slow` remain opt-in for local runs. Missing keys for selected non-slow cases fail collection instead of silently dropping coverage. Fork PRs run offline checks only because repository secrets are unavailable. `mmsp` needs a user-provided server and remains optional through `MMSP_API_KEY`, `MMSP_BASE_URL`, and `MMSP_MODEL`; the vLLM adapter currently has offline coverage only.
 
-Use **CI passed** as the required PR check. It runs even when no language jobs are needed and fails if selection or any required language job fails or is cancelled. Existing branch rules requiring the old standalone test job names must be updated to this check.
+Use **CI passed** as the required PR check. It runs even when no language jobs are needed and fails if selection or any required language or SDK line job fails or is cancelled. Existing branch rules requiring the old standalone test job names must be updated to this check.
 
 ## Model catalog
 

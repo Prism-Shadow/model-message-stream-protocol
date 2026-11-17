@@ -3,89 +3,98 @@
 - Feature Name: `message_protocol`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318), [#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318), [#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330), [#339](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/339)
 - Kind: spec
 
 [English](MMSP-RFC-0002-message-protocol.md)
 
 ## Abstract
 
-MMSP 是所有模型共用的一套消息协议。调用模型只用三种结构：输入 `UniConfig`，输入与输出 `UniMessage`，输出 `UniEvent`；其中的内容项是一个封闭的类型集合，只在 `types.py` / `types.ts` 中定义一次。本文规定这三种结构、消息能携带什么（内容项的通用字段，以及每个内容项上精简的 `fidelity`）、服务商的功能如何进入协议，以及 Python 与 TypeScript 两个包的一致性：两个包是同一套协议。
+MMSP 是所有模型共用的统一消息协议，仅用三种结构调用模型：输入 **`UniConfig`**、输入/输出 **`UniMessage`** 与输出 **`UniEvent`**，内容项类型在 `types.py` / `types.ts` 中封闭定义。每个内容项只带通用字段与精简 **`fidelity`**，且 Python（**`mmsp`**）与 TypeScript（**`@prismshadow/mmsp`**）两包是同一套协议。
 
 ## 1. Introduction
 
-MMSP 的用意，是让调用方只面对一种消息格式和一套流语法，换模型只需换一个字符串。服务商的功能一旦以某个客户端独有的键进入，调用方就又得去了解这个服务商；两个包的行为一旦不同，就成了第二套协议。写下两包一致这条规则时做的审查发现，两个包发出的请求有两处不一致：一个是 OpenAI Python SDK 当作关键字参数拒绝的键（[#266](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/266)），一个是 openai-node 不会从字面的 `extra_body` 中展开的键（[#267](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/267)）。共享的 e2e 测试与唯一的模型清单（[#255](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/255)）检查两包是否一致，而不只是承诺。
+- **单一格式与双包一致**：调用方只对接一种消息格式与流语法，换模型只需改字符串。客户端私有键或双包差异都会破坏协议。审查修复了两处线上差异——OpenAI Python SDK 拒绝的关键字（[#266](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/266)）与 `openai-node` 未展开的 `extra_body`（[#267](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/267)）——现由共享 e2e 测试与唯一模型清单（[#255](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/255)）强制校验。
+- **精简 `fidelity`（「转换只保留必要的部分，冗余字段不需要保留」）**：回传只需保证 API 接受且模型行为不变，无需复刻线上冗余字段。[#159](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/159) 引入 `fidelity` 保存严格上游要求的推理字段，[#287](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/287) 将网关推理块精简为重建所需的三个键。
+- **RFC 演进**：原载于 [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265)（MMSP-RFC-0002、MMSP-RFC-0009、MMSP-RFC-0008 部分与 MMSP-RFC-0012 后半）及 [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298)（MMSP-RFC-0002、MMSP-RFC-0004）。顺序规则现见 [MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.zh.md#6-顺序) §6。
 
-回传的回合要被 API 接受，且模型的行为不受影响；它不必逐字段重现线上的内容项，而每一个照搬进 `fidelity` 的字段，都是使用方、trace 与历史记录要多携带的一种服务商结构。[#159](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/159) 加入 `fidelity`，用来承载严格的上游要求原样发回的推理字段；[#287](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/287) 不再整块保存网关的推理块，改为保存重建它所需的三个键。项目负责人的原话是：「转换只保留必要的部分，冗余字段不需要保留」。
-
-这些要求最初在 [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265) 中写作 MMSP-RFC-0002、MMSP-RFC-0009、MMSP-RFC-0008 的一部分与 MMSP-RFC-0012 的后半部分，在 [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) 中写作 MMSP-RFC-0002 与 MMSP-RFC-0004。原 MMSP-RFC-0002 中保持顺序的那一条，现在是 [MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.zh.md#6-顺序) §6。
-
-2026-11-02，项目负责人要求加入网页搜索与网页抓取，做法与 embedding 相同，原话是：「在mmsp里面增加search和fetch的能力,实现方式和embedding类似」。它们以一种新的内容项类型 `webtool` 进入协议，它的 `webdata` 存放搜索找到的网页或抓取读到的那一页；另有一个新的 `UniConfig` 键 `webtool_config`，它的 `count` 是搜索返回的结果数。关于搜索结果携带什么，项目负责人的原话是：「search的content显示摘要,不要用need content参数 jina要加no content」。[#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308) 在原文上修改了本规范：在 §3.4 中加入 `webtool` 类型。
-
-2026-11-06，项目负责人要求支持 Gemini Omni 的视频生成，原话是：「支持一下google omni的视频生成能力」。视频以 `inline_data` 内容项进入协议，没有新增类型；服务商以 URI 交付的视频按它的 URI 以文本返回，因为项目负责人选择不为它新增内容项类型。[#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318) 在原文上修改了本规范：在 §3.4 中写明 `inline_data` 承载的媒体。
-
-2026-11-16，项目负责人问语音是否以流的形式输出、能否一部分一部分地听到，原话是：「音频输出是真正的音频流式吗?就是说我能不能每次只听到一部分」。它确实是流式的，端点发来一块就产出一个片段，但 DeepSeek 的分块会把 16 位采样劈开（一次回答的 418 个片段中有 74 个字节数为奇数），一到达就播放的片段可能让之后的每个采样都错位。这不需要新的内容项类型：原始 PCM 的片段由完整的帧组成，每个片段一到达就能播放。[#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330) 在原文上修改了本规范：§3.4 写入完整的帧。
+| 日期 / PR | 变更与原因 |
+| :--- | :--- |
+| **2026-11-02** ([#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308)) | **网页搜索与抓取（`webtool`）**：新增 `webtool`（`webdata`）与 `UniConfig.webtool_config`（`count`）（「在mmsp里面增加search和fetch的能力,实现方式和embedding类似」）。搜索只存摘要（「search的content显示摘要,不要用need content参数 jina要加no content」，§3.4）。 |
+| **2026-11-06** ([#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318)) | **`inline_data` 视频**：支持 Gemini Omni 视频生成（「支持一下google omni的视频生成能力」），复用 `inline_data`。URI 视频作为带 URI 的 `text` 返回（§3.4）。 |
+| **2026-11-16** ([#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330)) | **原始 PCM 完整帧**：支持语音边到边播（「音频输出是真正的音频流式吗?就是说我能不能每次只听到一部分」）。因 DeepSeek 分块会劈开 16 位采样（418 个片段中 74 个字节数为奇数），规定 `audio/l16` 片段必须由完整帧组成（§3.4）。 |
+| **2026-11-17** ([#339](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/339)) | **工具调用 `arguments` 保留 JSON 字符串**：保留模型写出的 JSON 文本（「这个丢精度确实会有问题,在中间多做一次精度转换就会丢东西,UniMessage的工具参数还是保留字符串类型吧」），避免解析为 JS `number`（2^53）或 Python `float`（17 位有效数字）导致 `9007199254740993` 变成 `9007199254740992` 而破坏无损回放（[MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.zh.md)，§3.4）。 |
 
 ## 2. Conventions and Terminology
 
 本文中的关键词“必须”“不得”“应当”“不应”“可以”依次对应 BCP 14（[RFC 2119](https://www.rfc-editor.org/rfc/rfc2119)、[RFC 8174](https://www.rfc-editor.org/rfc/rfc8174)）中的 MUST、MUST NOT、SHOULD、SHOULD NOT 与 MAY，按其定义解释；本文只在这一含义上使用这五个词。
 
-- *内容项*（item）：消息或事件的 `content_items` 中的一项。*完整内容项*的类型以 `.done` 结尾；*片段*的类型以 `.delta` 结尾。
-- *通用字段*：`types.py` / `types.ts` 为内容项定义的、`fidelity` 以外的字段，例如 `text`、`thinking`、`arguments` 或 `tool_call_id`。
-- *Fidelity*：内容项的 `fidelity` 对象，即没有通用字段承载的线上数据（§5）。
-- *公开流*：定义见 [MMSP-RFC-0003](MMSP-RFC-0003-message-requests.zh.md#2-conventions-and-terminology) §2。*回传*：定义见 [MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.zh.md#2-conventions-and-terminology) §2。
+- **内容项（item）**：消息或事件的 `content_items` 中的一项。
+- **完整内容项**：类型以 `.done` 结尾的内容项。
+- **片段**：类型以 `.delta` 结尾的内容项。
+- **通用字段**：`types.py` / `types.ts` 定义的 `fidelity` 以外的字段（如 `text`、`thinking`、`arguments`、`tool_call_id`）。
+- **Fidelity**：内容项的 `fidelity` 对象，承载通用字段之外的线上数据（§5）。
+- **公开流**：定义见 [MMSP-RFC-0003](MMSP-RFC-0003-message-requests.zh.md#2-conventions-and-terminology) §2。
+- **回传**：定义见 [MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.zh.md#2-conventions-and-terminology) §2。
 
 ## 3. 三种结构
 
 ### 3.1 `UniConfig`
 
-一次请求的配置是一个 `UniConfig`：由 `types.py` / `types.ts` 定义的键组成，每个键都是可选的。同一个键在每个客户端上的含义必须相同；客户端如何发送、忽略或拒绝一个键，见 [MMSP-RFC-0003](MMSP-RFC-0003-message-requests.zh.md#6-请求参数) §6。
+- **可选键集合**：请求配置 `UniConfig` 由 `types.py` / `types.ts` 定义的可选键组成。
+- **跨客户端同义**：同一个键在每个客户端上的含义必须相同。客户端发送、忽略或拒绝键的规则见 [MMSP-RFC-0003](MMSP-RFC-0003-message-requests.zh.md#6-请求参数) §6。
 
 ### 3.2 `UniMessage`
 
-消息有 `role`（`user` 或 `assistant`）与 `content_items`，另有可选的 `usage_metadata`、`finish_reason` 与 `created_at`（自纪元起的毫秒数）。消息必须只包含完整内容项：基类用流中的完整内容项构建助手消息，调用方发来的其他内容项一律被拒绝（[MMSP-RFC-0007](MMSP-RFC-0007-error-types.zh.md#31-请求之前) §3.1），只有 0.5.0 之前记录的历史中的内容项类型例外，它们会被转换（[MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.zh.md#7-每种输入一种形状) §7）。内容项的顺序是消息的一部分（[MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.zh.md#6-顺序) §6）。由流构建的助手消息带有这条流的 `usage_metadata` 与 `finish_reason`（[MMSP-RFC-0003](MMSP-RFC-0003-message-requests.zh.md#44-助手消息) §4.4）；调用方手工构建的消息可以两者都不带。
+- **字段**：`role`（`user` 或 `assistant`）、`content_items`，及可选的 `usage_metadata`、`finish_reason`、`created_at`（纪元毫秒数）。
+- **仅限完整内容项**：消息必须只包含 `.done` 完整内容项。基类用流中的完整内容项构建助手消息。调用方发来的其他内容项一律拒绝（[MMSP-RFC-0007](MMSP-RFC-0007-error-types.zh.md#31-请求之前) §3.1），仅 0.5.0 前的旧历史类型会被转换（[MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.zh.md#7-每种输入一种形状) §7）。
+- **顺序与元数据**：内容项顺序是消息的一部分（[MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.zh.md#6-顺序) §6）。由流构建的助手消息带 `usage_metadata` 与 `finish_reason`（[MMSP-RFC-0003](MMSP-RFC-0003-message-requests.zh.md#44-助手消息) §4.4），手工构建的消息可以都不带。
 
 ### 3.3 `UniEvent`
 
-事件有 `role`、`event_type`（`delta` 或 `stop`）、`content_items`、`usage_metadata`、`finish_reason` 与 `created_at`。在公开流中，`delta` 事件必须恰好携带一个内容项（片段或完整内容项），且既不带用量也不带结束原因；唯一的 `stop` 事件必须不带任何内容项，并同时带有两者（[MMSP-RFC-0003](MMSP-RFC-0003-message-requests.zh.md#4-流的语法) §4）。客户端交给基类的事件是什么样，见 [MMSP-RFC-0003](MMSP-RFC-0003-message-requests.zh.md#41-客户端产出什么) §4.1。
+- **字段**：`role`、`event_type`（`delta` 或 `stop`）、`content_items`、`usage_metadata`、`finish_reason` 与 `created_at`。
+- **`delta` 事件**：公开流中必须恰好携带一个内容项（片段或完整内容项），且不带用量与结束原因。
+- **`stop` 事件**：唯一的 `stop` 事件必须不带内容项，并同时带用量与结束原因（[MMSP-RFC-0003](MMSP-RFC-0003-message-requests.zh.md#4-流的语法) §4）。客户端向基类产出的事件见 [MMSP-RFC-0003](MMSP-RFC-0003-message-requests.zh.md#41-客户端产出什么) §4.1。
 
 ### 3.4 内容项
 
-完整内容项的类型有 `text.done`、`image_url.done`、`inline_data.done`、`thinking.done`、`inline_thinking.done`、`tool_call.done`、`tool_result.done`、`embedding.done` 与 `webtool.done`。片段的类型是其中除 `image_url` 与 `tool_result` 之外各类型的 `.delta` 形式；这两种由调用方写入，不会出现在任何流中。消息或事件不得携带其他任何类型的内容项，服务商自己的类型也包括在内。
+- **封闭类型集合**：消息或事件不得携带下表之外的任何内容项类型（含服务商自有类型）。
 
-`inline_data` 内容项的 `mime_type` 指明它承载的媒体：图片、音频或视频。图片或视频整段到达，一个片段就是一个内容项；音频以同一个内容项的多个片段流式传出。原始 PCM（带 `rate` 与 `channels` 的 `audio/l16`）的片段必须由完整的帧组成，一帧是每个声道各一个 16 位采样，使播放器能在每个片段到达时就接收它；端点的分块把一帧劈开时，客户端把这一帧开头的字节留到下一个片段，响应结束时剩下的字节作为最后一个片段发出。服务商以 URI 而非字节交付的视频，是一个装着该 URI 的 `text` 内容项。
-
-`webtool` 内容项的 `webdata` 是一个 `WebData` 对象的列表，每个对象有 `title`、`content` 与 `url`，三者都是字符串。对于搜索，它必须按排名顺序存放搜索结果，每个结果的 `content` 是搜索端点给出的该网页摘要，绝不是网页正文；什么也没搜到的搜索，是一个 `webdata` 为空的内容项。对于抓取，它必须只存放读到的那一页，`content` 是该网页的 Markdown，`url` 是该网页的地址，端点不返回地址时则是发出的 URL。
+| 类别 | 允许的类型与规则 |
+| :--- | :--- |
+| **完整内容项（`.done`）** | `text.done`、`image_url.done`、`inline_data.done`、`thinking.done`、`inline_thinking.done`、`tool_call.done`、`tool_result.done`、`embedding.done`、`webtool.done`。 |
+| **片段（`.delta`）** | 除 `image_url` 与 `tool_result`（调用方写入、不入流）外，所有完整类型的 `.delta` 形式。 |
+| **`inline_data` 媒体** | `mime_type` 指明图片、音频或视频。图片与视频整段到达（一片段一内容项），音频按多片段流式传出。URI 视频作为装着该 URI 的 `text` 返回。 |
+| **原始 PCM（`audio/l16`）** | 带 `rate` 与 `channels`。每个片段必须由完整帧组成（每声道一个 16 位采样），以便到达即播。被分块劈开的帧头字节留到下一片段，结束时剩余字节作为最后片段发出。 |
+| **`tool_call`（`arguments`）** | `arguments` 是字符串，保存模型写出的调用参数对象 JSON 文本（片段为文本各部分，完整项为拼接结果；[MMSP-RFC-0003](MMSP-RFC-0003-message-requests.zh.md#43-内容项) §4.3）。从服务商到调用方之间不解析再重写：以字符串接收参数的线路（Responses、Chat Completions）原样回放，仅在要求对象的线路（Messages 的 `input`、generateContent 的 `args`、Interactions 的 `arguments`）才解析；服务商以对象交付时（如 Gemini）保存该对象的 JSON。调用方运行工具时自行解析。 |
+| **`webtool`（`webdata`）** | `WebData` 列表（含字符串 `title`、`content`、`url`）。**搜索**：必须按排名顺序存放，`content` 为网页摘要（绝非正文），未搜到时为空列表。**抓取**：必须只存所读单页，`content` 为 Markdown，`url` 为网页地址（端点未返回时取请求 URL）。 |
 
 ## 4. 服务商功能
 
-- 服务商的功能必须以协议中的 `UniConfig` 键或内容项字段进入 MMSP，或者以不透明的 `fidelity` 附在所属的内容项上（§5），而绝不作为某个客户端独有的键或字段。
-- 修改任何结构（内容项的类型或字段、`UniConfig` 的键、`UniMessage` 或 `UniEvent` 的字段）都是修改协议，必须经由 RFC。
+- **准入方式**：服务商功能必须作为 `UniConfig` 键、内容项字段或内容项上的不透明 `fidelity`（§5）进入 MMSP，绝不作为单客户端私有键或字段。
+- **RFC 变更约束**：修改任何结构（内容项类型/字段、`UniConfig` 键、`UniMessage` 或 `UniEvent` 字段）必须经由 RFC。
 
 ## 5. 消息携带什么
 
-- 消息只保存其内容项的通用字段，外加每个内容项回传时需要的 `fidelity`：没有通用字段承载的线上数据，例如思考签名、加密的推理内容、phase，或严格的上游要求的推理字段名。每种线上格式需要发回什么、一个字段凭什么加进来，见 [MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.zh.md#4-每种线上格式需要发回什么) §4。
-- `fidelity` 不得存放通用字段的副本、服务商会重新生成或忽略的 id，或任何回传都用不到的字段。
-- 同一种数据在每个客户端的 `fidelity` 中必须用同一个名字：`signature`、`encrypted_content`、`format`、`channel`、`phase`、`reasoning_field`、`reasoning_id`。客户端不得以线上格式自己的名字整块保存一个线上内容项或一组线上内容项。`reasoning_id` 只为网关加密的推理块保存，网关需要拿回这个块的 id。
-- `fidelity.item_id` 是客户端在流式过程中用来标识自己内容项的 id。`StreamItems` 必须在内容项发出之前去掉它，因此它不会出现在使用方、trace 或历史记录中。
-- 使用方应当把 `fidelity` 当作不透明数据，原样传回。
-- 早先版本在内容项内部记录的那些形状，读取到 0.6.0 为止（[MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.zh.md#7-每种输入一种形状) §7）。
+- **只存回传所需 `fidelity`**：消息只保存内容项通用字段及回传必需的 `fidelity`（如思考签名、加密推理、phase 或严格上游要求的推理字段名；[MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.zh.md#4-每种线上格式需要发回什么) §4）。
+- **禁放内容**：`fidelity` 不得存放通用字段副本、服务商重生成或忽略的 id、回传不用的字段，或以线上原名整块保存单个/一组线上内容项。
+- **统一键名**：各客户端 `fidelity` 必须使用同名键：`signature`、`encrypted_content`、`format`、`channel`、`phase`、`reasoning_field`、`reasoning_id`（仅在网关需要拿回加密推理块 id 时保存）。
+- **剥离 `fidelity.item_id`**：仅用于流式内部标识内容项；`StreamItems` 必须在内容项发出前去掉它，使其不进入使用方、trace 或历史。
+- **不透明透传与旧格式**：使用方应当将 `fidelity` 原样传回。早先版本记录的内容项内部形状兼容读取至 0.6.0（[MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.zh.md#7-每种输入一种形状) §7）。
 
 ## 6. 两个包中的同一套协议
 
-- `mmsp` 与 `@prismshadow/mmsp` 必须拥有相同的客户端、映射、错误类和流，名称一致，只随各语言的大小写与惯用写法而不同。一个包缺少、或与另一个包做法不同的行为，都是缺陷。
-- 两个包发出的请求体必须相同。SDK 类型参数之外的键走各自 SDK 的通道：OpenAI 与 Anthropic 的 Python SDK 用 `extra_body`，它们的 TypeScript SDK 直接放在请求体顶层。
-- 一项改动必须在同一个 PR 中同时落到两个包，并附上相互对应的测试。
+- **接口与行为一致**：`mmsp` 与 `@prismshadow/mmsp` 必须拥有同名的客户端、映射、错误类和流（仅随语言大小写与惯用写法不同）。缺失或不一致的行为均为缺陷。
+- **请求体一致**：两包发出的请求体必须相同。SDK 类型参数外的键在 OpenAI/Anthropic Python SDK 中走 `extra_body`，在 TypeScript SDK 中放请求体顶层。
+- **单 PR 同步**：改动必须在同一 PR 中同时落到两包，并附成对测试。
 
 ## 7. Conformance
 
-- `src_py/mmsp/types.py`、`src_ts/src/types.ts`；`src_py/mmsp/base_client.py` / `src_ts/src/baseClient.ts` 中的抽象转换方法，以及只保留流中完整内容项的 `concat_uni_events_to_uni_message` / `concatUniEventsToUniMessage`。
-- `src_py/mmsp/stream_items.py` / `src_ts/src/streamItems.ts`，它们让每个内容项只有一份 fidelity，并去掉 `item_id`；`src_py/tests/stream_grammar.py` / `src_ts/tests/streamGrammar.ts`，它们拒绝仍带着 `item_id` 的内容项。
-- `src_py/tests/` 与 `src_ts/tests/` 下成对的测试，其中包括 `test_request_body.py` / `request-body.test.ts`，读取 Anthropic 客户端在每条 SDK 版本线上发出的请求体；以及 `test_reasoning_fidelity.py` / `reasoning-fidelity.test.ts`，断言回传发出的推理内容项的确切内容，不带 id，也不带残缺的密文。
-- 共享的 e2e 测试 `src_py/tests/test_client.py` 与 `src_ts/tests/client.test.ts` 是每个客户端都要满足的同一份契约：
-  - 模型以它在 `.github/ci/models.json` 中的条目进入这些测试，条目写明能力标记与密钥变量；
-  - 没有共享测试按模型名分支，也没有模型拥有专属的测试文件；
-  - 共享测试失败时，除非证明并非如此，都视为客户端有错；
-  - 任何更大范围的测试改动，都需要项目负责人逐项明确批准。
-- `.github/ci/models.json`，两套测试共同读取的唯一模型清单，以及 `.github/ci/plan.py`、`.github/ci/README.md` 与 `.github/workflows/ci.yml`。清单只保留每个模型族最新的一代；离开清单的一代模型仍然受支持，并照常路由（[MMSP-RFC-0005](MMSP-RFC-0005-client-routing.zh.md#3-客户端类型) §3）。
-- `test_client.py` / `client.test.ts` 中检查清单里每个条目都路由到其客户端分组的那个路由用例。
+- **类型与基类转换**：`src_py/mmsp/types.py`、`src_ts/src/types.ts`，`src_py/mmsp/base_client.py` / `src_ts/src/baseClient.ts` 抽象转换，以及只保留 `.done` 完整项的 `concat_uni_events_to_uni_message` / `concatUniEventsToUniMessage`。
+- **Fidelity 归并与 `item_id` 剥离**：`src_py/mmsp/stream_items.py` / `src_ts/src/streamItems.ts`（每项一份 fidelity 并去掉 `item_id`）及拒绝残留 `item_id` 的 `src_py/tests/stream_grammar.py` / `src_ts/tests/streamGrammar.ts`。
+- **成对单元测试（`src_py/tests/` 与 `src_ts/tests/`）**：`test_request_body.py` / `request-body.test.ts`（核对 Anthropic 各 SDK 版本线请求体）与 `test_reasoning_fidelity.py` / `reasoning-fidelity.test.ts`（断言回传推理项无 id、无残缺密文）。
+- **共享 e2e 契约（`src_py/tests/test_client.py` 与 `src_ts/tests/client.test.ts`）**：
+  - 模型以 `.github/ci/models.json` 条目（含能力标记与密钥变量）接入。
+  - 共享测试不按模型名分支，模型不设专属测试文件。
+  - 共享测试失败默认视为客户端有错；更大范围的测试改动需项目负责人逐项批准。
+- **唯一模型清单与路由**：`.github/ci/models.json`（配 `.github/ci/plan.py`、`.github/ci/README.md`、`.github/workflows/ci.yml`）只留各模型族最新一代，离开清单的旧代仍受支持并正常路由（[MMSP-RFC-0005](MMSP-RFC-0005-client-routing.zh.md#3-客户端类型) §3），由 `test_client.py` / `client.test.ts` 路由用例校验。

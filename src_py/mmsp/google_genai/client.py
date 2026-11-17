@@ -374,7 +374,8 @@ class GoogleGenaiClient(LLMClient):
                     function_call = types.FunctionCall(
                         id=item["tool_call_id"] if item["tool_call_id"] != item["name"] else None,
                         name=item["name"],
-                        args=item["arguments"],
+                        # generateContent takes the arguments as an object, so the text is parsed here only
+                        args=json.loads(item["arguments"]),
                     )
                     parts.append(types.Part(function_call=function_call, thought_signature=thought_signature))
                 elif item["type"] == "tool_result.done":

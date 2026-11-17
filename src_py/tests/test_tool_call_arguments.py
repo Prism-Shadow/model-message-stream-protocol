@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
+import inspect
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 from stream_grammar import assert_stream_grammar
@@ -212,7 +213,7 @@ async def _capture_tool_argument_error(
         async for event in stream:
             events.append(event)
 
-    # arguments are parsed when the call's item is done: the call's deltas have already reached
+    # arguments are checked when the call's item is done: the call's deltas have already reached
     # the caller, and neither its done item nor the stop event ever does
     items = [item for event in events for item in event["content_items"]]
     assert items[0]["type"] == "tool_call.delta"
@@ -244,7 +245,7 @@ async def test_openai_compatible_clients_combine_streamed_tool_call_arguments(
         {
             "type": "tool_call.done",
             "name": "exec_command",
-            "arguments": {"cmd": "echo ok"},
+            "arguments": '{"cmd":"echo ok"}',
             "tool_call_id": "call_ok",
         }
     ]
@@ -254,7 +255,7 @@ async def test_openai_compatible_clients_combine_streamed_tool_call_arguments(
     fragments = [item for event in events for item in event["content_items"] if item["type"] == "tool_call.delta"]
     assert fragments[0]["name"] == "exec_command"
     assert fragments[0]["tool_call_id"] == "call_ok"
-    assert json.loads("".join(fragment["arguments"] for fragment in fragments)) == tool_calls[0]["arguments"]
+    assert "".join(fragment["arguments"] for fragment in fragments) == tool_calls[0]["arguments"]
     kinds = [
         item["type"]
         for event in events
@@ -399,13 +400,13 @@ async def test_openai_responses_clients_keep_interleaved_parallel_tool_calls(
         {
             "type": "tool_call.done",
             "name": "tool_first",
-            "arguments": {"city": "Paris"},
+            "arguments": '{"city":"Paris"}',
             "tool_call_id": "call_first",
         },
         {
             "type": "tool_call.done",
             "name": "tool_second",
-            "arguments": {"city": "Paris"},
+            "arguments": '{"city":"Paris"}',
             "tool_call_id": "call_second",
         },
     ]
@@ -455,7 +456,50 @@ async def test_openai_responses_clients_read_a_call_completed_without_arguments_
         {
             "type": "tool_call.done",
             "name": "list_files",
-            "arguments": {},
+            "arguments": "{}",
             "tool_call_id": "call_list",
         }
     ]
+
+
+# A parse turns 9007199254740993 into 9007199254740992 in TypeScript, and the decimal into
+# 0.12345678901234568 in both languages, so the arguments stay the text the model wrote.
+EXACT_ARGUMENTS = '{"id": 9007199254740993, "ratio": 0.12345678901234567890}'
+
+
+def _replayed_arguments(model_input: list[Any]) -> list[str]:
+    """The arguments of every tool call in a Responses or a Chat Completions input."""
+    replayed = []
+    for entry in model_input:
+        if entry.get("type") == "function_call":
+            replayed.append(entry["arguments"])
+        replayed += [call["function"]["arguments"] for call in entry.get("tool_calls") or []]
+    return replayed
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "case",
+    OPENAI_COMPATIBLE_TOOL_STREAM_CASES,
+    ids=[case.client_type for case in OPENAI_COMPATIBLE_TOOL_STREAM_CASES],
+)
+async def test_openai_compatible_clients_keep_and_replay_the_arguments_as_the_model_wrote_them(
+    case: OpenAICompatibleToolStreamCase,
+):
+    client = _create_auto_client(case)
+    _install_fake_stream(
+        client, case, _tool_stream(case, "call_exact", "exec_command", EXACT_ARGUMENTS[:21], EXACT_ARGUMENTS[21:])
+    )
+
+    messages = [{"role": "user", "content_items": [{"type": "text.done", "text": "Create a memo."}]}]
+    events = [event async for event in client.streaming_response(messages, {})]
+    assert_stream_grammar(events)
+    done_items = [item for event in events for item in event["content_items"] if item["type"].endswith(".done")]
+    assert [item["arguments"] for item in done_items] == [EXACT_ARGUMENTS]
+
+    model_input = client.transform_uni_message_to_model_input(
+        [*messages, {"role": "assistant", "content_items": done_items}]
+    )
+    if inspect.isawaitable(model_input):
+        model_input = await model_input
+    assert _replayed_arguments(model_input) == [EXACT_ARGUMENTS]
