@@ -270,7 +270,7 @@ describe("stream assembly", () => {
       {
         type: "tool_call.done",
         name: "get_weather",
-        arguments: { city: "Paris" },
+        arguments: '{"city":"Paris"}',
         tool_call_id: "toolu_1",
       },
     ]);
@@ -316,8 +316,8 @@ describe("stream assembly", () => {
       "tool_call.delta",
       "tool_call.done",
     ]);
-    expect(items(events)[8]).toMatchObject({ name: "f", arguments: { x: 1 } });
-    expect(items(events)[10]).toMatchObject({ name: "g", arguments: {} });
+    expect(items(events)[8]).toMatchObject({ name: "f", arguments: '{"x":1}' });
+    expect(items(events)[10]).toMatchObject({ name: "g", arguments: "{}" });
   });
 
   test("a delta without an item_id continues the item streaming now", async () => {
@@ -1236,6 +1236,49 @@ describe("history and legacy messages", () => {
     },
   );
 
+  test.each([
+    ["unparsable", '{"city":'],
+    ["array", '["Paris"]'],
+    ["null", "null"],
+  ])(
+    "a tool call whose arguments are not the JSON text of an object (%s) raises InvalidMessageError before anything is sent",
+    async (_name, args) => {
+      const client = new ScriptedClient(reply);
+      const call: UniMessage = {
+        role: "assistant",
+        content_items: [
+          {
+            type: "tool_call.done",
+            name: "get_weather",
+            arguments: args,
+            tool_call_id: "call_1",
+          },
+        ],
+      };
+
+      const error = await (async () => {
+        for await (const event of client.streamingResponse({
+          messages: [USER, call],
+          config: {},
+        })) {
+          void event;
+        }
+      })().catch((caught) => caught);
+
+      expect(error).toBeInstanceOf(InvalidMessageError);
+      expect(error).toMatchObject({
+        messageIndex: 1,
+        itemType: "tool_call.done",
+      });
+      expect(
+        error.message.startsWith(
+          "message 1 has a tool call whose arguments are not the JSON text of an object: ",
+        ),
+      ).toBe(true);
+      expect(client.sentMessages).toEqual([]);
+    },
+  );
+
   test.each(["../outside", "agent/..", "{root}/outside"])(
     "a trace id outside the cache directory (%j) raises UnsupportedParameterError before anything is sent",
     async (template) => {
@@ -1330,5 +1373,36 @@ describe("history and legacy messages", () => {
     const current = [USER];
     expect(normalizeLegacyMessages(current)[0]).toBe(USER);
     warn.mockRestore();
+  });
+
+  test("tool call arguments recorded as an object are sent as their JSON text", async () => {
+    const warn = jest
+      .spyOn(process, "emitWarning")
+      .mockImplementation(() => undefined);
+    const call = {
+      type: "tool_call.done",
+      name: "get_weather",
+      arguments: { city: "巴黎" },
+      tool_call_id: "call_1",
+    };
+    const recorded = {
+      role: "assistant",
+      content_items: [call],
+    } as unknown as UniMessage;
+
+    const client = new ScriptedClient(reply);
+    for await (const event of client.streamingResponse({
+      messages: [USER, recorded],
+      config: {},
+    })) {
+      void event;
+    }
+    warn.mockRestore();
+
+    expect(client.sentMessages[0][1].content_items).toEqual([
+      { ...call, arguments: '{"city":"巴黎"}' },
+    ]);
+    // the caller's message is left as it was
+    expect(call.arguments).toEqual({ city: "巴黎" });
   });
 });

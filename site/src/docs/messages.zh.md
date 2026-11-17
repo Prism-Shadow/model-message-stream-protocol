@@ -10,7 +10,7 @@ description: UniMessage，每个服务商都能读写的消息，以及它所包
   "content_items": [
     {"type": "thinking.done", "thinking": "The user wants the weather.", "fidelity": {"signature": "EuYB..."}},
     {"type": "text.done", "text": "Let me check."},
-    {"type": "tool_call.done", "name": "get_weather", "arguments": {"location": "Paris"}, "tool_call_id": "call_1"}
+    {"type": "tool_call.done", "name": "get_weather", "arguments": "{\"location\": \"Paris\"}", "tool_call_id": "call_1"}
   ],
   "usage_metadata": {"cached_tokens": 0, "prompt_tokens": 412, "thoughts_tokens": 31, "response_tokens": 27},
   "finish_reason": "tool_call",
@@ -41,7 +41,7 @@ description: UniMessage，每个服务商都能读写的消息，以及它所包
 | `inline_data.done` | `data` 字节，`mime_type` | 用户和助手：图片、音频、视频 |
 | `thinking.done` | `thinking` | 助手 |
 | `inline_thinking.done` | `data` 字节，`mime_type` | 助手：图像生成模型用来思考的图片 |
-| `tool_call.done` | `name`、作为对象的 `arguments`、`tool_call_id` | 助手 |
+| `tool_call.done` | `name`、对象 JSON 文本形式的 `arguments`、`tool_call_id` | 助手 |
 | `tool_result.done` | `text`、可选的 `images`、`tool_call_id` | 用户 |
 | `embedding.done` | `embedding`，一个数字列表 | 助手 |
 | `webtool.done` | `webdata`，一个网页列表，每项有 `title`、`content` 和 `url` | 助手：搜索的结果，或抓取读到的页面 |
@@ -56,6 +56,6 @@ description: UniMessage，每个服务商都能读写的消息，以及它所包
 
 ## 0.5.0 之前保存的消息
 
-0.5.0 之前的内容项类型没有后缀：`text`、`tool_call` 等等。MMSP 在 0.6.0 之前仍然接受它们，会把它们转换成 `.done` 类型，丢弃多余的 `partial_tool_call` 项，并在每个进程里警告一次。
+0.5.0 之前的内容项类型没有后缀：`text`、`tool_call` 等等。MMSP 在 0.6.0 之前仍然接受它们，会把它们转换成 `.done` 类型，丢弃多余的 `partial_tool_call` 项，并在每个进程里警告一次。0.5.8 及更早版本以对象记录 `arguments` 的工具调用同样读取到 0.6.0 为止，并以它的 JSON 文本发送。
 
 这个转换作用于请求消息、传给有状态调用的消息、`set_history`，以及 tracer 加载的追踪文件。要自己转换已存储的数据，在 Python 中调用 `normalize_legacy_messages`，在 TypeScript 中调用 `normalizeLegacyMessages`。

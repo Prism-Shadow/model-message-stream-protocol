@@ -354,18 +354,32 @@ export class ConcurrentCallError extends MMSPError {
   }
 }
 
-export function parseToolCallArguments(
+/** Say why a tool call's arguments are not the JSON text of an object, or return null where they are. */
+export function toolCallArgumentsError(argumentsText: unknown): string | null {
+  if (typeof argumentsText !== "string") {
+    return "Expected a string.";
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(argumentsText);
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+  return parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
+    ? null
+    : "Expected a JSON object.";
+}
+
+/** Return the streamed arguments as they are, `{}` for none, once they parse as a JSON object. */
+export function checkToolCallArguments(
   rawArguments: string | undefined,
   client: string,
   toolName: string,
   toolCallId: string,
-): Record<string, unknown> {
+): string {
   const raw = rawArguments || "{}";
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
+  const reason = toolCallArgumentsError(raw);
+  if (reason !== null) {
     throw new ToolCallArgumentParseError({
       client,
       toolName,
@@ -375,15 +389,5 @@ export function parseToolCallArguments(
     });
   }
 
-  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new ToolCallArgumentParseError({
-      client,
-      toolName,
-      toolCallId,
-      rawArguments: raw,
-      reason: "Expected a JSON object.",
-    });
-  }
-
-  return parsed as Record<string, unknown>;
+  return raw;
 }

@@ -509,7 +509,7 @@ const STREAM_CASES: StreamCase[] = [
       {
         type: "tool_call.done",
         name: "get_weather",
-        arguments: { city: "巴黎" },
+        arguments: '{"city": "巴黎"}',
         tool_call_id: "call_1",
       },
     ],

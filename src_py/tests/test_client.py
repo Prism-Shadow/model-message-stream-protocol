@@ -181,7 +181,7 @@ async def _check_event_integrity(event: dict) -> None:
             assert isinstance(item["mime_type"], str)
         elif item["type"] == "tool_call.done":
             assert isinstance(item["name"], str)
-            assert isinstance(item["arguments"], dict)
+            assert isinstance(item["arguments"], str)
             assert isinstance(item["tool_call_id"], str)
         elif item["type"] == "tool_call.delta":
             assert isinstance(item["name"], str)
@@ -585,11 +585,11 @@ async def test_tool_use(model: Model):
     assert_stream_grammar(events1)
     # Check if a function call was made
     assert tool_name == weather_tool["name"]
-    assert "location" in tool_arguments
+    assert "location" in json.loads(tool_arguments)
     assert tool_call_id is not None
     assert partial_tool_call_data["name"] == tool_name
     assert partial_tool_call_data["tool_call_id"] == tool_call_id
-    assert json.loads(partial_tool_call_data["arguments"]) == tool_arguments
+    assert partial_tool_call_data["arguments"] == tool_arguments
 
     message2 = {
         "role": "user",

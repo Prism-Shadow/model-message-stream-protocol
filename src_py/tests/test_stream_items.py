@@ -58,7 +58,7 @@ def test_a_done_item_is_the_first_delta_with_the_growing_field_joined_and_item_i
     assert items.end() == [{"type": "text.done", "text": "Hello"}]
 
 
-def test_a_tool_call_keeps_the_header_of_its_first_delta_and_parses_the_joined_arguments():
+def test_a_tool_call_keeps_the_header_of_its_first_delta_and_the_joined_arguments_as_text():
     items = StreamItems("Test")
     assert items.delta(call("1", "get_weather", "toolu_1")) == [
         {"type": "tool_call.delta", "name": "get_weather", "arguments": "", "tool_call_id": "toolu_1"}
@@ -66,18 +66,18 @@ def test_a_tool_call_keeps_the_header_of_its_first_delta_and_parses_the_joined_a
     items.delta(args("1", '{"city":'))
     items.delta(args("1", '"Paris"}'))
     assert items.end() == [
-        {"type": "tool_call.done", "name": "get_weather", "arguments": {"city": "Paris"}, "tool_call_id": "toolu_1"}
+        {"type": "tool_call.done", "name": "get_weather", "arguments": '{"city":"Paris"}', "tool_call_id": "toolu_1"}
     ]
 
 
-def test_malformed_arguments_raise_when_the_call_is_done_empty_ones_parse_to_an_empty_object():
+def test_malformed_arguments_raise_when_the_call_is_done_empty_ones_are_an_empty_object():
     items = StreamItems("Test")
     items.delta(call("0", "f", "c", '{"a":'))
     with pytest.raises(ToolCallArgumentParseError):
         items.end()
 
     items.delta(call("1", "g", "d"))
-    assert items.end()[0]["arguments"] == {}
+    assert items.end()[0]["arguments"] == "{}"
 
 
 def test_audio_chunks_join_into_one_buffer_while_every_image_is_an_item_of_its_own():
@@ -170,11 +170,11 @@ def test_a_calls_name_begins_the_next_call_and_its_arguments_continue_it_whateve
     items.delta(call("tool_calls", "f", "call_1", '{"a":'))
     items.delta(args("tool_calls", "1}"))
     out = items.delta(call("tool_calls", "g", "call_2"))
-    assert out[0] == {"type": "tool_call.done", "name": "f", "arguments": {"a": 1}, "tool_call_id": "call_1"}
+    assert out[0] == {"type": "tool_call.done", "name": "f", "arguments": '{"a":1}', "tool_call_id": "call_1"}
     assert out[1]["name"] == "g"
     # a gateway announcing a call under one id and streaming its arguments under another
     items.delta(args("fc_other", '{"q":"m"}'))
-    assert items.end() == [{"type": "tool_call.done", "name": "g", "arguments": {"q": "m"}, "tool_call_id": "call_2"}]
+    assert items.end() == [{"type": "tool_call.done", "name": "g", "arguments": '{"q":"m"}', "tool_call_id": "call_2"}]
 
 
 def test_a_delta_without_an_id_continues_the_item_streaming_now_which_takes_the_first_id_it_sees():

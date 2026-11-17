@@ -336,7 +336,7 @@ function replayedToolCalls(toolCallId: string): unknown[] {
     {
       id: toolCallId,
       type: "function",
-      function: { name: "get_weather", arguments: '{"city":"Paris"}' },
+      function: { name: "get_weather", arguments: '{"city": "Paris"}' },
     },
   ];
 }
@@ -470,7 +470,7 @@ describe.each(CHAT_TRANSFORM_CASES)(
             {
               type: "tool_call.done",
               name: "get_weather",
-              arguments: { city: "Paris" },
+              arguments: '{"city": "Paris"}',
               tool_call_id: "call_1191618",
             },
           ],
@@ -869,7 +869,7 @@ describe("generateContent signature replay", () => {
       {
         type: "tool_call.done",
         name: "get_weather",
-        arguments: { city: "Beijing" },
+        arguments: '{"city":"Beijing"}',
         tool_call_id: "call_1",
         fidelity,
       },

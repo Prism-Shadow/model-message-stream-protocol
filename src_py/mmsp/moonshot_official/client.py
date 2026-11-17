@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import base64
-import json
 import mimetypes
 from typing import Any, AsyncIterator
 
@@ -216,7 +215,7 @@ class MoonshotOfficialClient(LLMClient):
                             "type": "function",
                             "function": {
                                 "name": item["name"],
-                                "arguments": json.dumps(item["arguments"], ensure_ascii=False),
+                                "arguments": item["arguments"],
                             },
                         }
                     )

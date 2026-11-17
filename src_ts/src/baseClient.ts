@@ -18,6 +18,7 @@ import {
   IncompleteStreamError,
   InvalidMessageError,
   StreamProtocolError,
+  toolCallArgumentsError,
 } from "./errors";
 import type { Tracer } from "./integration/tracer";
 import { normalizeLegacyMessages } from "./legacy";
@@ -188,6 +189,21 @@ export abstract class LLMClient {
           message: `message ${index} has nothing ${clientName} can send`,
           messageIndex: index,
         });
+      }
+      for (const item of message.content_items) {
+        // a replay sends the text as it is, or parses it where the wire takes an object
+        const reason =
+          item.type === "tool_call.done"
+            ? toolCallArgumentsError(item.arguments)
+            : null;
+        if (reason !== null) {
+          throw new InvalidMessageError({
+            client: clientName,
+            message: `message ${index} has a tool call whose arguments are not the JSON text of an object: ${reason}`,
+            itemType: "tool_call.done",
+            messageIndex: index,
+          });
+        }
       }
     }
 

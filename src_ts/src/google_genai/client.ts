@@ -530,7 +530,8 @@ export class GoogleGenaiClient extends LLMClient {
               ? { id: item.tool_call_id }
               : {}),
             name: item.name,
-            args: item.arguments,
+            // generateContent takes the arguments as an object, so the text is parsed here only
+            args: JSON.parse(item.arguments),
           };
           parts.push({ functionCall: functionCall, ...thoughtSignature });
         } else if (item.type === "tool_result.done") {

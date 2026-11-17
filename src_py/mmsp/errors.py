@@ -258,19 +258,27 @@ class ConcurrentCallError(MMSPError):
         super().__init__(f"{client} has a stateful call in flight; wait for its stop event or its error.")
 
 
-def parse_tool_call_arguments(
+def tool_call_arguments_error(arguments: Any) -> str | None:
+    """Say why a tool call's arguments are not the JSON text of an object, or return None where they are."""
+    if not isinstance(arguments, str):
+        return "Expected a string."
+    try:
+        parsed = json.loads(arguments)
+    except ValueError as exc:
+        return str(exc)
+    return None if isinstance(parsed, dict) else "Expected a JSON object."
+
+
+def check_tool_call_arguments(
     raw_arguments: str | None,
     client: str,
     tool_name: str,
     tool_call_id: str,
-) -> dict[str, Any]:
+) -> str:
+    """Return the streamed arguments as they are, `{}` for none, once they parse as a JSON object."""
     raw = raw_arguments or "{}"
-    try:
-        parsed = json.loads(raw)
-    except (TypeError, ValueError) as exc:
-        raise ToolCallArgumentParseError(client, tool_name, tool_call_id, raw, str(exc)) from exc
+    reason = tool_call_arguments_error(raw)
+    if reason is not None:
+        raise ToolCallArgumentParseError(client, tool_name, tool_call_id, raw, reason)
 
-    if not isinstance(parsed, dict):
-        raise ToolCallArgumentParseError(client, tool_name, tool_call_id, raw, "Expected a JSON object.")
-
-    return parsed
+    return raw

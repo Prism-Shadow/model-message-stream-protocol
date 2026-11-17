@@ -342,7 +342,12 @@ STREAM_CASES = [
             _stop("tool_call"),
         ],
         done_items=[
-            {"type": "tool_call.done", "name": "get_weather", "arguments": {"city": "巴黎"}, "tool_call_id": "call_1"}
+            {
+                "type": "tool_call.done",
+                "name": "get_weather",
+                "arguments": '{"city": "巴黎"}',
+                "tool_call_id": "call_1",
+            }
         ],
     ),
     # Anthropic's signature arrives on an empty thinking delta after the thinking text

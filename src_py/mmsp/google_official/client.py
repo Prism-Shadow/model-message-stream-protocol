@@ -432,7 +432,12 @@ class GoogleOfficialClient(LLMClient):
                     # Histories from before ids were stored carry the name as the tool_call_id; replay
                     # those without an id, because parallel calls sharing one id are rejected with a
                     # 400 (verified live 2026-09-16).
-                    function_call = {"type": "function_call", "name": item["name"], "arguments": item["arguments"]}
+                    # Interactions takes the arguments as an object, so the text is parsed here only
+                    function_call = {
+                        "type": "function_call",
+                        "name": item["name"],
+                        "arguments": json.loads(item["arguments"]),
+                    }
                     if item["tool_call_id"] != item["name"]:
                         function_call["id"] = item["tool_call_id"]
 

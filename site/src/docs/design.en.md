@@ -20,7 +20,7 @@ delta       tool_call.done   get_weather {"city": "Paris"}
 stop        tool_call        usage_metadata {"prompt_tokens": 412, ...}
 ```
 
-**The inner layer marks an item.** Tokens of one kind (text, thinking, a tool call, an image, audio, an embedding) stream as `.delta` fragments, and exactly one `.done` item closes them with the whole thing: the full text, the parsed arguments, the joined bytes. `text.delta` means "more of this text is coming"; `text.done` means "this text is finished, and here it is."
+**The inner layer marks an item.** Tokens of one kind (text, thinking, a tool call, an image, audio, an embedding) stream as `.delta` fragments, and exactly one `.done` item closes them with the whole thing: the full text, the whole arguments, the joined bytes. `text.delta` means "more of this text is coming"; `text.done` means "this text is finished, and here it is."
 
 **The outer layer marks the message.** Every event is `delta` until exactly one `stop` event ends the stream, carrying the finish reason and the token usage. `delta` means "the assistant is still answering"; `stop` means "the message is complete, and this is how and why it ended."
 

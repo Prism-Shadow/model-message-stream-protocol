@@ -3,7 +3,7 @@
 - Feature Name: `message_requests`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313), [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316), [#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318), [#326](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/326), [#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330), [#336](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/336)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313), [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316), [#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318), [#326](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/326), [#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330), [#336](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/336), [#339](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/339)
 - Kind: spec
 
 [English](MMSP-RFC-0003-message-requests.md)
@@ -32,6 +32,8 @@
 2026-11-16，项目负责人要求支持视频的设置、DeepSeek 的语音合成与语音识别，以及 Gemini 4 Hydrogen，原话是：「视频也要支持aspect_ratio和size,还有duration参数」「把deepseek的tts和asr包一下,现在TTS必须支持流式」。`video_config` 承载视频的宽高比、分辨率与时长，Gemini Omni 在它的 `response_format` 中接收它们；关于图像的尺寸键，项目负责人的原话是「改uniconfig的字段,对应映射」「直接改就行了」：`image_config` 的 `image_size` 改名为 `resolution`，与视频共用这个名字，由每个客户端映射到它自己的字段。DeepSeek 的语音合成边合成边在响应体中发送音频，第一批字节约一秒后到达，所以 `deepseek-speech` 请求原始 PCM，每一块一到达就产出，与 Gemini 的流式语音相同；DeepSeek 的语音识别用一个 JSON 作答，只接受 16 位 PCM WAV 或 Ogg Opus。探测发现 Gemini 4 Hydrogen 接受 `xhigh`，拒绝 `minimal` 和 `max`；Gemini Omni 把 4K 写作 `4k`。[#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330) 在原文上修改了本规范：§3.2 加入 DeepSeek 的端点，§6.2 与 §6.4 加入 `video_config`，§6.3 写入 Hydrogen 的级别，§6.4 写入 `resolution` 与 DeepSeek 的音色。
 
 2026-11-17，项目负责人要求按请求计费的请求每次记 1,000 个 token，原话是：「按次收费的都算1次为1000token吧,这样价格就正常一些」。每次记 1 个 token 时，每 1,000 次请求 ¥5 的 DeepSeek Search 与 Fetch 定价为每百万 token ¥5,000，是花费相近的其他条目所示价格的一千倍；每次记 1,000 个 token 后定价为 ¥5，一次请求的花费，即 token 数乘以价格，保持不变。
+
+2026-11-17，一次测试发现整数参数 9007199254740993 在工具调用的片段与完整内容项之间变成了 9007199254740992，项目负责人决定工具调用的参数保留模型写出的文本，原话是：「这个丢精度确实会有问题,在中间多做一次精度转换就会丢东西,UniMessage的工具参数还是保留字符串类型吧」。`StreamItems` 检查拼接后的文本能解析为 JSON 对象，保留的仍是文本；调用方发来的工具调用在请求之前以同样的方式检查。[#339](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/339) 在原文上修改了本规范：§3.3 与 §4.3。
 
 ## 2. Conventions and Terminology
 
@@ -64,7 +66,7 @@
 
 ### 3.3 请求之前
 
-在发送任何内容之前，`streaming_response` 给每条缺少 `created_at` 的消息打上时间戳（[MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.zh.md#63-created_at) §6.3），转换旧的内容项类型（[MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.zh.md#7-每种输入一种形状) §7），并检查每条消息都有可发送的内容。没有内容项的消息，或者客户端的消息转换无法发送的消息（只有思考），必须在发往服务商的请求发出之前抛出带有 `message_index` 的 `InvalidMessageError`（[MMSP-RFC-0007](MMSP-RFC-0007-error-types.zh.md#31-请求之前) §3.1）。
+在发送任何内容之前，`streaming_response` 给每条缺少 `created_at` 的消息打上时间戳（[MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.zh.md#63-created_at) §6.3），转换旧的内容项类型（[MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.zh.md#7-每种输入一种形状) §7），并检查每条消息都有可发送的内容、每个工具调用的 `arguments` 都是一个对象的 JSON 文本。没有内容项的消息、客户端的消息转换无法发送的消息（只有思考），或者含有 `arguments` 不是对象 JSON 文本的工具调用的消息，必须在发往服务商的请求发出之前抛出带有 `message_index` 的 `InvalidMessageError`（[MMSP-RFC-0007](MMSP-RFC-0007-error-types.zh.md#31-请求之前) §3.1）。
 
 ## 4. 流的语法
 
@@ -82,7 +84,7 @@
 ### 4.3 内容项
 
 - 每个内容项都以连续的片段流出，随后是它唯一的完整内容项。内容项之间不得交错。
-- 完整内容项只由 `StreamItems` 用已经流出的片段构建：增长字段是各片段该字段的拼接；工具调用的参数由拼接后的 JSON 解析而来；其余字段取自第一个片段；`fidelity` 是片段携带的那一份。一个内容项最多只有一个片段携带它的 fidelity，完整内容项会再带一次。
+- 完整内容项只由 `StreamItems` 用已经流出的片段构建：增长字段是各片段该字段的拼接；工具调用的 `arguments` 就是拼接后的 JSON 文本本身，片段拼接为空时为 `{}`，前提是它已检查过能解析为 JSON 对象（[MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.zh.md#34-内容项) §3.4）；其余字段取自第一个片段；`fidelity` 是片段携带的那一份。一个内容项最多只有一个片段携带它的 fidelity，完整内容项会再带一次。
 
 ### 4.4 助手消息
 

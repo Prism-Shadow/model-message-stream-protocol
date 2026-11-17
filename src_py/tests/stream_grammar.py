@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 
 from mmsp.types import EventContentItem, UniEvent
 
@@ -67,7 +66,7 @@ def assert_stream_grammar(events: list[UniEvent]) -> None:
             assert item["thinking"] == "".join(delta["thinking"] for delta in open_deltas)
         elif item["type"] == "tool_call.done":
             raw = "".join(delta["arguments"] for delta in open_deltas)
-            assert item["arguments"] == json.loads(raw or "{}")
+            assert item["arguments"] == (raw or "{}")
             assert item["name"] == open_deltas[0]["name"]
             assert item["tool_call_id"] == open_deltas[0]["tool_call_id"]
         elif item["type"] in ("inline_data.done", "inline_thinking.done"):

@@ -65,7 +65,7 @@ const message: UniMessage = {
     { type: "inline_data.done", data: Buffer.from("..."), mime_type: "image/png", fidelity: { signature: "sig" } },
     { type: "thinking.done", thinking: "Reasoning", fidelity: { signature: "sig" } },
     { type: "inline_thinking.done", data: Buffer.from("..."), mime_type: "image/png", fidelity: { signature: "sig" } },
-    { type: "tool_call.done", name: "get_weather", arguments: { location: "Paris" }, tool_call_id: "call_1", fidelity: { signature: "sig" } },
+    { type: "tool_call.done", name: "get_weather", arguments: '{"location": "Paris"}', tool_call_id: "call_1", fidelity: { signature: "sig" } },
     { type: "tool_result.done", text: "22 C", tool_call_id: "call_1" },
     { type: "embedding.done", embedding: [0.1, 0.2] },
     { type: "webtool.done", webdata: [{ title: "DeepSeek", content: "Summary", url: "https://www.deepseek.com" }] },
@@ -88,7 +88,7 @@ Content items (`ContentItem`):
 - `inline_data.done`: Inline media bytes with MIME type; may carry `fidelity`.
 - `thinking.done`: Text reasoning content; may carry `fidelity`.
 - `inline_thinking.done`: Binary reasoning artifact; may carry `fidelity`.
-- `tool_call.done`: Complete model tool request with `name`, `arguments` parsed into an object, `tool_call_id`, and optional `fidelity`.
+- `tool_call.done`: Complete model tool request with `name`, `arguments` as the JSON text of an object, exactly as the model wrote it, `tool_call_id`, and optional `fidelity`.
 - `tool_result.done`: Tool output text for a `tool_call_id`; may include image URLs.
 - `embedding.done`: Numeric embedding vector.
 - `webtool.done`: `webdata`, a list of `WebData` (`title`, `content`, `url`): a search's results in rank order, each summary as `content` (`[]` when it found nothing), or the one page a fetch read, its Markdown as `content`.
@@ -171,14 +171,14 @@ delta  thinking.done    thinking="Let me check"  fidelity={"signature": "..."}
 delta  tool_call.delta  name="get_weather"  tool_call_id="toolu_1"  arguments=""
 delta  tool_call.delta  name=""  tool_call_id=""  arguments="{\"location\": "
 delta  tool_call.delta  name=""  tool_call_id=""  arguments="\"Paris\"}"
-delta  tool_call.done   name="get_weather"  tool_call_id="toolu_1"  arguments={"location": "Paris"}
+delta  tool_call.done   name="get_weather"  tool_call_id="toolu_1"  arguments="{\"location\": \"Paris\"}"
 stop   usage_metadata={...}  finish_reason="tool_call"
 ```
 
 ### Tool calls
 
 - The first `tool_call.delta` of a call carries non-empty `name` and `tool_call_id`, and its `arguments` is a JSON string fragment (often `""`). Later fragments carry only `arguments`.
-- `tool_call.done` carries `name`, `tool_call_id`, and `arguments` parsed into an object. Read tool calls from `tool_call.done` items; treat `tool_call.delta` fragments as live progress only. Send each tool result back with the exact `tool_call_id` from its `tool_call.done`.
+- `tool_call.done` carries `name`, `tool_call_id`, and the whole `arguments` string, the JSON text the model wrote; MMSP never parses and re-serializes it, so large integers and long decimals keep every digit. Parse it (`json.loads` / `JSON.parse`) to run the tool. Read tool calls from `tool_call.done` items; treat `tool_call.delta` fragments as live progress only. Send each tool result back with the exact `tool_call_id` from its `tool_call.done`.
 - `minimax-official` reads each call from the server's completed output item rather than from the argument deltas, so its calls stream as a single `tool_call.delta` carrying the name, id, and whole arguments string, then the `tool_call.done`. The rules above apply unchanged.
 - The final arguments must parse to a JSON object. If the streamed JSON is malformed, truncated, or parses to a non-object value such as an array, MMSP throws `ToolCallArgumentParseError` in place of the `tool_call.done`, so a tool is never executed from partial arguments.
 

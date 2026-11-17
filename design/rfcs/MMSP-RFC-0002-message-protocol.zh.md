@@ -3,7 +3,7 @@
 - Feature Name: `message_protocol`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318), [#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318), [#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330), [#339](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/339)
 - Kind: spec
 
 [English](MMSP-RFC-0002-message-protocol.md)
@@ -25,6 +25,8 @@ MMSP 的用意，是让调用方只面对一种消息格式和一套流语法，
 2026-11-06，项目负责人要求支持 Gemini Omni 的视频生成，原话是：「支持一下google omni的视频生成能力」。视频以 `inline_data` 内容项进入协议，没有新增类型；服务商以 URI 交付的视频按它的 URI 以文本返回，因为项目负责人选择不为它新增内容项类型。[#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318) 在原文上修改了本规范：在 §3.4 中写明 `inline_data` 承载的媒体。
 
 2026-11-16，项目负责人问语音是否以流的形式输出、能否一部分一部分地听到，原话是：「音频输出是真正的音频流式吗?就是说我能不能每次只听到一部分」。它确实是流式的，端点发来一块就产出一个片段，但 DeepSeek 的分块会把 16 位采样劈开（一次回答的 418 个片段中有 74 个字节数为奇数），一到达就播放的片段可能让之后的每个采样都错位。这不需要新的内容项类型：原始 PCM 的片段由完整的帧组成，每个片段一到达就能播放。[#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330) 在原文上修改了本规范：§3.4 写入完整的帧。
+
+2026-11-17，一次经由 MMSP 的工具调用测试发现参数被改动了：DeepSeek V4 Flash 以片段流出的整数参数 9007199254740993，在完整内容项中变成了 9007199254740992，一个长小数也变成了另一个数。完整内容项保存的是解析后的参数，而解析会把每个数变成语言自身的数：TypeScript 的数只能精确表示不超过 2^53 的整数，Python 的 float 只保留 17 位有效数字。于是回放发给模型的是一个它没有写过的数，而 [MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.zh.md) 要求回放既不丢失也不改动。项目负责人的原话是：「这个丢精度确实会有问题,在中间多做一次精度转换就会丢东西,UniMessage的工具参数还是保留字符串类型吧」。[#339](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/339) 在原文上修改了本规范：§3.4 写入工具调用的参数。
 
 ## 2. Conventions and Terminology
 
@@ -54,6 +56,8 @@ MMSP 的用意，是让调用方只面对一种消息格式和一套流语法，
 完整内容项的类型有 `text.done`、`image_url.done`、`inline_data.done`、`thinking.done`、`inline_thinking.done`、`tool_call.done`、`tool_result.done`、`embedding.done` 与 `webtool.done`。片段的类型是其中除 `image_url` 与 `tool_result` 之外各类型的 `.delta` 形式；这两种由调用方写入，不会出现在任何流中。消息或事件不得携带其他任何类型的内容项，服务商自己的类型也包括在内。
 
 `inline_data` 内容项的 `mime_type` 指明它承载的媒体：图片、音频或视频。图片或视频整段到达，一个片段就是一个内容项；音频以同一个内容项的多个片段流式传出。原始 PCM（带 `rate` 与 `channels` 的 `audio/l16`）的片段必须由完整的帧组成，一帧是每个声道各一个 16 位采样，使播放器能在每个片段到达时就接收它；端点的分块把一帧劈开时，客户端把这一帧开头的字节留到下一个片段，响应结束时剩下的字节作为最后一个片段发出。服务商以 URI 而非字节交付的视频，是一个装着该 URI 的 `text` 内容项。
+
+`tool_call` 内容项的 `arguments` 是一个字符串：调用参数的 JSON 文本，是一个对象，与模型写出的完全一致。它的片段是这段文本的各个部分，完整内容项的 `arguments` 是它们的拼接（[MMSP-RFC-0003](MMSP-RFC-0003-message-requests.zh.md#43-内容项) §4.3）。从服务商到调用方，没有任何一处解析这段文本再把它重新写出，因为解析会丢掉语言容纳不下的数字位：线路以字符串接收参数时（Responses、Chat Completions），回放原样发送它；只有线路要求对象时（Messages 的 `input`、generateContent 的 `args`、Interactions 的 `arguments`），才解析它。服务商以对象交付参数时（如 Gemini），文本是该对象的 JSON，保存的是服务商留下的内容。调用方运行工具时自行解析这段文本。
 
 `webtool` 内容项的 `webdata` 是一个 `WebData` 对象的列表，每个对象有 `title`、`content` 与 `url`，三者都是字符串。对于搜索，它必须按排名顺序存放搜索结果，每个结果的 `content` 是搜索端点给出的该网页摘要，绝不是网页正文；什么也没搜到的搜索，是一个 `webdata` 为空的内容项。对于抓取，它必须只存放读到的那一页，`content` 是该网页的 Markdown，`url` 是该网页的地址，端点不返回地址时则是发出的 URL。
 
