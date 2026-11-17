@@ -3,7 +3,7 @@
 - Feature Name: `rfc_process`
 - Start Date: 2026-10-19
 - RFC PR: [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265)
-- Updated by: [#285](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/285), [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298), [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301), [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#341](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/341)
+- Updated by: [#285](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/285), [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298), [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301), [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#341](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/341), [#347](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/347)
 - Kind: process
 
 [English](MMSP-RFC-0001-rfc-process.md)
@@ -55,7 +55,7 @@
 
 ## 5. 编号
 
-每篇 RFC 取目录与未关闭 PR 均未用过的下一个 `MMSP-RFC-NNNN`，编号永不复用。唯一例外是 2026-10-24 按项目负责人要求执行的两次重编号：[#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) 将规则编为 `0002`–`0013`，[#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301) 随后将其重写为名词标题的九项规范 `0002`–`0009` 并新增 `0010`：
+每篇 RFC 取目录与未关闭 PR 中最大编号之后的下一个连续 `MMSP-RFC-NNNN`。2026-10-24 按项目负责人要求执行过两次重编号：[#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) 将规则编为 `0002`–`0013`，[#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301) 随后将其重写为名词标题的九项规范 `0002`–`0009` 并新增 `0010`：
 
 | 0.5.5 的编号 | 第一次重编号（#298） | 内容现在所在 |
 | --- | --- | --- |

@@ -9,6 +9,8 @@
 [![PyPI](https://img.shields.io/pypi/v/mmsp)](https://pypi.org/project/mmsp/)
 [![NPM](https://img.shields.io/npm/v/@prismshadow/mmsp)](https://www.npmjs.com/package/@prismshadow/mmsp)
 
+English | [简体中文](README.zh.md)
+
 **Integrate every model the same way, and keep one API in your head instead of one per provider.**
 
 MMSP, the Model Message Stream Protocol, takes the per-provider differences off a developer's mind: one message format and one streaming grammar for every model provider, in Python and TypeScript.
@@ -45,96 +47,48 @@ Audit LLM executions by adding **a single `trace_id` parameter**, no database re
 
 ## Supported Models
 
-| Model Name     | Vendor                              | Example Model ID       | Input Modalities | Output Modalities              |
-| -------------- | ----------------------------------- | ---------------------- | ---------------- | ------------------------------ |
-| Gemini 4 Hydrogen/Carbon/Argon | Official/Google Vertex AI/OpenRouter/OpenCode Go/Penguin Go | `gemini-4-carbon` | Text, Image | Text |
-| Gemini 3-3.8   | Official/Google Vertex AI/OpenRouter/Penguin Go | `gemini-3.8-flash` | Text, Image | Text, Image, Speech, Embedding |
-| Claude 4.5-5.5 | Official/Amazon Bedrock/OpenRouter/OpenCode Go/UModelVerse | `claude-opus-5-5` | Text, Image | Text |
-| GPT-5.3-6.2    | Official/OpenRouter/OpenCode Go/UModelVerse | `gpt-6.2-sol` | Text, Image | Text, Embedding |
-| Kimi-K2.5-K3.1 Pro | Official/OpenRouter/SiliconFlow/TokenDance/OpenCode Go/Fireworks AI/DashScope | `kimi-k3.1-pro` | Text, Image | Text |
-| DeepSeek V3.2/V4 | Official/OpenRouter/SiliconFlow/TokenDance/OpenCode Go/Fireworks AI/DashScope/Qwen Token Plan/Atlas Cloud/Penguin Go/ModelScope/vLLM | `deepseek-flash` | Text, Image | Text |
-| GLM-4.5-5.3    | Official/OpenRouter/SiliconFlow/TokenDance/OpenCode Go/Fireworks AI/DashScope/Qwen Token Plan | `glm-5.3` | Text, Image | Text |
-| MiniMax-M2.5-M3.1 | Official/OpenRouter/TokenDance/OpenCode Go/Fireworks AI | `MiniMax-M3.1-Flash` | Text, Image | Text |
-| Qwen3-4        | OpenRouter/SiliconFlow/TokenDance/OpenCode Go/Fireworks AI/DashScope/Qwen Token Plan/Atlas Cloud/ModelScope/vLLM | `qwen4-max` | Text, Image | Text, Embedding |
-| Grok 4.3-4.7   | OpenRouter/OpenCode Go | `x-ai/grok-4.7` | Text, Image | Text |
-| MiMo-V2.5/V2.6 | OpenRouter/TokenDance/OpenCode Go | `mimo-v2.6-pro` | Text, Image | Text |
-| Seed 2.0/2.1   | OpenRouter/TokenDance | `seed-2.1-pro` | Text, Image | Text |
-| Hy3/Hy4        | OpenRouter/SiliconFlow/TokenDance/OpenCode Go | `hy4` | Text, Image | Text |
-| Step 3.5-5     | OpenRouter/TokenDance/OpenCode Go | `step-5-preview` | Text, Image | Text |
-| LongCat 2.0    | OpenRouter/SiliconFlow/TokenDance/OpenCode Go | `longcat-2.0` | Text | Text |
-| Muse Spark/Llama 4 | OpenRouter/OpenCode Go | `meta/muse-spark-1.3` | Text, Image | Text |
-| Mistral        | OpenRouter | `mistralai/mistral-large-4-0` | Text, Image | Text |
-| Nemotron 3/3.5 | OpenRouter | `nvidia/nemotron-3.5-super-vl` | Text, Image | Text |
-| DeepSeek Search/Fetch | Official/TokenDance | `deepseek-search` | Text | Web search, Page fetch |
-| DeepSeek TTS/ASR | Official | `deepseek-tts` | Text, Audio | Speech, Text |
-| Jina Search/Reader | Official | `jina-search` | Text | Web search, Page fetch |
-| GPT Image 2.5  | Official | `gpt-image-2.5-flare` | Text | Image |
-| Seedream 5.0/5.5 | OpenRouter/TokenDance | `bytedance-seed/seedream-5-5` | Text | Image |
-| Fish Audio Drama 3/Transcribe 1 | OpenRouter | `fish-audio/drama-3` | Text, Audio | Speech, Text |
+These are the model families we focus on supporting. The [Model Index](https://mmsp.penguin.ooo/models) and `list_supported_models()` list every variant, provider, and pricing.
 
-OpenRouter also serves Cohere Command A, Amazon Nova and Perplexity Sonar,
-OpenRouter and TokenDance serve inclusionAI Ling, and TokenDance serves Baidu ERNIE, iFlytek Spark and Dots;
-`list_supported_models()` lists every entry.
+| Model Name        | Vendor                                                                   | Example Model ID     | Input Modalities | Output Modalities              |
+| ----------------- | ------------------------------------------------------------------------ | -------------------- | ---------------- | ------------------------------ |
+| Gemini 3-4        | Official, Google Vertex AI, OpenRouter, OpenCode Go, Penguin Go          | `gemini-4-carbon`    | Text, Image      | Text, Image, Speech, Embedding |
+| Claude 4.5-5.5    | Official, Amazon Bedrock, OpenRouter, OpenCode Go                        | `claude-opus-5-5`    | Text, Image      | Text                           |
+| GPT-5.3-6.2       | Official, OpenRouter, OpenCode Go                                        | `gpt-6.2-sol`        | Text, Image      | Text, Embedding                |
+| DeepSeek V3.2/V4  | Official, OpenRouter, SiliconFlow, TokenDance, OpenCode Go, Penguin Go, vLLM | `deepseek-flash` | Text, Image      | Text                           |
+| Kimi-K2.5-K3.1    | Official, OpenRouter, SiliconFlow, TokenDance, OpenCode Go               | `kimi-k3.1-pro`      | Text, Image      | Text                           |
+| GLM-4.5-5.3       | Official, OpenRouter, SiliconFlow, TokenDance, OpenCode Go               | `glm-5.3`            | Text, Image      | Text                           |
+| MiniMax-M2.5-M3.1 | Official, OpenRouter, TokenDance, OpenCode Go                            | `MiniMax-M3.1-Flash` | Text, Image      | Text                           |
+| Qwen3-4           | DashScope, Qwen Token Plan, OpenRouter, SiliconFlow, TokenDance, OpenCode Go, vLLM | `qwen4-max` | Text, Image     | Text, Embedding                |
+| Grok 4.3-4.7      | OpenRouter, OpenCode Go                                                  | `x-ai/grok-4.7`      | Text, Image      | Text                           |
+| Hy3/Hy4           | OpenRouter, SiliconFlow, TokenDance, OpenCode Go                         | `hy4`                | Text, Image      | Text                           |
+| MiMo-V2.5/V2.6    | OpenRouter, TokenDance, OpenCode Go                                      | `mimo-v2.6-pro`      | Text, Image      | Text                           |
+
+Custom compatible endpoints also work, covering 1000+ online and local models.
 
 ### Clients
 
-`AutoLLMClient` takes a model id and a `client_type`. An **official client** speaks its
-vendor's own API, knows the vendor's models, and reads the vendor's key from the environment;
-a **compatible client** speaks one wire protocol for any endpoint that serves it.
+`AutoLLMClient` takes a model id and an optional `client_type`. An **official client** speaks its vendor's own API and reads the vendor's key from the environment; a **compatible client** speaks one wire protocol for any endpoint that serves it.
 
-| `client_type`              | Speaks                                                                 | Key and endpoint                         |
-| -------------------------- | ---------------------------------------------------------------------- | ---------------------------------------- |
-| `openai-official`          | OpenAI Responses; `text-embedding-*` models through OpenAI Embeddings, `gpt-image-*` through OpenAI Images | `OPENAI_API_KEY`, `OPENAI_BASE_URL`      |
-| `anthropic-official`       | Anthropic Messages                                                     | `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL` |
-| `google-official`          | Gemini Interactions                                                    | `GEMINI_API_KEY`, `GEMINI_BASE_URL`      |
-| `zai-official`             | Z.AI Chat Completions                                                  | `ZAI_API_KEY`, `ZAI_BASE_URL`            |
-| `moonshot-official`        | Moonshot Chat Completions                                              | `MOONSHOT_API_KEY`, `MOONSHOT_BASE_URL`  |
-| `deepseek-official`        | DeepSeek Responses; `deepseek-search` and `deepseek-fetch` through DeepSeek's Search and Fetch, `deepseek-tts` and `deepseek-asr` through its speech and recognition | `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`  |
-| `minimax-official`         | MiniMax Responses                                                      | `MINIMAX_API_KEY`, `MINIMAX_BASE_URL`    |
-| `jina-webtool`             | Jina Search (`jina-search`) and Reader (`jina-fetch`)                  | `JINA_API_KEY`, `JINA_BASE_URL`          |
-| `openai-responses`         | OpenAI Responses, served by OpenAI, OpenRouter, DeepSeek, Z.AI, MiniMax | `OPENAI_API_KEY`, `OPENAI_BASE_URL`      |
-| `openai-chat` (`openai`)   | OpenAI Chat Completions, served by most gateways, SiliconFlow, vLLM    | `OPENAI_API_KEY`, `OPENAI_BASE_URL`      |
-| `openai-chat-vllm-adapter` | Chat Completions as vLLM serves it, mapping `thinking_level` onto the template's switches | `VLLM_API_KEY`, `VLLM_BASE_URL`          |
-| `openai-embedding`         | OpenAI Embeddings, served by any embedding endpoint                    | `OPENAI_API_KEY`, `OPENAI_BASE_URL`      |
-| `openai-image`             | OpenAI Images, served by OpenAI, OpenRouter, TokenDance                | `OPENAI_API_KEY`, `OPENAI_BASE_URL`      |
-| `openai-speech`            | OpenAI Audio Speech, served by OpenAI, OpenRouter                      | `OPENAI_API_KEY`, `OPENAI_BASE_URL`      |
-| `openai-transcription`     | OpenAI Audio Transcriptions, served by OpenAI, OpenRouter              | `OPENAI_API_KEY`, `OPENAI_BASE_URL`      |
-| `ant-messages`             | Anthropic Messages, served by Anthropic, OpenRouter, DeepSeek, Z.AI, MiniMax | `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL` |
-| `google-genai`             | Google generateContent, served by Vertex AI, the Gemini API, and gateways that proxy it | `GEMINI_API_KEY`, `GEMINI_BASE_URL` |
-| `deepseek-webtool`         | DeepSeek's web search and page fetch, served by DeepSeek, TokenDance   | `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`  |
-| `deepseek-speech`          | DeepSeek's speech (`/v1/tools/tts`), raw PCM streamed as it is made    | `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`  |
-| `deepseek-transcription`   | DeepSeek's recognition (`/v1/tools/asr`), WAV or Ogg Opus              | `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`  |
-| `mmsp`                     | MMSP itself, served by an [MMSP server](#mmsp-server)                  | `MMSP_API_KEY`, `MMSP_BASE_URL`          |
+| `client_type`              | Speaks                                                                       | Key and endpoint                          |
+| -------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------- |
+| `openai-official`          | OpenAI Responses and Embeddings                                              | `OPENAI_API_KEY`, `OPENAI_BASE_URL`       |
+| `anthropic-official`       | Anthropic Messages                                                           | `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL` |
+| `google-official`          | Gemini Interactions                                                          | `GEMINI_API_KEY`, `GEMINI_BASE_URL`       |
+| `deepseek-official`        | DeepSeek Responses                                                           | `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`   |
+| `moonshot-official`        | Moonshot Chat Completions                                                    | `MOONSHOT_API_KEY`, `MOONSHOT_BASE_URL`   |
+| `zai-official`             | Z.AI Chat Completions                                                        | `ZAI_API_KEY`, `ZAI_BASE_URL`             |
+| `minimax-official`         | MiniMax Responses                                                            | `MINIMAX_API_KEY`, `MINIMAX_BASE_URL`     |
+| `openai-responses`         | OpenAI Responses (OpenAI, OpenRouter, DeepSeek, Z.AI, MiniMax)               | `OPENAI_API_KEY`, `OPENAI_BASE_URL`       |
+| `openai-chat` (`openai`)   | OpenAI Chat Completions (most gateways, SiliconFlow, vLLM)                   | `OPENAI_API_KEY`, `OPENAI_BASE_URL`       |
+| `openai-chat-vllm-adapter` | Chat Completions for vLLM, mapping `thinking_level` to template switches     | `VLLM_API_KEY`, `VLLM_BASE_URL`           |
+| `openai-embedding`         | OpenAI Embeddings                                                            | `OPENAI_API_KEY`, `OPENAI_BASE_URL`       |
+| `ant-messages`             | Anthropic Messages (Anthropic, OpenRouter, DeepSeek, Z.AI, MiniMax)          | `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL` |
+| `google-genai`             | Google generateContent (Vertex AI, Gemini API, compatible gateways)          | `GEMINI_API_KEY`, `GEMINI_BASE_URL`       |
+| `mmsp`                     | MMSP stream protocol ([MMSP server](#mmsp-server))                           | `MMSP_API_KEY`, `MMSP_BASE_URL`           |
 
-`client_type` may be omitted for a model id that begins with a known family: `gpt-` and
-`text-embedding-` route to `openai-official`, `claude-` to `anthropic-official`, `gemini-` to
-`google-official`, `glm-` to `zai-official`, `kimi-` to `moonshot-official`, `deepseek-` to
-`deepseek-official`, `minimax-` to `minimax-official`, `jina-` to `jina-webtool`. Any other id
-raises and asks for a `client_type`. The `CLIENT_TYPE` environment variable names one for every
-client the code does not.
+`client_type` may be omitted when the model id starts with a known family (`gpt-`, `text-embedding-`, `claude-`, `gemini-`, `deepseek-`, `kimi-`, `glm-`, `minimax-`). Additional clients for image generation, speech, transcription and web search/fetch, as well as Vertex AI, Amazon Bedrock and gateway setups, are documented in [Models and endpoints](https://mmsp.penguin.ooo/docs/models/).
 
-Gemini on Google Vertex AI takes `client_type="google-genai"` and the service-account JSON key as
-the API key: Vertex AI's Interactions endpoint, which `google-official` speaks, serves none of these
-models.
-
-Claude on Amazon Bedrock takes `client_type="anthropic-official"`, `base_url="bedrock://<region>"`
-and `"ACCESS_KEY,SECRET_KEY"` as the API key, with a Bedrock inference profile as the model id, such
-as `global.anthropic.claude-opus-5-5`.
-
-TokenDance serves Chat Completions, Responses, Embeddings and Images at `https://tokendance.space/gateway/v1`,
-Anthropic Messages at `https://tokendance.space/gateway` and DeepSeek's web tools at
-`https://tokendance.space/gateway/deepseek`, all with one key.
-
-OpenCode Go serves Chat Completions and Responses at `https://opencode.ai/inference/go/openai/v1`,
-Anthropic Messages at `https://opencode.ai/inference/go/anthropic` and Google generateContent at
-`https://opencode.ai/inference/go/google`, all with one key, `OPENCODE_API_KEY`; its docs name the
-protocol of each model, and `list_supported_models()` gives each its client.
-
-Where a gateway serves more than one protocol, prefer `"openai-responses"`: OpenRouter serves it
-for every model it hosts, while SiliconFlow serves Chat Completions only.
-
-The full machine-readable list — model, base URL, client, input/output modalities, context
-window, and per-million-token pricing in USD or CNY:
+Query the built-in model registry in code:
 
 ```python
 from mmsp import list_supported_models
@@ -193,20 +147,16 @@ MMSP provides Codex/Claude Code skill files for assistants that need to help use
 
 ## APIs
 
-`AutoLLMClient` is the main class for interacting with the MMSP SDK. It is constructed with `model` and `client_type` (see [Clients](#clients); a model id of a known family names its official client on its own), plus optional `api_key`, `base_url`, and `default_headers` — headers sent with every request, for endpoints that demand their own. It provides the following methods:
-
-A key goes only where it was given for. A key passed in is used, with the `base_url` passed in, else the client's `<P>_BASE_URL` (see [Clients](#clients)), else its default endpoint. Without a key, a client reads its `<P>_API_KEY` only when it is given no `base_url` or its own default endpoint: `deepseek-official` with no `base_url` or `https://api.deepseek.com` uses `DEEPSEEK_API_KEY`. Any other `base_url` without a key raises `ApiKeyRequiredError` at construction: pass the key with it, or drop it and set `<P>_API_KEY`, plus `<P>_BASE_URL` for an endpoint other than the default. Two clients are the exception, because their servers may take no key: `mmsp` and `openai-chat-vllm-adapter` call a `base_url` given without a key keyless, and their default endpoint too when `<P>_API_KEY` is unset (`http://127.0.0.1:25752/v1`, and `http://127.0.0.1:8000/v1`, where `vllm serve` answers); the vLLM adapter sends vLLM's placeholder key `EMPTY`. The rest of OpenAI's environment (`OPENAI_ORG_ID`, `OPENAI_PROJECT_ID`, `OPENAI_ADMIN_KEY`, `OPENAI_WEBHOOK_SECRET` and the headers `OPENAI_CUSTOM_HEADERS` lists) goes only where `OPENAI_API_KEY` goes: a client built on the OpenAI SDK sends none of it to a gateway, a vLLM server or another vendor's API. `@prismshadow/mmsp/credentials` and `mmsp.credentials` export the rule as data for hosts.
+`AutoLLMClient` is the main class for interacting with the MMSP SDK. It takes `model` and optional `client_type`, `api_key`, `base_url`, and `default_headers` (see [Client API](https://mmsp.penguin.ooo/docs/client/)).
 
 - `(async) streaming_response(messages, config)`: Streams the response of LLMs in a stateless manner.
 - `(async) streaming_response_stateful(message, config)`: Streams the response of LLMs in a stateful manner.
-- `(async) list_models()`: Lists the model ids the configured endpoint serves. A protocol client (`openai-chat`, `openai-chat-vllm-adapter`, `openai-responses`, `ant-messages`, `openai-embedding`, `openai-image`, `openai-speech`, `openai-transcription`, `google-genai`, `mmsp`) is named explicitly and lists everything the endpoint serves; a client deduced from a model id lists only the ids that deduce back to it. `deepseek-webtool`, `jina-webtool`, `deepseek-speech` and `deepseek-transcription` raise `UnsupportedOperationError`: their endpoints list no models.
+- `(async) list_models()`: Lists the model ids served by the configured endpoint.
 - `clear_history()`: Clears the history of the stateful LLM client.
 - `get_history()`: Returns the history of the stateful LLM client.
 - `set_history(history)`: Replaces the history of the stateful LLM client with a copy of the provided list.
 
-Both streaming methods yield `delta` events, each carrying one content item, followed by exactly one `stop` event that carries the usage and the finish reason (see [UniEvent](#unievent)).
-
-Streaming clients skip output they do not recognize, so a gateway's own frames cannot end a generation. Set `MMSP_DEBUG` to anything other than `0`, `false`, `no` or `off` to make it raise instead.
+Both streaming methods yield `delta` events, each carrying one content item, followed by a single `stop` event carrying the usage and the finish reason (see [UniEvent](#unievent)).
 
 ## Basic Usage
 
@@ -488,109 +438,6 @@ main().catch(console.error);
 ```
 </details>
 
-### DeepSeek web search
-
-Each message is one search; `deepseek-fetch` and `jina-fetch` take a URL instead. A web tool cannot replay its own answer, so call the stateless `streaming_response`.
-
-<details><summary><strong>Python Example</strong></summary>
-
-```python
-import asyncio
-import os
-from mmsp import AutoLLMClient
-
-os.environ["DEEPSEEK_API_KEY"] = "your-deepseek-api-key"
-
-async def main():
-    client = AutoLLMClient(model="deepseek-search")
-
-    async for event in client.streaming_response(
-        messages=[{"role": "user", "content_items": [{"type": "text.done", "text": "DeepSeek V4"}]}],
-        config={"webtool_config": {"count": 5}},
-    ):
-        print(event)
-
-asyncio.run(main())
-```
-</details>
-
-<details><summary><strong>TypeScript Example</strong></summary>
-
-```typescript
-import { AutoLLMClient } from "@prismshadow/mmsp";
-
-process.env.DEEPSEEK_API_KEY = "your-deepseek-api-key";
-
-async function main() {
-  const client = new AutoLLMClient({ model: "deepseek-search" });
-  for await (const event of client.streamingResponse({
-    messages: [{ role: "user", content_items: [{ type: "text.done", text: "DeepSeek V4" }] }],
-    config: { webtool_config: { count: 5 } },
-  })) {
-    console.log(event);
-  }
-}
-
-main().catch(console.error);
-```
-</details>
-
-### Images, speech and transcription
-
-`openai-image`, `openai-speech` and `openai-transcription` speak OpenAI's Images and Audio APIs for any endpoint that serves them. Each message is one request: a prompt answered by an image, a text spoken as audio that streams as it is made, or one audio file answered by its text. `openai-official` serves `gpt-image-*` through `openai-image` on its own. `deepseek-speech` and `deepseek-transcription` do the same for DeepSeek's text to speech and speech to text, which `deepseek-official` serves as `deepseek-tts` and `deepseek-asr`; DeepSeek transcribes WAV and Ogg Opus.
-
-<details><summary><strong>Python Example</strong></summary>
-
-```python
-import asyncio
-import os
-from mmsp import AutoLLMClient
-
-async def main():
-    client = AutoLLMClient(
-        model="fish-audio/transcribe-1",
-        client_type="openai-transcription",
-        base_url="https://openrouter.ai/api/v1",
-        api_key=os.environ["OPENROUTER_API_KEY"],
-    )
-    audio = open("speech.mp3", "rb").read()
-
-    async for event in client.streaming_response(
-        messages=[{"role": "user", "content_items": [{"type": "inline_data.done", "data": audio, "mime_type": "audio/mpeg"}]}],
-        config={},
-    ):
-        print(event)
-
-asyncio.run(main())
-```
-</details>
-
-<details><summary><strong>TypeScript Example</strong></summary>
-
-```typescript
-import { readFileSync } from "node:fs";
-import { AutoLLMClient } from "@prismshadow/mmsp";
-
-async function main() {
-  const client = new AutoLLMClient({
-    model: "fish-audio/transcribe-1",
-    clientType: "openai-transcription",
-    baseUrl: "https://openrouter.ai/api/v1",
-    apiKey: process.env.OPENROUTER_API_KEY,
-  });
-  const audio = readFileSync("speech.mp3");
-  for await (const event of client.streamingResponse({
-    messages: [{ role: "user", content_items: [{ type: "inline_data.done", data: audio, mime_type: "audio/mpeg" }] }],
-    config: {},
-  })) {
-    console.log(event);
-  }
-}
-
-main().catch(console.error);
-```
-</details>
-
 ### DeepSeek via the OpenAI Responses protocol
 
 Any compatible endpoint can be called through the generic protocol clients by picking the
@@ -651,65 +498,7 @@ main();
 ```
 </details>
 
-### DeepSeek via the Anthropic Messages protocol
-
-<details><summary><strong>Python Example</strong></summary>
-
-```python
-import asyncio
-import os
-from mmsp import AutoLLMClient
-
-async def main():
-    client = AutoLLMClient(
-        model="deepseek-flash",
-        api_key=os.environ["DEEPSEEK_API_KEY"],
-        base_url="https://api.deepseek.com/anthropic",
-        client_type="ant-messages",
-    )
-    async for event in client.streaming_response_stateful(
-        message={
-            "role": "user",
-            "content_items": [{"type": "text.done", "text": "Say 'Hello, World!'"}]
-        },
-        config={}
-    ):
-        print(event)
-
-asyncio.run(main())
-```
-</details>
-
-<details><summary><strong>TypeScript Example</strong></summary>
-
-```typescript
-import { AutoLLMClient } from "@prismshadow/mmsp";
-
-async function main() {
-  const client = new AutoLLMClient({
-    model: "deepseek-flash",
-    apiKey: process.env.DEEPSEEK_API_KEY,
-    baseUrl: "https://api.deepseek.com/anthropic",
-    clientType: "ant-messages",
-  });
-  for await (const event of client.streamingResponseStateful({
-    message: {
-      role: "user",
-      content_items: [{ type: "text.done", text: "Say 'Hello, World!'" }],
-    },
-    config: {},
-  })) {
-    console.log(event);
-  }
-}
-
-main();
-```
-</details>
-
-The same model works over `client_type="openai-chat"` (base URL
-`https://api.deepseek.com`); OpenRouter, Z.AI, and MiniMax expose all three protocols the
-same way.
+The same model works over `client_type="ant-messages"` (base URL `https://api.deepseek.com/anthropic`) and `client_type="openai-chat"` (base URL `https://api.deepseek.com`); OpenRouter, Z.AI, and MiniMax expose all three protocols the same way.
 
 ## Concepts: UniConfig, UniMessage and UniEvent
 
@@ -855,13 +644,11 @@ cd src_py && uv run python -m mmsp.integration.playground --host 127.0.0.1 --por
 cd src_ts && npm run playground
 ```
 
-You can access the playground at `http://localhost:25751/`.
-The integrated tracer is available at `http://localhost:25751/tracer/`.
-The server page at `http://localhost:25751/server/` saves its table to `MMSP_SERVER_CONFIG` (else `cache/server.json`), starts an MMSP server from it and shows what it serves: a card per model, requests, outcomes, latency and throughput over time.
+You can access the playground at `http://localhost:25751/`, the integrated tracer at `http://localhost:25751/tracer/`, and the server dashboard at `http://localhost:25751/server/`.
 
 ## MMSP Server
 
-The MMSP server serves the models of a table over HTTP as MMSP streams. Each row maps an upstream model to the id clients name; the upstream keys stay on the server, and clients send one of the server's own keys.
+The MMSP server serves a configured table of upstream models over HTTP as MMSP streams (see [MMSP Server docs](https://mmsp.penguin.ooo/docs/server/)).
 
 ```json
 {
@@ -875,58 +662,15 @@ The MMSP server serves the models of a table over HTTP as MMSP streams. Each row
 
 ```bash
 cd src_py && uv run python -m mmsp.integration.server --config mmsp-server.json --metrics mmsp-server-metrics.json
-```
-
-```bash
+# or in TypeScript:
 cd src_ts && npm run server -- --config mmsp-server.json --metrics mmsp-server-metrics.json
 ```
 
-```
-Starting MMSP server at http://127.0.0.1:25752/v1
-Serving models: claude, qwen3.8
-```
-
-A row is `model_id`, `api_key` and `server_model_id` (the id clients name), required, and `client_type`, `base_url` (empty or absent: the official client the model id names, and that client's default endpoint); adding a model is adding a row. `api_keys` are the bearer keys clients may send; an empty list is an open server. A cell that starts with `$` is read from the server's environment when the file is loaded. `--config` defaults to `MMSP_SERVER_CONFIG`.
-
-A client's base URL ends with `/v1`, as OpenAI's and vLLM's do: `GET /v1/models` lists the table in OpenAI's shape, `POST /v1/stream` streams the model a request names.
-
-```bash
-curl -N http://127.0.0.1:25752/v1/stream -H "Authorization: Bearer $MMSP_SERVER_API_KEY" -H "Content-Type: application/json" \
-  -d '{"model": "claude", "messages": [{"role": "user", "content_items": [{"type": "text.done", "text": "Hello"}]}]}'
-# data: {"role": "assistant", "event_type": "delta", "content_items": [{"type": "text.delta", "text": "Hi"}], ...}
-# ...
-# data: [DONE]
-```
-
-`GET /v1/metrics` reports requests, success rate, latency percentiles, tokens and tokens per second since start, and with `?window=N` or `?from=F&to=T` any range of the last 60 days in columns of 10 s to 12 h; with `--metrics FILE` the history survives restarts. The playground's server page draws it, from 15 minutes to 30 days or a custom range, running or stopped.
-
-The `mmsp` client calls it and yields the server's stream as it is; an error the server reports is raised as `UpstreamError` with the server's error object:
+Connect to the server with `client_type="mmsp"`:
 
 ```python
 client = AutoLLMClient(model="claude", client_type="mmsp", base_url="http://127.0.0.1:25752/v1", api_key=os.environ["MMSP_SERVER_API_KEY"])
 ```
-
-## Wire Protocols
-
-Every client speaks one protocol on the wire, whichever `client_type` reaches it:
-
-| `client_type`                                               | Wire protocol      |
-| ----------------------------------------------------------- | ------------------ |
-| `google-official`, `google-genai`                           | `google-genai`     |
-| `anthropic-official`, `ant-messages`                        | `ant-messages`     |
-| `openai-official`, `deepseek-official`, `minimax-official`  | `openai-responses` |
-| `openai-responses`                                          | `openai-responses` |
-| `zai-official`, `moonshot-official`                         | `openai-chat`      |
-| `openai-chat` (alias `openai`), `openai-chat-vllm-adapter`  | `openai-chat`      |
-| `openai-embedding`, and `openai-official` for `text-embedding-*` | `openai-embedding` |
-| `openai-image`, and `openai-official` for `gpt-image-*`     | `openai-image`     |
-| `openai-speech`                                             | `openai-speech`    |
-| `openai-transcription`                                      | `openai-transcription` |
-| `deepseek-webtool`, and `deepseek-official` for `deepseek-search`, `deepseek-fetch` | `deepseek-webtool` |
-| `deepseek-speech`, and `deepseek-official` for `deepseek-tts` | `deepseek-speech` |
-| `deepseek-transcription`, and `deepseek-official` for `deepseek-asr` | `deepseek-transcription` |
-| `jina-webtool`                                              | `jina-webtool`     |
-| `mmsp`                                                      | `mmsp`             |
 
 ## Related Work
 

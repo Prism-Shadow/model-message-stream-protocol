@@ -9,7 +9,7 @@
 
 ## 变更内容
 
-- 两个包都按 [MMSP-RFC-0014](../../design/rfcs/MMSP-RFC-0014-prompt-cache-sessions.zh.md) 的规定新增了 `UniConfig.session_id`：一个可选的字符串，标明请求所属的对话。文档推荐每个对话设一个固定的 id，因为它能提高提示词缓存的命中率。
+- 两个包都按 [MMSP-RFC-0014](../../design/rfcs/MMSP-RFC-0011-prompt-cache-sessions.zh.md) 的规定新增了 `UniConfig.session_id`：一个可选的字符串，标明请求所属的对话。文档推荐每个对话设一个固定的 id，因为它能提高提示词缓存的命中率。
 - `openai-official`、`openai-responses`、`openai-chat`（以及继承它的 `openai-chat-vllm-adapter`）、每一代 Kimi 上的 `moonshot-official` 与 `minimax-official` 把它作为 `prompt_cache_key` 发送，这是两个 OpenAI SDK 中都有类型的参数。空字符串不发送。
 - `utils.py` 中的 `prompt_cache_key` 与 `utils.ts` 中的 `promptCacheKey` 给出这个键：64 个字符以内（按码位计数）为会话 id 本身，超过时为它的 UTF-8 字节的 SHA-256 摘要，写作小写十六进制，因为 OpenAI 的 Responses API 以及 OpenRouter 上的 OpenAI 模型拒绝更长的键。
 - `anthropic-official`、`ant-messages`、`google-official`、`google-genai`、`openai-embedding`、`deepseek-official` 与 `zai-official` 忽略它；`mmsp` 客户端把它原样放在配置中转发。

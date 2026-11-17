@@ -18,7 +18,7 @@ MMSP 遵守的每项**规范**，以及每个修改**协议或公开 API 的决�
 | [MMSP-RFC-0008](rfcs/MMSP-RFC-0008-request-interruption.zh.md) | 请求中断 | spec | 已采纳 |
 | [MMSP-RFC-0009](rfcs/MMSP-RFC-0009-protocol-conversion.zh.md) | 协议转换 | spec | 已采纳 |
 | [MMSP-RFC-0010](rfcs/MMSP-RFC-0010-trace-recording.zh.md) | 轨迹记录 | spec | 已采纳 |
-| [MMSP-RFC-0014](rfcs/MMSP-RFC-0014-prompt-cache-sessions.zh.md) | 提示缓存会话 | change | 已采纳 |
+| [MMSP-RFC-0011](rfcs/MMSP-RFC-0011-prompt-cache-sessions.zh.md) | 提示缓存会话 | change | 已采纳 |
 
 - **类别**：`spec` 固定代码遵守的概念、协议或算法；`change` 修改协议或公开 API；`process` 定义本目录的运作方式。
 - **状态**：取值为「已采纳」或「被 MMSP-RFC-NNNN 取代」。现行规范即状态为「已采纳」的 `spec` 行。
@@ -45,7 +45,7 @@ MMSP 遵守的每项**规范**，以及每个修改**协议或公开 API 的决�
 
 ## 编写 RFC
 
-1. **创建文件与编号**：从 `origin/dev` 拉出 `rfc/<slug>` 分支，把 `0000-template.md` 复制为 `rfcs/MMSP-RFC-NNNN-<slug>.md`（一篇只记一个决定）。`NNNN` 取 `ls design/rfcs/` 与未关闭 PR（`gh pr list --search "MMSP-RFC-"`）均未用过的下一个编号，永不复用。
+1. **创建文件与编号**：从 `origin/dev` 拉出 `rfc/<slug>` 分支，把 `0000-template.md` 复制为 `rfcs/MMSP-RFC-NNNN-<slug>.md`（一篇只记一个决定）。`NNNN` 取 `design/rfcs/` 与未关闭 PR（`gh pr list --search "MMSP-RFC-"`）中最大编号之后的下一个连续编号。
 2. **设置类别与小节**：将 `Kind` 设为 `spec`（含 Abstract、Introduction、Conventions and Terminology、编号正文各节、Conformance）或 `change` / `process`（含 Abstract、Introduction 与编号的 Rust RFC 各节）。删去空白小节。
 3. **编写中文对照**：在同一 PR 中添加 `MMSP-RFC-NNNN-<slug>.zh.md`。模板节名保持英文，`spec` 正文标题翻译为中文并靠节号对齐，元数据下方互链 `[中文版](MMSP-RFC-NNNN-<slug>.zh.md)` 与 `[English](MMSP-RFC-NNNN-<slug>.md)`。
 4. **更新索引与变更记录**：在上表新增一行（状态设为「已采纳」，随 PR 合并生效），并按 [`changelog/README.md`](../changelog/README.zh.md) 添加 `Type: process`、`Scope: design` 记录。

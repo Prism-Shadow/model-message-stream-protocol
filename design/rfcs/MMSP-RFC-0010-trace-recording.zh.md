@@ -19,7 +19,7 @@
   - **初版与 TS 移植**：[#17](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/17) 加入 `trace_id` 与有状态轮后保存；[#34](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/34)、[#38](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/38) 将写入与查看器带到 TypeScript；[#96](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/96) 加入 `created_at` 与查看器轮次。
   - **移至 `stop` 前保存**（[#223](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/223)）：移入 `streaming_response` 产出 `stop` 之前，确保在 `stop` 处停读的调用方总能拿到轨迹。
   - **双包统一与路径限制**（[#300](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/300)）：统一命名、时间戳格式，并拒绝越出缓存目录的 id。
-- **2026-11-02 — 与提示缓存解耦**（[#307](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/307)，[MMSP-RFC-0014](MMSP-RFC-0014-prompt-cache-sessions.zh.md)）：提示缓存键改由 `session_id` 提供，`moonshot-official` 不再在 Kimi K2 上把 `trace_id` 作为 `prompt_cache_key` 发送，轨迹 id 不再发给任何服务商。
+- **2026-11-02 — 与提示缓存解耦**（[#307](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/307)，[MMSP-RFC-0011](MMSP-RFC-0011-prompt-cache-sessions.zh.md)）：提示缓存键改由 `session_id` 提供，`moonshot-official` 不再在 Kimi K2 上把 `trace_id` 作为 `prompt_cache_key` 发送，轨迹 id 不再发给任何服务商。
 
 ## 2. Conventions and Terminology
 
@@ -35,7 +35,7 @@
 - **异常或提前关闭不保存**：产出 `stop` 前抛出异常（服务商错误、`IncompleteStreamError`、`EmptyResponseError`、`StreamProtocolError` 或中止错误，见 [MMSP-RFC-0008](MMSP-RFC-0008-request-interruption.zh.md#3-中断一条流) §3）或生成器在 `stop` 前关闭时，不保存轨迹。
 - **有状态调用**：经由 `streaming_response` 保存截至当前的整段对话。
 - **`mmsp` 客户端**：`trace_id` 随配置传至服务端，由服务端上游客户端保存在服务端缓存目录下，`mmsp` 客户端不得自行保存。
-- **不发给服务商**：任何服务商客户端都不发送 `trace_id`；提示缓存键由 `session_id` 提供（[MMSP-RFC-0014](MMSP-RFC-0014-prompt-cache-sessions.zh.md)）。
+- **不发给服务商**：任何服务商客户端都不发送 `trace_id`；提示缓存键由 `session_id` 提供（[MMSP-RFC-0011](MMSP-RFC-0011-prompt-cache-sessions.zh.md)）。
 
 ## 4. 轨迹 id
 
