@@ -3,7 +3,7 @@
 - Feature Name: `message_requests`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313), [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316), [#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318), [#326](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/326), [#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313), [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316), [#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318), [#326](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/326), [#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330), [#336](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/336)
 - Kind: spec
 
 [English](MMSP-RFC-0003-message-requests.md)
@@ -31,6 +31,8 @@
 
 2026-11-16，项目负责人要求支持视频的设置、DeepSeek 的语音合成与语音识别，以及 Gemini 4 Hydrogen，原话是：「视频也要支持aspect_ratio和size,还有duration参数」「把deepseek的tts和asr包一下,现在TTS必须支持流式」。`video_config` 承载视频的宽高比、分辨率与时长，Gemini Omni 在它的 `response_format` 中接收它们；关于图像的尺寸键，项目负责人的原话是「改uniconfig的字段,对应映射」「直接改就行了」：`image_config` 的 `image_size` 改名为 `resolution`，与视频共用这个名字，由每个客户端映射到它自己的字段。DeepSeek 的语音合成边合成边在响应体中发送音频，第一批字节约一秒后到达，所以 `deepseek-speech` 请求原始 PCM，每一块一到达就产出，与 Gemini 的流式语音相同；DeepSeek 的语音识别用一个 JSON 作答，只接受 16 位 PCM WAV 或 Ogg Opus。探测发现 Gemini 4 Hydrogen 接受 `xhigh`，拒绝 `minimal` 和 `max`；Gemini Omni 把 4K 写作 `4k`。[#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330) 在原文上修改了本规范：§3.2 加入 DeepSeek 的端点，§6.2 与 §6.4 加入 `video_config`，§6.3 写入 Hydrogen 的级别，§6.4 写入 `resolution` 与 DeepSeek 的音色。
 
+2026-11-17，项目负责人要求按请求计费的请求每次记 1,000 个 token，原话是：「按次收费的都算1次为1000token吧,这样价格就正常一些」。每次记 1 个 token 时，每 1,000 次请求 ¥5 的 DeepSeek Search 与 Fetch 定价为每百万 token ¥5,000，是花费相近的其他条目所示价格的一千倍；每次记 1,000 个 token 后定价为 ¥5，一次请求的花费，即 token 数乘以价格，保持不变。
+
 ## 2. Conventions and Terminology
 
 本文中的关键词“必须”“不得”“应当”“不应”“可以”依次对应 BCP 14（[RFC 2119](https://www.rfc-editor.org/rfc/rfc2119)、[RFC 8174](https://www.rfc-editor.org/rfc/rfc8174)）中的 MUST、MUST NOT、SHOULD、SHOULD NOT 与 MAY，按其定义解释；本文只在这一含义上使用这五个词。
@@ -50,7 +52,7 @@
 
 服务商提供流式端点时，客户端必须读取流式端点。embedding 端点不是流式的：它的向量作为内容项流出，然后是一个 `stop`，以 `prompt_tokens` 携带端点报告的输入计数，`finish_reason` 为 `stop`。`openai-embedding` 按向量的 `index` 把每个向量与它的输入对应起来。
 
-网页工具端点也不是流式的：它对一次请求用一个 JSON 作答。随着网页加载把整个答案重发一遍的事件流（Jina 的就是这样）不算这里所说的流式端点，客户端必须改为读取 JSON。网页工具客户端必须每条消息发一次请求，消息中各文本内容项拼接起来就是查询或 URL。每个答案一到达就作为一个 `webtool` 内容项流出，什么也没搜到的搜索也不例外；然后是一个 `stop`，`finish_reason` 为 `stop`，`prompt_tokens` 是端点对各次请求计费之和：端点报告的 token 数，按请求计费的端点则每次请求记 1。搜索必须要求每个结果的摘要，不得要求其网页正文。
+网页工具端点也不是流式的：它对一次请求用一个 JSON 作答。随着网页加载把整个答案重发一遍的事件流（Jina 的就是这样）不算这里所说的流式端点，客户端必须改为读取 JSON。网页工具客户端必须每条消息发一次请求，消息中各文本内容项拼接起来就是查询或 URL。每个答案一到达就作为一个 `webtool` 内容项流出，什么也没搜到的搜索也不例外；然后是一个 `stop`，`finish_reason` 为 `stop`，`prompt_tokens` 是端点对各次请求计费之和：端点报告的 token 数，按请求计费的端点则每次请求记 1,000，这样此类模型每百万 token 的价格就是 1,000 次请求的价格。搜索必须要求每个结果的摘要，不得要求其网页正文。
 
 图像生成端点也不是流式的：`openai-image` 必须读取它的 JSON，不得请求流式，也不得发送 `response_format`。语音端点以流的形式发送音频字节，`openai-speech` 与 `deepseek-speech` 必须在每一块到达时把它产出，作为一条消息的语音这一个内容项的 `inline_data` 片段。转写端点用一个 JSON 作答。这些客户端（包括 `openai-transcription` 与 `deepseek-transcription`）都必须像网页工具客户端那样每条消息发一次请求：图像的提示词和语音的输入是消息中各文本内容项的拼接，其他内容项抛出 `UnsupportedContentError`；转写的文件是消息中唯一的音频 `inline_data` 内容项，文本、图片或其他内容项抛出 `UnsupportedContentError`，第二个音频内容项抛出 `InvalidMessageError`。
 
