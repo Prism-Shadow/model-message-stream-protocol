@@ -56,6 +56,7 @@ class SelectionTests(unittest.TestCase):
             "src_ts/jest.config.js",
             ".github/workflows/ci.yml",
             ".github/workflows/pytest.yml",
+            ".github/workflows/pytest-sdk-lines.yml",
             ".github/workflows/jest.yml",
             ".github/workflows/publish.yml",
             ".github/ci/plan.py",
