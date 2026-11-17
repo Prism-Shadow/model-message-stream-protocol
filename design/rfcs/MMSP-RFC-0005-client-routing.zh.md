@@ -10,58 +10,64 @@
 
 ## Abstract
 
-客户端路由根据客户端类型与模型 id，决定 `AutoLLMClient` 基于哪个客户端构造。客户端类型经由一张客户端类型表指定客户端；没有客户端类型时，由模型 id 开头的模型族前缀指定该厂商的官方客户端，不属于任何已知模型族的 id 抛出 `RoutingError`。模型 id 只按前缀或整个 id 匹配，从不按子串或版本匹配。
+客户端路由根据 **`client_type`** 与模型 id 选定 **`AutoLLMClient`** 的客户端。传入 **`client_type`** 时查客户端类型表；未传时按模型 id 的模型族前缀选定官方客户端，未知模型族抛出 **`RoutingError`**。模型 id 只按前缀或整个 id 匹配，绝不按子串或版本匹配。
 
 ## 1. Introduction
 
-在 [#228](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/228) 之前，有些模型 id 按子串路由，于是像 `moonshotai/kimi-k3` 这样的网关 id 会因为拼写上的巧合落到某个客户端，新一代模型也要新增一条匹配规则，而不是新增一行。有了一张客户端类型表和一张模型族表，读者看表就能说出一个模型 id 会到达哪个客户端；不属于任何已知模型族的 id 会要求传入 `client_type`，而不是去猜。本规范最初在 [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265) 中写作 MMSP-RFC-0004，在 [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) 中写作 MMSP-RFC-0006。
+- **历史问题（[#228](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/228)）**：旧版按子串路由，`moonshotai/kimi-k3` 等网关 id 会因拼写巧合误匹配，新代模型也需改代码。
+- **表驱动路由（[#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265) MMSP-RFC-0004、[#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) MMSP-RFC-0006）**：用客户端类型表与模型族表声明路由，未知模型族要求传入 `client_type`。
 
-2026-11-02，项目负责人要求加入网页搜索与网页抓取，做法与 embedding 相同，原话是：「在mmsp里面增加search和fetch的能力,实现方式和embedding类似」。正如 `openai-official` 经由 `openai-embedding` 服务 OpenAI 的 embedding 模型，`deepseek-official` 经由 `deepseek-webtool` 服务 DeepSeek 的 Search 与 Fetch，即 `deepseek-search` 与 `deepseek-fetch`；`deepseek-webtool` 是这套 JSON API 的兼容客户端，也可用于提供相同路径的网关。Jina 的网页工具有自己的模型族 `jina-`。这两个端点都不列出模型，Bedrock 也不列出，`anthropic-official` 在 Bedrock 上早已从 `list_models` 抛出 `UnsupportedOperationError`。[#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308) 在原文上修改了本规范：在 §3 中加入 `deepseek-official` 的规则，在 §5 中加入不列出模型的端点。
-
-2026-11-04，项目负责人要求通过 OpenAI 的格式支持图像生成、语音合成与语音转写，各由一个兼容客户端负责：`openai-image`、`openai-speech` 与 `openai-transcription`。正如 `openai-official` 经由 `openai-embedding` 服务 OpenAI 的 embedding 模型，它经由 `openai-image` 服务 OpenAI 的图像模型 `gpt-image-`。网关后面其他厂商的模型，例如 `bytedance-seed/seedream-5-0-flash` 或 `fish-audio/drama-3`，不以任何模型族开头，用 `client_type` 指定客户端。[#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316) 在原文上修改了本规范：在 §3 中加入 `gpt-image-` 的规则。
-
-2026-11-16，项目负责人要求支持 DeepSeek 的语音合成与语音识别，原话是：「把deepseek的tts和asr包一下」。DeepSeek 没有为两者命名模型；它们的端点是 `/v1/tools/tts` 与 `/v1/tools/asr`，与网页工具的路径并列，所以 id 像 `deepseek-search` 与 `deepseek-fetch` 那样取自路径：`deepseek-official` 经由 `deepseek-speech` 服务 `deepseek-tts`，经由 `deepseek-transcription` 服务 `deepseek-asr`，这两个兼容客户端分别对应这两个端点。两个端点都不列出模型。[#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330) 在原文上修改了本规范：在 §3 的 `deepseek-official` 规则中加入这两个 id。
+| 日期与 PR | 变更内容 |
+|---|---|
+| **2026-11-02（[#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308)）** | 网页搜索与抓取（「在mmsp里面增加search和fetch的能力,实现方式和embedding类似」）：`deepseek-official` 经 `deepseek-webtool` 服务 `deepseek-search` 与 `deepseek-fetch`（§3）；Jina 模型族为 `jina-`；不列出模型的端点（含 Bedrock 上的 `anthropic-official`）在 `list_models` 抛出 `UnsupportedOperationError`（§5）。 |
+| **2026-11-04（[#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316)）** | OpenAI 格式兼容客户端 `openai-image`、`openai-speech`、`openai-transcription`：`openai-official` 经 `openai-image` 服务 `gpt-image-`（§3）；无模型族的网关模型（`bytedance-seed/seedream-5-0-flash`、`fish-audio/drama-3`）用 `client_type` 指定。 |
+| **2026-11-16（[#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330)）** | DeepSeek 语音合成与识别（「把deepseek的tts和asr包一下」，端点 `/v1/tools/tts`、`/v1/tools/asr`）：`deepseek-official` 经 `deepseek-speech` 服务 `deepseek-tts`、经 `deepseek-transcription` 服务 `deepseek-asr`（§3）；均不列出模型。 |
 
 ## 2. Conventions and Terminology
 
 本文中的关键词“必须”“不得”“应当”“不应”“可以”依次对应 BCP 14（[RFC 2119](https://www.rfc-editor.org/rfc/rfc2119)、[RFC 8174](https://www.rfc-editor.org/rfc/rfc8174)）中的 MUST、MUST NOT、SHOULD、SHOULD NOT 与 MAY，按其定义解释；本文只在这一含义上使用这五个词。
 
-- *客户端类型*：`OFFICIAL_CLIENT_TYPES` 或 `COMPATIBLE_CLIENT_TYPES` 中的一个名称，以 `client_type` 传入，或由环境变量 `CLIENT_TYPE` 给出。
-- *官方客户端*：实现其厂商自己的 API、服务该厂商模型的客户端。
-- *兼容客户端*：只实现一种线上协议、用于提供该协议的任何端点的客户端。
-- *模型族*：`MODEL_FAMILIES` 中的一个前缀，某个厂商的模型 id 都以它开头，例如 `claude-` 或 `kimi-`，以及它指定的官方客户端。
-- *指定的客户端*：由客户端类型选出的客户端。*推断出的客户端*：由模型 id 所属的模型族选出的客户端。
+- **客户端类型**：`OFFICIAL_CLIENT_TYPES` 或 `COMPATIBLE_CLIENT_TYPES` 中的名称，由 `client_type` 或环境变量 `CLIENT_TYPE` 给出。
+- **官方客户端**：实现厂商自有 API、服务该厂商模型的客户端。
+- **兼容客户端**：实现单一线上协议、服务任意对应端点的客户端。
+- **模型族**：`MODEL_FAMILIES` 中的厂商模型 id 前缀（如 `claude-`、`kimi-`）及其指定的官方客户端。
+- **指定的客户端**：由客户端类型选出的客户端。
+- **推断出的客户端**：由模型 id 所属模型族选出的客户端。
 
 ## 3. 客户端类型
 
-- 官方客户端服务其厂商的每一代模型：厂商的新一代模型放进它，旧的各代继续可用，直到项目负责人决定下线其中一代。
-- 代码中传入的客户端类型必须优先于 `CLIENT_TYPE`；代码没有传入时，才由 `CLIENT_TYPE` 指定客户端。
-- 客户端类型必须不区分大小写地被接受，旧名称 `openai`（即 `openai-chat`）、`gemini-official`（即 `google-official`）与 `gemini-generate-content`（即 `google-genai`）也必须被接受。
-- `openai-official` 必须经由 `openai-embedding` 服务 `text-embedding-` 模型，经由 `openai-image` 服务 `gpt-image-` 模型，前缀不区分大小写，无论这个客户端是指定的还是推断出的。
-- `deepseek-official` 必须经由 `deepseek-webtool` 服务 `deepseek-search` 与 `deepseek-fetch`，经由 `deepseek-speech` 服务 `deepseek-tts`，经由 `deepseek-transcription` 服务 `deepseek-asr`，每个 id 都按整个 id 不区分大小写地匹配，无论这个客户端是指定的还是推断出的。
+- **跨代支持**：官方客户端服务其厂商的每一代模型，直至下线。
+- **优先级**：代码传入的客户端类型必须优先于 `CLIENT_TYPE`（仅在代码未传时生效）。
+- **大小写与旧别名**：客户端类型必须不区分大小写，且必须接受旧名 `openai`（`openai-chat`）、`gemini-official`（`google-official`）与 `gemini-generate-content`（`google-genai`）。
+- **子客户端委派**（无论指定或推断、均不区分大小写，必须按表委派）：
+
+| 官方客户端 | 模型 id | 匹配方式 | 目标客户端 |
+|---|---|---|---|
+| `openai-official` | `text-embedding-` | 前缀 | `openai-embedding` |
+| `openai-official` | `gpt-image-` | 前缀 | `openai-image` |
+| `deepseek-official` | `deepseek-search`、`deepseek-fetch` | 整个 id | `deepseek-webtool` |
+| `deepseek-official` | `deepseek-tts` | 整个 id | `deepseek-speech` |
+| `deepseek-official` | `deepseek-asr` | 整个 id | `deepseek-transcription` |
 
 ## 4. 按模型 id 路由
 
-- 没有客户端类型时，必须由模型 id 开头的模型族指定客户端，比较时不区分大小写。匹配必须是前缀匹配；路由不得按子串或版本匹配。
-- 不属于任何已知模型族的 id 必须抛出 `RoutingError`，要求传入客户端类型；未知的客户端类型必须抛出 `RoutingError`，无论模型 id 是什么。
-- 客户端内部怎样区分它服务的各代模型，见 [MMSP-RFC-0003](MMSP-RFC-0003-message-requests.zh.md#61-明确匹配) §6.1。
+- **前缀匹配**：无客户端类型时，必须由模型 id 开头的模型族（不区分大小写）指定客户端；匹配必须是前缀匹配，路由不得按子串或版本匹配。
+- **未知报错**：未知模型族的 id 必须抛出 `RoutingError`（要求传入客户端类型）；未知客户端类型无论模型 id 为何都必须抛出 `RoutingError`。
+- **模型代区分**：客户端内部区分各代模型的规则见 [MMSP-RFC-0003](MMSP-RFC-0003-message-requests.zh.md#61-明确匹配) §6.1。
 
 ## 5. 列出模型
 
-在指定的客户端上，`list_models` 必须返回其端点提供的全部模型。在推断出的客户端上，它必须只返回所属模型族与自身模型 id 指向同一官方客户端的那些 id，因此代理多家厂商的网关会被筛到这家厂商自己的模型。两者都保持端点返回的顺序。端点不列出模型的客户端，无论是指定的还是推断出的，`list_models` 都必须抛出 `UnsupportedOperationError`（[MMSP-RFC-0007](MMSP-RFC-0007-error-types.zh.md#31-请求之前) §3.1）。
+- **指定的客户端**：`list_models` 必须按端点原序返回其全部模型。
+- **推断出的客户端**：`list_models` 必须按端点原序只返回模型族指向同一官方客户端的 id（过滤多厂商网关）。
+- **不列出模型的端点**：无论指定或推断，`list_models` 都必须抛出 `UnsupportedOperationError`（[MMSP-RFC-0007](MMSP-RFC-0007-error-types.zh.md#31-请求之前) §3.1）。
 
 ## 6. 修改这些表
 
-新增一行，即一个模型族或一个客户端类型，是普通改动。改变这些表的含义必须经由 RFC。
+新增模型族或客户端类型行是普通改动；改变表的含义必须经由 RFC。
 
 ## 7. Conformance
 
-- `src_py/mmsp/credentials.py` / `src_ts/src/credentials.ts` 中的表与路由函数（`MODEL_FAMILIES`、`client_type_for_model` / `clientTypeForModel`、`routed_client_type` / `routedClientType`），`src_py/mmsp/auto_client.py` / `src_ts/src/autoClient.ts` 通过它们路由。
-- `src_py/tests/test_client.py` / `src_ts/tests/client.test.ts` 中的路由用例：
-  - 客户端类型或模型族指定客户端；
-  - 不属于任何已知模型族的 id 要求传入客户端类型；
-  - 未知的客户端类型被拒绝；
-  - 环境变量指定客户端；
-  - 清单中的每个条目都路由到其客户端分组。
-- `test_credentials.py` / `credentials.test.ts` 中的路由用例。
-- `test_list_models.py` / `list-models.test.ts`。
+- **路由实现**：`src_py/mmsp/credentials.py` / `src_ts/src/credentials.ts`（`MODEL_FAMILIES`、`client_type_for_model` / `clientTypeForModel`、`routed_client_type` / `routedClientType`），由 `src_py/mmsp/auto_client.py` / `src_ts/src/autoClient.ts` 调用。
+- **客户端测试**：`src_py/tests/test_client.py` / `src_ts/tests/client.test.ts`（类型/模型族路由、未知模型族/类型拒绝、环境变量指定、目录全覆盖）。
+- **凭据测试**：`test_credentials.py` / `credentials.test.ts`。
+- **模型列表测试**：`test_list_models.py` / `list-models.test.ts`。

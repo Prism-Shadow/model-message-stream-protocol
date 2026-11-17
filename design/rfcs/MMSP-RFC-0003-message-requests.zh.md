@@ -10,121 +10,127 @@
 
 ## Abstract
 
-消息请求是调用模型的唯一方式：由 `streaming_response` 或 `streaming_response_stateful` 产出的一条 `UniEvent` 异步流，只有一套语法，由基类收尾，先是若干 `delta` 事件，每个携带一个内容项，然后恰好一个 `stop` 事件，携带用量和结束原因。本文规定这种调用、流的语法、流怎样结束，以及请求参数怎样映射：每个思考等级在每个客户端上都能用，其他每个 `UniConfig` 值要么按明确的映射发送，要么在请求发出之前被拒绝。
+消息请求是调用模型的唯一方式：由 **`streaming_response`** 或 **`streaming_response_stateful`** 产出一条 `UniEvent` 异步流，遵循由基类统一收尾的单一语法——先是若干携带单个内容项的 **`delta`** 事件，最后是恰好一个携带用量与结束原因的 **`stop`** 事件。每个 **`ThinkingLevel`** 在所有客户端上均可使用，其余每个 **`UniConfig`** 值要么按明确映射发送，要么在请求发出前被拒绝。
 
 ## 1. Introduction
 
-同时服务许多对话的宿主程序，绝不能因为某个服务商而阻塞自己的事件循环；调用方也绝不能把被截断的回答当成完整的回答。在第二版流式协议（[#223](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/223)）之前，每个客户端自己为内容项收尾，所以针对某个服务商的流的修复（[#218](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/218)、[#221](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/221)）一次只能落到一个客户端。2026-10-22，CI 中一条 GLM-5.3-Flash 的流在携带用量的数据块到达之前就结束了（[run 39841678668](https://github.com/Prism-Shadow/model-message-stream-protocol/actions/runs/39841678668)）；探测表明服务商的最后一个数据块每次都同时携带结束原因和用量，所以那条流是中途断开的，而这正是调用方想要重试的情况（[#272](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/272)）。
+- **异步流与基类统一收尾**：宿主绝不能因服务商阻塞事件循环，调用方也绝不能把截断的回答当成完整回答。在第二版流式协议（[#223](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/223)）前，各客户端自行收尾内容项（[#218](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/218)、[#221](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/221)）；2026-10-22 CI 中一条 GLM-5.3-Flash 流在末块（同时携带结束原因和用量）到达前中断（[run 39841678668](https://github.com/Prism-Shadow/model-message-stream-protocol/actions/runs/39841678668)），[#272](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/272) 据此规定缺失 `stop` 时抛出异常以便调用方重试。
+- **全思考等级支持与精确参数匹配**：调用方只需设置一次 `ThinkingLevel`，切换模型只换名字（[#166](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/166) 限制 Gemini 级别，[#176](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/176) 按厂商映射 `max`，[#293](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/293) 修复 Claude Opus 5 在 `none` 下仍思考的问题，[#294](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/294) 在 Kimi K3 系列上用 `none` 关闭思考）。模糊匹配会把一代模型的参数发给另一代（[#289](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/289) 依据双语转换逻辑重写了配置页）。
+- **设计初衷与早期编号**：落实项目负责人「支持全部思考等级」「模型请求参数不模糊匹配」「要求异步和流式，任何思考等级不能报错，请求参数尽量精确」的要求（在 [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265) 中编号为 MMSP-RFC-0003/0004/0006/0010，在 [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) 中编号为 MMSP-RFC-0003/0005/0010/0011）。
 
-调用方只设一次 `ThinkingLevel`，换模型只换名字；如果客户端因为某个级别抛出异常，调用方就又得按模型分支。[#166](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/166) 按每个 Gemini 模型限制了级别，[#176](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/176) 按厂商映射了 `max`，[#293](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/293) 补上了 `none` 什么也不发送、Claude Opus 5 仍在思考的缺口，[#294](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/294) 让 `none` 在 Kimi K3 系列上关闭思考。靠模糊匹配构建的请求，会把一代模型的参数发给另一代；[#289](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/289) 背后的审查发现配置页在大多数键上写得不对，于是依据两种语言的转换重写了它。
-
-项目负责人的原话：支持全部思考等级；模型请求参数不模糊匹配；对本文则是：要求异步和流式，任何思考等级不能报错，请求参数尽量精确。这些内容最初在 [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265) 中写作 MMSP-RFC-0003、MMSP-RFC-0006、MMSP-RFC-0010 以及 MMSP-RFC-0004 中的版本规则，在 [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) 中写作 MMSP-RFC-0003、MMSP-RFC-0005（`stop` 事件部分）、MMSP-RFC-0010 与 MMSP-RFC-0011。
-
-2026-11-02，项目负责人要求加入网页搜索与网页抓取，做法与 embedding 相同，原话是：「在mmsp里面增加search和fetch的能力,实现方式和embedding类似」。DeepSeek 的 Search 与 Fetch、Jina 的 Search 与 Reader，对一次请求都用一个 JSON 作答。Jina 另有事件流模式，但网页每多加载一些，它就把整页重发一遍，从不只发其中一部分，其中没有可以流式传出的东西；所以客户端读取 JSON，网页工具像 embedding 一样请求，每条消息一次请求、一个内容项。关于搜索要什么，项目负责人的原话是：「search的content显示摘要,不要用need content参数 jina要加no content」。[#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308) 在原文上修改了本规范：§3.2 加入网页工具端点，§2 的增长字段加入 `webdata`，§6.1 加入 `-search` 与 `-fetch` 标记，§6.3 加入不思考的模型。
-
-2026-11-02，OpenAI 发布 GPT-6.1 Terra，项目负责人要求支持，原话是：「GPT 6.1 terra更新了」。与 GPT-6 Astra、GPT-6.1 Sol 不同，Terra 接受 `none` 这一 effort，所以两个 Responses 客户端在 Terra 上把 `none` 当作它自己的关闭开关。为它做的探测发现了所有 GPT-6 模型上的两处缺口：`tool_choice` 的列表形式发出时缺少 OpenAI 与 OpenRouter 要求的 `type`（400 `Missing required parameter: 'tool_choice.type'`）；超过 30,000 个 patch 的图片被拒绝，因为只有 GPT-5.6 会被发送 `detail: "high"`。项目负责人还把 `enhance` 映射到 OpenAI 的 12 小时缓存时长，GPT-5.6 及之后的模型在 Responses API 上接受它，GPT-5.5 拒绝。[#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313) 在原文上修改了本规范：§6.1 与 §6.3 写入 Terra 的 `none` 和这一代模型的 `detail`，§6.4 写入 allowed-tools 列表与 12 小时缓存。
-
-2026-11-04，项目负责人要求通过 OpenAI 的格式支持图像生成、语音合成与语音转写，由 OpenAI、OpenRouter 与 TokenDance 提供，各由一个兼容客户端负责：`openai-image`、`openai-speech` 与 `openai-transcription`。每个客户端读取什么，由抓包决定。对流式的图像请求，OpenAI 只用一个携带整张图片的 `image_generation.completed` 事件作答，OpenRouter 忽略 `stream`，TokenDance 发送它自己的事件，所以图像从一个 JSON 中读取；语音端点边生成边发送音频字节，第一块约 0.7 秒后到达；转写端点用一个 JSON 作答。映射由项目负责人确定：`image_config` 变成 Gemini 1K 与 2K 尺寸表中的 `size`，表中每个尺寸都符合 OpenAI 的尺寸规则；`tts_config` 变成那一个 `voice`；用量对图像是端点的 token 数，对语音是输入的 UTF-8 字节数（Fish Audio 按字节计费），对转写是音频的秒数。拒绝 1K 尺寸的 TokenDance 模型以它自己的错误作答。[#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316) 在原文上修改了本规范：§3.2 加入媒体端点，§5 加入下载失败，§6.3 加入不思考的模型，§6.4 加入尺寸与音色。
-2026-11-06，项目负责人要求支持 Gemini Omni 的视频生成，原话是：「支持一下google omni的视频生成能力」。Gemini Omni 1.2 Flash 通过 Interactions API 作答，返回一段带音轨的 MP4 视频，整段放在一个流式增量里发出。项目负责人保留了 Google 的默认设置（16:9、720p、10 秒），不新增配置键；以 URI 交付的视频按它的 URI 返回；跨多轮编辑视频不在范围内。探测发现 Omni 只接受 `low` 和 `high` 两个思考级别，并把视频本身的 token 计入 `max_output_tokens`，所以按文本设定的上限要等视频生成之后才会失败。[#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318) 在原文上修改了本规范：§6.1 加入 `gemini-omni` 标记，§6.2 写入不发送的 `max_tokens`，§6.3 写入 Omni 的级别。
-
-2026-11-11，项目负责人把某一个端点或某一家厂商的模型需要兼容客户端做的特殊处理移入插件（[MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.zh.md#9-插件) §9），[#322](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/322) 与 [#323](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/323) 贡献的 Mistral 处理也随之写成插件：Mistral 只在被要求时、通过 `reasoning_effort` 打开模型的推理，它的等级没有 `medium`，它的模型列表说明哪些模型会推理。[#326](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/326) 在原文上修改了本规范，在 §6.1 写入兼容客户端读取模型 id 的规则，在 §6.3 写入 `openai-chat` 在 Mistral 上的等级。
-
-2026-11-16，项目负责人要求支持视频的设置、DeepSeek 的语音合成与语音识别，以及 Gemini 4 Hydrogen，原话是：「视频也要支持aspect_ratio和size,还有duration参数」「把deepseek的tts和asr包一下,现在TTS必须支持流式」。`video_config` 承载视频的宽高比、分辨率与时长，Gemini Omni 在它的 `response_format` 中接收它们；关于图像的尺寸键，项目负责人的原话是「改uniconfig的字段,对应映射」「直接改就行了」：`image_config` 的 `image_size` 改名为 `resolution`，与视频共用这个名字，由每个客户端映射到它自己的字段。DeepSeek 的语音合成边合成边在响应体中发送音频，第一批字节约一秒后到达，所以 `deepseek-speech` 请求原始 PCM，每一块一到达就产出，与 Gemini 的流式语音相同；DeepSeek 的语音识别用一个 JSON 作答，只接受 16 位 PCM WAV 或 Ogg Opus。探测发现 Gemini 4 Hydrogen 接受 `xhigh`，拒绝 `minimal` 和 `max`；Gemini Omni 把 4K 写作 `4k`。[#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330) 在原文上修改了本规范：§3.2 加入 DeepSeek 的端点，§6.2 与 §6.4 加入 `video_config`，§6.3 写入 Hydrogen 的级别，§6.4 写入 `resolution` 与 DeepSeek 的音色。
-
-2026-11-17，项目负责人要求按请求计费的请求每次记 1,000 个 token，原话是：「按次收费的都算1次为1000token吧,这样价格就正常一些」。每次记 1 个 token 时，每 1,000 次请求 ¥5 的 DeepSeek Search 与 Fetch 定价为每百万 token ¥5,000，是花费相近的其他条目所示价格的一千倍；每次记 1,000 个 token 后定价为 ¥5，一次请求的花费，即 token 数乘以价格，保持不变。
-
-2026-11-17，一次测试发现整数参数 9007199254740993 在工具调用的片段与完整内容项之间变成了 9007199254740992，项目负责人决定工具调用的参数保留模型写出的文本，原话是：「这个丢精度确实会有问题,在中间多做一次精度转换就会丢东西,UniMessage的工具参数还是保留字符串类型吧」。`StreamItems` 检查拼接后的文本能解析为 JSON 对象，保留的仍是文本；调用方发来的工具调用在请求之前以同样的方式检查。[#339](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/339) 在原文上修改了本规范：§3.3 与 §4.3。
+| 日期 / PR | 变更内容与原因 |
+| --- | --- |
+| 2026-11-02 ([#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308)) | **网页搜索与抓取（`webtool`）**：DeepSeek Search/Fetch 与 Jina Search/Reader 均以单个 JSON 作答（Jina 事件流每次重发整页，故读取 JSON）；搜索只取摘要（不用 `need content`，Jina 加 `no content`）。更新 §2（`webdata`）、§3.2、§6.1（`-search`、`-fetch`）与 §6.3。 |
+| 2026-11-02 ([#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313)) | **GPT-6.1 Terra 与 GPT-6 修复**：Terra 原生支持 `none` effort（不同于 GPT-6 Astra / GPT-6.1 Sol）；修复 `tool_choice` 列表缺失 `type`（OpenAI/OpenRouter 400 错误）；将超 30,000 patch 图片的 `detail: "high"` 从 GPT-5.6 扩展至 GPT-6；将 `enhance` 映射为 GPT-5.6+ 的 12 小时缓存（GPT-5.5 拒绝）。更新 §6.1、§6.3 与 §6.4。 |
+| 2026-11-04 ([#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316)) | **OpenAI 媒体客户端（`openai-image`、`openai-speech`、`openai-transcription`）**：支持 OpenAI、OpenRouter 与 TokenDance。图像与转写读取单个 JSON，语音流式产出音频字节（首包约 0.7 秒）。映射 `image_config` 至 1K/2K `size`、`tts_config` 至 `voice`，并按模态计入用量（图像记 token、Fish Audio 语音记 UTF-8 字节、转写记秒数）。更新 §3.2、§5、§6.3 与 §6.4。 |
+| 2026-11-06 ([#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318)) | **Gemini Omni 视频生成**：Gemini Omni 1.2 Flash 经 Interactions API 在单个流式增量中返回带音轨的 MP4（或按 URI 返回 URI，不含多轮视频编辑），保留 Google 默认设置（16:9、720p、10 秒）。Omni 仅接受 `low`/`high` 思考等级，且视频 token 计入 `max_output_tokens`。更新 §6.1（`gemini-omni`）、§6.2（不发 `max_tokens`）与 §6.3。 |
+| 2026-11-11 ([#326](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/326)) | **兼容客户端插件化与 Mistral 推理**：将特定端点/厂商的兼容客户端处理移入插件（[MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.zh.md#9-插件) §9），含 [#322](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/322)、[#323](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/323) 的 Mistral `reasoning_effort`（按需开启推理、无 `medium`、由模型列表判定是否支持推理）。更新 §6.1 与 §6.3。 |
+| 2026-11-16 ([#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330)) | **`video_config`、DeepSeek 语音合成/识别与 Gemini 4 Hydrogen**：新增 `video_config`（`aspect_ratio`、`resolution`、`duration`，`4K` 写作 `4k`），并将 `image_config.image_size` 统一改名为 `resolution`；新增流式原始 PCM 的 `deepseek-speech`（首包约 1 秒）与单 JSON 的 `deepseek-transcription`（仅收 16 位 PCM WAV 或 Ogg Opus）；新增 Gemini 4 Hydrogen 等级（接受 `xhigh`，拒绝 `minimal`/`max`）。更新 §3.2、§6.2、§6.3 与 §6.4。 |
+| 2026-11-17 ([#336](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/336)) | **按次计费记为 1,000 token**：按次收费的请求每次记 `1,000` 个 token（「按次收费的都算1次为1000token吧,这样价格就正常一些」），使每千次 ¥5 的 DeepSeek Search/Fetch 定价为每百万 token ¥5（而非 ¥5,000），单次请求花费不变（§3.2）。 |
+| 2026-11-17 ([#339](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/339)) | **工具调用 `arguments` 保留 JSON 文本**：测试发现 `9007199254740993` 在解析后变为 `9007199254740992`，故规定工具调用参数保留模型写出的文本（「UniMessage的工具参数还是保留字符串类型吧」）；`StreamItems` 与请求前校验均验证其能解析为 JSON 对象并保留原文本（§3.3、§4.3）。 |
 
 ## 2. Conventions and Terminology
 
 本文中的关键词“必须”“不得”“应当”“不应”“可以”依次对应 BCP 14（[RFC 2119](https://www.rfc-editor.org/rfc/rfc2119)、[RFC 8174](https://www.rfc-editor.org/rfc/rfc8174)）中的 MUST、MUST NOT、SHOULD、SHOULD NOT 与 MAY，按其定义解释；本文只在这一含义上使用这五个词。
 
-- *客户端流*：客户端的 `_streaming_response_internal` / `_streamingResponseInternal` 产出的事件。*公开流*：基类产出给调用方的事件。
-- *片段*、*完整内容项*：定义见 [MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.zh.md#2-conventions-and-terminology) §2。*增长字段*：某类内容项的片段不断延长的那一个字段（`text`、`thinking`、`arguments`、`data`、`embedding`、`webdata`）。
-- *官方客户端*、*兼容客户端*：定义见 [MMSP-RFC-0005](MMSP-RFC-0005-client-routing.zh.md#2-conventions-and-terminology) §2。
-- *代*：一个厂商接受同一种请求的那些模型（`"4-6"`、`"gpt-6"`）。
+- **客户端流**：客户端的 `_streaming_response_internal` / `_streamingResponseInternal` 产出的事件。
+- **公开流**：基类产出给调用方的事件。
+- **片段**与**完整内容项**：定义见 [MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.zh.md#2-conventions-and-terminology) §2。
+- **增长字段**：某类内容项的片段不断延长的那一个字段（`text`、`thinking`、`arguments`、`data`、`embedding`、`webdata`）。
+- **官方客户端**与**兼容客户端**：定义见 [MMSP-RFC-0005](MMSP-RFC-0005-client-routing.zh.md#2-conventions-and-terminology) §2。
+- **代**：一个厂商接受同一种请求的那些模型（`"4-6"`、`"gpt-6"`）。
 
 ## 3. 调用
 
 ### 3.1 两个入口
 
-调用模型必须只经由 `streaming_response` 与 `streaming_response_stateful`（TypeScript 中为 `streamingResponse` 与 `streamingResponseStateful`），它们都是产出 `UniEvent` 的异步生成器。没有同步调用，也没有一次返回整个响应的调用。客户端向端点发出的另一种请求只有 `list_models`（[MMSP-RFC-0005](MMSP-RFC-0005-client-routing.zh.md#5-列出模型) §5）。
+调用模型必须只经由 `streaming_response` 与 `streaming_response_stateful`（TypeScript 中为 `streamingResponse` 与 `streamingResponseStateful`），二者均为产出 `UniEvent` 的异步生成器。没有同步调用或一次返回完整响应的调用；客户端向端点发出的另一种请求只有 `list_models`（[MMSP-RFC-0005](MMSP-RFC-0005-client-routing.zh.md#5-列出模型) §5）。
 
 ### 3.2 全部走流式
 
-服务商提供流式端点时，客户端必须读取流式端点。embedding 端点不是流式的：它的向量作为内容项流出，然后是一个 `stop`，以 `prompt_tokens` 携带端点报告的输入计数，`finish_reason` 为 `stop`。`openai-embedding` 按向量的 `index` 把每个向量与它的输入对应起来。
+服务商提供流式端点时，客户端必须读取流式端点。非对话端点的请求、输出与最终 `stop` 事件（`finish_reason: "stop"`，用量为各次请求之和）规则如下：
 
-网页工具端点也不是流式的：它对一次请求用一个 JSON 作答。随着网页加载把整个答案重发一遍的事件流（Jina 的就是这样）不算这里所说的流式端点，客户端必须改为读取 JSON。网页工具客户端必须每条消息发一次请求，消息中各文本内容项拼接起来就是查询或 URL。每个答案一到达就作为一个 `webtool` 内容项流出，什么也没搜到的搜索也不例外；然后是一个 `stop`，`finish_reason` 为 `stop`，`prompt_tokens` 是端点对各次请求计费之和：端点报告的 token 数，按请求计费的端点则每次请求记 1,000，这样此类模型每百万 token 的价格就是 1,000 次请求的价格。搜索必须要求每个结果的摘要，不得要求其网页正文。
+| 端点类型 | 请求与流式方式 | 输出内容项与格式 | 用量计费（`stop` usage） |
+| --- | --- | --- | --- |
+| **Embedding**（`openai-embedding` 等） | 非流式 JSON；`openai-embedding` 按向量的 `index` 与输入配对。 | 每个向量作为一个 `embedding` 内容项流出。 | `prompt_tokens` = 端点报告的输入计数。 |
+| **网页工具**（`-search`、`-fetch`） | 每条消息发一次 JSON 请求（各文本内容项拼接为查询或 URL）；Jina 重发整页的事件流不算流式端点，必须改为读取 JSON。搜索必须只请求摘要，不得请求网页正文。 | 每个答案一到达即作为一个 `webtool` 内容项流出（含无结果的搜索）。 | `prompt_tokens` = 端点报告的 token 之和；按次计费时每次请求记 `1,000`（使每百万 token 价格等于 1,000 次请求的价格）。 |
+| **图像生成**（`openai-image`） | 每条消息发一次 JSON 请求（各文本内容项拼接为提示词）；不得请求流式，也不得发送 `response_format`。 | 从 `b64_json` 读取，否则不带凭据从 `url` 下载（[MMSP-RFC-0006](MMSP-RFC-0006-upstream-credentials.zh.md#7-答案中的链接) §7）。MIME 依次取 `media_type`、`image/<output_format>` 或字节特征。 | `prompt_tokens` = `input_tokens` 或 `prompt_tokens`；`response_tokens` = `output_tokens` 或 `completion_tokens`（未报告保持 `None`）。 |
+| **语音合成（TTS）**（`openai-speech`、`deepseek-speech`） | 每条消息发一次流式请求（各文本内容项拼接为输入）。`openai-speech` 不发 `response_format`；`deepseek-speech` 请求 `format: "pcm"` 且不发 `filter_markdown`。 | 每块到达时必须作为该消息唯一语音项的 `inline_data` 片段产出。无头 `audio/pcm` 按完整帧（[MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.zh.md#34-内容项) §3.4）以 `audio/l16; rate=<rate>; channels=<channels>` 流出；其余格式保留 `content-type`。 | `prompt_tokens` = 输入 UTF-8 字节数（`openai-speech`）或计费字符数（`deepseek-speech`：汉字记 2，其他记 1）；`response_tokens` = `0`。 |
+| **语音转写（ASR）**（`openai-transcription`、`deepseek-transcription`） | 每条消息发一次 JSON 请求（取唯一音频 `inline_data` 项）。`openai-transcription` 发送 multipart 表单（带扩展名的 `file` + `model`，不发 `prompt`）；`deepseek-transcription` 只传 `file`（WAV/Ogg Opus 原样发送，无头 `audio/l16` 或 `audio/pcm` 按 MIME 采样率与声道封装为 WAV）。 | 转写文字作为一个 `text` 内容项流出。 | `prompt_tokens` = `usage.seconds` 或 `duration_ms` 换算的秒数（向上取整到整秒）；`response_tokens` = `0`。 |
 
-图像生成端点也不是流式的：`openai-image` 必须读取它的 JSON，不得请求流式，也不得发送 `response_format`。语音端点以流的形式发送音频字节，`openai-speech` 与 `deepseek-speech` 必须在每一块到达时把它产出，作为一条消息的语音这一个内容项的 `inline_data` 片段。转写端点用一个 JSON 作答。这些客户端（包括 `openai-transcription` 与 `deepseek-transcription`）都必须像网页工具客户端那样每条消息发一次请求：图像的提示词和语音的输入是消息中各文本内容项的拼接，其他内容项抛出 `UnsupportedContentError`；转写的文件是消息中唯一的音频 `inline_data` 内容项，文本、图片或其他内容项抛出 `UnsupportedContentError`，第二个音频内容项抛出 `InvalidMessageError`。
-
-- 图像从答案的 `b64_json` 读取，没有时从它的 `url` 下载，且不带任何凭据（[MMSP-RFC-0006](MMSP-RFC-0006-upstream-credentials.zh.md#7-答案中的链接) §7）。它的 MIME 类型是答案的 `media_type`；没有时是 `image/` 加上它的 `output_format`；再没有时是它的字节所显示的类型。
-- `openai-speech` 保持端点的默认格式，不发送 `response_format`。`deepseek-speech` 请求原始 PCM（`format: "pcm"`），使每一块都是播放器一到达就能接收的音频；它不发送 `filter_markdown`，沿用 DeepSeek 的默认值。无文件头的 PCM（响应 `content-type` 中的 `audio/pcm`）以 `audio/l16; rate=<rate>; channels=<channels>` 流出，采样率与声道数取自该响应头；其他格式以它的 `content-type` 流出。无文件头的 PCM 以完整的帧流出（[MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.zh.md#34-内容项) §3.4）：HTTP 分块劈开的帧，其字节等下一块到达再发出。
-- `openai-transcription` 以 OpenAI 的 multipart 表单上传：`file` 以其 MIME 类型对应的扩展名命名，另有 `model`，不发送 `prompt`；`deepseek-transcription` 只上传 `file`，PCM 以外的类型原样发送，由 DeepSeek 按字节区分 WAV 与 Ogg Opus。无文件头的 PCM（`audio/l16`、`audio/pcm`）按其 MIME 类型中的采样率与声道数封装成 WAV 发送；MIME 类型没有写明采样率的 PCM 抛出 `InvalidMessageError`。转写的文字作为一个 `text` 内容项流出。
-
-然后是一个 `stop`，`finish_reason` 为 `stop`，用量是各次请求之和。对图像，`prompt_tokens` 是端点的 `input_tokens` 或 `prompt_tokens`，`response_tokens` 是它的 `output_tokens` 或 `completion_tokens`，以端点报告的为准，端点不报告的计数保持 `None`。对语音，端点不报告用量，`prompt_tokens` 是端点据以计费的量：在 `openai-speech` 上是输入的 UTF-8 字节数，在 `deepseek-speech` 上是 DeepSeek 计费的字符数，一个汉字算 2 个，其他字符算 1 个；`response_tokens` 为 0。对转写，`prompt_tokens` 是端点报告的 `usage.seconds`，或 DeepSeek 的 `duration_ms` 换算成的秒数，向上取整到整秒，`response_tokens` 为 0。
+- **媒体端点的输入校验**：图像或语音消息含有非文本项时抛出 `UnsupportedContentError`；转写消息含有非音频项时抛出 `UnsupportedContentError`，含有第二个音频项或无头 PCM 的 MIME 未写明采样率时抛出 `InvalidMessageError`。
 
 ### 3.3 请求之前
 
-在发送任何内容之前，`streaming_response` 给每条缺少 `created_at` 的消息打上时间戳（[MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.zh.md#63-created_at) §6.3），转换旧的内容项类型（[MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.zh.md#7-每种输入一种形状) §7），并检查每条消息都有可发送的内容、每个工具调用的 `arguments` 都是一个对象的 JSON 文本。没有内容项的消息、客户端的消息转换无法发送的消息（只有思考），或者含有 `arguments` 不是对象 JSON 文本的工具调用的消息，必须在发往服务商的请求发出之前抛出带有 `message_index` 的 `InvalidMessageError`（[MMSP-RFC-0007](MMSP-RFC-0007-error-types.zh.md#31-请求之前) §3.1）。
+在发送任何内容之前，`streaming_response` 依次执行：
+- **补齐时间戳**：为每条缺少 `created_at` 的消息打上时间戳（[MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.zh.md#63-created_at) §6.3）。
+- **转换旧类型**：转换旧的内容项类型（[MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.zh.md#7-每种输入一种形状) §7）。
+- **校验可发送内容与工具参数**：空消息、客户端消息转换无法发送的消息（如只有思考），或含有 `arguments` 不是对象 JSON 文本的工具调用的消息，必须在请求发出前抛出带 `message_index` 的 `InvalidMessageError`（[MMSP-RFC-0007](MMSP-RFC-0007-error-types.zh.md#31-请求之前) §3.1）。
 
 ## 4. 流的语法
 
 ### 4.1 客户端产出什么
 
-- 服务商的流中每来一个事件，客户端流必须产出一个 `UniEvent`：只产出 delta，从不产出完整内容项。它的 `stop` 事件在线上报告用量和结束原因的地方携带它们，有时分几次携带；`delta` 事件两者都不携带。
-- 不含任何通用内容的线上事件就是空的 delta 事件。表示内容项结束的事件不为内容项收尾：它只产出自己新增的东西，比如一个已完成的推理内容项的 fidelity。客户端不认识的事件必须跳过，因此网关自己插入的帧无法终止一次生成；设置 `MMSP_DEBUG` 后改为抛出 `UnknownEventError`。
-- 从线上读取完整内容项的客户端（MiniMax 的工具调用）把它作为单个片段流出，不得再同时流出它的 delta。
+- **只产出 delta**：服务商流中每来一个事件，客户端流必须产出一个 `UniEvent`——只产出 delta，从不产出完整内容项。`stop` 事件携带线上报告的用量与结束原因（可分多次携带）；`delta` 事件两者都不携带。
+- **空事件、收尾事件与未知事件**：不含通用内容的线上事件产出空 delta；表示内容项结束的事件不为内容项收尾，只产出新增字段（如推理项的 `fidelity`）。不认识的事件必须跳过（设置 `MMSP_DEBUG` 时改为抛出 `UnknownEventError`）。
+- **线上已完成的项**：从线上直接读取完整内容项的客户端（如 MiniMax 工具调用）将其作为单个片段流出，不得再同时流出其 delta。
 
 ### 4.2 基类做什么
 
-- 基类把每个 delta 交给 `StreamItems`（`stream_items.py` / `streamItems.ts`），由它判断每个内容项在哪里结束，并在下一个内容项开始或客户端流结束时，以完整内容项为它收尾。
-- 基类把客户端各个 `stop` 事件上的用量和结束原因逐字段合并进唯一的公开 `stop`：后到的计数替换先到的，0 仍然是 0，服务商不报告的计数为 `None`，不要求任何计数是数字。
+- **经 `StreamItems` 收尾内容项**：基类把每个 delta 交给 `StreamItems`（`stream_items.py` / `streamItems.ts`），在下一个内容项开始或客户端流结束时以完整内容项收尾。
+- **合并 `stop` 元数据**：将客户端各 `stop` 事件的用量和结束原因逐字段合并进唯一的公开 `stop`（后到的计数替换先到的，`0` 保持 `0`，未报告的计数为 `None`，不要求计数是数字）。
 
 ### 4.3 内容项
 
-- 每个内容项都以连续的片段流出，随后是它唯一的完整内容项。内容项之间不得交错。
-- 完整内容项只由 `StreamItems` 用已经流出的片段构建：增长字段是各片段该字段的拼接；工具调用的 `arguments` 就是拼接后的 JSON 文本本身，片段拼接为空时为 `{}`，前提是它已检查过能解析为 JSON 对象（[MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.zh.md#34-内容项) §3.4）；其余字段取自第一个片段；`fidelity` 是片段携带的那一份。一个内容项最多只有一个片段携带它的 fidelity，完整内容项会再带一次。
+- **连续且不交错**：每个内容项以连续片段流出，紧跟其唯一的完整内容项；内容项之间不得交错。
+- **由片段构建完整项**：`StreamItems` 拼接增长字段，工具调用的 `arguments` 在检查能解析为 JSON 对象后保留拼接后的 JSON 文本本身（拼接为空时为 `{}`；[MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.zh.md#34-内容项) §3.4），其余字段取自首个片段，并复制 `fidelity`（同一内容项最多一个片段携带 `fidelity`，完整内容项重复携带它）。
 
 ### 4.4 助手消息
 
-按顺序排列的完整内容项，加上 `stop` 事件的 `usage_metadata` 与 `finish_reason`，就是助手消息。`concat_uni_events_to_uni_message`、有状态的历史与 tracer 都把这两个字段复制到助手消息上。
+按顺序排列的完整内容项加上 `stop` 事件的 `usage_metadata` 与 `finish_reason` 构成助手消息，由 `concat_uni_events_to_uni_message`、有状态历史与 tracer 复制到助手消息上。
 
 ## 5. 流怎样结束
 
-- 一条流必须要么以它的 `stop` 事件结束，要么以异常结束，不会两者兼有。
-- `stop` 事件必须携带一个 `usage_metadata` 对象和一个有值的 `finish_reason`。服务商的流缺少其中之一就结束时，在它之前的事件之后、原本 `stop` 的位置抛出 `IncompleteStreamError`，因此调用方不会看到缺少这两项的 `stop`，历史和 trace 也不会记录这一回合。这个错误指明客户端与缺少的一个或多个字段，并携带已经到达的用量或结束原因，好让这些 token 仍能计入。
-- 除了思考没有别的内容项、或者根本没有内容项的响应，在原本 `stop` 的位置抛出 `EmptyResponseError`，因为没有服务商接受它回传（[MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.zh.md#5-别处产生的思考) §5）。
-- 客户端产出违反这套语法的内容时，在任何模式下都抛出 `StreamProtocolError`：完整内容项、带用量的 delta 事件、同一内容项上两份不同的 fidelity、第一个片段缺少名字或调用 id 的工具调用。这是客户端的缺陷，不得修补。`IncompleteStreamError` 不属于这种情况（是服务商截断了流），`EmptyResponseError` 也不属于（是没有内容的响应）。
-- SDK 在一条已打开的流中抛出的异常原样传出（[MMSP-RFC-0007](MMSP-RFC-0007-error-types.zh.md#4-经由服务端转发) §4）；Interactions API 的 `error` 事件两个 Interactions SDK 都不会抛出，由客户端抛出 `ProviderStreamError`；下载生成图像的 `url` 时得到 HTTP 错误，同样抛出 `ProviderStreamError`，以该状态码作为错误的 code。中止按 [MMSP-RFC-0008](MMSP-RFC-0008-request-interruption.zh.md) 的规定结束这条流。
+- **正常或异常二选一**：一条流必须要么以 `stop` 事件结束，要么以异常结束，绝不兼有。
+- **`IncompleteStreamError`**：`stop` 事件必须携带 `usage_metadata` 对象和有值的 `finish_reason`。若服务商流在缺失其一时结束，基类在原本 `stop` 的位置抛出 `IncompleteStreamError`（指明客户端与缺失字段，并附带已到达的用量或结束原因以便统计 token），使不完整的回合不会进入历史或 trace。
+- **`EmptyResponseError`**：没有任何内容项或只有思考项的响应，在原本 `stop` 的位置抛出 `EmptyResponseError`（[MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.zh.md#5-别处产生的思考) §5）。
+- **`StreamProtocolError`**：客户端产出违反语法的内容（完整内容项、带用量的 delta、同一内容项上两份不同的 fidelity、首个片段缺失名字或调用 id 的工具调用）时，在任何模式下都抛出 `StreamProtocolError`。这是客户端缺陷，不得修补（`IncompleteStreamError` 与 `EmptyResponseError` 不属于协议缺陷）。
+- **`ProviderStreamError`、SDK 异常与中止**：已打开的流中 SDK 抛出的异常原样传出（[MMSP-RFC-0007](MMSP-RFC-0007-error-types.zh.md#4-经由服务端转发) §4）；Interactions API 的 `error` 事件，以及下载生成图像 `url` 遇到 HTTP 错误时，抛出 `ProviderStreamError`（以 HTTP 状态码作为 `code`）。中止按 [MMSP-RFC-0008](MMSP-RFC-0008-request-interruption.zh.md) 结束流。
 
 ## 6. 请求参数
 
 ### 6.1 明确匹配
 
-- 客户端为某个模型发送什么，必须由明确的匹配决定，绝不靠猜。在官方客户端内部，各代模型靠 id 中的版本区分（`"4-6"`；`"gpt-6"` 但既不是 `"gpt-6-luna"` 也不是 `"gpt-6.1-terra"`；`"gpt-5.6"`；`"k2."`；`"m3.1"`；`"glm-5.3"`），写在有名字的元组或直白的条件里；先匹配上的那一行生效。表示档位或模态的标记（`-pro`、`-image`、`tts`、`gemini-omni`、`embedding`、`-search`、`-fetch`）也以同样的方式选定模型的类别。`"claude"`、`"gpt"` 这类只有系列名的子串不得决定任何事。新的一代模型加一行或一个条件，绝不放宽匹配。
-- 兼容客户端只在发送的内容因模型而异时才读取模型 id，而且同样按明确的名字或标记。它的转换方法只读取自己协议的标记：`deepseek-webtool` 按 id 中的 `-search` 或 `-fetch` 决定搜索还是抓取；`google-genai` 的协议只服务 Google 的模型，它像 `google-official` 一样区分这些模型。服务多家厂商的协议上某一家厂商的模型需要的处理，写成按明确模式匹配的插件（[MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.zh.md#9-插件) §9）：`openai-responses` 的 `gpt` 插件在 Luna 与 GPT-6.1 Terra 以外的 GPT-6 上把 `none` 变成 `low`，`openai-chat` 和 `openai-responses` 的 `gpt` 插件对 GPT-5.6 或 GPT-6 原本会拒绝的图片请求 `detail: "high"`。vLLM 适配器从自己的表中选出聊天模板的思考开关，找不到时退回 Qwen3 的开关。
-- 模型 id 由哪个客户端处理，见 [MMSP-RFC-0005](MMSP-RFC-0005-client-routing.zh.md)。
+- **官方客户端**：必须通过具名元组或直白条件中的明确版本/模态标记决定发送内容（先匹配者生效）：如版本标记 `"4-6"`、`"gpt-6"`（排除 `"gpt-6-luna"` 与 `"gpt-6.1-terra"`）、`"gpt-5.6"`、`"k2."`、`"m3.1"`、`"glm-5.3"`，以及档位/模态标记 `-pro`、`-image`、`tts`、`gemini-omni`、`embedding`、`-search`、`-fetch`。`"claude"`、`"gpt"` 等仅含系列名的子串不得决定任何事；新一代模型只可新增一行或条件，绝不放宽匹配。
+- **兼容客户端**：仅在发送内容因模型而异时按明确标记读取模型 id，且转换方法只读自身协议标记（`deepseek-webtool` 读 `-search`/`-fetch`；仅服务 Google 模型的 `google-genai` 同 `google-official`）。多厂商协议上的特定厂商规则写成按明确模式匹配的插件（[MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.zh.md#9-插件) §9）：`openai-responses` 的 `gpt` 插件在 Luna 与 GPT-6.1 Terra 以外的 GPT-6 上把 `none` 转为 `low`；`openai-chat` 与 `openai-responses` 的 `gpt` 插件对 GPT-5.6 和 GPT-6 请求 `detail: "high"`。vLLM 适配器从表中选取聊天模板思考开关，未命中时退回 Qwen3 开关。
+- **客户端路由**：模型 id 由哪个客户端处理见 [MMSP-RFC-0005](MMSP-RFC-0005-client-routing.zh.md)。
 
 ### 6.2 没有对应设置的值
 
-客户端无法为该模型发送的 `UniConfig` 值，必须在请求发出之前抛出 `UnsupportedParameterError`，指明客户端与参数。客户端用不上的键会被忽略。`thinking_level` 是例外（§6.3）。
-
-`video_config` 只发送给 Gemini Omni：对其他模型，`google-official` 抛出异常；没有视频模型的客户端忽略它。
-
-`max_tokens` 不会发送给 Gemini Omni：视频本身的 token 也计入 Google 的 `max_output_tokens`（默认视频为 57,920），按文本设定的上限要等视频生成之后才会失败。
+- **不支持的值与忽略的键**：客户端无法为目标模型发送的 `UniConfig` 值，必须在请求发出前抛出指明客户端与参数的 `UnsupportedParameterError`；客户端用不上的键直接忽略。`thinking_level` 是唯一例外（§6.3）。
+- **`video_config`**：仅发给 Gemini Omni；对其他模型 `google-official` 抛出异常，无视频模型的客户端忽略它。
+- **Gemini Omni 上的 `max_tokens`**：不发送给 Gemini Omni，因为视频本身的 token 计入 Google 的 `max_output_tokens`（默认视频为 57,920），按文本设定的上限会在视频生成后才失败。
 
 ### 6.3 思考等级
 
-- 客户端不得拒绝任何 `ThinkingLevel`：无论什么模型，都没有客户端为 `thinking_level` 抛出 `UnsupportedParameterError`。
-- 每个官方客户端按一张固定的表，把每个级别映射到该模型这一代的某个设置上，不发出警告：模型有这个级别时，就用它本身；模型没有时，用模型接受的另一个级别（Claude 4.6 以 `high` 运行 `xhigh`；Gemini 以 `high` 运行 `xhigh` 和 `max`，Gemini 4 Hydrogen 除外，它原样运行 `xhigh`，以 `xhigh` 运行 `max`；只接受 `low` 和 `high` 的 Gemini Omni 也以 `high` 运行 `medium`）；对于 `none`，模型有自己的关闭开关时就用它（Claude Sonnet 5 上的 `disabled`，GPT-6 Luna、GPT-6.1 Terra 和 Kimi K3 系列上的 `none`）；对于没有关闭开关的模型上的 `none`，用它允许的最少思考（Claude Opus 5.5 上的最低 effort，Claude Sonnet 5.5 上的 `between_tools`，Gemini 上的 `minimal` 或 `low`）。不思考的模型，例如 embedding 模型、网页工具，或 `openai-image`、`openai-speech`、`openai-transcription`、`deepseek-speech`、`deepseek-transcription` 的模型，没有这样的设置，级别被忽略。
-- 经由兼容客户端时，由端点决定某个级别实际如何运行，端点可以拒绝这个值：`ant-messages` 对 `none` 发送 `disabled`；`openai-responses` 把级别作为它的 effort 发送，在 Luna 与 GPT-6.1 Terra 以外的 GPT-6 上把 `none` 发成 `low`；`openai-chat` 不发送级别，Mistral 的端点除外：在那里它的 `mistral` 插件对 Mistral 模型列表标明会推理的模型发送 `reasoning_effort`（`low` 发 `low`，`medium` 与 `high` 发 `high`，`xhigh` 与 `max` 原样发送，`none` 不发送），对其他模型不发送；它的 vLLM 适配器只发送聊天模板的思考开关；`mmsp` 客户端把级别转发给它的服务端。
+客户端不得拒绝任何 `ThinkingLevel`：无论什么模型，都没有客户端为 `thinking_level` 抛出 `UnsupportedParameterError`。
+
+| 客户端类别 | 目标模型 | `thinking_level` 映射规则 |
+| --- | --- | --- |
+| **官方客户端** | 支持思考的模型 | 按固定代际表静默映射：模型支持该级别时原样使用；不支持时映射到模型接受的级别（**Claude 4.6**：`xhigh` -> `high`；**Gemini**：`xhigh`/`max` -> `high`，但 **Gemini 4 Hydrogen** 原样保留 `xhigh` 并将 `max` -> `xhigh`，仅接受 `low`/`high` 的 **Gemini Omni** 将 `medium` -> `high`）。对于 `none`：有原生关闭开关时使用开关（**Claude Sonnet 5** 为 `disabled`；**GPT-6 Luna**、**GPT-6.1 Terra** 与 **Kimi K3** 系列为 `none`），无关闭开关时用最少思考（**Claude Opus 5.5** 最低 effort、**Claude Sonnet 5.5** 的 `between_tools`、**Gemini** 的 `minimal` 或 `low`）。 |
+| **所有客户端** | 不思考的模型 | 在 embedding 模型、网页工具及 `openai-image`、`openai-speech`、`openai-transcription`、`deepseek-speech`、`deepseek-transcription` 上直接忽略。 |
+| **兼容客户端** | 视端点而定（端点可以拒绝） | **`ant-messages`**：`none` -> `disabled`。**`openai-responses`**：作为 effort 发送（Luna 与 GPT-6.1 Terra 以外的 GPT-6 上 `none` -> `low`）。**`openai-chat`**：默认不发送；在 Mistral 端点上由 `mistral` 插件对模型列表标明会推理的模型发送 `reasoning_effort`（`low` -> `low`，`medium`/`high` -> `high`，`xhigh`/`max` 原样，`none` 不发，非推理模型不发）；vLLM 适配器只发聊天模板思考开关。**`mmsp`**：原样转发给服务端。 |
 
 ### 6.4 有另一种形式的值
 
-协议对某个值有另一种形式时，映射写明用哪一种：工具名列表是 `allowed_tools`，在 `openai-chat` 上带 `mode: "auto"`，在 `openai-official` 和 `openai-responses` 上带 `mode: "required"`；只有一个名字的列表在 `ant-messages` 上是 `{type: "tool", name}`；没有设置的 `max_tokens` 在 Anthropic 客户端上是 64000；`prompt_caching` 的 `enhance` 在 `openai-official` 上对 GPT-5.6 及之后的模型是 `prompt_cache_options: {ttl: "12h"}`。
-
-`tts_config` 在 `openai-speech` 上是 `voice`，在 `deepseek-speech` 上是 `voice_id`：取它唯一一项的 `voice`；没有 `tts_config` 时两者都不发送，端点用它的默认音色朗读；多于一项抛出 `UnsupportedParameterError`。`image_config` 的 `resolution` 在两个 Google 客户端上是 Gemini 的 `image_size`。`image_config` 在 `openai-image` 上是 `size`，取自下表：只有 `aspect_ratio` 没有 `resolution` 时取该比例的 1K 尺寸，只有 `resolution` 没有 `aspect_ratio` 时取 1:1，没有 `image_config` 时不发送 `size`。表中每个尺寸两边都是 16 的倍数，像素数在 655,360 到 8,294,400 之间，最长边不超过 3840，长宽比不超过 3:1，符合 OpenAI 的要求。
+| 参数 | 客户端 / 适用范围 | 线上形式与规则 |
+| --- | --- | --- |
+| **`tool_choice`（工具名列表）** | `openai-chat`、`openai-official`、`openai-responses`、`ant-messages` | 映射为 `allowed_tools`，在 `openai-chat` 上带 `mode: "auto"`，在 `openai-official` 与 `openai-responses` 上带 `mode: "required"`；单元素列表在 `ant-messages` 上为 `{type: "tool", name}`。 |
+| **未设置的 `max_tokens`** | Anthropic 客户端 | 默认设为 `64000`。 |
+| **`prompt_caching: "enhance"`** | `openai-official`（GPT-5.6 及之后） | 映射为 `prompt_cache_options: {ttl: "12h"}`。 |
+| **`tts_config`** | `openai-speech`、`deepseek-speech` | 取唯一一项的 `voice`，在 `openai-speech` 上发为 `voice`，在 `deepseek-speech` 上发为 `voice_id`；未设置时不发送（用默认音色）；多于一项抛出 `UnsupportedParameterError`。 |
+| **`image_config`** | Google 客户端、`openai-image` | `resolution` 在两个 Google 客户端上映射为 Gemini 的 `image_size`。在 `openai-image` 上按下表映射为 `size`（仅 `aspect_ratio` 时取 `1K`；仅 `resolution` 时取 `1:1`；未设置时不发 `size`）。表中尺寸双边均为 16 的倍数、像素数 655,360–8,294,400、最长边 <= 3840、长宽比 <= 3:1。 |
+| **`video_config`** | Gemini Omni（`google-official`、`google-genai`） | 映射为 `response_format` 中的 `video` 条目：`aspect_ratio` 与 `resolution` 原样发送（唯 `4K` 写作 `4k`），`duration`（秒）写作 `"<n>s"`。只发送给出的字段；未设置时不发 `response_format`（沿用 Google 默认值 16:9、720p、10 秒）。Google 不接受的值（如 `1:1` 或 2 秒）由 Google 自身错误拒绝。 |
 
 | `aspect_ratio` | `1K` | `2K` |
 | --- | --- | --- |
@@ -137,20 +143,20 @@
 | `16:9` | `1376x768` | `2752x1536` |
 | `21:9` | `1584x672` | `3168x1344` |
 
-`video_config` 在 Gemini Omni 上是 `response_format` 中的一个 `video` 条目：`aspect_ratio` 与 `resolution` 原样发送，只有 `4K` 按 Google 的写法发成 `4k`；`duration` 以秒为单位，写成 Google 的 `"<n>s"`。只发送给出的字段；没有 `video_config` 时不发送 `response_format`，沿用 Google 的默认值（16:9、720p、10 秒）。Google 不接受的值，例如 `1:1` 或 2 秒，由 Google 自己的错误拒绝。
-
 ### 6.5 配置页
 
-本文陈述规范；[`site/src/docs/configuration.zh.md`](../../site/src/docs/configuration.zh.md) 写明每个客户端对每个键发送、忽略还是拒绝什么，思考等级的每一行在两个包的映射测试中都有对应的用例。其中的一行必须和改动它的代码在同一个 PR 中修改。
+[`site/src/docs/configuration.zh.md`](../../site/src/docs/configuration.zh.md) 写明每个客户端对每个键发送、忽略还是拒绝什么，思考等级的每一行在两个包的映射测试中均有对应用例。表中任何一行必须与修改它的代码在同一个 PR 中更新。
 
 ## 7. `mmsp` 客户端
 
-`mmsp` 客户端有自己的 `streaming_response`：它打上 `created_at`，把消息和配置原样发给它的服务端，不转换旧的内容项类型，也不检查每条消息是否有可发送的内容；§3.3 和 §6 的其余部分由服务端的客户端完成。它原样转发服务端的公开流，包括其中的 `stop`。服务端的流在 `stop` 之前结束时，它自己抛出 `IncompleteStreamError`；服务端的 `IncompleteStreamError` 以 `UpstreamError` 的形式到达它，带有该 `error_type` 以及这个错误的各个字段（[MMSP-RFC-0007](MMSP-RFC-0007-error-types.zh.md#4-经由服务端转发) §4）。
+`mmsp` 客户端实现了自己的 `streaming_response`：
+- **请求直传**：打上 `created_at` 后把消息与配置原样发给服务端，不转换旧内容项类型，也不检查消息是否为空（§3.3 和 §6 的其余工作由服务端客户端完成）。
+- **流与错误转发**：原样转发服务端的公开流（含 `stop`）。若服务端流在 `stop` 前断开，则本地抛出 `IncompleteStreamError`；服务端抛出的 `IncompleteStreamError` 则以带该 `error_type` 及各字段的 `UpstreamError` 形式到达（[MMSP-RFC-0007](MMSP-RFC-0007-error-types.zh.md#4-经由服务端转发) §4）。
 
 ## 8. Conformance
 
-- `src_py/mmsp/base_client.py`、`src_py/mmsp/stream_items.py`、`src_ts/src/baseClient.ts`、`src_ts/src/streamItems.ts`；`errors.py` / `errors.ts` 中的 `IncompleteStreamError`，以及它在 `wire.py` / `wire.ts` 中的分支。
-- `src_py/tests/stream_grammar.py` / `src_ts/tests/streamGrammar.ts`，共享的 e2e 测试用它检查每一条流，包括每个完整内容项等于其片段的拼接。
-- `test_stream_protocol.py`、`test_stream_items.py`、`test_unknown_events.py`、`test_empty_response.py`、`test_message_order.py`（把一条空消息和一条只有思考的消息交给各客户端的消息转换）及其对应的 Jest 测试；`test_mmsp_server.py` / `mmsp-server.test.ts`，检查经过服务端的流与上游的流相同。
-- `src_py/mmsp/<client>/client.py` 和 `src_ts/src/<client>/client.ts` 中的配置转换（`transform_uni_config_to_model_config` / `transformUniConfigToModelConfig`）；`test_thinking_level_mapping.py` / `thinking-level-mapping.test.ts`，为每一代模型的那一行固定用例；`test_request_body.py` / `request-body.test.ts`。
-- `site/src/docs/configuration.en.md` / `configuration.zh.md`；`UnsupportedParameterError` 的文档字符串；对照 `.agents/skills/mmsp-dev/SKILL.md` 评审，它要求在编写不显然的映射之前先停下来询问。
+- **基础流与错误实现**：`src_py/mmsp/base_client.py`、`src_py/mmsp/stream_items.py`、`src_ts/src/baseClient.ts`、`src_ts/src/streamItems.ts`；`errors.py` / `errors.ts` 中的 `IncompleteStreamError` 及其在 `wire.py` / `wire.ts` 中的分支。
+- **共享 e2e 语法检查**：`src_py/tests/stream_grammar.py` / `src_ts/tests/streamGrammar.ts`，在每条 e2e 流上验证每个完整内容项等于其各片段的拼接。
+- **流与服务端单元测试**：`test_stream_protocol.py`、`test_stream_items.py`、`test_unknown_events.py`、`test_empty_response.py`、`test_message_order.py`（空消息与仅含思考的消息）及其 Jest 镜像测试；`test_mmsp_server.py` / `mmsp-server.test.ts`。
+- **配置转换与测试**：`src_py/mmsp/<client>/client.py` 与 `src_ts/src/<client>/client.ts` 中的 `transform_uni_config_to_model_config` / `transformUniConfigToModelConfig`；固定各代模型映射的 `test_thinking_level_mapping.py` / `thinking-level-mapping.test.ts`；`test_request_body.py` / `request-body.test.ts`。
+- **文档与评审门禁**：`site/src/docs/configuration.en.md` / `configuration.zh.md`、`UnsupportedParameterError` 的文档字符串，以及要求在编写非显然映射前先询问的 `.agents/skills/mmsp-dev/SKILL.md`。

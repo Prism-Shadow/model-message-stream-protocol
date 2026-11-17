@@ -10,36 +10,28 @@
 
 ## Abstract
 
-What this document specifies, in one paragraph of one to three sentences: the concept, protocol or
-algorithm that is fixed here, and what it fixes about it. No history and no reasons.
+State what this document specifies in **one paragraph of 1–2 short sentences** with **bold** key terms: the concept, protocol, or algorithm fixed here, with no history or rationale.
 
 ## 1. Introduction
 
-Why this is fixed, with the concrete case it was decided on (a model, a wire event, a replay, a
-config value) and the PRs that carry the history, as full URLs. Where the content came from an
-earlier RFC, say which.
+- **Why this is fixed**: State the problem and concrete motivating case (a model, wire event, replay, or config value) using short bullets with **bold lead-ins**.
+- **History and provenance**: Link the deciding PRs as full URLs, and note any earlier RFC whose content moved here.
 
 ## 2. Conventions and Terminology
 
-The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY in this document are to be interpreted as
-described in BCP 14 ([RFC 2119](https://www.rfc-editor.org/rfc/rfc2119),
-[RFC 8174](https://www.rfc-editor.org/rfc/rfc8174)) when, and only when, they appear in all capitals.
+The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY in this document are to be interpreted as described in BCP 14 ([RFC 2119](https://www.rfc-editor.org/rfc/rfc2119), [RFC 8174](https://www.rfc-editor.org/rfc/rfc8174)) when, and only when, they appear in all capitals.
 
-The terms this document uses, one definition each. A term another RFC defines is cited, not
-redefined, as `fidelity` is:
-`([MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.md#5-what-a-message-carries) §5)`.
+- **Term**: One concise sentence per term; cite terms defined in another RFC instead of redefining them, e.g. `([MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.md#5-what-a-message-carries) §5)`.
 
 ## 3. Noun
 
-Spec RFCs. The specification itself, one noun per section, numbered on from 3, with subsections
-`### 3.1 Noun` where a section has parts. Each normative sentence uses a key word and is true of
-the code. Cite another RFC as `([MMSP-RFC-NNNN](MMSP-RFC-NNNN-<slug>.md#<anchor>) §N)`, the anchor
-being the GitHub slug of the cited section's heading; the Chinese twin links the `.zh.md` file at
-the slug of its own heading for that section.
+- **Spec RFC body**: One noun per numbered section (`## 3. Noun`, `### 3.1 Noun`). Use **short sentences, bold lead-ins, and tables over dense prose**.
+- **Normative precision**: Every normative sentence uses a BCP 14 keyword and matches the code.
+- **Cross-references**: Cite another RFC as `([MMSP-RFC-NNNN](MMSP-RFC-NNNN-<slug>.md#<anchor>) §N)` (the `.zh.md` twin links the `.zh.md` file and its translated heading slug).
 
 ## N. Conformance
 
-Spec RFCs, last. The modules and tests that implement and check this specification, at file level.
+- **Spec RFCs (last section)**: List the file-level modules and tests that implement and verify this specification.
 
 ## N. Drawbacks
 ## N. Rationale and Alternatives
@@ -47,5 +39,4 @@ Spec RFCs, last. The modules and tests that implement and check this specificati
 ## N. Unresolved Questions
 ## N. Future Possibilities
 
-Change and process RFCs, after the body sections and in this order: the Rust RFC sections, numbered
-on. A section with nothing to say is deleted.
+- **Change and process RFCs**: Number these Rust RFC sections in order after the body sections, and delete any section with nothing to say.

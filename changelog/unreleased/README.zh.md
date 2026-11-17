@@ -2,6 +2,7 @@
 
 [English](README.md)
 
+- [2026-11-18] 重构 MMSP-RFC-0001 至 0010、0014 与 RFC 写作指南（中英文），采用速查表格、粗体前缀列表与独立修订表提升视觉层级与可读性。([详情](2026-11-18-rfc-readability-and-hierarchy.zh.md))
 - [2026-11-17] 旧版 anthropic 与 google-genai 版本线上的 Python 离线测试改在各自的任务中与实况测试并行运行，TypeScript 测试不再等它们。([详情](2026-11-17-parallel-sdk-lines.zh.md), [#338](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/338))
 - [2026-11-17] `tool_call.done` 的 `arguments` 改为模型写出的 JSON 文本，不再是解析后的对象，大整数与长小数的每一位都得以保留；线路接收字符串时客户端原样回放。([详情](2026-11-17-tool-call-arguments-text.zh.md), [#340](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/340))
 - [2026-11-17] MMSP-RFC-0002、0003 与 0009 在原文上修改，工具调用的 `arguments` 保留为模型写出的 JSON 文本，不再是解析后的对象。([详情](2026-11-17-tool-call-arguments-text-rfc.zh.md), [#339](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/339))
