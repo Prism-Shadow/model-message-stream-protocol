@@ -766,4 +766,79 @@ describe("Gemini Omni", () => {
     expect((caught as UnsupportedParameterError).parameter).toBe(parameter);
     expect((caught as Error).message).toContain("Gemini Omni does not support");
   });
+
+  test.each<[string, NonNullable<UniConfig["video_config"]>, object]>([
+    [
+      "all",
+      { aspect_ratio: "9:16", resolution: "360p", duration: 3 },
+      {
+        type: "video",
+        aspect_ratio: "9:16",
+        resolution: "360p",
+        duration: "3s",
+      },
+    ],
+    // Google spells 4K "4k" and refuses "4K" (verified live 2026-11-16)
+    ["4K", { resolution: "4K" }, { type: "video", resolution: "4k" }],
+    ["duration", { duration: 15 }, { type: "video", duration: "15s" }],
+    ["empty", {}, { type: "video" }],
+  ])("sends video_config (%s) as a video entry", (_, videoConfig, expected) => {
+    const client = new AutoLLMClient({ model: OMNI_MODEL, apiKey: "test-key" });
+
+    const request = client.transformUniConfigToModelConfig({
+      video_config: videoConfig,
+    });
+
+    expect(request.response_format).toEqual([expected]);
+  });
+});
+
+describe("video_config and image_config on the other Gemini models", () => {
+  test.each([
+    "gemini-4-hydrogen",
+    "gemini-3.8-flash-tts",
+    "gemini-3.1-flash-image",
+  ])("%s refuses video_config", (model) => {
+    const client = new AutoLLMClient({ model, apiKey: "test-key" });
+
+    let caught: unknown;
+    try {
+      client.transformUniConfigToModelConfig({ video_config: { duration: 3 } });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(UnsupportedParameterError);
+    expect((caught as UnsupportedParameterError).parameter).toBe(
+      "video_config",
+    );
+    expect((caught as Error).message).toContain(
+      "does not support video_config",
+    );
+  });
+
+  test("image_config's resolution is Gemini's image_size on both Google clients", () => {
+    const official = new AutoLLMClient({
+      model: "gemini-3.1-flash-image",
+      apiKey: "test-key",
+    });
+    expect(
+      official.transformUniConfigToModelConfig({
+        image_config: { aspect_ratio: "16:9", resolution: "2K" },
+      }).response_format,
+    ).toEqual([
+      { type: "text" },
+      { type: "image", aspect_ratio: "16:9", image_size: "2K" },
+    ]);
+
+    const genai = new AutoLLMClient({
+      model: "gemini-3.1-flash-image",
+      apiKey: "test-key",
+      clientType: "google-genai",
+    });
+    expect(
+      genai.transformUniConfigToModelConfig({
+        image_config: { resolution: "2K" },
+      }).imageConfig,
+    ).toEqual({ aspectRatio: undefined, imageSize: "2K" });
+  });
 });

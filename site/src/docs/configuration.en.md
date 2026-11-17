@@ -26,7 +26,8 @@ description: UniConfig, the options of a request, and what each client sends for
   "prompt_caching": "enable",
   "session_id": "8d2f0c4e-7a1b-4c3d-9e5f-0a1b2c3d4e5f",
   "fast_mode": false,
-  "image_config": {"aspect_ratio": "4:3", "image_size": "1K"},
+  "image_config": {"aspect_ratio": "4:3", "resolution": "1K"},
+  "video_config": {"aspect_ratio": "9:16", "resolution": "720p", "duration": 8},
   "tts_config": [{"voice": "Kore"}],
   "embedding_config": {"dimensions": 768},
   "webtool_config": {"count": 5},
@@ -48,7 +49,8 @@ description: UniConfig, the options of a request, and what each client sends for
 | `prompt_caching` | `"enable"`, `"disable"`, `"enhance"` | How the prompt is cached. |
 | `session_id` | string | The conversation the request belongs to. Recommended: one stable id per conversation raises the prompt cache hit rate. |
 | `fast_mode` | boolean | Ask for the provider's faster tier. |
-| `image_config` | object | For image output, Gemini's and `openai-image`'s: `aspect_ratio` (`1:1`, `2:3`, `3:2`, `3:4`, `4:3`, `9:16`, `16:9`, `21:9`) and `image_size` (`1K`, `2K`). |
+| `image_config` | object | For image output, Gemini's and `openai-image`'s: `aspect_ratio` (`1:1`, `2:3`, `3:2`, `3:4`, `4:3`, `9:16`, `16:9`, `21:9`) and `resolution` (`1K`, `2K`). |
+| `video_config` | object | For video output, Gemini Omni's: `aspect_ratio`, `resolution` (`360p`, `720p`, `1080p`, `4K`) and `duration` in whole seconds. |
 | `tts_config` | list | For speech: one entry per speaker, with `voice` and an optional `speaker`. With two speakers, which Gemini speech takes, the text is a script with one `Name: line` per turn; `openai-speech` takes one. |
 | `embedding_config` | object | For embeddings: `dimensions`, the size of the vector. |
 | `webtool_config` | object | For web search: `count`, how many results a search returns. |
@@ -62,7 +64,7 @@ A value a client cannot send raises `UnsupportedParameterError` before the reque
 
 ## What each client sends
 
-Clients are named by their `client_type` ([Models and endpoints](/docs/models/)); `openai-official` serves the `text-embedding-*` models through `openai-embedding` and the `gpt-image-*` models through `openai-image`, and `deepseek-official` serves `deepseek-search` and `deepseek-fetch` through `deepseek-webtool`. The media clients, `openai-image`, `openai-speech` and `openai-transcription`, send nothing but the model, the prompt, input or file, and `image_config` or `tts_config`. The web tool clients, `deepseek-webtool` and `jina-webtool`, tell a search from a fetch by the `-search` or `-fetch` in the id. On both Google clients, a speech model is one whose id contains `tts` and an embedding model one whose id contains `embedding`; on `google-official`, Gemini Omni is a model whose id contains `gemini-omni`. The `mmsp` client sends the configuration unchanged, and the server applies it through the model's own client, so that client's rows hold.
+Clients are named by their `client_type` ([Models and endpoints](/docs/models/)); `openai-official` serves the `text-embedding-*` models through `openai-embedding` and the `gpt-image-*` models through `openai-image`, and `deepseek-official` serves `deepseek-search` and `deepseek-fetch` through `deepseek-webtool`, `deepseek-tts` through `deepseek-speech` and `deepseek-asr` through `deepseek-transcription`. The media clients, `openai-image`, `openai-speech`, `openai-transcription`, `deepseek-speech` and `deepseek-transcription`, send nothing but the model (the DeepSeek ones name none), the prompt, input or file, and `image_config` or `tts_config`; `deepseek-speech` also asks for `format: "pcm"`. The web tool clients, `deepseek-webtool` and `jina-webtool`, tell a search from a fetch by the `-search` or `-fetch` in the id. On both Google clients, a speech model is one whose id contains `tts` and an embedding model one whose id contains `embedding`; on `google-official`, Gemini Omni is a model whose id contains `gemini-omni`. The `mmsp` client sends the configuration unchanged, and the server applies it through the model's own client, so that client's rows hold.
 
 ### `max_tokens`
 
@@ -147,6 +149,7 @@ Each client sends the level as its protocol's effort: `output_config.effort` wit
 | `zai-official`: GLM-5.3, GLM-5.3-Flash | `low` | `low` | `high` | `high` | `max` | `max` |
 | `zai-official`: other GLM models | `disabled` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `google-official`: Gemini Omni | `low` | `low` | `high` | `high` | `high` | `high` |
+| `google-official`: Gemini 4 Hydrogen | `low` | `low` | `medium` | `high` | `xhigh` | `xhigh` |
 | `google-official`, `google-genai`: image models | `minimal` | `minimal` | `high` | `high` | `high` | `high` |
 | `google-official`, `google-genai`: Gemini 3 Pro | `low` | `low` | `high` | `high` | `high` | `high` |
 | `google-official`, `google-genai`: other Pro models, Gemini 3.7, 3.8, 4 Argon, 4 Carbon | `low` | `low` | `medium` | `high` | `high` | `high` |
@@ -218,9 +221,9 @@ An empty string sends nothing.
 
 | Client | Sent as |
 | --- | --- |
-| `google-genai` | `image_config` |
-| `google-official` | `response_format`: a text entry, then an image entry carrying `aspect_ratio` and `image_size`; raises on Gemini Omni |
-| `openai-image` | `size`, from the table below; an `aspect_ratio` alone takes its 1K size, an `image_size` alone 1:1, and no `image_config` sends no `size` |
+| `google-genai` | `image_config`, with `resolution` as `image_size` |
+| `google-official` | `response_format`: a text entry, then an image entry carrying `aspect_ratio`, and `resolution` as `image_size`; raises on Gemini Omni |
+| `openai-image` | `size`, from the table below; an `aspect_ratio` alone takes its 1K size, a `resolution` alone 1:1, and no `image_config` sends no `size` |
 | Every other client; Gemini speech and embedding models | ignored |
 
 The sizes are Gemini's for each ratio, and every one keeps OpenAI's rules for GPT Image: both sides multiples of 16, 655,360 to 8,294,400 pixels, no edge above 3840, no ratio beyond 3:1. TokenDance's `seedream-5.0-lite` needs at least 3,686,400 pixels and answers a 1K size with its own error.
@@ -236,6 +239,16 @@ The sizes are Gemini's for each ratio, and every one keeps OpenAI's rules for GP
 | `16:9` | `1376x768` | `2752x1536` |
 | `21:9` | `1584x672` | `3168x1344` |
 
+### `video_config`
+
+| Client | Sent as |
+| --- | --- |
+| Gemini Omni on `google-official` | `response_format`: one video entry carrying the `aspect_ratio`, the `resolution` (`4K` as `4k`) and the `duration` as `"<n>s"`, each only when given; no `video_config` sends no `response_format`, so Google's defaults hold (16:9, 720p, 10 seconds) |
+| Other models on `google-official` | raises |
+| Every other client | ignored |
+
+Gemini Omni takes `16:9` and `9:16`, `360p` to `4K`, and 3 to 15 seconds; any other value comes back as Google's own error.
+
 ### `tts_config`
 
 Gemini speech models, on both Google clients:
@@ -247,12 +260,12 @@ Gemini speech models, on both Google clients:
 | Two entries | one voice per `speaker`; an entry without a `speaker` raises. Gemini 3.8 speech models get the script as one part per turn, with the speaker as metadata. |
 | Three or more | raises |
 
-`openai-speech`:
+`openai-speech` and `deepseek-speech`:
 
 | `tts_config` | Sent as |
 | --- | --- |
-| Not set | no `voice`: the endpoint's default voice |
-| One entry | its `voice` |
+| Not set | no voice: the endpoint's default voice (`stella` on DeepSeek) |
+| One entry | its `voice`, as `voice_id` on `deepseek-speech` (`stella` or `tide`) |
 | Two or more | raises |
 
 Every other model and client ignores it.

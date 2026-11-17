@@ -31,7 +31,7 @@ from mmsp import AutoLLMClient, RoutingError, ThinkingLevel, UnsupportedParamete
 IMAGE = "https://sghimages.shobserver.com/img/catch/2022/01/22/c1ae0300-9402-4128-a7e6-1244d3874167.jpg"
 IMAGE_KEYWORDS = ("flower", "narcissus", "daffodil", "bloom")
 # eleven seconds of a speech, "...ask not what your country can do for you...", from the Whisper repository
-AUDIO = "https://raw.githubusercontent.com/openai/whisper/main/tests/jfk.flac"
+AUDIO = "https://raw.githubusercontent.com/ggerganov/whisper.cpp/master/samples/jfk.wav"
 
 
 @dataclass
@@ -879,7 +879,7 @@ async def test_image_generation(model: Model):
                 ],
             }
         ],
-        config={"image_config": {"aspect_ratio": "1:1", "image_size": "2K"}},
+        config={"image_config": {"aspect_ratio": "1:1", "resolution": "2K"}},
     ):
         await _check_event_integrity(event)
         events.append(event)
@@ -912,7 +912,7 @@ async def test_video_generation(model: Model):
                 ],
             }
         ],
-        config={},
+        config={"video_config": {"aspect_ratio": "9:16", "resolution": "360p", "duration": 3}},
     ):
         await _check_event_integrity(event)
         events.append(event)
@@ -974,7 +974,7 @@ async def test_transcription(model: Model):
         messages=[
             {
                 "role": "user",
-                "content_items": [{"type": "inline_data.done", "data": response.content, "mime_type": "audio/flac"}],
+                "content_items": [{"type": "inline_data.done", "data": response.content, "mime_type": "audio/wav"}],
             }
         ],
         config={},

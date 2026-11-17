@@ -487,6 +487,54 @@ async def test_gemini_omni_returns_a_video_delivered_by_uri_as_text(omni_server:
 
 
 @pytest.mark.parametrize(
+    ("video_config", "expected"),
+    [
+        (
+            {"aspect_ratio": "9:16", "resolution": "360p", "duration": 3},
+            {"type": "video", "aspect_ratio": "9:16", "resolution": "360p", "duration": "3s"},
+        ),
+        # Google spells 4K "4k" and refuses "4K" (verified live 2026-11-16)
+        ({"resolution": "4K"}, {"type": "video", "resolution": "4k"}),
+        ({"duration": 15}, {"type": "video", "duration": "15s"}),
+        ({}, {"type": "video"}),
+    ],
+    ids=["all", "4K", "duration", "empty"],
+)
+def test_gemini_omni_sends_video_config_as_a_video_entry(video_config: dict[str, Any], expected: dict[str, Any]):
+    client = AutoLLMClient(model=OMNI_MODEL, api_key="test-key")._client  # noqa: SLF001
+
+    request = client.transform_uni_config_to_model_config({"video_config": video_config})
+
+    assert request["response_format"] == [expected]
+
+
+@pytest.mark.parametrize("model", ["gemini-4-hydrogen", "gemini-3.8-flash-tts", "gemini-3.1-flash-image"])
+def test_video_config_is_refused_on_a_gemini_model_without_video(model: str):
+    client = AutoLLMClient(model=model, api_key="test-key")._client  # noqa: SLF001
+
+    with pytest.raises(UnsupportedParameterError, match="does not support video_config") as exc_info:
+        client.transform_uni_config_to_model_config({"video_config": {"duration": 3}})
+
+    assert exc_info.value.parameter == "video_config"
+
+
+def test_gemini_image_config_resolution_is_image_size():
+    official = AutoLLMClient(model="gemini-3.1-flash-image", api_key="test-key")._client  # noqa: SLF001
+    request = official.transform_uni_config_to_model_config(
+        {"image_config": {"aspect_ratio": "16:9", "resolution": "2K"}}
+    )
+    assert request["response_format"] == [
+        {"type": "text"},
+        {"type": "image", "aspect_ratio": "16:9", "image_size": "2K"},
+    ]
+
+    genai = AutoLLMClient(model="gemini-3.1-flash-image", api_key="test-key", client_type="google-genai")._client  # noqa: SLF001
+    image_config = genai.transform_uni_config_to_model_config({"image_config": {"resolution": "2K"}}).image_config
+    assert image_config.image_size == "2K"
+    assert image_config.aspect_ratio is None
+
+
+@pytest.mark.parametrize(
     "config",
     [
         {"tools": [{"name": "get_weather", "description": "Get the weather", "parameters": {"type": "object"}}]},

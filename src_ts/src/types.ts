@@ -41,7 +41,8 @@ export type EventType = "delta" | "stop";
 export type FinishReason = "stop" | "length" | "tool_call" | "unknown";
 export type AspectRatio =
   "1:1" | "2:3" | "3:2" | "3:4" | "4:3" | "9:16" | "16:9" | "21:9";
-export type ImageSize = "1K" | "2K";
+export type ImageResolution = "1K" | "2K";
+export type VideoResolution = "360p" | "720p" | "1080p" | "4K";
 
 /**
  * Arbitrary JSON-style payload of wire-fidelity data recorded by a client,
@@ -244,7 +245,17 @@ export interface ToolSchema {
  */
 export interface ImageConfig {
   aspect_ratio?: AspectRatio;
-  image_size?: ImageSize;
+  resolution?: ImageResolution;
+}
+
+/**
+ * Video generation configuration for models that support video output.
+ */
+export interface VideoConfig {
+  aspect_ratio?: AspectRatio;
+  resolution?: VideoResolution;
+  // whole seconds
+  duration?: number;
 }
 
 /**
@@ -292,10 +303,12 @@ export interface UniConfig {
   // vLLM adapter), google-official and minimax-official send service_tier="priority";
   // anthropic-official and ant-messages send speed="fast"; google-genai, deepseek-official,
   // moonshot-official, zai-official, openai-embedding, openai-image, openai-speech,
-  // openai-transcription, deepseek-webtool and jina-webtool raise UnsupportedParameterError, and
-  // so does a sending client for a model without a fast tier
+  // openai-transcription, deepseek-webtool, deepseek-speech, deepseek-transcription and
+  // jina-webtool raise UnsupportedParameterError, and so does a sending client for a model without
+  // a fast tier
   fast_mode?: boolean;
   image_config?: ImageConfig;
+  video_config?: VideoConfig;
   tts_config?: SpeakerConfig[];
   embedding_config?: EmbeddingConfig;
   webtool_config?: WebtoolConfig;

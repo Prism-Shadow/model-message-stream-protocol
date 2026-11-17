@@ -43,6 +43,8 @@ export const COMPATIBLE_CLIENT_TYPES = [
   "ant-messages",
   "google-genai",
   "deepseek-webtool",
+  "deepseek-speech",
+  "deepseek-transcription",
   "mmsp",
 ] as const;
 
@@ -151,6 +153,8 @@ export const CLIENT_CREDENTIALS: Readonly<Record<string, ClientCredentials>> = {
   "ant-messages": ANTHROPIC,
   "google-genai": GEMINI,
   "deepseek-webtool": DEEPSEEK,
+  "deepseek-speech": DEEPSEEK,
+  "deepseek-transcription": DEEPSEEK,
   mmsp: {
     apiKeyEnv: "MMSP_API_KEY",
     baseUrlEnv: "MMSP_BASE_URL",
@@ -214,7 +218,8 @@ export function clientTypeForModel(model: string): string | null {
  * earlier name accepted), else the official client of the model id's family. `openai-official`
  * serves a `text-embedding-` model through `openai-embedding` and a `gpt-image-` model through
  * `openai-image`, and `deepseek-official` serves `deepseek-search` and `deepseek-fetch` through
- * `deepseek-webtool`.
+ * `deepseek-webtool`, `deepseek-tts` through `deepseek-speech` and `deepseek-asr` through
+ * `deepseek-transcription`.
  *
  * @param model - The model id
  * @param clientType - The client type passed in, if any
@@ -244,6 +249,18 @@ export function routedClientType(
     ["deepseek-search", "deepseek-fetch"].includes(model.toLowerCase())
   ) {
     return "deepseek-webtool";
+  }
+  if (
+    routed === "deepseek-official" &&
+    model.toLowerCase() === "deepseek-tts"
+  ) {
+    return "deepseek-speech";
+  }
+  if (
+    routed === "deepseek-official" &&
+    model.toLowerCase() === "deepseek-asr"
+  ) {
+    return "deepseek-transcription";
   }
   return routed;
 }

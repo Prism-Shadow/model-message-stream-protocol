@@ -48,7 +48,7 @@ async def main() -> None:
     print("Assistant:")
 
     config = {
-        "image_config": {"aspect_ratio": "16:9", "image_size": "1K"},
+        "image_config": {"aspect_ratio": "16:9", "resolution": "1K"},
         "thinking_summary": True,
         "thinking_level": ThinkingLevel.HIGH,
     }

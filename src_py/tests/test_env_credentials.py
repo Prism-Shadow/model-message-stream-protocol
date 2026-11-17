@@ -106,6 +106,8 @@ VENDOR_CASES = [
     VendorCase(expected_client="MoonshotOfficialClient", model="kimi-k3", key_env="MOONSHOT_API_KEY"),
     VendorCase(expected_client="MiniMaxOfficialClient", model="MiniMax-M3", key_env="MINIMAX_API_KEY"),
     VendorCase(expected_client="DeepSeekWebtoolClient", model="deepseek-search", key_env="DEEPSEEK_API_KEY"),
+    VendorCase(expected_client="DeepSeekSpeechClient", model="deepseek-tts", key_env="DEEPSEEK_API_KEY"),
+    VendorCase(expected_client="DeepSeekTranscriptionClient", model="deepseek-asr", key_env="DEEPSEEK_API_KEY"),
     VendorCase(expected_client="JinaWebtoolClient", model="jina-fetch", key_env="JINA_API_KEY"),
 ]
 VENDOR_IDS = [case.expected_client for case in VENDOR_CASES]
@@ -208,6 +210,8 @@ CLIENT_CASES = {
     "ant-messages": ClientCase("claude-sonnet-5", _anthropic_held),
     "google-genai": ClientCase("gemini-3.8-flash", _google_held),
     "deepseek-webtool": ClientCase("deepseek-search", _openai_held),
+    "deepseek-speech": ClientCase("deepseek-tts", _openai_held),
+    "deepseek-transcription": ClientCase("deepseek-asr", _openai_held),
     "mmsp": ClientCase("gpt-5.5", _mmsp_held),
 }
 CLIENT_TYPES = list(CLIENT_CREDENTIALS)

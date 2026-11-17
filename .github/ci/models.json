@@ -69,6 +69,28 @@
       }
     ]
   },
+  "deepseek-speech": {
+    "models": [
+      {
+        "api_key_env": "DEEPSEEK_API_KEY",
+        "name": "deepseek-tts",
+        "support_text": false,
+        "support_image_understanding": false,
+        "support_tts": true
+      }
+    ]
+  },
+  "deepseek-transcription": {
+    "models": [
+      {
+        "api_key_env": "DEEPSEEK_API_KEY",
+        "name": "deepseek-asr",
+        "support_text": false,
+        "support_image_understanding": false,
+        "support_transcription": true
+      }
+    ]
+  },
   "deepseek-webtool": {
     "models": [
       {
@@ -144,7 +166,7 @@
     "models": [
       {
         "api_key_env": "GEMINI_API_KEY",
-        "name": "gemini-3.8-flash"
+        "name": "gemini-4-hydrogen"
       },
       {
         "api_key_env": "GEMINI_API_KEY",

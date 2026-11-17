@@ -49,8 +49,9 @@ const MODELS: Record<string, string> = {
   mmsp: "gpt-5.5",
 };
 
-// openai-embedding, the web tools, openai-image and openai-transcription answer with one response,
-// not a stream, and openai-speech streams audio, not text (media-clients.test.ts interrupts it)
+// openai-embedding, the web tools, openai-image and the transcription clients answer with one
+// response, not a stream, and the speech clients stream audio, not text (media-clients.test.ts
+// interrupts them)
 const STREAMING_CLIENT_TYPES = Object.keys(CLIENT_CREDENTIALS).filter(
   (clientType) =>
     ![
@@ -60,6 +61,8 @@ const STREAMING_CLIENT_TYPES = Object.keys(CLIENT_CREDENTIALS).filter(
       "openai-image",
       "openai-speech",
       "openai-transcription",
+      "deepseek-speech",
+      "deepseek-transcription",
     ].includes(clientType),
 );
 

@@ -47,10 +47,10 @@ from ..utils import is_debug_enabled, resolve_credentials, speaker_turns
 
 
 class GoogleOfficialClient(LLMClient):
-    """Official client for the Gemini family, including Gemini 4 Argon and Gemini 3.x.
+    """Official client for the Gemini family, including Gemini 4 and Gemini 3.x.
 
     It speaks the Gemini API's Interactions endpoint statelessly (store=false, the whole history in every
-    request) for Gemini 4 Argon, the 3.x text, image, and TTS models, and Gemini Omni's video. Vertex AI
+    request) for Gemini 4, the 3.x text, image, and TTS models, and Gemini Omni's video. Vertex AI
     service-account keys belong to google_genai. It embeds through embedContent, because the Interactions API does not serve the embedding models. The API deprecated
     the temperature/top_p/top_k sampling parameters starting with the 3.6 generation (silently ignored
     today, HTTP 400 in future generations), and this client applies that contract to the whole family:
@@ -116,7 +116,7 @@ class GoogleOfficialClient(LLMClient):
 
     # Gemini thinking levels from weakest to strongest, used to pick the
     # closest supported level when a model rejects the requested one.
-    _GEMINI_LEVEL_ORDER = ("minimal", "low", "medium", "high")
+    _GEMINI_LEVEL_ORDER = ("minimal", "low", "medium", "high", "xhigh")
 
     def _supported_thinking_levels(self) -> tuple[str, ...]:
         """Thinking levels the target model accepts (llmsdk_docs/gemini_interactions/docs/thinking.md).
@@ -138,12 +138,15 @@ class GoogleOfficialClient(LLMClient):
             # would have accepted costs a little accuracy, forwarding an
             # unsupported one is a 400).
             return ("low", "medium", "high")
+        if "gemini-4-hydrogen" in self._model:
+            # the one generation with "xhigh"; "minimal" and "max" are refused (verified live 2026-11-16)
+            return ("low", "medium", "high", "xhigh")
         if any(
             version in self._model for version in ("gemini-3.7", "gemini-3.8", "gemini-4-argon", "gemini-4-carbon")
         ):
             # These generations support low, medium, and high, but not minimal.
             return ("low", "medium", "high")
-        return self._GEMINI_LEVEL_ORDER
+        return ("minimal", "low", "medium", "high")
 
     def _convert_thinking_level(self, thinking_level: ThinkingLevel | None) -> str | None:
         """Convert ThinkingLevel enum to the closest Gemini thinking level the model supports."""
@@ -152,9 +155,10 @@ class GoogleOfficialClient(LLMClient):
             ThinkingLevel.LOW: "low",
             ThinkingLevel.MEDIUM: "medium",
             ThinkingLevel.HIGH: "high",
-            ThinkingLevel.XHIGH: "high",
-            # Gemini stops at "high", so both top levels land there before per-model clamping
-            ThinkingLevel.MAX: "high",
+            ThinkingLevel.XHIGH: "xhigh",
+            # Gemini stops at "xhigh", which only Hydrogen takes; the clamping below runs both top
+            # levels at "high" on every other model
+            ThinkingLevel.MAX: "xhigh",
         }
         level = mapping.get(thinking_level)
         if level is None:
@@ -214,9 +218,14 @@ class GoogleOfficialClient(LLMClient):
                 self.__class__.__name__, "prompt_caching", "prompt_caching must be ENABLE for Gemini."
             )
 
-        # Gemini Omni makes a video at its defaults (16:9, 720p, 10 s, inline); it declares no
-        # functions ("Function calling is not enabled for this model", verified live 2026-11-06), takes
-        # no image settings and has no priority tier
+        # Gemini Omni makes a video, at Google's defaults (16:9, 720p, 10 s, inline) unless video_config
+        # says otherwise; it declares no functions ("Function calling is not enabled for this model",
+        # verified live 2026-11-06), takes no image settings and has no priority tier
+        if "gemini-omni" not in self._model and config.get("video_config") is not None:
+            raise UnsupportedParameterError(
+                self.__class__.__name__, "video_config", f"{self._model} does not support video_config."
+            )
+
         if "gemini-omni" in self._model:
             for parameter in ("tools", "tool_choice", "image_config"):
                 if config.get(parameter) is not None:
@@ -292,8 +301,28 @@ class GoogleOfficialClient(LLMClient):
                 generation_config["tool_choice"] = self._convert_tool_choice(config["tool_choice"])
 
         if config.get("image_config") is not None:
+            image_config = config["image_config"]
+            image_format: dict[str, Any] = {"type": "image"}
+            if image_config.get("aspect_ratio") is not None:
+                image_format["aspect_ratio"] = image_config["aspect_ratio"]
+            # MMSP's resolution is the Interactions API's image_size
+            if image_config.get("resolution") is not None:
+                image_format["image_size"] = image_config["resolution"]
             # an image entry alone suppresses the text the model writes beside its images
-            gemini_config["response_format"] = [{"type": "text"}, {"type": "image", **config["image_config"]}]
+            gemini_config["response_format"] = [{"type": "text"}, image_format]
+
+        if config.get("video_config") is not None:
+            video_config = config["video_config"]
+            video_format: dict[str, Any] = {"type": "video"}
+            if video_config.get("aspect_ratio") is not None:
+                video_format["aspect_ratio"] = video_config["aspect_ratio"]
+            # Google spells 4K "4k" and refuses "4K" (verified live 2026-11-16)
+            if video_config.get("resolution") is not None:
+                video_format["resolution"] = "4k" if video_config["resolution"] == "4K" else video_config["resolution"]
+            # whole seconds with their unit, "3s" to "15s"; a bare number is refused
+            if video_config.get("duration") is not None:
+                video_format["duration"] = f"{video_config['duration']}s"
+            gemini_config["response_format"] = [video_format]
 
         if generation_config:
             gemini_config["generation_config"] = generation_config

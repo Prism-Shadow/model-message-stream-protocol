@@ -12,10 +12,10 @@ description: MMSP 的客户端构成、各客户端支持的模型，以及如�
 | --- | --- | --- | --- |
 | `openai-official` | `gpt-6.1-sol`、`gpt-6.1-terra`、`gpt-6-astra`、`gpt-5.6-sol`、`gpt-5.5`；`text-embedding-3-large`、`text-embedding-3-small`；`gpt-image-2.5-flare` | OpenAI Responses；`text-embedding-*` 走 Embeddings；`gpt-image-*` 走 Images | `OPENAI_API_KEY` `OPENAI_BASE_URL` |
 | `anthropic-official` | `claude-opus-5-5`、`claude-sonnet-5-5`、`claude-haiku-5-5`、`claude-fable-5-1`、`claude-opus-5`、`claude-sonnet-5` | Anthropic Messages | `ANTHROPIC_API_KEY` `ANTHROPIC_BASE_URL` |
-| `google-official` | `gemini-4-carbon`、`gemini-4-argon`、`gemini-3.8-flash`、`gemini-3.1-pro-preview`；`gemini-3.1-flash-image`、`gemini-3.8-flash-tts`、`gemini-omni-1.2-flash`；`gemini-embedding-2` | Gemini Interactions | `GEMINI_API_KEY` `GEMINI_BASE_URL` |
+| `google-official` | `gemini-4-hydrogen`、`gemini-4-carbon`、`gemini-4-argon`、`gemini-3.8-flash`、`gemini-3.1-pro-preview`；`gemini-3.1-flash-image`、`gemini-3.8-flash-tts`、`gemini-omni-1.2-flash`；`gemini-embedding-2` | Gemini Interactions | `GEMINI_API_KEY` `GEMINI_BASE_URL` |
 | `zai-official` | `glm-5.3`、`glm-5.3-flash`、`glm-5.2` | Chat Completions | `ZAI_API_KEY` `ZAI_BASE_URL` |
 | `moonshot-official` | `kimi-k3.1-pro`、`kimi-k3.1-pro-highspeed`、`kimi-k3`、`kimi-k2.6` | Chat Completions | `MOONSHOT_API_KEY` `MOONSHOT_BASE_URL` |
-| `deepseek-official` | `deepseek-flash`、`deepseek-v4-pro`；`deepseek-search`、`deepseek-fetch` | Responses；`deepseek-search` 和 `deepseek-fetch` 走 Search 和 Fetch | `DEEPSEEK_API_KEY` `DEEPSEEK_BASE_URL` |
+| `deepseek-official` | `deepseek-flash`、`deepseek-v4-pro`；`deepseek-search`、`deepseek-fetch`；`deepseek-tts`、`deepseek-asr` | Responses；`deepseek-search` 和 `deepseek-fetch` 走 Search 和 Fetch；`deepseek-tts` 和 `deepseek-asr` 走语音合成和语音识别 | `DEEPSEEK_API_KEY` `DEEPSEEK_BASE_URL` |
 | `minimax-official` | `MiniMax-M3.1-Flash`、`MiniMax-M3` | Responses | `MINIMAX_API_KEY` `MINIMAX_BASE_URL` |
 | `jina-webtool` | `jina-search`、`jina-fetch` | Jina Search（`https://s.jina.ai`）、Reader（`https://r.jina.ai`） | `JINA_API_KEY` `JINA_BASE_URL` |
 
@@ -23,7 +23,9 @@ description: MMSP 的客户端构成、各客户端支持的模型，以及如�
 
 Gemini 4 Carbon（`gemini-4-carbon`）和 Gemini 4 Argon（`gemini-4-argon`）支持 `low`、`medium`（默认）和 `high` 思考档位，Carbon 每轮的思考更多。MMSP 将 `none` 映射为 `low`，将 `xhigh`/`max` 映射为 `high`。二者的 1,048,576-token 上下文窗口由输入、思考和输出共享，同步流式输出最多 65,536 tokens。更长输出需要 Google 的存储式后台执行，不在 MMSP 的无状态流式接口范围内。缓存仅支持隐式缓存。
 
-Gemini Omni 1.2 Flash（`gemini-omni-1.2-flash`）生成视频：它以一个 `inline_data` 内容项返回带音轨的 MP4，采用 Google 的默认设置（16:9、720p、10 秒；每段视频约 0.70 美元）。MMSP 只发送最新一条消息中的文本和图片，并且不发送 `max_tokens`，因为视频本身的 token 也计入 Google 的上限。它支持 `low` 和 `high` 两档思考：`none` 和 `low` 按 `low` 运行，其余按 `high`。`tools`、`tool_choice`、`image_config` 和 `fast_mode` 会抛出 `UnsupportedParameterError`。
+Gemini 4 Hydrogen（`gemini-4-hydrogen`）是这一代中的快速模型，支持 `low`、`medium`、`high`（默认）和 `xhigh` 思考档位。MMSP 将 `none` 映射为 `low`，将 `max` 映射为 `xhigh`。它的上下文窗口和缓存与 Carbon 相同。
+
+Gemini Omni 1.2 Flash（`gemini-omni-1.2-flash`）生成视频：它以一个 `inline_data` 内容项返回带音轨的 MP4，默认采用 Google 的设置（16:9、720p、10 秒；每段视频约 0.70 美元），`video_config` 可以设置 `aspect_ratio`（`16:9`、`9:16`）、`resolution`（`360p` 到 `4K`）和 `duration`（3 到 15 秒）。MMSP 只发送最新一条消息中的文本和图片，并且不发送 `max_tokens`，因为视频本身的 token 也计入 Google 的上限。它支持 `low` 和 `high` 两档思考：`none` 和 `low` 按 `low` 运行，其余按 `high`。`tools`、`tool_choice`、`image_config` 和 `fast_mode` 会抛出 `UnsupportedParameterError`。
 
 MiniMax-M3.1-Flash（`MiniMax-M3.1-Flash`）始终思考，支持 `low` 到 `max` 档位（默认 `max`）。MMSP 将 `none` 映射为 `low`，`xhigh` 和 `max` 原样传递。它没有 priority 档位，也会忽略 `tool_choice: "none"`，因此 `fast_mode` 和 `tool_choice: "none"` 会抛出 `UnsupportedParameterError`。
 
@@ -64,7 +66,7 @@ models = list_supported_models(currency="CNY")  # 默认 "USD"
 
 ## 兼容客户端
 
-十一个兼容客户端可调用任何提供对应协议的端点。使用时需用 `client_type` 指定协议，并同时提供端点和 key：可以传入 `base_url` 和 `api_key` 参数，或在环境变量中设置 `OPENAI_BASE_URL` 和 `OPENAI_API_KEY`（`ant-messages` 对应 `ANTHROPIC_` 变量对，`google-genai` 对应 `GEMINI_` 变量对，`deepseek-webtool` 对应 `DEEPSEEK_` 变量对，`openai-chat-vllm-adapter` 对应 `VLLM_` 变量对，`mmsp` 对应 `MMSP_` 变量对）。如果传入的 `base_url` 不是客户端的默认端点，又不提供 `api_key`，会报错：环境变量中的 key 不会自动用于代码指定的端点（[规则](/zh/docs/client/)）。`openai-chat-vllm-adapter` 和 `mmsp` 例外：它们的服务端可以不要 key，因此改为不带 key 调用；两者都不传时，分别发往 `http://127.0.0.1:8000/v1` 和 `http://127.0.0.1:25752/v1`。
+十三个兼容客户端可调用任何提供对应协议的端点。使用时需用 `client_type` 指定协议，并同时提供端点和 key：可以传入 `base_url` 和 `api_key` 参数，或在环境变量中设置 `OPENAI_BASE_URL` 和 `OPENAI_API_KEY`（`ant-messages` 对应 `ANTHROPIC_` 变量对，`google-genai` 对应 `GEMINI_` 变量对，`deepseek-webtool`、`deepseek-speech` 和 `deepseek-transcription` 对应 `DEEPSEEK_` 变量对，`openai-chat-vllm-adapter` 对应 `VLLM_` 变量对，`mmsp` 对应 `MMSP_` 变量对）。如果传入的 `base_url` 不是客户端的默认端点，又不提供 `api_key`，会报错：环境变量中的 key 不会自动用于代码指定的端点（[规则](/zh/docs/client/)）。`openai-chat-vllm-adapter` 和 `mmsp` 例外：它们的服务端可以不要 key，因此改为不带 key 调用；两者都不传时，分别发往 `http://127.0.0.1:8000/v1` 和 `http://127.0.0.1:25752/v1`。
 
 | `client_type` | 协议 | 提供方 |
 | --- | --- | --- |
@@ -78,6 +80,8 @@ models = list_supported_models(currency="CNY")  # 默认 "USD"
 | `ant-messages` | Anthropic Messages | Anthropic、OpenRouter、DeepSeek、Z.AI、MiniMax |
 | `google-genai` | Google generateContent，即 Google GenAI SDK 所用的协议 | Vertex AI、Gemini API、代理此协议的网关 |
 | `deepseek-webtool` | DeepSeek 的网页搜索与网页抓取，`/v1/tools/search` 和 `/v1/tools/fetch` | DeepSeek、TokenDance |
+| `deepseek-speech` | DeepSeek 的语音合成，`/v1/tools/tts`：边生成边流出原始 PCM | DeepSeek |
+| `deepseek-transcription` | DeepSeek 的语音识别，`/v1/tools/asr`：每条消息一个 WAV 或 Ogg Opus 内容项 | DeepSeek |
 | `mmsp` | MMSP 本身 | [MMSP 服务端](/zh/docs/server/) |
 
 如果网关支持多种协议，优先选择 `openai-responses`。OpenRouter 为其所有托管模型提供此协议；SiliconFlow 仅提供 Chat Completions。
@@ -194,5 +198,7 @@ client = AutoLLMClient(
 | `openai-speech` | `openai-speech` |
 | `openai-transcription` | `openai-transcription` |
 | `deepseek-webtool`，以及 `deepseek-search` 和 `deepseek-fetch` 下的 `deepseek-official` | `deepseek-webtool` |
+| `deepseek-speech`，以及 `deepseek-tts` 下的 `deepseek-official` | `deepseek-speech` |
+| `deepseek-transcription`，以及 `deepseek-asr` 下的 `deepseek-official` | `deepseek-transcription` |
 | `jina-webtool` | `jina-webtool` |
 | `mmsp` | `mmsp` |

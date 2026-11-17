@@ -19,7 +19,9 @@ import asyncio
 import base64
 import io
 import json
+import socket
 import threading
+import time
 import wave
 from contextlib import suppress
 from email.parser import BytesParser
@@ -27,6 +29,7 @@ from email.policy import default as email_policy
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Iterator
 
+import openai
 import pytest
 from stream_grammar import assert_stream_grammar
 
@@ -35,6 +38,7 @@ from mmsp import (
     InvalidMessageError,
     ProviderStreamError,
     UnsupportedContentError,
+    UnsupportedOperationError,
     UnsupportedParameterError,
 )
 from mmsp.abort_signal import AbortSignal
@@ -81,8 +85,23 @@ _IMAGE_ANSWERS: dict[str, dict[str, Any]] = {
     },
 }
 
-# The content type of each speech model's answer: OpenRouter's PCM, and OpenAI's MP3
-_SPEECH_TYPES = {"fish-audio/drama-3": "audio/pcm;rate=44100;channels=1", "tts-1": "audio/mpeg"}
+# The content type of each speech model's answer: OpenRouter's PCM, OpenAI's MP3, and a stereo PCM
+_SPEECH_TYPES = {
+    "fish-audio/drama-3": "audio/pcm;rate=44100;channels=1",
+    "tts-1": "audio/mpeg",
+    "stereo-pcm": "audio/pcm;rate=48000;channels=2",
+}
+
+# DeepSeek's speech names its PCM in full, and DeepSeek answers a refusal in OpenAI's error format
+# (api_captures/deepseek_audio/)
+_DEEPSEEK_PCM = "audio/pcm; rate=24000; encoding=signed-integer; bits=16; channels=1"
+_OGG = b"OggS" + b"\x00" * 60
+_FLAC = b"fLaC" + b"\x00" * 60
+
+
+def _deepseek_refusal(message: str) -> bytes:
+    error = {"message": message, "type": "invalid_request_error", "param": None, "code": "invalid_request_error"}
+    return json.dumps({"error": error}).encode()
 
 
 class _MediaServer(BaseHTTPRequestHandler):
@@ -116,7 +135,7 @@ class _MediaServer(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802 - the name is BaseHTTPRequestHandler's
         raw = self.rfile.read(int(self.headers["Content-Length"]))
-        if self.path == "/v1/audio/transcriptions":
+        if self.path in ("/v1/audio/transcriptions", "/v1/tools/asr"):
             message = BytesParser(policy=email_policy).parsebytes(
                 f"Content-Type: {self.headers['Content-Type']}\r\n\r\n".encode() + raw
             )
@@ -128,7 +147,15 @@ class _MediaServer(BaseHTTPRequestHandler):
                 else:
                     form[name] = part.get_content()
             self._record(form)
-            self._send(200, "application/json", json.dumps({"text": "Hello.", "usage": {"seconds": 7.6}}).encode())
+            if self.path == "/v1/audio/transcriptions":
+                answer = {"text": "Hello.", "usage": {"seconds": 7.6}}
+                self._send(200, "application/json", json.dumps(answer).encode())
+            elif form["file"][2].startswith(b"fLaC"):
+                refusal = "Unsupported audio format: expected 16-bit PCM WAV or Ogg Opus, mono or stereo"
+                self._send(400, "application/json", _deepseek_refusal(f"{refusal} (request_id: 1)"))
+            else:
+                answer = {"request_id": "d53308ea", "text": "Hello.", "duration_ms": 5720}
+                self._send(200, "application/json", json.dumps(answer).encode())
             return
 
         body = json.loads(raw)
@@ -137,15 +164,25 @@ class _MediaServer(BaseHTTPRequestHandler):
             origin = f"http://127.0.0.1:{self.server.server_address[1]}"
             answer = json.dumps(_IMAGE_ANSWERS[body["model"]]).replace("{origin}", origin).encode()
             self._send(200, "application/json", answer)
+        elif self.path == "/v1/tools/tts" and body.get("voice_id") == "Kore":
+            refusal = "Invalid voice_id 'Kore': supported values are 'stella' (default), 'tide' (request_id: 2)"
+            self._send(400, "application/json", _deepseek_refusal(refusal))
         else:
-            # the audio arrives in pieces, as the endpoint makes it
-            payload = _PCM if body["model"] == "fish-audio/drama-3" else _MP3
+            # the audio arrives in pieces of an odd size, as DeepSeek's do, splitting 16-bit samples;
+            # DeepSeek's speech takes no model, and the text "cut" answers PCM whose last frame is cut
+            if self.path == "/v1/tools/tts":
+                payload, content_type = (_PCM[:-1] if body["text"] == "cut" else _PCM), _DEEPSEEK_PCM
+            else:
+                payload = _MP3 if body["model"] == "tts-1" else _PCM
+                content_type = _SPEECH_TYPES[body["model"]]
             self.send_response(200)
-            self.send_header("Content-Type", _SPEECH_TYPES[body["model"]])
+            self.send_header("Content-Type", content_type)
             self.end_headers()
-            for start in range(0, len(payload), 500):
-                self.wfile.write(payload[start : start + 500])
+            for start in range(0, len(payload), 333):
+                self.wfile.write(payload[start : start + 333])
                 self.wfile.flush()
+                # a pause lets each piece reach the client by itself
+                time.sleep(0.005)
 
     def log_message(self, *args: object) -> None:
         """Keep the request log out of the test output."""
@@ -205,8 +242,8 @@ def _image_params(config: dict[str, Any]) -> dict[str, Any]:
 
 @pytest.mark.parametrize(("aspect_ratio", "size_1k", "size_2k"), _SIZE_TABLE)
 def test_an_image_config_is_sent_as_the_size_of_geminis_table(aspect_ratio: str, size_1k: str, size_2k: str):
-    for image_size, size in (("1K", size_1k), ("2K", size_2k)):
-        assert _image_params({"image_config": {"aspect_ratio": aspect_ratio, "image_size": image_size}}) == {
+    for resolution, size in (("1K", size_1k), ("2K", size_2k)):
+        assert _image_params({"image_config": {"aspect_ratio": aspect_ratio, "resolution": resolution}}) == {
             "model": "gpt-image-2.5-flare",
             "size": size,
         }
@@ -220,15 +257,15 @@ def test_an_image_config_is_sent_as_the_size_of_geminis_table(aspect_ratio: str,
     assert _image_params({"image_config": {"aspect_ratio": aspect_ratio}})["size"] == size_1k
 
 
-def test_an_image_size_alone_is_square_and_no_image_config_sends_no_size():
-    assert _image_params({"image_config": {"image_size": "2K"}})["size"] == "2048x2048"
+def test_a_resolution_alone_is_square_and_no_image_config_sends_no_size():
+    assert _image_params({"image_config": {"resolution": "2K"}})["size"] == "2048x2048"
     assert _image_params({}) == {"model": "gpt-image-2.5-flare"}
     assert _image_params({"image_config": {}}) == {"model": "gpt-image-2.5-flare"}
 
 
 def test_an_image_config_outside_the_table_is_refused():
     with pytest.raises(UnsupportedParameterError) as exc_info:
-        _image_params({"image_config": {"aspect_ratio": "5:4", "image_size": "1K"}})
+        _image_params({"image_config": {"aspect_ratio": "5:4", "resolution": "1K"}})
     assert exc_info.value.parameter == "image_config"
 
 
@@ -239,7 +276,7 @@ async def test_an_image_request_carries_the_model_prompt_and_size_alone(media_se
         "openai-official",
         media_server,
         [_text("A red "), _text("A paper boat")],
-        {"image_config": {"aspect_ratio": "16:9", "image_size": "2K"}, "thinking_level": "high", "max_tokens": 10},
+        {"image_config": {"aspect_ratio": "16:9", "resolution": "2K"}, "thinking_level": "high", "max_tokens": 10},
     )
 
     # one request per message, with neither response_format nor stream
@@ -281,7 +318,7 @@ async def test_a_linked_image_is_downloaded_without_any_credential_and_typed_by_
         "openai-image",
         media_server,
         [_text("A boat")],
-        {"image_config": {"image_size": "2K"}},
+        {"image_config": {"resolution": "2K"}},
         default_headers={"X-Gateway-Probe": "secret"},
     )
 
@@ -351,6 +388,48 @@ async def test_speech_streams_its_pcm_as_one_item_per_message_and_counts_the_inp
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("model", "client_type", "deepseek", "frame_size"),
+    [
+        ("fish-audio/drama-3", "openai-speech", False, 2),
+        ("stereo-pcm", "openai-speech", False, 4),
+        ("deepseek-tts", "deepseek-official", True, 2),
+    ],
+)
+async def test_speech_sends_pcm_in_whole_frames_whatever_the_chunks_split(
+    media_server: str, model: str, client_type: str, deepseek: bool, frame_size: int
+):
+    base_url = _deepseek(media_server) if deepseek else media_server
+    events = await _run(model, client_type, base_url, [_text("Hi")], {})
+
+    # the endpoint's 333-byte pieces split samples; every fragment holds whole frames, so it plays alone
+    deltas = _done(events, "inline_data.delta")
+    assert len(deltas) >= 2
+    assert all(len(delta["data"]) % frame_size == 0 for delta in deltas)
+    assert b"".join(delta["data"] for delta in deltas) == _PCM
+
+
+@pytest.mark.asyncio
+async def test_speech_sends_the_bytes_of_a_cut_last_frame_as_the_last_fragment(media_server: str):
+    events = await _run("deepseek-tts", "deepseek-official", _deepseek(media_server), [_text("cut")], {})
+
+    deltas = _done(events, "inline_data.delta")
+    assert all(len(delta["data"]) % 2 == 0 for delta in deltas[:-1])
+    assert len(deltas[-1]["data"]) % 2 == 1
+    assert [item["data"] for item in _done(events, "inline_data.done")] == [_PCM[:-1]]
+
+
+@pytest.mark.parametrize("model", ["fish-audio/drama-3", "deepseek-tts"])
+def test_a_speech_chunk_with_no_whole_frame_is_the_empty_delta_event(model: str):
+    client = AutoLLMClient(model=model, client_type="openai-speech" if "/" in model else None, api_key="sk-PROBE")
+
+    event = client.transform_model_output_to_uni_event((0, "audio/pcm;rate=24000;channels=1", b""))
+
+    assert event["content_items"] == []
+    assert event["event_type"] == "delta"
+
+
+@pytest.mark.asyncio
 async def test_speech_in_another_format_keeps_its_content_type_and_sends_the_voice(media_server: str):
     events = await _run("tts-1", "openai-speech", media_server, [_text("Hi")], {"tts_config": [{"voice": "alloy"}]})
 
@@ -358,9 +437,73 @@ async def test_speech_in_another_format_keeps_its_content_type_and_sends_the_voi
     assert [(item["data"], item["mime_type"]) for item in _done(events, "inline_data.done")] == [(_MP3, "audio/mpeg")]
 
 
-@pytest.mark.parametrize("stop", ["aclose", "abort"])
+@pytest.fixture
+def cut_speech_server() -> Iterator[str]:
+    """A speech endpoint whose chunked answer breaks off before its last chunk, as DeepSeek's does when
+    synthesis fails after the audio has begun."""
+    listener = socket.create_server(("127.0.0.1", 0))
+
+    def serve() -> None:
+        while True:
+            try:
+                connection, _ = listener.accept()
+            except OSError:
+                return
+            with connection:
+                request = b""
+                while b"\r\n\r\n" not in request:
+                    request += connection.recv(65536)
+                head, _, body = request.partition(b"\r\n\r\n")
+                length = next(
+                    int(line.split(b":")[1])
+                    for line in head.split(b"\r\n")
+                    if line.lower().startswith(b"content-length")
+                )
+                while len(body) < length:
+                    body += connection.recv(65536)
+                connection.sendall(
+                    b"HTTP/1.1 200 OK\r\nContent-Type: audio/pcm; rate=24000; channels=1\r\n"
+                    b"Transfer-Encoding: chunked\r\n\r\n200\r\n" + _PCM[:512] + b"\r\n"
+                )
+
+    threading.Thread(target=serve, daemon=True).start()
+    try:
+        yield f"http://127.0.0.1:{listener.getsockname()[1]}"
+    finally:
+        listener.close()
+
+
+@pytest.mark.parametrize(
+    ("model", "client_type", "base_path"),
+    [("fish-audio/drama-3", "openai-speech", "/v1"), ("deepseek-tts", "deepseek-official", "")],
+)
 @pytest.mark.asyncio
-async def test_stopping_a_speech_stream_closes_its_connection(stop: str, monkeypatch: pytest.MonkeyPatch):
+async def test_a_speech_answer_cut_off_mid_way_raises_and_never_stops(
+    cut_speech_server: str, model: str, client_type: str, base_path: str
+):
+    client = AutoLLMClient(
+        model=model, client_type=client_type, api_key="sk-PROBE", base_url=f"{cut_speech_server}{base_path}"
+    )
+    events = []
+
+    # DeepSeek: "如果音频已经开始返回后合成失败，响应会中途断开，请把提前结束的响应视为失败"
+    with pytest.raises(Exception, match="incomplete chunked read"):
+        async for event in client.streaming_response(messages=[_text("Hi")], config={}):
+            events.append(event)
+
+    assert _done(events, "inline_data.delta")
+    assert all(event["event_type"] == "delta" for event in events)
+
+
+@pytest.mark.parametrize("stop", ["aclose", "abort"])
+@pytest.mark.parametrize(
+    ("model", "client_type", "base_path"),
+    [("fish-audio/drama-3", "openai-speech", "/v1"), ("deepseek-tts", "deepseek-speech", "")],
+)
+@pytest.mark.asyncio
+async def test_stopping_a_speech_stream_closes_its_connection(
+    stop: str, model: str, client_type: str, base_path: str, monkeypatch: pytest.MonkeyPatch
+):
     # the client under test reaches the local endpoint directly
     for name in ("http_proxy", "https_proxy", "all_proxy", "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"):
         monkeypatch.delenv(name, raising=False)
@@ -382,10 +525,10 @@ async def test_stopping_a_speech_stream_closes_its_connection(stop: str, monkeyp
     server = await asyncio.start_server(speak, "127.0.0.1", 0)
     try:
         client = AutoLLMClient(
-            model="fish-audio/drama-3",
-            client_type="openai-speech",
+            model=model,
+            client_type=client_type,
             api_key="sk-PROBE",
-            base_url=f"http://127.0.0.1:{server.sockets[0].getsockname()[1]}/v1",
+            base_url=f"http://127.0.0.1:{server.sockets[0].getsockname()[1]}{base_path}",
         )
         signal = AbortSignal()
         stream = client.streaming_response(messages=[_text("Count to a thousand.")], config={}, signal=signal)
@@ -469,13 +612,15 @@ async def test_headerless_pcm_is_uploaded_as_wav_of_its_rate_and_channels(mime_t
     ],
     ids=["pcm-without-rate", "two-audio-items", "text-beside-audio", "image-inline-data", "image-url"],
 )
+@pytest.mark.parametrize(
+    ("model", "client_type"),
+    [("fish-audio/transcribe-1", "openai-transcription"), ("deepseek-asr", "deepseek-transcription")],
+)
 @pytest.mark.asyncio
 async def test_a_transcription_refuses_a_message_that_is_not_one_audio_item(
-    content_items: list[dict[str, Any]], error: type[Exception], media_server: str
+    content_items: list[dict[str, Any]], error: type[Exception], model: str, client_type: str, media_server: str
 ):
-    client = AutoLLMClient(
-        model="fish-audio/transcribe-1", client_type="openai-transcription", api_key="sk-PROBE", base_url=media_server
-    )
+    client = AutoLLMClient(model=model, client_type=client_type, api_key="sk-PROBE", base_url=media_server)
 
     with pytest.raises(error):
         [
@@ -487,7 +632,169 @@ async def test_a_transcription_refuses_a_message_that_is_not_one_audio_item(
     assert _MediaServer.requests == []
 
 
-# --- all three: what they cannot send is refused before any request
+# --- deepseek-speech: PCM asked for, the voice, the audio's chunks and type, the characters billed
+
+
+def _deepseek(media_server: str) -> str:
+    """The base URL DeepSeek's tools sit under, at /v1/tools/."""
+    return media_server.removesuffix("/v1")
+
+
+def test_deepseek_speech_asks_for_pcm_and_sends_a_voice_only_from_one_speaker():
+    client = AutoLLMClient(model="deepseek-tts", api_key="sk-PROBE")
+
+    assert client.transform_uni_config_to_model_config({"thinking_level": "high", "max_tokens": 10}) == {
+        "format": "pcm"
+    }
+    assert client.transform_uni_config_to_model_config({"tts_config": [{"voice": "tide"}]}) == {
+        "format": "pcm",
+        "voice_id": "tide",
+    }
+    with pytest.raises(UnsupportedParameterError) as exc_info:
+        client.transform_uni_config_to_model_config(
+            {"tts_config": [{"voice": "stella", "speaker": "A"}, {"voice": "tide", "speaker": "B"}]}
+        )
+    assert exc_info.value.parameter == "tts_config"
+
+
+@pytest.mark.asyncio
+async def test_deepseek_speech_streams_its_pcm_as_one_item_per_message_and_counts_the_characters_billed(
+    media_server: str,
+):
+    # a Han character outside the Basic Multilingual Plane, two inside it, a space and a
+    # compatibility ideograph, escaped so that no editor normalizes the last one away
+    texts = [
+        "Hello, world.",
+        "\U00004f60\U0000597d\U0000ff0c\U00004e16\U0000754c\U00003002",
+        "\U00020bb7\U000091ce\U00005bb6 \U0000f900",
+    ]
+    events = await _run("deepseek-tts", "deepseek-official", _deepseek(media_server), [_text(t) for t in texts], {})
+
+    # the text and the format alone: no voice without tts_config, no model, no filter_markdown
+    assert [(request["path"], request["body"]) for request in _MediaServer.requests] == [
+        ("/v1/tools/tts", {"text": text, "format": "pcm"}) for text in texts
+    ]
+    assert _MediaServer.requests[0]["headers"]["authorization"] == "Bearer sk-PROBE"
+    deltas = _done(events, "inline_data.delta")
+    assert len(deltas) >= 3
+    assert {delta["mime_type"] for delta in deltas} == {"audio/l16; rate=24000; channels=1"}
+    assert [(item["data"], item["mime_type"]) for item in _done(events, "inline_data.done")] == [
+        (_PCM, "audio/l16; rate=24000; channels=1")
+    ] * 3
+    # 13 characters, then 4 Han characters and 2 others, then 4 Han characters and a space
+    assert events[-1]["usage_metadata"] == {
+        "cached_tokens": None,
+        "prompt_tokens": 13 + 10 + 9,
+        "thoughts_tokens": None,
+        "response_tokens": 0,
+    }
+    assert events[-1]["finish_reason"] == "stop"
+
+
+@pytest.mark.asyncio
+async def test_deepseek_speech_refuses_a_message_with_no_text_before_any_request(media_server: str):
+    client = AutoLLMClient(model="deepseek-tts", api_key="sk-PROBE", base_url=_deepseek(media_server))
+
+    with pytest.raises(InvalidMessageError) as exc_info:
+        [event async for event in client.streaming_response(messages=[_text("Hi"), _text("")], config={})]
+    assert exc_info.value.message_index == 1
+    assert _MediaServer.requests == []
+
+
+@pytest.mark.parametrize(
+    ("content_type", "mime_type"),
+    [
+        (_DEEPSEEK_PCM, "audio/l16; rate=24000; channels=1"),
+        ("Audio/PCM;channels=2;rate=16000", "audio/l16; rate=16000; channels=2"),
+        ("audio/wav", "audio/wav"),
+    ],
+)
+def test_deepseek_speech_names_pcm_audio_l16_of_its_rate_and_channels_and_keeps_any_other_type(
+    content_type: str, mime_type: str
+):
+    client = AutoLLMClient(model="deepseek-tts", api_key="sk-PROBE")
+
+    assert client.transform_model_output_to_uni_event((1, content_type, b"\x00\x01"))["content_items"] == [
+        {"type": "inline_data.delta", "data": b"\x00\x01", "mime_type": mime_type, "fidelity": {"item_id": "1"}}
+    ]
+
+
+# --- deepseek-transcription: the file alone, PCM wrapped as WAV, the seconds billed
+
+
+@pytest.mark.asyncio
+async def test_deepseek_transcription_uploads_the_file_alone_and_counts_its_seconds_rounded_up(media_server: str):
+    events = await _run(
+        "deepseek-asr",
+        "deepseek-official",
+        _deepseek(media_server),
+        [_audio(_OGG, "audio/ogg"), _audio(_PCM, "audio/l16; rate=24000; channels=1")],
+        {"thinking_level": "high"},
+    )
+
+    first, second = _MediaServer.requests
+    assert (first["path"], first["headers"]["authorization"]) == ("/v1/tools/asr", "Bearer sk-PROBE")
+    assert first["headers"]["content-type"].startswith("multipart/form-data; boundary=")
+    # the file alone, sent as it is: no model and no prompt
+    assert first["body"] == {"file": ("audio.ogg", "audio/ogg", _OGG)}
+    # headerless PCM goes as WAV of its rate and channels
+    assert list(second["body"]) == ["file"]
+    name, content_type, data = second["body"]["file"]
+    assert (name, content_type) == ("audio.wav", "audio/wav")
+    with wave.open(io.BytesIO(data)) as wav:
+        assert (wav.getframerate(), wav.getnchannels(), wav.getsampwidth()) == (24000, 1, 2)
+        assert wav.readframes(wav.getnframes()) == _PCM
+    assert [item["text"] for item in _done(events, "text.done")] == ["Hello.", "Hello."]
+    # 5,720 ms is billed as 6 seconds, for each request
+    assert events[-1]["usage_metadata"] == {
+        "cached_tokens": None,
+        "prompt_tokens": 12,
+        "thoughts_tokens": None,
+        "response_tokens": 0,
+    }
+    assert events[-1]["finish_reason"] == "stop"
+
+
+# --- DeepSeek's audio clients: its refusals as the SDK raises them, no models endpoint
+
+
+@pytest.mark.asyncio
+async def test_a_refusal_of_deepseeks_is_the_sdks_error_with_deepseeks_message(media_server: str):
+    speech = AutoLLMClient(model="deepseek-tts", api_key="sk-PROBE", base_url=_deepseek(media_server))
+    transcription = AutoLLMClient(model="deepseek-asr", api_key="sk-PROBE", base_url=_deepseek(media_server))
+
+    with pytest.raises(openai.BadRequestError, match="Invalid voice_id 'Kore'") as exc_info:
+        [
+            event
+            async for event in speech.streaming_response(
+                messages=[_text("Hi")], config={"tts_config": [{"voice": "Kore"}]}
+            )
+        ]
+    assert exc_info.value.status_code == 400
+    with pytest.raises(openai.BadRequestError, match="Unsupported audio format") as exc_info:
+        [event async for event in transcription.streaming_response(messages=[_audio(_FLAC, "audio/flac")], config={})]
+    assert exc_info.value.status_code == 400
+
+
+@pytest.mark.parametrize(
+    ("model", "client_type"),
+    [
+        ("deepseek-tts", None),
+        ("deepseek-tts", "deepseek-speech"),
+        ("deepseek-asr", None),
+        ("deepseek-asr", "deepseek-transcription"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_deepseeks_audio_endpoints_list_no_models(model: str, client_type: str | None, media_server: str):
+    client = AutoLLMClient(model=model, client_type=client_type, api_key="sk-PROBE", base_url=_deepseek(media_server))
+
+    with pytest.raises(UnsupportedOperationError):
+        await client.list_models()
+    assert _MediaServer.requests == []
+
+
+# --- all of them: what they cannot send is refused before any request
 
 
 @pytest.mark.parametrize(
@@ -496,6 +803,8 @@ async def test_a_transcription_refuses_a_message_that_is_not_one_audio_item(
         ("gpt-image-2.5-flare", "openai-image"),
         ("fish-audio/drama-3", "openai-speech"),
         ("fish-audio/transcribe-1", "openai-transcription"),
+        ("deepseek-tts", "deepseek-speech"),
+        ("deepseek-asr", "deepseek-transcription"),
     ],
 )
 @pytest.mark.asyncio

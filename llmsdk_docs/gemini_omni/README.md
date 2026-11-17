@@ -86,3 +86,17 @@ everything else is verbatim. Live captures that back the notes below are under
 - `models.get` reports `supportedGenerationMethods: ["generateContent", "countTokens"]` and
   `thinking: true` for `gemini-omni-1.2-flash`, `gemini-omni-1.1-flash` and
   `gemini-omni-flash-preview`.
+
+## Video settings verified against the live API (2026-11-16, `gemini-omni-1.2-flash`)
+
+Captures under `api_captures/gemini_omni_video_config/` (git-ignored).
+
+- `response_format: [{"type": "video", "aspect_ratio": "9:16", "resolution": "360p",
+  "duration": "3s"}]` returned a 360x640, 3.03 s H.264 + AAC MP4 (1.4 MB) in 16 s, in the
+  same stream shape as the defaults; usage 5,793 video tokens (1,931/s at 360p) and 624
+  thought tokens.
+- Validation errors, all 400 `invalid_request` before any generation: `aspect_ratio: "1:1"`
+  ("Supported values: '16:9', '9:16'"); `resolution: "480p"`, `"4K"` and `"720P"`
+  ("Supported values: '360p', '720p', '1080p', '4k'"; only lowercase `4k` passes); a bare
+  number as `duration` ("Invalid input at 'response_format[0]'."); `"2s"` and `"16s"` (the
+  3 s minimum and 15 s maximum).

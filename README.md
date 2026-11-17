@@ -66,6 +66,7 @@ Audit LLM executions by adding **a single `trace_id` parameter**, no database re
 | Mistral        | OpenRouter | `mistralai/mistral-large-4-0` | Text, Image | Text |
 | Nemotron 3/3.5 | OpenRouter | `nvidia/nemotron-3.5-super-vl` | Text, Image | Text |
 | DeepSeek Search/Fetch | Official/TokenDance | `deepseek-search` | Text | Web search, Page fetch |
+| DeepSeek TTS/ASR | Official | `deepseek-tts` | Text, Audio | Speech, Text |
 | Jina Search/Reader | Official | `jina-search` | Text | Web search, Page fetch |
 | GPT Image 2.5  | Official | `gpt-image-2.5-flare` | Text | Image |
 | Seedream 5.0/5.5 | OpenRouter/TokenDance | `bytedance-seed/seedream-5-5` | Text | Image |
@@ -88,7 +89,7 @@ a **compatible client** speaks one wire protocol for any endpoint that serves it
 | `google-official`          | Gemini Interactions                                                    | `GEMINI_API_KEY`, `GEMINI_BASE_URL`      |
 | `zai-official`             | Z.AI Chat Completions                                                  | `ZAI_API_KEY`, `ZAI_BASE_URL`            |
 | `moonshot-official`        | Moonshot Chat Completions                                              | `MOONSHOT_API_KEY`, `MOONSHOT_BASE_URL`  |
-| `deepseek-official`        | DeepSeek Responses; `deepseek-search` and `deepseek-fetch` through DeepSeek's Search and Fetch | `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`  |
+| `deepseek-official`        | DeepSeek Responses; `deepseek-search` and `deepseek-fetch` through DeepSeek's Search and Fetch, `deepseek-tts` and `deepseek-asr` through its speech and recognition | `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`  |
 | `minimax-official`         | MiniMax Responses                                                      | `MINIMAX_API_KEY`, `MINIMAX_BASE_URL`    |
 | `jina-webtool`             | Jina Search (`jina-search`) and Reader (`jina-fetch`)                  | `JINA_API_KEY`, `JINA_BASE_URL`          |
 | `openai-responses`         | OpenAI Responses, served by OpenAI, OpenRouter, DeepSeek, Z.AI, MiniMax | `OPENAI_API_KEY`, `OPENAI_BASE_URL`      |
@@ -101,6 +102,8 @@ a **compatible client** speaks one wire protocol for any endpoint that serves it
 | `ant-messages`             | Anthropic Messages, served by Anthropic, OpenRouter, DeepSeek, Z.AI, MiniMax | `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL` |
 | `google-genai`             | Google generateContent, served by Vertex AI, the Gemini API, and gateways that proxy it | `GEMINI_API_KEY`, `GEMINI_BASE_URL` |
 | `deepseek-webtool`         | DeepSeek's web search and page fetch, served by DeepSeek, TokenDance   | `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`  |
+| `deepseek-speech`          | DeepSeek's speech (`/v1/tools/tts`), raw PCM streamed as it is made    | `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`  |
+| `deepseek-transcription`   | DeepSeek's recognition (`/v1/tools/asr`), WAV or Ogg Opus              | `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`  |
 | `mmsp`                     | MMSP itself, served by an [MMSP server](#mmsp-server)                  | `MMSP_API_KEY`, `MMSP_BASE_URL`          |
 
 `client_type` may be omitted for a model id that begins with a known family: `gpt-` and
@@ -196,7 +199,7 @@ A key goes only where it was given for. A key passed in is used, with the `base_
 
 - `(async) streaming_response(messages, config)`: Streams the response of LLMs in a stateless manner.
 - `(async) streaming_response_stateful(message, config)`: Streams the response of LLMs in a stateful manner.
-- `(async) list_models()`: Lists the model ids the configured endpoint serves. A protocol client (`openai-chat`, `openai-chat-vllm-adapter`, `openai-responses`, `ant-messages`, `openai-embedding`, `openai-image`, `openai-speech`, `openai-transcription`, `google-genai`, `mmsp`) is named explicitly and lists everything the endpoint serves; a client deduced from a model id lists only the ids that deduce back to it. `deepseek-webtool` and `jina-webtool` raise `UnsupportedOperationError`: their endpoints list no models.
+- `(async) list_models()`: Lists the model ids the configured endpoint serves. A protocol client (`openai-chat`, `openai-chat-vllm-adapter`, `openai-responses`, `ant-messages`, `openai-embedding`, `openai-image`, `openai-speech`, `openai-transcription`, `google-genai`, `mmsp`) is named explicitly and lists everything the endpoint serves; a client deduced from a model id lists only the ids that deduce back to it. `deepseek-webtool`, `jina-webtool`, `deepseek-speech` and `deepseek-transcription` raise `UnsupportedOperationError`: their endpoints list no models.
 - `clear_history()`: Clears the history of the stateful LLM client.
 - `get_history()`: Returns the history of the stateful LLM client.
 - `set_history(history)`: Replaces the history of the stateful LLM client with a copy of the provided list.
@@ -534,7 +537,7 @@ main().catch(console.error);
 
 ### Images, speech and transcription
 
-`openai-image`, `openai-speech` and `openai-transcription` speak OpenAI's Images and Audio APIs for any endpoint that serves them. Each message is one request: a prompt answered by an image, a text spoken as audio that streams as it is made, or one audio file answered by its text. `openai-official` serves `gpt-image-*` through `openai-image` on its own.
+`openai-image`, `openai-speech` and `openai-transcription` speak OpenAI's Images and Audio APIs for any endpoint that serves them. Each message is one request: a prompt answered by an image, a text spoken as audio that streams as it is made, or one audio file answered by its text. `openai-official` serves `gpt-image-*` through `openai-image` on its own. `deepseek-speech` and `deepseek-transcription` do the same for DeepSeek's text to speech and speech to text, which `deepseek-official` serves as `deepseek-tts` and `deepseek-asr`; DeepSeek transcribes WAV and Ogg Opus.
 
 <details><summary><strong>Python Example</strong></summary>
 
@@ -743,7 +746,8 @@ Example UniConfig:
   "prompt_caching": "enable | disable | enhance",
   "session_id": "one stable id per conversation; recommended, it raises the prompt cache hit rate",
   "fast_mode": false,
-  "image_config": {"aspect_ratio": "4:3", "image_size": "1K"},
+  "image_config": {"aspect_ratio": "4:3", "resolution": "1K"},
+  "video_config": {"aspect_ratio": "9:16", "resolution": "720p", "duration": 8},
   "tts_config": [{"voice": "Kore"}],
   "embedding_config": {"dimensions": 768},
   "webtool_config": {"count": 5},
@@ -919,6 +923,8 @@ Every client speaks one protocol on the wire, whichever `client_type` reaches it
 | `openai-speech`                                             | `openai-speech`    |
 | `openai-transcription`                                      | `openai-transcription` |
 | `deepseek-webtool`, and `deepseek-official` for `deepseek-search`, `deepseek-fetch` | `deepseek-webtool` |
+| `deepseek-speech`, and `deepseek-official` for `deepseek-tts` | `deepseek-speech` |
+| `deepseek-transcription`, and `deepseek-official` for `deepseek-asr` | `deepseek-transcription` |
 | `jina-webtool`                                              | `jina-webtool`     |
 | `mmsp`                                                      | `mmsp`             |
 
