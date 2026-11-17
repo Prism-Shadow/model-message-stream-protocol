@@ -48,7 +48,7 @@ jobs:
         # anchor leaves out failures that only name the class, such as pytest.raises' DID NOT RAISE
         run: |
           uv run pytest -vvv -n 16 --dist loadgroup \
-            --reruns 5 --reruns-delay 30 --only-rerun RateLimitError --only-rerun 429 \
+            --reruns 5 --reruns-delay 30 --only-rerun RateLimitError --only-rerun 429 --only-rerun 529 \
             --only-rerun '^(mmsp\.errors\.)?IncompleteStreamError:' \
             tests
         env:
