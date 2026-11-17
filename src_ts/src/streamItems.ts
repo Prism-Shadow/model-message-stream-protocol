@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { isDeepStrictEqual } from "util";
-import { parseToolCallArguments, StreamProtocolError } from "./errors";
+import { checkToolCallArguments, StreamProtocolError } from "./errors";
 import {
   ContentItem,
   DeltaContentItem,
@@ -34,9 +34,9 @@ interface Kind {
   header: string[];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   join: (chunks: any[]) => any;
-  // the joined value becomes the done item's; tool call arguments stream as a JSON string and
-  // are parsed into an object
-  parse?: (joined: string, client: string, header: Fields) => unknown;
+  // the joined value becomes the done item's; tool call arguments stream as a JSON string, which
+  // is checked to hold an object and kept as the text the model wrote
+  check?: (joined: string, client: string, header: Fields) => unknown;
   // whether a delta begins an item by itself, whatever id it carries
   begins?: (delta: Fields) => boolean;
   // an empty delta of this kind goes out all the same
@@ -54,8 +54,8 @@ const KINDS: Record<string, Kind> = {
     field: "arguments",
     header: ["name", "tool_call_id"],
     join: (chunks) => chunks.join(""),
-    parse: (joined, client, header) =>
-      parseToolCallArguments(joined, client, header.name, header.tool_call_id),
+    check: (joined, client, header) =>
+      checkToolCallArguments(joined, client, header.name, header.tool_call_id),
     // a call's name comes once, on its first delta
     begins: (delta) => Boolean(delta.name),
   },
@@ -221,8 +221,8 @@ export class StreamItems {
     const done: Fields = {
       ...item.first,
       type: `${item.kind}.done`,
-      [spec.field]: spec.parse
-        ? spec.parse(joined, this.client, item.first)
+      [spec.field]: spec.check
+        ? spec.check(joined, this.client, item.first)
         : joined,
     };
     if (item.fidelity !== undefined) {

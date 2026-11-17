@@ -392,7 +392,7 @@ const MESSAGES: UniMessage[] = [
       {
         type: "tool_call.done",
         name: "read_image",
-        arguments: { path: "shot.png" },
+        arguments: '{"path": "shot.png"}',
         tool_call_id: "call_1",
       },
     ],

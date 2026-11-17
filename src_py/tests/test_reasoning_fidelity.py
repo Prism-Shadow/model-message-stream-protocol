@@ -433,7 +433,7 @@ async def test_chat_replays_a_block_recorded_by_0_5_5_as_received(case: Reasonin
                 {
                     "type": "tool_call.done",
                     "name": "get_weather",
-                    "arguments": {"city": "Paris"},
+                    "arguments": '{"city": "Paris"}',
                     "tool_call_id": "call_1191618",
                 },
             ],
@@ -804,7 +804,7 @@ async def test_generate_content_closes_an_item_with_its_signature_and_replays_it
         {
             "type": "tool_call.done",
             "name": "get_weather",
-            "arguments": {"city": "Beijing"},
+            "arguments": '{"city": "Beijing"}',
             "tool_call_id": "call_1",
             "fidelity": fidelity,
         },

@@ -23,6 +23,8 @@ This example asks GPT to call a weather tool, runs the tool, then sends the resu
 
 ```python
 import asyncio
+import json
+
 from mmsp import AutoLLMClient
 
 
@@ -70,7 +72,7 @@ async def main():
 
     if tool_call:
         # Dispatch by tool name instead of hardcoding the function.
-        result = TOOLS[tool_call["name"]](**tool_call["arguments"])
+        result = TOOLS[tool_call["name"]](**json.loads(tool_call["arguments"]))
 
         async for event in client.streaming_response_stateful(
             message={

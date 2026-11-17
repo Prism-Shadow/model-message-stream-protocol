@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 from typing import Any, AsyncIterator
 
 from openai import AsyncOpenAI
@@ -205,7 +204,7 @@ class ZAIOfficialClient(LLMClient):
                             "type": "function",
                             "function": {
                                 "name": item["name"],
-                                "arguments": json.dumps(item["arguments"], ensure_ascii=False),
+                                "arguments": item["arguments"],
                             },
                         }
                     )

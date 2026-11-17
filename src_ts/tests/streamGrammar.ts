@@ -92,7 +92,7 @@ export function assertStreamGrammar(events: UniEvent[]): void {
           delta.type === "tool_call.delta" ? delta.arguments : "",
         )
         .join("");
-      expect(item.arguments).toEqual(JSON.parse(raw || "{}"));
+      expect(item.arguments).toBe(raw || "{}");
       expect(item.name).toBe(
         open[0].type === "tool_call.delta" ? open[0].name : "",
       );

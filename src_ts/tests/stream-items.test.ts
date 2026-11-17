@@ -64,7 +64,7 @@ describe("one assembly rule for every kind", () => {
     expect(items.end()).toEqual([{ type: "text.done", text: "Hello" }]);
   });
 
-  test("a tool call keeps the header of its first delta and parses the joined arguments", () => {
+  test("a tool call keeps the header of its first delta and the joined arguments as text", () => {
     const items = new StreamItems("Test");
     expect(items.delta(call("1", "get_weather", "toolu_1"))).toEqual([
       {
@@ -80,19 +80,19 @@ describe("one assembly rule for every kind", () => {
       {
         type: "tool_call.done",
         name: "get_weather",
-        arguments: { city: "Paris" },
+        arguments: '{"city":"Paris"}',
         tool_call_id: "toolu_1",
       },
     ]);
   });
 
-  test("malformed arguments raise when the call is done, empty ones parse to an empty object", () => {
+  test("malformed arguments raise when the call is done, empty ones are an empty object", () => {
     const items = new StreamItems("Test");
     items.delta(call("0", "f", "c", '{"a":'));
     expect(() => items.end()).toThrow(ToolCallArgumentParseError);
 
     items.delta(call("1", "g", "d"));
-    expect(items.end()).toMatchObject([{ arguments: {} }]);
+    expect(items.end()).toMatchObject([{ arguments: "{}" }]);
   });
 
   test("audio chunks join into one buffer, while every image is an item of its own", () => {
@@ -209,13 +209,13 @@ describe("when an item is done", () => {
     items.delta(call("tool_calls", "f", "call_1", '{"a":'));
     items.delta(args("tool_calls", "1}"));
     expect(items.delta(call("tool_calls", "g", "call_2"))).toMatchObject([
-      { type: "tool_call.done", name: "f", arguments: { a: 1 } },
+      { type: "tool_call.done", name: "f", arguments: '{"a":1}' },
       { type: "tool_call.delta", name: "g" },
     ]);
     // a gateway announcing a call under one id and streaming its arguments under another
     items.delta(args("fc_other", '{"q":"m"}'));
     expect(items.end()).toMatchObject([
-      { type: "tool_call.done", name: "g", arguments: { q: "m" } },
+      { type: "tool_call.done", name: "g", arguments: '{"q":"m"}' },
     ]);
   });
 

@@ -43,7 +43,7 @@ function runTool(call: ToolCallDoneItem): string {
   const tool = TOOLS[call.name];
   if (!tool) return `Unknown tool: ${call.name}`;
   try {
-    return tool(call.arguments);
+    return tool(JSON.parse(call.arguments));
   } catch (error) {
     // 模型读到失败，自己决定怎么办
     return `Error: ${error}`;
@@ -81,6 +81,8 @@ console.log(await runAgent(client, "What's the weather in London and in Paris?")
 
 ```python
 import asyncio
+import json
+
 from mmsp import AutoLLMClient
 
 
@@ -110,7 +112,7 @@ def run_tool(call: dict) -> str:
     if tool is None:
         return f"Unknown tool: {call['name']}"
     try:
-        return tool(**call["arguments"])
+        return tool(**json.loads(call["arguments"]))
     except Exception as error:  # 模型读到失败，自己决定怎么办
         return f"Error: {error}"
 
@@ -153,7 +155,7 @@ asyncio.run(main())
 
 ## 循环依赖的几件事
 
-- **工具调用是完整到达的。** `tool_call.done` 带有名字、id 和解析好的参数。它之前的 `tool_call.delta` 项只是片段，除了展示进度之外别无他用。
+- **工具调用是完整到达的。** `tool_call.done` 带有名字、id 和完整的参数，即模型写出的 JSON 文本；运行工具前自行解析。它之前的 `tool_call.delta` 项只是片段，除了展示进度之外别无他用。
 - **结果按 id 匹配。** 每个 `tool_result.done` 带有它对应调用的 `tool_call_id`。多个结果放在一条消息里，顺序不限。
 - **历史替你保存。** 有状态调用记录助手轮次，思考和 `fidelity` 都在内，所以在工具调用之间思考的模型能接着同一个轮次继续。想自己保存历史，就用 `streaming_response` 并传完整的消息列表。
 - **失败的工具也是一个结果。** 把错误作为结果文本返回；模型读到它，会重试、问用户，或者放弃。绝不要用不完整的参数运行工具：参数无法解析时，MMSP 会在原本该出现 `tool_call.done` 的位置抛出 `ToolCallArgumentParseError`。

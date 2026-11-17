@@ -173,7 +173,7 @@ async def test_thinking_ending_on_its_signature_then_a_tool_call_built_from_its_
     assert_stream_grammar(events)
     assert [item for item in items(events) if item["type"].endswith(".done")] == [
         {"type": "thinking.done", "thinking": "Let me look", "fidelity": {"signature": "sig"}},
-        {"type": "tool_call.done", "name": "get_weather", "arguments": {"city": "Paris"}, "tool_call_id": "toolu_1"},
+        {"type": "tool_call.done", "name": "get_weather", "arguments": '{"city":"Paris"}', "tool_call_id": "toolu_1"},
     ]
 
 
@@ -224,9 +224,9 @@ async def test_an_item_is_done_when_a_delta_of_the_next_item_arrives_another_id_
         "tool_call.done",
     ]
     assert items(events)[8]["name"] == "f"
-    assert items(events)[8]["arguments"] == {"x": 1}
+    assert items(events)[8]["arguments"] == '{"x":1}'
     assert items(events)[10]["name"] == "g"
-    assert items(events)[10]["arguments"] == {}
+    assert items(events)[10]["arguments"] == "{}"
 
 
 @pytest.mark.asyncio
@@ -892,6 +892,28 @@ async def test_a_message_without_content_items_raises_invalid_message_error_befo
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("arguments", ['{"city":', '["Paris"]', "null"], ids=["unparsable", "array", "null"])
+async def test_a_tool_call_whose_arguments_are_not_the_json_text_of_an_object_raises_before_anything_is_sent(
+    arguments: str,
+):
+    client = ScriptedClient(REPLY)
+    call = {"type": "tool_call.done", "name": "get_weather", "arguments": arguments, "tool_call_id": "call_1"}
+
+    with pytest.raises(InvalidMessageError) as exc_info:
+        async for _event in client.streaming_response(
+            messages=[USER, {"role": "assistant", "content_items": [call]}], config={}
+        ):
+            pass
+
+    assert exc_info.value.message_index == 1
+    assert exc_info.value.item_type == "tool_call.done"
+    assert str(exc_info.value).startswith(
+        "message 1 has a tool call whose arguments are not the JSON text of an object: "
+    )
+    assert client.sent_messages == []
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("trace_id", ["../outside", "agent/..", "{tmp_path}/outside"])
 async def test_a_trace_id_outside_the_cache_directory_raises_unsupported_parameter_error_before_anything_is_sent(
     trace_id: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -957,3 +979,19 @@ async def test_legacy_content_item_types_are_converted_before_a_request_and_in_s
 
     current = [USER]
     assert normalize_legacy_messages(current)[0] is USER
+
+
+@pytest.mark.asyncio
+async def test_tool_call_arguments_recorded_as_an_object_are_sent_as_their_json_text(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(legacy, "_warned_arguments", False)
+    call = {"type": "tool_call.done", "name": "get_weather", "arguments": {"city": "巴黎"}, "tool_call_id": "call_1"}
+    recorded = {"role": "assistant", "content_items": [call]}
+
+    client = ScriptedClient(REPLY)
+    with pytest.warns(FutureWarning, match="0.6.0"):
+        async for _event in client.streaming_response(messages=[USER, recorded], config={}):
+            pass
+
+    assert client.sent_messages[0][1]["content_items"] == [{**call, "arguments": '{"city": "巴黎"}'}]
+    # the caller's message is left as it was
+    assert call["arguments"] == {"city": "巴黎"}

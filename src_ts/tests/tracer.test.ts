@@ -669,7 +669,10 @@ describe("Tracer", () => {
     }
     expect(response.text).toContain("Weather in Paris?");
     expect(response.text).toContain("Look it up.");
-    expect(response.text).toContain('get_weather(city="Paris")');
+    // the 0.4 trace recorded the arguments as an object, which reads back as its JSON text
+    expect(response.text).toContain(
+      "get_weather({&quot;city&quot;:&quot;Paris&quot;})",
+    );
     expect(response.text).toContain("22 C");
     expect(response.text).toContain("<span>2 items</span>");
     expect(response.text).not.toContain("partial_tool_call");

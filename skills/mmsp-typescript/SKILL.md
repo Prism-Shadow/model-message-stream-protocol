@@ -71,7 +71,7 @@ async function main(): Promise<void> {
 
   if (toolCall) {
     // Dispatch by tool name instead of hardcoding the function.
-    const result = TOOLS[toolCall.name](toolCall.arguments);
+    const result = TOOLS[toolCall.name](JSON.parse(toolCall.arguments));
 
     for await (const event of client.streamingResponseStateful({
       message: {

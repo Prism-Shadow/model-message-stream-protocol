@@ -89,8 +89,9 @@ export interface InlineThinkingDoneItem {
 export interface ToolCallDoneItem {
   type: "tool_call.done";
   name: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  arguments: Record<string, any>;
+  // the JSON text of the arguments, an object, as the model wrote it: a parse turns each number into
+  // one of the language's own, so nothing between the model and the caller parses it
+  arguments: string;
   tool_call_id: string;
   fidelity?: Fidelity;
 }

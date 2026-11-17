@@ -410,7 +410,8 @@ export class AnthropicOfficialClient extends LLMClient {
             type: "tool_use",
             id: item.tool_call_id,
             name: item.name,
-            input: item.arguments,
+            // Messages takes the arguments as an object, so the text is parsed here only
+            input: JSON.parse(item.arguments),
           });
         } else if (item.type === "tool_result.done") {
           if (!item.tool_call_id) {

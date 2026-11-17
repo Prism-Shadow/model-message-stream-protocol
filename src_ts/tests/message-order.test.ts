@@ -154,7 +154,7 @@ function messagesFor(): UniMessage[] {
         {
           type: "tool_call.done",
           name: "get_weather",
-          arguments: { city: "Paris" },
+          arguments: '{"city": "Paris"}',
           tool_call_id: "call_1",
         },
       ],
