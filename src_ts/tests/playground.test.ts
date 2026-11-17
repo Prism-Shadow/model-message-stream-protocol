@@ -151,7 +151,7 @@ describe("Playground", () => {
     expect(response.text).toContain('id="thinkingSummaryCombobox"');
     expect(response.text).toContain('id="toolChoiceCombobox"');
     expect(response.text).toContain(
-      'data-combobox-option data-value="gpt-6.1-sol"',
+      'data-combobox-option data-value="gpt-6.2-sol"',
     );
     expect(response.text).toContain('data-value="text-embedding-3-large"');
     expect(response.text).toContain("getSelectedClientType()");

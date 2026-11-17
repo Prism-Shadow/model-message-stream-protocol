@@ -12,7 +12,9 @@ GPT-6 Luna is our most efficient model for focused, high-volume tasks.
 Use the Responses API for built-in tools and function calling. Chat Completions supports function calling only with `reasoning_effort` set to `none`.
 
 EU data residency is available with Standard, Fast, Flex, and Batch processing.
-See [data residency eligibility](/api/docs/guides/your-data#which-models-and-features-are-eligible-for-data-residency).
+See [data residency eligibility](/api/docs/guides/data-residency#which-models-and-features-are-eligible-for-data-residency).
+
+The Responses API supports [discounted background completion windows](/api/docs/guides/background#use-discounted-completion-windows) in public beta.
 
 ## Model details
 
@@ -97,6 +99,15 @@ Tools supported by this model when using the Responses API.
 Snapshots let you lock in a specific version of the model so that performance and behavior remain consistent. Below is a list of all available snapshots and aliases for GPT-6 Luna.
 
 - `gpt-6-luna`
+
+## Cloud providers
+
+Model IDs across cloud providers.
+
+| Provider | Model ID |
+| --- | --- |
+| [Amazon Bedrock](/api/docs/guides/amazon-bedrock) | `openai.gpt-6-luna` |
+| [Google Cloud](/api/docs/guides/google-cloud)<br>Private preview | `gpt-6-luna` |
 
 ## Rate limits
 

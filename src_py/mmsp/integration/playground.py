@@ -2173,16 +2173,16 @@ def create_chat_app() -> Flask:
                                 </span>
                             </div>
                             <div id="modelCombobox" data-combobox>
-                                <input id="modelSelect" type="hidden" value="gpt-6.1-sol" data-combobox-value>
+                                <input id="modelSelect" type="hidden" value="gpt-6.2-sol" data-combobox-value>
                                 <button id="modelComboboxButton" type="button" role="combobox" aria-controls="modelComboboxMenu" aria-expanded="false" class="control combo-button" onclick="toggleCombobox('modelCombobox')" onkeydown="handleComboboxKeydown(event, 'modelCombobox')" data-combobox-button>
-                                    <span data-combobox-label>GPT 6.1 Sol</span>
+                                    <span data-combobox-label>GPT 6.2 Sol</span>
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
                                 </button>
                                 <div id="modelComboboxMenu" class="hidden" role="listbox" aria-labelledby="modelComboboxButton" data-combobox-menu onkeydown="handleMenuKeydown(event, 'modelCombobox')">
                                     <div class="menu-search">
                                         <input id="modelFilterInput" type="text" autocomplete="off" spellcheck="false" placeholder="Filter models" aria-label="Filter models" oninput="filterModelOptions()">
                                     </div>
-                                    <button type="button" role="option" aria-selected="true" class="combo-option" data-combobox-option data-value="gpt-6.1-sol" data-label="GPT 6.1 Sol" data-description="gpt-6.1-sol" onclick="selectComboboxOption('modelCombobox', this)"><span>GPT 6.1 Sol</span></button>
+                                    <button type="button" role="option" aria-selected="true" class="combo-option" data-combobox-option data-value="gpt-6.2-sol" data-label="GPT 6.2 Sol" data-description="gpt-6.2-sol" onclick="selectComboboxOption('modelCombobox', this)"><span>GPT 6.2 Sol</span></button>
                                     <button type="button" role="option" aria-selected="false" class="combo-option" data-combobox-option data-value="text-embedding-3-large" data-label="Text Embedding 3 Large" data-description="text-embedding-3-large" onclick="selectComboboxOption('modelCombobox', this)"><span>Text Embedding 3 Large</span></button>
                                     <button type="button" role="option" aria-selected="false" class="combo-option" data-combobox-option data-value="gemini-3.8-flash" data-label="Gemini 3.8 Flash" data-description="gemini-3.8-flash" onclick="selectComboboxOption('modelCombobox', this)"><span>Gemini 3.8 Flash</span></button>
                                     <button type="button" role="option" aria-selected="false" class="combo-option" data-combobox-option data-value="gemini-3.1-flash-image" data-label="Gemini 3.1 Flash Image" data-description="gemini-3.1-flash-image" onclick="selectComboboxOption('modelCombobox', this)"><span>Gemini 3.1 Flash Image</span></button>
@@ -2336,7 +2336,7 @@ def create_chat_app() -> Flask:
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"></rect><path d="M9 4v16"></path></svg>
                     </button>
                     <div class="topbar-model">
-                        <span id="headerModel">gpt-6.1-sol</span>
+                        <span id="headerModel">gpt-6.2-sol</span>
                         <span id="headerClientType" class="mono"></span>
                     </div>
                     <div class="topbar-actions">
@@ -2362,7 +2362,7 @@ def create_chat_app() -> Flask:
                 <div class="messages" id="messagesContainer">
                     <div class="empty-state" id="emptyState">
                         <h2>Start a conversation</h2>
-                        <p>Messages go to <span class="mono" id="emptyStateModel">gpt-6.1-sol</span>, and every stream item shows as it arrives.</p>
+                        <p>Messages go to <span class="mono" id="emptyStateModel">gpt-6.2-sol</span>, and every stream item shows as it arrives.</p>
                     </div>
                     <div class="thread hidden" id="thread"></div>
                 </div>
@@ -2370,7 +2370,7 @@ def create_chat_app() -> Flask:
                 <div class="composer-wrap">
                     <div class="composer" id="composer">
                         <div id="imagePreviewContainer" class="previews hidden"></div>
-                        <textarea id="messageInput" rows="1" placeholder="Message gpt-6.1-sol" aria-label="Message"></textarea>
+                        <textarea id="messageInput" rows="1" placeholder="Message gpt-6.2-sol" aria-label="Message"></textarea>
                         <div class="composer-bar">
                             <input type="file" id="imageInput" accept="image/*,audio/*" multiple class="hidden" onchange="handleImageSelect(event)">
                             <button type="button" class="icon-btn" onclick="document.getElementById('imageInput').click()" aria-label="Attach images or audio" title="Attach images or audio">

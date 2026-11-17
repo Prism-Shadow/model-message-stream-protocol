@@ -18,10 +18,12 @@ import { openaiImageDetail } from "../../utils";
 
 /**
  * The GPT-6 models that take the "none" reasoning effort. A gateway serving
- * GPT-6 Astra or GPT-6.1 Sol forwards the effort to OpenAI, which rejects
- * "none" and "minimal" with a 400 (verified live 2026-09-09 against
- * api.openai.com); GPT-6 Luna and GPT-6.1 Terra accept it, on OpenRouter too
- * (verified live 2026-10-14 and 2026-11-02).
+ * GPT-6 Astra, GPT-6.1 Sol, GPT-6.2 Astra or GPT-6.2 Sol forwards the effort
+ * to OpenAI, which rejects "none" and "minimal" with a 400 (verified live
+ * 2026-09-09 against api.openai.com; OpenRouter answers GPT-6.2's "none" with
+ * 400 "Reasoning is mandatory for this endpoint", verified live 2026-11-18);
+ * GPT-6 Luna and GPT-6.1 Terra accept it, on OpenRouter too (verified live
+ * 2026-10-14 and 2026-11-02).
  */
 const GPT6_NONE_EFFORT = ["gpt-6-luna", "gpt-6.1-terra"];
 

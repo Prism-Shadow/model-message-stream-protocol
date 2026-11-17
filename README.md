@@ -50,7 +50,7 @@ Audit LLM executions by adding **a single `trace_id` parameter**, no database re
 | Gemini 4 Hydrogen/Carbon/Argon | Official/Google Vertex AI/OpenRouter/OpenCode Go/Penguin Go | `gemini-4-carbon` | Text, Image | Text |
 | Gemini 3-3.8   | Official/Google Vertex AI/OpenRouter/Penguin Go | `gemini-3.8-flash` | Text, Image | Text, Image, Speech, Embedding |
 | Claude 4.5-5.5 | Official/Amazon Bedrock/OpenRouter/OpenCode Go/UModelVerse | `claude-opus-5-5` | Text, Image | Text |
-| GPT-5.3-6.1    | Official/OpenRouter/OpenCode Go/UModelVerse | `gpt-6.1-sol` | Text, Image | Text, Embedding |
+| GPT-5.3-6.2    | Official/OpenRouter/OpenCode Go/UModelVerse | `gpt-6.2-sol` | Text, Image | Text, Embedding |
 | Kimi-K2.5-K3.1 Pro | Official/OpenRouter/SiliconFlow/TokenDance/OpenCode Go/Fireworks AI/DashScope | `kimi-k3.1-pro` | Text, Image | Text |
 | DeepSeek V3.2/V4 | Official/OpenRouter/SiliconFlow/TokenDance/OpenCode Go/Fireworks AI/DashScope/Qwen Token Plan/Atlas Cloud/Penguin Go/ModelScope/vLLM | `deepseek-flash` | Text, Image | Text |
 | GLM-4.5-5.3    | Official/OpenRouter/SiliconFlow/TokenDance/OpenCode Go/Fireworks AI/DashScope/Qwen Token Plan | `glm-5.3` | Text, Image | Text |

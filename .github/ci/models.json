@@ -371,7 +371,7 @@
     "models": [
       {
         "api_key_env": "OPENAI_API_KEY",
-        "name": "gpt-6.1-sol"
+        "name": "gpt-6.2-sol"
       },
       {
         "api_key_env": "OPENAI_API_KEY",

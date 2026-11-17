@@ -4,7 +4,7 @@
 
 **Reasoning models** use internal reasoning tokens before producing a response. This helps the model plan, use tools effectively, inspect alternatives, recover from ambiguity, and solve harder multi-step tasks. Reasoning models work especially well for complex problem solving, coding, scientific reasoning, and multi-step agentic workflows. They're also the best models for [Codex CLI](https://github.com/openai/codex), our lightweight coding agent.
 
-Start with `gpt-6-astra` for most reasoning workloads. For lower cost, consider [`gpt-5.6-terra`](https://developers.openai.com/api/docs/models/gpt-5.6-terra), or [`gpt-5.6-luna`](https://developers.openai.com/api/docs/models/gpt-5.6-luna) for the lowest cost and latency. If you're using a GPT-5.6 or GPT-6 model, see [reasoning mode](#reasoning-mode) for its `pro` option.
+Start with `gpt-6.2-astra` for most reasoning workloads. For lower cost, consider [`gpt-6.1-terra`](https://developers.openai.com/api/docs/models/gpt-6.1-terra), or [`gpt-6-luna`](https://developers.openai.com/api/docs/models/gpt-6-luna) for the lowest cost and latency. If you're using a GPT-5.6 or GPT-6 model, see [reasoning mode](#reasoning-mode) for its `pro` option.
 
 **Reasoning models work better with the [Responses
   API](https://developers.openai.com/api/docs/guides/migrate-to-responses)**. While the Chat Completions API
@@ -17,7 +17,7 @@ Call the [Responses API](https://developers.openai.com/api/reference/resources/r
 
 Using a reasoning model in the Responses API
 
-```javascript
+```typescript
 import OpenAI from "openai";
 
 const openai = new OpenAI();
@@ -28,7 +28,7 @@ format '[1,2],[3,4],[5,6]' and prints the transpose in the same format.
 `;
 
 const response = await openai.responses.create({
-  model: "gpt-6-astra",
+  model: "gpt-6.2-astra",
   reasoning: { effort: "low" },
   input: [
     {
@@ -52,7 +52,7 @@ format '[1,2],[3,4],[5,6]' and prints the transpose in the same format.
 """
 
 response = client.responses.create(
-    model="gpt-6-astra",
+    model="gpt-6.2-astra",
     reasoning={"effort": "low"},
     input=[{"role": "user", "content": prompt}],
 )
@@ -77,7 +77,7 @@ func main() {
 format '[1,2],[3,4],[5,6]' and prints the transpose in the same format.`
 
 	response, err := client.Responses.New(context.Background(), responses.ResponseNewParams{
-		Model: "gpt-6-astra",
+		Model: "gpt-6.2-astra",
 		Reasoning: responses.ReasoningParam{
 			Effort: responses.ReasoningEffortLow,
 		},
@@ -109,7 +109,7 @@ String prompt =
 
 ResponseCreateParams params =
     ResponseCreateParams.builder()
-        .model("gpt-6-astra")
+        .model("gpt-6.2-astra")
         .input(prompt)
         .reasoning(Reasoning.builder().effort(ReasoningEffort.LOW).build())
         .build();
@@ -135,7 +135,7 @@ string prompt =
     """;
 CreateResponseOptions options = new()
 {
-    Model = "gpt-6-astra",
+    Model = "gpt-6.2-astra",
     ReasoningOptions = new ResponseReasoningOptions
     {
         ReasoningEffortLevel = ResponseReasoningEffortLevel.Low,
@@ -158,7 +158,7 @@ prompt = <<~PROMPT
 PROMPT
 
 response = client.responses.create(
-  model: "gpt-6-astra",
+  model: "gpt-6.2-astra",
   reasoning: { effort: :low },
   input: prompt
 )
@@ -171,7 +171,7 @@ curl https://api.openai.com/v1/responses \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $OPENAI_API_KEY" \
   -d '{
-    "model": "gpt-6-astra",
+    "model": "gpt-6.2-astra",
     "reasoning": {"effort": "low"},
     "input": [
       {
@@ -193,6 +193,8 @@ Supported values are model-dependent and can include `none`, `minimal`, `low`, `
   effort. Setting `reasoning.effort` (Responses) or `reasoning_effort` (Chat
   Completions) to `none` returns HTTP 400. [GPT-6.1 Sol](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-6-astra#gpt-61-sol)
   does not support `none` or `minimal` and defaults to `medium`.
+
+[GPT-6.2 Astra](https://developers.openai.com/api/docs/models/gpt-6.2-astra) and [GPT-6.2 Sol](https://developers.openai.com/api/docs/models/gpt-6.2-sol) reject requests that set `reasoning.effort` (Responses) or `reasoning_effort` (Chat Completions) to `none`.
 
 Use the [Responses API](https://developers.openai.com/api/docs/guides/migrate-to-responses) for function
 calling. Chat Completions does not support function calling with GPT-6 Astra or
@@ -226,7 +228,7 @@ curl https://api.openai.com/v1/responses \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $OPENAI_API_KEY" \
   -d '{
-    "model": "gpt-6.1-sol",
+    "model": "gpt-6.2-sol",
     "reasoning": {
       "mode": "pro",
       "effort": "medium"
@@ -278,6 +280,7 @@ It's important to ensure there's enough space in the context window for reasonin
 }
 ```
 
+
 Context window lengths are found on the [model reference page](https://developers.openai.com/api/docs/models), and will differ across model snapshots.
 
 ### Allocating space for reasoning
@@ -288,7 +291,7 @@ To prevent this, ensure there's sufficient space in the context window or adjust
 
 Handling incomplete responses
 
-```javascript
+```typescript
 import OpenAI from "openai";
 
 const openai = new OpenAI();
@@ -299,7 +302,7 @@ format '[1,2],[3,4],[5,6]' and prints the transpose in the same format.
 `;
 
 const response = await openai.responses.create({
-  model: "gpt-6-astra",
+  model: "gpt-6.2-astra",
   reasoning: { effort: "medium" },
   input: [
     {
@@ -312,7 +315,7 @@ const response = await openai.responses.create({
 
 if (
   response.status === "incomplete" &&
-  response.incomplete_details.reason === "max_output_tokens"
+  response.incomplete_details?.reason === "max_output_tokens"
 ) {
   console.log("Ran out of tokens");
   if (response.output_text?.length > 0) {
@@ -334,7 +337,7 @@ format '[1,2],[3,4],[5,6]' and prints the transpose in the same format.
 """
 
 response = client.responses.create(
-    model="gpt-6-astra",
+    model="gpt-6.2-astra",
     reasoning={"effort": "medium"},
     input=[{"role": "user", "content": prompt}],
     max_output_tokens=300,
@@ -368,7 +371,7 @@ func main() {
 format '[1,2],[3,4],[5,6]' and prints the transpose in the same format.`
 
 	response, err := client.Responses.New(context.Background(), responses.ResponseNewParams{
-		Model:           "gpt-6-astra",
+		Model:           "gpt-6.2-astra",
 		MaxOutputTokens: openai.Int(300),
 		Reasoning: responses.ReasoningParam{
 			Effort: responses.ReasoningEffortMedium,
@@ -401,7 +404,7 @@ import com.openai.models.responses.ResponseStatus;
 
 ResponseCreateParams params =
     ResponseCreateParams.builder()
-        .model("gpt-6-astra")
+        .model("gpt-6.2-astra")
         .input(
             "Write a bash script that takes a matrix represented as a string with format "
                 + "'[1,2],[3,4],[5,6]' and prints the transpose in the same format.")
@@ -434,7 +437,7 @@ ResponsesClient client = new(key);
 
 CreateResponseOptions options = new()
 {
-    Model = "gpt-6-astra",
+    Model = "gpt-6.2-astra",
     MaxOutputTokenCount = 300,
     ReasoningOptions = new ResponseReasoningOptions
     {
@@ -486,7 +489,7 @@ prompt = <<~PROMPT
 PROMPT
 
 response = client.responses.create(
-  model: "gpt-6-astra",
+  model: "gpt-6.2-astra",
   max_output_tokens: 300,
   reasoning: { effort: :medium },
   input: prompt
@@ -531,7 +534,7 @@ Use `previous_response_id` for the shortest stateful integration:
 
 Preserve reasoning with a previous response
 
-```javascript
+```typescript
 import OpenAI from "openai";
 
 const client = new OpenAI();
@@ -695,7 +698,7 @@ curl https://api.openai.com/v1/responses \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $OPENAI_API_KEY" \
   -d '{
-    "model": "gpt-6-astra",
+    "model": "gpt-6.2-astra",
     "store": false,
     "reasoning": {"effort": "medium"},
     "input": "What is the weather like today?",
@@ -710,13 +713,13 @@ To use `all_turns` with `store: false`, preserve every output item, append the n
 
 Preserve reasoning without storing responses
 
-```javascript
+```typescript
 import OpenAI from "openai";
 import { toResponseInputItems } from "openai/lib/responses/ResponseInputItems";
 
 const client = new OpenAI();
 
-const history = [
+const history: OpenAI.Responses.ResponseInput = [
   {
     role: "user",
     content: "Inspect this repository and identify the likely bug.",
@@ -940,13 +943,11 @@ puts(second.output_text)
 
 ### Keeping reasoning items in context
 
-When doing [function calling](https://developers.openai.com/api/docs/guides/function-calling) with a reasoning model in the [Responses API](https://developers.openai.com/api/reference/resources/responses), we highly recommend you pass back any reasoning items returned with the last function call (in addition to the output of your function). If the model calls multiple functions consecutively, you should pass back all reasoning items, function call items, and function call output items, since the last `user` message. This allows the model to continue its reasoning process to produce better results in the most token-efficient manner.
+When doing [function calling](https://developers.openai.com/api/docs/guides/function-calling) with a reasoning model in the [Responses API](https://developers.openai.com/api/reference/resources/responses), pass back the reasoning items returned with the function calls along with the tool outputs. This lets the model continue reasoning after a tool call.
 
-The simplest way to do this is to pass in all reasoning items from a previous response into the next one. Our systems will smartly ignore any reasoning items that aren't relevant to your functions, and only retain those in context that are relevant. You can pass reasoning items from previous responses either using the `previous_response_id` parameter, or by manually passing in all the [output](https://developers.openai.com/api/reference/resources/responses#responses/object-output) items from a past response into the [input](https://developers.openai.com/api/reference/resources/responses/methods/create#responses-create-input) of a new one.
+You can carry reasoning items forward using `previous_response_id`. If you manage conversation history yourself, include the original input and all [output](https://developers.openai.com/api/reference/resources/responses#responses/object-output) items from each response in the [input](https://developers.openai.com/api/reference/resources/responses/methods/create#responses-create-input) of the next request. Keep those items in their original order and append new items.
 
-For advanced use cases where you might be truncating and optimizing parts of the context window before passing them on to the next response, just ensure all items between the last user message and your function call output are passed into the next response untouched. This will ensure that the model has all the context it needs.
-
-Check out [this guide](https://developers.openai.com/api/docs/guides/conversation-state) to learn more about manual context management.
+For newer frontier models, changes to the history preceding a reasoning item can cause the API to drop that reasoning. See [Keep the prefix unchanged](https://developers.openai.com/api/docs/guides/keep-prefix-unchanged) for guidance on changing instructions and tool outputs, and managing long conversations.
 
 ## Change reasoning mid-conversation
 
@@ -966,11 +967,12 @@ Add the following item before the next user message in the `input` array of an H
 }
 ```
 
+
 For example, if the conversation starts with request-level effort `low`, this update selects `high` for the next response and subsequent responses until another update overrides it.
 
 Increase reasoning effort for a follow-up
 
-```javascript
+```typescript
 import OpenAI from "openai";
 
 const client = new OpenAI();
@@ -1162,11 +1164,25 @@ Preserve updates with `previous_response_id`, or replay them in their original p
 
 You can set `reasoning.effort` and [`text.format`](https://developers.openai.com/api/docs/guides/structured-outputs?api-mode=responses#change-the-response-format-mid-conversation) in the same `configuration_update` item. An update to either setting alone preserves the other.
 
-Do not combine configuration updates with automatic compaction or automatic truncation. The standalone `/responses/compact` endpoint also rejects histories containing these updates.
+You can combine configuration updates with automatic compaction through `context_management`. If earlier updates exist, the API emits a fresh update after the compaction item with the latest effort and output format. Automatic truncation and the standalone `/responses/compact` endpoint still reject histories containing updates. See the [Compaction guide](https://developers.openai.com/api/docs/guides/compaction#continue-with-configuration-updates-and-tools) for how to prepare a standalone request.
 
 You can still explicitly compact history by including a `compaction_trigger` item in a `/responses` request. After compaction, add a fresh `configuration_update` before the next user message. Restate each setting you changed, including the format if you changed it.
 
 Normal prompt caching requirements still apply. To send user instructions while a response is running, use [Mid-turn steering](https://developers.openai.com/api/docs/guides/steering).
+
+## Reasoning item removal across requests
+
+The API removes reasoning items if you switch model families, downgrade to a less capable model, or switch organizations or users mid-conversation as one of our safeguards against distillation. Starting with 6.2, reasoning items with a `safety_identifier` change or a modified conversation history (the prefix) will also be removed.
+
+You can use `input_transformations` in the response to diagnose unintended removal:
+
+| Reason                  | When the API removes the item                                                                                                                                                                                                                                                                          |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `prefix_mismatch`       | On GPT-6.2 and later, you insert or edit content before the reasoning item. For example, rewriting an earlier tool result changes the prefix. Deleting whole items without editing the remaining items, or appending new items after the reasoning item, does not by itself trigger this reason.       |
+| `end_user_mismatch`     | On GPT-6.2 and later, the `safety_identifier` on the request that created the item differs from the one on the request that reuses it. This includes supplying an identifier on only one of the two requests. Using the same identifier on both requests, or omitting it from both, passes this check. |
+| `model_mismatch`        | You switch model families or move to a less capable model within the same family. Moving to a more capable model within the same family preserves compatible reasoning if the other checks pass.                                                                                                       |
+| `organization_mismatch` | You reuse an item from another organization, or from a different workspace under a different user.                                                                                                                                                                                                     |
+| `turn_boundary`         | The item comes from an earlier turn and the model uses only current-turn reasoning. Models released before GPT-5.6 use current-turn reasoning by default. On supported models, `reasoning.context` controls whether earlier turns are eligible.                                                        |
 
 ## Reasoning summaries
 
@@ -1180,12 +1196,12 @@ The example below shows how to make an API request that includes a reasoning sum
 
 Include a reasoning summary with the API response
 
-```javascript
+```typescript
 import OpenAI from "openai";
 const openai = new OpenAI();
 
 const response = await openai.responses.create({
-  model: "gpt-6-astra",
+  model: "gpt-6.2-astra",
   input: "What is the capital of France?",
   reasoning: {
     effort: "low",
@@ -1202,7 +1218,7 @@ from openai import OpenAI
 client = OpenAI()
 
 response = client.responses.create(
-    model="gpt-6-astra",
+    model="gpt-6.2-astra",
     input="What is the capital of France?",
     reasoning={"effort": "low", "summary": "auto"},
 )
@@ -1225,7 +1241,7 @@ func main() {
 	client := openai.NewClient()
 
 	response, err := client.Responses.New(context.Background(), responses.ResponseNewParams{
-		Model: "gpt-6-astra",
+		Model: "gpt-6.2-astra",
 		Input: responses.ResponseNewParamsInputUnion{
 			OfString: openai.String("What is the capital of France?"),
 		},
@@ -1251,7 +1267,7 @@ import com.openai.models.responses.ResponseCreateParams;
 
 ResponseCreateParams params =
     ResponseCreateParams.builder()
-        .model("gpt-6-astra")
+        .model("gpt-6.2-astra")
         .input("What is the capital of France?")
         .reasoning(
             Reasoning.builder()
@@ -1275,7 +1291,7 @@ ResponsesClient client = new(key);
 
 CreateResponseOptions options = new()
 {
-    Model = "gpt-6-astra",
+    Model = "gpt-6.2-astra",
     ReasoningOptions = new ResponseReasoningOptions
     {
         ReasoningEffortLevel = ResponseReasoningEffortLevel.Low,
@@ -1298,7 +1314,7 @@ require "openai"
 client = OpenAI::Client.new
 
 response = client.responses.create(
-  model: "gpt-6-astra",
+  model: "gpt-6.2-astra",
   input: "What is the capital of France?",
   reasoning: {
     effort: :low,
@@ -1314,7 +1330,7 @@ curl https://api.openai.com/v1/responses \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $OPENAI_API_KEY" \
   -d '{
-    "model": "gpt-6-astra",
+    "model": "gpt-6.2-astra",
     "input": "What is the capital of France?",
     "reasoning": {
         "effort": "low",
@@ -1355,6 +1371,7 @@ This API request will return an output array with both an assistant message and 
 ]
 ```
 
+
 Before using summarizers with our latest reasoning models, you may need to
   complete [organization
   verification](https://help.openai.com/en/articles/10910291-api-organization-verification)
@@ -1372,12 +1389,12 @@ Missing or dropped `phase` can cause preambles to be treated as final answers in
 
 Round-trip assistant phase values
 
-```javascript
+```typescript
 import OpenAI from "openai";
 const client = new OpenAI();
 
 const response = await client.responses.create({
-  model: "gpt-6-astra",
+  model: "gpt-6.2-astra",
   input: [
     {
       role: "assistant",
@@ -1406,7 +1423,7 @@ from openai import OpenAI
 client = OpenAI()
 
 response = client.responses.create(
-    model="gpt-6-astra",
+    model="gpt-6.2-astra",
     input=[
         {
             "role": "assistant",
@@ -1452,7 +1469,7 @@ func main() {
 	)
 	finalAnswer.OfMessage.Phase = responses.EasyInputMessagePhaseFinalAnswer
 	response, err := client.Responses.New(context.Background(), responses.ResponseNewParams{
-		Model: "gpt-6-astra",
+		Model: "gpt-6.2-astra",
 		Input: responses.ResponseNewParamsInputUnion{OfInputItemList: responses.ResponseInputParam{
 			commentary,
 			finalAnswer,
@@ -1476,7 +1493,7 @@ import java.util.List;
 
 ResponseCreateParams params =
     ResponseCreateParams.builder()
-        .model("gpt-6-astra")
+        .model("gpt-6.2-astra")
         .inputOfResponse(
             List.of(
                 ResponseInputItem.ofEasyInputMessage(
@@ -1512,7 +1529,7 @@ require "openai"
 client = OpenAI::Client.new
 
 response = client.responses.create(
-  model: "gpt-6-astra",
+  model: "gpt-6.2-astra",
   input: [
     {
       role: :assistant,
@@ -1560,7 +1577,7 @@ Reasoning models can implement complex algorithms and produce code. This prompt 
 
   Refactor code
 
-```javascript
+```typescript
 import OpenAI from "openai";
 
 const openai = new OpenAI();
@@ -1594,7 +1611,7 @@ export default function BookList() {
 `.trim();
 
 const response = await openai.responses.create({
-  model: "gpt-6-astra",
+  model: "gpt-6.2-astra",
   input: [
     {
       role: "user",
@@ -1605,6 +1622,7 @@ const response = await openai.responses.create({
 
 console.log(response.output_text);
 ```
+
 
 ```python
 from openai import OpenAI
@@ -1640,7 +1658,7 @@ export default function BookList() {
 """
 
 response = client.responses.create(
-    model="gpt-6-astra",
+    model="gpt-6.2-astra",
     input=[
         {
             "role": "user",
@@ -1651,6 +1669,7 @@ response = client.responses.create(
 
 print(response.output_text)
 ```
+
 
 ```go
 package main
@@ -1677,7 +1696,7 @@ const books = [
 ];`
 
 	response, err := client.Responses.New(context.Background(), responses.ResponseNewParams{
-		Model: "gpt-6-astra",
+		Model: "gpt-6.2-astra",
 		Input: responses.ResponseNewParamsInputUnion{
 			OfString: openai.String(prompt),
 		},
@@ -1689,6 +1708,7 @@ const books = [
 	fmt.Println(response.OutputText())
 }
 ```
+
 
 ```java
 import com.openai.client.OpenAIClient;
@@ -1711,7 +1731,7 @@ String prompt =
         .strip();
 
 ResponseCreateParams params =
-    ResponseCreateParams.builder().model("gpt-6-astra").input(prompt).build();
+    ResponseCreateParams.builder().model("gpt-6.2-astra").input(prompt).build();
 
 client.responses().create(params).output().stream()
     .flatMap(item -> item.message().stream())
@@ -1719,6 +1739,7 @@ client.responses().create(params).output().stream()
     .flatMap(content -> content.outputText().stream())
     .forEach(text -> System.out.println(text.text()));
 ```
+
 
 ```csharp
 using OpenAI.Responses;
@@ -1755,11 +1776,12 @@ string prompt =
     }
     """;
 ResponseResult response = await client.CreateResponseAsync(
-    "gpt-6-astra",
+    "gpt-6.2-astra",
     [ResponseItem.CreateUserMessageItem(prompt)]
 );
 Console.WriteLine(response.GetOutputText());
 ```
+
 
 ```ruby
 require "openai"
@@ -1779,12 +1801,13 @@ prompt = <<~PROMPT
 PROMPT
 
 response = client.responses.create(
-  model: "gpt-6-astra",
+  model: "gpt-6.2-astra",
   input: prompt
 )
 
 puts(response.output_text)
 ```
+
 
 
   
@@ -1803,7 +1826,7 @@ Reasoning models can also create multi-step plans. This example prompt asks the 
 
   Plan and create a Python project
 
-```javascript
+```typescript
 import OpenAI from "openai";
 
 const openai = new OpenAI();
@@ -1819,7 +1842,7 @@ your reasoning at the beginning and end, not throughout the code.
 `.trim();
 
 const response = await openai.responses.create({
-  model: "gpt-6-astra",
+  model: "gpt-6.2-astra",
   input: [
     {
       role: "user",
@@ -1830,6 +1853,7 @@ const response = await openai.responses.create({
 
 console.log(response.output_text);
 ```
+
 
 ```python
 from openai import OpenAI
@@ -1847,7 +1871,7 @@ your reasoning at the beginning and end, not throughout the code.
 """
 
 response = client.responses.create(
-    model="gpt-6-astra",
+    model="gpt-6.2-astra",
     input=[
         {
             "role": "user",
@@ -1858,6 +1882,7 @@ response = client.responses.create(
 
 print(response.output_text)
 ```
+
 
 ```go
 package main
@@ -1879,7 +1904,7 @@ answer and stores the question/answer pair in the database. Make a plan for the
 directory structure you will need, then return each file in full.`
 
 	response, err := client.Responses.New(context.Background(), responses.ResponseNewParams{
-		Model: "gpt-6-astra",
+		Model: "gpt-6.2-astra",
 		Input: responses.ResponseNewParamsInputUnion{
 			OfString: openai.String(prompt),
 		},
@@ -1891,6 +1916,7 @@ directory structure you will need, then return each file in full.`
 	fmt.Println(response.OutputText())
 }
 ```
+
 
 ```java
 import com.openai.client.OpenAIClient;
@@ -1907,7 +1933,7 @@ String prompt =
         .strip();
 
 ResponseCreateParams params =
-    ResponseCreateParams.builder().model("gpt-6-astra").input(prompt).build();
+    ResponseCreateParams.builder().model("gpt-6.2-astra").input(prompt).build();
 
 client.responses().create(params).output().stream()
     .flatMap(item -> item.message().stream())
@@ -1915,6 +1941,7 @@ client.responses().create(params).output().stream()
     .flatMap(content -> content.outputText().stream())
     .forEach(text -> System.out.println(text.text()));
 ```
+
 
 ```csharp
 using OpenAI.Responses;
@@ -1931,10 +1958,11 @@ string prompt =
     Plan the directory structure, then return each file in full.
     Only supply your reasoning at the beginning and end, not throughout the code.
     """;
-ResponseResult response = await client.CreateResponseAsync("gpt-6-astra", prompt);
+ResponseResult response = await client.CreateResponseAsync("gpt-6.2-astra", prompt);
 
 Console.WriteLine(response.GetOutputText());
 ```
+
 
 ```ruby
 require "openai"
@@ -1948,12 +1976,13 @@ prompt = <<~PROMPT
 PROMPT
 
 response = client.responses.create(
-  model: "gpt-6-astra",
+  model: "gpt-6.2-astra",
   input: prompt
 )
 
 puts(response.output_text)
 ```
+
 
 
   
@@ -1972,7 +2001,7 @@ OpenAI o-series models have shown excellent performance in STEM research. Prompt
 
   Ask questions related to basic scientific research
 
-```javascript
+```typescript
 import OpenAI from "openai";
 
 const openai = new OpenAI();
@@ -1984,7 +2013,7 @@ them?
 `;
 
 const response = await openai.responses.create({
-  model: "gpt-6-astra",
+  model: "gpt-6.2-astra",
   input: [
     {
       role: "user",
@@ -1995,6 +2024,7 @@ const response = await openai.responses.create({
 
 console.log(response.output_text);
 ```
+
 
 ```python
 from openai import OpenAI
@@ -2008,11 +2038,12 @@ them?
 """
 
 response = client.responses.create(
-    model="gpt-6-astra", input=[{"role": "user", "content": prompt}]
+    model="gpt-6.2-astra", input=[{"role": "user", "content": prompt}]
 )
 
 print(response.output_text)
 ```
+
 
 ```go
 package main
@@ -2031,7 +2062,7 @@ func main() {
 research into new antibiotics? Why should we consider them?`
 
 	response, err := client.Responses.New(context.Background(), responses.ResponseNewParams{
-		Model: "gpt-6-astra",
+		Model: "gpt-6.2-astra",
 		Input: responses.ResponseNewParamsInputUnion{
 			OfString: openai.String(prompt),
 		},
@@ -2043,6 +2074,7 @@ research into new antibiotics? Why should we consider them?`
 	fmt.Println(response.OutputText())
 }
 ```
+
 
 ```java
 import com.openai.client.OpenAIClient;
@@ -2057,7 +2089,7 @@ String prompt =
         .strip();
 
 ResponseCreateParams params =
-    ResponseCreateParams.builder().model("gpt-6-astra").input(prompt).build();
+    ResponseCreateParams.builder().model("gpt-6.2-astra").input(prompt).build();
 
 client.responses().create(params).output().stream()
     .flatMap(item -> item.message().stream())
@@ -2065,6 +2097,7 @@ client.responses().create(params).output().stream()
     .flatMap(content -> content.outputText().stream())
     .forEach(text -> System.out.println(text.text()));
 ```
+
 
 ```csharp
 using OpenAI.Responses;
@@ -2079,11 +2112,12 @@ string prompt =
     new antibiotics? Why should we consider them?
     """;
 ResponseResult response = await client.CreateResponseAsync(
-    "gpt-6-astra",
+    "gpt-6.2-astra",
     [ResponseItem.CreateUserMessageItem(prompt)]
 );
 Console.WriteLine(response.GetOutputText());
 ```
+
 
 ```ruby
 require "openai"
@@ -2095,7 +2129,7 @@ prompt = <<~PROMPT
 PROMPT
 
 response = client.responses.create(
-  model: "gpt-6-astra",
+  model: "gpt-6.2-astra",
   input: prompt
 )
 
@@ -2104,18 +2138,17 @@ puts(response.output_text)
 
 
 
+
 ## Use case examples
 
 Some examples of using reasoning models for real-world use cases can be found in [the cookbook](https://developers.openai.com/cookbook).
 
-[Using reasoning for data validation
+[Using reasoning for data validation](https://developers.openai.com/cookbook/examples/o1/using_reasoning_for_data_validation)
+
+Evaluate a synthetic medical data set for discrepancies.
 
 
 
-      Evaluate a synthetic medical data set for discrepancies.](https://developers.openai.com/cookbook/examples/o1/using_reasoning_for_data_validation)
+[Using reasoning for routine generation](https://developers.openai.com/cookbook/examples/o1/using_reasoning_for_routine_generation)
 
-[Using reasoning for routine generation
-
-
-
-      Use help center articles to generate actions that an agent could perform.](https://developers.openai.com/cookbook/examples/o1/using_reasoning_for_routine_generation)
+Use help center articles to generate actions that an agent could perform.

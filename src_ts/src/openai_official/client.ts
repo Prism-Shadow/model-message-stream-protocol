@@ -46,12 +46,12 @@ import {
 } from "../utils";
 
 /**
- * The GPT-6 models that take the "none" reasoning effort. GPT-6 Astra and
- * GPT-6.1 Sol reject both "none" and "minimal" with a 400 (verified live
- * 2026-09-09: "Unsupported value: 'none' is not supported with the
- * 'gpt-6-astra' model. Supported values are: 'low', 'medium', 'high', 'xhigh',
- * and 'max'."); GPT-6 Luna and GPT-6.1 Terra accept it (verified live
- * 2026-10-14 and 2026-11-02).
+ * The GPT-6 models that take the "none" reasoning effort. GPT-6 Astra,
+ * GPT-6.1 Sol, GPT-6.2 Astra and GPT-6.2 Sol reject both "none" and "minimal"
+ * with a 400 (verified live 2026-09-09 and 2026-11-18: "Unsupported value:
+ * 'none' is not supported with the 'gpt-6-astra' model. Supported values are:
+ * 'low', 'medium', 'high', 'xhigh', and 'max'."); GPT-6 Luna and GPT-6.1
+ * Terra accept it (verified live 2026-10-14 and 2026-11-02).
  */
 const GPT6_NONE_EFFORT = ["gpt-6-luna", "gpt-6.1-terra"];
 /**
@@ -126,7 +126,8 @@ export class OpenAIOfficialClient extends LLMClient {
   private _convertToolChoice(toolChoice: ToolChoice): any {
     if (Array.isArray(toolChoice)) {
       // without its type the object is refused: 400 "Missing required parameter: 'tool_choice.type'"
-      // (verified live 2026-11-02 on GPT-6 Astra, GPT-6.1 Sol, GPT-6.1 Terra and GPT-6 Luna)
+      // (verified live 2026-11-02 on GPT-6 Astra, GPT-6.1 Sol, GPT-6.1 Terra and GPT-6 Luna, and
+      // 2026-11-18 on GPT-6.2 Astra and GPT-6.2 Sol)
       return {
         type: "allowed_tools",
         mode: "required",
