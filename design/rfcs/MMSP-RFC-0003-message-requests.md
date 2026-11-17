@@ -3,7 +3,7 @@
 - Feature Name: `message_requests`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313), [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316), [#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318), [#326](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/326), [#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330), [#336](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/336)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313), [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316), [#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318), [#326](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/326), [#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330), [#336](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/336), [#339](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/339)
 - Kind: spec
 
 [中文版](MMSP-RFC-0003-message-requests.zh.md)
@@ -32,6 +32,8 @@ On 2026-11-11 the owner moved what one endpoint or one vendor's models need of a
 On 2026-11-16 the owner asked for a video's settings, for DeepSeek's speech and transcription, and for Gemini 4 Hydrogen: 视频也要支持aspect_ratio和size,还有duration参数; 把deepseek的tts和asr包一下,现在TTS必须支持流式. `video_config` carries a video's aspect ratio, resolution and duration, which Gemini Omni takes in its `response_format`, and on the image's size key the owner's words were 改uniconfig的字段,对应映射, 直接改就行了: `image_config`'s `image_size` became `resolution`, the name the two now share, each client mapping it to its own field. DeepSeek's text-to-speech sends its audio in the body as it is synthesized, the first bytes after about a second, so `deepseek-speech` asks for raw PCM and yields each chunk as it arrives, as Gemini's streaming speech does; DeepSeek's recognition answers in one JSON and takes 16-bit PCM WAV or Ogg Opus only. The probes found that Gemini 4 Hydrogen takes `xhigh` and refuses `minimal` and `max`, and that Gemini Omni spells 4K `4k`. [#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330) amended this specification in place, with DeepSeek's endpoints in §3.2, `video_config` in §6.2 and §6.4, Hydrogen's levels in §6.3, and `resolution` and DeepSeek's voice in §6.4.
 
 On 2026-11-17 the owner asked that a request billed by the request count as 1,000 tokens: 按次收费的都算1次为1000token吧,这样价格就正常一些. Counted as one token, DeepSeek's Search and Fetch, ¥5 per 1,000 requests, were priced at ¥5,000 per million tokens, a thousand times the price the other rows show for a comparable spend; counted as 1,000, they are priced at ¥5, and a request's cost, its tokens times the price, is unchanged.
+
+On 2026-11-17 the owner kept a tool call's arguments as the text the model wrote, after a test found an integer argument of 9007199254740993 turned into 9007199254740992 between a call's fragments and its complete item: 这个丢精度确实会有问题,在中间多做一次精度转换就会丢东西,UniMessage的工具参数还是保留字符串类型吧. `StreamItems` checks that the joined text parses as a JSON object and keeps the text, and a tool call a caller sends is checked the same way before the request. [#339](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/339) amended this specification in place, in §3.3 and §4.3.
 
 ## 2. Conventions and Terminology
 
@@ -64,7 +66,7 @@ Then one `stop` carries `finish_reason` `stop` and the usage summed over the req
 
 ### 3.3 Before the request
 
-Before anything is sent, `streaming_response` stamps `created_at` on each message that lacks it ([MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.md#63-created_at) §6.3), converts legacy item types ([MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.md#7-one-shape-per-input) §7), and checks that every message has something to send. A message with no items, or one the client's message transform cannot send (thinking alone), MUST raise `InvalidMessageError` with its `message_index` before the provider's request goes out ([MMSP-RFC-0007](MMSP-RFC-0007-error-types.md#31-before-the-request) §3.1).
+Before anything is sent, `streaming_response` stamps `created_at` on each message that lacks it ([MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.md#63-created_at) §6.3), converts legacy item types ([MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.md#7-one-shape-per-input) §7), and checks that every message has something to send and that every tool call's `arguments` is the JSON text of an object. A message with no items, one the client's message transform cannot send (thinking alone), or one holding a tool call whose `arguments` is not the JSON text of an object MUST raise `InvalidMessageError` with its `message_index` before the provider's request goes out ([MMSP-RFC-0007](MMSP-RFC-0007-error-types.md#31-before-the-request) §3.1).
 
 ## 4. The Stream Grammar
 
@@ -82,7 +84,7 @@ Before anything is sent, `streaming_response` stamps `created_at` on each messag
 ### 4.3 Items
 
 - Every item streams as contiguous fragments followed by its one complete item. Items MUST NOT interleave.
-- `StreamItems` alone builds the complete item, from the fragments that went out: its growing field is the join of theirs; a tool call's arguments are parsed from the joined JSON; its other fields are the first fragment's; its `fidelity` is the one the fragments carried. At most one fragment of an item carries its fidelity, and the complete item repeats it.
+- `StreamItems` alone builds the complete item, from the fragments that went out: its growing field is the join of theirs; a tool call's `arguments` is the joined JSON text as it is, or `{}` where the fragments joined to nothing, once it has been checked to parse as a JSON object ([MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.md#34-content-items) §3.4); its other fields are the first fragment's; its `fidelity` is the one the fragments carried. At most one fragment of an item carries its fidelity, and the complete item repeats it.
 
 ### 4.4 The assistant message
 
