@@ -35,6 +35,7 @@ const renumbered = {
   "mmsp-rfc-0011-explicit-parameters": "mmsp-rfc-0003-message-requests",
   "mmsp-rfc-0012-interruptible-requests": "mmsp-rfc-0008-request-interruption",
   "mmsp-rfc-0013-direct-implementation": "mmsp-rfc-0009-protocol-conversion",
+  "mmsp-rfc-0014-prompt-cache-sessions": "mmsp-rfc-0011-prompt-cache-sessions",
 };
 const moved = Object.fromEntries([
   ["/docs/rfcs/", "/rfcs/"],

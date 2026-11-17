@@ -3,7 +3,7 @@
 - Feature Name: `rfc_process`
 - Start Date: 2026-10-19
 - RFC PR: [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265)
-- Updated by: [#285](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/285), [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298), [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301), [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#341](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/341)
+- Updated by: [#285](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/285), [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298), [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301), [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#341](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/341), [#347](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/347)
 - Kind: process
 
 [中文版](MMSP-RFC-0001-rfc-process.zh.md)
@@ -55,7 +55,7 @@ The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY in this document are to
 
 ## 5. Numbering
 
-Each RFC takes the next `MMSP-RFC-NNNN` unused in `design/rfcs/` or open PRs, and numbers are never reused. The only exceptions are two owner-ordered reassignments on 2026-10-24: [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) numbered rules `0002`–`0013`, and [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301) consolidated them into noun-titled specifications `0002`–`0009` plus `0010`:
+Each RFC takes the next consecutive `MMSP-RFC-NNNN` after the highest number in `design/rfcs/` and open PRs. On 2026-10-24, [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) numbered rules `0002`–`0013`, and [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301) consolidated them into noun-titled specifications `0002`–`0009` plus `0010`:
 
 | 0.5.5 number | First renumbering (#298) | Content now in |
 | --- | --- | --- |
