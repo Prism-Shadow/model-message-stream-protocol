@@ -20,7 +20,7 @@
 - 两个服务端的 Playground 增加麦克风按钮：录下的片段无论浏览器的录音器写成什么格式，都以 `audio/wav`（16 kHz 单声道 16 位 PCM）附上；在非安全上下文中按钮禁用；录音满五分钟或发送消息时停止。
 - 两个服务端的 Playground 增加 `POST /api/key`，说明页面不发送 key 时，按页面选项构建的客户端从哪里取 key：环境变量名及 key 的末四位（短于十二个字符的 key 一位也不显示）、未设置的环境变量、不带 key 调用的开放服务端，或环境变量里的 key 不能发往的 base URL。API key 一栏把它显示为占位文字；请求缺少所需的 key 时显示为红色。
 - `deepseek-official` 经由 `deepseek-speech` 服务 `deepseek-tts`，经由 `deepseek-transcription` 服务 `deepseek-asr`，见 [MMSP-RFC-0005](../../design/rfcs/MMSP-RFC-0005-client-routing.zh.md) §3；两个客户端类型都读取 `DEEPSEEK_API_KEY` 与 `DEEPSEEK_BASE_URL`。
-- 注册表新增 `gemini-4-hydrogen`、`deepseek-tts` 与 `deepseek-asr`（从 353 条增至 356 条）。
+- 注册表新增 `gemini-4-hydrogen`、`deepseek-tts` 与 `deepseek-asr`（从 361 条增至 364 条）。
 - `.github/ci/models.json` 在 `google-official` 下以 `gemini-4-hydrogen` 取代 `gemini-3.8-flash`，并新增 `deepseek-speech` 组的 `deepseek-tts` 与 `deepseek-transcription` 组的 `deepseek-asr`。两个 e2e 测试套件中，共享的视频用例发送 `video_config`（9:16、360p、3 秒），图像用例发送 `resolution`，转写用例改为以 `audio/wav` 发送 whisper.cpp 的 `jfk.wav`，取代 Whisper 的 `jfk.flac`；模型索引的转写程序也改用这个文件。
 - `llmsdk_docs/gemini4/` 新增 Gemini 4 Hydrogen 的页面快照，并刷新最新模型、价格、弃用与思考页面；`llmsdk_docs/gemini_omni/` 记录线上 API 接受的视频设置；`llmsdk_docs/deepseek_audio/` 新增 DeepSeek 语音合成与语音识别指南的快照。
 

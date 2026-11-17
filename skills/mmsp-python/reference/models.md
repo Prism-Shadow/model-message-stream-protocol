@@ -62,6 +62,7 @@ Use exact model IDs, and pass the model's client type as `client_type`. If a mod
 | DeepSeek Search/Fetch | TokenDance | `deepseek-search`, `deepseek-fetch` | `deepseek-webtool` | `DEEPSEEK_API_KEY` | `DEEPSEEK_BASE_URL` (`https://tokendance.space/gateway/deepseek`) |
 | Jina Search/Reader | Official | `jina-search`, `jina-fetch` | `jina-webtool` | `JINA_API_KEY` | `JINA_BASE_URL` |
 | GPT Image 2.5 | Official | `gpt-image-2.5-flare` | `openai-official` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
+| Seedream 5.5 | OpenRouter | `bytedance-seed/seedream-5-5` | `openai-image` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
 | Seedream 5.0 | OpenRouter | `bytedance-seed/seedream-5-0-flash` | `openai-image` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
 | Seedream 5.0 | TokenDance | `seedream-5.0-lite` | `openai-image` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
 | Fish Audio Drama 3 | OpenRouter | `fish-audio/drama-3` | `openai-speech` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
@@ -75,7 +76,7 @@ Common gateway base URLs:
 
 - OpenRouter: `https://openrouter.ai/api/v1`
 - SiliconFlow: `https://api.siliconflow.cn/v1`
-- TokenDance: `https://tokendance.space/gateway/v1` (`https://tokendance.space/gateway` for Anthropic Messages, `https://tokendance.space/gateway/deepseek` for `deepseek-webtool`); it also serves `qwen3.8-flash`, `qwen3.8-max`, `mimo-v2.6-flash`, `step-5-preview`, `hy4` and `hy4-preview` through `openai-responses`, `ernie-5.5-flash-preview` through `openai-chat`, and `qwen3.7-text-embedding` through `openai-embedding`
+- TokenDance: `https://tokendance.space/gateway/v1` (`https://tokendance.space/gateway` for Anthropic Messages, `https://tokendance.space/gateway/deepseek` for `deepseek-webtool`); it also serves `qwen4-max`, `qwen3.8-flash`, `qwen3.8-max`, `mimo-v2.6-flash`, `step-5-preview`, `hy4` and `hy4-preview` through `openai-responses`, `ernie-5.5-flash-preview` through `openai-chat`, and `qwen3.7-text-embedding` through `openai-embedding`
 - Google Vertex AI: `https://aiplatform.googleapis.com` (`google-genai`, the service-account JSON as the key)
 - Amazon Bedrock: `bedrock://<region>`, such as `bedrock://us-east-1` (`anthropic-official`, `ACCESS_KEY,SECRET_KEY` as the key)
 - ModelVerse: `https://api.modelverse.cn/v1` (`https://api.modelverse.cn/` for Claude)

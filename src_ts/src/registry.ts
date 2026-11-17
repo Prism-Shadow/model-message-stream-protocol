@@ -738,15 +738,15 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Web"],
     pricing: usd(0.05, 0.0),
   },
-  // --- OpenRouter (125 rows; key OPENROUTER_API_KEY; USD prices, context windows and modalities
+  // --- OpenRouter (130 rows; key OPENROUTER_API_KEY; USD prices, context windows and modalities
   // from the live models API https://openrouter.ai/api/v1/models and each model's
-  // /api/v1/models/{slug}/endpoints list, read 2026-10-24). The API quotes one endpoint per model;
-  // where that endpoint runs a promotion (a nonzero `discount` in its /endpoints entry), the row
-  // stores the model vendor's own endpoint at its undiscounted rate, or the quoted endpoint's
-  // undiscounted rate when the vendor serves none there. A vendor's own promotion that the API
-  // quotes as the plain price is not recorded either: the vendor's list price is stored. Rows
-  // whose model id names a family with an official client (deepseek/, moonshotai/, z-ai/) use
-  // that client; the rest use openai-responses.
+  // /api/v1/models/{slug}/endpoints list, read 2026-10-24, the rows added 2026-11-16 naming their
+  // read date). The API quotes one endpoint per model; where that endpoint runs a promotion (a
+  // nonzero `discount` in its /endpoints entry), the row stores the model vendor's own endpoint at
+  // its undiscounted rate, or the quoted endpoint's undiscounted rate when the vendor serves none
+  // there. A vendor's own promotion that the API quotes as the plain price is not recorded either:
+  // the vendor's list price is stored. Rows whose model id names a family with an official client
+  // (deepseek/, moonshotai/, z-ai/) use that client; the rest use openai-responses.
   {
     model: "amazon/nova-premier-v1",
     base_url: OPENROUTER,
@@ -907,6 +907,18 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(0.1, 0.4),
   },
   {
+    // $0.02 per image, $0.035 for the high_resolution variant (its /api/v1/images/models
+    // endpoints list, read 2026-11-16), not a price per token: the stored rate is the image_output
+    // price the models API quotes, which comes to about $0.02 for a 1K image (4,096 completion
+    // tokens) and four times that for a 2K one (16,384)
+    model: "bytedance-seed/seedream-5-5",
+    base_url: OPENROUTER,
+    client: "openai-image",
+    input_modalities: ["Text"],
+    output_modalities: ["Image"],
+    pricing: usd(0.0, 4.790419),
+  },
+  {
     // $0.018 per image whatever its size (the model page and /api/v1/images/models, read
     // 2026-11-04), not a price per token: the stored rate is the image_output price the models API
     // quotes, which comes to about $0.018 for a 1K image (4,096 completion tokens) and four times
@@ -1060,6 +1072,16 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(4.0, 20.0, 0.2),
   },
   {
+    // the API quotes the Google AI Studio list rate, with no discount (read 2026-11-16)
+    model: "google/gemini-4-hydrogen",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(1.5, 7.5, 0.075),
+  },
+  {
     // Google's launch discount halves every endpoint through 2026-12-31 (the API quotes the Vertex
     // us endpoint at $0.825 input, $4.125 output); the Google AI Studio list rate is stored
     model: "google/gemini-3.8-flash",
@@ -1117,6 +1139,16 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
     context_window: 262144,
+    pricing: usd(0.0, 0.0),
+  },
+  {
+    // Ant Digital's endpoint, the only one, serves it free (read 2026-11-16)
+    model: "inclusionai/ling-3.2-flash:free",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
     pricing: usd(0.0, 0.0),
   },
   {
@@ -1590,6 +1622,17 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(1.0, 1.0),
   },
   {
+    // Alibaba's endpoint, the only one, with no discount (read 2026-11-16); the prompt bucket
+    // carries the input rate, not the $1.875 cache write
+    model: "qwen/qwen4-max",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(1.5, 4.5, 0.075),
+  },
+  {
     model: "qwen/qwen3.8-max-prime",
     base_url: OPENROUTER,
     client: "openai-responses",
@@ -1751,6 +1794,17 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Text"],
     context_window: 1048576,
     pricing: usd(0.834, 2.501, 0.042),
+  },
+  {
+    // Tencent's endpoint, the only one, runs a 50% discount ($0.035 input, $0.1405 output,
+    // $0.0015 cache read; read 2026-11-16)
+    model: "tencent/hy4-flash",
+    base_url: OPENROUTER,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.07, 0.281, 0.003),
   },
   {
     // Tencent's endpoint at its UTC 16:00-24:00 rate; UTC 00:00-16:00 costs $0.834 input, $2.501
@@ -2242,13 +2296,14 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     context_window: 1000000,
     pricing: usd(3.0, 15.0, 0.3),
   },
-  // --- TokenDance (65 rows; key TOKENDANCE_API_KEY; CNY prices at the `items` rate of the public
-  // catalog https://tokendance.space/portal/api/models/all, read 2026-10-24). The `items` rate is
-  // what TokenDance bills, below the `reference` price the catalog shows beside some models. Each
-  // row's client speaks a protocol the catalog lists for the model, and its price is that
-  // protocol's, at the lowest tier where the catalog tiers it by prompt length. The two web tool
-  // rows near the end bill ¥0.005 per request (TokenDance's console, read 2026-11-02), stored as
-  // ¥5,000 per million prompt tokens, one per request; the image row after them bills by the image.
+  // --- TokenDance (66 rows; key TOKENDANCE_API_KEY; CNY prices at the `items` rate of the public
+  // catalog https://tokendance.space/portal/api/models/all, read 2026-10-24, the row added
+  // 2026-11-16 naming its read date). The `items` rate is what TokenDance bills, below the
+  // `reference` price the catalog shows beside some models. Each row's client speaks a protocol
+  // the catalog lists for the model, and its price is that protocol's, at the lowest tier where
+  // the catalog tiers it by prompt length. The two web tool rows near the end bill ¥0.005 per
+  // request (TokenDance's console, read 2026-11-02), stored as ¥5,000 per million prompt tokens,
+  // one per request; the image row after them bills by the image.
   {
     // this row and the next take the gateway's Chat Completions path; weekday peak rates
     // (09:00-12:00, 14:00-18:00 Beijing) are double on both
@@ -2481,6 +2536,16 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Text"],
     context_window: 128000,
     pricing: cny(0.8, 6.0, 0.16),
+  },
+  {
+    // the catalog's items rate, read 2026-11-16
+    model: "qwen4-max",
+    base_url: TOKENDANCE,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(10.0, 30.0, 0.5),
   },
   {
     model: "qwen3.8-flash",
@@ -3280,11 +3345,12 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     context_window: 1000000,
     pricing: usd(2.0, 6.0, 0.25),
   },
-  // --- DashScope (7 rows; key DASHSCOPE_API_KEY; ids, client and base URL from the
+  // --- DashScope (8 rows; key DASHSCOPE_API_KEY; ids, client and base URL from the
   // penguin-harness catalog, and CNY list prices and input modalities from each model's page at
-  // https://www.qianwenai.com/models/<id>, read 2026-10-24; unverified: no live call was made, for
-  // want of a key). Alibaba Cloud Model Studio's pay-as-you-go OpenAI-compatible endpoint. The
-  // pages round every window to "1M", so the rows keep the harness catalog's exact figures.
+  // https://www.qianwenai.com/models/<id>, read 2026-10-24, the row added 2026-11-16 naming its
+  // sources and read date; unverified: no live call was made, for want of a key). Alibaba Cloud
+  // Model Studio's pay-as-you-go OpenAI-compatible endpoint. The pages round every window to "1M",
+  // so the rows keep the harness catalog's exact figures.
   {
     // off-peak rate (22:00-08:00 Beijing, every day); the other hours cost double:
     // 2/8/0.2 CNY
@@ -3313,6 +3379,17 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Text"],
     context_window: 1048576,
     pricing: cny(6.5, 27.0, 1.7),
+  },
+  {
+    // id, list price and input modalities from https://www.qianwenai.com/models/qwen4-max (read
+    // 2026-11-16); explicit cache creation (¥12.5 for 5 minutes, ¥20 for an hour) is not stored
+    model: "qwen4-max",
+    base_url: DASHSCOPE,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(10.0, 30.0, 0.5),
   },
   {
     model: "qwen3.8-flash",
@@ -3352,15 +3429,15 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     context_window: 1000000,
     pricing: cny(0.8, 2.8, 0.23),
   },
-  // --- Qwen Token Plan (6 rows; key QWEN_TOKEN_PLAN_API_KEY; ids, client and base URL from the
-  // penguin-harness catalog, all six on the plan's model list at
+  // --- Qwen Token Plan (7 rows; key QWEN_TOKEN_PLAN_API_KEY; ids, client and base URL from the
+  // penguin-harness catalog, all seven on the plan's model list at
   // https://platform.qianwenai.com/docs/token-plan/personal/token-plan-personal-overview, and CNY
   // pay-as-you-go list prices and input modalities from https://www.qianwenai.com/models/<id>,
-  // read 2026-10-24; unverified: no live call was made, for want of a key). A subscription
-  // gateway billed in Credits that publishes no per-token rate, so, as in the harness catalog, the
-  // rows carry each model's pay-as-you-go list price, with the harness's exact windows where the
-  // pages round to "1M". The plan's limited-time night discount on Qwen 3.8 Max and Flash is not
-  // recorded.
+  // read 2026-10-24, the row added 2026-11-16 naming its sources and read date; unverified: no
+  // live call was made, for want of a key). A subscription gateway billed in Credits that publishes
+  // no per-token rate, so, as in the harness catalog, the rows carry each model's pay-as-you-go list
+  // price, with the harness's exact windows where the pages round to "1M". The plan's limited-time
+  // night discount on Qwen 3.8 Max and Flash is not recorded.
   {
     // off-peak rate (22:00-08:00 Beijing, every day) for this row and the next; the other
     // hours cost double: 2/8/0.2 CNY here, 9/27/0.9 CNY below
@@ -3389,6 +3466,17 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Text"],
     context_window: 1048576,
     pricing: cny(8.0, 28.0, 2.0),
+  },
+  {
+    // id from the plan's model list, and the pay-as-you-go list price and input modalities from
+    // https://www.qianwenai.com/models/qwen4-max, both read 2026-11-16
+    model: "qwen4-max",
+    base_url: QWEN_TOKEN_PLAN,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(10.0, 30.0, 0.5),
   },
   {
     model: "qwen3.8-flash",
