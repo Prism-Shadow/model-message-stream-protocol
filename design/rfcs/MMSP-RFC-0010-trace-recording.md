@@ -19,7 +19,7 @@ When `UniConfig` carries a **`trace_id`**, MMSP records the conversation—reque
   - **Initial & TS port**: [#17](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/17) added `trace_id` and post-turn stateful saves; [#34](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/34) and [#38](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/38) ported writer and viewer to TypeScript; [#96](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/96) added `created_at` and viewer rounds.
   - **Pre-`stop` save** ([#223](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/223)): Moved saving into `streaming_response` before yielding `stop` so callers stopping on `stop` always find the trace.
   - **Unification & path safety** ([#300](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/300)): Unified file naming, timestamps, and cache-directory containment across Python and TypeScript.
-- **2026-11-02 — Decoupled from prompt cache** ([#307](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/307), [MMSP-RFC-0014](MMSP-RFC-0014-prompt-cache-sessions.md)): `session_id` replaced `trace_id` as the prompt cache key (`moonshot-official` stopped sending `trace_id` as `prompt_cache_key` on Kimi K2), so `trace_id` never reaches a provider.
+- **2026-11-02 — Decoupled from prompt cache** ([#307](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/307), [MMSP-RFC-0011](MMSP-RFC-0011-prompt-cache-sessions.md)): `session_id` replaced `trace_id` as the prompt cache key (`moonshot-official` stopped sending `trace_id` as `prompt_cache_key` on Kimi K2), so `trace_id` never reaches a provider.
 
 ## 2. Conventions and Terminology
 
@@ -35,7 +35,7 @@ The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY in this document are to
 - **No save on error or early close**: Saves nothing if `streaming_response` raises before `stop` (provider error, `IncompleteStreamError`, `EmptyResponseError`, `StreamProtocolError`, or abort error per [MMSP-RFC-0008](MMSP-RFC-0008-request-interruption.md#3-interrupting-a-stream) §3) or if the generator closes early.
 - **Stateful calls**: Save via `streaming_response`, capturing the full conversation so far.
 - **`mmsp` client**: Forwards `trace_id` in `config` so the server's upstream client saves under the server's cache directory; the `mmsp` client MUST NOT save locally.
-- **Never sent upstream**: Provider clients never send `trace_id`; prompt cache keys come from `session_id` ([MMSP-RFC-0014](MMSP-RFC-0014-prompt-cache-sessions.md)).
+- **Never sent upstream**: Provider clients never send `trace_id`; prompt cache keys come from `session_id` ([MMSP-RFC-0011](MMSP-RFC-0011-prompt-cache-sessions.md)).
 
 ## 4. Trace Ids
 

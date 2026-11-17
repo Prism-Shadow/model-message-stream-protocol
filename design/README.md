@@ -18,7 +18,7 @@ Every **specification** MMSP conforms to and every **protocol or public API deci
 | [MMSP-RFC-0008](rfcs/MMSP-RFC-0008-request-interruption.md) | Request Interruption | spec | Accepted |
 | [MMSP-RFC-0009](rfcs/MMSP-RFC-0009-protocol-conversion.md) | Protocol Conversion | spec | Accepted |
 | [MMSP-RFC-0010](rfcs/MMSP-RFC-0010-trace-recording.md) | Trace Recording | spec | Accepted |
-| [MMSP-RFC-0014](rfcs/MMSP-RFC-0014-prompt-cache-sessions.md) | Prompt Cache Sessions | change | Accepted |
+| [MMSP-RFC-0011](rfcs/MMSP-RFC-0011-prompt-cache-sessions.md) | Prompt Cache Sessions | change | Accepted |
 
 - **Kinds**: `spec` fixes a concept, protocol, or algorithm; `change` modifies the protocol or public API; `process` defines how `design/` works.
 - **Statuses**: `Accepted` or `Superseded by MMSP-RFC-NNNN`. Specifications in force are the `Accepted` `spec` rows.
@@ -45,7 +45,7 @@ Every **specification** MMSP conforms to and every **protocol or public API deci
 
 ## Writing an RFC
 
-1. **Create file and number**: Branch `rfc/<slug>` from `origin/dev` and copy `0000-template.md` to `rfcs/MMSP-RFC-NNNN-<slug>.md` (one decision per RFC). Pick the next `NNNN` unused in `ls design/rfcs/` and `gh pr list --search "MMSP-RFC-"` (never reuse numbers).
+1. **Create file and number**: Branch `rfc/<slug>` from `origin/dev` and copy `0000-template.md` to `rfcs/MMSP-RFC-NNNN-<slug>.md` (one decision per RFC). Pick the next consecutive `NNNN` after the highest number in `design/rfcs/` and open PRs (`gh pr list --search "MMSP-RFC-"`).
 2. **Set kind and sections**: Set `Kind` to `spec` (Abstract, Introduction, Conventions and Terminology, numbered body sections, Conformance) or `change` / `process` (Abstract, Introduction, numbered Rust RFC sections). Delete empty sections.
 3. **Write Chinese twin**: Add `MMSP-RFC-NNNN-<slug>.zh.md` in the same PR. Keep template section names in English, translate `spec` body headings with matching section numbers, and link `[中文版](MMSP-RFC-NNNN-<slug>.zh.md)` / `[English](MMSP-RFC-NNNN-<slug>.md)` under metadata.
 4. **Update index and changelog**: Add a row to the table above with status `Accepted` (merging accepts the RFC), and add a [`changelog/README.md`](../changelog/README.md) entry (`Type: process`, `Scope: design`).

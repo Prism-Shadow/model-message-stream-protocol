@@ -9,7 +9,7 @@
 
 ## What changed
 
-- `UniConfig.session_id` was added in both packages, as [MMSP-RFC-0014](../../design/rfcs/MMSP-RFC-0014-prompt-cache-sessions.md) specifies: an optional string naming the conversation a request belongs to. The docs recommend one stable id per conversation, because it raises the prompt cache hit rate.
+- `UniConfig.session_id` was added in both packages, as [MMSP-RFC-0014](../../design/rfcs/MMSP-RFC-0011-prompt-cache-sessions.md) specifies: an optional string naming the conversation a request belongs to. The docs recommend one stable id per conversation, because it raises the prompt cache hit rate.
 - `openai-official`, `openai-responses`, `openai-chat` (and `openai-chat-vllm-adapter`, which inherits it), `moonshot-official` on every Kimi generation and `minimax-official` sent it as `prompt_cache_key`, a typed parameter of both OpenAI SDKs. An empty string sent nothing.
 - `prompt_cache_key` in `utils.py` and `promptCacheKey` in `utils.ts` gave the key: the session id itself up to 64 characters, counted in code points, and the lowercase hex SHA-256 digest of its UTF-8 bytes beyond, since OpenAI's Responses API and OpenAI's models behind OpenRouter refuse a longer key.
 - `anthropic-official`, `ant-messages`, `google-official`, `google-genai`, `openai-embedding`, `deepseek-official` and `zai-official` ignored it; the `mmsp` client forwarded it in the configuration as given.
