@@ -10,52 +10,73 @@
 
 ## Abstract
 
-An upstream credential is the key a client sends to the endpoint it calls. A key passed to a client is used whatever the base URL, while a key read from the environment goes only to the endpoint it was given for: a client handed no key reads its `<P>_API_KEY` only when it is passed no base URL or one of its own default endpoints, and refuses any other base URL with `ApiKeyRequiredError` unless its server is open. This document specifies the credential table, the resolution rule, open servers, what the clients hand their SDKs, and the download of a link an answer carries, which takes no credential.
+An upstream credential is the key a client sends to its endpoint. A passed key applies to any base URL; an environment key (**`<P>_API_KEY`**) applies only when given no base URL or one of the client's own default endpoints, while any other keyless base URL raises **`ApiKeyRequiredError`** unless the server is open. This spec defines the credential table, resolution rules, open servers, SDK options, and keyless answer-link downloads.
 
 ## 1. Introduction
 
-A client that read `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` from the environment used to send it to whatever base URL it was given, so a caller that pointed a client at a gateway sent the vendor's key there ([#224](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/224)). [#258](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/258) made it one rule for every client type in both packages, declared in a table a host can read without building a client. [#276](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/276) gave the vLLM adapter a row of its own in place of OpenAI's, and extended the rule to the rest of OpenAI's environment, which the OpenAI SDK sent to whatever endpoint it was given. [#288](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/288) and [#290](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/290) made the clients of other vendors on the OpenAI SDK raise the same error when they are given no key, where they had raised a bare built-in error. Stated in [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265) as MMSP-RFC-0005 and in [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) as MMSP-RFC-0007.
+- **Problem ([#224](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/224))**: Environment `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` values were previously sent to arbitrary custom gateways.
+- **Credential Table ([#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265) MMSP-RFC-0005, [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298) MMSP-RFC-0007)**:
+  - [#258](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/258): Unified all client types into one static table readable without building a client.
+  - [#276](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/276): Split the vLLM adapter row from OpenAI's and gated extra OpenAI environment variables.
+  - [#288](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/288), [#290](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/290): Keyless non-OpenAI clients on the OpenAI SDK raise `ApiKeyRequiredError` instead of bare built-in errors.
 
-On 2026-11-02 the owner asked for web search and page fetch, done the way embedding is: 在mmsp里面增加search和fetch的能力,实现方式和embedding类似. Jina serves its Reader on `https://r.jina.ai` and its Search on `https://s.jina.ai`, with one key for both, so a row declares the other hosts on which its vendor serves some of its models, and the environment's key goes to each of them as it goes to the default endpoint. The web tool clients are built on the OpenAI SDK, the compatible one as well as the official one, so the rule for a client given no key covers every client on that SDK whose key is not OpenAI's. [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308) amended this specification in place, with the other default endpoints added to §2, §3 and §4 and the last rule of §4 stated for every such client.
-
-On 2026-11-04 the owner asked for image generation through OpenAI's format, with the rule that the image's `url` is downloaded without any credential. TokenDance answers with a link to the image on Volcano Engine's object storage, signed for 24 hours, where OpenAI and OpenRouter answer with the image's bytes; a key sent with that download would go to a host it was never given for. [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316) amended this specification in place, with §7 added.
+| Date & PR | Changes |
+|---|---|
+| **2026-11-02 ([#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308))** | Web search/fetch (`在mmsp里面增加search和fetch的能力,实现方式和embedding类似`): added `other_base_urls` (Jina Reader `https://r.jina.ai` and Search `https://s.jina.ai` share one key) to §2–§4; extended §4's missing-key rule to all official/compatible non-OpenAI clients on the OpenAI SDK. |
+| **2026-11-04 ([#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316))** | OpenAI-format image generation (§7): image `url` links (e.g. TokenDance 24h signed Volcano Engine links, vs OpenAI/OpenRouter bytes) are downloaded keyless. |
 
 ## 2. Conventions and Terminology
 
 The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY in this document are to be interpreted as described in BCP 14 ([RFC 2119](https://www.rfc-editor.org/rfc/rfc2119), [RFC 8174](https://www.rfc-editor.org/rfc/rfc8174)) when, and only when, they appear in all capitals.
 
-- *Row*: a client type's entry in `CLIENT_CREDENTIALS`.
-- *Key*, *base URL*: the `api_key` and `base_url` a client is built with. *Default endpoint*: the row's `default_base_url`. *Other default endpoints*: the row's `other_base_urls`, other hosts on which the vendor serves some of the client's models. A client's *own default endpoints* are its default endpoint and its other default endpoints.
-- `<P>_API_KEY`, `<P>_BASE_URL`: the variables the row's `api_key_env` and `base_url_env` name, such as `ZAI_API_KEY` and `ZAI_BASE_URL`.
-- *Open server*: a server that may take no key, marked `open_server` in its row, as the rows of `mmsp` and `openai-chat-vllm-adapter` are.
+- **Row**: Client type's entry in `CLIENT_CREDENTIALS`.
+- **Key**: Passed `api_key`.
+- **Base URL**: Passed `base_url`.
+- **Default endpoint**: Row's `default_base_url`.
+- **Other default endpoints**: Row's `other_base_urls` serving some of the vendor's models.
+- **Own default endpoints**: Default endpoint plus other default endpoints.
+- **`<P>_API_KEY`**: Variable in `api_key_env` (e.g. `ZAI_API_KEY`).
+- **`<P>_BASE_URL`**: Variable in `base_url_env` (e.g. `ZAI_BASE_URL`).
+- **Open server**: Keyless-capable server marked `open_server` (`mmsp`, `openai-chat-vllm-adapter`).
 
 ## 3. The Credential Table
 
-`CLIENT_CREDENTIALS` declares each client type's key variable, base URL variable, default endpoint, other default endpoints and whether its server is open. Every client MUST resolve its key and endpoint through it with `resolve_credentials` / `resolveCredentials`, and MUST NOT read either from the environment itself. The `credentials` module MUST import nothing outside the standard library and read no environment, so a host can read the table without building a client.
+- **Fields**: `CLIENT_CREDENTIALS` declares key env, base URL env, default endpoint, other default endpoints, and `open_server`.
+- **Resolution**: Clients MUST resolve credentials via `resolve_credentials` / `resolveCredentials` and MUST NOT read the environment directly.
+- **Purity**: `credentials` MUST use only the standard library and read no environment variables.
 
 ## 4. Resolution
 
-- A key passed in MUST be used whatever the base URL.
-- Without a key, a client passed no base URL MUST read `<P>_API_KEY` and call `<P>_BASE_URL`, else the one of its own default endpoints that serves its model. A client passed one of its own default endpoints MUST read `<P>_API_KEY` for it. Endpoints are compared with surrounding whitespace trimmed, the scheme and host in any case, the path without trailing slashes, and anything after the path as written.
-- Any other base URL passed without a key MUST raise `ApiKeyRequiredError` when the client is built, before any request, except on a client of an open server (§5).
-- A client built on the OpenAI SDK whose key variable is not `OPENAI_API_KEY`, official or compatible, MUST raise `ApiKeyRequiredError` when it is given no key, neither passed nor in `<P>_API_KEY`, because the SDK would fill the missing key from `OPENAI_API_KEY`; a client of an open server sends a placeholder instead (§5).
+| Scenario | Key Used | Endpoint Called |
+|---|---|---|
+| **Key passed** (any `base_url`) | Passed `api_key` (MUST use) | Passed `base_url`, `<P>_BASE_URL`, or own default endpoint |
+| **No key + no `base_url`** | `<P>_API_KEY` (MUST read) | `<P>_BASE_URL`, else model's own default endpoint |
+| **No key + own default endpoint** | `<P>_API_KEY` (MUST read) | Passed own default endpoint |
+| **No key + other `base_url`** (closed) | MUST raise `ApiKeyRequiredError` on build (pre-request) | None |
+| **No key + other `base_url`** (open, §5) | Keyless (`EMPTY` on vLLM) | Passed `base_url` |
+
+- **URL matching**: Trim whitespace, compare scheme/host case-insensitively, strip trailing path slashes, and match the remainder verbatim.
+- **Non-OpenAI clients on OpenAI SDK**: Official/compatible clients whose key variable is not `OPENAI_API_KEY` MUST raise `ApiKeyRequiredError` when neither passed a key nor set in `<P>_API_KEY` (preventing `OPENAI_API_KEY` fallback); open servers send a placeholder (§5).
 
 ## 5. Open Servers
 
-A client of an open server MUST call any base URL passed without a key keyless, its default endpoint included, whatever `<P>_API_KEY` holds. Passed no base URL, it reads `<P>_API_KEY` like any client, and calls `<P>_BASE_URL` or its default endpoint keyless when that variable is unset. The vLLM adapter is built on the OpenAI SDK, which sends a key with every request, so it sends the placeholder `EMPTY` in place of no key.
+- **Passed `base_url` without key**: MUST call any passed `base_url` (including its default endpoint) keyless, regardless of `<P>_API_KEY`.
+- **No `base_url` passed**: Reads `<P>_API_KEY`; if unset, calls `<P>_BASE_URL` or default endpoint keyless.
+- **vLLM placeholder**: Since the OpenAI SDK requires a key, the vLLM adapter sends `EMPTY` when keyless.
 
 ## 6. What the SDKs Are Handed
 
-The Anthropic and OpenAI SDKs fill what they are not handed from their own environment variables, so the clients built on them MUST hand them what keeps §4:
-- an Anthropic client sends its own key and never `ANTHROPIC_AUTH_TOKEN`;
-- a client on the OpenAI SDK sends the rest of OpenAI's environment (`OPENAI_ORG_ID`, `OPENAI_PROJECT_ID`, `OPENAI_ADMIN_KEY`, `OPENAI_WEBHOOK_SECRET`, the headers `OPENAI_CUSTOM_HEADERS` lists) only where `OPENAI_API_KEY` goes, through `openai_client_options` / `openaiClientOptions`.
+To prevent Anthropic and OpenAI SDKs from reading environment variables against §4, clients MUST pass explicit values:
+- **Anthropic**: Sends its own key, never `ANTHROPIC_AUTH_TOKEN`.
+- **OpenAI SDK**: Sends `OPENAI_ORG_ID`, `OPENAI_PROJECT_ID`, `OPENAI_ADMIN_KEY`, `OPENAI_WEBHOOK_SECRET`, and `OPENAI_CUSTOM_HEADERS` via `openai_client_options` / `openaiClientOptions` only where `OPENAI_API_KEY` goes.
 
 ## 7. Links in an Answer
 
-A link an endpoint answers with, such as the `url` of a generated image, is not the endpoint. A client MUST download it with an HTTP client of its own, not its SDK's, and MUST send no credential with the download: neither its key nor the default headers it was built with nor any variable of the environment.
+- **Own HTTP client**: Answer links (e.g. generated image `url`) MUST be downloaded with the client's own HTTP client, not its SDK's.
+- **No credentials**: Downloads MUST send no key, default headers, or environment variables.
 
 ## 8. Conformance
 
-- `CLIENT_CREDENTIALS` and `environment_credential` in `src_py/mmsp/credentials.py` / `src_ts/src/credentials.ts`; `resolve_credentials` / `resolveCredentials`, which every client calls when it is built, and `openai_client_options` / `openaiClientOptions`, which every client on the OpenAI SDK calls, in `utils.py` / `utils.ts`.
-- `src_py/tests/test_env_credentials.py`, `src_ts/tests/env-credentials.test.ts`, which build every client type under a controlled environment and read the credential its SDK holds.
-- `test_credentials.py` / `credentials.test.ts`.
+- **Implementation**: `CLIENT_CREDENTIALS` and `environment_credential` in `src_py/mmsp/credentials.py` / `src_ts/src/credentials.ts`; `resolve_credentials` / `resolveCredentials` and `openai_client_options` / `openaiClientOptions` in `utils.py` / `utils.ts`.
+- **SDK env tests**: `src_py/tests/test_env_credentials.py` / `src_ts/tests/env-credentials.test.ts`.
+- **Unit tests**: `test_credentials.py` / `credentials.test.ts`.
