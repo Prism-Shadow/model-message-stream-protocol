@@ -134,8 +134,8 @@ async def test_deepseek_search_sends_one_request_per_message_and_reads_each_resu
     assert _ToolServer.requests[0]["headers"]["authorization"] == "Bearer sk-PROBE"
     page = {"title": "DeepSeek V4", "content": "The long summary.", "url": "https://example.com/v4"}
     assert _webdata(events) == [[page], [page]]
-    # DeepSeek bills each request
-    assert events[-1]["usage_metadata"]["prompt_tokens"] == 2
+    # DeepSeek bills each request, counted as 1,000 tokens
+    assert events[-1]["usage_metadata"]["prompt_tokens"] == 2000
     assert events[-1]["finish_reason"] == "stop"
 
 
@@ -151,7 +151,7 @@ async def test_deepseek_fetch_sends_the_url_alone_and_the_page_takes_the_url_sen
     assert _webdata(events) == [
         [{"title": "Example Domain", "content": "# Example Domain", "url": "https://example.com"}]
     ]
-    assert events[-1]["usage_metadata"]["prompt_tokens"] == 1
+    assert events[-1]["usage_metadata"]["prompt_tokens"] == 1000
 
 
 @pytest.mark.asyncio
