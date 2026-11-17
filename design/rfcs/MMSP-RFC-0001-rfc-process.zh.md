@@ -3,7 +3,7 @@
 - Feature Name: `rfc_process`
 - Start Date: 2026-10-19
 - RFC PR: [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265)
-- Updated by: [#285](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/285), [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298), [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301), [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308)
+- Updated by: [#285](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/285), [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298), [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301), [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#341](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/341)
 - Kind: process
 
 [English](MMSP-RFC-0001-rfc-process.md)
@@ -20,6 +20,7 @@
   - **2026-10-19（[#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265)）**：确立“一项决定一篇 RFC”，不另设原则文件。
   - **2026-10-24（[#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298), [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)）**：按项目负责人要求（「RFC 应该是讨论一些软件里必须固定下来的概念、协议、定律、算法，比如 IETF RFC-8200: IPv6 Specification 的标题就是名词」），以 IETF [RFC 8200](https://datatracker.ietf.org/doc/html/rfc8200) 为范本，将 RFC 定型为以名词为题的概念、协议或算法规范。
   - **2026-11-02（[#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308)）**：在网页搜索与抓取功能被迫重写四篇双语规范后，按项目负责人决定改为**原地修改**（「原地修改吧」）。
+  - **2026-11-18（[#341](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/341)）**：按项目负责人要求（「RFC 太啰嗦了，没有主次分明，优化一下，让阅读障碍的人也能看懂」）确立**视觉层级优先**规范——1–3 句精炼摘要、`Introduction` 中分离核心动机与按 PR 排列的修订表、`Conventions and Terminology` 每条术语独立成项，并以粗体引导列表或速查表格替代大段密集正文。
 
 ## 2. Conventions and Terminology
 

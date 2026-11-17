@@ -3,6 +3,7 @@
 - **Date:** 2026-11-18
 - **Type:** process
 - **Scope:** `design`
+- **PR:** [#341](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/341)
 
 [English](2026-11-18-rfc-readability-and-hierarchy.md)
 
