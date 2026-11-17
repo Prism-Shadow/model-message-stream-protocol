@@ -39,7 +39,7 @@ MMSP reads the provider's key from the environment: `ANTHROPIC_API_KEY`, `OPENAI
 ```typescript
 import { AutoLLMClient } from "@prismshadow/mmsp";
 
-const client = new AutoLLMClient({ model: "gpt-6.1-sol" });
+const client = new AutoLLMClient({ model: "gpt-6.2-sol" });
 for await (const event of client.streamingResponseStateful({
   message: {
     role: "user",
@@ -56,7 +56,7 @@ import asyncio
 from mmsp import AutoLLMClient
 
 async def main():
-    client = AutoLLMClient(model="gpt-6.1-sol")
+    client = AutoLLMClient(model="gpt-6.2-sol")
     async for event in client.streaming_response_stateful(
         message={
             "role": "user",

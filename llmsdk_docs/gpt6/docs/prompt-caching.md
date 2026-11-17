@@ -24,11 +24,7 @@ Prompt caching preserves that state for a reusable **prefix**: the unchanged tok
 
 The prompt cache stores key-value (KV) tensors, not the tokens themselves.
 
-
-
 Ask ChatGPT for a deeper explanation
-
-
 
 OpenAI caches the model's full rendered context including OpenAI-provided instructions, [developer messages](https://developers.openai.com/api/docs/guides/prompt-engineering#message-roles-and-instruction-following), [tool definitions](https://developers.openai.com/api/docs/guides/function-calling), and [conversation history](https://developers.openai.com/api/docs/guides/conversation-state) containing [text](https://developers.openai.com/api/docs/guides/text), [images](https://developers.openai.com/api/docs/guides/images-vision), [documents](https://developers.openai.com/api/docs/guides/file-inputs), and supported [audio](https://developers.openai.com/api/docs/guides/audio).
 
@@ -80,7 +76,7 @@ After the minimum cacheable token length, you can choose where to place cache br
 
 
 
-For GPT-5.6 and later, cache writes cost 1.25× the standard, uncached input-token rate for the default 30-minute lifetime. In the Responses API, you can choose a [12-hour minimum lifetime](#cache-lifetime) at a write rate of 2.5× ordinary input. Subsequent reads cost 0.1× the ordinary input rate on most of these models and 0.05× on [GPT-6.1 Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol) and [GPT-6.1 Terra](https://developers.openai.com/api/docs/models/gpt-6.1-terra), regardless of the selected lifetime.
+For GPT-5.6 and later, cache writes cost 1.25× the standard, uncached input-token rate for the default 30-minute lifetime. In the Responses API, you can choose a [12-hour minimum lifetime](#cache-lifetime) at a write rate of 2.5× ordinary input. Subsequent reads cost 0.1× the ordinary input rate on most of these models and 0.05× on [GPT-6.2 Astra](https://developers.openai.com/api/docs/models/gpt-6.2-astra), [GPT-6.2 Sol](https://developers.openai.com/api/docs/models/gpt-6.2-sol), [GPT-6.1 Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol), and [GPT-6.1 Terra](https://developers.openai.com/api/docs/models/gpt-6.1-terra), regardless of the selected lifetime.
 
 At the 0.1× read rate with 30-minute writes, writing a prefix once and fully reusing it once costs 1.35× its ordinary input cost, compared with 2× for processing it twice without caching. Across ten requests, one write and nine full reads cost 2.15× at that rate, compared with 10× without caching.
 
@@ -170,7 +166,7 @@ Responses API request with 12-hour and 30-minute breakpoints
 
 ```json
 {
-  "model": "gpt-6.1-sol",
+  "model": "gpt-6.2-sol",
   "prompt_cache_options": { "mode": "explicit", "ttl": "30m" },
   "input": [
     {
@@ -267,7 +263,7 @@ Verify the available retention policies for your model and organization before s
 
 Cached states live on individual machines, where traffic above 15 requests per minute can lead to overflow routing. A request can reuse a cached prefix only if it reaches a machine holding a matching entry that has not expired. Routing requests to the right machine is therefore important for cache reuse.
 
-Caches are not shared across organizations and cannot be reused across [regional processing boundaries](https://developers.openai.com/api/docs/guides/your-data#data-residency-controls).
+Caches are not shared across organizations and cannot be reused across [regional processing boundaries](https://developers.openai.com/api/docs/guides/data-residency).
 
 OpenAI handles routing automatically. Within an organization and processing region, routing for a given model depends on:
 
@@ -299,18 +295,18 @@ Using separate keys can make cached token usage and billing easier to explain fo
 
 ## Summary of model differences
 
-| Behavior                   | GPT-5.6 and later                                                                   | GPT-5.5 and GPT-5.5 Pro                                     | Other earlier models                                                            |
-| -------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| Implicit breakpoints       | At the end of the latest eligible message.                                          | Spaced at regular 2,048-token intervals.                    | Spaced at regular, model-dependent intervals.                                   |
-| Explicit breakpoints       | Supported                                                                           | Not supported                                               | Not supported                                                                   |
-| `prompt_cache_key`         | Optional for separate cache accounting                                              | Use a stable key to optimize cache routing                  | Use a stable key to optimize cache routing                                      |
-| Minimum cacheable prefix   | 1,024 visible input tokens                                                          | Varies by request settings                                  | Varies by request settings                                                      |
-| Cached-token reporting     | Exact eligible boundary, excluding hidden tokens                                    | Excludes hidden tokens and rounds down to a multiple of 128 | Excludes hidden tokens and rounds down to a multiple of 128                     |
-| Cache read charge          | 0.1× uncached input (0.05× for GPT-6.1 Sol and GPT-6.1 Terra)                       | Model-dependent cached-input rate                           | Model-dependent cached-input rate                                               |
-| Cache write charge         | 1.25× for `"30m"`; 2.5× for `"12h"` in the Responses API                            | No additional cache-write charge                            | No additional cache-write charge                                                |
-| Cache lifetime control     | `prompt_cache_options.ttl`                                                          | `prompt_cache_retention`                                    | `prompt_cache_retention`                                                        |
-| Supported retention values | `"30m"` (default), or `"12h"` in the Responses API                                  | `"24h"` only                                                | `"in_memory"` or `"24h"`<sup>[\*](#extended-retention-models)</sup>             |
-| Cache lifetime             | Minimum lifetime of 30 minutes or 12 hours; see [refresh behavior](#cache-lifetime) | Typically around 30 minutes, up to 24 hours                 | Typically 5 to 10 minutes inactive for `in_memory`, or up to 24 hours for `24h` |
+| Behavior                   | GPT-5.6 and later                                                                          | GPT-5.5 and GPT-5.5 Pro                                     | Other earlier models                                                            |
+| -------------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Implicit breakpoints       | At the end of the latest eligible message.                                                 | Spaced at regular 2,048-token intervals.                    | Spaced at regular, model-dependent intervals.                                   |
+| Explicit breakpoints       | Supported                                                                                  | Not supported                                               | Not supported                                                                   |
+| `prompt_cache_key`         | Optional for separate cache accounting                                                     | Use a stable key to optimize cache routing                  | Use a stable key to optimize cache routing                                      |
+| Minimum cacheable prefix   | 1,024 visible input tokens                                                                 | Varies by request settings                                  | Varies by request settings                                                      |
+| Cached-token reporting     | Exact eligible boundary, excluding hidden tokens                                           | Excludes hidden tokens and rounds down to a multiple of 128 | Excludes hidden tokens and rounds down to a multiple of 128                     |
+| Cache read charge          | 0.1× uncached input (0.05× for GPT-6.2 Astra, GPT-6.2 Sol, GPT-6.1 Sol, and GPT-6.1 Terra) | Model-dependent cached-input rate                           | Model-dependent cached-input rate                                               |
+| Cache write charge         | 1.25× for `"30m"`; 2.5× for `"12h"` in the Responses API                                   | No additional cache-write charge                            | No additional cache-write charge                                                |
+| Cache lifetime control     | `prompt_cache_options.ttl`                                                                 | `prompt_cache_retention`                                    | `prompt_cache_retention`                                                        |
+| Supported retention values | `"30m"` (default), or `"12h"` in the Responses API                                         | `"24h"` only                                                | `"in_memory"` or `"24h"`<sup>[\*](#extended-retention-models)</sup>             |
+| Cache lifetime             | Minimum lifetime of 30 minutes or 12 hours; see [refresh behavior](#cache-lifetime)        | Typically around 30 minutes, up to 24 hours                 | Typically 5 to 10 minutes inactive for `in_memory`, or up to 24 hours for `24h` |
 
 <a id="extended-retention-models"></a>
 
@@ -324,11 +320,7 @@ Using separate keys can make cached token usage and billing easier to explain fo
 
 For models before GPT-5.6, the minimum cacheable input length varies with request settings, including tools, images, output schemas, reasoning effort, and verbosity.
 
-
-
 Ask ChatGPT to find the cache minimum for my request
-
-
 
 <a id="best-practices"></a>
 
@@ -336,11 +328,7 @@ Ask ChatGPT to find the cache minimum for my request
 
 Focus on [preserving conversation history](#preserve-conversation-history), [keeping tool definitions stable](#manage-tools-with-append-only-updates), and choosing where caching occurs. On GPT-5.6 and later, use [`prompt_cache_options.mode` and `prompt_cache_breakpoint`](#choose-a-caching-mode) to control cache breakpoints. You can also use an optional [`prompt_cache_key`](#separate-prompts-with-cache-keys) if your application needs separate cache accounting for customers. On models before GPT-5.6, use a stable `prompt_cache_key` to optimize cache routing for requests that share a reusable prefix.
 
-
-
 Ask ChatGPT to optimize my prompt caching
-
-
 
 
 
@@ -356,13 +344,13 @@ In multi-turn applications, reusing the growing conversation history can save mo
 
 - **Keep the prefix stable.** Put stable developer instructions and shared reference material first. If developer instructions or shared material contain timestamps, user-specific content, or other dynamic content, place those at the end rather than the beginning, or move them into later conversation messages.
 - **Preserve conversation history.** Append new messages rather than rewriting earlier turns. Summarization, [compaction](#compaction-can-reduce-cache-reuse), or context truncation can change the prefix and reset cache reuse.
-- **Change reasoning effort without rewriting the prefix.** On GPT-6 models, append a `configuration_update` input item to change reasoning effort between responses while keeping request-level `reasoning.effort` unchanged. This preserves the original prefix for cache reuse. See [Change reasoning mid-conversation](https://developers.openai.com/api/docs/guides/reasoning#change-reasoning-mid-conversation) for examples and compatibility limits.
+- **Change reasoning effort without rewriting the prefix.** On supported models, append a `configuration_update` input item to change reasoning effort between responses while keeping request-level `reasoning.effort` unchanged. This preserves the original prefix for cache reuse. See [Change reasoning mid-conversation](https://developers.openai.com/api/docs/guides/reasoning#change-reasoning-mid-conversation) for examples and compatibility limits.
 
 Keep changing content after the breakpoint
 
 ```json
 {
-  "model": "gpt-6.1-sol",
+  "model": "gpt-6.2-sol",
   "reasoning": { "effort": "low", "context": "all_turns" },
   "text": { "verbosity": "medium" },
   "prompt_cache_options": { "mode": "explicit" },
@@ -489,7 +477,7 @@ Prewarm the cache
 
 ```json
 {
-  "model": "gpt-6.1-sol",
+  "model": "gpt-6.2-sol",
   "input": [
     {
       "role": "developer",
@@ -507,7 +495,7 @@ Send a follow-up request
 
 ```json
 {
-  "model": "gpt-6.1-sol",
+  "model": "gpt-6.2-sol",
   "input": [
     {
       "role": "developer",
@@ -661,10 +649,13 @@ The following helper uses one cache-write multiplier for all writes. Use `1.25` 
 
 Calculate input cost with one cache-write rate
 
-```javascript
+```typescript
 function calculateInputCost(
-  usage,
-  inputPricePerMillion,
+  usage: {
+    input_tokens: number;
+    input_tokens_details: { cached_tokens: number; cache_write_tokens: number };
+  },
+  inputPricePerMillion: number,
   cacheInputMultiplier = 0.1,
   cacheWriteMultiplier = 1.25
 ) {
@@ -803,7 +794,7 @@ Responses API request for a single-turn judge
 
 ```json
 {
-  "model": "gpt-6.1-sol",
+  "model": "gpt-6.2-sol",
   "reasoning": { "effort": "medium", "context": "all_turns" },
   "text": { "verbosity": "low" },
   "prompt_cache_options": { "mode": "explicit" },
@@ -854,7 +845,7 @@ Responses API request for a multi-turn agent
 
 ```json
 {
-  "model": "gpt-6.1-sol",
+  "model": "gpt-6.2-sol",
   "reasoning": { "effort": "medium", "context": "all_turns" },
   "text": { "verbosity": "medium" },
   "prompt_cache_key": "agent_123_v1:user_456",
@@ -923,7 +914,7 @@ Without a breakpoint after the static content
 
 ```json
 {
-  "model": "gpt-6.1-sol",
+  "model": "gpt-6.2-sol",
   "reasoning": { "effort": "medium", "context": "all_turns" },
   "text": { "verbosity": "low" },
   "prompt_cache_options": { "mode": "implicit" },
@@ -941,7 +932,7 @@ With a breakpoint after the static content
 
 ```json
 {
-  "model": "gpt-6.1-sol",
+  "model": "gpt-6.2-sol",
   "reasoning": { "effort": "medium", "context": "all_turns" },
   "text": { "verbosity": "low" },
   "prompt_cache_options": { "mode": "explicit" },
@@ -986,6 +977,7 @@ Suppose request 1 uses implicit mode and caches a prefix through the end of a us
   [Developer message][User message][Follow-up] ▼
 ```
 
+
 To reuse the implicit prefix from request 1, place an explicit breakpoint at the matching content-block boundary in request 2, or keep implicit mode enabled so the earlier eligible message ending remains a lookup candidate.
 
 
@@ -1013,6 +1005,7 @@ Even when both requests use implicit mode, preserving the same initial tokens is
 - Request 2: implicit mode. Cannot reuse the prefix through Content A.
   [Developer message][User message: Content A + Content B] ▼
 ```
+
 
 When the conversation structure permits, preserve the original message and append a new message instead. Otherwise, keep the reusable text in a separate content block and place an explicit breakpoint after it in both requests.
 
@@ -1126,4 +1119,4 @@ All prompt caching features are compatible with [Zero Data Retention (ZDR)](http
 
 The prompt cache stores key-value (KV) tensors rather than the original prompt text. These tensors may be stored as encrypted application state in GPU-local storage, with a maximum retention period of 24 hours. See [Cache lifetime](#cache-lifetime) for model-specific cache lifetimes and refresh behavior.
 
-Caches are not shared across organizations and cannot be reused across [regional processing boundaries](https://developers.openai.com/api/docs/guides/your-data#data-residency-controls). For details about data handling and ZDR eligibility across API features, see [Your data](https://developers.openai.com/api/docs/guides/your-data).
+Caches are not shared across organizations and cannot be reused across [regional processing boundaries](https://developers.openai.com/api/docs/guides/data-residency). For details about data handling and ZDR eligibility across API features, see [Your data](https://developers.openai.com/api/docs/guides/your-data).

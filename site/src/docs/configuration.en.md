@@ -60,7 +60,7 @@ description: UniConfig, the options of a request, and what each client sends for
 
 A value a client cannot send raises `UnsupportedParameterError` before the request goes out, naming the client and the parameter. A key a client has no use for is ignored. The tables below give both, per client.
 
-`thinking_level` never raises. Where a model cannot turn thinking off, `"none"` asks for the least of it: the lowest effort on Claude Opus 5.5, Haiku 5.5, Fable 5 and Fable 5.1, GPT-6 Astra and GPT-6.1 Sol, MiniMax-M3.1-Flash and GLM-5.3; no up-front thinking on Claude Sonnet 5.5; `minimal` or `low` on Gemini, whichever the model takes. GPT-6 Luna, GPT-6.1 Terra, Kimi K3 and Kimi K3.1 Pro take `"none"` as it is.
+`thinking_level` never raises. Where a model cannot turn thinking off, `"none"` asks for the least of it: the lowest effort on Claude Opus 5.5, Haiku 5.5, Fable 5 and Fable 5.1, GPT-6 Astra, GPT-6.1 Sol, GPT-6.2 Astra and GPT-6.2 Sol, MiniMax-M3.1-Flash and GLM-5.3; no up-front thinking on Claude Sonnet 5.5; `minimal` or `low` on Gemini, whichever the model takes. GPT-6 Luna, GPT-6.1 Terra, Kimi K3 and Kimi K3.1 Pro take `"none"` as it is.
 
 ## What each client sends
 

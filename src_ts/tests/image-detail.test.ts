@@ -284,6 +284,12 @@ const IMAGE_DETAIL_CASES: ImageDetailCase[] = [
   },
   {
     expectedClient: "OpenAIOfficialClient",
+    model: "gpt-6.2-sol",
+    protocol: "responses",
+    shrinks: true,
+  },
+  {
+    expectedClient: "OpenAIOfficialClient",
     model: "gpt-5.5",
     protocol: "responses",
     shrinks: false,
@@ -298,6 +304,13 @@ const IMAGE_DETAIL_CASES: ImageDetailCase[] = [
   {
     expectedClient: "OpenaiResponsesClient",
     model: "openai/gpt-6.1-terra",
+    clientType: "openai-responses",
+    protocol: "responses",
+    shrinks: true,
+  },
+  {
+    expectedClient: "OpenaiResponsesClient",
+    model: "openai/gpt-6.2-astra",
     clientType: "openai-responses",
     protocol: "responses",
     shrinks: true,
