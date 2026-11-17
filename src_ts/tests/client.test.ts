@@ -298,10 +298,11 @@ const MODEL_CASES = AVAILABLE_MODELS.map((m): [string, Model] => [
   m,
 ]);
 
-// Providers throttle live E2E traffic, and a provider sometimes cuts a stream short (Z.AI
-// ends it with finish_reason "network_error" and no usage); a 429 or an
-// IncompleteStreamError says "later", not "broken", so retry it rather than failing the
-// run. Every other error propagates on the first attempt.
+// Providers throttle live E2E traffic, an overloaded one answers 529 (MiniMax, Anthropic),
+// and a provider sometimes cuts a stream short (Z.AI ends it with finish_reason
+// "network_error" and no usage); a 429, a 529 or an IncompleteStreamError says "later",
+// not "broken", so retry it rather than failing the run. Every other error propagates on
+// the first attempt.
 // mirrors the pytest job's --reruns 5 --reruns-delay 30
 const TRANSIENT_RETRIES = 5;
 const TRANSIENT_RETRY_DELAY_MS = 30_000;
@@ -312,7 +313,9 @@ function isTransient(error: unknown): boolean {
   }
   const status = (error as { status?: number })?.status;
   const message = (error as { message?: string })?.message ?? "";
-  return status === 429 || /rate limit|429/i.test(message);
+  return (
+    status === 429 || status === 529 || /rate limit|429|529/i.test(message)
+  );
 }
 
 async function withTransientRetry(run: () => Promise<void>): Promise<void> {
