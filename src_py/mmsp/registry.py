@@ -361,6 +361,32 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "pricing": _usd(3.0, 15.0, cached=0.3),
     },
     {
+        # developers.openai.com/api/docs/models/gpt-6.2-astra (read 2026-11-18) per 1M tokens: $0.40
+        # cached input, $8 uncached input, $10 cache writes ($20 with the 12-hour lifetime), $40 output,
+        # above 272K input tokens 2x input and cache and 1.5x output. The prompt bucket carries the
+        # 30-minute cache-write rate, as for gpt-6.1-sol.
+        "model": "gpt-6.2-astra",
+        "base_url": _OPENAI,
+        "client": "openai-official",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1050000,
+        "pricing": _usd(10.0, 40.0, cached=0.4),
+    },
+    {
+        # developers.openai.com/api/docs/models/gpt-6.2-sol (read 2026-11-18) per 1M tokens: $0.10
+        # cached input, $2 uncached input, $2.50 cache writes ($5 with the 12-hour lifetime), $10 output,
+        # above 272K input tokens 2x input and cache and 1.5x output. The prompt bucket carries the
+        # 30-minute cache-write rate, as for gpt-6.1-sol.
+        "model": "gpt-6.2-sol",
+        "base_url": _OPENAI,
+        "client": "openai-official",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1050000,
+        "pricing": _usd(2.5, 10.0, cached=0.1),
+    },
+    {
         # official list price per 1M tokens: $0.1 cached input, $2 uncached input, $2.5 cache
         # writes, $10 output, above 272K input tokens 2x input and cache and 1.5x output. The
         # prompt bucket carries the cache-write rate, as for gpt-6-astra.
@@ -1425,6 +1451,28 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "output_modalities": ["Text"],
         "context_window": 262144,
         "pricing": _usd(0.3, 2.4, cached=0.15),
+    },
+    {
+        # $8 input, $40 output, $0.4 cache read, $10 cache write; the prompt bucket carries the
+        # cache-write rate
+        "model": "openai/gpt-6.2-astra",
+        "base_url": _OPENROUTER,
+        "client": "openai-responses",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1050000,
+        "pricing": _usd(10.0, 40.0, cached=0.4),
+    },
+    {
+        # $2 input, $10 output, $0.1 cache read, $2.5 cache write; the prompt bucket carries the
+        # cache-write rate
+        "model": "openai/gpt-6.2-sol",
+        "base_url": _OPENROUTER,
+        "client": "openai-responses",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1050000,
+        "pricing": _usd(2.5, 10.0, cached=0.1),
     },
     {
         # $2 input, $10 output, $0.1 cache read, $2.5 cache write; the prompt bucket carries the

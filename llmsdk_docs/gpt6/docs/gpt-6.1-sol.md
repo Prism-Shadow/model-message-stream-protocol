@@ -108,6 +108,15 @@ Snapshots let you lock in a specific version of the model so that performance an
 
 - `gpt-6.1-sol`
 
+## Cloud providers
+
+Model IDs across cloud providers.
+
+| Provider | Model ID |
+| --- | --- |
+| [Amazon Bedrock](/api/docs/guides/amazon-bedrock) | `openai.gpt-6.1-sol` |
+| [Google Cloud](/api/docs/guides/google-cloud)<br>Private preview | `gpt-6.1-sol` |
+
 ## Rate limits
 
 Rate limits ensure fair and reliable access to the API by placing specific caps on requests, tokens, audio duration, or other usage within a given time period. Your usage tier determines how high these limits are set and automatically increases as you send more requests and spend more on the API.

@@ -17,6 +17,8 @@ Tool calling requires the Responses API.
 See the [GPT-6 guide](/api/docs/guides/latest-model?model=gpt-6-astra#gpt-61-terra)
 for prompting and migration guidance.
 
+The Responses API supports [discounted background completion windows](/api/docs/guides/background#use-discounted-completion-windows) in public beta.
+
 ## Model details
 
 - Default snapshot: `gpt-6.1-terra`
@@ -107,6 +109,15 @@ Tools supported by this model when using the Responses API.
 Snapshots let you lock in a specific version of the model so that performance and behavior remain consistent. Below is a list of all available snapshots and aliases for GPT-6.1 Terra.
 
 - `gpt-6.1-terra`
+
+## Cloud providers
+
+Model IDs across cloud providers.
+
+| Provider | Model ID |
+| --- | --- |
+| [Amazon Bedrock](/api/docs/guides/amazon-bedrock) | `openai.gpt-6.1-terra` |
+| [Google Cloud](/api/docs/guides/google-cloud)<br>Private preview | `gpt-6.1-terra` |
 
 ## Rate limits
 

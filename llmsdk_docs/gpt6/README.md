@@ -1,12 +1,18 @@
 # GPT-6 SDK Documentation
 
 This directory contains the official-documentation snapshot for OpenAI's GPT-6 generation
-(`gpt-6-astra`, `gpt-6.1-sol`, `gpt-6.1-terra` and `gpt-6-luna`, each its only snapshot and its
-own alias), snapshotted as raw markdown from https://developers.openai.com/ on 2026-09-09 and
-refreshed on 2026-11-02, when GPT-6.1 Terra was added.
+(`gpt-6.2-astra`, `gpt-6.2-sol`, `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6.1-terra` and `gpt-6-luna`,
+each its only snapshot and its own alias), snapshotted as raw markdown from
+https://developers.openai.com/ on 2026-09-09 and refreshed on 2026-11-02, when GPT-6.1 Terra was
+added, and on 2026-11-18, when GPT-6.2 Astra and GPT-6.2 Sol were added.
 
 ## Documentation
 
+- [gpt-6.2-astra.md](./docs/gpt-6.2-astra.md) - GPT-6.2 Astra model page: effort `low` to `max`
+  (the API rejects `none`), $8 input, $0.40 cached input, $10 cache write ($20 for 12 hours) and
+  $40 output per 1M tokens, endpoints, tools
+- [gpt-6.2-sol.md](./docs/gpt-6.2-sol.md) - GPT-6.2 Sol model page: effort `low` to `max` (no
+  `none`), $2 input, $0.10 cached input, $2.50 cache write and $10 output per 1M tokens, endpoints
 - [gpt-6-astra.md](./docs/gpt-6-astra.md) - The model page: context window, token limits,
   knowledge cutoff, modalities, endpoints, feature list, per-million-token pricing and the
   272K-input surcharge
@@ -14,9 +20,10 @@ refreshed on 2026-11-02, when GPT-6.1 Terra was added.
 - [gpt-6.1-terra.md](./docs/gpt-6.1-terra.md) - GPT-6.1 Terra model page: effort `none` to `max`,
   pricing with 30-minute and 12-hour cache writes, endpoints
 - [gpt-6-luna.md](./docs/gpt-6-luna.md) - GPT-6 Luna model page: effort `none` to `max`, pricing, endpoints
-- [latest-model.md](./docs/latest-model.md) - Using GPT-6: the four models and which reasoning
-  efforts each takes, what is new (async tool calling, mid-turn steering, `configuration_update`
-  items, misalignment monitoring), prompting guidance, and the migration checklist from GPT-5.6
+- [latest-model.md](./docs/latest-model.md) - Using GPT-6.2: Astra and Sol, what is new (the API
+  drops reasoning items when the history's prefix, the model, the end user or the organization
+  changes mid-conversation), prompting guidance, and the migration checklist (`low` in place of
+  `none` or `minimal`; tool calling needs the Responses API)
 - [reasoning.md](./docs/reasoning.md) - The reasoning guide: the `reasoning.effort` scale,
   `reasoning.mode`, persisted reasoning with `encrypted_content` under `store: false`, and the
   `phase` parameter
@@ -55,7 +62,9 @@ refreshed on 2026-11-02, when GPT-6.1 Terra was added.
 
 ## Official sources
 
-- https://developers.openai.com/api/docs/models (the catalog; read 2026-11-02)
+- https://developers.openai.com/api/docs/models (the catalog; read 2026-11-18)
+- https://developers.openai.com/api/docs/models/gpt-6.2-astra
+- https://developers.openai.com/api/docs/models/gpt-6.2-sol
 - https://developers.openai.com/api/docs/models/gpt-6-astra
 - https://developers.openai.com/api/docs/models/gpt-6.1-sol
 - https://developers.openai.com/api/docs/models/gpt-6.1-terra
@@ -133,3 +142,44 @@ Probed live on 2026-11-02 (captures under `api_captures/gpt6_1_terra/`):
   this model`), OpenAI's Chat Completions refuses `"12h"` (400 `Supported values are: '30m'`),
   OpenRouter's Responses API refuses the field, and its Chat Completions drops the `ttl` and bills
   the 30-minute write rate.
+
+## GPT-6.2 Astra and GPT-6.2 Sol (added 2026-11-18)
+
+[`gpt-6.2-astra`](docs/gpt-6.2-astra.md) and [`gpt-6.2-sol`](docs/gpt-6.2-sol.md) take text and
+image input and return text, with a 1,050,000-token context, at most 922,000 input tokens and up
+to 128,000 output tokens; knowledge cutoffs are May 18, 2026 (Astra) and June 1, 2026 (Sol).
+Standard prices per million tokens are $8 input, $0.40 cached input, $10 cache write and $40 output
+for Astra, and $2, $0.10, $2.50 and $10 for Sol; cache reads are 0.05x input, and above 272K input
+tokens input and cache rates double and output is 1.5x. Starting with GPT-6.2 the API drops
+reasoning items when the conversation's prefix, the model, the end user or the organization
+changes mid-conversation ([latest-model.md](docs/latest-model.md)).
+
+Probed live on 2026-11-18 through the Responses API with `store: false` (captures and probe
+outcomes under `api_captures/openai_responses/gpt-6.2-astra/`, `gpt-6.2-sol/` and
+`gpt-6.2-probes.json`):
+
+- The stream is the GPT-6.1 stream: `response.reasoning_summary_text.delta` for the summary, a
+  reasoning item whose `encrypted_content` on `response.output_item.added` (1,400 characters) differs
+  from the one on `response.output_item.done`, `function_call` items with
+  `response.function_call_arguments.delta`, and messages with `phase: "final_answer"`. No event
+  outside the set the shared client handles appeared. A simple tool call at `medium` or `high`
+  spends no reasoning tokens and has no reasoning item; a counting question at `high` has one.
+- `reasoning.effort` `low`, `medium`, `high`, `xhigh` and `max` are accepted; `none` and `minimal`
+  return 400 `Unsupported value: 'none' is not supported with the 'gpt-6.2-astra' model. Supported
+  values are: 'low', 'medium', 'high', 'xhigh', and 'max'.` (the same for Sol). OpenRouter's
+  Responses API answers `none` with 400 `Reasoning is mandatory for this endpoint and cannot be
+  disabled.`
+- Replay: a reasoning item without its `summary` key returns 400
+  `Missing required parameter: 'input[1].summary'`. One without its `id` and `status` is accepted,
+  and so are one without `encrypted_content` and a turn without the reasoning item.
+- `temperature` returns 400 `Unsupported parameter: 'temperature' is not supported with this
+  model.` `prompt_cache_options: {"ttl": "12h"}` and the `allowed_tools` `tool_choice` with its
+  `type` are accepted; `service_tier: "priority"` is echoed as `"fast"`. The usage carries
+  `input_tokens_details.cache_write_tokens_details` with `ttl_12h_tokens` and `ttl_30m_tokens`.
+- A 6000 x 6000 image (35,344 patches at its own size) without `detail` returns 400 `The image you
+  provided requires 35344 patches after processing, exceeding the limit of 30000.`; at `high` it is
+  read, for 3,016 input tokens.
+
+The openai-official client serves both as GPT-6 models: `none` runs at `low`, `prompt_caching`
+`enhance` sends the 12-hour lifetime, and an oversize image is sent at `high`.
+
