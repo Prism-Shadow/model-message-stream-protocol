@@ -304,6 +304,95 @@ describe("Playground", () => {
     expect(response.body.error).toContain("401 unauthorized");
   });
 
+  test("should name the key an empty key field sends", async () => {
+    const saved = { ...process.env };
+    process.env.OPENAI_API_KEY = "sk-test-0123456789abcd";
+    process.env.DEEPSEEK_API_KEY = "short";
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.MMSP_API_KEY;
+    try {
+      const app = createChatApp();
+      const source = async (config: Record<string, string>) => {
+        const response = await request(app).post("/api/key").send({ config });
+        expect(response.status).toBe(200);
+        expect(response.text).not.toContain("0123456789");
+        return response.body;
+      };
+
+      const openai = {
+        source: "env",
+        variable: "OPENAI_API_KEY",
+        masked: "\u2022\u2022\u2022\u2022abcd",
+      };
+      expect(await source({ model: "gpt-6.1-sol" })).toEqual(openai);
+      // the client's own default endpoint takes the key as no base URL does, and a key typed in is not looked at
+      expect(
+        await source({
+          model: "gpt-6.1-sol",
+          base_url: "https://api.openai.com/v1/",
+          api_key: "sk-typed",
+        }),
+      ).toEqual(openai);
+      // a key shorter than twelve characters shows none of them
+      expect(await source({ model: "deepseek-asr" })).toEqual({
+        source: "env",
+        variable: "DEEPSEEK_API_KEY",
+        masked: "\u2022\u2022\u2022\u2022",
+      });
+      expect(await source({ model: "claude-opus-5-5" })).toEqual({
+        source: "unset",
+        variable: "ANTHROPIC_API_KEY",
+      });
+      expect(
+        await source({
+          model: "gpt-6.1-sol",
+          base_url: "https://relay.test/v1",
+        }),
+      ).toEqual({ source: "required" });
+      expect(await source({ model: "local", client_type: "mmsp" })).toEqual({
+        source: "keyless",
+      });
+      expect(
+        await source({
+          model: "local",
+          client_type: "mmsp",
+          base_url: "http://10.0.0.2:25752/v1",
+        }),
+      ).toEqual({ source: "keyless" });
+      expect(await source({ model: "llama-4" })).toEqual({ source: "unknown" });
+    } finally {
+      process.env = saved;
+    }
+  });
+
+  test("should record from the microphone and ask where the key comes from", async () => {
+    const app = createChatApp();
+
+    const response = await request(app).get("/");
+
+    expect(response.text).toContain('id="micButton"');
+    expect(response.text).toContain("toggleRecording()");
+    expect(response.text).toContain("encodeWav(");
+    expect(response.text).toContain("mimeType: 'audio/wav'");
+    expect(response.text).toContain("fetch('/api/key'");
+    expect(response.text).toContain("key-missing");
+  });
+
+  test("should declare each function of the page once", async () => {
+    // a later declaration silently replaces the first
+    const app = createChatApp();
+
+    const response = await request(app).get("/");
+
+    const names = [
+      ...response.text.matchAll(/^\s*(?:async\s+)?function\s+(\w+)\s*\(/gm),
+    ].map((match) => match[1]);
+    expect(names.length).toBeGreaterThan(50);
+    expect(
+      names.filter((name, index) => names.indexOf(name) !== index),
+    ).toEqual([]);
+  });
+
   test("should serve the registry to the model menu", async () => {
     const app = createChatApp();
 

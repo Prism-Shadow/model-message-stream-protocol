@@ -32,6 +32,8 @@ import {
   COMPATIBLE_CLIENT_TYPES,
   MODEL_FAMILIES,
   OFFICIAL_CLIENT_TYPES,
+  environmentCredential,
+  routedClientType,
 } from "../credentials";
 import { listSupportedModels } from "../registry";
 import { UniMessage, UniConfig, UsageMetadata } from "../types";
@@ -171,6 +173,44 @@ function serializeForJson(obj: any): any {
     }
   }
   return obj;
+}
+
+/**
+ * Where a client built from the page's options takes its key when the page sends none.
+ *
+ * The answer names the variable the client reads and shows only the key's last four characters,
+ * and none of a key shorter than twelve, so the page can tell which key a request goes with without
+ * the key leaving the server.
+ *
+ * @param config - The page's client options; a key among them is ignored
+ * @returns `source` is `env` with `variable` and `masked` for a key the environment holds, `unset`
+ *   with `variable` for a variable the environment leaves empty, `keyless` for an open server called
+ *   without a key, `required` for a base URL the environment's key may not go to, and `unknown` for
+ *   options that name no client type
+ */
+function keySource(config: PlaygroundConfig): Record<string, string> {
+  const { model, baseUrl, clientType } = getClientOptions(config);
+  const routed = routedClientType(model, clientType);
+  const credential = routed ? environmentCredential(routed, baseUrl) : null;
+  if (routed === null || credential === null) {
+    return { source: "unknown" };
+  }
+  if (credential.kind === "required") {
+    return { source: "required" };
+  }
+  if (credential.kind === "keyless") {
+    return { source: "keyless" };
+  }
+  const key = process.env[credential.apiKeyEnv];
+  if (key) {
+    const masked = "\u2022".repeat(4) + (key.length >= 12 ? key.slice(-4) : "");
+    return { source: "env", variable: credential.apiKeyEnv, masked };
+  }
+  // an open server whose variable is empty is called without a key
+  if (CLIENT_CREDENTIALS[routed].openServer) {
+    return { source: "keyless" };
+  }
+  return { source: "unset", variable: credential.apiKeyEnv };
 }
 
 /**
@@ -1114,6 +1154,11 @@ export function createChatApp(): Express {
 
           .control.invalid {
               box-shadow: 0 0 0 1px var(--red), 0 0 0 4px var(--red-soft);
+          }
+
+          /* an empty key field that sends no key where the request needs one */
+          .control.key-missing::placeholder {
+              color: var(--red);
           }
 
           textarea.control {
@@ -2130,6 +2175,31 @@ export function createChatApp(): Express {
               font-size: 12px;
           }
 
+          .mic-btn .mic-stop, .mic-btn.recording .mic-idle {
+              display: none;
+          }
+
+          .mic-btn.recording .mic-stop {
+              display: block;
+          }
+
+          .mic-btn.recording, .mic-btn.recording:hover {
+              color: var(--red);
+              background: var(--red-soft);
+          }
+
+          .mic-btn:disabled {
+              opacity: 0.35;
+              background: none;
+              cursor: not-allowed;
+          }
+
+          .recording-time {
+              color: var(--red);
+              font-size: 12px;
+              font-variant-numeric: tabular-nums;
+          }
+
           .send-btn {
               display: grid;
               place-items: center;
@@ -2450,6 +2520,11 @@ export function createChatApp(): Express {
                           <button type="button" class="icon-btn" onclick="document.getElementById('imageInput').click()" aria-label="Attach images or audio" title="Attach images or audio">
                               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.4 11.1-8.8 8.8a5.5 5.5 0 0 1-7.8-7.8l8.8-8.8a3.7 3.7 0 0 1 5.2 5.2l-8.8 8.8a1.8 1.8 0 0 1-2.6-2.6l8.1-8.1"></path></svg>
                           </button>
+                          <button type="button" class="icon-btn mic-btn" id="micButton" onclick="toggleRecording()" aria-label="Record audio" title="Record audio">
+                              <svg class="mic-idle" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"></path></svg>
+                              <svg class="mic-stop" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"></rect></svg>
+                          </button>
+                          <span class="recording-time hidden" id="recordingTime"></span>
                           <span class="composer-hint" id="composerHint">Enter to send, Shift+Enter for a new line</span>
                           <button type="button" class="send-btn" id="sendButton" onclick="sendMessage()" aria-label="Send" title="Send" disabled>
                               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"></path></svg>
@@ -2483,6 +2558,12 @@ export function createChatApp(): Express {
           let selectedImages = [];
           // audio files to send as the message's inline data, for a transcription model
           let selectedAudio = [];
+          // the microphone's recording under way, and the clip it is turned into once it stops
+          let recorder = null;
+          let clipEncoding = null;
+          // the latest look-up of the key an empty key field sends
+          let keySourceTimer = null;
+          let keySourceTicket = 0;
           let lastMessageTimestamp = null;
           let currentAbortController = null;
 
@@ -2938,6 +3019,126 @@ export function createChatApp(): Express {
               updateImagePreview();
           }
 
+          // A recording is attached as a WAV clip of 16 kHz mono 16-bit PCM, whatever the browser's
+          // recorder writes (WebM in Chrome, Ogg in Firefox, MP4 in Safari): every speech recognition
+          // endpoint takes WAV, and DeepSeek's takes nothing else a recorder writes but Ogg Opus.
+          const RECORDING_RATE = 16000;
+          // within the 10 MB an attached file may take
+          const RECORDING_LIMIT_MS = 5 * 60 * 1000;
+
+          async function toggleRecording() {
+              if (recorder) {
+                  await stopRecording();
+                  return;
+              }
+              const button = document.getElementById('micButton');
+              // a second click while the browser asks for the microphone starts no second recording
+              button.disabled = true;
+              let stream;
+              try {
+                  stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+              } catch (error) {
+                  alert(\`The microphone is not available: \${error.message || error.name}\`);
+                  return;
+              } finally {
+                  button.disabled = false;
+              }
+              const mediaRecorder = new MediaRecorder(stream);
+              const chunks = [];
+              mediaRecorder.ondataavailable = (event) => {
+                  if (event.data.size > 0) {
+                      chunks.push(event.data);
+                  }
+              };
+              mediaRecorder.start();
+              recorder = { mediaRecorder, stream, chunks, started: performance.now(), timer: setInterval(updateRecordingState, 200) };
+              updateRecordingState();
+          }
+
+          function stopRecording() {
+              if (!recorder) {
+                  return clipEncoding;
+              }
+              const { mediaRecorder, stream, chunks, started, timer } = recorder;
+              recorder = null;
+              clearInterval(timer);
+              const name = \`Recording \${formatRecordingTime(performance.now() - started)}.wav\`;
+              const stopped = mediaRecorder.state === 'inactive' ? Promise.resolve() : new Promise((resolve) => {
+                  mediaRecorder.onstop = resolve;
+                  mediaRecorder.stop();
+              });
+              stream.getTracks().forEach((track) => track.stop());
+              clipEncoding = stopped
+                  .then(() => new Blob(chunks, { type: mediaRecorder.mimeType }).arrayBuffer())
+                  .then(encodeWav)
+                  .then((data) => {
+                      selectedAudio.push({ name, mimeType: 'audio/wav', data });
+                  })
+                  .catch((error) => alert(\`The recording could not be read: \${error.message || error.name}\`))
+                  .finally(() => {
+                      clipEncoding = null;
+                      updateImagePreview();
+                  });
+              updateRecordingState();
+              return clipEncoding;
+          }
+
+          function updateRecordingState() {
+              const button = document.getElementById('micButton');
+              const time = document.getElementById('recordingTime');
+              const label = recorder ? 'Stop recording' : 'Record audio';
+              button.classList.toggle('recording', Boolean(recorder));
+              button.setAttribute('aria-label', label);
+              button.title = label;
+              time.classList.toggle('hidden', !recorder);
+              if (recorder) {
+                  const elapsed = performance.now() - recorder.started;
+                  time.textContent = formatRecordingTime(elapsed);
+                  if (elapsed >= RECORDING_LIMIT_MS) {
+                      stopRecording();
+                  }
+              }
+              updateSendState();
+          }
+
+          function formatRecordingTime(ms) {
+              const seconds = Math.floor(ms / 1000);
+              return \`\${Math.floor(seconds / 60)}:\${String(seconds % 60).padStart(2, '0')}\`;
+          }
+
+          // decoding at 16 kHz resamples the recording, and its channels are averaged into one
+          async function encodeWav(encoded) {
+              const OfflineContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+              const decoded = await new OfflineContext(1, 1, RECORDING_RATE).decodeAudioData(encoded);
+              const frames = decoded.length;
+              const view = new DataView(new ArrayBuffer(44 + frames * 2));
+              [['RIFF', 0], ['WAVE', 8], ['fmt ', 12], ['data', 36]].forEach(([tag, offset]) => {
+                  for (let i = 0; i < 4; i++) {
+                      view.setUint8(offset + i, tag.charCodeAt(i));
+                  }
+              });
+              view.setUint32(4, 36 + frames * 2, true);
+              // the fmt chunk: 16 bytes long, PCM, one channel, the rate, bytes a second, bytes a frame, bits a sample
+              view.setUint32(16, 16, true);
+              view.setUint16(20, 1, true);
+              view.setUint16(22, 1, true);
+              view.setUint32(24, RECORDING_RATE, true);
+              view.setUint32(28, RECORDING_RATE * 2, true);
+              view.setUint16(32, 2, true);
+              view.setUint16(34, 16, true);
+              view.setUint32(40, frames * 2, true);
+              const channels = Array.from({ length: decoded.numberOfChannels }, (_, channel) => decoded.getChannelData(channel));
+              for (let frame = 0; frame < frames; frame++) {
+                  let sample = 0;
+                  channels.forEach((data) => {
+                      sample += data[frame];
+                  });
+                  sample = Math.max(-1, Math.min(1, sample / channels.length));
+                  view.setInt16(44 + frame * 2, Math.round(sample * 32767), true);
+              }
+              return bytesToBase64(new Uint8Array(view.buffer));
+          }
+
           function isNarrowScreen() {
               return window.matchMedia('(max-width: 900px)').matches;
           }
@@ -3263,6 +3464,44 @@ export function createChatApp(): Express {
               document.getElementById('messageInput').placeholder = \`Message \${model}\`;
               const hint = document.getElementById('composerHint');
               hint.textContent = switchPending() ? \`Enter starts a new conversation with \${model}\` : 'Enter to send, Shift+Enter for a new line';
+              // the key an empty key field sends follows the model, the client type and the base URL
+              scheduleKeySource();
+          }
+
+          function scheduleKeySource() {
+              clearTimeout(keySourceTimer);
+              keySourceTimer = setTimeout(updateKeySource, 150);
+          }
+
+          // An empty key field sends no key, and the client takes the environment's where the credential
+          // rule lets it. The server names the variable and shows the key's last characters, so the field
+          // tells which key a message goes with, or that there is none for it.
+          async function updateKeySource() {
+              const ticket = ++keySourceTicket;
+              const config = { model: getSelectedModel(), client_type: getSelectedClientType(), base_url: requestBaseUrl() };
+              let source = {};
+              try {
+                  const response = await fetch('/api/key', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ config })
+                  });
+                  source = await response.json();
+              } catch (error) {
+                  source = {};
+              }
+              if (ticket !== keySourceTicket) {
+                  return;
+              }
+              const placeholders = {
+                  env: \`From \${source.variable} \${source.masked}\`,
+                  unset: \`\${source.variable} is not set\`,
+                  keyless: 'None needed',
+                  required: 'Needed for this base URL'
+              };
+              const input = document.getElementById('apiKeyInput');
+              input.placeholder = placeholders[source.source] || 'From the environment when empty';
+              input.classList.toggle('key-missing', source.source === 'unset' || source.source === 'required');
           }
 
           function handleModelSelectChange() {
@@ -3485,6 +3724,14 @@ export function createChatApp(): Express {
               return tools;
           }
 
+          // the endpoint filled in for the client type is where it goes anyway, so it stays out of
+          // the request: a base URL sent without a key refuses the environment's OpenAI and
+          // Anthropic keys
+          function requestBaseUrl() {
+              const baseUrl = document.getElementById('baseUrlInput').value.trim();
+              return baseUrl !== filledBaseUrl ? baseUrl : '';
+          }
+
           function getConfig() {
               const config = {
                   model: getSelectedModel()
@@ -3500,11 +3747,8 @@ export function createChatApp(): Express {
                   config.client_type = clientType;
               }
 
-              // the endpoint filled in for the client type is where it goes anyway, so it stays out of
-              // the request: a base URL sent without a key refuses the environment's OpenAI and
-              // Anthropic keys
-              const baseUrl = document.getElementById('baseUrlInput').value.trim();
-              if (baseUrl && baseUrl !== filledBaseUrl) {
+              const baseUrl = requestBaseUrl();
+              if (baseUrl) {
                   config.base_url = baseUrl;
               }
 
@@ -3768,7 +4012,7 @@ export function createChatApp(): Express {
 
           function updateSendState() {
               const input = document.getElementById('messageInput');
-              document.getElementById('sendButton').disabled = isStreaming || (!input.value.trim() && selectedImages.length === 0 && selectedAudio.length === 0);
+              document.getElementById('sendButton').disabled = isStreaming || (!input.value.trim() && selectedImages.length === 0 && selectedAudio.length === 0 && !recorder && !clipEncoding);
           }
 
           function stopGeneration() {
@@ -3807,6 +4051,10 @@ export function createChatApp(): Express {
           }
 
           async function sendMessage() {
+              // a recording under way stops, and its clip goes with the message
+              if (!isStreaming && (recorder || clipEncoding)) {
+                  await stopRecording();
+              }
               const input = document.getElementById('messageInput');
               const message = input.value.trim();
 
@@ -4163,6 +4411,14 @@ export function createChatApp(): Express {
           updateHeader();
           resizeMessageInput();
 
+          // the browser gives a page the microphone only in a secure context: HTTPS, localhost or 127.0.0.1
+          if (!navigator.mediaDevices || !window.MediaRecorder) {
+              const mic = document.getElementById('micButton');
+              mic.disabled = true;
+              mic.title = 'The microphone needs HTTPS or localhost';
+              mic.setAttribute('aria-label', mic.title);
+          }
+
           updateThemeToggle();
           window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', updateThemeToggle);
           window.addEventListener('resize', updateAllSegmentThumbs);
@@ -4319,6 +4575,12 @@ export function createChatApp(): Express {
         error: error instanceof Error ? error.message : String(error),
       });
     }
+  });
+
+  // where the key comes from when the page's key field is empty
+  app.post("/api/key", (req: Request, res: Response) => {
+    const { config } = req.body as { config?: PlaygroundConfig };
+    res.json(keySource(config || {}));
   });
 
   // the registry's models with the client type and base URL of each, for the model menu
