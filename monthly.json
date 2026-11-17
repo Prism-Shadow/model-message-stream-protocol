@@ -11,16 +11,16 @@
       }
     },
     "2026-11": {
-      "runs": 16,
-      "total_usd": 0.25433525,
+      "runs": 17,
+      "total_usd": 0.28571648,
       "targets": {
-        "deepseek-official+https://api.deepseek.com+deepseek-flash": 0.01349428,
-        "google-genai+https://aiplatform.googleapis.com+gemini-3.8-flash": 0.1433085,
-        "openai-chat+https://tokendance.space/gateway/v1+deepseek-v4.1-flash": 0.01609143,
-        "zai-official+https://tokendance.space/gateway/v1+glm-5.3-flash": 0.00176964,
-        "openai-responses+https://tokendance.space/gateway/v1+qwen3.8-flash": 0.00250255,
-        "openai-responses+https://tokendance.space/gateway/v1+mimo-v2.6-flash": 0.00145485,
-        "anthropic-official+bedrock://us-east-1+global.anthropic.claude-sonnet-4-6": 0.075714
+        "deepseek-official+https://api.deepseek.com+deepseek-flash": 0.01443771,
+        "google-genai+https://aiplatform.googleapis.com+gemini-3.8-flash": 0.1521495,
+        "openai-chat+https://tokendance.space/gateway/v1+deepseek-v4.1-flash": 0.01781532,
+        "zai-official+https://tokendance.space/gateway/v1+glm-5.3-flash": 0.00220575,
+        "openai-responses+https://tokendance.space/gateway/v1+qwen3.8-flash": 0.00311421,
+        "openai-responses+https://tokendance.space/gateway/v1+mimo-v2.6-flash": 0.00179399,
+        "anthropic-official+bedrock://us-east-1+global.anthropic.claude-sonnet-4-6": 0.0942
       }
     }
   }
