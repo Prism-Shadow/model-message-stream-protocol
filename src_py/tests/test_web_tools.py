@@ -83,7 +83,12 @@ class _ToolServer(BaseHTTPRequestHandler):
         type(self).requests.append(
             {"path": self.path, "headers": {name.lower(): value for name, value in self.headers.items()}, "body": body}
         )
-        answer = json.dumps(_ANSWERS[self.path]).encode()
+        response = _ANSWERS[self.path]
+        if body.get("query") == "no matches":
+            response = {"results": []}
+        if body.get("url") == "https://empty.example/":
+            response = {"title": "Empty", "content": ""}
+        answer = json.dumps(response).encode()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(answer)))
@@ -151,6 +156,25 @@ async def test_deepseek_fetch_sends_the_url_alone_and_the_page_takes_the_url_sen
     assert _webdata(events) == [
         [{"title": "Example Domain", "content": "# Example Domain", "url": "https://example.com"}]
     ]
+    assert events[-1]["usage_metadata"]["prompt_tokens"] == 1000
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("model", "empty", "full"),
+    [
+        ("deepseek-search", "no matches", "has matches"),
+        ("deepseek-fetch", "https://empty.example/", "https://full.example/"),
+    ],
+)
+async def test_deepseek_keeps_empty_answers_but_meters_only_billable_ones(
+    tool_server: str, model: str, empty: str, full: str
+):
+    events = await _run(model, tool_server, [_text(empty)], {})
+    assert len(_webdata(events)) == 1
+    assert events[-1]["usage_metadata"]["prompt_tokens"] == 0
+    events = await _run(model, tool_server, [_text(empty), _text(full)], {})
+    assert len(_webdata(events)) == 2
     assert events[-1]["usage_metadata"]["prompt_tokens"] == 1000
 
 

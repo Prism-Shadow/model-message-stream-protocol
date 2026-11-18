@@ -193,7 +193,7 @@ export class DeepSeekWebtoolClient extends LLMClient {
     signal?: AbortSignal;
   }): AsyncGenerator<UniEvent> {
     const params = this.transformUniConfigToModelConfig(options.config);
-    let requests = 0;
+    let billable = 0;
     for (const text of this.transformUniMessageToModelInput(options.messages)) {
       const body =
         this._tool === "search"
@@ -203,7 +203,9 @@ export class DeepSeekWebtoolClient extends LLMClient {
         `/v1/tools/${this._tool}`,
         { body, signal: options.signal },
       );
-      requests += 1;
+      if ("results" in answer ? answer.results.length > 0 : answer.content.trim().length > 0) {
+        billable += 1;
+      }
       yield this.transformModelOutputToUniEvent([text, answer]);
     }
 
@@ -215,7 +217,7 @@ export class DeepSeekWebtoolClient extends LLMClient {
       content_items: [],
       usage_metadata: {
         cached_tokens: null,
-        prompt_tokens: requests * 1000,
+        prompt_tokens: billable * 1000,
         thoughts_tokens: null,
         response_tokens: null,
       },
