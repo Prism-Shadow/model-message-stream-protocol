@@ -163,6 +163,9 @@ class GoogleGenaiClient(LLMClient):
         An empty tuple means the model rejects the thinking_level parameter
         entirely, so it must be omitted from the request.
         """
+        if "gemini-nano-banana" in self._model:
+            # "low" is refused: "Allowed values are: high, medium, minimal." (verified live 2026-11-19)
+            return (types.ThinkingLevel.MINIMAL, types.ThinkingLevel.MEDIUM, types.ThinkingLevel.HIGH)
         if "-image" in self._model:
             return (types.ThinkingLevel.MINIMAL, types.ThinkingLevel.HIGH)
         if "gemini-3-pro" in self._model:

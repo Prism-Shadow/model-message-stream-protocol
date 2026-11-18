@@ -33,6 +33,12 @@ const GEMINI3_THINKING_LEVEL_CASES: Array<
   ["gemini-3.1-flash-image", ThinkingLevel.NONE, "minimal"],
   ["gemini-3.1-flash-image", ThinkingLevel.LOW, "minimal"],
   ["gemini-3.1-flash-image", ThinkingLevel.MEDIUM, "high"],
+  ["gemini-nano-banana-2.1", ThinkingLevel.NONE, "minimal"],
+  ["gemini-nano-banana-2.1", ThinkingLevel.LOW, "medium"],
+  ["gemini-nano-banana-2.1", ThinkingLevel.MEDIUM, "medium"],
+  ["gemini-nano-banana-2.1", ThinkingLevel.HIGH, "high"],
+  ["gemini-nano-banana-2.1", ThinkingLevel.XHIGH, "high"],
+  ["gemini-nano-banana-2.1", ThinkingLevel.MAX, "high"],
   // "-image" wins over "gemini-3-pro" (LOW would stay LOW under the pro set).
   ["gemini-3-pro-image", ThinkingLevel.LOW, "minimal"],
   ["gemini-3-flash-preview", ThinkingLevel.NONE, "minimal"],

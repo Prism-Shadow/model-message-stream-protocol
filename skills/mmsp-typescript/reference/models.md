@@ -8,7 +8,8 @@ Use exact model IDs, and pass the model's client type as `clientType`. If a mode
 | Gemini 3 | Official / Vertex AI | `gemini-3.1-pro-preview`, `gemini-3.1-flash-lite` | `google-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
 | Gemini 3.6 | Official / Vertex AI | `gemini-3.6-flash`, `gemini-3.5-flash-lite` | `google-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
 | Gemini 3.8 | Official / Vertex AI | `gemini-3.8-flash` | `google-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
-| Gemini 3 Image | Official / Vertex AI | `gemini-3.1-flash-image`, `gemini-3.1-flash-lite-image`, `gemini-3-pro-image` | `google-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
+| Gemini Image | Official / Vertex AI | `gemini-nano-banana-2.1`, `gemini-3.1-flash-image`, `gemini-3.1-flash-lite-image`, `gemini-3-pro-image` | `google-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
+| Gemini Image | OpenRouter | `google/gemini-nano-banana-2.1` | `openai-image` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
 | Gemini 3.8 TTS | Official / Vertex AI | `gemini-3.8-flash-tts`, `gemini-3.8-flash-lite-tts` | `google-official` (Vertex AI: `google-genai`, `gemini-3.8-flash-tts`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |
 | Gemini Omni | Official | `gemini-omni-1.2-flash` (video generation) | `google-official` | `GEMINI_API_KEY` | `GEMINI_BASE_URL` |
 | Gemini Embedding | Official / Vertex AI | `gemini-embedding-2` | `google-official` (Vertex AI: `google-genai`) | `GEMINI_API_KEY` (Vertex AI: the service-account JSON as the key) | `GEMINI_BASE_URL` |

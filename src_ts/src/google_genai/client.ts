@@ -213,6 +213,14 @@ export class GoogleGenaiClient extends LLMClient {
    * entirely, so it must be omitted from the request.
    */
   private _supportedThinkingLevels(): GeminiThinkingLevel[] {
+    if (this._model.includes("gemini-nano-banana")) {
+      // "low" is refused: "Allowed values are: high, medium, minimal." (verified live 2026-11-19)
+      return [
+        GeminiThinkingLevel.MINIMAL,
+        GeminiThinkingLevel.MEDIUM,
+        GeminiThinkingLevel.HIGH,
+      ];
+    }
     if (this._model.includes("-image")) {
       return [GeminiThinkingLevel.MINIMAL, GeminiThinkingLevel.HIGH];
     }

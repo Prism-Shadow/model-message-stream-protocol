@@ -1,14 +1,269 @@
-> Sources: the public model APIs and model pages of openrouter.ai, read 2026-11-04 without a key.
+> Sources: the public model APIs and model pages of openrouter.ai, read 2026-11-04 and 2026-11-19 without a key.
 
 # OpenRouter model records
 
 | Model | Request path | Price (model page) | Streaming |
 | - | - | - | - |
+| `google/gemini-nano-banana-2.1` | `/api/v1/images` | $1.50 per M input tokens, $7.50 per M text/thinking output tokens, $30.00 per M image output tokens ($0.033 / 1K image) | `supports_streaming: false` |
 | `bytedance-seed/seedream-5-0-flash` | `/api/v1/images` | $0.018 per output image, input images free | `supports_streaming: false` |
 | `fish-audio/drama-3` | `/api/v1/audio/speech` | $2.00 per M UTF-8 bytes of input (80% off $10.00, launch promotion) | raw audio bytes |
 | `fish-audio/transcribe-1` | `/api/v1/audio/transcriptions` | $0.0001 per second of input audio | JSON only |
 
 `fish-audio/drama-3` and `fish-audio/transcribe-1` list `supported_voices: null` and no `supported_parameters`; the voice is a Fish Audio voice model id (see `fish-audio-drama-3.md`).
+
+## `GET /api/v1/images/models/google/gemini-nano-banana-2.1/endpoints`
+
+```json
+{
+  "id": "google/gemini-nano-banana-2.1",
+  "endpoints": [
+    {
+      "provider_name": "Google Vertex",
+      "provider_slug": "google-vertex/global",
+      "provider_tag": "google-vertex/global",
+      "supported_parameters": {
+        "resolution": {
+          "type": "enum",
+          "values": [
+            "1K",
+            "2K",
+            "4K"
+          ]
+        },
+        "aspect_ratio": {
+          "type": "enum",
+          "values": [
+            "1:1",
+            "1:4",
+            "1:8",
+            "2:3",
+            "3:2",
+            "3:4",
+            "4:1",
+            "4:3",
+            "4:5",
+            "5:4",
+            "8:1",
+            "9:16",
+            "16:9",
+            "21:9"
+          ]
+        },
+        "n": {
+          "type": "range",
+          "min": 1,
+          "max": 1
+        },
+        "input_references": {
+          "type": "range",
+          "min": 0,
+          "max": 14
+        }
+      },
+      "allowed_passthrough_parameters": [],
+      "supports_streaming": false,
+      "pricing": [
+        {
+          "billable": "output_image",
+          "unit": "token",
+          "cost_usd": 0.00003
+        }
+      ]
+    },
+    {
+      "provider_name": "Google AI Studio",
+      "provider_slug": "google-ai-studio",
+      "provider_tag": "google-ai-studio",
+      "supported_parameters": {
+        "resolution": {
+          "type": "enum",
+          "values": [
+            "1K",
+            "2K",
+            "4K"
+          ]
+        },
+        "aspect_ratio": {
+          "type": "enum",
+          "values": [
+            "1:1",
+            "1:4",
+            "1:8",
+            "2:3",
+            "3:2",
+            "3:4",
+            "4:1",
+            "4:3",
+            "4:5",
+            "5:4",
+            "8:1",
+            "9:16",
+            "16:9",
+            "21:9"
+          ]
+        },
+        "n": {
+          "type": "range",
+          "min": 1,
+          "max": 1
+        },
+        "input_references": {
+          "type": "range",
+          "min": 0,
+          "max": 14
+        }
+      },
+      "allowed_passthrough_parameters": [
+        "cachedContent"
+      ],
+      "supports_streaming": false,
+      "pricing": [
+        {
+          "billable": "output_image",
+          "unit": "token",
+          "cost_usd": 0.00003
+        }
+      ]
+    }
+  ]
+}
+```
+
+## `GET /api/v1/models/google/gemini-nano-banana-2.1/endpoints`
+
+```json
+{
+  "data": {
+    "id": "google/gemini-nano-banana-2.1",
+    "name": "Google: Nano Banana 2.1",
+    "created": 1791300825,
+    "description": "Nano Banana 2.1 (Gemini Nano Banana 2.1) is Google's image generation and editing model on the Flash tier, succeeding Nano Banana 2 and Nano Banana Pro. It improves product recontextualization,...",
+    "architecture": {
+      "tokenizer": "Gemini",
+      "instruct_type": null,
+      "modality": "text+image->text+image",
+      "input_modalities": [
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "image",
+        "text"
+      ]
+    },
+    "endpoints": [
+      {
+        "name": "Google | google/gemini-nano-banana-2.1-20261006",
+        "model_id": "google/gemini-nano-banana-2.1",
+        "model_name": "Google: Nano Banana 2.1",
+        "context_length": 65536,
+        "pricing": {
+          "prompt": "0.0000015",
+          "completion": "0.0000075",
+          "image_output": "0.00003",
+          "web_search": "0.014",
+          "discount": 0
+        },
+        "provider_name": "Google",
+        "tag": "google-vertex/global",
+        "service_tier": null,
+        "quantization": "unknown",
+        "max_completion_tokens": 58982,
+        "max_prompt_tokens": null,
+        "supported_parameters": [
+          "reasoning",
+          "include_reasoning",
+          "max_tokens",
+          "temperature",
+          "top_p",
+          "seed",
+          "response_format",
+          "structured_outputs",
+          "tools",
+          "tool_choice",
+          "reasoning_effort"
+        ],
+        "supports_tool_choice": {
+          "none": true,
+          "auto": true,
+          "required": true,
+          "function": true
+        },
+        "status": 0,
+        "uptime_last_30m": 100,
+        "uptime_last_5m": null,
+        "uptime_last_1d": 100,
+        "supports_implicit_caching": false,
+        "native_tools": {
+          "openrouter:web_search": {
+            "type": "google_search"
+          }
+        },
+        "supports_voice_cloning": false,
+        "supports_multiple_audio_references": false,
+        "supports_image_reference": false,
+        "supports_diarization": false,
+        "latency_last_30m": null,
+        "throughput_last_30m": null
+      },
+      {
+        "name": "Google AI Studio | google/gemini-nano-banana-2.1-20261006",
+        "model_id": "google/gemini-nano-banana-2.1",
+        "model_name": "Google: Nano Banana 2.1",
+        "context_length": 65536,
+        "pricing": {
+          "prompt": "0.0000015",
+          "completion": "0.0000075",
+          "image_output": "0.00003",
+          "web_search": "0.014",
+          "discount": 0
+        },
+        "provider_name": "Google AI Studio",
+        "tag": "google-ai-studio",
+        "service_tier": null,
+        "quantization": "unknown",
+        "max_completion_tokens": 58982,
+        "max_prompt_tokens": null,
+        "supported_parameters": [
+          "reasoning",
+          "include_reasoning",
+          "max_tokens",
+          "temperature",
+          "top_p",
+          "seed",
+          "response_format",
+          "structured_outputs",
+          "tools",
+          "tool_choice",
+          "reasoning_effort"
+        ],
+        "supports_tool_choice": {
+          "none": false,
+          "auto": true,
+          "required": false,
+          "function": false
+        },
+        "status": 0,
+        "uptime_last_30m": 100,
+        "uptime_last_5m": 100,
+        "uptime_last_1d": 100,
+        "supports_implicit_caching": false,
+        "native_tools": {
+          "openrouter:web_search": {
+            "type": "google_search"
+          }
+        },
+        "supports_voice_cloning": false,
+        "supports_multiple_audio_references": false,
+        "supports_image_reference": false,
+        "supports_diarization": false,
+        "latency_last_30m": null,
+        "throughput_last_30m": null
+      }
+    ]
+  }
+}
+```
 
 ## `GET /api/v1/images/models/bytedance-seed/seedream-5-0-flash/endpoints`
 

@@ -101,7 +101,7 @@
 
 ### 6.1 明确匹配
 
-- **官方客户端**：必须通过具名元组或直白条件中的明确版本/模态标记决定发送内容（先匹配者生效）：如版本标记 `"4-6"`、`"gpt-6"`（排除 `"gpt-6-luna"` 与 `"gpt-6.1-terra"`）、`"gpt-5.6"`、`"k2."`、`"m3.1"`、`"glm-5.3"`，以及档位/模态标记 `-pro`、`-image`、`tts`、`gemini-omni`、`embedding`、`-search`、`-fetch`。`"claude"`、`"gpt"` 等仅含系列名的子串不得决定任何事；新一代模型只可新增一行或条件，绝不放宽匹配。
+- **官方客户端**：必须通过具名元组或直白条件中的明确版本/模态标记决定发送内容（先匹配者生效）：如版本标记 `"4-6"`、`"gpt-6"`（排除 `"gpt-6-luna"` 与 `"gpt-6.1-terra"`）、`"gpt-5.6"`、`"k2."`、`"m3.1"`、`"glm-5.3"`，以及档位/模态标记 `-pro`、`gemini-nano-banana`、`-image`、`tts`、`gemini-omni`、`embedding`、`-search`、`-fetch`。`"claude"`、`"gpt"` 等仅含系列名的子串不得决定任何事；新一代模型只可新增一行或条件，绝不放宽匹配。
 - **兼容客户端**：仅在发送内容因模型而异时按明确标记读取模型 id，且转换方法只读自身协议标记（`deepseek-webtool` 读 `-search`/`-fetch`；仅服务 Google 模型的 `google-genai` 同 `google-official`）。多厂商协议上的特定厂商规则写成按明确模式匹配的插件（[MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.zh.md#9-插件) §9）：`openai-responses` 的 `gpt` 插件在 Luna 与 GPT-6.1 Terra 以外的 GPT-6 上把 `none` 转为 `low`；`openai-chat` 与 `openai-responses` 的 `gpt` 插件对 GPT-5.6 和 GPT-6 请求 `detail: "high"`。vLLM 适配器从表中选取聊天模板思考开关，未命中时退回 Qwen3 开关。
 - **客户端路由**：模型 id 由哪个客户端处理见 [MMSP-RFC-0005](MMSP-RFC-0005-client-routing.zh.md)。
 
