@@ -3,6 +3,7 @@
 - **Date:** 2026-11-19
 - **Type:** fix
 - **Scope:** `deepseek-webtool`
+- **PR:** [#351](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/351)
 
 [中文版](2026-11-19-deepseek-webtool-metering.zh.md)
 
