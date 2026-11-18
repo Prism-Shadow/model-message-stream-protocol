@@ -170,7 +170,7 @@
       },
       {
         "api_key_env": "GEMINI_API_KEY",
-        "name": "gemini-3.1-flash-image",
+        "name": "gemini-nano-banana-2.1",
         "support_text": false,
         "support_image_understanding": false,
         "support_image_generation": true

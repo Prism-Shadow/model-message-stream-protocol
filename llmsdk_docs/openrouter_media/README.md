@@ -1,6 +1,6 @@
 # OpenRouter Media APIs Documentation
 
-OpenRouter's image generation, text-to-speech and speech-to-text APIs under `https://openrouter.ai/api/v1`, with the records of `bytedance-seed/seedream-5-0-flash`, `fish-audio/drama-3` and `fish-audio/transcribe-1`.
+OpenRouter's image generation, text-to-speech and speech-to-text APIs under `https://openrouter.ai/api/v1`, with the records of `google/gemini-nano-banana-2.1`, `bytedance-seed/seedream-5-0-flash`, `fish-audio/drama-3` and `fish-audio/transcribe-1`.
 
 ## Documentation
 
@@ -12,7 +12,7 @@ OpenRouter's image generation, text-to-speech and speech-to-text APIs under `htt
 - [stt.md](./docs/stt.md) - The STT guide: `POST /api/v1/audio/transcriptions` with JSON `input_audio` (`data` as raw base64, `format`) or OpenAI multipart `file`; `language`, `temperature`, `response_format` (`json` or `verbose_json`); the response `text` and `usage` (`seconds`, tokens, `cost`); formats and limits
 - [stt-api-reference.md](./docs/stt-api-reference.md) - OpenAPI for `POST /audio/transcriptions`
 - [errors-and-debugging.md](./docs/errors-and-debugging.md) - Error codes, provider errors, pre-stream and mid-stream error formats, typed error codes
-- [model-records.md](./docs/model-records.md) - The three models from the public models APIs: request paths, prices ($0.018 per image; $2 per M UTF-8 bytes; $0.0001 per second), Seedream's `resolution` (`1K`, `2K`) and `aspect_ratio` enums, `n` fixed at 1, no streaming
+- [model-records.md](./docs/model-records.md) - The four models from the public models APIs: request paths, prices ($1.50/$30 per M tokens for Nano Banana 2.1; $0.018 per image for Seedream; $2 per M UTF-8 bytes; $0.0001 per second), `resolution` (`1K`, `2K`, and `4K` on Nano Banana 2.1) and `aspect_ratio` enums, `n` fixed at 1, no streaming
 - [fish-audio-drama-3.md](./docs/fish-audio-drama-3.md) - Fish Audio's page for Drama 3: bracketed directions, multi-speaker tags, and three public voice ids (Adrian, Delia, Sheila) to pass as `voice`
 - [fish-audio-speech-to-text.md](./docs/fish-audio-speech-to-text.md) - Fish Audio's STT page: `transcribe-1` takes WAV, MP3, AAC/M4A, FLAC and Ogg up to 50 MiB
 

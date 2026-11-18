@@ -150,7 +150,8 @@ Each client sends the level as its protocol's effort: `output_config.effort` wit
 | `zai-official`: other GLM models | `disabled` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `google-official`: Gemini Omni | `low` | `low` | `high` | `high` | `high` | `high` |
 | `google-official`: Gemini 4 Hydrogen | `low` | `low` | `medium` | `high` | `xhigh` | `xhigh` |
-| `google-official`, `google-genai`: image models | `minimal` | `minimal` | `high` | `high` | `high` | `high` |
+| `google-official`, `google-genai`: Nano Banana (`gemini-nano-banana-2.1`) | `minimal` | `medium` | `medium` | `high` | `high` | `high` |
+| `google-official`, `google-genai`: other image models | `minimal` | `minimal` | `high` | `high` | `high` | `high` |
 | `google-official`, `google-genai`: Gemini 3 Pro | `low` | `low` | `high` | `high` | `high` | `high` |
 | `google-official`, `google-genai`: other Pro models, Gemini 3.7, 3.8, 4 Argon, 4 Carbon | `low` | `low` | `medium` | `high` | `high` | `high` |
 | `google-official`, `google-genai`: other Gemini models | `minimal` | `low` | `medium` | `high` | `high` | `high` |

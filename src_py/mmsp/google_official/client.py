@@ -127,6 +127,9 @@ class GoogleOfficialClient(LLMClient):
         if "gemini-omni" in self._model:
             # "minimal" and "medium" are refused: "Allowed values are: high, low." (verified live 2026-11-06)
             return ("low", "high")
+        if "gemini-nano-banana" in self._model:
+            # "low" and "xhigh" are refused: "Allowed values are: high, medium, minimal." (verified live 2026-11-19)
+            return ("minimal", "medium", "high")
         if "-image" in self._model:
             return ("minimal", "high")
         if "gemini-3-pro" in self._model:
