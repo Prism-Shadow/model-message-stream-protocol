@@ -3,6 +3,7 @@
 - **Date:** 2026-11-19
 - **Type:** feature
 - **Scope:** `google-official`, `google-genai`, `registry`
+- **PR:** [#349](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/349)
 
 [English](2026-11-19-gemini-nano-banana-2-1.md)
 

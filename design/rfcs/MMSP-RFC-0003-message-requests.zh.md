@@ -3,7 +3,7 @@
 - Feature Name: `message_requests`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313), [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316), [#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318), [#326](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/326), [#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330), [#336](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/336), [#339](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/339)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#313](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/313), [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316), [#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318), [#326](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/326), [#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330), [#336](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/336), [#339](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/339), [#349](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/349)
 - Kind: spec
 
 [English](MMSP-RFC-0003-message-requests.md)
@@ -28,6 +28,7 @@
 | 2026-11-16 ([#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330)) | **`video_config`、DeepSeek 语音合成/识别与 Gemini 4 Hydrogen**：新增 `video_config`（`aspect_ratio`、`resolution`、`duration`，`4K` 写作 `4k`），并将 `image_config.image_size` 统一改名为 `resolution`；新增流式原始 PCM 的 `deepseek-speech`（首包约 1 秒）与单 JSON 的 `deepseek-transcription`（仅收 16 位 PCM WAV 或 Ogg Opus）；新增 Gemini 4 Hydrogen 等级（接受 `xhigh`，拒绝 `minimal`/`max`）。更新 §3.2、§6.2、§6.3 与 §6.4。 |
 | 2026-11-17 ([#336](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/336)) | **按次计费记为 1,000 token**：按次收费的请求每次记 `1,000` 个 token（「按次收费的都算1次为1000token吧,这样价格就正常一些」），使每千次 ¥5 的 DeepSeek Search/Fetch 定价为每百万 token ¥5（而非 ¥5,000），单次请求花费不变（§3.2）。 |
 | 2026-11-17 ([#339](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/339)) | **工具调用 `arguments` 保留 JSON 文本**：测试发现 `9007199254740993` 在解析后变为 `9007199254740992`，故规定工具调用参数保留模型写出的文本（「UniMessage的工具参数还是保留字符串类型吧」）；`StreamItems` 与请求前校验均验证其能解析为 JSON 对象并保留原文本（§3.3、§4.3）。 |
+| 2026-11-19 ([#349](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/349)) | **Gemini Nano Banana 2.1 思考等级**：`gemini-nano-banana-2.1` 仅接受 `minimal`、`medium` 与 `high`（拒绝 `low`、`xhigh` 与 `max`）；`google-official` 与 `google-genai` 将 `"gemini-nano-banana"` 模型映射至 `("minimal", "medium", "high")` 并按等距向上取整（`low` → `medium`）。更新 §6.1 与 §6.3。 |
 
 ## 2. Conventions and Terminology
 
