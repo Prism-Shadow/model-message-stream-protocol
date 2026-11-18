@@ -187,6 +187,10 @@ export class GoogleOfficialClient extends LLMClient {
       // "minimal" and "medium" are refused: "Allowed values are: high, low." (verified live 2026-11-06)
       return ["low", "high"];
     }
+    if (this._model.includes("gemini-nano-banana")) {
+      // "low" and "xhigh" are refused: "Allowed values are: high, medium, minimal." (verified live 2026-11-19)
+      return ["minimal", "medium", "high"];
+    }
     if (this._model.includes("-image")) {
       return ["minimal", "high"];
     }

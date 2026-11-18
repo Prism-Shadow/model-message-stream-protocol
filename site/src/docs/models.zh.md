@@ -12,7 +12,7 @@ description: MMSP 的客户端构成、各客户端支持的模型，以及如�
 | --- | --- | --- | --- |
 | `openai-official` | `gpt-6.2-astra`、`gpt-6.2-sol`、`gpt-6.1-sol`、`gpt-6.1-terra`、`gpt-6-astra`、`gpt-5.6-sol`、`gpt-5.5`；`text-embedding-3-large`、`text-embedding-3-small`；`gpt-image-2.5-flare` | OpenAI Responses；`text-embedding-*` 走 Embeddings；`gpt-image-*` 走 Images | `OPENAI_API_KEY` `OPENAI_BASE_URL` |
 | `anthropic-official` | `claude-opus-5-5`、`claude-sonnet-5-5`、`claude-haiku-5-5`、`claude-fable-5-1`、`claude-opus-5`、`claude-sonnet-5` | Anthropic Messages | `ANTHROPIC_API_KEY` `ANTHROPIC_BASE_URL` |
-| `google-official` | `gemini-4-hydrogen`、`gemini-4-carbon`、`gemini-4-argon`、`gemini-3.8-flash`、`gemini-3.1-pro-preview`；`gemini-3.1-flash-image`、`gemini-3.8-flash-tts`、`gemini-omni-1.2-flash`；`gemini-embedding-2` | Gemini Interactions | `GEMINI_API_KEY` `GEMINI_BASE_URL` |
+| `google-official` | `gemini-4-hydrogen`、`gemini-4-carbon`、`gemini-4-argon`、`gemini-3.8-flash`、`gemini-3.1-pro-preview`；`gemini-nano-banana-2.1`、`gemini-3.1-flash-image`、`gemini-3.8-flash-tts`、`gemini-omni-1.2-flash`；`gemini-embedding-2` | Gemini Interactions | `GEMINI_API_KEY` `GEMINI_BASE_URL` |
 | `zai-official` | `glm-5.3`、`glm-5.3-flash`、`glm-5.2` | Chat Completions | `ZAI_API_KEY` `ZAI_BASE_URL` |
 | `moonshot-official` | `kimi-k3.1-pro`、`kimi-k3.1-pro-highspeed`、`kimi-k3`、`kimi-k2.6` | Chat Completions | `MOONSHOT_API_KEY` `MOONSHOT_BASE_URL` |
 | `deepseek-official` | `deepseek-flash`、`deepseek-v4-pro`；`deepseek-search`、`deepseek-fetch`；`deepseek-tts`、`deepseek-asr` | Responses；`deepseek-search` 和 `deepseek-fetch` 走 Search 和 Fetch；`deepseek-tts` 和 `deepseek-asr` 走语音合成和语音识别 | `DEEPSEEK_API_KEY` `DEEPSEEK_BASE_URL` |

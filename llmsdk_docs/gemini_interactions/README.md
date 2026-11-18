@@ -3,8 +3,9 @@
 This directory snapshots Google's official documentation for the Gemini **Interactions API**
 (`POST /v1beta/interactions`, SDK `client.interactions.create`), the successor to
 `generateContent` for Gemini text, thinking, tool calling, image understanding, image generation
-(`gemini-3.1-flash-image`) and speech generation (`gemini-3.1-flash-tts-preview`). Pages were
-fetched as raw markdown from https://ai.google.dev/ (`<page>.md.txt`) on 2026-09-16; Java/Go
+(`gemini-nano-banana-2.1`, `gemini-3.1-flash-image`) and speech generation (`gemini-3.1-flash-tts-preview`). Pages were
+fetched as raw markdown from https://ai.google.dev/ (`<page>.md.txt`) on 2026-09-16 (with updates on
+2026-11-19 for `gemini-nano-banana-2.1` and `image-generation.md`); Java/Go
 samples and prompt-writing guides were removed, everything else is verbatim.
 
 The snapshot describes the `steps` schema introduced by the May 2026 breaking change (the legacy
@@ -43,6 +44,10 @@ The snapshot describes the `steps` schema introduced by the May 2026 breaking ch
   URL inputs, with size limits
 - [image-generation.md](./docs/image-generation.md) - Nano Banana models, `response_format`
   image entries (`aspect_ratio`, `image_size`), thinking with interim images, interleaved output
+- [gemini-nano-banana-2.1.md](./docs/gemini-nano-banana-2.1.md) - Model card for Nano Banana 2.1
+  (`gemini-nano-banana-2.1`): capabilities, token limits (131,072 input / 32,768 output), thinking
+  levels (`minimal`, `medium`, `high`), pricing ($1.50 input / $7.50 text & thoughts / $30.00 image
+  output per 1M tokens)
 - [speech-generation.md](./docs/speech-generation.md) - Single- and multi-speaker TTS with
   `generation_config.speech_config` and per-turn `speech_metadata`, streaming audio, audio output
   formats, voices, limitations (snapshot 2026-11-02)

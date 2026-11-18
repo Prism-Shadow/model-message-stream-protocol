@@ -150,7 +150,8 @@ Claude Opus 5.5、Sonnet 5.5、Haiku 5.5 和 Fable 5.1 不能强制调用工具�
 | `zai-official`：其他 GLM 模型 | `disabled` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `google-official`：Gemini Omni | `low` | `low` | `high` | `high` | `high` | `high` |
 | `google-official`：Gemini 4 Hydrogen | `low` | `low` | `medium` | `high` | `xhigh` | `xhigh` |
-| `google-official`、`google-genai`：图像模型 | `minimal` | `minimal` | `high` | `high` | `high` | `high` |
+| `google-official`、`google-genai`：Nano Banana（`gemini-nano-banana-2.1`） | `minimal` | `medium` | `medium` | `high` | `high` | `high` |
+| `google-official`、`google-genai`：其他图像模型 | `minimal` | `minimal` | `high` | `high` | `high` | `high` |
 | `google-official`、`google-genai`：Gemini 3 Pro | `low` | `low` | `high` | `high` | `high` | `high` |
 | `google-official`、`google-genai`：其他 Pro 模型，Gemini 3.7、3.8、4 Argon、4 Carbon | `low` | `low` | `medium` | `high` | `high` | `high` |
 | `google-official`、`google-genai`：其他 Gemini 模型 | `minimal` | `low` | `medium` | `high` | `high` | `high` |

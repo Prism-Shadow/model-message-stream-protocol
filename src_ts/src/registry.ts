@@ -128,7 +128,7 @@ function cny(prompt: number, output: number, cached?: number): ModelPricing {
 // Gateway rows list only the input modalities their client can send: the
 // OpenAI-protocol clients carry text and images, not video, and audio only to a transcription.
 const SUPPORTED_MODELS: SupportedModel[] = [
-  // --- Official vendor endpoints (59 rows; each vendor's own key variable; list prices from each
+  // --- Official vendor endpoints (60 rows; each vendor's own key variable; list prices from each
   // vendor's pricing page, the rows added 2026-10-24 naming their page and read date)
   {
     // aistudio.google.com/docs/pricing (read 2026-11-16)
@@ -222,6 +222,17 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Text"],
     context_window: 1048576,
     pricing: usd(0.5, 3.0, 0.05),
+  },
+  {
+    // aistudio.google.com/docs/pricing and aistudio.google.com/docs/models/gemini-nano-banana-2.1
+    // (read 2026-11-19): $1.50 input, $30.00 image output, $7.50 text output and thoughts
+    model: "gemini-nano-banana-2.1",
+    base_url: GOOGLE,
+    client: "google-official",
+    input_modalities: ["Text", "Image", "Video"],
+    output_modalities: ["Image"],
+    context_window: 131072,
+    pricing: usd(1.5, 30.0, undefined, 7.5),
   },
   {
     model: "gemini-3.1-flash-lite-image",
@@ -764,7 +775,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Web"],
     pricing: usd(0.05, 0.0),
   },
-  // --- OpenRouter (130 rows; key OPENROUTER_API_KEY; USD prices, context windows and modalities
+  // --- OpenRouter (131 rows; key OPENROUTER_API_KEY; USD prices, context windows and modalities
   // from the live models API https://openrouter.ai/api/v1/models and each model's
   // /api/v1/models/{slug}/endpoints list, read 2026-10-24, the rows added 2026-11-16 naming their
   // read date). The API quotes one endpoint per model; where that endpoint runs a promotion (a
@@ -1148,6 +1159,16 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Text"],
     context_window: 1048576,
     pricing: usd(2.0, 12.0, 0.2),
+  },
+  {
+    // $1.50 per 1M input tokens and $30.00 per 1M image_output tokens on /api/v1/images
+    // (openrouter.ai/api/v1/models/google/gemini-nano-banana-2.1/endpoints, read 2026-11-19)
+    model: "google/gemini-nano-banana-2.1",
+    base_url: OPENROUTER,
+    client: "openai-image",
+    input_modalities: ["Text"],
+    output_modalities: ["Image"],
+    pricing: usd(1.5, 30.0),
   },
   {
     model: "google/gemma-4-31b-it",
