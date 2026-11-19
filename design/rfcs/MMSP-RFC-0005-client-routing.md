@@ -3,7 +3,7 @@
 - Feature Name: `client_routing`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316), [#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316), [#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330), [#356](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/356)
 - Kind: spec
 
 [中文版](MMSP-RFC-0005-client-routing.zh.md)
@@ -22,6 +22,7 @@ Client routing selects the client for **`AutoLLMClient`** from a **`client_type`
 | **2026-11-02 ([#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308))** | Web search/fetch (`在mmsp里面增加search和fetch的能力,实现方式和embedding类似`): `deepseek-official` routes `deepseek-search` and `deepseek-fetch` to `deepseek-webtool` (§3); Jina uses family `jina-`; non-listing endpoints (including Bedrock on `anthropic-official`) raise `UnsupportedOperationError` in `list_models` (§5). |
 | **2026-11-04 ([#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316))** | OpenAI-format compatible clients `openai-image`, `openai-speech`, `openai-transcription`: `openai-official` routes `gpt-image-` to `openai-image` (§3); non-family gateway ids (`bytedance-seed/seedream-5-0-flash`, `fish-audio/drama-3`) require `client_type`. |
 | **2026-11-16 ([#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330))** | DeepSeek TTS/ASR (`把deepseek的tts和asr包一下`) on `/v1/tools/tts` and `/v1/tools/asr`: `deepseek-official` routes `deepseek-tts` to `deepseek-speech` and `deepseek-asr` to `deepseek-transcription` (§3); neither lists models. |
+| **2026-11-19 ([#356](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/356))** | GPT-Transcribe on `/v1/audio/transcriptions`: `openai-official` routes `gpt-transcribe` to `openai-transcription` (§3), a whole-id row, as OpenAI lists the one alias `gpt-transcribe`. |
 
 ## 2. Conventions and Terminology
 

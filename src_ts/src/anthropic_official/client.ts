@@ -43,13 +43,16 @@ import { isDebugEnabled, resolveCredentials } from "../utils";
 const REDACTED_THINKING = "_REDACTED_THINKING";
 
 // Generations told apart by explicit version, matched anywhere in the id so Bedrock's
-// anthropic.claude-opus-5-5 counts too. Opus 5.5 and Fable 5.1 always think: "disabled" and
-// "between_tools" return 400, and Fable 5 returns 400 for "disabled" too (verified live
-// 2026-10-23); Haiku 5.5 also runs NONE at the lowest adaptive effort, so adaptive "low" is the
-// safe default for NONE. Sonnet 5.5 drops only up-front thinking, with "between_tools", and only
-// the older 4.6..4.8 and 5.0 (Opus 5 / Sonnet 5) generations take "disabled".
+// anthropic.claude-opus-5-5 counts too. NONE takes "disabled" only on the generations listed for
+// it: Opus 5.5 and Fable 5.1 always think, "disabled" and "between_tools" returning 400, and
+// Fable 5 returns 400 for "disabled" too (verified live 2026-10-23), so the default is adaptive
+// thinking at the lowest effort, which every generation from 4.6 on takes; Haiku 5.5 takes
+// "disabled" but runs NONE that way too. Claude 4.5 has no adaptive thinking ("adaptive thinking is
+// not supported on this model", Opus 4.5 and Haiku 4.5 verified live 2026-11-19), so it is listed.
+// Sonnet 5.5 drops only up-front thinking, with "between_tools".
 const BETWEEN_TOOLS = ["sonnet-5-5"];
-const DISABLED_THINKING_4X = ["4-6", "4-7", "4-8"];
+const DISABLED_THINKING = ["4-5", "4-6", "4-7", "4-8"];
+// Opus 5 and Sonnet 5, told from their 5.5 successors by the "-5-5" those carry
 const DISABLED_THINKING_5_0 = ["opus-5", "sonnet-5"];
 const CLAUDE_5_5 = ["opus-5-5", "sonnet-5-5"];
 // The 2026-09 generation returns 400 for tool_choice "any" and "tool". Haiku 5.5 takes them but
@@ -175,24 +178,24 @@ export class AnthropicOfficialClient extends LLMClient {
     }
   }
 
+  private _generation(versions: string[]): boolean {
+    // family routing ignores case, so the generation markers do too
+    const model = this._model.toLowerCase();
+    return versions.some((version) => model.includes(version));
+  }
+
   /**
    * Convert ThinkingLevel enum to Claude's adaptive thinking config.
    */
-  private _generation(versions: string[]): boolean {
-    return versions.some((version) => this._model.includes(version));
-  }
-
   private _convertThinkingLevelToThinkingConfig(thinkingLevel: ThinkingLevel): {
     thinking?: { type: string; display?: string };
     output_config?: { effort: string };
   } {
-    // Default safe minimum for the newest generations (Opus 5.5, Haiku 5.5, Fable 5/5.1) is
-    // adaptive "low", since "disabled" returns 400 there; older 4.6..4.8 and 5.0 generations take
-    // "disabled" (without a thinking block Opus 5 still runs adaptive thinking, verified live
-    // 2026-10-23), and Sonnet 5.5 uses "between_tools".
+    // without a thinking block Opus 5 still runs adaptive thinking (verified live 2026-10-23)
     const takesDisabled =
-      this._generation(DISABLED_THINKING_4X) ||
-      (this._generation(DISABLED_THINKING_5_0) && !this._generation(CLAUDE_5_5));
+      this._generation(DISABLED_THINKING) ||
+      (this._generation(DISABLED_THINKING_5_0) &&
+        !this._generation(CLAUDE_5_5));
     const none = this._generation(BETWEEN_TOOLS)
       ? { thinking: { type: "between_tools" } }
       : takesDisabled
@@ -221,7 +224,7 @@ export class AnthropicOfficialClient extends LLMClient {
       [ThinkingLevel.XHIGH]: {
         thinking: { type: "adaptive" },
         output_config: {
-          effort: this._model.includes("4-6") ? "high" : "xhigh",
+          effort: this._generation(["4-6"]) ? "high" : "xhigh",
         },
       },
       // every model this client serves is 4.6 or later, and max spans that whole range

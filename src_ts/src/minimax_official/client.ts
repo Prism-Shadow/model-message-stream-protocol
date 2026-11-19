@@ -106,9 +106,11 @@ export class MiniMaxOfficialClient extends LLMClient {
         [ThinkingLevel.MAX]: "high",
       };
     } else {
-      // M3.1-Flash and newer always reason and tune their depth from low to max; "none" is a 400
-      // (verified live 2026-10-19: "requires adaptive thinking; ... reasoning.effort=none is not
-      // allowed (2013)"), so NONE defaults to the lowest effort ("low").
+      // M3.1-Flash always reasons and tunes its depth from low to max; "none" is a 400 (verified
+      // live 2026-10-19: "requires adaptive thinking; ... reasoning.effort=none is not allowed
+      // (2013)"), so NONE degrades to the lowest effort. A new generation inherits this, and M2.x
+      // take it too: they always reason and accept low, xhigh and max (MiniMax-M2.7 verified live
+      // 2026-11-19).
       mapping = {
         [ThinkingLevel.NONE]: "low",
         [ThinkingLevel.LOW]: "low",

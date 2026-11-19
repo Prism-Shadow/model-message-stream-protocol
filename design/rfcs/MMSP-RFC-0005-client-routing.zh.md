@@ -3,7 +3,7 @@
 - Feature Name: `client_routing`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316), [#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316), [#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330), [#356](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/356)
 - Kind: spec
 
 [English](MMSP-RFC-0005-client-routing.md)
@@ -22,6 +22,7 @@
 | **2026-11-02（[#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308)）** | 网页搜索与抓取（「在mmsp里面增加search和fetch的能力,实现方式和embedding类似」）：`deepseek-official` 经 `deepseek-webtool` 服务 `deepseek-search` 与 `deepseek-fetch`（§3）；Jina 模型族为 `jina-`；不列出模型的端点（含 Bedrock 上的 `anthropic-official`）在 `list_models` 抛出 `UnsupportedOperationError`（§5）。 |
 | **2026-11-04（[#316](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/316)）** | OpenAI 格式兼容客户端 `openai-image`、`openai-speech`、`openai-transcription`：`openai-official` 经 `openai-image` 服务 `gpt-image-`（§3）；无模型族的网关模型（`bytedance-seed/seedream-5-0-flash`、`fish-audio/drama-3`）用 `client_type` 指定。 |
 | **2026-11-16（[#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330)）** | DeepSeek 语音合成与识别（「把deepseek的tts和asr包一下」，端点 `/v1/tools/tts`、`/v1/tools/asr`）：`deepseek-official` 经 `deepseek-speech` 服务 `deepseek-tts`、经 `deepseek-transcription` 服务 `deepseek-asr`（§3）；均不列出模型。 |
+| **2026-11-19（[#356](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/356)）** | GPT-Transcribe（端点 `/v1/audio/transcriptions`）：`openai-official` 经 `openai-transcription` 服务 `gpt-transcribe`（§3），按完整 id 匹配，因 OpenAI 只列出 `gpt-transcribe` 这一个别名。 |
 
 ## 2. Conventions and Terminology
 

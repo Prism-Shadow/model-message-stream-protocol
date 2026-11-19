@@ -17,23 +17,24 @@ import { ThinkingLevel, type UniConfig } from "../../types";
 import { openaiImageDetail } from "../../utils";
 
 /**
- * Older GPT-5.x models and the two GPT-6 models that still accept the "none"
- * reasoning effort. A gateway serving GPT-6 Astra, GPT-6.1 Sol, GPT-6.2 Astra
- * or GPT-6.2 Sol forwards the effort to OpenAI, which rejects "none" and
- * "minimal" with a 400 (verified live 2026-09-09 against api.openai.com;
- * OpenRouter answers GPT-6.2's "none" with 400 "Reasoning is mandatory for
- * this endpoint", verified live 2026-11-18); GPT-5.6, GPT-6 Luna and GPT-6.1
- * Terra accept it, on OpenRouter too (verified live 2026-10-14 and 2026-11-02).
+ * The models this plugin runs on that take the "none" reasoning effort, the
+ * same list openai-official keeps: GPT-5.6, GPT-6 Luna and GPT-6.1 Terra accept
+ * it, on OpenRouter too (verified live 2026-10-14 and 2026-11-02). A gateway
+ * serving GPT-6 Astra, GPT-6.1 Sol, GPT-6.2 Astra or GPT-6.2 Sol forwards the
+ * effort to OpenAI, which rejects "none" and "minimal" with a 400 (verified
+ * live 2026-09-09 against api.openai.com; OpenRouter answers GPT-6.2's "none"
+ * with 400 "Reasoning is mandatory for this endpoint", verified live
+ * 2026-11-18).
  */
 const NONE_EFFORT_MODELS = ["gpt-5.", "gpt-6-luna", "gpt-6.1-terra"];
 
 /**
  * What GPT-5.6 and GPT-6 need of a Responses endpoint that forwards to OpenAI.
  *
- * The newest GPT-6 models have no off switch, so `none` runs at the lowest effort they accept
- * unless the model is in `NONE_EFFORT_MODELS`. And both generations read an image at its own size
- * by default and refuse one over 30,000 patches, so an image part of a message or of a tool result
- * asks for `detail: "high"`, which has the API fit the image into its patch budget instead.
+ * The rest of GPT-6 has no off switch, so `none` runs at the lowest effort it accepts. And both
+ * generations read an image at its own size by default and refuse one over 30,000 patches, so an
+ * image part of a message or of a tool result asks for `detail: "high"`, which has the API fit the
+ * image into its patch budget instead.
  */
 export class GptPlugin extends ClientPlugin {
   static readonly models = "gpt-5\\.6|gpt-6";
@@ -43,10 +44,11 @@ export class GptPlugin extends ClientPlugin {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     request: Record<string, any>,
   ): Promise<void> {
+    // `models` matches regardless of case, so this does too
     const model = this.model.toLowerCase();
     if (
       config.thinking_level === ThinkingLevel.NONE &&
-      !NONE_EFFORT_MODELS.some((legacy) => model.includes(legacy))
+      !NONE_EFFORT_MODELS.some((version) => model.includes(version))
     ) {
       request.reasoning.effort = "low";
     }
