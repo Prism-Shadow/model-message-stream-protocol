@@ -3,6 +3,7 @@
 - **Date:** 2026-11-20
 - **Type:** fix
 - **Scope:** `google-official`, `google-genai`, `tests`
+- **PR:** [#355](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/355)
 
 [English](2026-11-20-empty-tts-config-parity.md)
 
