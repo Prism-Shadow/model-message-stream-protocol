@@ -455,6 +455,33 @@ async def test_gemini_speech_on_an_openai_compatible_endpoint_defaults_its_voice
     ]
 
 
+@pytest.mark.parametrize("config", [{}, {"tts_config": None}, {"tts_config": []}], ids=["absent", "none", "empty"])
+@pytest.mark.parametrize(
+    ("model", "client_type", "base_path", "sent"),
+    [
+        (
+            "fish-audio/drama-3",
+            "openai-speech",
+            "/v1",
+            ("/v1/audio/speech", {"model": "fish-audio/drama-3", "input": "Hi"}),
+        ),
+        ("deepseek-tts", "deepseek-official", "", ("/v1/tools/tts", {"text": "Hi", "format": "pcm"})),
+    ],
+)
+@pytest.mark.asyncio
+async def test_speech_without_a_speaker_sends_no_voice(
+    media_server: str,
+    model: str,
+    client_type: str,
+    base_path: str,
+    sent: tuple[str, dict[str, Any]],
+    config: dict[str, Any],
+):
+    await _run(model, client_type, f"{media_server.removesuffix('/v1')}{base_path}", [_text("Hi")], config)
+
+    assert [(request["path"], request["body"]) for request in _MediaServer.requests] == [sent]
+
+
 @pytest.fixture
 def cut_speech_server() -> Iterator[str]:
     """A speech endpoint whose chunked answer breaks off before its last chunk, as DeepSeek's does when

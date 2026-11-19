@@ -86,7 +86,7 @@ MMSP（Model Message Stream Protocol，模型消息流协议）为所有模型�
 | `google-genai`             | Google generateContent（Vertex AI、Gemini API、兼容网关）                | `GEMINI_API_KEY`, `GEMINI_BASE_URL`       |
 | `mmsp`                     | MMSP 流协议（对接 [MMSP Server](#mmsp-server)）                          | `MMSP_API_KEY`, `MMSP_BASE_URL`           |
 
-当模型 ID 以已知家族前缀开头（`gpt-`、`text-embedding-`、`claude-`、`gemini-`、`deepseek-`、`kimi-`、`glm-`、`minimax-`）时，可省略 `client_type`。图像生成、语音合成、语音识别、网页搜索/抓取等客户端，以及 Vertex AI、Amazon Bedrock 与各网关的配置详见[模型与端点](https://mmsp.penguin.ooo/zh/docs/models/)。
+当模型 ID 以已知家族前缀开头（`gpt-`、`text-embedding-`、`claude-`、`gemini-`、`deepseek-`、`kimi-`、`glm-`、`minimax-`、`jina-`）时，可省略 `client_type`；其他模型 ID 必须指定。图像生成、语音合成、语音识别、网页搜索/抓取等客户端，以及 Vertex AI、Amazon Bedrock 与各网关的配置详见[模型与端点](https://mmsp.penguin.ooo/zh/docs/models/)。
 
 在代码中查询内置模型注册表：
 
@@ -288,7 +288,7 @@ os.environ["ZAI_API_KEY"] = "your-openrouter-api-key"
 os.environ["ZAI_BASE_URL"] = "https://openrouter.ai/api/v1"
 
 async def main():
-    client = AutoLLMClient(model="z-ai/glm-5.3")
+    client = AutoLLMClient(model="z-ai/glm-5.3", client_type="zai-official")
     async for event in client.streaming_response_stateful(
         message={
             "role": "user",
@@ -311,7 +311,7 @@ process.env.ZAI_API_KEY = "your-openrouter-api-key";
 process.env.ZAI_BASE_URL = "https://openrouter.ai/api/v1";
 
 async function main() {
-  const client = new AutoLLMClient({ model: "z-ai/glm-5.3" });
+  const client = new AutoLLMClient({ model: "z-ai/glm-5.3", clientType: "zai-official" });
   for await (const event of client.streamingResponseStateful({
     message: {
       role: "user",
@@ -382,7 +382,7 @@ main().catch(console.error);
 ```
 </details>
 
-### SiliconFlow Qwen3 Embedding 0.6B（通过 OpenAI 兼容 API）
+### SiliconFlow Qwen3 Embedding 8B（通过 OpenAI 兼容 API）
 
 <details><summary><strong>Python 示例</strong></summary>
 
@@ -395,7 +395,7 @@ os.environ["OPENAI_API_KEY"] = "your-siliconflow-api-key"
 os.environ["OPENAI_BASE_URL"] = "https://api.siliconflow.cn/v1"
 
 async def main():
-    client = AutoLLMClient(model="Qwen/Qwen3-Embedding-0.6B", client_type="openai-embedding")
+    client = AutoLLMClient(model="Qwen/Qwen3-Embedding-8B", client_type="openai-embedding")
 
     async for event in client.streaming_response_stateful(
         message={
@@ -420,7 +420,7 @@ process.env.OPENAI_BASE_URL = "https://api.siliconflow.cn/v1";
 
 async function main() {
   const client = new AutoLLMClient({
-    model: "Qwen/Qwen3-Embedding-0.6B",
+    model: "Qwen/Qwen3-Embedding-8B",
     clientType: "openai-embedding",
   });
   for await (const event of client.streamingResponseStateful({

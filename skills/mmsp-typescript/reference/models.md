@@ -109,7 +109,7 @@ For models accessed through OpenAI-compatible APIs (e.g., Qwen series models via
 
 ```typescript
 const client = new AutoLLMClient({
-  model: "Qwen/Qwen3-Embedding-0.6B",
+  model: "Qwen/Qwen3-Embedding-8B",
   clientType: "openai-embedding",
   baseUrl: "https://api.siliconflow.cn/v1",
   apiKey: process.env.SILICONFLOW_API_KEY,

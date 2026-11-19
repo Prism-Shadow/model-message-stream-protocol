@@ -8,8 +8,8 @@ import tailwindcss from "@tailwindcss/vite";
 const rfcSlugs = readdirSync(new URL("../design/rfcs", import.meta.url))
   .filter((name) => /^MMSP-RFC-\d{4}-.+\.md$/.test(name) && !name.endsWith(".zh.md"))
   .map((name) => name.slice(0, -".md".length).toLowerCase());
-// the RFCs were renumbered twice on 2026-10-24 (MMSP-RFC-0001 §5); each old page sends its reader to
-// the specification that holds its content, in one hop
+// the RFCs were renumbered twice on 2026-10-24 and once on 2026-11-18 (MMSP-RFC-0001 §5); each old page
+// sends its reader to the specification that holds its content, in one hop
 const renumbered = {
   // 0.5.5 slugs
   "mmsp-rfc-0002-one-protocol": "mmsp-rfc-0002-message-protocol",
@@ -35,6 +35,7 @@ const renumbered = {
   "mmsp-rfc-0011-explicit-parameters": "mmsp-rfc-0003-message-requests",
   "mmsp-rfc-0012-interruptible-requests": "mmsp-rfc-0008-request-interruption",
   "mmsp-rfc-0013-direct-implementation": "mmsp-rfc-0009-protocol-conversion",
+  // the slug the contiguous renumbering (#347) replaced
   "mmsp-rfc-0014-prompt-cache-sessions": "mmsp-rfc-0011-prompt-cache-sessions",
 };
 const moved = Object.fromEntries([

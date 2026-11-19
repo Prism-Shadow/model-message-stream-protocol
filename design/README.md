@@ -23,7 +23,7 @@ Every **specification** MMSP conforms to and every **protocol or public API deci
 - **Kinds**: `spec` fixes a concept, protocol, or algorithm; `change` modifies the protocol or public API; `process` defines how `design/` works.
 - **Statuses**: `Accepted` or `Superseded by MMSP-RFC-NNNN`. Specifications in force are the `Accepted` `spec` rows.
 - **Unmerged RFCs**: A proposed RFC is an open PR (`gh pr list --search "MMSP-RFC-"`) and a withdrawn RFC is a closed PR; neither appears in the table.
-- **Historical numbering**: RFCs were renumbered twice on 2026-10-24; see [MMSP-RFC-0001](rfcs/MMSP-RFC-0001-rfc-process.md#5-numbering) §5 for the 0.5.5 and first-renumbering mapping.
+- **Historical numbering**: RFCs were renumbered twice on 2026-10-24, and MMSP-RFC-0014 became MMSP-RFC-0011 on 2026-11-18; see [MMSP-RFC-0001](rfcs/MMSP-RFC-0001-rfc-process.md#5-numbering) §5 for the mappings.
 
 | File | Holds |
 | --- | --- |
@@ -60,7 +60,7 @@ Accepted RFCs (including specifications) are **edited in place**:
 3. **Open PR**: Add a changelog entry (`Type: process`, `Scope: design`) and run `gh pr create --base dev` titled `MMSP-RFC-NNNN: <what changed>`.
 
 - **Superseding a specification**: Replacing a spec entirely requires a new RFC with `Supersedes:`. Its PR appends `- Superseded by: [MMSP-RFC-NNNN](MMSP-RFC-NNNN-<slug>.md)` to the old metadata in both languages and updates the old index row.
-- **PR state and implementation**: Open PR = proposed, merged = accepted, closed = withdrawn (number spent). An implementation PR for a `change` RFC adds `- Implementation PR: [#N](<url>)` after `RFC PR` and links the RFC in its changelog entry.
+- **PR state and implementation**: Open PR = proposed, merged = accepted, closed = withdrawn. An implementation PR for a `change` RFC adds `- Implementation PR: [#N](<url>)` after `RFC PR` and links the RFC in its changelog entry.
 
 ## Writing rules
 
