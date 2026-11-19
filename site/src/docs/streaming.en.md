@@ -83,7 +83,7 @@ An embedding model streams one `embedding.delta` and one `embedding.done` per me
 
 ## Web search and fetch
 
-A web tool model (`deepseek-search`, `deepseek-fetch`, `jina-search`, `jina-fetch`) streams one `webtool.delta` and one `webtool.done` per message you sent, then the `stop` event. A message's text is the query of a search or the URL of a fetch. A search's `webdata` holds its results in rank order, each with its summary as `content`, and is empty when it found nothing; a fetch's holds the one page, with its Markdown as `content`. The `stop` event's `prompt_tokens` is what was billed: 1,000 per request on DeepSeek, which bills by the request, so that its price per million tokens is the price of 1,000 requests, and the tokens Jina counts on Jina.
+A web tool model (`deepseek-search`, `deepseek-fetch`, `jina-search`, `jina-fetch`) streams one `webtool.delta` and one `webtool.done` per message you sent, then the `stop` event. A message's text is the query of a search or the URL of a fetch. A search's `webdata` holds its results in rank order, each with its summary as `content`, and is empty when it found nothing; a fetch's holds the one page, with its Markdown as `content`. The `stop` event's `prompt_tokens` is what was billed: on DeepSeek, which bills by the request, 1,000 for each search that found results and each fetch that returned the page's Markdown, and 0 for one that did not, so that its price per million tokens is the price of 1,000 billed requests; on Jina, the tokens Jina counts.
 
 ## Images, speech and transcription
 

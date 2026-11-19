@@ -97,9 +97,14 @@ describe("web tools", () => {
       req.on("data", (chunk) => (raw += chunk));
       req.on("end", () => {
         const path = req.url ?? "";
-        requests.push({ path, headers: req.headers, body: JSON.parse(raw) });
+        const body = JSON.parse(raw);
+        requests.push({ path, headers: req.headers, body });
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(ANSWERS[path]));
+        let answer = ANSWERS[path];
+        if (body.query === "no matches") answer = { results: [] };
+        if (body.url === "https://empty.example/")
+          answer = { title: "Empty", content: "" };
+        res.end(JSON.stringify(answer));
       });
     });
     await new Promise<void>((resolve) => {
@@ -167,7 +172,7 @@ describe("web tools", () => {
       url: "https://example.com/v4",
     };
     expect(webdata(events)).toEqual([[page], [page]]);
-    // DeepSeek bills each request, counted as 1,000 tokens
+    // DeepSeek bills each search that found results, counted as 1,000 tokens
     expect(events[events.length - 1].usage_metadata?.prompt_tokens).toBe(2000);
     expect(events[events.length - 1].finish_reason).toBe("stop");
   });
@@ -191,6 +196,25 @@ describe("web tools", () => {
     ]);
     expect(events[events.length - 1].usage_metadata?.prompt_tokens).toBe(1000);
   });
+
+  test.each([
+    ["deepseek-search", "no matches", "has matches"],
+    ["deepseek-fetch", "https://empty.example/", "https://full.example/"],
+  ])(
+    "%s keeps empty answers but meters only billable ones",
+    async (model, empty, full) => {
+      const emptyEvents = await run(model, [text(empty)], {});
+      expect(webdata(emptyEvents)).toHaveLength(1);
+      expect(
+        emptyEvents[emptyEvents.length - 1]?.usage_metadata?.prompt_tokens,
+      ).toBe(0);
+      const mixedEvents = await run(model, [text(empty), text(full)], {});
+      expect(webdata(mixedEvents)).toHaveLength(2);
+      expect(
+        mixedEvents[mixedEvents.length - 1]?.usage_metadata?.prompt_tokens,
+      ).toBe(1000);
+    },
+  );
 
   test("a Jina search asks for the descriptions only and counts the tokens Jina bills", async () => {
     const events = await run("jina-search", [text("Jina"), text("Reader")], {

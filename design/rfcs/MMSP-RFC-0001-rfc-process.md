@@ -3,7 +3,7 @@
 - Feature Name: `rfc_process`
 - Start Date: 2026-10-19
 - RFC PR: [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265)
-- Updated by: [#285](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/285), [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298), [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301), [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#341](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/341), [#347](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/347)
+- Updated by: [#285](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/285), [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298), [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301), [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#341](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/341), [#347](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/347), [#354](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/354)
 - Kind: process
 
 [中文版](MMSP-RFC-0001-rfc-process.zh.md)
@@ -21,6 +21,7 @@ Adopt `design/` so every **specification** MMSP conforms to and every **protocol
   - **2026-10-24 ([#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298), [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301))**: Per the owner's direction ("RFC 应该是讨论一些软件里必须固定下来的概念、协议、定律、算法，比如 IETF RFC-8200: IPv6 Specification 的标题就是名词"), reshaped RFCs after IETF [RFC 8200](https://datatracker.ietf.org/doc/html/rfc8200) to specify fixed concepts, protocols, or algorithms with noun titles.
   - **2026-11-02 ([#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308))**: Switched accepted RFCs to **in-place edits** ("原地修改吧") after web search and page fetch required rewriting four full bilingual spec RFCs for a single feature.
   - **2026-11-18 ([#341](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/341))**: Added the visual-hierarchy rule ("RFC 太啰嗦了，没有主次分明，优化一下，让阅读障碍的人也能看懂") — 1–3 sentence abstracts, separated revision tables in `Introduction`, one bullet per term in `Conventions and Terminology`, and bold lead-in bullets or tables in place of prose walls.
+  - **2026-11-18 ([#347](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/347))**: Renumbered MMSP-RFC-0014 Prompt Cache Sessions to MMSP-RFC-0011 so the RFCs run contiguously, and changed the rule from the next unused number, never reused, to the next consecutive number (§5).
 
 ## 2. Conventions and Terminology
 
@@ -74,7 +75,8 @@ Each RFC takes the next consecutive `MMSP-RFC-NNNN` after the highest number in 
 | — | MMSP-RFC-0012 A request can be interrupted | [MMSP-RFC-0008](MMSP-RFC-0008-request-interruption.md) |
 | — | — | [MMSP-RFC-0010](MMSP-RFC-0010-trace-recording.md), new |
 
-- **Redirects**: The site redirects all URLs from both earlier numbering sets to the current documents.
+- **Contiguous renumbering**: On 2026-11-18, [#347](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/347) renumbered MMSP-RFC-0014 Prompt Cache Sessions to [MMSP-RFC-0011](MMSP-RFC-0011-prompt-cache-sessions.md). An MMSP-RFC-0011 in the first two columns above is the earlier document of that number, not Prompt Cache Sessions.
+- **Redirects**: The site redirects all URLs from every earlier numbering to the current documents.
 
 ## 6. Pointers and Site
 

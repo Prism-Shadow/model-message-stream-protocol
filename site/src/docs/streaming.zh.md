@@ -83,7 +83,7 @@ stop   usage_metadata={...}  finish_reason="tool_call"
 
 ## 网页搜索与网页抓取
 
-网页工具模型（`deepseek-search`、`deepseek-fetch`、`jina-search`、`jina-fetch`）对你发送的每条消息流式输出一个 `webtool.delta` 和一个 `webtool.done`，最后是 `stop` 事件。消息的文本就是搜索的查询或抓取的 URL。搜索的 `webdata` 按排名存放结果，每条的 `content` 是摘要，什么也没搜到时为空列表；抓取的 `webdata` 只有读到的那一页，`content` 是它的 Markdown。`stop` 事件的 `prompt_tokens` 是计费量：DeepSeek 按请求计费，每次请求记 1,000，这样它每百万 token 的价格就是 1,000 次请求的价格；Jina 记它计费的 token 数。
+网页工具模型（`deepseek-search`、`deepseek-fetch`、`jina-search`、`jina-fetch`）对你发送的每条消息流式输出一个 `webtool.delta` 和一个 `webtool.done`，最后是 `stop` 事件。消息的文本就是搜索的查询或抓取的 URL。搜索的 `webdata` 按排名存放结果，每条的 `content` 是摘要，什么也没搜到时为空列表；抓取的 `webdata` 只有读到的那一页，`content` 是它的 Markdown。`stop` 事件的 `prompt_tokens` 是计费量：DeepSeek 按请求计费，搜到结果的搜索和返回了网页 Markdown 的抓取每次记 1,000，其余记 0，这样它每百万 token 的价格就是 1,000 次计费请求的价格；Jina 记它计费的 token 数。
 
 ## 图像、语音合成与语音转写
 
