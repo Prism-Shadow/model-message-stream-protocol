@@ -3,6 +3,7 @@
 - **Date:** 2026-11-20
 - **Type:** process
 - **Scope:** `design`
+- **PR:** [#353](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/353)
 
 [English](2026-11-20-webtool-billed-requests-rfc.md)
 
