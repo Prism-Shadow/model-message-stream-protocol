@@ -534,6 +534,18 @@ def test_gemini_image_config_resolution_is_image_size():
     assert image_config.aspect_ratio is None
 
 
+@pytest.mark.parametrize("config", [{}, {"tts_config": None}, {"tts_config": []}], ids=["absent", "none", "empty"])
+def test_gemini_tts_without_a_speaker_speaks_in_kore_on_both_google_clients(config: dict[str, Any]):
+    official = AutoLLMClient(model="gemini-3.8-flash-tts", api_key="test-key")._client  # noqa: SLF001
+    request = official.transform_uni_config_to_model_config(config)
+    assert request["generation_config"]["speech_config"] == [{"voice": "Kore"}]
+
+    genai = AutoLLMClient(model="gemini-3.8-flash-tts", api_key="test-key", client_type="google-genai")._client  # noqa: SLF001
+    speech_config = genai.transform_uni_config_to_model_config(config).speech_config
+    assert speech_config.voice_config.prebuilt_voice_config.voice_name == "Kore"
+    assert speech_config.multi_speaker_voice_config is None
+
+
 @pytest.mark.parametrize(
     "config",
     [
