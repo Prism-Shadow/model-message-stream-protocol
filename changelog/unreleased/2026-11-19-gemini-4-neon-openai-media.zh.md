@@ -3,6 +3,7 @@
 - **Date:** 2026-11-19
 - **Type:** feature
 - **Scope:** `google-official`, `openai-official`, `openai-speech`, `registry`, `credentials`
+- **PR:** [#352](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/352)
 
 [English](2026-11-19-gemini-4-neon-openai-media.md)
 
@@ -23,5 +24,5 @@
   - OpenAI 上的 `gpt-transcribe`（`openai-official`，输入音频，输出文本，每百万秒 $75.00 = $0.0045/分钟）与 OpenRouter 上的 `openai/gpt-transcribe`（`openai-transcription`，输入音频，输出文本，每百万秒 $75.00）。
   - OpenRouter 上的 `google/gemini-3.8-flash-tts` 与 `google/gemini-3.8-flash-lite-tts`（`openai-speech`，输入文本，输出音频）。
   - TokenDance 上的 `deepseek-asr`（`https://tokendance.space/gateway/deepseek` 上的 `deepseek-transcription`，输入音频，输出文本，每百万秒 ¥110.00 = ¥0.00011/秒）。
-- 共享测试目录（`models.json`）将 `gpt-image-2.5-flare` 替换为 `gpt-image-2.6-flare`，并在 `openai-transcription` 下新增 `gpt-transcribe`。
+- 共享测试目录（`models.json`）将 `gpt-image-2.5-flare` 替换为 `gpt-image-2.6-flare`，在 `openai-transcription` 下新增 `gpt-transcribe`，并在 `openai-speech` 下新增 OpenRouter 的 `google/gemini-3.8-flash-tts`。
 - 文档（`site/src/docs/usage.{en,zh}.md`、`models.{en,zh}.md`、`configuration.{en,zh}.md`）与 MMSP 技能文件（`skills/mmsp-python/`、`skills/mmsp-typescript/`）同步补充了新模型、反转后的思考档位映射表，以及多模态/非 Token `usage_metadata` 与 `list_supported_models()` 的统一计费换算说明。

@@ -451,6 +451,15 @@
         "support_tts": true,
         "provider": "openrouter",
         "client_type": "openai-speech"
+      },
+      {
+        "api_key_env": "OPENROUTER_API_KEY",
+        "name": "google/gemini-3.8-flash-tts",
+        "support_text": false,
+        "support_image_understanding": false,
+        "support_tts": true,
+        "provider": "openrouter",
+        "client_type": "openai-speech"
       }
     ]
   },

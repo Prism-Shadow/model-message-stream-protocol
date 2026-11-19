@@ -3,6 +3,7 @@
 - **Date:** 2026-11-19
 - **Type:** feature
 - **Scope:** `google-official`, `openai-official`, `openai-speech`, `registry`, `credentials`
+- **PR:** [#352](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/352)
 
 [中文版](2026-11-19-gemini-4-neon-openai-media.zh.md)
 
@@ -23,5 +24,5 @@
   - `gpt-transcribe` on OpenAI (`openai-official`, Audio in, Text out, $75.00 per 1M seconds = $0.0045/min) and `openai/gpt-transcribe` on OpenRouter (`openai-transcription`, Audio in, Text out, $75.00 per 1M seconds).
   - `google/gemini-3.8-flash-tts` and `google/gemini-3.8-flash-lite-tts` on OpenRouter (`openai-speech`, Text in, Audio out).
   - `deepseek-asr` on TokenDance (`deepseek-transcription` at `https://tokendance.space/gateway/deepseek`, Audio in, Text out, ¥110.00 per 1M seconds = ¥0.00011/s).
-- The shared test catalog (`models.json`) replaced `gpt-image-2.5-flare` with `gpt-image-2.6-flare` and added `gpt-transcribe` under `openai-transcription`.
+- The shared test catalog (`models.json`) replaced `gpt-image-2.5-flare` with `gpt-image-2.6-flare`, added `gpt-transcribe` under `openai-transcription`, and added OpenRouter's `google/gemini-3.8-flash-tts` under `openai-speech`.
 - Documentation (`site/src/docs/usage.{en,zh}.md`, `models.{en,zh}.md`, `configuration.{en,zh}.md`) and the MMSP skills (`skills/mmsp-python/`, `skills/mmsp-typescript/`) documented the new models, flipped thinking-level tables, and multimodal/non-token `usage_metadata` billing alignment with `list_supported_models()`.
