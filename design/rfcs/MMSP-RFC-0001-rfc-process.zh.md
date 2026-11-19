@@ -3,7 +3,7 @@
 - Feature Name: `rfc_process`
 - Start Date: 2026-10-19
 - RFC PR: [#265](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/265)
-- Updated by: [#285](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/285), [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298), [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301), [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#341](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/341), [#347](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/347)
+- Updated by: [#285](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/285), [#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298), [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301), [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#341](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/341), [#347](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/347), [#354](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/354)
 - Kind: process
 
 [English](MMSP-RFC-0001-rfc-process.md)

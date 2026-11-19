@@ -3,6 +3,7 @@
 - **Date:** 2026-11-20
 - **Type:** process
 - **Scope:** `design`, `site`, `skills`, `utils`
+- **PR:** [#354](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/354)
 
 [English](2026-11-20-readme-routing-and-rfc-renumbering-record.md)
 
