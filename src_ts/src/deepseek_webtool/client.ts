@@ -193,7 +193,7 @@ export class DeepSeekWebtoolClient extends LLMClient {
     signal?: AbortSignal;
   }): AsyncGenerator<UniEvent> {
     const params = this.transformUniConfigToModelConfig(options.config);
-    let requests = 0;
+    let billable = 0;
     for (const text of this.transformUniMessageToModelInput(options.messages)) {
       const body =
         this._tool === "search"
@@ -203,19 +203,26 @@ export class DeepSeekWebtoolClient extends LLMClient {
         `/v1/tools/${this._tool}`,
         { body, signal: options.signal },
       );
-      requests += 1;
+      // DeepSeek bills only a search with results and a fetch with the page's Markdown
+      if (
+        this._tool === "search"
+          ? (answer as SearchAnswer).results.length > 0
+          : Boolean((answer as FetchAnswer).content)
+      ) {
+        billable += 1;
+      }
       yield this.transformModelOutputToUniEvent([text, answer]);
     }
 
-    // DeepSeek bills a request, not tokens: each counts as 1,000 prompt tokens (MMSP-RFC-0003
-    // §3.2), so the price per million tokens is the price of 1,000 requests
+    // DeepSeek bills a request, not tokens: each billed request counts as 1,000 prompt tokens
+    // (MMSP-RFC-0003 §3.2), so the price per million tokens is the price of 1,000 billed requests
     yield {
       role: "assistant",
       event_type: "stop",
       content_items: [],
       usage_metadata: {
         cached_tokens: null,
-        prompt_tokens: requests * 1000,
+        prompt_tokens: billable * 1000,
         thoughts_tokens: null,
         response_tokens: null,
       },
