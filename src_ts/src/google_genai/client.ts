@@ -380,7 +380,10 @@ export class GoogleGenaiClient extends LLMClient {
     // 2026-08-20), so the rest of the universal config never reaches the request.
     if (this._model.toLowerCase().includes("tts")) {
       configParams.responseModalities = ["AUDIO"];
-      const ttsConfig = config.tts_config ?? [{ voice: "Kore" }];
+      // an empty tts_config is unset, as on openai-speech and deepseek-speech
+      const ttsConfig = config.tts_config?.length
+        ? config.tts_config
+        : [{ voice: "Kore" }];
       if (![1, 2].includes(ttsConfig.length)) {
         throw new UnsupportedParameterError({
           client: this.constructor.name,
