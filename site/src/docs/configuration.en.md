@@ -135,11 +135,11 @@ Each client sends the level as its protocol's effort: `output_config.effort` wit
 | --- | --- | --- | --- | --- | --- | --- |
 | `anthropic-official`: Claude Sonnet 5.5 | `between_tools` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `anthropic-official`: Claude 4.6 | `disabled` | `low` | `medium` | `high` | `high` | `max` |
-| `anthropic-official`: Claude 4.7, 4.8, Opus 5, Sonnet 5; `ant-messages` | `disabled` | `low` | `medium` | `high` | `xhigh` | `max` |
+| `anthropic-official`: Claude 4.5, 4.7, 4.8, Opus 5, Sonnet 5; `ant-messages` | `disabled` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `anthropic-official`: Claude Opus 5.5, Haiku 5.5, Fable 5, Fable 5.1, and other Claude models | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
-| `openai-official`, `openai-responses`: GPT-5 models, GPT-6 Luna, GPT-6.1 Terra | `none` | `low` | `medium` | `high` | `xhigh` | `max` |
-| `openai-official`: other models; `openai-responses`: other GPT models | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
-| `openai-responses`: non-GPT models | `none` | `low` | `medium` | `high` | `xhigh` | `max` |
+| `openai-official`, `openai-responses`: GPT-5.1 to GPT-5.6, GPT-6 Luna, GPT-6.1 Terra | `none` | `low` | `medium` | `high` | `xhigh` | `max` |
+| `openai-official`: other models, GPT-5 itself included; `openai-responses`: other GPT-6 models | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
+| `openai-responses`: other models | `none` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `openai-chat`: on Mistral's endpoint, a model that reasons | not sent | `low` | `high` | `high` | `xhigh` | `max` |
 | `openai-chat`: other models | not sent | not sent | not sent | not sent | not sent | not sent |
 | `deepseek-official` | `none` | `low` | `high` | `high` | `high` | `max` |
@@ -147,14 +147,15 @@ Each client sends the level as its protocol's effort: `output_config.effort` wit
 | `minimax-official`: MiniMax-M3.1-Flash and other MiniMax models | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `moonshot-official`: Kimi K2 | `disabled` | `enabled` | `enabled` | `enabled` | `enabled` | `enabled` |
 | `moonshot-official`: Kimi K3, Kimi K3.1 Pro, and other Kimi models | `none` | `low` | `high` | `high` | `max` | `max` |
-| `zai-official`: GLM-4.x, GLM-5, GLM-5.1, GLM-5.2, GLM-5-Turbo, GLM-5V | `disabled` | `low` | `medium` | `high` | `xhigh` | `max` |
+| `zai-official`: GLM-4 models, GLM-5 (GLM-5-Turbo and GLM-5V-Turbo too), GLM-5.1, GLM-5.2 | `disabled` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `zai-official`: GLM-5.3, GLM-5.3-Flash, and other GLM models | `low` | `low` | `high` | `high` | `max` | `max` |
 | `google-official`, `google-genai`: Gemini Omni | `low` | `low` | `high` | `high` | `high` | `high` |
 | `google-official`: Gemini 4 Hydrogen, Gemini 4 Neon | `low` | `low` | `medium` | `high` | `xhigh` | `xhigh` |
 | `google-official`, `google-genai`: Nano Banana (`gemini-nano-banana-2.1`) | `minimal` | `medium` | `medium` | `high` | `high` | `high` |
 | `google-official`, `google-genai`: other image models | `minimal` | `minimal` | `high` | `high` | `high` | `high` |
-| `google-official`, `google-genai`: Gemini 3 Pro | `low` | `low` | `high` | `high` | `high` | `high` |
-| `google-official`, `google-genai`: Gemini 3 Flash, 3.1 Flash-Lite, 3.5 Flash, 3.6 Flash, Robotics | `minimal` | `low` | `medium` | `high` | `high` | `high` |
+| `google-genai`: Gemini 2.5 | not sent | not sent | not sent | not sent | not sent | not sent |
+| `google-official`: Gemini 2.5; `google-official`, `google-genai`: Gemini 3 Pro | `low` | `low` | `high` | `high` | `high` | `high` |
+| `google-official`, `google-genai`: Gemini 3 Flash, 3.1 Flash-Lite, 3.5 Flash, 3.5 Flash-Lite, 3.6 Flash, Robotics | `minimal` | `low` | `medium` | `high` | `high` | `high` |
 | `google-official`, `google-genai`: other Gemini models | `low` | `low` | `medium` | `high` | `high` | `high` |
 
 `openai-chat-vllm-adapter` sends no `reasoning_effort` either. It sets the switch the served model's chat template reads, as `chat_template_kwargs`:

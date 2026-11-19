@@ -118,9 +118,9 @@ class GoogleOfficialClient(LLMClient):
     # closest supported level when a model rejects the requested one.
     _GEMINI_LEVEL_ORDER = ("minimal", "low", "medium", "high", "xhigh")
 
-    # Older 3.x Flash and Robotics models that still accept "minimal" alongside low/medium/high.
-    # Starting with 3.7, and across every Pro and Gemini 4 model, "minimal" is rejected with a 400,
-    # so the default fallback is the safe three-level subset ("low", "medium", "high").
+    # The models that still take "minimal". Gemini 2.5, every Pro model, 3.7 onward and Gemini 4
+    # refuse it with a 400, so a model matched by no row gets the low/medium/high that all of them
+    # take, and a new generation inherits the newest one's levels rather than the oldest's.
     _MINIMAL_THINKING_MODELS = (
         "gemini-3-flash",
         "gemini-3.1-flash-lite",
@@ -130,28 +130,29 @@ class GoogleOfficialClient(LLMClient):
     )
 
     def _supported_thinking_levels(self) -> tuple[str, ...]:
-        """Thinking levels the target model accepts (llmsdk_docs/gemini_interactions/docs/thinking.md).
+        """Thinking levels the target model accepts (llmsdk_docs/gemini4/docs/thinking.md).
 
         An empty tuple means the model rejects the thinking_level parameter
         entirely, so it must be omitted from the request.
         """
-        if "gemini-omni" in self._model:
+        # family routing ignores case, so the generation markers do too
+        model = self._model.lower()
+        if "gemini-omni" in model:
             # "minimal" and "medium" are refused: "Allowed values are: high, low." (verified live 2026-11-06)
             return ("low", "high")
-        if "gemini-nano-banana" in self._model:
+        if "gemini-nano-banana" in model:
             # "low" and "xhigh" are refused: "Allowed values are: high, medium, minimal." (verified live 2026-11-19)
             return ("minimal", "medium", "high")
-        if "-image" in self._model:
+        if "-image" in model:
             return ("minimal", "high")
-        if "gemini-3-pro" in self._model:
-            # The only pro generation without "medium".
+        if any(version in model for version in ("gemini-3-pro", "gemini-2.5")):
+            # "medium" is refused too: "Allowed values are: high, low." (2.5 Flash and Pro verified live 2026-11-19)
             return ("low", "high")
-        if any(model in self._model for model in ("gemini-4-hydrogen", "gemini-4-neon")):
-            # Hydrogen and Neon support "xhigh"; "minimal" and "max" are refused (verified live 2026-11-16 and 2026-11-19)
+        if any(version in model for version in ("gemini-4-hydrogen", "gemini-4-neon")):
+            # the generations with "xhigh"; "minimal" and "max" are refused (verified live 2026-11-16 and 2026-11-19)
             return ("low", "medium", "high", "xhigh")
-        if any(model in self._model for model in self._MINIMAL_THINKING_MODELS):
+        if any(version in model for version in self._MINIMAL_THINKING_MODELS):
             return ("minimal", "low", "medium", "high")
-        # Default safe subset shared by 3.1+ Pro, 3.7+, and Gemini 4 models.
         return ("low", "medium", "high")
 
     def _convert_thinking_level(self, thinking_level: ThinkingLevel | None) -> str | None:

@@ -35,10 +35,13 @@ from ..types import (
 from ..utils import fix_openrouter_usage_metadata, openai_client_options, resolve_credentials
 
 
-# Older GLM generations (4.x through 5.2) that accept {"type": "disabled"} and the full
-# pass-through reasoning_effort vocabulary. GLM-5.3 and newer default to forced thinking and the
-# safe three-level subset ("low", "high", "max").
-_LEGACY_THINKING_GLM = ("glm-4.", "glm-5.1", "glm-5.2", "glm-5-turbo", "glm-5v")
+# The GLM generations before 5.3, which take {"type": "disabled"} and the whole reasoning_effort
+# vocabulary. GLM-5.3 forces thinking and takes only low/high/max, and a generation matched by no
+# row is sent what 5.3 takes, so a new one inherits the newest generation's contract. "glm-4"
+# covers GLM-4.x and the undotted GLM-4 ids (glm-4-32b-0414-128k); GLM-5 itself is a "glm-5" no
+# ".<minor>" follows, so its variants and a gateway's suffixes (glm-5-turbo, glm-5v-turbo,
+# z-ai/glm-5:exacto) count too.
+_LEGACY_THINKING_GLM = ("glm-4", "glm-5.1", "glm-5.2")
 
 
 class ZAIOfficialClient(LLMClient):
@@ -74,18 +77,14 @@ class ZAIOfficialClient(LLMClient):
         # Provider-hosted ids keep their own casing (e.g. SiliconFlow's zai-org/GLM-5.2),
         # so generation detection is case-insensitive.
         model = self._model.lower()
-        return (
-            model == "glm-5"
-            or model.endswith("/glm-5")
-            or any(legacy in model for legacy in _LEGACY_THINKING_GLM)
-        )
+        return any(legacy in model for legacy in _LEGACY_THINKING_GLM) or ("glm-5" in model and "glm-5." not in model)
 
     def _convert_thinking_level_to_config(self, thinking_level: ThinkingLevel) -> dict[str, str | bool]:
         """Convert ThinkingLevel enum to GLM's thinking configuration.
 
         GLM-5.3 uses forced thinking and errors on {"type": "disabled"}, so NONE stays
-        enabled by default and degrades through the lightest reasoning effort instead
-        (llmsdk_docs/glm5_3/docs/thinking.md); only pre-5.3 models send {"type": "disabled"}.
+        enabled there and degrades through the lightest reasoning effort instead
+        (llmsdk_docs/glm5_3/docs/thinking.md); the generations before it turn thinking off.
         """
         if thinking_level == ThinkingLevel.NONE and self._is_legacy_thinking_model():
             return {"type": "disabled"}
@@ -94,13 +93,13 @@ class ZAIOfficialClient(LLMClient):
     def _convert_thinking_level_to_reasoning_effort(self, thinking_level: ThinkingLevel) -> str | None:
         """Convert ThinkingLevel enum to the reasoning_effort the model accepts.
 
-        GLM-5.3 accepts only low/high/max and errors on anything else, so the default
+        GLM-5.3 accepts only low/high/max and errors on anything else, so the client
         clamps to the closest value; NONE rides on low because 5.3 cannot disable
-        thinking. Earlier generations (5.2 and below) take the vocabulary unchanged:
-        5.2 maps it server-side (low/medium to high, xhigh to max), and 5.1 and below
-        accept the parameter and ignore it (verified live 2026-09-03 on Z.AI, OpenRouter
-        and SiliconFlow), so the level is forwarded there rather than dropped, and NONE
-        disables thinking outright without an effort.
+        thinking. The generations before it take the vocabulary unchanged: 5.2 maps it
+        server-side (low/medium to high, xhigh to max), and 5.1 and below accept the
+        parameter and ignore it (verified live 2026-09-03 on Z.AI, OpenRouter and
+        SiliconFlow), so the level is forwarded there rather than dropped. There NONE
+        disables thinking outright, which leaves no effort to send.
         """
         if self._is_legacy_thinking_model():
             mapping = {

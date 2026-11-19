@@ -135,11 +135,11 @@ Claude Opus 5.5、Sonnet 5.5、Haiku 5.5 和 Fable 5.1 不能强制调用工具�
 | --- | --- | --- | --- | --- | --- | --- |
 | `anthropic-official`：Claude Sonnet 5.5 | `between_tools` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `anthropic-official`：Claude 4.6 | `disabled` | `low` | `medium` | `high` | `high` | `max` |
-| `anthropic-official`：Claude 4.7、4.8、Opus 5、Sonnet 5；`ant-messages` | `disabled` | `low` | `medium` | `high` | `xhigh` | `max` |
+| `anthropic-official`：Claude 4.5、4.7、4.8、Opus 5、Sonnet 5；`ant-messages` | `disabled` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `anthropic-official`：Claude Opus 5.5、Haiku 5.5、Fable 5、Fable 5.1 及其他 Claude 模型 | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
-| `openai-official`、`openai-responses`：GPT-5 系列、GPT-6 Luna、GPT-6.1 Terra | `none` | `low` | `medium` | `high` | `xhigh` | `max` |
-| `openai-official`：其他模型；`openai-responses`：其他 GPT 模型 | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
-| `openai-responses`：非 GPT 模型 | `none` | `low` | `medium` | `high` | `xhigh` | `max` |
+| `openai-official`、`openai-responses`：GPT-5.1 至 GPT-5.6、GPT-6 Luna、GPT-6.1 Terra | `none` | `low` | `medium` | `high` | `xhigh` | `max` |
+| `openai-official`：其他模型（含 GPT-5 本身）；`openai-responses`：其他 GPT-6 模型 | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
+| `openai-responses`：其他模型 | `none` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `openai-chat`：Mistral 端点上会推理的模型 | 不发送 | `low` | `high` | `high` | `xhigh` | `max` |
 | `openai-chat`：其他模型 | 不发送 | 不发送 | 不发送 | 不发送 | 不发送 | 不发送 |
 | `deepseek-official` | `none` | `low` | `high` | `high` | `high` | `max` |
@@ -147,14 +147,15 @@ Claude Opus 5.5、Sonnet 5.5、Haiku 5.5 和 Fable 5.1 不能强制调用工具�
 | `minimax-official`：MiniMax-M3.1-Flash 及其他 MiniMax 模型 | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `moonshot-official`：Kimi K2 | `disabled` | `enabled` | `enabled` | `enabled` | `enabled` | `enabled` |
 | `moonshot-official`：Kimi K3、Kimi K3.1 Pro 及其他 Kimi 模型 | `none` | `low` | `high` | `high` | `max` | `max` |
-| `zai-official`：GLM-4.x、GLM-5、GLM-5.1、GLM-5.2、GLM-5-Turbo、GLM-5V | `disabled` | `low` | `medium` | `high` | `xhigh` | `max` |
+| `zai-official`：GLM-4 系列、GLM-5（含 GLM-5-Turbo 与 GLM-5V-Turbo）、GLM-5.1、GLM-5.2 | `disabled` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `zai-official`：GLM-5.3、GLM-5.3-Flash 及其他 GLM 模型 | `low` | `low` | `high` | `high` | `max` | `max` |
 | `google-official`、`google-genai`：Gemini Omni | `low` | `low` | `high` | `high` | `high` | `high` |
 | `google-official`：Gemini 4 Hydrogen、Gemini 4 Neon | `low` | `low` | `medium` | `high` | `xhigh` | `xhigh` |
 | `google-official`、`google-genai`：Nano Banana（`gemini-nano-banana-2.1`） | `minimal` | `medium` | `medium` | `high` | `high` | `high` |
 | `google-official`、`google-genai`：其他图像模型 | `minimal` | `minimal` | `high` | `high` | `high` | `high` |
-| `google-official`、`google-genai`：Gemini 3 Pro | `low` | `low` | `high` | `high` | `high` | `high` |
-| `google-official`、`google-genai`：Gemini 3 Flash、3.1 Flash-Lite、3.5 Flash、3.6 Flash、Robotics | `minimal` | `low` | `medium` | `high` | `high` | `high` |
+| `google-genai`：Gemini 2.5 | 不发送 | 不发送 | 不发送 | 不发送 | 不发送 | 不发送 |
+| `google-official`：Gemini 2.5；`google-official`、`google-genai`：Gemini 3 Pro | `low` | `low` | `high` | `high` | `high` | `high` |
+| `google-official`、`google-genai`：Gemini 3 Flash、3.1 Flash-Lite、3.5 Flash、3.5 Flash-Lite、3.6 Flash、Robotics | `minimal` | `low` | `medium` | `high` | `high` | `high` |
 | `google-official`、`google-genai`：其他 Gemini 模型 | `low` | `low` | `medium` | `high` | `high` | `high` |
 
 `openai-chat-vllm-adapter` 同样不发送 `reasoning_effort`，而是以 `chat_template_kwargs` 设置所部署模型的对话模板读取的开关：

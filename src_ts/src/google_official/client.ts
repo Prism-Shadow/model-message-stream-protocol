@@ -176,9 +176,9 @@ export class GoogleOfficialClient extends LLMClient {
     "xhigh",
   ];
 
-  // Older 3.x Flash and Robotics models that still accept "minimal" alongside low/medium/high.
-  // Starting with 3.7, and across every Pro and Gemini 4 model, "minimal" is rejected with a 400,
-  // so the default fallback is the safe three-level subset ("low", "medium", "high").
+  // The models that still take "minimal". Gemini 2.5, every Pro model, 3.7 onward and Gemini 4
+  // refuse it with a 400, so a model matched by no row gets the low/medium/high that all of them
+  // take, and a new generation inherits the newest one's levels rather than the oldest's.
   private static readonly MINIMAL_THINKING_MODELS: readonly string[] = [
     "gemini-3-flash",
     "gemini-3.1-flash-lite",
@@ -188,42 +188,46 @@ export class GoogleOfficialClient extends LLMClient {
   ];
 
   /**
-   * Thinking levels the target model accepts (llmsdk_docs/gemini_interactions/docs/thinking.md).
+   * Thinking levels the target model accepts (llmsdk_docs/gemini4/docs/thinking.md).
    *
    * An empty array means the model rejects the thinking_level parameter
    * entirely, so it must be omitted from the request.
    */
   private _supportedThinkingLevels(): GeminiThinkingLevel[] {
-    if (this._model.includes("gemini-omni")) {
+    // family routing ignores case, so the generation markers do too
+    const model = this._model.toLowerCase();
+    if (model.includes("gemini-omni")) {
       // "minimal" and "medium" are refused: "Allowed values are: high, low." (verified live 2026-11-06)
       return ["low", "high"];
     }
-    if (this._model.includes("gemini-nano-banana")) {
+    if (model.includes("gemini-nano-banana")) {
       // "low" and "xhigh" are refused: "Allowed values are: high, medium, minimal." (verified live 2026-11-19)
       return ["minimal", "medium", "high"];
     }
-    if (this._model.includes("-image")) {
+    if (model.includes("-image")) {
       return ["minimal", "high"];
     }
-    if (this._model.includes("gemini-3-pro")) {
-      // The only pro generation without "medium".
+    if (
+      ["gemini-3-pro", "gemini-2.5"].some((version) => model.includes(version))
+    ) {
+      // "medium" is refused too: "Allowed values are: high, low." (2.5 Flash and Pro verified live 2026-11-19)
       return ["low", "high"];
     }
     if (
-      this._model.includes("gemini-4-hydrogen") ||
-      this._model.includes("gemini-4-neon")
+      ["gemini-4-hydrogen", "gemini-4-neon"].some((version) =>
+        model.includes(version),
+      )
     ) {
-      // Hydrogen and Neon support "xhigh"; "minimal" and "max" are refused (verified live 2026-11-16 and 2026-11-19)
+      // the generations with "xhigh"; "minimal" and "max" are refused (verified live 2026-11-16 and 2026-11-19)
       return ["low", "medium", "high", "xhigh"];
     }
     if (
-      GoogleOfficialClient.MINIMAL_THINKING_MODELS.some((model) =>
-        this._model.includes(model),
+      GoogleOfficialClient.MINIMAL_THINKING_MODELS.some((version) =>
+        model.includes(version),
       )
     ) {
       return ["minimal", "low", "medium", "high"];
     }
-    // Default safe subset shared by 3.1+ Pro, 3.7+, and Gemini 4 models.
     return ["low", "medium", "high"];
   }
 
