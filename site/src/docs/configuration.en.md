@@ -266,7 +266,7 @@ Gemini speech models, on both Google clients:
 
 | `tts_config` | Sent as |
 | --- | --- |
-| Not set | no voice: the endpoint's default voice (`stella` on DeepSeek; `Kore` for Gemini speech models on `openai-speech`) |
+| Not set | no voice: the endpoint's default voice (`stella` on DeepSeek); Gemini speech models on `openai-speech` are sent the voice `Kore` |
 | One entry | its `voice`, as `voice_id` on `deepseek-speech` (`stella` or `tide`) |
 | Two or more | raises |
 

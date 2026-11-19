@@ -266,7 +266,7 @@ Gemini 语音模型，两个 Google 客户端相同：
 
 | `tts_config` | 发送为 |
 | --- | --- |
-| 未设置 | 不发送音色：使用端点的默认音色（DeepSeek 上是 `stella`；`openai-speech` 上的 Gemini 语音模型发送为 `Kore`） |
+| 未设置 | 不发送音色：使用端点的默认音色（DeepSeek 上是 `stella`）；`openai-speech` 上的 Gemini 语音模型发送音色 `Kore` |
 | 一项 | 该项的 `voice`，在 `deepseek-speech` 上发送为 `voice_id`（`stella` 或 `tide`） |
 | 两项及以上 | 抛错 |
 
