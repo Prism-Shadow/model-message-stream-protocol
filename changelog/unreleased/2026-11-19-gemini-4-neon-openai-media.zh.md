@@ -9,10 +9,10 @@
 
 ## 变更内容
 
-- `google-official` 与 `google-genai` 将 `gemini-4-neon` 加入 `google-official` 的 `("low", "medium", "high", "xhigh")` 思考档位（`none` 映射为 `"low"`，`max` 映射为 `"xhigh"`；`google-genai` 受限于 SDK 的 `ThinkingLevel` 枚举上限，映射至 `("low", "medium", "high")`）。
+- `google-official` 与 `google-genai` 将 `gemini-4-neon` 加入 `google-official` 的 `("low", "medium", "high", "xhigh")` 思考档位（`none` 映射为 `"low"`，`max` 映射为 `"xhigh"`；`google-genai` 映射至 `("low", "medium", "high")`，因为 TypeScript 包仍接受的 `@google/genai` 2.x 没有 `XHIGH`）。
 - `openai-official` 在 `routed_client_type` / `routedClientType` 中除 `text-embedding-*`（`openai-embedding`）和 `gpt-image-*`（`openai-image`）外，新增将 `gpt-transcribe` 路由至 `openai-transcription`。
 - `openai-speech` 新增 `GeminiPlugin`（`models = r"gemini-.*tts"`），在未传入 `tts_config` 时将默认 `request["voice"]` 设为 `"Kore"`，使 OpenRouter 上的 `google/gemini-3.8-flash-tts` 与 `google/gemini-3.8-flash-lite-tts` 无需显式传入 `tts_config` 即可合成语音。
-- 各官方客户端将 `thinking_level` 的默认分支切换为最小安全子集，即厂商最新一代每个模型都接受的请求，并在小写化的模型 id 上显式匹配旧代模型（[MMSP-RFC-0003](../../design/rfcs/MMSP-RFC-0003-message-requests.zh.md#61-明确匹配) §6.1）：
+- 各官方客户端将 `thinking_level` 的默认分支切换为最小安全子集，即厂商最新一代每个模型都接受的请求，并在小写化的模型 id 上显式匹配旧代模型（[MMSP-RFC-0003](../../design/rfcs/MMSP-RFC-0003-message-requests.zh.md#61-明确匹配) §6.1，见 [#356](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/356)）：
   - `google-official` 与 `google-genai` 默认回退至 `("low", "medium", "high")`（原为 `("minimal", "low", "medium", "high")`），对 `("gemini-3-flash", "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash", "gemini-robotics")` 匹配 `("minimal", "low", "medium", "high")`。`"gemini-2.5"` 在 `google-official` 上取 `("low", "high")`，在 `google-genai` 上不发送 `thinking_level`；`google-genai` 补齐 `"gemini-omni"`（`("low", "high")`）。
   - `openai-official` 与 `openai-responses` 的 `gpt` 插件仅在 `("gpt-5.", "gpt-6-luna", "gpt-6.1-terra")` 上为 `ThinkingLevel.NONE` 发送 `"none"`，其他模型（包括 GPT-5 本身）发送 `"low"`。
   - `anthropic-official` 默认将 `ThinkingLevel.NONE` 映射为 effort `"low"` 的自适应思考，对 `"sonnet-5-5"` 匹配 `"between_tools"`，对 `("4-5", "4-6", "4-7", "4-8")` 以及不含 `"-5-5"` 的 `"opus-5"` / `"sonnet-5"` 匹配 `"disabled"`。
