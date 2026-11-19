@@ -677,18 +677,10 @@ describe("media clients", () => {
   });
 
   test("Gemini speech on an OpenAI-compatible endpoint defaults its voice to Kore", async () => {
-    await run(
-      "google/gemini-3.8-flash-tts",
-      "openai-speech",
-      [text("Hi")],
-      {},
-    );
-    await run(
-      "google/gemini-3.8-flash-tts",
-      "openai-speech",
-      [text("Hi")],
-      { tts_config: [{ voice: "Puck" }] },
-    );
+    await run("google/gemini-3.8-flash-tts", "openai-speech", [text("Hi")], {});
+    await run("google/gemini-3.8-flash-tts", "openai-speech", [text("Hi")], {
+      tts_config: [{ voice: "Puck" }],
+    });
 
     expect(requests.map(({ body }) => body)).toEqual([
       { model: "google/gemini-3.8-flash-tts", input: "Hi", voice: "Kore" },
