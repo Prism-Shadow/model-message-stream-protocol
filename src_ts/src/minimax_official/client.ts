@@ -94,10 +94,23 @@ export class MiniMaxOfficialClient extends LLMClient {
     thinkingLevel: ThinkingLevel,
   ): MiniMaxReasoningEffort {
     let mapping: Record<ThinkingLevel, MiniMaxReasoningEffort>;
-    if (this._model.toLowerCase().includes("m3.1")) {
+    const model = this._model.toLowerCase();
+    if (model.includes("minimax-m3") && !model.includes("minimax-m3.")) {
+      // Older MiniMax-M3 (3.0) accepts "none" and stops at "high".
+      mapping = {
+        [ThinkingLevel.NONE]: "none",
+        [ThinkingLevel.LOW]: "low",
+        [ThinkingLevel.MEDIUM]: "medium",
+        [ThinkingLevel.HIGH]: "high",
+        [ThinkingLevel.XHIGH]: "high",
+        [ThinkingLevel.MAX]: "high",
+      };
+    } else {
       // M3.1-Flash always reasons and tunes its depth from low to max; "none" is a 400 (verified
       // live 2026-10-19: "requires adaptive thinking; ... reasoning.effort=none is not allowed
-      // (2013)"), so NONE degrades to the lowest effort.
+      // (2013)"), so NONE degrades to the lowest effort. A new generation inherits this, and M2.x
+      // take it too: they always reason and accept low, xhigh and max (MiniMax-M2.7 verified live
+      // 2026-11-19).
       mapping = {
         [ThinkingLevel.NONE]: "low",
         [ThinkingLevel.LOW]: "low",
@@ -105,16 +118,6 @@ export class MiniMaxOfficialClient extends LLMClient {
         [ThinkingLevel.HIGH]: "high",
         [ThinkingLevel.XHIGH]: "xhigh",
         [ThinkingLevel.MAX]: "max",
-      };
-    } else {
-      mapping = {
-        [ThinkingLevel.NONE]: "none",
-        [ThinkingLevel.LOW]: "low",
-        [ThinkingLevel.MEDIUM]: "medium",
-        [ThinkingLevel.HIGH]: "high",
-        [ThinkingLevel.XHIGH]: "high",
-        // MiniMax-M3 stops at "high"
-        [ThinkingLevel.MAX]: "high",
       };
     }
     return mapping[thinkingLevel];

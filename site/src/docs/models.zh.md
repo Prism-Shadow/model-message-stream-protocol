@@ -10,9 +10,9 @@ description: MMSP 的客户端构成、各客户端支持的模型，以及如�
 
 | `client_type` | 模型 | 协议 | Key 与端点 |
 | --- | --- | --- | --- |
-| `openai-official` | `gpt-6.2-astra`、`gpt-6.2-sol`、`gpt-6.1-sol`、`gpt-6.1-terra`、`gpt-6-astra`、`gpt-5.6-sol`、`gpt-5.5`；`text-embedding-3-large`、`text-embedding-3-small`；`gpt-image-2.5-flare` | OpenAI Responses；`text-embedding-*` 走 Embeddings；`gpt-image-*` 走 Images | `OPENAI_API_KEY` `OPENAI_BASE_URL` |
+| `openai-official` | `gpt-6.2-astra`、`gpt-6.2-sol`、`gpt-6.1-sol`、`gpt-6.1-terra`、`gpt-6-astra`、`gpt-5.6-sol`、`gpt-5.5`；`text-embedding-3-large`、`text-embedding-3-small`；`gpt-image-2.6-sunburst`、`gpt-image-2.6-flare`、`gpt-image-2.5-sunburst`、`gpt-image-2.5-flare`；`gpt-transcribe` | OpenAI Responses；`text-embedding-*` 走 Embeddings；`gpt-image-*` 走 Images；`gpt-transcribe` 走 Audio Transcriptions | `OPENAI_API_KEY` `OPENAI_BASE_URL` |
 | `anthropic-official` | `claude-opus-5-5`、`claude-sonnet-5-5`、`claude-haiku-5-5`、`claude-fable-5-1`、`claude-opus-5`、`claude-sonnet-5` | Anthropic Messages | `ANTHROPIC_API_KEY` `ANTHROPIC_BASE_URL` |
-| `google-official` | `gemini-4-hydrogen`、`gemini-4-carbon`、`gemini-4-argon`、`gemini-3.8-flash`、`gemini-3.1-pro-preview`；`gemini-nano-banana-2.1`、`gemini-3.1-flash-image`、`gemini-3.8-flash-tts`、`gemini-omni-1.2-flash`；`gemini-embedding-2` | Gemini Interactions | `GEMINI_API_KEY` `GEMINI_BASE_URL` |
+| `google-official` | `gemini-4-neon`、`gemini-4-hydrogen`、`gemini-4-carbon`、`gemini-4-argon`、`gemini-3.8-flash`、`gemini-3.1-pro-preview`；`gemini-nano-banana-2.1`、`gemini-3.1-flash-image`、`gemini-3.8-flash-tts`、`gemini-omni-1.2-flash`；`gemini-embedding-2` | Gemini Interactions | `GEMINI_API_KEY` `GEMINI_BASE_URL` |
 | `zai-official` | `glm-5.3`、`glm-5.3-flash`、`glm-5.2` | Chat Completions | `ZAI_API_KEY` `ZAI_BASE_URL` |
 | `moonshot-official` | `kimi-k3.1-pro`、`kimi-k3.1-pro-highspeed`、`kimi-k3`、`kimi-k2.6` | Chat Completions | `MOONSHOT_API_KEY` `MOONSHOT_BASE_URL` |
 | `deepseek-official` | `deepseek-flash`、`deepseek-v4-pro`；`deepseek-search`、`deepseek-fetch`；`deepseek-tts`、`deepseek-asr` | Responses；`deepseek-search` 和 `deepseek-fetch` 走 Search 和 Fetch；`deepseek-tts` 和 `deepseek-asr` 走语音合成和语音识别 | `DEEPSEEK_API_KEY` `DEEPSEEK_BASE_URL` |
@@ -23,7 +23,7 @@ description: MMSP 的客户端构成、各客户端支持的模型，以及如�
 
 Gemini 4 Carbon（`gemini-4-carbon`）和 Gemini 4 Argon（`gemini-4-argon`）支持 `low`、`medium`（默认）和 `high` 思考档位，Carbon 每轮的思考更多。MMSP 将 `none` 映射为 `low`，将 `xhigh`/`max` 映射为 `high`。二者的 1,048,576-token 上下文窗口由输入、思考和输出共享，同步流式输出最多 65,536 tokens。更长输出需要 Google 的存储式后台执行，不在 MMSP 的无状态流式接口范围内。缓存仅支持隐式缓存。
 
-Gemini 4 Hydrogen（`gemini-4-hydrogen`）是这一代中的快速模型，支持 `low`、`medium`、`high`（默认）和 `xhigh` 思考档位。MMSP 将 `none` 映射为 `low`，将 `max` 映射为 `xhigh`。它的上下文窗口和缓存与 Carbon 相同。
+Gemini 4 Neon（`gemini-4-neon`）和 Gemini 4 Hydrogen（`gemini-4-hydrogen`）在 `google-official` 上支持 `low`、`medium`、`high`（默认）和 `xhigh` 思考档位。MMSP 将 `none` 映射为 `low`，将 `max` 映射为 `xhigh`（在 `google-genai` 上，由于 SDK 的 `ThinkingLevel` 枚举最高只到 `HIGH`，`xhigh` 和 `max` 映射为 `high`）。它们的上下文窗口和缓存与 Carbon 相同。
 
 Gemini Omni 1.2 Flash（`gemini-omni-1.2-flash`）生成视频：它以一个 `inline_data` 内容项返回带音轨的 MP4，默认采用 Google 的设置（16:9、720p、10 秒；每段视频约 0.70 美元），`video_config` 可以设置 `aspect_ratio`（`16:9`、`9:16`）、`resolution`（`360p` 到 `4K`）和 `duration`（3 到 15 秒）。MMSP 只发送最新一条消息中的文本和图片，并且不发送 `max_tokens`，因为视频本身的 token 也计入 Google 的上限。它支持 `low` 和 `high` 两档思考：`none` 和 `low` 按 `low` 运行，其余按 `high`。`tools`、`tool_choice`、`image_config` 和 `fast_mode` 会抛出 `UnsupportedParameterError`。
 
@@ -81,7 +81,7 @@ models = list_supported_models(currency="CNY")  # 默认 "USD"
 | `google-genai` | Google generateContent，即 Google GenAI SDK 所用的协议 | Vertex AI、Gemini API、代理此协议的网关 |
 | `deepseek-webtool` | DeepSeek 的网页搜索与网页抓取，`/v1/tools/search` 和 `/v1/tools/fetch` | DeepSeek、TokenDance |
 | `deepseek-speech` | DeepSeek 的语音合成，`/v1/tools/tts`：边生成边流出原始 PCM | DeepSeek |
-| `deepseek-transcription` | DeepSeek 的语音识别，`/v1/tools/asr`：每条消息一个 WAV 或 Ogg Opus 内容项 | DeepSeek |
+| `deepseek-transcription` | DeepSeek 的语音识别，`/v1/tools/asr`：每条消息一个 WAV 或 Ogg Opus 内容项 | DeepSeek、TokenDance |
 | `mmsp` | MMSP 本身 | [MMSP 服务端](/zh/docs/server/) |
 
 如果网关支持多种协议，优先选择 `openai-responses`。OpenRouter 为其所有托管模型提供此协议；SiliconFlow 仅提供 Chat Completions。
@@ -114,7 +114,7 @@ client = AutoLLMClient(
 | --- | --- | --- |
 | OpenRouter | `https://openrouter.ai/api/v1` | `OPENROUTER_API_KEY` |
 | SiliconFlow | `https://api.siliconflow.cn/v1` | `SILICONFLOW_API_KEY` |
-| TokenDance（词元跳动） | `https://tokendance.space/gateway/v1`，Anthropic Messages 使用 `https://tokendance.space/gateway`，`deepseek-webtool` 使用 `https://tokendance.space/gateway/deepseek` | `TOKENDANCE_API_KEY` |
+| TokenDance（词元跳动） | `https://tokendance.space/gateway/v1`，Anthropic Messages 使用 `https://tokendance.space/gateway`，`deepseek-webtool` 和 `deepseek-transcription` 使用 `https://tokendance.space/gateway/deepseek` | `TOKENDANCE_API_KEY` |
 | Google Vertex AI | `https://aiplatform.googleapis.com` | `VERTEX_API_KEY`：服务账号 JSON |
 | Amazon Bedrock | `bedrock://<region>`，例如 `bedrock://us-east-1` | `BEDROCK_API_KEY`：`ACCESS_KEY,SECRET_KEY` |
 | ModelVerse | `https://api.modelverse.cn/v1`，Claude 模型使用 `https://api.modelverse.cn/` | `MODELVERSE_API_KEY` |
@@ -196,7 +196,7 @@ client = AutoLLMClient(
 | `openai-embedding`，以及 `text-embedding-*` 下的 `openai-official` | `openai-embedding` |
 | `openai-image`，以及 `gpt-image-*` 下的 `openai-official` | `openai-image` |
 | `openai-speech` | `openai-speech` |
-| `openai-transcription` | `openai-transcription` |
+| `openai-transcription`，以及 `gpt-transcribe` 下的 `openai-official` | `openai-transcription` |
 | `deepseek-webtool`，以及 `deepseek-search` 和 `deepseek-fetch` 下的 `deepseek-official` | `deepseek-webtool` |
 | `deepseek-speech`，以及 `deepseek-tts` 下的 `deepseek-official` | `deepseek-speech` |
 | `deepseek-transcription`，以及 `deepseek-asr` 下的 `deepseek-official` | `deepseek-transcription` |

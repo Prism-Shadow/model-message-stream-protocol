@@ -123,8 +123,19 @@ def _cny(prompt: float, output: float, cached: float | None = None) -> ModelPric
 # its notes. Gateway rows list only the input modalities their client can send: the
 # OpenAI-protocol clients carry text and images, not video, and audio only to a transcription.
 _SUPPORTED_MODELS: list[SupportedModel] = [
-    # --- Official vendor endpoints (60 rows; each vendor's own key variable; list prices from each
+    # --- Official vendor endpoints (65 rows; each vendor's own key variable; list prices from each
     # vendor's pricing page, the rows added 2026-10-24 naming their page and read date)
+    {
+        # aistudio.google.com/docs/pricing and aistudio.google.com/docs/models/gemini-4-neon
+        # (read 2026-11-19)
+        "model": "gemini-4-neon",
+        "base_url": _GOOGLE,
+        "client": "google-official",
+        "input_modalities": ["Text", "Image", "Video", "Audio"],
+        "output_modalities": ["Text"],
+        "context_window": 1048576,
+        "pricing": _usd(3.0, 15.0, cached=0.15),
+    },
     {
         # aistudio.google.com/docs/pricing (read 2026-11-16)
         "model": "gemini-4-hydrogen",
@@ -576,6 +587,39 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "pricing": _usd(0.13, 0.0),
     },
     {
+        # developers.openai.com/api/docs/models/gpt-image-2.6-sunburst (read 2026-11-19): $5 per
+        # million text input tokens, $1.25 cached, $30 per million image output tokens; openai-image
+        # sends no input image, which bills $8
+        "model": "gpt-image-2.6-sunburst",
+        "base_url": _OPENAI,
+        "client": "openai-official",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Image"],
+        "pricing": _usd(5.0, 30.0, cached=1.25),
+    },
+    {
+        # developers.openai.com/api/docs/models/gpt-image-2.6-flare (read 2026-11-19): $5 per
+        # million text input tokens, $1.25 cached, $30 per million image output tokens; openai-image
+        # sends no input image, which bills $8
+        "model": "gpt-image-2.6-flare",
+        "base_url": _OPENAI,
+        "client": "openai-official",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Image"],
+        "pricing": _usd(5.0, 30.0, cached=1.25),
+    },
+    {
+        # developers.openai.com/api/docs/models/gpt-image-2.5-sunburst (read 2026-11-19): $5 per
+        # million text input tokens, $1.25 cached, $30 per million image output tokens; openai-image
+        # sends no input image, which bills $8
+        "model": "gpt-image-2.5-sunburst",
+        "base_url": _OPENAI,
+        "client": "openai-official",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Image"],
+        "pricing": _usd(5.0, 30.0, cached=1.25),
+    },
+    {
         # developers.openai.com/api/docs/models/gpt-image-2.5-flare (read 2026-11-04): $5 per million
         # text input tokens, $1.25 cached, $30 per million image output tokens; openai-image sends no
         # input image, which bills $8
@@ -585,6 +629,17 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "input_modalities": ["Text"],
         "output_modalities": ["Image"],
         "pricing": _usd(5.0, 30.0, cached=1.25),
+    },
+    {
+        # developers.openai.com/api/docs/models/gpt-transcribe (read 2026-11-19): $0.0045 per minute
+        # of audio ($0.000075 a second), and openai-transcription counts the audio's seconds (rounded
+        # up) as prompt tokens, so $75 per million
+        "model": "gpt-transcribe",
+        "base_url": _OPENAI,
+        "client": "openai-official",
+        "input_modalities": ["Audio"],
+        "output_modalities": ["Text"],
+        "pricing": _usd(75.0, 0.0),
     },
     {
         "model": "glm-5.3",
@@ -771,7 +826,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "output_modalities": ["Web"],
         "pricing": _usd(0.05, 0.0),
     },
-    # --- OpenRouter (131 rows; key OPENROUTER_API_KEY; USD prices, context windows and modalities
+    # --- OpenRouter (139 rows; key OPENROUTER_API_KEY; USD prices, context windows and modalities
     # from the live models API https://openrouter.ai/api/v1/models and each model's
     # /api/v1/models/{slug}/endpoints list, read 2026-10-24, the rows added 2026-11-16 naming their
     # read date). The API quotes one endpoint per model; where that endpoint runs a promotion (a
@@ -1083,6 +1138,16 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "pricing": _usd(100.0, 0.0),
     },
     {
+        # the API quotes the Google AI Studio list rate, with no discount (read 2026-11-19)
+        "model": "google/gemini-4-neon",
+        "base_url": _OPENROUTER,
+        "client": "openai-responses",
+        "input_modalities": ["Text", "Image"],
+        "output_modalities": ["Text"],
+        "context_window": 1048576,
+        "pricing": _usd(3.0, 15.0, cached=0.15),
+    },
+    {
         # Google's introductory 50% off runs on every endpoint through 2026-11-30 (the API quotes $2
         # input, $10 output); the Google AI Studio list rate is stored
         "model": "google/gemini-4-argon",
@@ -1165,6 +1230,25 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "input_modalities": ["Text"],
         "output_modalities": ["Image"],
         "pricing": _usd(1.5, 30.0),
+    },
+    {
+        # billed by audio output tokens ($9 per 1M, $0.50 text input; read 2026-11-19), which the
+        # raw-audio /api/v1/audio/speech response does not report, so pricing is omitted like on the
+        # official Google TTS rows
+        "model": "google/gemini-3.8-flash-tts",
+        "base_url": _OPENROUTER,
+        "client": "openai-speech",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Audio"],
+    },
+    {
+        # billed by audio output tokens ($6 per 1M, $0.50 text input; read 2026-11-19), omitted like
+        # on the official Google TTS rows
+        "model": "google/gemini-3.8-flash-lite-tts",
+        "base_url": _OPENROUTER,
+        "client": "openai-speech",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Audio"],
     },
     {
         "model": "google/gemma-4-31b-it",
@@ -1644,6 +1728,50 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "output_modalities": ["Text"],
         "context_window": 131072,
         "pricing": _usd(0.15, 0.6, cached=0.075),
+    },
+    {
+        # $5 per 1M text input tokens and $30 per 1M image_output tokens on /api/v1/images
+        # (openrouter.ai/api/v1/images/models, read 2026-11-19)
+        "model": "openai/gpt-image-2.6-sunburst",
+        "base_url": _OPENROUTER,
+        "client": "openai-image",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Image"],
+        "pricing": _usd(5.0, 30.0),
+    },
+    {
+        "model": "openai/gpt-image-2.6-flare",
+        "base_url": _OPENROUTER,
+        "client": "openai-image",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Image"],
+        "pricing": _usd(5.0, 30.0),
+    },
+    {
+        "model": "openai/gpt-image-2.5-sunburst",
+        "base_url": _OPENROUTER,
+        "client": "openai-image",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Image"],
+        "pricing": _usd(5.0, 30.0),
+    },
+    {
+        "model": "openai/gpt-image-2.5-flare",
+        "base_url": _OPENROUTER,
+        "client": "openai-image",
+        "input_modalities": ["Text"],
+        "output_modalities": ["Image"],
+        "pricing": _usd(5.0, 30.0),
+    },
+    {
+        # prompt tokens are the audio's seconds, rounded up: $0.000075 a second ($0.0045 a minute;
+        # openrouter.ai/api/v1/audio/models, read 2026-11-19)
+        "model": "openai/gpt-transcribe",
+        "base_url": _OPENROUTER,
+        "client": "openai-transcription",
+        "input_modalities": ["Audio"],
+        "output_modalities": ["Text"],
+        "pricing": _usd(75.0, 0.0),
     },
     {
         # the Free Models Router: each request goes to a free model with the features it needs; window
@@ -2361,7 +2489,7 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "context_window": 1000000,
         "pricing": _usd(3.0, 15.0, cached=0.3),
     },
-    # --- TokenDance (66 rows; key TOKENDANCE_API_KEY; CNY prices at the `items` rate of the public
+    # --- TokenDance (67 rows; key TOKENDANCE_API_KEY; CNY prices at the `items` rate of the public
     # catalog https://tokendance.space/portal/api/models/all, read 2026-10-24, the row added
     # 2026-11-16 naming its read date). The `items` rate is what TokenDance bills, below the
     # `reference` price the catalog shows beside some models. Each row's client speaks a protocol
@@ -2987,6 +3115,16 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
         "input_modalities": ["Text"],
         "output_modalities": ["Web"],
         "pricing": _cny(5.0, 0.0),
+    },
+    {
+        # ¥0.00011 per second of audio (the catalog's items rate, below reference ¥0.00022; read
+        # 2026-11-19); prompt tokens are the audio's seconds (rounded up), so ¥110 per million
+        "model": "deepseek-asr",
+        "base_url": _TOKENDANCE_DEEPSEEK,
+        "client": "deepseek-transcription",
+        "input_modalities": ["Audio"],
+        "output_modalities": ["Text"],
+        "pricing": _cny(110.0, 0.0),
     },
     {
         # ¥0.22 per image (the catalog's items rate, read 2026-11-04), not a price per token: stored

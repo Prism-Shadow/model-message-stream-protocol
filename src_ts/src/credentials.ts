@@ -216,10 +216,10 @@ export function clientTypeForModel(model: string): string | null {
 /**
  * The client AutoLLMClient builds for a model: the client type passed in (in any casing, an
  * earlier name accepted), else the official client of the model id's family. `openai-official`
- * serves a `text-embedding-` model through `openai-embedding` and a `gpt-image-` model through
- * `openai-image`, and `deepseek-official` serves `deepseek-search` and `deepseek-fetch` through
- * `deepseek-webtool`, `deepseek-tts` through `deepseek-speech` and `deepseek-asr` through
- * `deepseek-transcription`.
+ * serves a `text-embedding-` model through `openai-embedding`, a `gpt-image-` model through
+ * `openai-image` and `gpt-transcribe` through `openai-transcription`, and `deepseek-official`
+ * serves `deepseek-search` and `deepseek-fetch` through `deepseek-webtool`, `deepseek-tts`
+ * through `deepseek-speech` and `deepseek-asr` through `deepseek-transcription`.
  *
  * @param model - The model id
  * @param clientType - The client type passed in, if any
@@ -243,6 +243,12 @@ export function routedClientType(
     model.toLowerCase().startsWith("gpt-image-")
   ) {
     return "openai-image";
+  }
+  if (
+    routed === "openai-official" &&
+    model.toLowerCase() === "gpt-transcribe"
+  ) {
+    return "openai-transcription";
   }
   if (
     routed === "deepseek-official" &&

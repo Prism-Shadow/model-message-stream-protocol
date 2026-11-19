@@ -88,6 +88,7 @@ _IMAGE_ANSWERS: dict[str, dict[str, Any]] = {
 # The content type of each speech model's answer: OpenRouter's PCM, OpenAI's MP3, and a stereo PCM
 _SPEECH_TYPES = {
     "fish-audio/drama-3": "audio/pcm;rate=44100;channels=1",
+    "google/gemini-3.8-flash-tts": "audio/pcm;rate=24000;channels=1",
     "tts-1": "audio/mpeg",
     "stereo-pcm": "audio/pcm;rate=48000;channels=2",
 }
@@ -435,6 +436,23 @@ async def test_speech_in_another_format_keeps_its_content_type_and_sends_the_voi
 
     assert _MediaServer.requests[0]["body"] == {"model": "tts-1", "input": "Hi", "voice": "alloy"}
     assert [(item["data"], item["mime_type"]) for item in _done(events, "inline_data.done")] == [(_MP3, "audio/mpeg")]
+
+
+@pytest.mark.asyncio
+async def test_gemini_speech_on_an_openai_compatible_endpoint_defaults_its_voice_to_kore(media_server: str):
+    await _run("google/gemini-3.8-flash-tts", "openai-speech", media_server, [_text("Hi")], {})
+    await _run(
+        "google/gemini-3.8-flash-tts",
+        "openai-speech",
+        media_server,
+        [_text("Hi")],
+        {"tts_config": [{"voice": "Puck"}]},
+    )
+
+    assert [request["body"] for request in _MediaServer.requests] == [
+        {"model": "google/gemini-3.8-flash-tts", "input": "Hi", "voice": "Kore"},
+        {"model": "google/gemini-3.8-flash-tts", "input": "Hi", "voice": "Puck"},
+    ]
 
 
 @pytest.mark.parametrize("config", [{}, {"tts_config": None}, {"tts_config": []}], ids=["absent", "none", "empty"])

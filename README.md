@@ -51,9 +51,9 @@ These are the model families we focus on supporting. The [Model Index](https://m
 
 | Model Name        | Vendor                                                                   | Example Model ID     | Input Modalities | Output Modalities              |
 | ----------------- | ------------------------------------------------------------------------ | -------------------- | ---------------- | ------------------------------ |
-| Gemini 3-4        | Official, Google Vertex AI, OpenRouter, OpenCode Go, Penguin Go          | `gemini-4-carbon`    | Text, Image      | Text, Image, Speech, Embedding |
+| Gemini 3-4        | Official, Google Vertex AI, OpenRouter, OpenCode Go, Penguin Go          | `gemini-4-carbon`    | Text, Image, Video, Audio | Text, Image, Video, Speech, Embedding |
 | Claude 4.5-5.5    | Official, Amazon Bedrock, OpenRouter, OpenCode Go                        | `claude-opus-5-5`    | Text, Image      | Text                           |
-| GPT-5.3-6.2       | Official, OpenRouter, OpenCode Go                                        | `gpt-6.2-sol`        | Text, Image      | Text, Embedding                |
+| GPT-5.3-6.2       | Official, OpenRouter, OpenCode Go                                        | `gpt-6.2-sol`        | Text, Image, Audio | Text, Image, Embedding       |
 | DeepSeek V3.2/V4  | Official, OpenRouter, SiliconFlow, TokenDance, OpenCode Go, Penguin Go, vLLM | `deepseek-flash` | Text, Image      | Text                           |
 | Kimi-K2.5-K3.1    | Official, OpenRouter, SiliconFlow, TokenDance, OpenCode Go               | `kimi-k3.1-pro`      | Text, Image      | Text                           |
 | GLM-4.5-5.3       | Official, OpenRouter, SiliconFlow, TokenDance, OpenCode Go               | `glm-5.3`            | Text, Image      | Text                           |

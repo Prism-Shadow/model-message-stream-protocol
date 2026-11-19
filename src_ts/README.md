@@ -52,7 +52,7 @@ main().catch(console.error);
 
 `deepseek-webtool` and `jina-webtool` search the web (`deepseek-search`, `jina-search`) and fetch a page (`deepseek-fetch`, `jina-fetch`); `deepseek-official` serves the DeepSeek pair through `deepseek-webtool`. Each message is one query or URL, answered by one `webtool.done` item.
 
-`openai-image`, `openai-speech` and `openai-transcription` generate an image, speak a text and transcribe an audio file through OpenAI's Images and Audio APIs, for OpenAI, OpenRouter and TokenDance; `openai-official` serves `gpt-image-*` through `openai-image`. `deepseek-speech` and `deepseek-transcription` speak a text and transcribe a WAV or Ogg Opus file through DeepSeek's audio APIs; `deepseek-official` serves them as `deepseek-tts` and `deepseek-asr`. Each message is one request: a prompt, a text, or one audio `inline_data.done`.
+`openai-image`, `openai-speech` and `openai-transcription` generate an image, speak a text and transcribe an audio file through OpenAI's Images and Audio APIs, for OpenAI, OpenRouter and TokenDance; `openai-official` serves `gpt-image-*` through `openai-image` and `gpt-transcribe` through `openai-transcription`. `deepseek-speech` and `deepseek-transcription` speak a text and transcribe a WAV or Ogg Opus file through DeepSeek's audio APIs; `deepseek-official` serves them as `deepseek-tts` and `deepseek-asr`. Each message is one request: a prompt, a text, or one audio `inline_data.done`.
 
 `openai-chat-vllm-adapter` speaks Chat Completions to a vLLM server, with the key and endpoint of `VLLM_API_KEY` and `VLLM_BASE_URL`, by default `http://127.0.0.1:8000/v1`, where `vllm serve` answers. Like `mmsp`, it calls its server keyless when it has no key, sending vLLM's placeholder key `EMPTY`.
 

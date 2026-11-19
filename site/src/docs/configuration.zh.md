@@ -64,7 +64,7 @@ description: UniConfig，请求的配置选项，以及每个客户端为它们�
 
 ## 每个客户端发送什么
 
-客户端以 `client_type` 命名（见[模型与端点](/zh/docs/models/)）；`openai-official` 通过 `openai-embedding` 服务 `text-embedding-*` 模型，通过 `openai-image` 服务 `gpt-image-*` 模型，`deepseek-official` 通过 `deepseek-webtool` 服务 `deepseek-search` 和 `deepseek-fetch`，通过 `deepseek-speech` 服务 `deepseek-tts`，通过 `deepseek-transcription` 服务 `deepseek-asr`。媒体客户端 `openai-image`、`openai-speech`、`openai-transcription`、`deepseek-speech` 和 `deepseek-transcription` 只发送模型（DeepSeek 的两个不发送）、提示词、输入文本或文件，以及 `image_config` 或 `tts_config`；`deepseek-speech` 另外请求 `format: "pcm"`。两个网页工具客户端 `deepseek-webtool` 和 `jina-webtool` 按 ID 里的 `-search` 或 `-fetch` 区分搜索和抓取。在两个 Google 客户端上，ID 含 `tts` 的是语音模型，含 `embedding` 的是向量模型；在 `google-official` 上，ID 含 `gemini-omni` 的是 Gemini Omni。`mmsp` 客户端原样发送配置，由服务端交给该模型自己的客户端处理，因此适用那个客户端的行。
+客户端以 `client_type` 命名（见[模型与端点](/zh/docs/models/)）；`openai-official` 通过 `openai-embedding` 服务 `text-embedding-*` 模型，通过 `openai-image` 服务 `gpt-image-*` 模型，通过 `openai-transcription` 服务 `gpt-transcribe`，`deepseek-official` 通过 `deepseek-webtool` 服务 `deepseek-search` 和 `deepseek-fetch`，通过 `deepseek-speech` 服务 `deepseek-tts`，通过 `deepseek-transcription` 服务 `deepseek-asr`。媒体客户端 `openai-image`、`openai-speech`、`openai-transcription`、`deepseek-speech` 和 `deepseek-transcription` 只发送模型（DeepSeek 的两个不发送）、提示词、输入文本或文件，以及 `image_config` 或 `tts_config`；`deepseek-speech` 另外请求 `format: "pcm"`。两个网页工具客户端 `deepseek-webtool` 和 `jina-webtool` 按 ID 里的 `-search` 或 `-fetch` 区分搜索和抓取。在两个 Google 客户端上，ID 含 `tts` 的是语音模型，含 `embedding` 的是向量模型；在 `google-official` 上，ID 含 `gemini-omni` 的是 Gemini Omni。`mmsp` 客户端原样发送配置，由服务端交给该模型自己的客户端处理，因此适用那个客户端的行。
 
 ### `max_tokens`
 
@@ -133,28 +133,30 @@ Claude Opus 5.5、Sonnet 5.5、Haiku 5.5 和 Fable 5.1 不能强制调用工具�
 
 | 客户端与模型 | `none` | `low` | `medium` | `high` | `xhigh` | `max` |
 | --- | --- | --- | --- | --- | --- | --- |
-| `anthropic-official`：Claude Opus 5.5、Haiku 5.5、Fable 5、Fable 5.1 | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `anthropic-official`：Claude Sonnet 5.5 | `between_tools` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `anthropic-official`：Claude 4.6 | `disabled` | `low` | `medium` | `high` | `high` | `max` |
-| `anthropic-official`：其他 Claude 模型；`ant-messages` | `disabled` | `low` | `medium` | `high` | `xhigh` | `max` |
-| `openai-official`、`openai-responses`：GPT-6 Luna 与 GPT-6.1 Terra 以外的 GPT-6 模型 | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
-| `openai-official`、`openai-responses`：其他模型 | `none` | `low` | `medium` | `high` | `xhigh` | `max` |
+| `anthropic-official`：Claude 4.5、4.7、4.8、Opus 5、Sonnet 5；`ant-messages` | `disabled` | `low` | `medium` | `high` | `xhigh` | `max` |
+| `anthropic-official`：Claude Opus 5.5、Haiku 5.5、Fable 5、Fable 5.1 及其他 Claude 模型 | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
+| `openai-official`、`openai-responses`：GPT-5.1 至 GPT-5.6、GPT-6 Luna、GPT-6.1 Terra | `none` | `low` | `medium` | `high` | `xhigh` | `max` |
+| `openai-official`：其他模型（含 GPT-5 本身）；`openai-responses`：其他 GPT-6 模型 | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
+| `openai-responses`：其他模型 | `none` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `openai-chat`：Mistral 端点上会推理的模型 | 不发送 | `low` | `high` | `high` | `xhigh` | `max` |
 | `openai-chat`：其他模型 | 不发送 | 不发送 | 不发送 | 不发送 | 不发送 | 不发送 |
 | `deepseek-official` | `none` | `low` | `high` | `high` | `high` | `max` |
-| `minimax-official`：MiniMax-M3.1-Flash | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `minimax-official`：MiniMax-M3 | `none` | `low` | `medium` | `high` | `high` | `high` |
+| `minimax-official`：MiniMax-M3.1-Flash 及其他 MiniMax 模型 | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `moonshot-official`：Kimi K2 | `disabled` | `enabled` | `enabled` | `enabled` | `enabled` | `enabled` |
-| `moonshot-official`：Kimi K3、Kimi K3.1 Pro | `none` | `low` | `high` | `high` | `max` | `max` |
-| `zai-official`：GLM-5.3、GLM-5.3-Flash | `low` | `low` | `high` | `high` | `max` | `max` |
-| `zai-official`：其他 GLM 模型 | `disabled` | `low` | `medium` | `high` | `xhigh` | `max` |
-| `google-official`：Gemini Omni | `low` | `low` | `high` | `high` | `high` | `high` |
-| `google-official`：Gemini 4 Hydrogen | `low` | `low` | `medium` | `high` | `xhigh` | `xhigh` |
+| `moonshot-official`：Kimi K3、Kimi K3.1 Pro 及其他 Kimi 模型 | `none` | `low` | `high` | `high` | `max` | `max` |
+| `zai-official`：GLM-4 系列、GLM-5（含 GLM-5-Turbo 与 GLM-5V-Turbo）、GLM-5.1、GLM-5.2 | `disabled` | `low` | `medium` | `high` | `xhigh` | `max` |
+| `zai-official`：GLM-5.3、GLM-5.3-Flash 及其他 GLM 模型 | `low` | `low` | `high` | `high` | `max` | `max` |
+| `google-official`、`google-genai`：Gemini Omni | `low` | `low` | `high` | `high` | `high` | `high` |
+| `google-official`：Gemini 4 Hydrogen、Gemini 4 Neon | `low` | `low` | `medium` | `high` | `xhigh` | `xhigh` |
 | `google-official`、`google-genai`：Nano Banana（`gemini-nano-banana-2.1`） | `minimal` | `medium` | `medium` | `high` | `high` | `high` |
 | `google-official`、`google-genai`：其他图像模型 | `minimal` | `minimal` | `high` | `high` | `high` | `high` |
-| `google-official`、`google-genai`：Gemini 3 Pro | `low` | `low` | `high` | `high` | `high` | `high` |
-| `google-official`、`google-genai`：其他 Pro 模型，Gemini 3.7、3.8、4 Argon、4 Carbon | `low` | `low` | `medium` | `high` | `high` | `high` |
-| `google-official`、`google-genai`：其他 Gemini 模型 | `minimal` | `low` | `medium` | `high` | `high` | `high` |
+| `google-genai`：Gemini 2.5 | 不发送 | 不发送 | 不发送 | 不发送 | 不发送 | 不发送 |
+| `google-official`：Gemini 2.5；`google-official`、`google-genai`：Gemini 3 Pro | `low` | `low` | `high` | `high` | `high` | `high` |
+| `google-official`、`google-genai`：Gemini 3 Flash、3.1 Flash-Lite、3.5 Flash、3.5 Flash-Lite、3.6 Flash、Robotics | `minimal` | `low` | `medium` | `high` | `high` | `high` |
+| `google-official`、`google-genai`：其他 Gemini 模型 | `low` | `low` | `medium` | `high` | `high` | `high` |
 
 `openai-chat-vllm-adapter` 同样不发送 `reasoning_effort`，而是以 `chat_template_kwargs` 设置所部署模型的对话模板读取的开关：
 
@@ -265,7 +267,7 @@ Gemini 语音模型，两个 Google 客户端相同：
 
 | `tts_config` | 发送为 |
 | --- | --- |
-| 未设置 | 不发送音色：使用端点的默认音色（DeepSeek 上是 `stella`） |
+| 未设置 | 不发送音色：使用端点的默认音色（DeepSeek 上是 `stella`）；`openai-speech` 上的 Gemini 语音模型发送音色 `Kore` |
 | 一项 | 该项的 `voice`，在 `deepseek-speech` 上发送为 `voice_id`（`stella` 或 `tide`） |
 | 两项及以上 | 抛错 |
 

@@ -19,12 +19,13 @@ from ...types import ThinkingLevel, UniConfig
 from ...utils import openai_image_detail
 
 
-# The GPT-6 models that take the "none" reasoning effort. A gateway serving GPT-6 Astra, GPT-6.1 Sol,
-# GPT-6.2 Astra or GPT-6.2 Sol forwards the effort to OpenAI, which rejects "none" and "minimal" with a 400
-# (verified live 2026-09-09 against api.openai.com; OpenRouter answers GPT-6.2's "none" with 400 "Reasoning
-# is mandatory for this endpoint", verified live 2026-11-18); GPT-6 Luna and GPT-6.1 Terra accept it, on
-# OpenRouter too (verified live 2026-10-14 and 2026-11-02).
-_GPT6_NONE_EFFORT = ("gpt-6-luna", "gpt-6.1-terra")
+# The models this plugin runs on that take the "none" reasoning effort, the same list openai-official
+# keeps: GPT-5.6, GPT-6 Luna and GPT-6.1 Terra accept it, on OpenRouter too (verified live 2026-10-14
+# and 2026-11-02). A gateway serving GPT-6 Astra, GPT-6.1 Sol, GPT-6.2 Astra or GPT-6.2 Sol forwards the
+# effort to OpenAI, which rejects "none" and "minimal" with a 400 (verified live 2026-09-09 against
+# api.openai.com; OpenRouter answers GPT-6.2's "none" with 400 "Reasoning is mandatory for this
+# endpoint", verified live 2026-11-18).
+_NONE_EFFORT_MODELS = ("gpt-5.", "gpt-6-luna", "gpt-6.1-terra")
 
 
 class GptPlugin(ClientPlugin):
@@ -40,10 +41,9 @@ class GptPlugin(ClientPlugin):
     models = r"gpt-5\.6|gpt-6"
 
     async def on_request(self, config: UniConfig, request: dict[str, Any]) -> None:
-        if (
-            config.get("thinking_level") == ThinkingLevel.NONE
-            and "gpt-6" in self.model
-            and not any(model in self.model for model in _GPT6_NONE_EFFORT)
+        # `models` matches regardless of case, so this does too
+        if config.get("thinking_level") == ThinkingLevel.NONE and not any(
+            model in self.model.lower() for model in _NONE_EFFORT_MODELS
         ):
             request["reasoning"]["effort"] = "low"
 

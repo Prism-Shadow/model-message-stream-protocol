@@ -1301,9 +1301,11 @@ const ROUTING_CASES: [string, string | undefined, string][] = [
   ["GPT-5.5", undefined, "OpenAIOfficialClient"],
   ["text-embedding-3-large", undefined, "OpenaiEmbeddingClient"],
   ["text-embedding-3-large", "openai-official", "OpenaiEmbeddingClient"],
-  // openai-official serves OpenAI's image models through openai-image
+  // openai-official serves OpenAI's image and transcription models through openai-image and openai-transcription
   ["gpt-image-2.5-flare", undefined, "OpenaiImageClient"],
   ["gpt-image-2.5-flare", "openai-official", "OpenaiImageClient"],
+  ["gpt-transcribe", undefined, "OpenaiTranscriptionClient"],
+  ["gpt-transcribe", "openai-official", "OpenaiTranscriptionClient"],
   ["seedream-5.0-lite", "openai-image", "OpenaiImageClient"],
   ["fish-audio/drama-3", "openai-speech", "OpenaiSpeechClient"],
   [

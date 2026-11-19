@@ -101,6 +101,8 @@ def test_an_unknown_client_type_has_no_answer():
         ("text-embedding-3-large", "OpenAI-Official", "openai-embedding"),
         ("gpt-image-2.5-flare", None, "openai-image"),
         ("GPT-Image-2.5-Flare", "openai-official", "openai-image"),
+        ("gpt-transcribe", None, "openai-transcription"),
+        ("GPT-Transcribe", "openai-official", "openai-transcription"),
         ("bytedance-seed/seedream-5-0-flash", "openai-image", "openai-image"),
         ("fish-audio/drama-3", "openai-speech", "openai-speech"),
         ("fish-audio/transcribe-1", "openai-transcription", "openai-transcription"),
