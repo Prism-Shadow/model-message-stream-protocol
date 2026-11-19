@@ -23,7 +23,7 @@ Every **specification** MMSP conforms to and every **protocol or public API deci
 - **Kinds**: `spec` fixes a concept, protocol, or algorithm; `change` modifies the protocol or public API; `process` defines how `design/` works.
 - **Statuses**: `Accepted` or `Superseded by MMSP-RFC-NNNN`. Specifications in force are the `Accepted` `spec` rows.
 - **Unmerged RFCs**: A proposed RFC is an open PR (`gh pr list --search "MMSP-RFC-"`) and a withdrawn RFC is a closed PR; neither appears in the table.
-- **Historical numbering**: RFCs were renumbered twice on 2026-10-24; see [MMSP-RFC-0001](rfcs/MMSP-RFC-0001-rfc-process.md#5-numbering) §5 for the 0.5.5 and first-renumbering mapping.
+- **Historical numbering**: RFCs were renumbered twice on 2026-10-24, and MMSP-RFC-0014 became MMSP-RFC-0011 on 2026-11-18; see [MMSP-RFC-0001](rfcs/MMSP-RFC-0001-rfc-process.md#5-numbering) §5 for the mappings.
 
 | File | Holds |
 | --- | --- |

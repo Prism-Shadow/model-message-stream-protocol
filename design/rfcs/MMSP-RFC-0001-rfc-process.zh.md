@@ -21,6 +21,7 @@
   - **2026-10-24（[#298](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/298), [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)）**：按项目负责人要求（「RFC 应该是讨论一些软件里必须固定下来的概念、协议、定律、算法，比如 IETF RFC-8200: IPv6 Specification 的标题就是名词」），以 IETF [RFC 8200](https://datatracker.ietf.org/doc/html/rfc8200) 为范本，将 RFC 定型为以名词为题的概念、协议或算法规范。
   - **2026-11-02（[#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308)）**：在网页搜索与抓取功能被迫重写四篇双语规范后，按项目负责人决定改为**原地修改**（「原地修改吧」）。
   - **2026-11-18（[#341](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/341)）**：按项目负责人要求（「RFC 太啰嗦了，没有主次分明，优化一下，让阅读障碍的人也能看懂」）确立**视觉层级优先**规范——1–3 句精炼摘要、`Introduction` 中分离核心动机与按 PR 排列的修订表、`Conventions and Terminology` 每条术语独立成项，并以粗体引导列表或速查表格替代大段密集正文。
+  - **2026-11-18（[#347](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/347)）**：将 MMSP-RFC-0014 提示缓存会话重编号为 MMSP-RFC-0011，使 RFC 编号连续，并把编号规则由“取未用过的下一个编号、永不复用”改为“取下一个连续编号”（§5）。
 
 ## 2. Conventions and Terminology
 
@@ -74,7 +75,8 @@
 | — | MMSP-RFC-0012 允许中断请求 | [MMSP-RFC-0008](MMSP-RFC-0008-request-interruption.zh.md) |
 | — | — | [MMSP-RFC-0010](MMSP-RFC-0010-trace-recording.zh.md)，新增 |
 
-- **旧网址重定向**：网站将前两套编号下的所有旧网址重定向至当前承载其内容的文档。
+- **连续重编号**：2026-11-18，[#347](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/347) 将 MMSP-RFC-0014 提示缓存会话重编号为 [MMSP-RFC-0011](MMSP-RFC-0011-prompt-cache-sessions.zh.md)。上表前两列中的 MMSP-RFC-0011 指当时使用该编号的旧文档，而非提示缓存会话。
+- **旧网址重定向**：网站将此前各套编号下的所有旧网址重定向至当前承载其内容的文档。
 
 ## 6. 指引与网站
 
