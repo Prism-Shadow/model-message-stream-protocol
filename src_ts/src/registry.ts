@@ -716,7 +716,8 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   },
   {
     // deepseek-official serves this row and the next through deepseek-webtool. ¥5 per 1,000
-    // successful requests (api-docs.deepseek.com/zh-cn/guides/search, read 2026-11-02); a request
+    // successful requests (api-docs.deepseek.com/zh-cn/guides/search, read 2026-11-02), a search
+    // billed only with results and a fetch only with the page's Markdown; a billed request
     // counts as 1,000 prompt tokens, so ¥5 per million
     model: "deepseek-search",
     base_url: DEEPSEEK,
@@ -2372,7 +2373,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   // the catalog lists for the model, and its price is that protocol's, at the lowest tier where
   // the catalog tiers it by prompt length. The two web tool rows near the end bill ¥0.005 per
   // request (TokenDance's console, read 2026-11-02), stored as ¥5 per million prompt tokens,
-  // 1,000 per request; the image row after them bills by the image.
+  // 1,000 per request that returned a result; the image row after them bills by the image.
   {
     // this row and the next take the gateway's Chat Completions path; weekday peak rates
     // (09:00-12:00, 14:00-18:00 Beijing) are double on both
