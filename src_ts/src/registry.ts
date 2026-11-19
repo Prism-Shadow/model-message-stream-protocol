@@ -1236,7 +1236,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(1.5, 30.0),
   },
   {
-    // billed by audio output tokens ($12 per 1M, $0.60 text input; read 2026-11-19), which the
+    // billed by audio output tokens ($9 per 1M, $0.50 text input; read 2026-11-19), which the
     // raw-audio /api/v1/audio/speech response does not report, so pricing is omitted like on the
     // official Google TTS rows
     model: "google/gemini-3.8-flash-tts",
@@ -1246,7 +1246,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Audio"],
   },
   {
-    // billed by audio output tokens ($6 per 1M, $0.20 text input; read 2026-11-19), omitted like
+    // billed by audio output tokens ($6 per 1M, $0.50 text input; read 2026-11-19), omitted like
     // on the official Google TTS rows
     model: "google/gemini-3.8-flash-lite-tts",
     base_url: OPENROUTER,
