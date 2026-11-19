@@ -167,7 +167,7 @@ export function isDebugEnabled(): boolean {
 }
 
 /**
- * The prompt cache key a session id goes out as (MMSP-RFC-0014).
+ * The prompt cache key a session id goes out as (MMSP-RFC-0011).
  *
  * OpenAI's Responses API refuses a key of more than 64 characters, counted in code points,
  * and so do OpenAI's models behind OpenRouter. A longer id goes out as its SHA-256 hex
