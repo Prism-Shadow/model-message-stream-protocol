@@ -29,6 +29,7 @@
 | 2026-11-17 ([#336](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/336)) | **按次计费记为 1,000 token**：按次收费的请求每次记 `1,000` 个 token（「按次收费的都算1次为1000token吧,这样价格就正常一些」），使每千次 ¥5 的 DeepSeek Search/Fetch 定价为每百万 token ¥5（而非 ¥5,000），单次请求花费不变（§3.2）。 |
 | 2026-11-17 ([#339](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/339)) | **工具调用 `arguments` 保留 JSON 文本**：测试发现 `9007199254740993` 在解析后变为 `9007199254740992`，故规定工具调用参数保留模型写出的文本（「UniMessage的工具参数还是保留字符串类型吧」）；`StreamItems` 与请求前校验均验证其能解析为 JSON 对象并保留原文本（§3.3、§4.3）。 |
 | 2026-11-19 ([#349](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/349)) | **Gemini Nano Banana 2.1 思考等级**：`gemini-nano-banana-2.1` 仅接受 `minimal`、`medium` 与 `high`（拒绝 `low`、`xhigh` 与 `max`）；`google-official` 与 `google-genai` 将 `"gemini-nano-banana"` 模型映射至 `("minimal", "medium", "high")` 并按等距向上取整（`low` → `medium`）。更新 §6.1 与 §6.3。 |
+| 2026-11-20 | **只计计费的请求**：DeepSeek 只对产生结果的搜索与抓取计费（「只有返回 HTTP 200 且产生结果的请求才会计费（Search 的 `results` 必须非空，Fetch 必须返回网页正文）」），故不计费的请求记 `0`；自 [#337](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/337) 起每次得到答案的请求都记 `1,000`，什么也没搜到的搜索也计量 ¥0.005（§3.2）。 |
 
 ## 2. Conventions and Terminology
 
@@ -54,7 +55,7 @@
 | 端点类型 | 请求与流式方式 | 输出内容项与格式 | 用量计费（`stop` usage） |
 | --- | --- | --- | --- |
 | **Embedding**（`openai-embedding` 等） | 非流式 JSON；`openai-embedding` 按向量的 `index` 与输入配对。 | 每个向量作为一个 `embedding` 内容项流出。 | `prompt_tokens` = 端点报告的输入计数。 |
-| **网页工具**（`-search`、`-fetch`） | 每条消息发一次 JSON 请求（各文本内容项拼接为查询或 URL）；Jina 重发整页的事件流不算流式端点，必须改为读取 JSON。搜索必须只请求摘要，不得请求网页正文。 | 每个答案一到达即作为一个 `webtool` 内容项流出（含无结果的搜索）。 | `prompt_tokens` = 端点报告的 token 之和；按次计费时每次请求记 `1,000`（使每百万 token 价格等于 1,000 次请求的价格）。 |
+| **网页工具**（`-search`、`-fetch`） | 每条消息发一次 JSON 请求（各文本内容项拼接为查询或 URL）；Jina 重发整页的事件流不算流式端点，必须改为读取 JSON。搜索必须只请求摘要，不得请求网页正文。 | 每个答案一到达即作为一个 `webtool` 内容项流出（含无结果的搜索与正文为空的网页）。 | `prompt_tokens` = 端点报告的 token 之和；按次计费时，端点计费的每次请求记 `1,000`，不计费的请求记 `0`（DeepSeek 只对 `results` 非空的搜索与 `content` 非空的抓取计费），使每百万 token 价格等于 1,000 次计费请求的价格。 |
 | **图像生成**（`openai-image`） | 每条消息发一次 JSON 请求（各文本内容项拼接为提示词）；不得请求流式，也不得发送 `response_format`。 | 从 `b64_json` 读取，否则不带凭据从 `url` 下载（[MMSP-RFC-0006](MMSP-RFC-0006-upstream-credentials.zh.md#7-答案中的链接) §7）。MIME 依次取 `media_type`、`image/<output_format>` 或字节特征。 | `prompt_tokens` = `input_tokens` 或 `prompt_tokens`；`response_tokens` = `output_tokens` 或 `completion_tokens`（未报告保持 `None`）。 |
 | **语音合成（TTS）**（`openai-speech`、`deepseek-speech`） | 每条消息发一次流式请求（各文本内容项拼接为输入）。`openai-speech` 不发 `response_format`；`deepseek-speech` 请求 `format: "pcm"` 且不发 `filter_markdown`。 | 每块到达时必须作为该消息唯一语音项的 `inline_data` 片段产出。无头 `audio/pcm` 按完整帧（[MMSP-RFC-0002](MMSP-RFC-0002-message-protocol.zh.md#34-内容项) §3.4）以 `audio/l16; rate=<rate>; channels=<channels>` 流出；其余格式保留 `content-type`。 | `prompt_tokens` = 输入 UTF-8 字节数（`openai-speech`）或计费字符数（`deepseek-speech`：汉字记 2，其他记 1）；`response_tokens` = `0`。 |
 | **语音转写（ASR）**（`openai-transcription`、`deepseek-transcription`） | 每条消息发一次 JSON 请求（取唯一音频 `inline_data` 项）。`openai-transcription` 发送 multipart 表单（带扩展名的 `file` + `model`，不发 `prompt`）；`deepseek-transcription` 只传 `file`（WAV/Ogg Opus 原样发送，无头 `audio/l16` 或 `audio/pcm` 按 MIME 采样率与声道封装为 WAV）。 | 转写文字作为一个 `text` 内容项流出。 | `prompt_tokens` = `usage.seconds` 或 `duration_ms` 换算的秒数（向上取整到整秒）；`response_tokens` = `0`。 |
