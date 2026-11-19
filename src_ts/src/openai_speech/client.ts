@@ -20,8 +20,10 @@ import {
   UnsupportedContentError,
   UnsupportedParameterError,
 } from "../errors";
+import { enabledPlugins } from "../plugin";
 import { UniConfig, UniEvent, UniMessage } from "../types";
 import { openaiClientOptions, resolveCredentials } from "../utils";
+import { PLUGINS } from "./plugins";
 
 /** The request's fields besides the input; a voice is optional, whatever the SDK's type says. */
 type SpeechParams = Omit<SpeechCreateParams, "input" | "voice"> & {
@@ -63,6 +65,12 @@ export class OpenaiSpeechClient extends LLMClient {
         defaultHeaders: options.defaultHeaders,
       }),
     });
+    this._plugins = enabledPlugins(
+      PLUGINS,
+      options.model,
+      this._client.baseURL,
+      this._client,
+    );
   }
 
   /**
@@ -186,9 +194,13 @@ export class OpenaiSpeechClient extends LLMClient {
     for (const [messageIndex, text] of this.transformUniMessageToModelInput(
       options.messages,
     ).entries()) {
+      const request: Record<string, unknown> = { ...params, input: text };
+      for (const plugin of this._plugins) {
+        await plugin.onRequest(options.config, request, options.signal);
+      }
       // the SDK's type requires a voice, which an endpoint does not: without one it speaks in its own
       const response = await this._client.audio.speech.create(
-        { ...params, input: text } as SpeechCreateParams,
+        request as unknown as SpeechCreateParams,
         { signal: options.signal },
       );
       const contentType = response.headers.get("content-type") ?? "";

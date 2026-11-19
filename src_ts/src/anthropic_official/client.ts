@@ -43,13 +43,18 @@ import { isDebugEnabled, resolveCredentials } from "../utils";
 const REDACTED_THINKING = "_REDACTED_THINKING";
 
 // Generations told apart by explicit version, matched anywhere in the id so Bedrock's
-// anthropic.claude-opus-5-5 counts too. Opus 5.5 and Fable 5.1 always think: "disabled" and
-// "between_tools" return 400, and Fable 5 returns 400 for "disabled" too (verified live
-// 2026-10-23); "fable-5" matches both Fable generations. Haiku 5.5 takes "disabled" but runs
-// NONE at the lowest effort like them. Sonnet 5.5 drops only up-front thinking, with
-// "between_tools".
-const LOW_EFFORT_FOR_NONE = ["opus-5-5", "fable-5", "haiku-5-5"];
+// anthropic.claude-opus-5-5 counts too. NONE takes "disabled" only on the generations listed for
+// it: Opus 5.5 and Fable 5.1 always think, "disabled" and "between_tools" returning 400, and
+// Fable 5 returns 400 for "disabled" too (verified live 2026-10-23), so the default is adaptive
+// thinking at the lowest effort, which every generation from 4.6 on takes; Haiku 5.5 takes
+// "disabled" but runs NONE that way too. Claude 4.5 has no adaptive thinking ("adaptive thinking is
+// not supported on this model", Opus 4.5 and Haiku 4.5 verified live 2026-11-19), so it is listed.
+// Sonnet 5.5 drops only up-front thinking, with "between_tools".
 const BETWEEN_TOOLS = ["sonnet-5-5"];
+const DISABLED_THINKING = ["4-5", "4-6", "4-7", "4-8"];
+// Opus 5 and Sonnet 5, told from their 5.5 successors by the "-5-5" those carry
+const DISABLED_THINKING_5_0 = ["opus-5", "sonnet-5"];
+const CLAUDE_5_5 = ["opus-5-5", "sonnet-5-5"];
 // The 2026-09 generation returns 400 for tool_choice "any" and "tool". Haiku 5.5 takes them but
 // answers without thinking, so it is rejected with the rest of the 5.5 family.
 const NO_FORCED_TOOL_CHOICE = [
@@ -173,25 +178,29 @@ export class AnthropicOfficialClient extends LLMClient {
     }
   }
 
+  private _generation(versions: string[]): boolean {
+    // family routing ignores case, so the generation markers do too
+    const model = this._model.toLowerCase();
+    return versions.some((version) => model.includes(version));
+  }
+
   /**
    * Convert ThinkingLevel enum to Claude's adaptive thinking config.
    */
-  private _generation(versions: string[]): boolean {
-    return versions.some((version) => this._model.includes(version));
-  }
-
   private _convertThinkingLevelToThinkingConfig(thinkingLevel: ThinkingLevel): {
     thinking?: { type: string; display?: string };
     output_config?: { effort: string };
   } {
-    // NONE takes the least thinking LOW_EFFORT_FOR_NONE allows; the other generations take
-    // "disabled", and without a thinking block Opus 5 still runs adaptive thinking (verified
-    // live 2026-10-23)
-    const none = this._generation(LOW_EFFORT_FOR_NONE)
-      ? { thinking: { type: "adaptive" }, output_config: { effort: "low" } }
-      : this._generation(BETWEEN_TOOLS)
-        ? { thinking: { type: "between_tools" } }
-        : { thinking: { type: "disabled" } };
+    // without a thinking block Opus 5 still runs adaptive thinking (verified live 2026-10-23)
+    const takesDisabled =
+      this._generation(DISABLED_THINKING) ||
+      (this._generation(DISABLED_THINKING_5_0) &&
+        !this._generation(CLAUDE_5_5));
+    const none = this._generation(BETWEEN_TOOLS)
+      ? { thinking: { type: "between_tools" } }
+      : takesDisabled
+        ? { thinking: { type: "disabled" } }
+        : { thinking: { type: "adaptive" }, output_config: { effort: "low" } };
     const mapping: {
       [key: string]: {
         thinking?: { type: string; display?: string };
@@ -215,7 +224,7 @@ export class AnthropicOfficialClient extends LLMClient {
       [ThinkingLevel.XHIGH]: {
         thinking: { type: "adaptive" },
         output_config: {
-          effort: this._model.includes("4-6") ? "high" : "xhigh",
+          effort: this._generation(["4-6"]) ? "high" : "xhigh",
         },
       },
       // every model this client serves is 4.6 or later, and max spans that whole range

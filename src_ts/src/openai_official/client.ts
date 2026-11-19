@@ -46,14 +46,17 @@ import {
 } from "../utils";
 
 /**
- * The GPT-6 models that take the "none" reasoning effort. GPT-6 Astra,
- * GPT-6.1 Sol, GPT-6.2 Astra and GPT-6.2 Sol reject both "none" and "minimal"
- * with a 400 (verified live 2026-09-09 and 2026-11-18: "Unsupported value:
- * 'none' is not supported with the 'gpt-6-astra' model. Supported values are:
- * 'low', 'medium', 'high', 'xhigh', and 'max'."); GPT-6 Luna and GPT-6.1
- * Terra accept it (verified live 2026-10-14 and 2026-11-02).
+ * The models that take the "none" reasoning effort: GPT-5.1 to GPT-5.6, GPT-6
+ * Luna and GPT-6.1 Terra (verified live 2026-10-14 and 2026-11-02). GPT-6
+ * Astra, GPT-6.1 Sol, GPT-6.2 Astra and GPT-6.2 Sol reject both "none" and
+ * "minimal" with a 400 (verified live 2026-09-09 and 2026-11-18: "Unsupported
+ * value: 'none' is not supported with the 'gpt-6-astra' model. Supported values
+ * are: 'low', 'medium', 'high', 'xhigh', and 'max'."), so every other model
+ * runs NONE at "low", which a new generation inherits. GPT-5 itself refuses
+ * "none" too ("Supported values are: 'minimal', 'low', 'medium', and 'high'.",
+ * gpt-5-mini verified live 2026-11-19), hence the dot in "gpt-5.".
  */
-const GPT6_NONE_EFFORT = ["gpt-6-luna", "gpt-6.1-terra"];
+const NONE_EFFORT_MODELS = ["gpt-5.", "gpt-6-luna", "gpt-6.1-terra"];
 /**
  * The generations that take prompt_cache_options; GPT-5.5 answers 400
  * "prompt_cache_options is not supported on this model" (verified live
@@ -99,17 +102,17 @@ export class OpenAIOfficialClient extends LLMClient {
    * Convert ThinkingLevel enum to OpenAI's reasoning effort.
    */
   private _convertThinkingLevelToEffort(thinkingLevel: ThinkingLevel): string {
+    // family routing ignores case, so the generation markers do too
+    const model = this._model.toLowerCase();
     if (
       thinkingLevel === ThinkingLevel.NONE &&
-      this._model.includes("gpt-6") &&
-      !GPT6_NONE_EFFORT.some((model) => this._model.includes(model))
+      NONE_EFFORT_MODELS.some((version) => model.includes(version))
     ) {
-      // the rest of the generation has no off switch, so NONE runs at the lowest effort it accepts
-      return "low";
+      return "none";
     }
 
     const mapping: { [key: string]: string } = {
-      [ThinkingLevel.NONE]: "none",
+      [ThinkingLevel.NONE]: "low",
       [ThinkingLevel.LOW]: "low",
       [ThinkingLevel.MEDIUM]: "medium",
       [ThinkingLevel.HIGH]: "high",

@@ -23,7 +23,7 @@ MMSP 遵守的每项**规范**，以及每个修改**协议或公开 API 的决�
 - **类别**：`spec` 固定代码遵守的概念、协议或算法；`change` 修改协议或公开 API；`process` 定义本目录的运作方式。
 - **状态**：取值为「已采纳」或「被 MMSP-RFC-NNNN 取代」。现行规范即状态为「已采纳」的 `spec` 行。
 - **未合入的 RFC**：提议中的 RFC 是未关闭的 PR（`gh pr list --search "MMSP-RFC-"`），撤回的 RFC 是已关闭的 PR；两者均不列入上表。
-- **历史重编号**：RFC 曾于 2026-10-24 按项目负责人要求重编号两次；0.5.5 编号、第一次重编号与现行编号的对应关系见 [MMSP-RFC-0001](rfcs/MMSP-RFC-0001-rfc-process.zh.md#5-编号) §5。
+- **历史重编号**：RFC 曾于 2026-10-24 按项目负责人要求重编号两次，MMSP-RFC-0014 又于 2026-11-18 重编号为 MMSP-RFC-0011；各次编号的对应关系见 [MMSP-RFC-0001](rfcs/MMSP-RFC-0001-rfc-process.zh.md#5-编号) §5。
 
 | 文件 | 内容 |
 | --- | --- |
@@ -60,7 +60,7 @@ MMSP 遵守的每项**规范**，以及每个修改**协议或公开 API 的决�
 3. **提交 PR**：添加 `Type: process`、`Scope: design` 变更记录，运行 `gh pr create --base dev`（标题 `MMSP-RFC-NNNN: <改了什么>`）。
 
 - **整篇取代旧规范**：新建一篇 RFC 并在 `Supersedes:` 写明旧编号；其 PR 在中英文旧文件元数据末尾追加 `- Superseded by: [MMSP-RFC-NNNN](MMSP-RFC-NNNN-<slug>.md)` 并更新上表旧行状态。
-- **PR 状态与实现关联**：PR 打开即提议，合并即采纳，关闭即撤回（编号作废）。实现 `change` 类 RFC 的 PR 在 `RFC PR` 后添加 `- Implementation PR: [#N](<url>)`，并在其变更记录中链接该 RFC。
+- **PR 状态与实现关联**：PR 打开即提议，合并即采纳，关闭即撤回。实现 `change` 类 RFC 的 PR 在 `RFC PR` 后添加 `- Implementation PR: [#N](<url>)`，并在其变更记录中链接该 RFC。
 
 ## 写作规则
 

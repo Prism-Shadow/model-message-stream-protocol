@@ -47,13 +47,13 @@ Audit LLM executions by adding **a single `trace_id` parameter**, no database re
 
 ## Supported Models
 
-These are the model families we focus on supporting. The [Model Index](https://mmsp.penguin.ooo/models) and `list_supported_models()` list every variant, provider, and pricing.
+These are the model families we focus on supporting. The [Model Index](https://mmsp.penguin.ooo/models/) and `list_supported_models()` list every variant, provider, and pricing.
 
 | Model Name        | Vendor                                                                   | Example Model ID     | Input Modalities | Output Modalities              |
 | ----------------- | ------------------------------------------------------------------------ | -------------------- | ---------------- | ------------------------------ |
-| Gemini 3-4        | Official, Google Vertex AI, OpenRouter, OpenCode Go, Penguin Go          | `gemini-4-carbon`    | Text, Image      | Text, Image, Speech, Embedding |
+| Gemini 3-4        | Official, Google Vertex AI, OpenRouter, OpenCode Go, Penguin Go          | `gemini-4-carbon`    | Text, Image, Video, Audio | Text, Image, Video, Speech, Embedding |
 | Claude 4.5-5.5    | Official, Amazon Bedrock, OpenRouter, OpenCode Go                        | `claude-opus-5-5`    | Text, Image      | Text                           |
-| GPT-5.3-6.2       | Official, OpenRouter, OpenCode Go                                        | `gpt-6.2-sol`        | Text, Image      | Text, Embedding                |
+| GPT-5.3-6.2       | Official, OpenRouter, OpenCode Go                                        | `gpt-6.2-sol`        | Text, Image, Audio | Text, Image, Embedding       |
 | DeepSeek V3.2/V4  | Official, OpenRouter, SiliconFlow, TokenDance, OpenCode Go, Penguin Go, vLLM | `deepseek-flash` | Text, Image      | Text                           |
 | Kimi-K2.5-K3.1    | Official, OpenRouter, SiliconFlow, TokenDance, OpenCode Go               | `kimi-k3.1-pro`      | Text, Image      | Text                           |
 | GLM-4.5-5.3       | Official, OpenRouter, SiliconFlow, TokenDance, OpenCode Go               | `glm-5.3`            | Text, Image      | Text                           |
@@ -86,7 +86,7 @@ Custom compatible endpoints also work, covering 1000+ online and local models.
 | `google-genai`             | Google generateContent (Vertex AI, Gemini API, compatible gateways)          | `GEMINI_API_KEY`, `GEMINI_BASE_URL`       |
 | `mmsp`                     | MMSP stream protocol ([MMSP server](#mmsp-server))                           | `MMSP_API_KEY`, `MMSP_BASE_URL`           |
 
-`client_type` may be omitted when the model id starts with a known family (`gpt-`, `text-embedding-`, `claude-`, `gemini-`, `deepseek-`, `kimi-`, `glm-`, `minimax-`). Additional clients for image generation, speech, transcription and web search/fetch, as well as Vertex AI, Amazon Bedrock and gateway setups, are documented in [Models and endpoints](https://mmsp.penguin.ooo/docs/models/).
+`client_type` may be omitted when the model id starts with a known family (`gpt-`, `text-embedding-`, `claude-`, `gemini-`, `deepseek-`, `kimi-`, `glm-`, `minimax-`, `jina-`); any other id needs one. Additional clients for image generation, speech, transcription and web search/fetch, as well as Vertex AI, Amazon Bedrock and gateway setups, are documented in [Models and endpoints](https://mmsp.penguin.ooo/docs/models/).
 
 Query the built-in model registry in code:
 
@@ -288,7 +288,7 @@ os.environ["ZAI_API_KEY"] = "your-openrouter-api-key"
 os.environ["ZAI_BASE_URL"] = "https://openrouter.ai/api/v1"
 
 async def main():
-    client = AutoLLMClient(model="z-ai/glm-5.3")
+    client = AutoLLMClient(model="z-ai/glm-5.3", client_type="zai-official")
     async for event in client.streaming_response_stateful(
         message={
             "role": "user",
@@ -311,7 +311,7 @@ process.env.ZAI_API_KEY = "your-openrouter-api-key";
 process.env.ZAI_BASE_URL = "https://openrouter.ai/api/v1";
 
 async function main() {
-  const client = new AutoLLMClient({ model: "z-ai/glm-5.3" });
+  const client = new AutoLLMClient({ model: "z-ai/glm-5.3", clientType: "zai-official" });
   for await (const event of client.streamingResponseStateful({
     message: {
       role: "user",
@@ -382,7 +382,7 @@ main().catch(console.error);
 ```
 </details>
 
-### SiliconFlow Qwen3 Embedding 0.6B via OpenAI-compatible API
+### SiliconFlow Qwen3 Embedding 8B via OpenAI-compatible API
 
 <details><summary><strong>Python Example</strong></summary>
 
@@ -395,7 +395,7 @@ os.environ["OPENAI_API_KEY"] = "your-siliconflow-api-key"
 os.environ["OPENAI_BASE_URL"] = "https://api.siliconflow.cn/v1"
 
 async def main():
-    client = AutoLLMClient(model="Qwen/Qwen3-Embedding-0.6B", client_type="openai-embedding")
+    client = AutoLLMClient(model="Qwen/Qwen3-Embedding-8B", client_type="openai-embedding")
 
     async for event in client.streaming_response_stateful(
         message={
@@ -420,7 +420,7 @@ process.env.OPENAI_BASE_URL = "https://api.siliconflow.cn/v1";
 
 async function main() {
   const client = new AutoLLMClient({
-    model: "Qwen/Qwen3-Embedding-0.6B",
+    model: "Qwen/Qwen3-Embedding-8B",
     clientType: "openai-embedding",
   });
   for await (const event of client.streamingResponseStateful({

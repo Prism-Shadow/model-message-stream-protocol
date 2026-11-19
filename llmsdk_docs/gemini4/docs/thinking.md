@@ -1,4 +1,4 @@
-> Source: https://aistudio.google.com/docs/thinking.md (snapshot 2026-11-16)
+> Source: https://aistudio.google.com/docs/thinking.md (snapshot 2026-11-19)
 
 # Gemini thinking
 
@@ -668,12 +668,13 @@ data: [DONE]
 
 Gemini models engage in dynamic thinking by default, automatically adjusting
 the amount of reasoning effort based on the complexity of the request. You can
-control this behavior using the `thinking_level` parameter.
+control this behavior using the `thinking_level` parameter. To compare models across reasoning depth, speed, and cost, see [Choosing a model](/docs/choosing-a-model).
 
 | Model | Default Thinking | Levels Supported |
 | --- | --- | --- |
 | gemini-4-carbon | On (medium) | low, medium, high |
 | gemini-4-argon | On (medium) | low, medium, high |
+| gemini-4-neon | On (high) | low, medium, high, xhigh |
 | gemini-4-hydrogen | On (high) | low, medium, high, xhigh |
 | gemini-3.8-flash | On (medium) | low, medium, high |
 | gemini-3.6-flash | On (medium) | minimal, low, medium, high |
@@ -690,14 +691,14 @@ control this behavior using the `thinking_level` parameter.
 
 ### Understanding thinking levels  {% id="understanding-thinking-levels" %}
 
-The `thinking_level` is your main control over quality, latency, and token use in [Gemini 4 Hydrogen](/docs/whats-new-gemini-4-hydrogen). The model defaults to `high` and introduces `xhigh`:
+The `thinking_level` is your main control over quality, latency, and token use in [Gemini 4 Neon](/docs/whats-new-gemini-4-neon) and [Gemini 4 Hydrogen](/docs/whats-new-gemini-4-hydrogen). Both models default to `high` and support `xhigh`:
 
 | Thinking level | Token use | When to use |
 | :--- | :--- | :--- |
 | `low` | Fewest tokens, lowest latency | Cost- and latency-sensitive workloads, such as fast chat and high-throughput processing. Still capable on agentic tasks. |
 | `medium` | Lower token use, faster responses | Interactive coding, live UI prototyping, responsive chat, and latency-sensitive tool calls. (Default on `gemini-4-carbon`, `gemini-4-argon`, `gemini-3.8-flash`, and `gemini-3.6-flash`.) |
-| `high` (default on `gemini-4-hydrogen`) | Balanced intelligence and speed | Recommended default on `gemini-4-hydrogen` for most tasks, including complex coding, agentic execution, tool calling, and multimodal knowledge work. Maximum reasoning depth on `gemini-4-carbon`, `gemini-4-argon`, and Gemini 3 models. |
-| `xhigh` | Most tokens, deepest reasoning | Reserve for hard, multi-step coding and agentic problems where `high` falls short, when you can trade higher latency and token use (supported on `gemini-4-hydrogen`). |
+| `high` (default on `gemini-4-neon` and `gemini-4-hydrogen`) | Balanced intelligence and speed | Recommended default on `gemini-4-neon` and `gemini-4-hydrogen` for most tasks, including complex coding, agentic execution, tool calling, and multimodal knowledge work. Maximum reasoning depth on `gemini-4-carbon`, `gemini-4-argon`, and Gemini 3 models. |
+| `xhigh` | Most tokens, deepest reasoning | Reserve for hard, multi-step coding and agentic problems where `high` falls short, when you can trade higher latency and token use (supported on `gemini-4-neon` and `gemini-4-hydrogen`). |
 | `minimal` | Near-off thinking, lowest latency | Matches a near-off setting for most queries on `gemini-3.6-flash`, `gemini-3.5-flash-lite` (default), `gemini-3.1-flash-lite`, `gemini-3-flash-preview`, and `gemini-robotics-er-2-preview`. Not supported on Gemini 4 models or `gemini-3.8-flash`. |
 
 Start with `high` for most complex tasks, and reserve `xhigh` for hard, multi-step problems where `high` falls short. Using `xhigh` increases latency and token use and can cause overthinking or exhaust `max_output_tokens` on simpler prompts such as text or JSON extraction. Run your evaluations at all four levels with a high `max_output_tokens` so the limit doesn't cut answers short, then pick the lowest `thinking_level` that meets your quality bar.
@@ -907,10 +908,10 @@ any thinking tokens generated). To reduce cost or latency without truncating
 responses, lower `thinking_level` (`low` or `medium`) instead of setting a
 small `max_output_tokens`.
 
-For Gemini 4 models (`gemini-4-carbon`, `gemini-4-argon`, and `gemini-4-hydrogen`), keep the following context and output limits in mind:
+For Gemini 4 models (`gemini-4-carbon`, `gemini-4-argon`, `gemini-4-neon`, and `gemini-4-hydrogen`), keep the following context and output limits in mind:
 
 * **Shared 1M context window:** Input, thinking, and output tokens share a single 1M-token context window (`1,048,576` tokens). If your input tokens plus `max_output_tokens` exceed 1,048,576 tokens, the API automatically caps the output limit to the remaining space in the context window (`1,048,576` minus your input tokens).
-* **Default synchronous output cap (64K):** When `background=False`, the default `max_output_tokens` cap is 65,536 tokens. A single foreground hop generates up to 65,536 tokens for streaming calls and `gemini-4-hydrogen` non-streaming calls, or up to 32,768 tokens for non-streaming calls on `gemini-4-carbon` and `gemini-4-argon`.
+* **Default synchronous output cap (64K):** When `background=False`, the default `max_output_tokens` cap is 65,536 tokens. A single foreground hop generates up to 65,536 tokens for streaming calls and non-streaming calls on `gemini-4-neon` and `gemini-4-hydrogen`, or up to 32,768 tokens for non-streaming calls on `gemini-4-carbon` and `gemini-4-argon`.
 * **Long decode (up to 1M tokens):** To allow Gemini 4 to reason and generate beyond `65,536` tokens (up to `1,048,576` tokens), configure `max_output_tokens` greater than `65,536` with `background=True` or client-side continuation. See [Long decode](/docs/long-decode) for details.
 
 ## Thought signatures  {% id="signatures" %}

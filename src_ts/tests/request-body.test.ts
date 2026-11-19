@@ -842,3 +842,35 @@ describe("video_config and image_config on the other Gemini models", () => {
     ).toEqual({ aspectRatio: undefined, imageSize: "2K" });
   });
 });
+
+describe("tts_config on the Gemini speech models", () => {
+  test.each<[string, UniConfig]>([
+    ["absent", {}],
+    ["undefined", { tts_config: undefined }],
+    ["empty", { tts_config: [] }],
+  ])(
+    "without a speaker (%s) both Google clients speak in Kore",
+    (_, config) => {
+      const official = new AutoLLMClient({
+        model: "gemini-3.8-flash-tts",
+        apiKey: "test-key",
+      });
+      expect(
+        official.transformUniConfigToModelConfig(config).generation_config
+          .speech_config,
+      ).toEqual([{ voice: "Kore" }]);
+
+      const genai = new AutoLLMClient({
+        model: "gemini-3.8-flash-tts",
+        apiKey: "test-key",
+        clientType: "google-genai",
+      });
+      const speechConfig =
+        genai.transformUniConfigToModelConfig(config).speechConfig;
+      expect(speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName).toBe(
+        "Kore",
+      );
+      expect(speechConfig.multiSpeakerVoiceConfig).toBeUndefined();
+    },
+  );
+});

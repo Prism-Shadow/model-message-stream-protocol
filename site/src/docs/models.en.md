@@ -10,9 +10,9 @@ Use exact model ids. A model id that begins with a known family names its offici
 
 | `client_type` | Models | Speaks | Key and endpoint |
 | --- | --- | --- | --- |
-| `openai-official` | `gpt-6.2-astra`, `gpt-6.2-sol`, `gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-astra`, `gpt-5.6-sol`, `gpt-5.5`; `text-embedding-3-large`, `text-embedding-3-small`; `gpt-image-2.5-flare` | OpenAI Responses; Embeddings for `text-embedding-*`; Images for `gpt-image-*` | `OPENAI_API_KEY` `OPENAI_BASE_URL` |
+| `openai-official` | `gpt-6.2-astra`, `gpt-6.2-sol`, `gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-astra`, `gpt-5.6-sol`, `gpt-5.5`; `text-embedding-3-large`, `text-embedding-3-small`; `gpt-image-2.6-sunburst`, `gpt-image-2.6-flare`, `gpt-image-2.5-sunburst`, `gpt-image-2.5-flare`; `gpt-transcribe` | OpenAI Responses; Embeddings for `text-embedding-*`; Images for `gpt-image-*`; Audio Transcriptions for `gpt-transcribe` | `OPENAI_API_KEY` `OPENAI_BASE_URL` |
 | `anthropic-official` | `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5`, `claude-fable-5-1`, `claude-opus-5`, `claude-sonnet-5` | Anthropic Messages | `ANTHROPIC_API_KEY` `ANTHROPIC_BASE_URL` |
-| `google-official` | `gemini-4-hydrogen`, `gemini-4-carbon`, `gemini-4-argon`, `gemini-3.8-flash`, `gemini-3.1-pro-preview`; `gemini-nano-banana-2.1`, `gemini-3.1-flash-image`, `gemini-3.8-flash-tts`, `gemini-omni-1.2-flash`; `gemini-embedding-2` | Gemini Interactions | `GEMINI_API_KEY` `GEMINI_BASE_URL` |
+| `google-official` | `gemini-4-neon`, `gemini-4-hydrogen`, `gemini-4-carbon`, `gemini-4-argon`, `gemini-3.8-flash`, `gemini-3.1-pro-preview`; `gemini-nano-banana-2.1`, `gemini-3.1-flash-image`, `gemini-3.8-flash-tts`, `gemini-omni-1.2-flash`; `gemini-embedding-2` | Gemini Interactions | `GEMINI_API_KEY` `GEMINI_BASE_URL` |
 | `zai-official` | `glm-5.3`, `glm-5.3-flash`, `glm-5.2` | Chat Completions | `ZAI_API_KEY` `ZAI_BASE_URL` |
 | `moonshot-official` | `kimi-k3.1-pro`, `kimi-k3.1-pro-highspeed`, `kimi-k3`, `kimi-k2.6` | Chat Completions | `MOONSHOT_API_KEY` `MOONSHOT_BASE_URL` |
 | `deepseek-official` | `deepseek-flash`, `deepseek-v4-pro`; `deepseek-search`, `deepseek-fetch`; `deepseek-tts`, `deepseek-asr` | Responses; Search and Fetch for `deepseek-search` and `deepseek-fetch`; speech and recognition for `deepseek-tts` and `deepseek-asr` | `DEEPSEEK_API_KEY` `DEEPSEEK_BASE_URL` |
@@ -23,7 +23,7 @@ Each row names the environment variables the client reads: the key, then the end
 
 Gemini 4 Carbon (`gemini-4-carbon`) and Gemini 4 Argon (`gemini-4-argon`) support `low`, `medium` (default), and `high` thinking; Carbon spends more thinking per turn. MMSP maps `none` to `low` and `xhigh`/`max` to `high`. Their 1,048,576-token context window is shared by input, thinking, and output; synchronous streaming is limited to 65,536 output tokens. Longer outputs require Google's stored background execution, outside MMSP's stateless streaming interface. Caching is implicit only.
 
-Gemini 4 Hydrogen (`gemini-4-hydrogen`), the fast one of the generation, supports `low`, `medium`, `high` (default) and `xhigh` thinking. MMSP maps `none` to `low` and `max` to `xhigh`. It shares Carbon's context window and caching.
+Gemini 4 Neon (`gemini-4-neon`) and Gemini 4 Hydrogen (`gemini-4-hydrogen`) support `low`, `medium`, `high` (default) and `xhigh` thinking on `google-official`. MMSP maps `none` to `low` and `max` to `xhigh` (on `google-genai`, where the SDK's `ThinkingLevel` enum stops at `HIGH`, `xhigh` and `max` map to `high`). They share Carbon's context window and caching.
 
 Gemini Omni 1.2 Flash (`gemini-omni-1.2-flash`) generates video: it answers with one `inline_data` item holding an MP4 with its audio, at Google's defaults (16:9, 720p, 10 seconds; about $0.70 a video) unless `video_config` sets the `aspect_ratio` (`16:9`, `9:16`), the `resolution` (`360p` to `4K`) or the `duration` (3 to 15 seconds). MMSP sends only the newest message, its text and images, and leaves `max_tokens` unsent, since the video's own tokens count against Google's limit. It supports `low` and `high` thinking: `none` and `low` run at `low`, the rest at `high`. `tools`, `tool_choice`, `image_config` and `fast_mode` raise `UnsupportedParameterError`.
 
@@ -81,7 +81,7 @@ Thirteen compatible clients call any endpoint that serves their protocol. Name o
 | `google-genai` | Google generateContent, as the Google GenAI SDK speaks it | Vertex AI, the Gemini API, gateways that proxy it |
 | `deepseek-webtool` | DeepSeek's web search and page fetch, `/v1/tools/search` and `/v1/tools/fetch` | DeepSeek, TokenDance |
 | `deepseek-speech` | DeepSeek's speech, `/v1/tools/tts`: raw PCM streams as it is made | DeepSeek |
-| `deepseek-transcription` | DeepSeek's recognition, `/v1/tools/asr`: one WAV or Ogg Opus item per message | DeepSeek |
+| `deepseek-transcription` | DeepSeek's recognition, `/v1/tools/asr`: one WAV or Ogg Opus item per message | DeepSeek, TokenDance |
 | `mmsp` | MMSP itself | An [MMSP server](/docs/server/) |
 
 Where a gateway serves more than one, prefer `openai-responses`. OpenRouter serves it for every model it hosts; SiliconFlow serves Chat Completions only.
@@ -114,7 +114,7 @@ Common base URLs, and the variable the examples read each key from:
 | --- | --- | --- |
 | OpenRouter | `https://openrouter.ai/api/v1` | `OPENROUTER_API_KEY` |
 | SiliconFlow | `https://api.siliconflow.cn/v1` | `SILICONFLOW_API_KEY` |
-| TokenDance | `https://tokendance.space/gateway/v1`, `https://tokendance.space/gateway` for Anthropic Messages, and `https://tokendance.space/gateway/deepseek` for `deepseek-webtool` | `TOKENDANCE_API_KEY` |
+| TokenDance | `https://tokendance.space/gateway/v1`, `https://tokendance.space/gateway` for Anthropic Messages, and `https://tokendance.space/gateway/deepseek` for `deepseek-webtool` and `deepseek-transcription` | `TOKENDANCE_API_KEY` |
 | Google Vertex AI | `https://aiplatform.googleapis.com` | `VERTEX_API_KEY`: the service-account JSON |
 | Amazon Bedrock | `bedrock://<region>`, such as `bedrock://us-east-1` | `BEDROCK_API_KEY`: `ACCESS_KEY,SECRET_KEY` |
 | ModelVerse | `https://api.modelverse.cn/v1`, and `https://api.modelverse.cn/` for Claude | `MODELVERSE_API_KEY` |
@@ -196,7 +196,7 @@ Every client speaks one protocol on the wire, whichever `client_type` reaches it
 | `openai-embedding`, and `openai-official` for `text-embedding-*` | `openai-embedding` |
 | `openai-image`, and `openai-official` for `gpt-image-*` | `openai-image` |
 | `openai-speech` | `openai-speech` |
-| `openai-transcription` | `openai-transcription` |
+| `openai-transcription`, and `openai-official` for `gpt-transcribe` | `openai-transcription` |
 | `deepseek-webtool`, and `deepseek-official` for `deepseek-search` and `deepseek-fetch` | `deepseek-webtool` |
 | `deepseek-speech`, and `deepseek-official` for `deepseek-tts` | `deepseek-speech` |
 | `deepseek-transcription`, and `deepseek-official` for `deepseek-asr` | `deepseek-transcription` |

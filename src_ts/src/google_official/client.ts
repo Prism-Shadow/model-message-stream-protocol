@@ -176,49 +176,59 @@ export class GoogleOfficialClient extends LLMClient {
     "xhigh",
   ];
 
+  // The models that still take "minimal". Gemini 2.5, every Pro model, 3.7 onward and Gemini 4
+  // refuse it with a 400, so a model matched by no row gets the low/medium/high that all of them
+  // take, and a new generation inherits the newest one's levels rather than the oldest's.
+  private static readonly MINIMAL_THINKING_MODELS: readonly string[] = [
+    "gemini-3-flash",
+    "gemini-3.1-flash-lite",
+    "gemini-3.5-flash",
+    "gemini-3.6-flash",
+    "gemini-robotics",
+  ];
+
   /**
-   * Thinking levels the target model accepts (llmsdk_docs/gemini_interactions/docs/thinking.md).
+   * Thinking levels the target model accepts (llmsdk_docs/gemini4/docs/thinking.md).
    *
    * An empty array means the model rejects the thinking_level parameter
    * entirely, so it must be omitted from the request.
    */
   private _supportedThinkingLevels(): GeminiThinkingLevel[] {
-    if (this._model.includes("gemini-omni")) {
+    // family routing ignores case, so the generation markers do too
+    const model = this._model.toLowerCase();
+    if (model.includes("gemini-omni")) {
       // "minimal" and "medium" are refused: "Allowed values are: high, low." (verified live 2026-11-06)
       return ["low", "high"];
     }
-    if (this._model.includes("gemini-nano-banana")) {
+    if (model.includes("gemini-nano-banana")) {
       // "low" and "xhigh" are refused: "Allowed values are: high, medium, minimal." (verified live 2026-11-19)
       return ["minimal", "medium", "high"];
     }
-    if (this._model.includes("-image")) {
+    if (model.includes("-image")) {
       return ["minimal", "high"];
     }
-    if (this._model.includes("gemini-3-pro")) {
-      // The only pro generation without "medium".
+    if (
+      ["gemini-3-pro", "gemini-2.5"].some((version) => model.includes(version))
+    ) {
+      // "medium" is refused too: "Allowed values are: high, low." (2.5 Flash and Pro verified live 2026-11-19)
       return ["low", "high"];
     }
-    if (this._model.includes("-pro")) {
-      // Every pro generation rejects "minimal"; matching broadly keeps
-      // future pro models on the safe side (clamping a level the model
-      // would have accepted costs a little accuracy, forwarding an
-      // unsupported one is a 400).
-      return ["low", "medium", "high"];
-    }
-    if (this._model.includes("gemini-4-hydrogen")) {
-      // the one generation with "xhigh"; "minimal" and "max" are refused (verified live 2026-11-16)
+    if (
+      ["gemini-4-hydrogen", "gemini-4-neon"].some((version) =>
+        model.includes(version),
+      )
+    ) {
+      // the generations with "xhigh"; "minimal" and "max" are refused (verified live 2026-11-16 and 2026-11-19)
       return ["low", "medium", "high", "xhigh"];
     }
     if (
-      this._model.includes("gemini-3.7") ||
-      this._model.includes("gemini-3.8") ||
-      this._model.includes("gemini-4-argon") ||
-      this._model.includes("gemini-4-carbon")
+      GoogleOfficialClient.MINIMAL_THINKING_MODELS.some((version) =>
+        model.includes(version),
+      )
     ) {
-      // These generations support low, medium, and high, but not minimal.
-      return ["low", "medium", "high"];
+      return ["minimal", "low", "medium", "high"];
     }
-    return ["minimal", "low", "medium", "high"];
+    return ["low", "medium", "high"];
   }
 
   /**
@@ -235,8 +245,8 @@ export class GoogleOfficialClient extends LLMClient {
       [ThinkingLevel.MEDIUM]: "medium",
       [ThinkingLevel.HIGH]: "high",
       [ThinkingLevel.XHIGH]: "xhigh",
-      // Gemini stops at "xhigh", which only Hydrogen takes; the clamping below runs both top
-      // levels at "high" on every other model
+      // Gemini stops at "xhigh", which only Hydrogen and Neon take; the clamping below runs both
+      // top levels at "high" on every other model
       [ThinkingLevel.MAX]: "xhigh",
     };
     const level = mapping[thinkingLevel];
@@ -378,7 +388,10 @@ export class GoogleOfficialClient extends LLMClient {
     // 2026-08-20, again through the Interactions API 2026-09-16), so the rest of the
     // universal config never reaches the request.
     if (this._model.toLowerCase().includes("tts")) {
-      const ttsConfig = config.tts_config ?? [{ voice: "Kore" }];
+      // an empty tts_config is unset, as on openai-speech and deepseek-speech
+      const ttsConfig = config.tts_config?.length
+        ? config.tts_config
+        : [{ voice: "Kore" }];
       if (![1, 2].includes(ttsConfig.length)) {
         throw new UnsupportedParameterError({
           client: this.constructor.name,

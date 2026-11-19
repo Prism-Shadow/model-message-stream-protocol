@@ -157,32 +157,45 @@ class GoogleGenaiClient(LLMClient):
         types.ThinkingLevel.HIGH,
     )
 
+    # The models that still take "minimal". Gemini 2.5, every Pro model, 3.7 onward and Gemini 4
+    # refuse it with a 400, so a model matched by no row gets the LOW/MEDIUM/HIGH that all of them
+    # take, and a new generation inherits the newest one's levels rather than the oldest's.
+    _MINIMAL_THINKING_MODELS = (
+        "gemini-3-flash",
+        "gemini-3.1-flash-lite",
+        "gemini-3.5-flash",
+        "gemini-3.6-flash",
+        "gemini-robotics",
+    )
+
     def _supported_thinking_levels(self) -> tuple[types.ThinkingLevel, ...]:
-        """Thinking levels the target model accepts (llmsdk_docs/gemini3_8/docs/thinking.md).
+        """Thinking levels the target model accepts (llmsdk_docs/gemini4/docs/thinking.md).
 
         An empty tuple means the model rejects the thinking_level parameter
-        entirely, so it must be omitted from the request.
+        entirely, so it must be omitted from the request. The levels stop at HIGH
+        even on Hydrogen and Neon: @google/genai 2.x, which the TypeScript package
+        accepts, has no XHIGH, and both packages send the same levels.
         """
-        if "gemini-nano-banana" in self._model:
-            # "low" is refused: "Allowed values are: high, medium, minimal." (verified live 2026-11-19)
+        # family routing ignores case, so the generation markers do too
+        model = self._model.lower()
+        if "gemini-omni" in model:
+            # "minimal" and "medium" are refused: "Allowed values are: high, low." (verified live 2026-11-06)
+            return (types.ThinkingLevel.LOW, types.ThinkingLevel.HIGH)
+        if "gemini-nano-banana" in model:
+            # "low" and "xhigh" are refused: "Allowed values are: high, medium, minimal." (verified live 2026-11-19)
             return (types.ThinkingLevel.MINIMAL, types.ThinkingLevel.MEDIUM, types.ThinkingLevel.HIGH)
-        if "-image" in self._model:
+        if "-image" in model:
             return (types.ThinkingLevel.MINIMAL, types.ThinkingLevel.HIGH)
-        if "gemini-3-pro" in self._model:
+        if "gemini-2.5" in model:
+            # generateContent refuses any level on 2.5, which takes a thinking budget instead: "Thinking level is
+            # not supported for this model." (verified live 2026-11-19)
+            return ()
+        if "gemini-3-pro" in model:
             # The only pro generation without "medium".
             return (types.ThinkingLevel.LOW, types.ThinkingLevel.HIGH)
-        if "-pro" in self._model:
-            # Every pro generation rejects "minimal"; matching broadly keeps
-            # future pro models on the safe side (clamping a level the model
-            # would have accepted costs a little accuracy, forwarding an
-            # unsupported one is a 400).
-            return (types.ThinkingLevel.LOW, types.ThinkingLevel.MEDIUM, types.ThinkingLevel.HIGH)
-        if any(
-            version in self._model for version in ("gemini-3.7", "gemini-3.8", "gemini-4-argon", "gemini-4-carbon")
-        ):
-            # These generations support low, medium, and high, but not minimal.
-            return (types.ThinkingLevel.LOW, types.ThinkingLevel.MEDIUM, types.ThinkingLevel.HIGH)
-        return self._GEMINI_LEVEL_ORDER
+        if any(version in model for version in self._MINIMAL_THINKING_MODELS):
+            return self._GEMINI_LEVEL_ORDER
+        return (types.ThinkingLevel.LOW, types.ThinkingLevel.MEDIUM, types.ThinkingLevel.HIGH)
 
     def _convert_thinking_level(self, thinking_level: ThinkingLevel | None) -> types.ThinkingLevel | None:
         """Convert ThinkingLevel enum to the closest Gemini ThinkingLevel the model supports."""

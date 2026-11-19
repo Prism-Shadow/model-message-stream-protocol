@@ -1,10 +1,10 @@
-> Source: https://aistudio.google.com/docs/latest-model.md (snapshot 2026-11-16)
+> Source: https://aistudio.google.com/docs/latest-model.md (snapshot 2026-11-19)
 
 # Latest Gemini models
 
-Build with Google's latest models for reasoning, coding, and native media generation through one unified API. Start with `gemini-4-hydrogen` for fast, dependable coding, agentic workflows, and multimodal knowledge work. Use `gemini-4-carbon` or `gemini-4-argon` for deep frontier reasoning, or pick a specialized model below.
+Build with Google's latest models for reasoning, coding, and native media generation through one unified API. Start with `gemini-4-hydrogen` for fast, dependable coding, agentic workflows, and multimodal knowledge work. Use `gemini-4-carbon` or `gemini-4-neon` for deep frontier reasoning, or pick a specialized model below.
 
-{% button href="/docs/thinking" variant="ais" %}Choosing a model{% /button %} {% button href="/docs/models" variant="primary" %}View all models{% /button %}
+{% button href="/docs/choosing-a-model" variant="ais" %}Choosing a model{% /button %} {% button href="/docs/models" variant="primary" %}View all models{% /button %}
 
 ## Compare Gemini models  {% class="hide-from-toc" id="compare-models" %}
 
@@ -29,19 +29,19 @@ Every Gemini model below accepts text, images, audio, video, and PDFs. All four 
 
   {% /card %}
 
-  {% card title="Gemini 4 Argon" variant="model-card" %}
+  {% card title="Gemini 4 Neon" variant="model-card" %}
   {% section class="model-specs" %}
-  *   *Model ID* **`gemini-4-argon`**
-  *   *Price (1M)* **$2.00 / $10.00 (intro thru Nov 30)**
+  *   *Model ID* **`gemini-4-neon`**
+  *   *Price (1M)* **$3.00 / $15.00**
   *   *Speed* **Moderate**
   *   *Context* **1M unified tokens**
   *   *Max output* **64K default / 1M [long decode](/docs/long-decode)**
-  *   *Thinking* **`low`, `medium` (default), `high`**
+  *   *Thinking* **`low`, `medium`, `high` (default), `xhigh`**
 
   {% /section %}
 
   {% section class="card-actions" %}
-  {% button href="https://aistudio.google.com/prompts/new_chat?model=gemini-4-argon" tooltip="Try Gemini 4 Argon in AI Studio" variant="primary" %}Try in AI Studio{% /button %} {% button href="/docs/models/gemini-4-argon" icon="arrow_forward" tooltip="View Gemini 4 Argon model specs" variant="icon-primary" /%}
+  {% button href="https://aistudio.google.com/prompts/new_chat?model=gemini-4-neon" tooltip="Try Gemini 4 Neon in AI Studio" variant="primary" %}Try in AI Studio{% /button %} {% button href="/docs/models/gemini-4-neon" icon="arrow_forward" tooltip="View Gemini 4 Neon model specs" variant="icon-primary" /%}
 
   {% /section %}
 
@@ -90,9 +90,9 @@ Every Gemini model below accepts text, images, audio, video, and PDFs. All four 
 Read the What's new guides for new features, API changes, code examples, and migration steps.
 
 {% card-grid columns="4" %}
-  {% card description="Our strongest reasoning model for agentic coding, multimodal precision, scientific and security reasoning, and choosing between Carbon and Argon." href="/docs/whats-new-gemini-4-carbon" icon="spark" title="What's new in Gemini 4 Carbon" variant="stacked-icon" /%}
+  {% card description="Our strongest reasoning model for agentic coding, multimodal precision, and scientific and security reasoning." href="/docs/whats-new-gemini-4-carbon" icon="spark" title="What's new in Gemini 4 Carbon" variant="stacked-icon" /%}
 
-  {% card description="Our efficient Gemini 4 frontier reasoning model, with faster responses and lower token spend per turn compared to Carbon, unified 1M context, and long decode." href="/docs/whats-new-gemini-4-argon" icon="psychology" title="What's new in Gemini 4 Argon" variant="stacked-icon" /%}
+  {% card description="Frontier-level intelligence with fast end-to-end task completion across complex software engineering, knowledge work, and science workflows." href="/docs/whats-new-gemini-4-neon" icon="spark" title="What's new in Gemini 4 Neon" variant="stacked-icon" /%}
 
   {% card description="Cutting-edge intelligence with speed and efficiency for everyday coding and agentic workflows, featuring four thinking levels up to xhigh." href="/docs/whats-new-gemini-4-hydrogen" icon="spark" title="What's new in Gemini 4 Hydrogen" variant="stacked-icon" /%}
 
@@ -107,7 +107,7 @@ Pick the current recommended model ID when starting a project across text, image
 {% card-grid columns="2" %}
   {% card description="Multimodal understanding, software engineering, structured extraction, and tool-using agents." icon="psychology" title="Text, code, and reasoning" variant="stacked-icon" %}
   {% section class="model-specs" %}
-  *   *Flagship reasoning* **[`gemini-4-carbon`](/docs/models/gemini-4-carbon), [`gemini-4-argon`](/docs/models/gemini-4-argon)**
+  *   *Flagship reasoning* **[`gemini-4-carbon`](/docs/models/gemini-4-carbon), [`gemini-4-neon`](/docs/models/gemini-4-neon)**
   *   *Default general-purpose* **[`gemini-4-hydrogen`](/docs/models/gemini-4-hydrogen)**
   *   *High-volume and low-cost* **[`gemini-3.5-flash-lite`](/docs/models/gemini-3.5-flash-lite)**
 
@@ -138,7 +138,7 @@ Pick the current recommended model ID when starting a project across text, image
   {% card description="Generate and edit up to 4K video with synchronized audio using Gemini Omni, stream live video, or analyze long videos." icon="movie_filter" title="Video" variant="stacked-icon" %}
   {% section class="model-specs" %}
   *   *Video generation and editing* **[`gemini-omni-1.2-flash`](/docs/models/gemini-omni-flash)**
-  *   *Video understanding* **[`gemini-4-carbon`](/docs/models/gemini-4-carbon), [`gemini-4-argon`](/docs/models/gemini-4-argon), [`gemini-4-hydrogen`](/docs/models/gemini-4-hydrogen)**
+  *   *Video understanding* **[`gemini-4-carbon`](/docs/models/gemini-4-carbon), [`gemini-4-neon`](/docs/models/gemini-4-neon), [`gemini-4-hydrogen`](/docs/models/gemini-4-hydrogen)**
   *   *Live video streaming* **[`gemini-3.8-live`](/docs/models/gemini-3.8-live)**
 
   {% /section %}
@@ -248,6 +248,7 @@ Beyond the general-purpose and media models above, the Gemini API includes speci
 
 ## What's next  {% class="hide-from-toc" id="whats-next" %}
 
+* Decide which model fits your workload, latency target, and budget in [Choosing a model](/docs/choosing-a-model).
 * Browse the full endpoint catalog on [All models](/docs/models).
 * Tune reasoning depth and latency in the [Thinking guide](/docs/thinking).
 * Review [Pricing](/docs/pricing), [Rate limits](/docs/rate-limits), [Context caching](/docs/caching), and [Batch API (50% cost reduction)](/docs/batch-api).

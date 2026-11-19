@@ -42,13 +42,18 @@ from ..utils import is_debug_enabled, resolve_credentials
 REDACTED_THINKING = "_REDACTED_THINKING"
 
 # Generations told apart by explicit version, matched anywhere in the id so Bedrock's
-# anthropic.claude-opus-5-5 counts too. Opus 5.5 and Fable 5.1 always think: "disabled" and
-# "between_tools" return 400, and Fable 5 returns 400 for "disabled" too (verified live
-# 2026-10-23); "fable-5" matches both Fable generations. Haiku 5.5 takes "disabled" but runs
-# NONE at the lowest effort like them. Sonnet 5.5 drops only up-front thinking, with
-# "between_tools".
-_LOW_EFFORT_FOR_NONE = ("opus-5-5", "fable-5", "haiku-5-5")
+# anthropic.claude-opus-5-5 counts too. NONE takes "disabled" only on the generations listed for
+# it: Opus 5.5 and Fable 5.1 always think, "disabled" and "between_tools" returning 400, and
+# Fable 5 returns 400 for "disabled" too (verified live 2026-10-23), so the default is adaptive
+# thinking at the lowest effort, which every generation from 4.6 on takes; Haiku 5.5 takes
+# "disabled" but runs NONE that way too. Claude 4.5 has no adaptive thinking ("adaptive thinking is
+# not supported on this model", Opus 4.5 and Haiku 4.5 verified live 2026-11-19), so it is listed.
+# Sonnet 5.5 drops only up-front thinking, with "between_tools".
 _BETWEEN_TOOLS = ("sonnet-5-5",)
+_DISABLED_THINKING = ("4-5", "4-6", "4-7", "4-8")
+# Opus 5 and Sonnet 5, told from their 5.5 successors by the "-5-5" those carry
+_DISABLED_THINKING_5_0 = ("opus-5", "sonnet-5")
+_CLAUDE_5_5 = ("opus-5-5", "sonnet-5-5")
 # The 2026-09 generation returns 400 for tool_choice "any" and "tool". Haiku 5.5 takes them but
 # answers without thinking, so it is rejected with the rest of the 5.5 family.
 _NO_FORCED_TOOL_CHOICE = ("opus-5-5", "sonnet-5-5", "haiku-5-5", "fable-5-1")
@@ -140,19 +145,20 @@ class AnthropicOfficialClient(LLMClient):
         return source
 
     def _generation(self, versions: tuple[str, ...]) -> bool:
-        return any(version in self._model for version in versions)
+        # family routing ignores case, so the generation markers do too
+        return any(version in self._model.lower() for version in versions)
 
     def _convert_thinking_level_to_thinking_config(self, thinking_level: ThinkingLevel) -> dict[str, Any]:
         """Convert ThinkingLevel enum to Claude's adaptive thinking config."""
-        if self._generation(_LOW_EFFORT_FOR_NONE):
-            # NONE takes the least thinking these allow
-            none: dict[str, Any] = {"thinking": {"type": "adaptive"}, "output_config": {"effort": "low"}}
-        elif self._generation(_BETWEEN_TOOLS):
-            none = {"thinking": {"type": "between_tools"}}
-        else:
-            # the other generations take "disabled"; without a thinking block Opus 5 still runs
-            # adaptive thinking (verified live 2026-10-23)
+        if self._generation(_BETWEEN_TOOLS):
+            none: dict[str, Any] = {"thinking": {"type": "between_tools"}}
+        elif self._generation(_DISABLED_THINKING) or (
+            self._generation(_DISABLED_THINKING_5_0) and not self._generation(_CLAUDE_5_5)
+        ):
+            # without a thinking block Opus 5 still runs adaptive thinking (verified live 2026-10-23)
             none = {"thinking": {"type": "disabled"}}
+        else:
+            none = {"thinking": {"type": "adaptive"}, "output_config": {"effort": "low"}}
         mapping = {
             ThinkingLevel.NONE: none,
             ThinkingLevel.LOW: {"thinking": {"type": "adaptive"}, "output_config": {"effort": "low"}},
@@ -161,7 +167,7 @@ class AnthropicOfficialClient(LLMClient):
             # Claude 4.6 has no xhigh effort, so XHIGH degrades to the closest supported level
             ThinkingLevel.XHIGH: {
                 "thinking": {"type": "adaptive"},
-                "output_config": {"effort": "high" if "4-6" in self._model else "xhigh"},
+                "output_config": {"effort": "high" if self._generation(("4-6",)) else "xhigh"},
             },
             # every model this client serves is 4.6 or later, and max spans that whole range
             ThinkingLevel.MAX: {"thinking": {"type": "adaptive"}, "output_config": {"effort": "max"}},

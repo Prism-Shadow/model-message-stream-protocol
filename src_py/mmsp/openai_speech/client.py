@@ -20,8 +20,10 @@ from openai import AsyncOpenAI, omit
 
 from ..base_client import LLMClient
 from ..errors import InvalidMessageError, UnsupportedContentError, UnsupportedParameterError
+from ..plugin import enabled_plugins
 from ..types import UniConfig, UniEvent, UniMessage
 from ..utils import openai_client_options, resolve_credentials
+from .plugins import PLUGINS
 
 
 class OpenaiSpeechClient(LLMClient):
@@ -46,6 +48,7 @@ class OpenaiSpeechClient(LLMClient):
             base_url=url,
             **openai_client_options("openai-speech", base_url, key, default_headers),
         )
+        self._plugins = enabled_plugins(PLUGINS, model, str(self._client.base_url), self._client)
         self._history: list[UniMessage] = []
 
     def transform_uni_config_to_model_config(self, config: UniConfig) -> dict[str, Any]:
@@ -142,8 +145,11 @@ class OpenaiSpeechClient(LLMClient):
         params = self.transform_uni_config_to_model_config(config)
         prompt_tokens = 0
         for message_index, text in enumerate(self.transform_uni_message_to_model_input(messages)):
+            request = {**params, "input": text}
+            for plugin in self._plugins:
+                await plugin.on_request(config, request)
             # closed with this generator, so that closing it closes the provider's request
-            async with self._client.audio.speech.with_streaming_response.create(input=text, **params) as response:
+            async with self._client.audio.speech.with_streaming_response.create(**request) as response:
                 content_type = response.headers.get("content-type", "")
                 # raw PCM goes out in whole frames, one 16-bit sample per channel, so that each fragment
                 # plays as it arrives: the first bytes of a frame a chunk splits wait for the next chunk

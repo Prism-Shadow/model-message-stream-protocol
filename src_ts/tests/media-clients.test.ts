@@ -99,6 +99,7 @@ const IMAGE_ANSWERS: Record<string, unknown> = {
 // The content type of each speech model's answer: OpenRouter's PCM, OpenAI's MP3, and a stereo PCM
 const SPEECH_TYPES: Record<string, string> = {
   "fish-audio/drama-3": "audio/pcm;rate=44100;channels=1",
+  "google/gemini-3.8-flash-tts": "audio/pcm;rate=24000;channels=1",
   "tts-1": "audio/mpeg",
   "stereo-pcm": "audio/pcm;rate=48000;channels=2",
 };
@@ -674,6 +675,62 @@ describe("media clients", () => {
       ]),
     ).toEqual([[MP3, "audio/mpeg"]]);
   });
+
+  test("Gemini speech on an OpenAI-compatible endpoint defaults its voice to Kore", async () => {
+    await run("google/gemini-3.8-flash-tts", "openai-speech", [text("Hi")], {});
+    await run("google/gemini-3.8-flash-tts", "openai-speech", [text("Hi")], {
+      tts_config: [{ voice: "Puck" }],
+    });
+
+    expect(requests.map(({ body }) => body)).toEqual([
+      { model: "google/gemini-3.8-flash-tts", input: "Hi", voice: "Kore" },
+      { model: "google/gemini-3.8-flash-tts", input: "Hi", voice: "Puck" },
+    ]);
+  });
+
+  test.each(
+    (
+      [
+        [
+          "fish-audio/drama-3",
+          "openai-speech",
+          "/v1",
+          ["/v1/audio/speech", { model: "fish-audio/drama-3", input: "Hi" }],
+        ],
+        [
+          "deepseek-tts",
+          "deepseek-official",
+          "",
+          ["/v1/tools/tts", { text: "Hi", format: "pcm" }],
+        ],
+      ] as const
+    ).flatMap(([model, clientType, basePath, sent]) =>
+      (
+        [
+          ["absent", {}],
+          ["undefined", { tts_config: undefined }],
+          ["empty", { tts_config: [] }],
+        ] as [string, UniConfig][]
+      ).map(
+        ([name, config]) =>
+          [model, name, clientType, basePath, sent, config] as const,
+      ),
+    ),
+  )(
+    "%s without a speaker (%s) sends no voice",
+    async (model, _, clientType, basePath, sent, config) => {
+      await run(
+        model,
+        clientType,
+        [text("Hi")],
+        config,
+        undefined,
+        `${origin}${basePath}`,
+      );
+
+      expect(requests.map(({ path, body }) => [path, body])).toEqual([sent]);
+    },
+  );
 
   test.each([
     ["fish-audio/drama-3", "openai-speech", "/v1"],
