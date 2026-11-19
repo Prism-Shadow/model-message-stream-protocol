@@ -378,7 +378,10 @@ export class GoogleOfficialClient extends LLMClient {
     // 2026-08-20, again through the Interactions API 2026-09-16), so the rest of the
     // universal config never reaches the request.
     if (this._model.toLowerCase().includes("tts")) {
-      const ttsConfig = config.tts_config ?? [{ voice: "Kore" }];
+      // an empty tts_config is unset, as on openai-speech and deepseek-speech
+      const ttsConfig = config.tts_config?.length
+        ? config.tts_config
+        : [{ voice: "Kore" }];
       if (![1, 2].includes(ttsConfig.length)) {
         throw new UnsupportedParameterError({
           client: this.constructor.name,

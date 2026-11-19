@@ -675,6 +675,50 @@ describe("media clients", () => {
     ).toEqual([[MP3, "audio/mpeg"]]);
   });
 
+  test.each(
+    (
+      [
+        [
+          "fish-audio/drama-3",
+          "openai-speech",
+          "/v1",
+          ["/v1/audio/speech", { model: "fish-audio/drama-3", input: "Hi" }],
+        ],
+        [
+          "deepseek-tts",
+          "deepseek-official",
+          "",
+          ["/v1/tools/tts", { text: "Hi", format: "pcm" }],
+        ],
+      ] as const
+    ).flatMap(([model, clientType, basePath, sent]) =>
+      (
+        [
+          ["absent", {}],
+          ["undefined", { tts_config: undefined }],
+          ["empty", { tts_config: [] }],
+        ] as [string, UniConfig][]
+      ).map(
+        ([name, config]) =>
+          [model, name, clientType, basePath, sent, config] as const,
+      ),
+    ),
+  )(
+    "%s without a speaker (%s) sends no voice",
+    async (model, _, clientType, basePath, sent, config) => {
+      await run(
+        model,
+        clientType,
+        [text("Hi")],
+        config,
+        undefined,
+        `${origin}${basePath}`,
+      );
+
+      expect(requests.map(({ path, body }) => [path, body])).toEqual([sent]);
+    },
+  );
+
   test.each([
     ["fish-audio/drama-3", "openai-speech", "/v1"],
     ["deepseek-tts", "deepseek-official", ""],
