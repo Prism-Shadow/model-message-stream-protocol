@@ -60,7 +60,7 @@ Accepted RFCs (including specifications) are **edited in place**:
 3. **Open PR**: Add a changelog entry (`Type: process`, `Scope: design`) and run `gh pr create --base dev` titled `MMSP-RFC-NNNN: <what changed>`.
 
 - **Superseding a specification**: Replacing a spec entirely requires a new RFC with `Supersedes:`. Its PR appends `- Superseded by: [MMSP-RFC-NNNN](MMSP-RFC-NNNN-<slug>.md)` to the old metadata in both languages and updates the old index row.
-- **PR state and implementation**: Open PR = proposed, merged = accepted, closed = withdrawn (number spent). An implementation PR for a `change` RFC adds `- Implementation PR: [#N](<url>)` after `RFC PR` and links the RFC in its changelog entry.
+- **PR state and implementation**: Open PR = proposed, merged = accepted, closed = withdrawn. An implementation PR for a `change` RFC adds `- Implementation PR: [#N](<url>)` after `RFC PR` and links the RFC in its changelog entry.
 
 ## Writing rules
 

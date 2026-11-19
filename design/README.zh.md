@@ -60,7 +60,7 @@ MMSP 遵守的每项**规范**，以及每个修改**协议或公开 API 的决�
 3. **提交 PR**：添加 `Type: process`、`Scope: design` 变更记录，运行 `gh pr create --base dev`（标题 `MMSP-RFC-NNNN: <改了什么>`）。
 
 - **整篇取代旧规范**：新建一篇 RFC 并在 `Supersedes:` 写明旧编号；其 PR 在中英文旧文件元数据末尾追加 `- Superseded by: [MMSP-RFC-NNNN](MMSP-RFC-NNNN-<slug>.md)` 并更新上表旧行状态。
-- **PR 状态与实现关联**：PR 打开即提议，合并即采纳，关闭即撤回（编号作废）。实现 `change` 类 RFC 的 PR 在 `RFC PR` 后添加 `- Implementation PR: [#N](<url>)`，并在其变更记录中链接该 RFC。
+- **PR 状态与实现关联**：PR 打开即提议，合并即采纳，关闭即撤回。实现 `change` 类 RFC 的 PR 在 `RFC PR` 后添加 `- Implementation PR: [#N](<url>)`，并在其变更记录中链接该 RFC。
 
 ## 写作规则
 
