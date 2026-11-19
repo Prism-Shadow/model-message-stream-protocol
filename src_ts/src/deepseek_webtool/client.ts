@@ -203,14 +203,19 @@ export class DeepSeekWebtoolClient extends LLMClient {
         `/v1/tools/${this._tool}`,
         { body, signal: options.signal },
       );
-      if ("results" in answer ? answer.results.length > 0 : answer.content.trim().length > 0) {
+      // DeepSeek bills only a search with results and a fetch with the page's Markdown
+      if (
+        this._tool === "search"
+          ? (answer as SearchAnswer).results.length > 0
+          : Boolean((answer as FetchAnswer).content)
+      ) {
         billable += 1;
       }
       yield this.transformModelOutputToUniEvent([text, answer]);
     }
 
-    // DeepSeek bills a request, not tokens: each counts as 1,000 prompt tokens (MMSP-RFC-0003
-    // §3.2), so the price per million tokens is the price of 1,000 requests
+    // DeepSeek bills a request, not tokens: each billed request counts as 1,000 prompt tokens
+    // (MMSP-RFC-0003 §3.2), so the price per million tokens is the price of 1,000 billed requests
     yield {
       role: "assistant",
       event_type: "stop",

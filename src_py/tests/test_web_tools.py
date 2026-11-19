@@ -139,7 +139,7 @@ async def test_deepseek_search_sends_one_request_per_message_and_reads_each_resu
     assert _ToolServer.requests[0]["headers"]["authorization"] == "Bearer sk-PROBE"
     page = {"title": "DeepSeek V4", "content": "The long summary.", "url": "https://example.com/v4"}
     assert _webdata(events) == [[page], [page]]
-    # DeepSeek bills each request, counted as 1,000 tokens
+    # DeepSeek bills each search that found results, counted as 1,000 tokens
     assert events[-1]["usage_metadata"]["prompt_tokens"] == 2000
     assert events[-1]["finish_reason"] == "stop"
 

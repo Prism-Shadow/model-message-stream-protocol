@@ -137,12 +137,13 @@ class DeepSeekWebtoolClient(LLMClient):
         for text in self.transform_uni_message_to_model_input(messages):
             body = {"query": text, **params} if self._tool == "search" else {"url": text, **params}
             answer = await self._client.post(f"/v1/tools/{self._tool}", cast_to=object, body=body)
-            if answer["results"] if self._tool == "search" else answer["content"].strip():
+            # DeepSeek bills only a search with results and a fetch with the page's Markdown
+            if answer["results"] if self._tool == "search" else answer["content"]:
                 billable += 1
             yield self.transform_model_output_to_uni_event((text, answer))
 
-        # DeepSeek bills a request, not tokens: each counts as 1,000 prompt tokens (MMSP-RFC-0003 §3.2), so
-        # the price per million tokens is the price of 1,000 requests
+        # DeepSeek bills a request, not tokens: each billed request counts as 1,000 prompt tokens
+        # (MMSP-RFC-0003 §3.2), so the price per million tokens is the price of 1,000 billed requests
         yield {
             "role": "assistant",
             "event_type": "stop",
