@@ -8,6 +8,7 @@ DeepSeek's text to speech and speech to text APIs, which the `deepseek-speech` a
 - [tts-api.zh.md](./docs/tts-api.zh.md) / [tts-api.md](./docs/tts-api.md) - `POST /v1/tools/tts` reference: the `TtsRequest` schema; `pcm` is 24 kHz 16-bit signed mono under `Content-Type: audio/pcm`
 - [asr-guide.zh.md](./docs/asr-guide.zh.md) / [asr-guide.md](./docs/asr-guide.md) - Speech to text: `POST /v1/tools/asr`, multipart `file` only, 16-bit PCM WAV or Ogg Opus read from the bytes, mono or stereo (left channel only), up to 8 MiB and 120 s; answers `request_id`, `text`, `duration_ms`; errors; ¥0.78 per hour of audio, billed by the second with a fraction rounded up
 - [asr-api.zh.md](./docs/asr-api.zh.md) / [asr-api.md](./docs/asr-api.md) - `POST /v1/tools/asr` reference: the `AsrRequest` and `AsrResponse` schemas
+- [tokendance-deepseek-asr.zh.md](./docs/tokendance-deepseek-asr.zh.md) - TokenDance's gateway for `deepseek-asr` at `https://tokendance.space/gateway/deepseek/v1/tools/asr`, ¥0.00011 per second (`items` rate)
 
 ## Notes
 

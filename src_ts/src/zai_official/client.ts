@@ -44,6 +44,17 @@ import {
   resolveCredentials,
 } from "../utils";
 
+// Older GLM generations (4.x through 5.2) that accept {"type": "disabled"} and the full
+// pass-through reasoning_effort vocabulary. GLM-5.3 and newer default to forced thinking and the
+// safe three-level subset ("low", "high", "max").
+const LEGACY_THINKING_GLM = [
+  "glm-4.",
+  "glm-5.1",
+  "glm-5.2",
+  "glm-5-turbo",
+  "glm-5v",
+];
+
 /**
  * Unified client for the GLM series, named for the newest generation it serves (5.3).
  *
@@ -90,22 +101,32 @@ export class ZAIOfficialClient extends LLMClient {
     });
   }
 
+  private _isLegacyThinkingModel(): boolean {
+    // Provider-hosted ids keep their own casing (e.g. SiliconFlow's zai-org/GLM-5.2),
+    // so generation detection is case-insensitive.
+    const model = this._model.toLowerCase();
+    return (
+      model === "glm-5" ||
+      model.endsWith("/glm-5") ||
+      LEGACY_THINKING_GLM.some((legacy) => model.includes(legacy))
+    );
+  }
+
   /**
    * Convert ThinkingLevel enum to GLM's thinking configuration.
    *
    * GLM-5.3 uses forced thinking and errors on {"type": "disabled"}, so NONE
-   * stays enabled there and degrades through the lightest reasoning effort
-   * instead (llmsdk_docs/glm5_3/docs/thinking.md).
+   * stays enabled by default and degrades through the lightest reasoning effort
+   * instead (llmsdk_docs/glm5_3/docs/thinking.md); only pre-5.3 models send
+   * {"type": "disabled"}.
    */
   private _convertThinkingLevelToConfig(thinkingLevel: ThinkingLevel): {
     type: string;
     clear_thinking?: boolean;
   } {
-    // Provider-hosted ids keep their own casing (e.g. SiliconFlow's zai-org/GLM-5.2),
-    // so generation detection is case-insensitive.
     if (
       thinkingLevel === ThinkingLevel.NONE &&
-      !this._model.toLowerCase().includes("glm-5.3")
+      this._isLegacyThinkingModel()
     ) {
       return { type: "disabled" };
     }
@@ -116,34 +137,32 @@ export class ZAIOfficialClient extends LLMClient {
    * Convert ThinkingLevel enum to the reasoning_effort the model accepts.
    *
    * GLM-5.3 accepts only low/high/max and errors on anything else, so the
-   * client clamps to the closest value; NONE rides on low because 5.3 cannot
-   * disable thinking. Every earlier generation takes the vocabulary unchanged:
-   * 5.2 maps it server-side (low/medium to high, xhigh to max), and 5.1 and
-   * below accept the parameter and ignore it (verified live 2026-09-03 on
-   * Z.AI, OpenRouter and SiliconFlow), so the level is forwarded there rather
-   * than dropped. Outside 5.3 NONE disables thinking outright, which leaves no
-   * effort to send.
+   * default clamps to the closest value; NONE rides on low because 5.3 cannot
+   * disable thinking. Earlier generations (5.2 and below) take the vocabulary
+   * unchanged: 5.2 maps it server-side (low/medium to high, xhigh to max), and
+   * 5.1 and below accept the parameter and ignore it (verified live 2026-09-03
+   * on Z.AI, OpenRouter and SiliconFlow), so the level is forwarded there
+   * rather than dropped, and NONE disables thinking outright without an effort.
    */
   private _convertThinkingLevelToReasoningEffort(
     thinkingLevel: ThinkingLevel,
   ): string | undefined {
-    const model = this._model.toLowerCase(); // provider-hosted ids keep their own casing
-    if (model.includes("glm-5.3")) {
+    if (this._isLegacyThinkingModel()) {
       const mapping: { [key: string]: string } = {
-        [ThinkingLevel.NONE]: "low",
         [ThinkingLevel.LOW]: "low",
-        [ThinkingLevel.MEDIUM]: "high",
+        [ThinkingLevel.MEDIUM]: "medium",
         [ThinkingLevel.HIGH]: "high",
-        [ThinkingLevel.XHIGH]: "max",
+        [ThinkingLevel.XHIGH]: "xhigh",
         [ThinkingLevel.MAX]: "max",
       };
       return mapping[thinkingLevel];
     }
     const mapping: { [key: string]: string } = {
+      [ThinkingLevel.NONE]: "low",
       [ThinkingLevel.LOW]: "low",
-      [ThinkingLevel.MEDIUM]: "medium",
+      [ThinkingLevel.MEDIUM]: "high",
       [ThinkingLevel.HIGH]: "high",
-      [ThinkingLevel.XHIGH]: "xhigh",
+      [ThinkingLevel.XHIGH]: "max",
       [ThinkingLevel.MAX]: "max",
     };
     return mapping[thinkingLevel];

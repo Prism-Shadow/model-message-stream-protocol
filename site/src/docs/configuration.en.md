@@ -64,7 +64,7 @@ A value a client cannot send raises `UnsupportedParameterError` before the reque
 
 ## What each client sends
 
-Clients are named by their `client_type` ([Models and endpoints](/docs/models/)); `openai-official` serves the `text-embedding-*` models through `openai-embedding` and the `gpt-image-*` models through `openai-image`, and `deepseek-official` serves `deepseek-search` and `deepseek-fetch` through `deepseek-webtool`, `deepseek-tts` through `deepseek-speech` and `deepseek-asr` through `deepseek-transcription`. The media clients, `openai-image`, `openai-speech`, `openai-transcription`, `deepseek-speech` and `deepseek-transcription`, send nothing but the model (the DeepSeek ones name none), the prompt, input or file, and `image_config` or `tts_config`; `deepseek-speech` also asks for `format: "pcm"`. The web tool clients, `deepseek-webtool` and `jina-webtool`, tell a search from a fetch by the `-search` or `-fetch` in the id. On both Google clients, a speech model is one whose id contains `tts` and an embedding model one whose id contains `embedding`; on `google-official`, Gemini Omni is a model whose id contains `gemini-omni`. The `mmsp` client sends the configuration unchanged, and the server applies it through the model's own client, so that client's rows hold.
+Clients are named by their `client_type` ([Models and endpoints](/docs/models/)); `openai-official` serves the `text-embedding-*` models through `openai-embedding`, the `gpt-image-*` models through `openai-image`, and `gpt-transcribe` through `openai-transcription`, and `deepseek-official` serves `deepseek-search` and `deepseek-fetch` through `deepseek-webtool`, `deepseek-tts` through `deepseek-speech` and `deepseek-asr` through `deepseek-transcription`. The media clients, `openai-image`, `openai-speech`, `openai-transcription`, `deepseek-speech` and `deepseek-transcription`, send nothing but the model (the DeepSeek ones name none), the prompt, input or file, and `image_config` or `tts_config`; `deepseek-speech` also asks for `format: "pcm"`. The web tool clients, `deepseek-webtool` and `jina-webtool`, tell a search from a fetch by the `-search` or `-fetch` in the id. On both Google clients, a speech model is one whose id contains `tts` and an embedding model one whose id contains `embedding`; on `google-official`, Gemini Omni is a model whose id contains `gemini-omni`. The `mmsp` client sends the configuration unchanged, and the server applies it through the model's own client, so that client's rows hold.
 
 ### `max_tokens`
 
@@ -133,28 +133,29 @@ Each client sends the level as its protocol's effort: `output_config.effort` wit
 
 | Client and model | `none` | `low` | `medium` | `high` | `xhigh` | `max` |
 | --- | --- | --- | --- | --- | --- | --- |
-| `anthropic-official`: Claude Opus 5.5, Haiku 5.5, Fable 5, Fable 5.1 | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `anthropic-official`: Claude Sonnet 5.5 | `between_tools` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `anthropic-official`: Claude 4.6 | `disabled` | `low` | `medium` | `high` | `high` | `max` |
-| `anthropic-official`: other Claude models; `ant-messages` | `disabled` | `low` | `medium` | `high` | `xhigh` | `max` |
-| `openai-official`, `openai-responses`: GPT-6 models except GPT-6 Luna and GPT-6.1 Terra | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
-| `openai-official`, `openai-responses`: other models | `none` | `low` | `medium` | `high` | `xhigh` | `max` |
+| `anthropic-official`: Claude 4.7, 4.8, Opus 5, Sonnet 5; `ant-messages` | `disabled` | `low` | `medium` | `high` | `xhigh` | `max` |
+| `anthropic-official`: Claude Opus 5.5, Haiku 5.5, Fable 5, Fable 5.1, and other Claude models | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
+| `openai-official`, `openai-responses`: GPT-5 models, GPT-6 Luna, GPT-6.1 Terra | `none` | `low` | `medium` | `high` | `xhigh` | `max` |
+| `openai-official`: other models; `openai-responses`: other GPT models | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
+| `openai-responses`: non-GPT models | `none` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `openai-chat`: on Mistral's endpoint, a model that reasons | not sent | `low` | `high` | `high` | `xhigh` | `max` |
 | `openai-chat`: other models | not sent | not sent | not sent | not sent | not sent | not sent |
 | `deepseek-official` | `none` | `low` | `high` | `high` | `high` | `max` |
-| `minimax-official`: MiniMax-M3.1-Flash | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `minimax-official`: MiniMax-M3 | `none` | `low` | `medium` | `high` | `high` | `high` |
+| `minimax-official`: MiniMax-M3.1-Flash and other MiniMax models | `low` | `low` | `medium` | `high` | `xhigh` | `max` |
 | `moonshot-official`: Kimi K2 | `disabled` | `enabled` | `enabled` | `enabled` | `enabled` | `enabled` |
-| `moonshot-official`: Kimi K3, Kimi K3.1 Pro | `none` | `low` | `high` | `high` | `max` | `max` |
-| `zai-official`: GLM-5.3, GLM-5.3-Flash | `low` | `low` | `high` | `high` | `max` | `max` |
-| `zai-official`: other GLM models | `disabled` | `low` | `medium` | `high` | `xhigh` | `max` |
-| `google-official`: Gemini Omni | `low` | `low` | `high` | `high` | `high` | `high` |
-| `google-official`: Gemini 4 Hydrogen | `low` | `low` | `medium` | `high` | `xhigh` | `xhigh` |
+| `moonshot-official`: Kimi K3, Kimi K3.1 Pro, and other Kimi models | `none` | `low` | `high` | `high` | `max` | `max` |
+| `zai-official`: GLM-4.x, GLM-5, GLM-5.1, GLM-5.2, GLM-5-Turbo, GLM-5V | `disabled` | `low` | `medium` | `high` | `xhigh` | `max` |
+| `zai-official`: GLM-5.3, GLM-5.3-Flash, and other GLM models | `low` | `low` | `high` | `high` | `max` | `max` |
+| `google-official`, `google-genai`: Gemini Omni | `low` | `low` | `high` | `high` | `high` | `high` |
+| `google-official`: Gemini 4 Hydrogen, Gemini 4 Neon | `low` | `low` | `medium` | `high` | `xhigh` | `xhigh` |
 | `google-official`, `google-genai`: Nano Banana (`gemini-nano-banana-2.1`) | `minimal` | `medium` | `medium` | `high` | `high` | `high` |
 | `google-official`, `google-genai`: other image models | `minimal` | `minimal` | `high` | `high` | `high` | `high` |
 | `google-official`, `google-genai`: Gemini 3 Pro | `low` | `low` | `high` | `high` | `high` | `high` |
-| `google-official`, `google-genai`: other Pro models, Gemini 3.7, 3.8, 4 Argon, 4 Carbon | `low` | `low` | `medium` | `high` | `high` | `high` |
-| `google-official`, `google-genai`: other Gemini models | `minimal` | `low` | `medium` | `high` | `high` | `high` |
+| `google-official`, `google-genai`: Gemini 3 Flash, 3.1 Flash-Lite, 3.5 Flash, 3.6 Flash, Robotics | `minimal` | `low` | `medium` | `high` | `high` | `high` |
+| `google-official`, `google-genai`: other Gemini models | `low` | `low` | `medium` | `high` | `high` | `high` |
 
 `openai-chat-vllm-adapter` sends no `reasoning_effort` either. It sets the switch the served model's chat template reads, as `chat_template_kwargs`:
 
@@ -265,7 +266,7 @@ Gemini speech models, on both Google clients:
 
 | `tts_config` | Sent as |
 | --- | --- |
-| Not set | no voice: the endpoint's default voice (`stella` on DeepSeek) |
+| Not set | no voice: the endpoint's default voice (`stella` on DeepSeek; `Kore` for Gemini speech models on `openai-speech`) |
 | One entry | its `voice`, as `voice_id` on `deepseek-speech` (`stella` or `tide`) |
 | Two or more | raises |
 

@@ -45,8 +45,8 @@ const GEMINI3_THINKING_LEVEL_CASES: Array<
   ["gemini-3.5-flash", ThinkingLevel.MEDIUM, "medium"],
   // A future pro generation falls into the generic "-pro" branch.
   ["gemini-4-pro", ThinkingLevel.NONE, "low"],
-  // An unrecognized model inherits the full four-level default.
-  ["gemini-9-flash", ThinkingLevel.NONE, "minimal"],
+  // An unrecognized model inherits the three-level default of the newest generations.
+  ["gemini-9-flash", ThinkingLevel.NONE, "low"],
 ];
 
 // clientType pins routing so hypothetical model names reach the unified
@@ -124,8 +124,8 @@ describe("google_official thinking level clamping", () => {
   );
 });
 
-// Gemini 4 Hydrogen is the one generation with "xhigh"; "minimal" and "max" are refused (verified live
-// 2026-11-16), so NONE runs at "low" and MAX at "xhigh".
+// Gemini 4 Hydrogen and Gemini 4 Neon are the generations with "xhigh"; "minimal" and "max" are
+// refused (Hydrogen verified live 2026-11-16, Neon 2026-11-19), so NONE runs at "low" and MAX at "xhigh".
 const GEMINI_HYDROGEN_THINKING_LEVEL_CASES: Array<
   [string, ThinkingLevel, string]
 > = [
@@ -135,6 +135,12 @@ const GEMINI_HYDROGEN_THINKING_LEVEL_CASES: Array<
   ["gemini-4-hydrogen", ThinkingLevel.HIGH, "high"],
   ["gemini-4-hydrogen", ThinkingLevel.XHIGH, "xhigh"],
   ["gemini-4-hydrogen", ThinkingLevel.MAX, "xhigh"],
+  ["gemini-4-neon", ThinkingLevel.NONE, "low"],
+  ["gemini-4-neon", ThinkingLevel.LOW, "low"],
+  ["gemini-4-neon", ThinkingLevel.MEDIUM, "medium"],
+  ["gemini-4-neon", ThinkingLevel.HIGH, "high"],
+  ["gemini-4-neon", ThinkingLevel.XHIGH, "xhigh"],
+  ["gemini-4-neon", ThinkingLevel.MAX, "xhigh"],
 ];
 
 describe("gemini 4 hydrogen thinking level mapping", () => {
@@ -198,6 +204,7 @@ describe("google_genai thinking level clamping", () => {
   test.each([
     ...GEMINI3_THINKING_LEVEL_CASES,
     ...GEMINI3_7_THINKING_LEVEL_CASES,
+    ...GEMINI_OMNI_THINKING_LEVEL_CASES,
   ])("%s clamps %s to %s", (model, level, expected) => {
     const client = createGenerateContentAutoClient(model);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -231,12 +238,17 @@ const GLM_THINKING_LEVEL_CASES: Array<
   ["glm-5.3", ThinkingLevel.XHIGH, "enabled", "max"],
   ["glm-5.3", ThinkingLevel.MAX, "enabled", "max"],
   ["glm-5.3-flash", ThinkingLevel.MAX, "enabled", "max"],
+  ["glm-6", ThinkingLevel.NONE, "enabled", "low"],
+  ["glm-6", ThinkingLevel.MEDIUM, "enabled", "high"],
+  ["glm-6", ThinkingLevel.XHIGH, "enabled", "max"],
   ["glm-5.2", ThinkingLevel.NONE, "disabled", undefined],
   ["glm-5.2", ThinkingLevel.MEDIUM, "enabled", "medium"],
   ["glm-5.2", ThinkingLevel.XHIGH, "enabled", "xhigh"],
   ["glm-5.2", ThinkingLevel.MAX, "enabled", "max"],
   ["glm-5.1", ThinkingLevel.NONE, "disabled", undefined],
   ["glm-5.1", ThinkingLevel.HIGH, "enabled", "high"],
+  ["glm-5", ThinkingLevel.NONE, "disabled", undefined],
+  ["glm-5", ThinkingLevel.HIGH, "enabled", "high"],
   // Provider-hosted ids keep their own casing (SiliconFlow), so generation
   // detection must be case-insensitive.
   ["zai-org/GLM-5.2", ThinkingLevel.XHIGH, "enabled", "xhigh"],
@@ -280,6 +292,7 @@ const THINKING_SWITCH_CASES: Array<[string, string, ThinkingLevel, string]> = [
   ["kimi-k2.6", "moonshot-official", ThinkingLevel.NONE, "disabled"],
   ["kimi-k2.6", "moonshot-official", ThinkingLevel.MEDIUM, "enabled"],
   ["glm-5.2", "zai-official", ThinkingLevel.NONE, "disabled"],
+  ["glm-6", "zai-official", ThinkingLevel.NONE, "enabled"],
   ["claude-sonnet-4-6", "anthropic-official", ThinkingLevel.NONE, "disabled"],
   ["claude-opus-4-8", "anthropic-official", ThinkingLevel.NONE, "disabled"],
   ["claude-sonnet-5", "anthropic-official", ThinkingLevel.NONE, "disabled"],
@@ -293,6 +306,7 @@ const THINKING_SWITCH_CASES: Array<[string, string, ThinkingLevel, string]> = [
     "between_tools",
   ],
   ["claude-opus-5-5", "anthropic-official", ThinkingLevel.NONE, "adaptive"],
+  ["claude-sonnet-6", "anthropic-official", ThinkingLevel.NONE, "adaptive"],
   ["claude-sonnet-5", "ant-messages", ThinkingLevel.NONE, "disabled"],
   ["claude-sonnet-5", "ant-messages", ThinkingLevel.LOW, "adaptive"],
 ];
@@ -333,6 +347,8 @@ const THINKING_EFFORT_CASES: Array<
   ["gpt-6.2-sol", undefined, ThinkingLevel.NONE, "low"],
   ["gpt-6.2-sol", undefined, ThinkingLevel.MAX, "max"],
   ["openai/gpt-6.2-sol", "openai-responses", ThinkingLevel.NONE, "low"],
+  ["gpt-7", undefined, ThinkingLevel.NONE, "low"],
+  ["gpt-6.3", "openai-responses", ThinkingLevel.NONE, "low"],
   ["gpt-6-luna", undefined, ThinkingLevel.NONE, "none"],
   ["gpt-6-luna", "openai-responses", ThinkingLevel.NONE, "none"],
   ["gpt-6.1-terra", undefined, ThinkingLevel.NONE, "none"],
@@ -368,6 +384,8 @@ const THINKING_EFFORT_CASES: Array<
   ["claude-haiku-5-5", undefined, ThinkingLevel.MAX, "max"],
   ["claude-sonnet-5-5", undefined, ThinkingLevel.NONE, undefined],
   ["claude-sonnet-5-5", undefined, ThinkingLevel.XHIGH, "xhigh"],
+  ["claude-sonnet-6", undefined, ThinkingLevel.NONE, "low"],
+  ["claude-sonnet-6", undefined, ThinkingLevel.XHIGH, "xhigh"],
   // 4.6 has no xhigh but does take max.
   ["claude-sonnet-4-6", undefined, ThinkingLevel.XHIGH, "high"],
   ["claude-sonnet-4-6", undefined, ThinkingLevel.MAX, "max"],
@@ -408,6 +426,9 @@ const THINKING_EFFORT_CASES: Array<
   ["MiniMax-M3.1-Flash", undefined, ThinkingLevel.HIGH, "high"],
   ["MiniMax-M3.1-Flash", undefined, ThinkingLevel.XHIGH, "xhigh"],
   ["MiniMax-M3.1-Flash", undefined, ThinkingLevel.MAX, "max"],
+  ["MiniMax-M4", undefined, ThinkingLevel.NONE, "low"],
+  ["MiniMax-M4", undefined, ThinkingLevel.XHIGH, "xhigh"],
+  ["MiniMax-M4", undefined, ThinkingLevel.MAX, "max"],
 ];
 
 /** Read the effort out of whichever config key the client used. */
@@ -474,6 +495,12 @@ const THINKING_SUMMARY_CASES: Array<
   ],
   [
     "claude-fable-5",
+    undefined,
+    { thinking_summary: true, thinking_level: ThinkingLevel.NONE },
+    "summarized",
+  ],
+  [
+    "claude-sonnet-6",
     undefined,
     { thinking_summary: true, thinking_level: ThinkingLevel.NONE },
     "summarized",

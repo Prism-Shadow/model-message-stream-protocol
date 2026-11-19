@@ -116,6 +116,8 @@ describe("routedClientType", () => {
     ["text-embedding-3-large", "OpenAI-Official", "openai-embedding"],
     ["gpt-image-2.5-flare", undefined, "openai-image"],
     ["GPT-Image-2.5-Flare", "openai-official", "openai-image"],
+    ["gpt-transcribe", undefined, "openai-transcription"],
+    ["GPT-Transcribe", "openai-official", "openai-transcription"],
     ["bytedance-seed/seedream-5-0-flash", "openai-image", "openai-image"],
     ["fish-audio/drama-3", "openai-speech", "openai-speech"],
     ["fish-audio/transcribe-1", "openai-transcription", "openai-transcription"],

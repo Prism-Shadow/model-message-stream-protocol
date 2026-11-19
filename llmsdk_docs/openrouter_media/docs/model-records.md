@@ -5,11 +5,18 @@
 | Model | Request path | Price (model page) | Streaming |
 | - | - | - | - |
 | `google/gemini-nano-banana-2.1` | `/api/v1/images` | $1.50 per M input tokens, $7.50 per M text/thinking output tokens, $30.00 per M image output tokens ($0.033 / 1K image) | `supports_streaming: false` |
+| `openai/gpt-image-2.6-sunburst` | `/api/v1/images` | $5.00 per M text input tokens, $8.00 per M image input tokens, $30.00 per M image output tokens | `supports_streaming: true` |
+| `openai/gpt-image-2.6-flare` | `/api/v1/images` | $5.00 per M text input tokens, $8.00 per M image input tokens, $30.00 per M image output tokens | `supports_streaming: true` |
+| `openai/gpt-image-2.5-sunburst` | `/api/v1/images` | $5.00 per M text input tokens, $8.00 per M image input tokens, $30.00 per M image output tokens | `supports_streaming: true` |
+| `openai/gpt-image-2.5-flare` | `/api/v1/images` | $5.00 per M text input tokens, $8.00 per M image input tokens, $30.00 per M image output tokens | `supports_streaming: true` |
 | `bytedance-seed/seedream-5-0-flash` | `/api/v1/images` | $0.018 per output image, input images free | `supports_streaming: false` |
+| `google/gemini-3.8-flash-tts` | `/api/v1/audio/speech` | $0.50 per M text input tokens, $9.00 per M audio output tokens | raw audio bytes |
+| `google/gemini-3.8-flash-lite-tts` | `/api/v1/audio/speech` | $0.50 per M text input tokens, $6.00 per M audio output tokens | raw audio bytes |
 | `fish-audio/drama-3` | `/api/v1/audio/speech` | $2.00 per M UTF-8 bytes of input (80% off $10.00, launch promotion) | raw audio bytes |
+| `openai/gpt-transcribe` | `/api/v1/audio/transcriptions` | $0.000075 per second ($0.0045 per minute) of input audio | JSON only |
 | `fish-audio/transcribe-1` | `/api/v1/audio/transcriptions` | $0.0001 per second of input audio | JSON only |
 
-`fish-audio/drama-3` and `fish-audio/transcribe-1` list `supported_voices: null` and no `supported_parameters`; the voice is a Fish Audio voice model id (see `fish-audio-drama-3.md`).
+`fish-audio/drama-3` and `fish-audio/transcribe-1` list `supported_voices: null` and no `supported_parameters`; the voice is a Fish Audio voice model id (see `fish-audio-drama-3.md`). `google/gemini-3.8-flash-tts` and `google/gemini-3.8-flash-lite-tts` require an explicit Gemini voice name (`"Kore"`, `"Puck"`, etc.) on `/api/v1/audio/speech`; omitting `voice` returns `400 {"error":{"message":"An explicit voice is required for this TTS provider.","code":400}}` (verified live 2026-11-19).
 
 ## `GET /api/v1/images/models/google/gemini-nano-banana-2.1/endpoints`
 

@@ -366,9 +366,11 @@ ROUTING_CASES = [
     ("GPT-5.5", None, "OpenAIOfficialClient"),
     ("text-embedding-3-large", None, "OpenaiEmbeddingClient"),
     ("text-embedding-3-large", "openai-official", "OpenaiEmbeddingClient"),
-    # openai-official serves OpenAI's image models through openai-image
+    # openai-official serves OpenAI's image and transcription models through openai-image and openai-transcription
     ("gpt-image-2.5-flare", None, "OpenaiImageClient"),
     ("gpt-image-2.5-flare", "openai-official", "OpenaiImageClient"),
+    ("gpt-transcribe", None, "OpenaiTranscriptionClient"),
+    ("gpt-transcribe", "openai-official", "OpenaiTranscriptionClient"),
     ("seedream-5.0-lite", "openai-image", "OpenaiImageClient"),
     ("fish-audio/drama-3", "openai-speech", "OpenaiSpeechClient"),
     ("fish-audio/transcribe-1", "openai-transcription", "OpenaiTranscriptionClient"),

@@ -45,6 +45,7 @@ The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY in this document are to
 |---|---|---|---|
 | `openai-official` | `text-embedding-` | Prefix | `openai-embedding` |
 | `openai-official` | `gpt-image-` | Prefix | `openai-image` |
+| `openai-official` | `gpt-transcribe` | Whole id | `openai-transcription` |
 | `deepseek-official` | `deepseek-search`, `deepseek-fetch` | Whole id | `deepseek-webtool` |
 | `deepseek-official` | `deepseek-tts` | Whole id | `deepseek-speech` |
 | `deepseek-official` | `deepseek-asr` | Whole id | `deepseek-transcription` |

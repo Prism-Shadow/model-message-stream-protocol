@@ -40,12 +40,12 @@ from ..utils import (
 )
 
 
-# The GPT-6 models that take the "none" reasoning effort. GPT-6 Astra, GPT-6.1 Sol, GPT-6.2 Astra
-# and GPT-6.2 Sol reject both "none" and "minimal" with a 400 (verified live 2026-09-09 and
-# 2026-11-18: "Unsupported value: 'none' is not supported with the 'gpt-6-astra' model. Supported
-# values are: 'low', 'medium', 'high', 'xhigh', and 'max'."); GPT-6 Luna and GPT-6.1 Terra accept
-# it (verified live 2026-10-14 and 2026-11-02).
-_GPT6_NONE_EFFORT = ("gpt-6-luna", "gpt-6.1-terra")
+# Older GPT-5.x models and the two GPT-6 models that still accept the "none" reasoning effort.
+# The newest GPT-6 models (GPT-6 Astra, GPT-6.1 Sol, GPT-6.2 Astra and GPT-6.2 Sol) reject both
+# "none" and "minimal" with a 400 (verified live 2026-09-09 and 2026-11-18: "Unsupported value:
+# 'none' is not supported with the 'gpt-6-astra' model. Supported values are: 'low', 'medium',
+# 'high', 'xhigh', and 'max'."), so the default fallback maps NONE to "low".
+_NONE_EFFORT_MODELS = ("gpt-5.", "gpt-6-luna", "gpt-6.1-terra")
 # The generations that take prompt_cache_options; GPT-5.5 answers 400 "prompt_cache_options is not
 # supported on this model" (verified live 2026-11-02).
 _PROMPT_CACHE_OPTIONS = ("gpt-5.6", "gpt-6")
@@ -73,16 +73,15 @@ class OpenAIOfficialClient(LLMClient):
 
     def _convert_thinking_level_to_effort(self, thinking_level: ThinkingLevel) -> str:
         """Convert ThinkingLevel enum to OpenAI's reasoning effort."""
-        if (
-            thinking_level == ThinkingLevel.NONE
-            and "gpt-6" in self._model
-            and not any(model in self._model for model in _GPT6_NONE_EFFORT)
+        if thinking_level == ThinkingLevel.NONE and any(
+            model in self._model.lower() for model in _NONE_EFFORT_MODELS
         ):
-            # the rest of the generation has no off switch, so NONE runs at the lowest effort it accepts
-            return "low"
+            return "none"
 
         mapping = {
-            ThinkingLevel.NONE: "none",
+            # The newest GPT-6 models have no off switch, so NONE defaults to the lowest effort
+            # every model accepts ("low").
+            ThinkingLevel.NONE: "low",
             ThinkingLevel.LOW: "low",
             ThinkingLevel.MEDIUM: "medium",
             ThinkingLevel.HIGH: "high",

@@ -51,8 +51,8 @@ GEMINI3_THINKING_LEVEL_CASES = [
     ("gemini-3.5-flash", ThinkingLevel.MEDIUM, "medium"),
     # A future pro generation falls into the generic "-pro" branch.
     ("gemini-4-pro", ThinkingLevel.NONE, "low"),
-    # An unrecognized model inherits the full four-level default.
-    ("gemini-9-flash", ThinkingLevel.NONE, "minimal"),
+    # An unrecognized model inherits the three-level default of the newest generations.
+    ("gemini-9-flash", ThinkingLevel.NONE, "low"),
 ]
 
 
@@ -110,8 +110,8 @@ def test_gemini3_8_thinking_level_clamps_to_model_support(model: str, level: Thi
     assert client._client._convert_thinking_level(level) == expected  # noqa: SLF001
 
 
-# Gemini 4 Hydrogen is the one generation with "xhigh"; "minimal" and "max" are refused (verified live
-# 2026-11-16), so NONE runs at "low" and MAX at "xhigh".
+# Gemini 4 Hydrogen and Gemini 4 Neon are the generations with "xhigh"; "minimal" and "max" are
+# refused (Hydrogen verified live 2026-11-16, Neon 2026-11-19), so NONE runs at "low" and MAX at "xhigh".
 GEMINI_HYDROGEN_THINKING_LEVEL_CASES = [
     ("gemini-4-hydrogen", ThinkingLevel.NONE, "low"),
     ("gemini-4-hydrogen", ThinkingLevel.LOW, "low"),
@@ -119,6 +119,12 @@ GEMINI_HYDROGEN_THINKING_LEVEL_CASES = [
     ("gemini-4-hydrogen", ThinkingLevel.HIGH, "high"),
     ("gemini-4-hydrogen", ThinkingLevel.XHIGH, "xhigh"),
     ("gemini-4-hydrogen", ThinkingLevel.MAX, "xhigh"),
+    ("gemini-4-neon", ThinkingLevel.NONE, "low"),
+    ("gemini-4-neon", ThinkingLevel.LOW, "low"),
+    ("gemini-4-neon", ThinkingLevel.MEDIUM, "medium"),
+    ("gemini-4-neon", ThinkingLevel.HIGH, "high"),
+    ("gemini-4-neon", ThinkingLevel.XHIGH, "xhigh"),
+    ("gemini-4-neon", ThinkingLevel.MAX, "xhigh"),
 ]
 
 
@@ -156,7 +162,8 @@ def _create_generate_content_auto_client(model: str) -> AutoLLMClient:
 
 
 @pytest.mark.parametrize(
-    ("model", "level", "expected"), [*GEMINI3_THINKING_LEVEL_CASES, *GEMINI3_7_THINKING_LEVEL_CASES]
+    ("model", "level", "expected"),
+    [*GEMINI3_THINKING_LEVEL_CASES, *GEMINI3_7_THINKING_LEVEL_CASES, *GEMINI_OMNI_THINKING_LEVEL_CASES],
 )
 def test_gemini3_8_generate_content_thinking_level_clamps_to_model_support(
     model: str, level: ThinkingLevel, expected: str
@@ -185,12 +192,17 @@ GLM_THINKING_LEVEL_CASES = [
     ("glm-5.3", ThinkingLevel.XHIGH, "enabled", "max"),
     ("glm-5.3", ThinkingLevel.MAX, "enabled", "max"),
     ("glm-5.3-flash", ThinkingLevel.MAX, "enabled", "max"),
+    ("glm-6", ThinkingLevel.NONE, "enabled", "low"),
+    ("glm-6", ThinkingLevel.MEDIUM, "enabled", "high"),
+    ("glm-6", ThinkingLevel.XHIGH, "enabled", "max"),
     ("glm-5.2", ThinkingLevel.NONE, "disabled", None),
     ("glm-5.2", ThinkingLevel.MEDIUM, "enabled", "medium"),
     ("glm-5.2", ThinkingLevel.XHIGH, "enabled", "xhigh"),
     ("glm-5.2", ThinkingLevel.MAX, "enabled", "max"),
     ("glm-5.1", ThinkingLevel.NONE, "disabled", None),
     ("glm-5.1", ThinkingLevel.HIGH, "enabled", "high"),
+    ("glm-5", ThinkingLevel.NONE, "disabled", None),
+    ("glm-5", ThinkingLevel.HIGH, "enabled", "high"),
     # Provider-hosted ids keep their own casing (SiliconFlow), so generation
     # detection must be case-insensitive.
     ("zai-org/GLM-5.2", ThinkingLevel.XHIGH, "enabled", "xhigh"),
@@ -221,6 +233,7 @@ THINKING_SWITCH_CASES = [
     ("kimi-k2.6", "moonshot-official", ThinkingLevel.NONE, "disabled"),
     ("kimi-k2.6", "moonshot-official", ThinkingLevel.MEDIUM, "enabled"),
     ("glm-5.2", "zai-official", ThinkingLevel.NONE, "disabled"),
+    ("glm-6", "zai-official", ThinkingLevel.NONE, "enabled"),
     ("claude-sonnet-4-6", "anthropic-official", ThinkingLevel.NONE, "disabled"),
     ("claude-opus-4-8", "anthropic-official", ThinkingLevel.NONE, "disabled"),
     ("claude-sonnet-5", "anthropic-official", ThinkingLevel.NONE, "disabled"),
@@ -229,6 +242,7 @@ THINKING_SWITCH_CASES = [
     ("claude-fable-5", "anthropic-official", ThinkingLevel.NONE, "adaptive"),
     ("claude-sonnet-5-5", "anthropic-official", ThinkingLevel.NONE, "between_tools"),
     ("claude-opus-5-5", "anthropic-official", ThinkingLevel.NONE, "adaptive"),
+    ("claude-sonnet-6", "anthropic-official", ThinkingLevel.NONE, "adaptive"),
     ("claude-sonnet-5", "ant-messages", ThinkingLevel.NONE, "disabled"),
     ("claude-sonnet-5", "ant-messages", ThinkingLevel.LOW, "adaptive"),
 ]
@@ -263,6 +277,8 @@ THINKING_EFFORT_CASES = [
     ("gpt-6.2-sol", None, ThinkingLevel.NONE, "low"),
     ("gpt-6.2-sol", None, ThinkingLevel.MAX, "max"),
     ("openai/gpt-6.2-sol", "openai-responses", ThinkingLevel.NONE, "low"),
+    ("gpt-7", None, ThinkingLevel.NONE, "low"),
+    ("gpt-6.3", "openai-responses", ThinkingLevel.NONE, "low"),
     ("gpt-6-luna", None, ThinkingLevel.NONE, "none"),
     ("gpt-6-luna", "openai-responses", ThinkingLevel.NONE, "none"),
     ("gpt-6.1-terra", None, ThinkingLevel.NONE, "none"),
@@ -301,6 +317,8 @@ THINKING_EFFORT_CASES = [
     ("claude-haiku-5-5", None, ThinkingLevel.MAX, "max"),
     ("claude-sonnet-5-5", None, ThinkingLevel.NONE, None),
     ("claude-sonnet-5-5", None, ThinkingLevel.XHIGH, "xhigh"),
+    ("claude-sonnet-6", None, ThinkingLevel.NONE, "low"),
+    ("claude-sonnet-6", None, ThinkingLevel.XHIGH, "xhigh"),
     ("deepseek-v4", None, ThinkingLevel.NONE, "none"),
     ("deepseek-v4", None, ThinkingLevel.LOW, "low"),
     ("deepseek-v4", None, ThinkingLevel.MEDIUM, "high"),
@@ -333,6 +351,9 @@ THINKING_EFFORT_CASES = [
     ("MiniMax-M3.1-Flash", None, ThinkingLevel.HIGH, "high"),
     ("MiniMax-M3.1-Flash", None, ThinkingLevel.XHIGH, "xhigh"),
     ("MiniMax-M3.1-Flash", None, ThinkingLevel.MAX, "max"),
+    ("MiniMax-M4", None, ThinkingLevel.NONE, "low"),
+    ("MiniMax-M4", None, ThinkingLevel.XHIGH, "xhigh"),
+    ("MiniMax-M4", None, ThinkingLevel.MAX, "max"),
 ]
 
 
@@ -387,6 +408,7 @@ THINKING_SUMMARY_CASES: list[tuple[str, str | None, dict[str, Any], Any]] = [
     ("claude-opus-5-5", None, {"thinking_summary": True, "thinking_level": ThinkingLevel.NONE}, "summarized"),
     ("claude-fable-5", None, {"thinking_summary": True, "thinking_level": ThinkingLevel.NONE}, "summarized"),
     ("claude-haiku-5-5", None, {"thinking_summary": True, "thinking_level": ThinkingLevel.NONE}, "summarized"),
+    ("claude-sonnet-6", None, {"thinking_summary": True, "thinking_level": ThinkingLevel.NONE}, "summarized"),
     ("deepseek-v4", None, {"thinking_summary": True}, "concise"),
     ("deepseek-v4", None, {"thinking_summary": True, "thinking_level": ThinkingLevel.NONE}, "concise"),
     ("gpt-5.6", None, {"thinking_summary": True}, "concise"),

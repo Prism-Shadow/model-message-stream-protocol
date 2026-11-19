@@ -196,9 +196,10 @@ def routed_client_type(model: str, client_type: str | None = None) -> str | None
 
     The client type passed in (in any casing, an earlier name accepted), else the official client of
     the model id's family. `openai-official` serves a `text-embedding-` model through
-    `openai-embedding` and a `gpt-image-` model through `openai-image`, and `deepseek-official` serves
-    `deepseek-search` and `deepseek-fetch` through `deepseek-webtool`, `deepseek-tts` through
-    `deepseek-speech` and `deepseek-asr` through `deepseek-transcription`.
+    `openai-embedding`, a `gpt-image-` model through `openai-image` and `gpt-transcribe` through
+    `openai-transcription`, and `deepseek-official` serves `deepseek-search` and `deepseek-fetch`
+    through `deepseek-webtool`, `deepseek-tts` through `deepseek-speech` and `deepseek-asr` through
+    `deepseek-transcription`.
 
     Args:
         model: The model id.
@@ -212,6 +213,8 @@ def routed_client_type(model: str, client_type: str | None = None) -> str | None
         return "openai-embedding"
     if routed == "openai-official" and model.lower().startswith("gpt-image-"):
         return "openai-image"
+    if routed == "openai-official" and model.lower() == "gpt-transcribe":
+        return "openai-transcription"
     if routed == "deepseek-official" and model.lower() in ("deepseek-search", "deepseek-fetch"):
         return "deepseek-webtool"
     if routed == "deepseek-official" and model.lower() == "deepseek-tts":

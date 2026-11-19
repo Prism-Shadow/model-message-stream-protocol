@@ -77,6 +77,8 @@ describe("a client's plugins", () => {
     ["openai/gpt-6-luna", "https://openrouter.ai/api/v1", "openai-chat", ["OpenRouterPlugin", "GptPlugin"]],
     ["anthropic/claude-sonnet-5", "https://openrouter.ai/api", "ant-messages", ["OpenRouterPlugin"]],
     ["openai/gpt-6.1-terra", "https://openrouter.ai/api/v1", "openai-responses", ["GptPlugin"]],
+    ["google/gemini-3.8-flash-tts", "https://openrouter.ai/api/v1", "openai-speech", ["GeminiPlugin"]],
+    ["fish-audio/drama-3", "https://openrouter.ai/api/v1", "openai-speech", []],
     ["qwen3.8-flash", "https://tokendance.space/gateway/v1", "openai-responses", []],
     ["glm-5.3", "https://api.test.invalid/v1", "openai-chat", []],
   ])("%s at %s on %s", (model, baseUrl, clientType, expected) => {

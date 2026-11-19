@@ -206,6 +206,17 @@ export class GoogleGenaiClient extends LLMClient {
     GeminiThinkingLevel.HIGH,
   ];
 
+  // Older 3.x Flash and Robotics models that still accept "minimal" alongside low/medium/high.
+  // Starting with 3.7, and across every Pro and Gemini 4 model, "minimal" is rejected with a 400,
+  // so the default fallback is the safe three-level subset (LOW, MEDIUM, HIGH).
+  private static readonly MINIMAL_THINKING_MODELS: readonly string[] = [
+    "gemini-3-flash",
+    "gemini-3.1-flash-lite",
+    "gemini-3.5-flash",
+    "gemini-3.6-flash",
+    "gemini-robotics",
+  ];
+
   /**
    * Thinking levels the target model accepts (llmsdk_docs/gemini3_8/docs/thinking.md).
    *
@@ -213,6 +224,10 @@ export class GoogleGenaiClient extends LLMClient {
    * entirely, so it must be omitted from the request.
    */
   private _supportedThinkingLevels(): GeminiThinkingLevel[] {
+    if (this._model.includes("gemini-omni")) {
+      // "minimal" and "medium" are refused: "Allowed values are: high, low." (verified live 2026-11-06)
+      return [GeminiThinkingLevel.LOW, GeminiThinkingLevel.HIGH];
+    }
     if (this._model.includes("gemini-nano-banana")) {
       // "low" is refused: "Allowed values are: high, medium, minimal." (verified live 2026-11-19)
       return [
@@ -228,31 +243,20 @@ export class GoogleGenaiClient extends LLMClient {
       // The only pro generation without "medium".
       return [GeminiThinkingLevel.LOW, GeminiThinkingLevel.HIGH];
     }
-    if (this._model.includes("-pro")) {
-      // Every pro generation rejects "minimal"; matching broadly keeps
-      // future pro models on the safe side (clamping a level the model
-      // would have accepted costs a little accuracy, forwarding an
-      // unsupported one is a 400).
-      return [
-        GeminiThinkingLevel.LOW,
-        GeminiThinkingLevel.MEDIUM,
-        GeminiThinkingLevel.HIGH,
-      ];
-    }
     if (
-      this._model.includes("gemini-3.7") ||
-      this._model.includes("gemini-3.8") ||
-      this._model.includes("gemini-4-argon") ||
-      this._model.includes("gemini-4-carbon")
+      GoogleGenaiClient.MINIMAL_THINKING_MODELS.some((model) =>
+        this._model.includes(model),
+      )
     ) {
-      // These generations support low, medium, and high, but not minimal.
-      return [
-        GeminiThinkingLevel.LOW,
-        GeminiThinkingLevel.MEDIUM,
-        GeminiThinkingLevel.HIGH,
-      ];
+      return GoogleGenaiClient.GEMINI_LEVEL_ORDER;
     }
-    return GoogleGenaiClient.GEMINI_LEVEL_ORDER;
+    // Default safe subset shared by 3.1+ Pro, 3.7+, and Gemini 4 models (the google-genai
+    // SDK's ThinkingLevel enum stops at HIGH).
+    return [
+      GeminiThinkingLevel.LOW,
+      GeminiThinkingLevel.MEDIUM,
+      GeminiThinkingLevel.HIGH,
+    ];
   }
 
   /**

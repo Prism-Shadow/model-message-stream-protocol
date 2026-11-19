@@ -45,11 +45,13 @@ const REDACTED_THINKING = "_REDACTED_THINKING";
 // Generations told apart by explicit version, matched anywhere in the id so Bedrock's
 // anthropic.claude-opus-5-5 counts too. Opus 5.5 and Fable 5.1 always think: "disabled" and
 // "between_tools" return 400, and Fable 5 returns 400 for "disabled" too (verified live
-// 2026-10-23); "fable-5" matches both Fable generations. Haiku 5.5 takes "disabled" but runs
-// NONE at the lowest effort like them. Sonnet 5.5 drops only up-front thinking, with
-// "between_tools".
-const LOW_EFFORT_FOR_NONE = ["opus-5-5", "fable-5", "haiku-5-5"];
+// 2026-10-23); Haiku 5.5 also runs NONE at the lowest adaptive effort, so adaptive "low" is the
+// safe default for NONE. Sonnet 5.5 drops only up-front thinking, with "between_tools", and only
+// the older 4.6..4.8 and 5.0 (Opus 5 / Sonnet 5) generations take "disabled".
 const BETWEEN_TOOLS = ["sonnet-5-5"];
+const DISABLED_THINKING_4X = ["4-6", "4-7", "4-8"];
+const DISABLED_THINKING_5_0 = ["opus-5", "sonnet-5"];
+const CLAUDE_5_5 = ["opus-5-5", "sonnet-5-5"];
 // The 2026-09 generation returns 400 for tool_choice "any" and "tool". Haiku 5.5 takes them but
 // answers without thinking, so it is rejected with the rest of the 5.5 family.
 const NO_FORCED_TOOL_CHOICE = [
@@ -184,14 +186,18 @@ export class AnthropicOfficialClient extends LLMClient {
     thinking?: { type: string; display?: string };
     output_config?: { effort: string };
   } {
-    // NONE takes the least thinking LOW_EFFORT_FOR_NONE allows; the other generations take
-    // "disabled", and without a thinking block Opus 5 still runs adaptive thinking (verified
-    // live 2026-10-23)
-    const none = this._generation(LOW_EFFORT_FOR_NONE)
-      ? { thinking: { type: "adaptive" }, output_config: { effort: "low" } }
-      : this._generation(BETWEEN_TOOLS)
-        ? { thinking: { type: "between_tools" } }
-        : { thinking: { type: "disabled" } };
+    // Default safe minimum for the newest generations (Opus 5.5, Haiku 5.5, Fable 5/5.1) is
+    // adaptive "low", since "disabled" returns 400 there; older 4.6..4.8 and 5.0 generations take
+    // "disabled" (without a thinking block Opus 5 still runs adaptive thinking, verified live
+    // 2026-10-23), and Sonnet 5.5 uses "between_tools".
+    const takesDisabled =
+      this._generation(DISABLED_THINKING_4X) ||
+      (this._generation(DISABLED_THINKING_5_0) && !this._generation(CLAUDE_5_5));
+    const none = this._generation(BETWEEN_TOOLS)
+      ? { thinking: { type: "between_tools" } }
+      : takesDisabled
+        ? { thinking: { type: "disabled" } }
+        : { thinking: { type: "adaptive" }, output_config: { effort: "low" } };
     const mapping: {
       [key: string]: {
         thinking?: { type: string; display?: string };

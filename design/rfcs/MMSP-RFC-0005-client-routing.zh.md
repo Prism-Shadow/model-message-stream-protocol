@@ -45,6 +45,7 @@
 |---|---|---|---|
 | `openai-official` | `text-embedding-` | 前缀 | `openai-embedding` |
 | `openai-official` | `gpt-image-` | 前缀 | `openai-image` |
+| `openai-official` | `gpt-transcribe` | 整个 id | `openai-transcription` |
 | `deepseek-official` | `deepseek-search`、`deepseek-fetch` | 整个 id | `deepseek-webtool` |
 | `deepseek-official` | `deepseek-tts` | 整个 id | `deepseek-speech` |
 | `deepseek-official` | `deepseek-asr` | 整个 id | `deepseek-transcription` |

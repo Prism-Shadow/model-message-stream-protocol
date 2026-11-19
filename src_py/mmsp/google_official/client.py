@@ -118,6 +118,17 @@ class GoogleOfficialClient(LLMClient):
     # closest supported level when a model rejects the requested one.
     _GEMINI_LEVEL_ORDER = ("minimal", "low", "medium", "high", "xhigh")
 
+    # Older 3.x Flash and Robotics models that still accept "minimal" alongside low/medium/high.
+    # Starting with 3.7, and across every Pro and Gemini 4 model, "minimal" is rejected with a 400,
+    # so the default fallback is the safe three-level subset ("low", "medium", "high").
+    _MINIMAL_THINKING_MODELS = (
+        "gemini-3-flash",
+        "gemini-3.1-flash-lite",
+        "gemini-3.5-flash",
+        "gemini-3.6-flash",
+        "gemini-robotics",
+    )
+
     def _supported_thinking_levels(self) -> tuple[str, ...]:
         """Thinking levels the target model accepts (llmsdk_docs/gemini_interactions/docs/thinking.md).
 
@@ -135,21 +146,13 @@ class GoogleOfficialClient(LLMClient):
         if "gemini-3-pro" in self._model:
             # The only pro generation without "medium".
             return ("low", "high")
-        if "-pro" in self._model:
-            # Every pro generation rejects "minimal"; matching broadly keeps
-            # future pro models on the safe side (clamping a level the model
-            # would have accepted costs a little accuracy, forwarding an
-            # unsupported one is a 400).
-            return ("low", "medium", "high")
-        if "gemini-4-hydrogen" in self._model:
-            # the one generation with "xhigh"; "minimal" and "max" are refused (verified live 2026-11-16)
+        if any(model in self._model for model in ("gemini-4-hydrogen", "gemini-4-neon")):
+            # Hydrogen and Neon support "xhigh"; "minimal" and "max" are refused (verified live 2026-11-16 and 2026-11-19)
             return ("low", "medium", "high", "xhigh")
-        if any(
-            version in self._model for version in ("gemini-3.7", "gemini-3.8", "gemini-4-argon", "gemini-4-carbon")
-        ):
-            # These generations support low, medium, and high, but not minimal.
-            return ("low", "medium", "high")
-        return ("minimal", "low", "medium", "high")
+        if any(model in self._model for model in self._MINIMAL_THINKING_MODELS):
+            return ("minimal", "low", "medium", "high")
+        # Default safe subset shared by 3.1+ Pro, 3.7+, and Gemini 4 models.
+        return ("low", "medium", "high")
 
     def _convert_thinking_level(self, thinking_level: ThinkingLevel | None) -> str | None:
         """Convert ThinkingLevel enum to the closest Gemini thinking level the model supports."""
@@ -159,8 +162,8 @@ class GoogleOfficialClient(LLMClient):
             ThinkingLevel.MEDIUM: "medium",
             ThinkingLevel.HIGH: "high",
             ThinkingLevel.XHIGH: "xhigh",
-            # Gemini stops at "xhigh", which only Hydrogen takes; the clamping below runs both top
-            # levels at "high" on every other model
+            # Gemini stops at "xhigh", which only Hydrogen and Neon take; the clamping below runs both
+            # top levels at "high" on every other model
             ThinkingLevel.MAX: "xhigh",
         }
         level = mapping.get(thinking_level)

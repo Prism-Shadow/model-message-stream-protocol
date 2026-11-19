@@ -35,6 +35,12 @@ from ..types import (
 from ..utils import fix_openrouter_usage_metadata, openai_client_options, resolve_credentials
 
 
+# Older GLM generations (4.x through 5.2) that accept {"type": "disabled"} and the full
+# pass-through reasoning_effort vocabulary. GLM-5.3 and newer default to forced thinking and the
+# safe three-level subset ("low", "high", "max").
+_LEGACY_THINKING_GLM = ("glm-4.", "glm-5.1", "glm-5.2", "glm-5-turbo", "glm-5v")
+
+
 class ZAIOfficialClient(LLMClient):
     """Unified client for the GLM series, named for the newest generation it serves (5.3).
 
@@ -63,47 +69,55 @@ class ZAIOfficialClient(LLMClient):
         )
         self._history: list[UniMessage] = []
 
+    def _is_legacy_thinking_model(self) -> bool:
+        """Whether the model belongs to a pre-5.3 GLM generation."""
+        # Provider-hosted ids keep their own casing (e.g. SiliconFlow's zai-org/GLM-5.2),
+        # so generation detection is case-insensitive.
+        model = self._model.lower()
+        return (
+            model == "glm-5"
+            or model.endswith("/glm-5")
+            or any(legacy in model for legacy in _LEGACY_THINKING_GLM)
+        )
+
     def _convert_thinking_level_to_config(self, thinking_level: ThinkingLevel) -> dict[str, str | bool]:
         """Convert ThinkingLevel enum to GLM's thinking configuration.
 
         GLM-5.3 uses forced thinking and errors on {"type": "disabled"}, so NONE stays
-        enabled there and degrades through the lightest reasoning effort instead
-        (llmsdk_docs/glm5_3/docs/thinking.md).
+        enabled by default and degrades through the lightest reasoning effort instead
+        (llmsdk_docs/glm5_3/docs/thinking.md); only pre-5.3 models send {"type": "disabled"}.
         """
-        # Provider-hosted ids keep their own casing (e.g. SiliconFlow's zai-org/GLM-5.2),
-        # so generation detection is case-insensitive.
-        if thinking_level == ThinkingLevel.NONE and "glm-5.3" not in self._model.lower():
+        if thinking_level == ThinkingLevel.NONE and self._is_legacy_thinking_model():
             return {"type": "disabled"}
         return {"type": "enabled", "clear_thinking": False}
 
     def _convert_thinking_level_to_reasoning_effort(self, thinking_level: ThinkingLevel) -> str | None:
         """Convert ThinkingLevel enum to the reasoning_effort the model accepts.
 
-        GLM-5.3 accepts only low/high/max and errors on anything else, so the client
+        GLM-5.3 accepts only low/high/max and errors on anything else, so the default
         clamps to the closest value; NONE rides on low because 5.3 cannot disable
-        thinking. Every earlier generation takes the vocabulary unchanged: 5.2 maps it
-        server-side (low/medium to high, xhigh to max), and 5.1 and below accept the
-        parameter and ignore it (verified live 2026-09-03 on Z.AI, OpenRouter and
-        SiliconFlow), so the level is forwarded there rather than dropped. Outside 5.3
-        NONE disables thinking outright, which leaves no effort to send.
+        thinking. Earlier generations (5.2 and below) take the vocabulary unchanged:
+        5.2 maps it server-side (low/medium to high, xhigh to max), and 5.1 and below
+        accept the parameter and ignore it (verified live 2026-09-03 on Z.AI, OpenRouter
+        and SiliconFlow), so the level is forwarded there rather than dropped, and NONE
+        disables thinking outright without an effort.
         """
-        model = self._model.lower()  # provider-hosted ids keep their own casing
-        if "glm-5.3" in model:
+        if self._is_legacy_thinking_model():
             mapping = {
-                ThinkingLevel.NONE: "low",
+                ThinkingLevel.NONE: None,
                 ThinkingLevel.LOW: "low",
-                ThinkingLevel.MEDIUM: "high",
+                ThinkingLevel.MEDIUM: "medium",
                 ThinkingLevel.HIGH: "high",
-                ThinkingLevel.XHIGH: "max",
+                ThinkingLevel.XHIGH: "xhigh",
                 ThinkingLevel.MAX: "max",
             }
             return mapping.get(thinking_level)
         mapping = {
-            ThinkingLevel.NONE: None,
+            ThinkingLevel.NONE: "low",
             ThinkingLevel.LOW: "low",
-            ThinkingLevel.MEDIUM: "medium",
+            ThinkingLevel.MEDIUM: "high",
             ThinkingLevel.HIGH: "high",
-            ThinkingLevel.XHIGH: "xhigh",
+            ThinkingLevel.XHIGH: "max",
             ThinkingLevel.MAX: "max",
         }
         return mapping.get(thinking_level)

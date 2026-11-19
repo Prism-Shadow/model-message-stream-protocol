@@ -1,4 +1,4 @@
-> Source: https://aistudio.google.com/docs/deprecations.md (snapshot 2026-11-16)
+> Source: https://aistudio.google.com/docs/deprecations.md (snapshot 2026-11-19)
 
 # Gemini deprecations
 
@@ -10,7 +10,7 @@ the near future. Once a model is "**shutdown**", it is completely turned off, an
 the endpoint is no longer available.
 
 Deprecation announcements are made on the [Release notes](/docs/changelog) page,
-and the announced earliest shutdown dates are tracked on this page.
+and the announced earliest shutdown dates are tracked on this page. To pick an upgrade target for your workload, see [Choosing a model](/docs/choosing-a-model#upgrade-paths).
 Already-shutdown models and agents are listed under the **Deprecated models**
 and **Deprecated agents** sections.
 
@@ -29,6 +29,13 @@ and **Deprecated agents** sections.
   * Release date
   * Shutdown date
   * Recommended replacement
+
+  ---
+
+  * `gemini-4-neon`
+  * November 18, 2026
+  * No shutdown date announced
+  * 
 
   ---
 

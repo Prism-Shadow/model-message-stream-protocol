@@ -176,6 +176,17 @@ export class GoogleOfficialClient extends LLMClient {
     "xhigh",
   ];
 
+  // Older 3.x Flash and Robotics models that still accept "minimal" alongside low/medium/high.
+  // Starting with 3.7, and across every Pro and Gemini 4 model, "minimal" is rejected with a 400,
+  // so the default fallback is the safe three-level subset ("low", "medium", "high").
+  private static readonly MINIMAL_THINKING_MODELS: readonly string[] = [
+    "gemini-3-flash",
+    "gemini-3.1-flash-lite",
+    "gemini-3.5-flash",
+    "gemini-3.6-flash",
+    "gemini-robotics",
+  ];
+
   /**
    * Thinking levels the target model accepts (llmsdk_docs/gemini_interactions/docs/thinking.md).
    *
@@ -198,27 +209,22 @@ export class GoogleOfficialClient extends LLMClient {
       // The only pro generation without "medium".
       return ["low", "high"];
     }
-    if (this._model.includes("-pro")) {
-      // Every pro generation rejects "minimal"; matching broadly keeps
-      // future pro models on the safe side (clamping a level the model
-      // would have accepted costs a little accuracy, forwarding an
-      // unsupported one is a 400).
-      return ["low", "medium", "high"];
-    }
-    if (this._model.includes("gemini-4-hydrogen")) {
-      // the one generation with "xhigh"; "minimal" and "max" are refused (verified live 2026-11-16)
+    if (
+      this._model.includes("gemini-4-hydrogen") ||
+      this._model.includes("gemini-4-neon")
+    ) {
+      // Hydrogen and Neon support "xhigh"; "minimal" and "max" are refused (verified live 2026-11-16 and 2026-11-19)
       return ["low", "medium", "high", "xhigh"];
     }
     if (
-      this._model.includes("gemini-3.7") ||
-      this._model.includes("gemini-3.8") ||
-      this._model.includes("gemini-4-argon") ||
-      this._model.includes("gemini-4-carbon")
+      GoogleOfficialClient.MINIMAL_THINKING_MODELS.some((model) =>
+        this._model.includes(model),
+      )
     ) {
-      // These generations support low, medium, and high, but not minimal.
-      return ["low", "medium", "high"];
+      return ["minimal", "low", "medium", "high"];
     }
-    return ["minimal", "low", "medium", "high"];
+    // Default safe subset shared by 3.1+ Pro, 3.7+, and Gemini 4 models.
+    return ["low", "medium", "high"];
   }
 
   /**
@@ -235,8 +241,8 @@ export class GoogleOfficialClient extends LLMClient {
       [ThinkingLevel.MEDIUM]: "medium",
       [ThinkingLevel.HIGH]: "high",
       [ThinkingLevel.XHIGH]: "xhigh",
-      // Gemini stops at "xhigh", which only Hydrogen takes; the clamping below runs both top
-      // levels at "high" on every other model
+      // Gemini stops at "xhigh", which only Hydrogen and Neon take; the clamping below runs both
+      // top levels at "high" on every other model
       [ThinkingLevel.MAX]: "xhigh",
     };
     const level = mapping[thinkingLevel];

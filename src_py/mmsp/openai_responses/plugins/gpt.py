@@ -19,31 +19,29 @@ from ...types import ThinkingLevel, UniConfig
 from ...utils import openai_image_detail
 
 
-# The GPT-6 models that take the "none" reasoning effort. A gateway serving GPT-6 Astra, GPT-6.1 Sol,
-# GPT-6.2 Astra or GPT-6.2 Sol forwards the effort to OpenAI, which rejects "none" and "minimal" with a 400
-# (verified live 2026-09-09 against api.openai.com; OpenRouter answers GPT-6.2's "none" with 400 "Reasoning
-# is mandatory for this endpoint", verified live 2026-11-18); GPT-6 Luna and GPT-6.1 Terra accept it, on
-# OpenRouter too (verified live 2026-10-14 and 2026-11-02).
-_GPT6_NONE_EFFORT = ("gpt-6-luna", "gpt-6.1-terra")
+# Older GPT-5.x models and the two GPT-6 models that still accept the "none" reasoning effort.
+# A gateway serving GPT-6 Astra, GPT-6.1 Sol, GPT-6.2 Astra or GPT-6.2 Sol forwards the effort to OpenAI,
+# which rejects "none" and "minimal" with a 400 (verified live 2026-09-09 against api.openai.com; OpenRouter
+# answers GPT-6.2's "none" with 400 "Reasoning is mandatory for this endpoint", verified live 2026-11-18);
+# GPT-5.6, GPT-6 Luna and GPT-6.1 Terra accept it, on OpenRouter too (verified live 2026-10-14 and 2026-11-02).
+_NONE_EFFORT_MODELS = ("gpt-5.", "gpt-6-luna", "gpt-6.1-terra")
 
 
 class GptPlugin(ClientPlugin):
     """
     What GPT-5.6 and GPT-6 need of a Responses endpoint that forwards to OpenAI.
 
-    The rest of GPT-6 has no off switch, so `none` runs at the lowest effort it accepts. And both
-    generations read an image at its own size by default and refuse one over 30,000 patches, so an
-    image part of a message or of a tool result asks for `detail: "high"`, which has the API fit the
-    image into its patch budget instead.
+    The newest GPT-6 models have no off switch, so `none` runs at the lowest effort they accept
+    unless the model is in `_NONE_EFFORT_MODELS`. And both generations read an image at its own
+    size by default and refuse one over 30,000 patches, so an image part of a message or of a tool
+    result asks for `detail: "high"`, which has the API fit the image into its patch budget instead.
     """
 
     models = r"gpt-5\.6|gpt-6"
 
     async def on_request(self, config: UniConfig, request: dict[str, Any]) -> None:
-        if (
-            config.get("thinking_level") == ThinkingLevel.NONE
-            and "gpt-6" in self.model
-            and not any(model in self.model for model in _GPT6_NONE_EFFORT)
+        if config.get("thinking_level") == ThinkingLevel.NONE and not any(
+            model in self.model.lower() for model in _NONE_EFFORT_MODELS
         ):
             request["reasoning"]["effort"] = "low"
 

@@ -46,14 +46,14 @@ import {
 } from "../utils";
 
 /**
- * The GPT-6 models that take the "none" reasoning effort. GPT-6 Astra,
- * GPT-6.1 Sol, GPT-6.2 Astra and GPT-6.2 Sol reject both "none" and "minimal"
- * with a 400 (verified live 2026-09-09 and 2026-11-18: "Unsupported value:
- * 'none' is not supported with the 'gpt-6-astra' model. Supported values are:
- * 'low', 'medium', 'high', 'xhigh', and 'max'."); GPT-6 Luna and GPT-6.1
- * Terra accept it (verified live 2026-10-14 and 2026-11-02).
+ * Older GPT-5.x models and the two GPT-6 models that still accept the "none"
+ * reasoning effort. The newest GPT-6 models (GPT-6 Astra, GPT-6.1 Sol, GPT-6.2
+ * Astra and GPT-6.2 Sol) reject both "none" and "minimal" with a 400 (verified
+ * live 2026-09-09 and 2026-11-18: "Unsupported value: 'none' is not supported
+ * with the 'gpt-6-astra' model. Supported values are: 'low', 'medium', 'high',
+ * 'xhigh', and 'max'."), so the default fallback maps NONE to "low".
  */
-const GPT6_NONE_EFFORT = ["gpt-6-luna", "gpt-6.1-terra"];
+const NONE_EFFORT_MODELS = ["gpt-5.", "gpt-6-luna", "gpt-6.1-terra"];
 /**
  * The generations that take prompt_cache_options; GPT-5.5 answers 400
  * "prompt_cache_options is not supported on this model" (verified live
@@ -99,17 +99,18 @@ export class OpenAIOfficialClient extends LLMClient {
    * Convert ThinkingLevel enum to OpenAI's reasoning effort.
    */
   private _convertThinkingLevelToEffort(thinkingLevel: ThinkingLevel): string {
+    const model = this._model.toLowerCase();
     if (
       thinkingLevel === ThinkingLevel.NONE &&
-      this._model.includes("gpt-6") &&
-      !GPT6_NONE_EFFORT.some((model) => this._model.includes(model))
+      NONE_EFFORT_MODELS.some((legacy) => model.includes(legacy))
     ) {
-      // the rest of the generation has no off switch, so NONE runs at the lowest effort it accepts
-      return "low";
+      return "none";
     }
 
     const mapping: { [key: string]: string } = {
-      [ThinkingLevel.NONE]: "none",
+      // The newest GPT-6 models have no off switch, so NONE defaults to the lowest effort
+      // every model accepts ("low").
+      [ThinkingLevel.NONE]: "low",
       [ThinkingLevel.LOW]: "low",
       [ThinkingLevel.MEDIUM]: "medium",
       [ThinkingLevel.HIGH]: "high",

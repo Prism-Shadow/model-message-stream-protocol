@@ -102,8 +102,8 @@
 
 ### 6.1 明确匹配
 
-- **官方客户端**：必须通过具名元组或直白条件中的明确版本/模态标记决定发送内容（先匹配者生效）：如版本标记 `"4-6"`、`"gpt-6"`（排除 `"gpt-6-luna"` 与 `"gpt-6.1-terra"`）、`"gpt-5.6"`、`"k2."`、`"m3.1"`、`"glm-5.3"`，以及档位/模态标记 `-pro`、`gemini-nano-banana`、`-image`、`tts`、`gemini-omni`、`embedding`、`-search`、`-fetch`。`"claude"`、`"gpt"` 等仅含系列名的子串不得决定任何事；新一代模型只可新增一行或条件，绝不放宽匹配。
-- **兼容客户端**：仅在发送内容因模型而异时按明确标记读取模型 id，且转换方法只读自身协议标记（`deepseek-webtool` 读 `-search`/`-fetch`；仅服务 Google 模型的 `google-genai` 同 `google-official`）。多厂商协议上的特定厂商规则写成按明确模式匹配的插件（[MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.zh.md#9-插件) §9）：`openai-responses` 的 `gpt` 插件在 Luna 与 GPT-6.1 Terra 以外的 GPT-6 上把 `none` 转为 `low`；`openai-chat` 与 `openai-responses` 的 `gpt` 插件对 GPT-5.6 和 GPT-6 请求 `detail: "high"`。vLLM 适配器从表中选取聊天模板思考开关，未命中时退回 Qwen3 开关。
+- **官方客户端**：必须通过具名元组或直白条件中的明确版本/模态标记决定发送内容（先匹配者生效），且默认回退分支取厂商最新模型所接受的最小安全子集（`google-official` 与 `google-genai` 为 `("low", "medium", "high")`；`openai-official`、`anthropic-official` 与 `minimax-official` 为 `none` -> `low`；`zai-official` 为强制开启思考及 `low`/`high`/`max`）。旧代或专用模型通过明确标记匹配：如 `"4-6"`、`"4-7"`、`"4-8"`、`"opus-5"` / `"sonnet-5"`（排除 `"-5-5"`）、`"sonnet-5-5"`、`"gpt-5."`、`"gpt-6-luna"`、`"gpt-6.1-terra"`、`"k2."`、`"minimax-m3"`（排除 `"m3."`）、`"glm-4."` / `"glm-5.1"` / `"glm-5.2"` / `"glm-5"` / `"glm-5v"`、`"gemini-4-hydrogen"` / `"gemini-4-neon"`、`"gemini-3-flash"` / `"gemini-3.1-flash-lite"` / `"gemini-3.5"` / `"gemini-3.6"` / `"gemini-robotics"`，以及档位/模态标记 `-pro`、`gemini-nano-banana`、`-image`、`tts`、`gemini-omni`、`embedding`、`-search`、`-fetch`。`"claude"`、`"gpt"` 等仅含系列名的子串不得决定任何事；新一代模型只可新增一行或条件，绝不放宽匹配。
+- **兼容客户端**：仅在发送内容因模型而异时按明确标记读取模型 id，且转换方法只读自身协议标记（`deepseek-webtool` 读 `-search`/`-fetch`；仅服务 Google 模型的 `google-genai` 同 `google-official`）。多厂商协议上的特定厂商规则写成按明确模式匹配的插件（[MMSP-RFC-0009](MMSP-RFC-0009-protocol-conversion.zh.md#9-插件) §9）：`openai-responses` 的 `gpt` 插件在 `("gpt-5.", "gpt-6-luna", "gpt-6.1-terra")` 以外的 `gpt-` 模型上把 `none` 转为 `low`；`openai-chat` 与 `openai-responses` 的 `gpt` 插件对 GPT-5.6 和 GPT-6+ 请求 `detail: "high"`；`openai-speech` 的 `gemini` 插件（`gemini-.*tts`）在未传 `tts_config` 时默认设置 `voice: "Kore"`。vLLM 适配器从表中选取聊天模板思考开关，未命中时退回 Qwen3 开关。
 - **客户端路由**：模型 id 由哪个客户端处理见 [MMSP-RFC-0005](MMSP-RFC-0005-client-routing.zh.md)。
 
 ### 6.2 没有对应设置的值
@@ -118,9 +118,9 @@
 
 | 客户端类别 | 目标模型 | `thinking_level` 映射规则 |
 | --- | --- | --- |
-| **官方客户端** | 支持思考的模型 | 按固定代际表静默映射：模型支持该级别时原样使用；不支持时映射到模型接受的级别（**Claude 4.6**：`xhigh` -> `high`；**Gemini**：`xhigh`/`max` -> `high`，但 **Gemini 4 Hydrogen** 原样保留 `xhigh` 并将 `max` -> `xhigh`，仅接受 `low`/`high` 的 **Gemini Omni** 将 `medium` -> `high`）。对于 `none`：有原生关闭开关时使用开关（**Claude Sonnet 5** 为 `disabled`；**GPT-6 Luna**、**GPT-6.1 Terra** 与 **Kimi K3** 系列为 `none`），无关闭开关时用最少思考（**Claude Opus 5.5** 最低 effort、**Claude Sonnet 5.5** 的 `between_tools`、**Gemini** 的 `minimal` 或 `low`）。 |
+| **官方客户端** | 支持思考的模型 | 按固定代际表静默映射，默认回退至厂商最新模型的最小安全子集：模型支持该级别时原样使用；不支持时映射到模型接受的级别（**Claude 4.6**：`xhigh` -> `high`；**Gemini**：`xhigh`/`max` -> `high`，但 **Gemini 4 Hydrogen** 与 **Gemini 4 Neon** 原样保留 `xhigh` 并将 `max` -> `xhigh`，仅接受 `low`/`high` 的 **Gemini Omni** 将 `medium` -> `high`）。对于 `none`：有原生关闭开关时使用开关（**Claude Sonnet 5** 为 `disabled`；**GPT-6 Luna**、**GPT-6.1 Terra** 与 **Kimi K3** 系列为 `none`），无关闭开关时用最少思考（**Claude Opus 5.5** 最低 effort、**Claude Sonnet 5.5** 的 `between_tools`、**Gemini** 的 `minimal` 或 `low`）。 |
 | **所有客户端** | 不思考的模型 | 在 embedding 模型、网页工具及 `openai-image`、`openai-speech`、`openai-transcription`、`deepseek-speech`、`deepseek-transcription` 上直接忽略。 |
-| **兼容客户端** | 视端点而定（端点可以拒绝） | **`ant-messages`**：`none` -> `disabled`。**`openai-responses`**：作为 effort 发送（Luna 与 GPT-6.1 Terra 以外的 GPT-6 上 `none` -> `low`）。**`openai-chat`**：默认不发送；在 Mistral 端点上由 `mistral` 插件对模型列表标明会推理的模型发送 `reasoning_effort`（`low` -> `low`，`medium`/`high` -> `high`，`xhigh`/`max` 原样，`none` 不发，非推理模型不发）；vLLM 适配器只发聊天模板思考开关。**`mmsp`**：原样转发给服务端。 |
+| **兼容客户端** | 视端点而定（端点可以拒绝） | **`ant-messages`**：`none` -> `disabled`。**`openai-responses`**：作为 effort 发送（GPT-5.x、GPT-6 Luna 与 GPT-6.1 Terra 以外的 `gpt-` 模型上 `none` -> `low`）。**`openai-chat`**：默认不发送；在 Mistral 端点上由 `mistral` 插件对模型列表标明会推理的模型发送 `reasoning_effort`（`low` -> `low`，`medium`/`high` -> `high`，`xhigh`/`max` 原样，`none` 不发，非推理模型不发）；vLLM 适配器只发聊天模板思考开关。**`mmsp`**：原样转发给服务端。 |
 
 ### 6.4 有另一种形式的值
 
@@ -129,7 +129,7 @@
 | **`tool_choice`（工具名列表）** | `openai-chat`、`openai-official`、`openai-responses`、`ant-messages` | 映射为 `allowed_tools`，在 `openai-chat` 上带 `mode: "auto"`，在 `openai-official` 与 `openai-responses` 上带 `mode: "required"`；单元素列表在 `ant-messages` 上为 `{type: "tool", name}`。 |
 | **未设置的 `max_tokens`** | Anthropic 客户端 | 默认设为 `64000`。 |
 | **`prompt_caching: "enhance"`** | `openai-official`（GPT-5.6 及之后） | 映射为 `prompt_cache_options: {ttl: "12h"}`。 |
-| **`tts_config`** | `openai-speech`、`deepseek-speech` | 取唯一一项的 `voice`，在 `openai-speech` 上发为 `voice`，在 `deepseek-speech` 上发为 `voice_id`；未设置时不发送（用默认音色）；多于一项抛出 `UnsupportedParameterError`。 |
+| **`tts_config`** | `openai-speech`、`deepseek-speech` | 取唯一一项的 `voice`，在 `openai-speech` 上发为 `voice`，在 `deepseek-speech` 上发为 `voice_id`；未设置时不发送（用默认音色，唯 `openai-speech` 的 `gemini` 插件默认设为 `"Kore"`）；多于一项抛出 `UnsupportedParameterError`。 |
 | **`image_config`** | Google 客户端、`openai-image` | `resolution` 在两个 Google 客户端上映射为 Gemini 的 `image_size`。在 `openai-image` 上按下表映射为 `size`（仅 `aspect_ratio` 时取 `1K`；仅 `resolution` 时取 `1:1`；未设置时不发 `size`）。表中尺寸双边均为 16 的倍数、像素数 655,360–8,294,400、最长边 <= 3840、长宽比 <= 3:1。 |
 | **`video_config`** | Gemini Omni（`google-official`、`google-genai`） | 映射为 `response_format` 中的 `video` 条目：`aspect_ratio` 与 `resolution` 原样发送（唯 `4K` 写作 `4k`），`duration`（秒）写作 `"<n>s"`。只发送给出的字段；未设置时不发 `response_format`（沿用 Google 默认值 16:9、720p、10 秒）。Google 不接受的值（如 `1:1` 或 2 秒）由 Google 自身错误拒绝。 |
 
