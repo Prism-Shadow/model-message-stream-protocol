@@ -3,6 +3,7 @@
 - **Date:** 2026-11-20
 - **Type:** process
 - **Scope:** `design`
+- **PR:** [#359](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/359)
 
 [English](2026-11-20-no-thinking-price-rfc.md)
 
