@@ -3,6 +3,7 @@
 - **Date:** 2026-11-20
 - **Type:** feature
 - **Scope:** `registry`, `tests`, `site`, `skills`, `.github`
+- **PR:** [#360](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/360)
 - **Breaking:** yes — `ModelPricing` lost `thoughts_tokens`; a turn's thinking tokens are billed at `response_tokens`
 
 [中文版](2026-11-20-no-thinking-price.zh.md)
