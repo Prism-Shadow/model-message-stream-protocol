@@ -19,6 +19,7 @@ Every **specification** MMSP conforms to and every **protocol or public API deci
 | [MMSP-RFC-0009](rfcs/MMSP-RFC-0009-protocol-conversion.md) | Protocol Conversion | spec | Accepted |
 | [MMSP-RFC-0010](rfcs/MMSP-RFC-0010-trace-recording.md) | Trace Recording | spec | Accepted |
 | [MMSP-RFC-0011](rfcs/MMSP-RFC-0011-prompt-cache-sessions.md) | Prompt Cache Sessions | change | Accepted |
+| [MMSP-RFC-0012](rfcs/MMSP-RFC-0012-thinking-priced-as-output.md) | Thinking Priced as Output | change | Accepted |
 
 - **Kinds**: `spec` fixes a concept, protocol, or algorithm; `change` modifies the protocol or public API; `process` defines how `design/` works.
 - **Statuses**: `Accepted` or `Superseded by MMSP-RFC-NNNN`. Specifications in force are the `Accepted` `spec` rows.
