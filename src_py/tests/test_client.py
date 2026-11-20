@@ -491,7 +491,6 @@ async def test_list_supported_models():
     assert kimi["pricing"] == {
         "currency": "USD",
         "prompt_tokens": 2.857143,
-        "thoughts_tokens": 14.285714,
         "response_tokens": 14.285714,
         "cached_tokens": 0.285714,
     }
@@ -508,7 +507,6 @@ async def test_list_supported_models():
     kimi_cny = next(entry for entry in list_supported_models(currency="CNY") if entry["model"] == "kimi-k3")
     assert kimi_cny["pricing"]["currency"] == "CNY"
     assert kimi_cny["pricing"]["prompt_tokens"] == pytest.approx(20.0, abs=1e-4)
-    assert kimi_cny["pricing"]["thoughts_tokens"] == pytest.approx(100.0, abs=1e-4)
     assert kimi_cny["pricing"]["response_tokens"] == pytest.approx(100.0, abs=1e-4)
     assert kimi_cny["pricing"]["cached_tokens"] == pytest.approx(2.0, abs=1e-4)
 
@@ -525,6 +523,22 @@ async def test_list_supported_models():
             client_type=entry["client"],
         )
         assert client._client is not None
+
+
+def test_thinking_tokens_are_billed_at_the_output_price():
+    """A turn's thoughts_tokens are output: no row, in either currency, stores a price for them apart."""
+    buckets = {"currency", "cached_tokens", "prompt_tokens", "response_tokens"}
+    for currency in ("USD", "CNY"):
+        priced_apart = [
+            entry["model"]
+            for entry in list_supported_models(currency=currency)
+            if "pricing" in entry and not set(entry["pricing"]) <= buckets
+        ]
+        assert priced_apart == []
+
+    # Google lists Gemini Omni's text output at $9 beside its $12 video; its thinking costs the $12
+    omni = next(entry for entry in list_supported_models() if entry["model"] == "gemini-omni-1.2-flash")
+    assert omni["pricing"] == {"currency": "USD", "prompt_tokens": 1.5, "response_tokens": 12.0}
 
 
 @pytest.mark.asyncio

@@ -24,15 +24,14 @@ class ModelPricing(TypedDict):
     """Prices per million tokens for MMSP's usage buckets.
 
     Keys mirror ``usage_metadata``: ``cached_tokens`` (cache-hit price, absent when the
-    platform publishes none), ``prompt_tokens`` (non-cached input), and
-    ``thoughts_tokens``/``response_tokens``, which both carry the output price unless the vendor
-    prices thinking apart (Gemini Omni bills its thoughts as text and its response as video).
+    platform publishes none), ``prompt_tokens`` (non-cached input), and ``response_tokens`` (the
+    output price). Thinking has no price of its own: a turn's ``thoughts_tokens`` are output,
+    billed at ``response_tokens``.
     Values are in the currency requested from ``list_supported_models``.
     """
 
     currency: Currency
     prompt_tokens: float
-    thoughts_tokens: float
     response_tokens: float
     cached_tokens: NotRequired[float]
 
@@ -95,13 +94,10 @@ _JINA_READER = "https://r.jina.ai"
 _CNY_PER_USD = 7.0
 
 
-def _usd(prompt: float, output: float, cached: float | None = None, thoughts: float | None = None) -> ModelPricing:
-    # thoughts and response tokens are both billed at the vendor's output price, except where the
-    # vendor prices the thinking apart (Gemini Omni's thoughts are text, its response video)
+def _usd(prompt: float, output: float, cached: float | None = None) -> ModelPricing:
     pricing: ModelPricing = {
         "currency": "USD",
         "prompt_tokens": prompt,
-        "thoughts_tokens": output if thoughts is None else thoughts,
         "response_tokens": output,
     }
     if cached is not None:
@@ -231,14 +227,15 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     },
     {
         # aistudio.google.com/docs/pricing and aistudio.google.com/docs/models/gemini-nano-banana-2.1
-        # (read 2026-11-19): $1.50 input, $30.00 image output, $7.50 text output and thoughts
+        # (read 2026-11-19): $1.50 input, $30.00 image output; thinking is billed as output, at $30.00,
+        # although the page lists text output and thoughts at $7.50
         "model": "gemini-nano-banana-2.1",
         "base_url": _GOOGLE,
         "client": "google-official",
         "input_modalities": ["Text", "Image", "Video"],
         "output_modalities": ["Image"],
         "context_window": 131072,
-        "pricing": _usd(1.5, 30.0, thoughts=7.5),
+        "pricing": _usd(1.5, 30.0),
     },
     {
         "model": "gemini-3.1-flash-lite-image",
@@ -270,15 +267,15 @@ _SUPPORTED_MODELS: list[SupportedModel] = [
     },
     {
         # the video is billed per output token (5,792 a second at the default 720p, ~$0.70 for the default
-        # 10 s), its thoughts at the text output price; context window = input token limit (pricing page and
-        # model page, read 2026-11-06)
+        # 10 s); thinking is billed as output, at $12, although the page lists text output at $9; context
+        # window = input token limit (pricing page and model page, read 2026-11-06)
         "model": "gemini-omni-1.2-flash",
         "base_url": _GOOGLE,
         "client": "google-official",
         "input_modalities": ["Text", "Image"],
         "output_modalities": ["Video"],
         "context_window": 131072,
-        "pricing": _usd(1.5, 12.0, thoughts=9.0),
+        "pricing": _usd(1.5, 12.0),
     },
     {
         "model": "gemini-embedding-2",
@@ -3943,10 +3940,9 @@ def _convert_pricing(pricing: ModelPricing, currency: Currency) -> ModelPricing:
     converted: ModelPricing = {
         "currency": "CNY",
         "prompt_tokens": 0.0,
-        "thoughts_tokens": 0.0,
         "response_tokens": 0.0,
     }
-    for key in ("prompt_tokens", "thoughts_tokens", "response_tokens", "cached_tokens"):
+    for key in ("prompt_tokens", "response_tokens", "cached_tokens"):
         if key in pricing:
             converted[key] = round(pricing[key] * _CNY_PER_USD, 6)
     return converted
@@ -3959,9 +3955,9 @@ def list_supported_models(currency: Currency = "USD") -> list[SupportedModel]:
     Bedrock, TokenDance, OpenCode Go, Fireworks AI, DashScope, Qwen Token Plan, Atlas Cloud,
     Penguin Go, ModelScope and a local vLLM server; ``client`` is the ``client_type`` token that
     routes the model to its protocol client. Prices are per million tokens for MMSP's usage
-    buckets (cached_tokens, prompt_tokens, thoughts_tokens, response_tokens), stored in USD and
-    converted to ``currency`` at 7 CNY/USD on request; ``SupportedModel`` says which price each
-    platform's rows store.
+    buckets (cached_tokens, prompt_tokens, response_tokens; thoughts_tokens are billed at the
+    response_tokens price), stored in USD and converted to ``currency`` at 7 CNY/USD on request;
+    ``SupportedModel`` says which price each platform's rows store.
     """
     entries: list[SupportedModel] = []
     for entry in _SUPPORTED_MODELS:
