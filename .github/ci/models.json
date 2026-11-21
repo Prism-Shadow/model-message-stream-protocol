@@ -40,10 +40,6 @@
     "models": [
       {
         "api_key_env": "ANTHROPIC_API_KEY",
-        "name": "claude-sonnet-5-5"
-      },
-      {
-        "api_key_env": "ANTHROPIC_API_KEY",
         "name": "claude-haiku-5-5"
       },
       {
@@ -369,14 +365,6 @@
   },
   "openai-official": {
     "models": [
-      {
-        "api_key_env": "OPENAI_API_KEY",
-        "name": "gpt-6.2-sol"
-      },
-      {
-        "api_key_env": "OPENAI_API_KEY",
-        "name": "gpt-6.1-terra"
-      },
       {
         "api_key_env": "OPENAI_API_KEY",
         "name": "gpt-6-luna"
