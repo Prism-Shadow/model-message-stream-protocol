@@ -1486,7 +1486,6 @@ test("should list supported model entries", () => {
   expect(kimi?.pricing).toEqual({
     currency: "USD",
     prompt_tokens: 2.857143,
-    thoughts_tokens: 14.285714,
     response_tokens: 14.285714,
     cached_tokens: 0.285714,
   });
@@ -1508,7 +1507,6 @@ test("should list supported model entries", () => {
   );
   expect(kimiCny?.pricing?.currency).toBe("CNY");
   expect(kimiCny?.pricing?.prompt_tokens).toBeCloseTo(20.0, 3);
-  expect(kimiCny?.pricing?.thoughts_tokens).toBeCloseTo(100.0, 3);
   expect(kimiCny?.pricing?.response_tokens).toBeCloseTo(100.0, 3);
   expect(kimiCny?.pricing?.cached_tokens).toBeCloseTo(2.0, 3);
 
@@ -1528,6 +1526,37 @@ test("should list supported model entries", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect((client as any)._client).toBeDefined();
   }
+});
+
+test("should bill thinking tokens at the output price", () => {
+  // a turn's thoughts_tokens are output: no row, in either currency, stores a price for them
+  // apart, so response_tokens is the price they are billed at
+  const buckets = new Set([
+    "currency",
+    "cached_tokens",
+    "prompt_tokens",
+    "response_tokens",
+  ]);
+  for (const currency of ["USD", "CNY"] as const) {
+    const pricedApart = listSupportedModels(currency)
+      .filter(
+        (entry) =>
+          entry.pricing !== undefined &&
+          Object.keys(entry.pricing).some((key) => !buckets.has(key)),
+      )
+      .map((entry) => entry.model);
+    expect(pricedApart).toEqual([]);
+  }
+
+  // Google lists Gemini Omni's text output at $9 beside its $12 video; its thinking costs the $12
+  const omni = listSupportedModels().find(
+    (entry) => entry.model === "gemini-omni-1.2-flash",
+  );
+  expect(omni?.pricing).toEqual({
+    currency: "USD",
+    prompt_tokens: 1.5,
+    response_tokens: 12.0,
+  });
 });
 
 test("should reject non-text content items for OpenAI embeddings", () => {

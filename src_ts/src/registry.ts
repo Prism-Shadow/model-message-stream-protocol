@@ -21,15 +21,13 @@ export type Currency = "USD" | "CNY";
  *
  * Keys mirror `usage_metadata`: `cached_tokens` (cache-hit price, absent when
  * the platform publishes none), `prompt_tokens` (non-cached input), and
- * `thoughts_tokens`/`response_tokens`, which both carry the output price unless
- * the vendor prices thinking apart (Gemini Omni bills its thoughts as text and
- * its response as video).
+ * `response_tokens` (the output price). Thinking has no price of its own: a
+ * turn's `thoughts_tokens` are output, billed at `response_tokens`.
  * Values are in the currency requested from listSupportedModels.
  */
 export interface ModelPricing {
   currency: Currency;
   prompt_tokens: number;
-  thoughts_tokens: number;
   response_tokens: number;
   cached_tokens?: number;
 }
@@ -93,18 +91,10 @@ const JINA_READER = "https://r.jina.ai";
 // platform's numbers.
 const CNY_PER_USD = 7.0;
 
-function usd(
-  prompt: number,
-  output: number,
-  cached?: number,
-  thoughts?: number,
-): ModelPricing {
-  // thoughts and response tokens are both billed at the vendor's output price, except where the
-  // vendor prices the thinking apart (Gemini Omni's thoughts are text, its response video)
+function usd(prompt: number, output: number, cached?: number): ModelPricing {
   return {
     currency: "USD",
     prompt_tokens: prompt,
-    thoughts_tokens: thoughts ?? output,
     response_tokens: output,
     ...(cached !== undefined ? { cached_tokens: cached } : {}),
   };
@@ -236,14 +226,15 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   },
   {
     // aistudio.google.com/docs/pricing and aistudio.google.com/docs/models/gemini-nano-banana-2.1
-    // (read 2026-11-19): $1.50 input, $30.00 image output, $7.50 text output and thoughts
+    // (read 2026-11-19): $1.50 input, $30.00 image output; thinking is billed as output, at $30.00,
+    // although the page lists text output and thoughts at $7.50
     model: "gemini-nano-banana-2.1",
     base_url: GOOGLE,
     client: "google-official",
     input_modalities: ["Text", "Image", "Video"],
     output_modalities: ["Image"],
     context_window: 131072,
-    pricing: usd(1.5, 30.0, undefined, 7.5),
+    pricing: usd(1.5, 30.0),
   },
   {
     model: "gemini-3.1-flash-lite-image",
@@ -275,15 +266,15 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   },
   {
     // the video is billed per output token (5,792 a second at the default 720p, ~$0.70 for the default
-    // 10 s), its thoughts at the text output price; context window = input token limit (pricing page and
-    // model page, read 2026-11-06)
+    // 10 s); thinking is billed as output, at $12, although the page lists text output at $9; context
+    // window = input token limit (pricing page and model page, read 2026-11-06)
     model: "gemini-omni-1.2-flash",
     base_url: GOOGLE,
     client: "google-official",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Video"],
     context_window: 131072,
-    pricing: usd(1.5, 12.0, undefined, 9.0),
+    pricing: usd(1.5, 12.0),
   },
   {
     model: "gemini-embedding-2",
@@ -3952,7 +3943,6 @@ function convertPricing(
   return {
     currency: "CNY",
     prompt_tokens: round(pricing.prompt_tokens),
-    thoughts_tokens: round(pricing.thoughts_tokens),
     response_tokens: round(pricing.response_tokens),
     ...(pricing.cached_tokens !== undefined
       ? { cached_tokens: round(pricing.cached_tokens) }
@@ -3969,9 +3959,10 @@ function convertPricing(
  * Qwen Token Plan, Atlas Cloud, Penguin Go, ModelScope and a local vLLM server;
  * `client` is the `clientType` token that routes the model to its protocol
  * client. Prices are per million tokens for MMSP's usage buckets
- * (cached_tokens, prompt_tokens, thoughts_tokens, response_tokens), stored in
- * USD and converted to `currency` at 7 CNY/USD on request; `SupportedModel`
- * says which price each platform's rows store.
+ * (cached_tokens, prompt_tokens, response_tokens; thoughts_tokens are billed at
+ * the response_tokens price), stored in USD and converted to `currency` at
+ * 7 CNY/USD on request; `SupportedModel` says which price each platform's rows
+ * store.
  */
 export function listSupportedModels(
   currency: Currency = "USD",

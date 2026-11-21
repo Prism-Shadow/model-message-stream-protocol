@@ -138,8 +138,13 @@ def cost_usd(usage: dict[str, int], pricing: dict[str, Any] | None) -> float | N
         return None
     total = 0.0
     for field in USAGE_FIELDS:
-        # a platform that publishes no cache-hit price bills cached input as ordinary input
-        total += usage[field] * pricing.get(field, pricing["prompt_tokens"])
+        if field == "thoughts_tokens":
+            # thinking is output, billed at the output price
+            rate = pricing["response_tokens"]
+        else:
+            # a platform that publishes no cache-hit price bills cached input as ordinary input
+            rate = pricing.get(field, pricing["prompt_tokens"])
+        total += usage[field] * rate
     return round(total / 1e6, 8)
 
 
