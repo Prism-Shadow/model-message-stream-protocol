@@ -11,7 +11,7 @@ npm run dev      # http://localhost:4321
 npm run build    # writes dist/
 ```
 
-Node 22.12 or newer.
+Node 22.23.4 or newer.
 
 ## Where things are
 
