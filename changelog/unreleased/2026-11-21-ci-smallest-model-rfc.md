@@ -3,7 +3,7 @@
 - **Date:** 2026-11-21
 - **Type:** process
 - **Scope:** `design`, `skills`
-- **PR:** [#__PR__](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/__PR__)
+- **PR:** [#364](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/364)
 
 [中文版](2026-11-21-ci-smallest-model-rfc.zh.md)
 

@@ -3,7 +3,7 @@
 - Feature Name: `message_protocol`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318), [#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330), [#339](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/339), [#__PR__](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/__PR__)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318), [#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330), [#339](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/339), [#364](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/364)
 - Kind: spec
 
 [English](MMSP-RFC-0002-message-protocol.md)
@@ -24,7 +24,7 @@ MMSP 是所有模型共用的统一消息协议，仅用三种结构调用模型
 | **2026-11-06** ([#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318)) | **`inline_data` 视频**：支持 Gemini Omni 视频生成（「支持一下google omni的视频生成能力」），复用 `inline_data`。URI 视频作为带 URI 的 `text` 返回（§3.4）。 |
 | **2026-11-16** ([#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330)) | **原始 PCM 完整帧**：支持语音边到边播（「音频输出是真正的音频流式吗?就是说我能不能每次只听到一部分」）。因 DeepSeek 分块会劈开 16 位采样（418 个片段中 74 个字节数为奇数），规定 `audio/l16` 片段必须由完整帧组成（§3.4）。 |
 | **2026-11-17** ([#339](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/339)) | **工具调用 `arguments` 保留 JSON 字符串**：保留模型写出的 JSON 文本（「这个丢精度确实会有问题,在中间多做一次精度转换就会丢东西,UniMessage的工具参数还是保留字符串类型吧」），避免解析为 JS `number`（2^53）或 Python `float`（17 位有效数字）导致 `9007199254740993` 变成 `9007199254740992` 而破坏无损回放（[MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.zh.md)，§3.4）。 |
-| **2026-11-21** ([#__PR__](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/__PR__)) | **CI 只测最新一代的最小模型**：每个官方端点只测一个文本模型，即厂商最新一代中最小的模型（`gpt-6-luna`、`claude-haiku-5-5`、`gemini-4-hydrogen`、`glm-5.3-flash`、`MiniMax-M3.1-Flash`、`deepseek-flash`、`kimi-k3.1-pro`），去掉更大档位的 `gpt-6.2-sol`、`gpt-6.1-terra` 与 `claude-sonnet-5-5`（「之前说官方端点模型测最新一代,但是gpt-sol gpt-terra gpt-luna不需要重复测试,只需要测试最新一代的小参数模型就行,但是不同模态的比如image,tts还是要测.比如测 gpt-6-luna claude-haiku-5-5 gemini-4-hydrogen glm5.3flash MiniMax-M3.1-Flash deepseek flash但是aws bedrock还是只能用sonnet 4.6」）。更大档位重复的是最小模型已经跑过的用例。其他模态保留各自的用例；Amazon Bedrock 保留 `global.anthropic.claude-sonnet-4-6`，这是它的 key 唯一能访问的模型（§7）。 |
+| **2026-11-21** ([#364](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/364)) | **CI 只测最新一代的最小模型**：每个官方端点只测一个文本模型，即厂商最新一代中最小的模型（`gpt-6-luna`、`claude-haiku-5-5`、`gemini-4-hydrogen`、`glm-5.3-flash`、`MiniMax-M3.1-Flash`、`deepseek-flash`、`kimi-k3.1-pro`），去掉更大档位的 `gpt-6.2-sol`、`gpt-6.1-terra` 与 `claude-sonnet-5-5`（「之前说官方端点模型测最新一代,但是gpt-sol gpt-terra gpt-luna不需要重复测试,只需要测试最新一代的小参数模型就行,但是不同模态的比如image,tts还是要测.比如测 gpt-6-luna claude-haiku-5-5 gemini-4-hydrogen glm5.3flash MiniMax-M3.1-Flash deepseek flash但是aws bedrock还是只能用sonnet 4.6」）。更大档位重复的是最小模型已经跑过的用例。其他模态保留各自的用例；Amazon Bedrock 保留 `global.anthropic.claude-sonnet-4-6`，这是它的 key 唯一能访问的模型（§7）。 |
 
 ## 2. Conventions and Terminology
 
