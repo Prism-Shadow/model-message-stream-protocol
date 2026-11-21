@@ -24,6 +24,8 @@ Use **CI passed** as the required PR check. It runs even when no language jobs a
 
 `models.json` is shared by both test suites and grouped by the implementation client. Each case has `name`, `api_key_env`, optional `provider`, `client_type`, `base_url`, `slow`, and capability flags matching the Python `Model` fields. Omitted capabilities retain the test defaults. Use an explicit `client_type` for gateway model IDs without a known family. Group OpenAI embeddings under `openai-embedding`, including cases that use implicit official routing.
 
+Each vendor's official endpoint carries one text model, the smallest of its newest generation (`gpt-6-luna`, `claude-haiku-5-5`, `gemini-4-hydrogen`, `glm-5.3-flash`, `MiniMax-M3.1-Flash`, `deepseek-flash`, `kimi-k3.1-pro`), plus one case for each other modality it serves, such as image, TTS, transcription, video, embedding and web tools. Bedrock is the exception and keeps `global.anthropic.claude-sonnet-4-6`, the only model its key reaches ([MMSP-RFC-0002](../../design/rfcs/MMSP-RFC-0002-message-protocol.md)).
+
 Add or update model cases here without changing the shared assertions in `test_client.py` or `client.test.ts`. `depends_on` records implementation dependencies, such as `openai-chat-vllm-adapter` depending on `openai-chat`. A new client group triggers full validation.
 
 Local tests keep their existing key-gated, non-slow default. Both languages accept the same environment variables:
