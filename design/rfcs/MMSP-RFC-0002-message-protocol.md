@@ -3,7 +3,7 @@
 - Feature Name: `message_protocol`
 - Start Date: 2026-10-24
 - RFC PR: [#301](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/301)
-- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318), [#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330), [#339](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/339)
+- Updated by: [#308](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/308), [#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318), [#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330), [#339](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/339), [#364](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/364)
 - Kind: spec
 
 [中文版](MMSP-RFC-0002-message-protocol.zh.md)
@@ -24,6 +24,7 @@ MMSP is one unified message protocol across all models, built on three shapes: *
 | **2026-11-06** ([#318](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/318)) | **Video in `inline_data`**: Added Gemini Omni video generation ("支持一下google omni的视频生成能力") via `inline_data`. URI videos return as `text` holding the URI (§3.4). |
 | **2026-11-16** ([#330](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/330)) | **Whole-frame PCM streaming**: Ensured part-by-part playback ("音频输出是真正的音频流式吗?就是说我能不能每次只听到一部分"). DeepSeek chunks split 16-bit samples (74/418 fragments had odd byte counts), so raw PCM (`audio/l16`) fragments hold whole frames (§3.4). |
 | **2026-11-17** ([#339](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/339)) | **Tool-call `arguments` as JSON text**: Kept `tool_call.arguments` as the JSON string the model wrote ("这个丢精度确实会有问题,在中间多做一次精度转换就会丢东西,UniMessage的工具参数还是保留字符串类型吧"), preventing number precision loss (`9007199254740993` -> `9007199254740992` in JS `number` / Python `float`) on replay ([MMSP-RFC-0004](MMSP-RFC-0004-message-fidelity.md), §3.4). |
+| **2026-11-21** ([#364](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/364)) | **CI tests the smallest model of each newest generation**: Tested one text model per official endpoint, the smallest of the vendor's newest generation (`gpt-6-luna`, `claude-haiku-5-5`, `gemini-4-hydrogen`, `glm-5.3-flash`, `MiniMax-M3.1-Flash`, `deepseek-flash`, `kimi-k3.1-pro`), and dropped the larger tiers `gpt-6.2-sol`, `gpt-6.1-terra` and `claude-sonnet-5-5` ("之前说官方端点模型测最新一代,但是gpt-sol gpt-terra gpt-luna不需要重复测试,只需要测试最新一代的小参数模型就行,但是不同模态的比如image,tts还是要测.比如测 gpt-6-luna claude-haiku-5-5 gemini-4-hydrogen glm5.3flash MiniMax-M3.1-Flash deepseek flash但是aws bedrock还是只能用sonnet 4.6"). The larger tiers repeated the cases the smallest one already runs. Other modalities keep their own cases, and Amazon Bedrock keeps `global.anthropic.claude-sonnet-4-6`, the only model its key reaches (§7). |
 
 ## 2. Conventions and Terminology
 
@@ -97,4 +98,9 @@ The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY in this document are to
   - Models enter via `.github/ci/models.json` with capability flags and key variables.
   - No test branches on model name, and no model gets its own test file.
   - A failing shared test means the client is wrong until proven otherwise; broader test edits need explicit owner approval per change.
-- **Catalog & routing**: `.github/ci/models.json` (with `.github/ci/plan.py`, `.github/ci/README.md`, `.github/workflows/ci.yml`) tracks each family's newest generation while older generations stay supported and routed ([MMSP-RFC-0005](MMSP-RFC-0005-client-routing.md#3-client-types) §3), verified by the routing case in `test_client.py` / `client.test.ts`.
+- **Catalog & routing**: `.github/ci/models.json` (with `.github/ci/plan.py`, `.github/ci/README.md`, `.github/workflows/ci.yml`) holds the live model cases:
+  - **One text model per vendor**: For each official client on its vendor's own endpoint, the catalog MUST carry one text model, the smallest model of the vendor's newest generation, and MUST NOT carry that generation's larger tiers.
+  - **Every other modality**: Each other modality the vendor serves (image generation, speech, transcription, video generation, embedding, web tools) MUST keep its own case.
+  - **Amazon Bedrock**: Keeps its case on the one Claude model the CI key reaches.
+  - **Outside this rule**: Compatible-client, gateway, and `slow` cases.
+  - **Routing**: Older generations and untested tiers stay supported and routed ([MMSP-RFC-0005](MMSP-RFC-0005-client-routing.md#3-client-types) §3), verified by the routing case in `test_client.py` / `client.test.ts`.
