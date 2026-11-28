@@ -17,19 +17,23 @@ export type Modality = "Text" | "Image" | "Video" | "Audio" | "Embed" | "Web";
 export type Currency = "USD" | "CNY";
 
 /**
- * Prices per million tokens for MMSP's usage buckets.
+ * Prices per million tokens for MMSP's four usage buckets, every one of them
+ * always set.
  *
- * Keys mirror `usage_metadata`: `cached_tokens` (cache-hit price, absent when
- * the platform publishes none), `prompt_tokens` (non-cached input), and
- * `response_tokens` (the output price). Thinking has no price of its own: a
- * turn's `thoughts_tokens` are output, billed at `response_tokens`.
- * Values are in the currency requested from listSupportedModels.
+ * Keys mirror `usage_metadata`: `cached_tokens` (a cache hit; the input price
+ * where the platform publishes none), `prompt_tokens` (non-cached input),
+ * `thoughts_tokens` (thinking, and on a model whose output is priced by
+ * modality the text output that shares its rate) and `response_tokens` (the
+ * output: the answer, or the image, video or audio alone where text is priced
+ * apart). The cost of a turn is the sum of each count times its price, over a
+ * million. Values are in the currency requested from listSupportedModels.
  */
 export interface ModelPricing {
   currency: Currency;
+  cached_tokens: number;
   prompt_tokens: number;
+  thoughts_tokens: number;
   response_tokens: number;
-  cached_tokens?: number;
 }
 
 /**
@@ -37,8 +41,11 @@ export interface ModelPricing {
  *
  * (model, base_url, client) maps directly onto the AutoLLMClient constructor:
  * `new AutoLLMClient({ model, baseUrl: base_url, clientType: client })`.
- * Modalities describe what is usable through that client; `context_window` and
- * `pricing` are omitted where the platform publishes no authoritative value.
+ * Modalities describe what is usable through that client; `context_window` is
+ * omitted where the platform publishes no authoritative value. Every entry has
+ * `pricing`: a free endpoint stores 0, and a model billed per image or per
+ * request stores that price over the tokens its client counts for one (1,000
+ * an image, 1,000 a billed web-tool request).
  *
  * `pricing` is the standing price the row's platform publishes, which is not always the model
  * vendor's list price. A vendor's own endpoint stores its list price. A gateway stores the rate it
@@ -55,7 +62,7 @@ export interface SupportedModel {
   input_modalities: Modality[];
   output_modalities: Modality[];
   context_window?: number;
-  pricing?: ModelPricing;
+  pricing: ModelPricing;
 }
 
 const GOOGLE = "https://generativelanguage.googleapis.com";
@@ -91,24 +98,38 @@ const JINA_READER = "https://r.jina.ai";
 // platform's numbers.
 const CNY_PER_USD = 7.0;
 
-function usd(prompt: number, output: number, cached?: number): ModelPricing {
+function usd(
+  prompt: number,
+  output: number,
+  cached?: number,
+  thoughts?: number,
+): ModelPricing {
+  // a row states only the prices that differ: a cache hit costs the input price where the
+  // platform publishes none, and thinking the output price where the vendor lists no rate of its own
   return {
     currency: "USD",
+    cached_tokens: cached ?? prompt,
     prompt_tokens: prompt,
+    thoughts_tokens: thoughts ?? output,
     response_tokens: output,
-    ...(cached !== undefined ? { cached_tokens: cached } : {}),
   };
 }
 
 /**
  * Declare a CNY-denominated price; storage stays USD (converted at 7 CNY/USD).
  */
-function cny(prompt: number, output: number, cached?: number): ModelPricing {
+function cny(
+  prompt: number,
+  output: number,
+  cached?: number,
+  thoughts?: number,
+): ModelPricing {
   const rate = (v: number): number => Math.round((v / CNY_PER_USD) * 1e6) / 1e6;
   return usd(
     rate(prompt),
     rate(output),
     cached !== undefined ? rate(cached) : undefined,
+    thoughts !== undefined ? rate(thoughts) : undefined,
   );
 }
 
@@ -118,7 +139,7 @@ function cny(prompt: number, output: number, cached?: number): ModelPricing {
 // Gateway rows list only the input modalities their client can send: the
 // OpenAI-protocol clients carry text and images, not video, and audio only to a transcription.
 const SUPPORTED_MODELS: SupportedModel[] = [
-  // --- Official vendor endpoints (65 rows; each vendor's own key variable; list prices from each
+  // --- Official vendor endpoints (67 rows; each vendor's own key variable; list prices from each
   // vendor's pricing page, the rows added 2026-10-24 naming their page and read date)
   {
     // aistudio.google.com/docs/pricing and aistudio.google.com/docs/models/gemini-4-neon
@@ -226,62 +247,75 @@ const SUPPORTED_MODELS: SupportedModel[] = [
   },
   {
     // aistudio.google.com/docs/pricing and aistudio.google.com/docs/models/gemini-nano-banana-2.1
-    // (read 2026-11-19): $1.50 input, $30.00 image output; thinking is billed as output, at $30.00,
-    // although the page lists text output and thoughts at $7.50
+    // (read 2026-11-28): $1.50 input, $7.50 text output and thinking, $30.00 image output
     model: "gemini-nano-banana-2.1",
     base_url: GOOGLE,
     client: "google-official",
     input_modalities: ["Text", "Image", "Video"],
     output_modalities: ["Image"],
     context_window: 131072,
-    pricing: usd(1.5, 30.0),
+    pricing: usd(1.5, 30.0, undefined, 7.5),
   },
   {
+    // aistudio.google.com/docs/pricing (read 2026-11-28): $0.25 input, $1.50 text output and thinking,
+    // $30.00 image output
     model: "gemini-3.1-flash-lite-image",
     base_url: GOOGLE,
     client: "google-official",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Image"],
+    pricing: usd(0.25, 30.0, undefined, 1.5),
   },
   {
+    // aistudio.google.com/docs/pricing (read 2026-11-28): $0.50 input, $3 text output and thinking, $60
+    // image output
     model: "gemini-3.1-flash-image",
     base_url: GOOGLE,
     client: "google-official",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Image"],
+    pricing: usd(0.5, 60.0, undefined, 3.0),
   },
   {
+    // aistudio.google.com/docs/pricing (read 2026-11-28): $1.00 text input, $18.00 audio output (25
+    // tokens a second); through 2026-12-31 Google bills $0.50 and $9.00
     model: "gemini-3.8-flash-tts",
     base_url: GOOGLE,
     client: "google-official",
     input_modalities: ["Text"],
     output_modalities: ["Audio"],
+    pricing: usd(1.0, 18.0),
   },
   {
+    // aistudio.google.com/docs/pricing (read 2026-11-28): $1.00 text input, $12.00 audio output (25
+    // tokens a second); through 2026-12-31 Google bills $0.50 and $6.00
     model: "gemini-3.8-flash-lite-tts",
     base_url: GOOGLE,
     client: "google-official",
     input_modalities: ["Text"],
     output_modalities: ["Audio"],
+    pricing: usd(1.0, 12.0),
   },
   {
-    // the video is billed per output token (5,792 a second at the default 720p, ~$0.70 for the default
-    // 10 s); thinking is billed as output, at $12, although the page lists text output at $9; context
-    // window = input token limit (pricing page and model page, read 2026-11-06)
+    // aistudio.google.com/docs/pricing (read 2026-11-28): $1.50 input, $9 text output and thinking, $12
+    // video output (5,792 tokens a second at the default 720p, ~$0.70 for the default 10 s); context
+    // window = input token limit (model page, read 2026-11-06)
     model: "gemini-omni-1.2-flash",
     base_url: GOOGLE,
     client: "google-official",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Video"],
     context_window: 131072,
-    pricing: usd(1.5, 12.0),
+    pricing: usd(1.5, 12.0, undefined, 9.0),
   },
   {
+    // aistudio.google.com/docs/pricing (read 2026-11-28): $0.20 per 1M text input tokens
     model: "gemini-embedding-2",
     base_url: GOOGLE,
     client: "google-official",
     input_modalities: ["Text"],
     output_modalities: ["Embed"],
+    pricing: usd(0.2, 0.0),
   },
   {
     // cache reads are 2.5% of the input price
@@ -822,7 +856,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Web"],
     pricing: usd(0.05, 0.0),
   },
-  // --- OpenRouter (139 rows; key OPENROUTER_API_KEY; USD prices, context windows and modalities
+  // --- OpenRouter (141 rows; key OPENROUTER_API_KEY; USD prices, context windows and modalities
   // from the live models API https://openrouter.ai/api/v1/models and each model's
   // /api/v1/models/{slug}/endpoints list, read 2026-10-24, the rows added 2026-11-16 naming their
   // read date). The API quotes one endpoint per model; where that endpoint runs a promotion (a
@@ -991,28 +1025,26 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(0.1, 0.4),
   },
   {
-    // $0.02 per image, $0.035 for the high_resolution variant (its /api/v1/images/models
-    // endpoints list, read 2026-11-16), not a price per token: the stored rate is the image_output
-    // price the models API quotes, which comes to about $0.02 for a 1K image (4,096 completion
-    // tokens) and four times that for a 2K one (16,384)
+    // $0.02 per image, $0.035 for the high_resolution variant, $0.008 per reference image
+    // (/api/v1/images/models/bytedance-seed/seedream-5-5/endpoints, read 2026-11-28); openai-image
+    // counts 1,000 response tokens an image, so $20 per million
     model: "bytedance-seed/seedream-5-5",
     base_url: OPENROUTER,
     client: "openai-image",
     input_modalities: ["Text"],
     output_modalities: ["Image"],
-    pricing: usd(0.0, 4.790419),
+    pricing: usd(0.0, 20.0),
   },
   {
-    // $0.018 per image whatever its size (the model page and /api/v1/images/models, read
-    // 2026-11-04), not a price per token: the stored rate is the image_output price the models API
-    // quotes, which comes to about $0.018 for a 1K image (4,096 completion tokens) and four times
-    // that for a 2K one (16,384)
+    // $0.018 per image whatever its size, a reference image free
+    // (/api/v1/images/models/bytedance-seed/seedream-5-0-flash/endpoints, read 2026-11-28); openai-image
+    // counts 1,000 response tokens an image, so $18 per million
     model: "bytedance-seed/seedream-5-0-flash",
     base_url: OPENROUTER,
     client: "openai-image",
     input_modalities: ["Text"],
     output_modalities: ["Image"],
-    pricing: usd(0.0, 4.311377),
+    pricing: usd(0.0, 18.0),
   },
   {
     model: "cohere/command-a-plus",
@@ -1218,33 +1250,37 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(2.0, 12.0, 0.2),
   },
   {
-    // $1.50 per 1M input tokens and $30.00 per 1M image_output tokens on /api/v1/images
-    // (openrouter.ai/api/v1/models/google/gemini-nano-banana-2.1/endpoints, read 2026-11-19)
+    // $1.50 per 1M input tokens, $7.50 per 1M text output and thinking (completion) and $30.00 per 1M
+    // image_output tokens (openrouter.ai/api/v1/models and
+    // /api/v1/images/models/google/gemini-nano-banana-2.1/endpoints, read 2026-11-28)
     model: "google/gemini-nano-banana-2.1",
     base_url: OPENROUTER,
     client: "openai-image",
     input_modalities: ["Text"],
     output_modalities: ["Image"],
-    pricing: usd(1.5, 30.0),
+    pricing: usd(1.5, 30.0, undefined, 7.5),
   },
   {
-    // billed by audio output tokens ($9 per 1M, $0.50 text input; read 2026-11-19), which the
-    // raw-audio /api/v1/audio/speech response does not report, so pricing is omitted like on the
-    // official Google TTS rows
+    // Google's list price, $1.00 per 1M text input and $18.00 per 1M audio output tokens; the API quotes
+    // the $0.50 and $9.00 Google bills through 2026-12-31 (/api/v1/models/google/gemini-3.8-flash-tts/
+    // endpoints, read 2026-11-28). The raw-audio /api/v1/audio/speech response reports no usage:
+    // openai-speech counts the input's UTF-8 bytes as prompt tokens and 25 response tokens a second
     model: "google/gemini-3.8-flash-tts",
     base_url: OPENROUTER,
     client: "openai-speech",
     input_modalities: ["Text"],
     output_modalities: ["Audio"],
+    pricing: usd(1.0, 18.0),
   },
   {
-    // billed by audio output tokens ($6 per 1M, $0.50 text input; read 2026-11-19), omitted like
-    // on the official Google TTS rows
+    // Google's list price, $1.00 per 1M text input and $12.00 per 1M audio output tokens; the API quotes
+    // the $0.50 and $6.00 Google bills through 2026-12-31 (read 2026-11-28), counted as on the row above
     model: "google/gemini-3.8-flash-lite-tts",
     base_url: OPENROUTER,
     client: "openai-speech",
     input_modalities: ["Text"],
     output_modalities: ["Audio"],
+    pricing: usd(1.0, 12.0),
   },
   {
     model: "google/gemma-4-31b-it",
@@ -2332,13 +2368,15 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: cny(1.8, 10.8),
   },
   {
-    // the pricing page's chat table does not list embedding models
+    // ¥0.28 per 1M input tokens (the model record https://siliconflow.cn/pricing embeds, read
+    // 2026-11-28)
     model: "Qwen/Qwen3-Embedding-8B",
     base_url: SILICONFLOW,
     client: "openai-embedding",
     input_modalities: ["Text"],
     output_modalities: ["Embed"],
     context_window: 32768,
+    pricing: cny(0.28, 0.0),
   },
   // --- Google Vertex AI (6 rows; key VERTEX_API_KEY, the service-account JSON; list prices of the
   // global endpoint from https://cloud.google.com/vertex-ai/generative-ai/pricing, read
@@ -2375,20 +2413,24 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(1.5, 7.5, 0.15),
   },
   {
-    // text and image output are billed apart ($3 and $60 per 1M), which one output rate
-    // cannot carry
+    // global endpoint (read 2026-11-28): $0.50 input, $0.05 cache read, $3 text output and thinking,
+    // $60 image output
     model: "gemini-3.1-flash-image",
     base_url: VERTEX,
     client: "google-genai",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Image"],
+    pricing: usd(0.5, 60.0, 0.05, 3.0),
   },
   {
+    // $1.00 text input and $18.00 audio output per 1M (read 2026-11-28); through 2026-12-31 a
+    // promotion credits half of it back
     model: "gemini-3.8-flash-tts",
     base_url: VERTEX,
     client: "google-genai",
     input_modalities: ["Text"],
     output_modalities: ["Audio"],
+    pricing: usd(1.0, 18.0),
   },
   {
     // online text-input rate; output tokens are free
@@ -2485,14 +2527,15 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     context_window: 1000000,
     pricing: usd(3.0, 15.0, 0.3),
   },
-  // --- TokenDance (67 rows; key TOKENDANCE_API_KEY; CNY prices at the `items` rate of the public
-  // catalog https://tokendance.space/portal/api/models/all, read 2026-10-24, the row added
-  // 2026-11-16 naming its read date). The `items` rate is what TokenDance bills, below the
+  // --- TokenDance (70 rows; key TOKENDANCE_API_KEY; CNY prices at the `items` rate of the public
+  // catalog https://tokendance.space/portal/api/models/all, read 2026-10-24, the rows added or
+  // repriced since naming their read date). The `items` rate is what TokenDance bills, below the
   // `reference` price the catalog shows beside some models. Each row's client speaks a protocol
   // the catalog lists for the model, and its price is that protocol's, at the lowest tier where
   // the catalog tiers it by prompt length. The two web tool rows near the end bill ¥0.005 per
   // request (TokenDance's console, read 2026-11-02), stored as ¥5 per million prompt tokens,
-  // 1,000 per request that returned a result; the image row after them bills by the image.
+  // 1,000 per request that returned a result; the image row after them bills ¥0.22 an image,
+  // stored as ¥220 per million response tokens, 1,000 an image.
   {
     // this row and the next take the gateway's Chat Completions path; weekday peak rates
     // (09:00-12:00, 14:00-18:00 Beijing) are double on both
@@ -2544,14 +2587,16 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: cny(1.5, 4.5, 0.05),
   },
   {
-    // the catalog prices this model on Chat Completions and Messages (2.1/8.4 CNY below 512K
-    // input tokens) but not on the Responses protocol minimax-official speaks
+    // the catalog prices this model on Chat Completions and Messages, ¥2.1 input and ¥8.4 output below
+    // 512K input tokens on both (cache hits ¥0.42 and ¥0.21), and lists no rate for the Responses
+    // protocol minimax-official speaks; the Chat Completions rate is stored (read 2026-11-28)
     model: "minimax-m3",
     base_url: TOKENDANCE,
     client: "minimax-official",
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
     context_window: 1000000,
+    pricing: cny(2.1, 8.4, 0.42),
   },
   {
     // its Chat Completions stream ends in a chunk without `delta`, which openai-chat cannot read
@@ -2628,6 +2673,17 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Text"],
     context_window: 256000,
     pricing: cny(4.0, 21.0, 0.8),
+  },
+  {
+    // listed 2026-11-25, read 2026-11-28: Chat Completions only, through openai-chat, which forwards
+    // images, as zai-official does only for glm-5.3-flash ids
+    model: "glm-5.4",
+    base_url: TOKENDANCE,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(8.0, 28.0, 2.0),
   },
   {
     model: "glm-5.3",
@@ -2911,6 +2967,16 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: cny(0.7, 2.1, 0.14),
   },
   {
+    // the catalog's items rate, half the reference ¥0.5/¥2/¥0.02 (read 2026-11-28)
+    model: "hy4-flash",
+    base_url: TOKENDANCE,
+    client: "openai-responses",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: cny(0.25, 1.0, 0.01),
+  },
+  {
     model: "hy4",
     base_url: TOKENDANCE,
     client: "openai-responses",
@@ -3113,6 +3179,16 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: cny(5.0, 0.0),
   },
   {
+    // ¥0.15 per 1,000 billed characters (the catalog's items rate, below reference ¥0.3; read
+    // 2026-11-28); prompt tokens are the characters billed, so ¥150 per million
+    model: "deepseek-tts",
+    base_url: TOKENDANCE_DEEPSEEK,
+    client: "deepseek-speech",
+    input_modalities: ["Text"],
+    output_modalities: ["Audio"],
+    pricing: cny(150.0, 0.0),
+  },
+  {
     // ¥0.00011 per second of audio (the catalog's items rate, below reference ¥0.00022; read
     // 2026-11-19); prompt tokens are the audio's seconds (rounded up), so ¥110 per million
     model: "deepseek-asr",
@@ -3123,24 +3199,24 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: cny(110.0, 0.0),
   },
   {
-    // ¥0.22 per image (the catalog's items rate, read 2026-11-04), not a price per token: stored
-    // over the 16,384 output tokens of a 2048x2048 image, the smallest square TokenDance takes and
-    // its default; a larger image bills the same ¥0.22 over more tokens
+    // ¥0.22 per image (the catalog's items rate, read 2026-11-28); openai-image counts 1,000 response
+    // tokens an image, so ¥220 per million
     model: "seedream-5.0-lite",
     base_url: TOKENDANCE,
     client: "openai-image",
     input_modalities: ["Text"],
     output_modalities: ["Image"],
-    pricing: cny(0.0, 13.427734),
+    pricing: cny(0.0, 220.0),
   },
-  // --- OpenCode Go (28 rows; key OPENCODE_API_KEY; ids and each row's protocol from the endpoints
+  // --- OpenCode Go (34 rows; key OPENCODE_API_KEY; ids and each row's protocol from the endpoints
   // table of https://opencode.ai/v2/docs/console/go/, USD per-token rates from its usage-limits
   // table, and context windows and input modalities from models.dev's `opencode-go` provider
-  // (https://models.dev/api.json), all read 2026-10-24; unverified: no live call was made, for
-  // want of a key). A subscription gateway: a rate is what a request draws from the Go ($10) or
-  // Go Plus ($40) monthly allowance, the same on both plans. Rows on the Messages protocol, like
-  // the vendors' own rows, keep the input rate in the prompt bucket; the docs price their cache
-  // writes apart.
+  // (https://models.dev/api.json), all read 2026-10-24, and the six rows added 2026-11-28 from the
+  // public models endpoint https://opencode.ai/inference/go/v1/models; unverified: no live call was
+  // made, for want of a key). A subscription gateway: a rate is what a request draws from the Go
+  // ($10) or Go Plus ($40) monthly allowance, the same on both plans. Rows on the Messages
+  // protocol, like the vendors' own rows, keep the input rate in the prompt bucket; the docs price
+  // their cache writes apart.
   {
     // base tier for prompts up to 200K tokens; every rate doubles above it
     model: "grok-4.7",
@@ -3248,6 +3324,16 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(0.95, 4.0, 0.19),
   },
   {
+    // hosted in China, it needs Global among the workspace's allowed regions
+    model: "longcat-2.5",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(0.3, 1.2, 0.006),
+  },
+  {
     model: "longcat-2.0",
     base_url: OPENCODE_GO,
     client: "openai-chat",
@@ -3341,6 +3427,16 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(0.1, 0.2, 0.002),
   },
   {
+    // cache writes cost $1.875 (5 minutes) and $3 (1 hour)
+    model: "qwen4-max",
+    base_url: OPENCODE_GO_ANTHROPIC,
+    client: "ant-messages",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1000000,
+    pricing: usd(1.5, 4.5, 0.075),
+  },
+  {
     model: "qwen3.8-max",
     base_url: OPENCODE_GO_ANTHROPIC,
     client: "ant-messages",
@@ -3390,6 +3486,15 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     pricing: usd(0.66, 1.98, 0.022),
   },
   {
+    model: "hy4",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.834, 2.501, 0.042),
+  },
+  {
     model: "hy4-preview",
     base_url: OPENCODE_GO,
     client: "openai-chat",
@@ -3407,6 +3512,36 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Text"],
     context_window: 256000,
     pricing: usd(0.14, 0.58, 0.035),
+  },
+  {
+    // free for a limited time, as are the next two rows
+    model: "hy4-flash-free",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.0, 0.0),
+  },
+  {
+    // not served in some countries
+    model: "beam-free",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(0.0, 0.0),
+  },
+  {
+    // free in exchange for the right to train on the prompts and completions
+    model: "iceman-contributor-free",
+    base_url: OPENCODE_GO,
+    client: "openai-chat",
+    input_modalities: ["Text"],
+    output_modalities: ["Text"],
+    context_window: 262144,
+    pricing: usd(0.0, 0.0),
   },
   // --- Fireworks AI (13 rows; key FIREWORKS_API_KEY; ids, client and base URL from the
   // penguin-harness catalog, and USD serverless prices, context windows and image input from each
@@ -3740,12 +3875,13 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     context_window: 262144,
     pricing: usd(0.248, 1.485),
   },
-  // --- Penguin Go (8 rows; key PENGUIN_GO_API_KEY; ids, context windows, image input and the
+  // --- Penguin Go (16 rows; key PENGUIN_GO_API_KEY; ids, context windows, image input and the
   // relay's list prices from the penguin-harness catalog, which carries the owner-confirmed relay
-  // prices of 2026-10-14, read 2026-10-24; unverified: no live call was made, for want of a key).
-  // Prism Shadow's MMSP relay, reached through the mmsp client; it lists its models only to a key
-  // holder. The DeepSeek rows store the off-peak rate, half the peak price billed in DeepSeek's
-  // weekday windows (Beijing 9:00-12:00, 14:00-18:00).
+  // prices of 2026-10-14, read 2026-10-24, the eight rows added 2026-11-28 read that day;
+  // unverified: no live call was made, for want of a key). Prism Shadow's MMSP relay, reached
+  // through the mmsp client; it lists its models only to a key holder. The DeepSeek chat rows store
+  // the off-peak rate, half the peak price billed in DeepSeek's weekday windows (Beijing
+  // 9:00-12:00, 14:00-18:00).
   {
     // the relay's list price for this row and the next two is Google's introductory rate
     model: "gemini-4-argon",
@@ -3773,6 +3909,15 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     output_modalities: ["Text"],
     context_window: 1048576,
     pricing: usd(0.75, 3.75, 0.075),
+  },
+  {
+    model: "gemini-4-hydrogen",
+    base_url: PENGUIN_GO,
+    client: "mmsp",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Text"],
+    context_window: 1048576,
+    pricing: usd(1.5, 7.5, 0.075),
   },
   {
     model: "gemini-3.5-flash-lite",
@@ -3819,13 +3964,75 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     context_window: 1000000,
     pricing: cny(4.5, 13.5, 0.15),
   },
+  {
+    // $1.50 input, $7.50 text output and thinking, $30 image output
+    model: "gemini-nano-banana-2.1",
+    base_url: PENGUIN_GO,
+    client: "mmsp",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Image"],
+    context_window: 131072,
+    pricing: usd(1.5, 30.0, undefined, 7.5),
+  },
+  {
+    // the catalog carries one output rate, for thinking and video alike
+    model: "gemini-omni-1.2-flash",
+    base_url: PENGUIN_GO,
+    client: "mmsp",
+    input_modalities: ["Text", "Image"],
+    output_modalities: ["Video"],
+    pricing: usd(1.5, 12.0),
+  },
+  {
+    model: "gemini-3.8-flash-tts",
+    base_url: PENGUIN_GO,
+    client: "mmsp",
+    input_modalities: ["Text"],
+    output_modalities: ["Audio"],
+    pricing: usd(0.5, 9.0),
+  },
+  {
+    // the relay counts the billed characters as prompt tokens, and the billed audio seconds on the next row
+    model: "deepseek-tts",
+    base_url: PENGUIN_GO,
+    client: "mmsp",
+    input_modalities: ["Text"],
+    output_modalities: ["Audio"],
+    pricing: cny(300.0, 0.0),
+  },
+  {
+    model: "deepseek-asr",
+    base_url: PENGUIN_GO,
+    client: "mmsp",
+    input_modalities: ["Audio"],
+    output_modalities: ["Text"],
+    pricing: cny(216.666667, 0.0),
+  },
+  {
+    // the relay counts one prompt token for each ¥0.005 search or fetch that returned a result
+    model: "deepseek-search",
+    base_url: PENGUIN_GO,
+    client: "mmsp",
+    input_modalities: ["Text"],
+    output_modalities: ["Web"],
+    pricing: cny(5000.0, 0.0),
+  },
+  {
+    model: "deepseek-fetch",
+    base_url: PENGUIN_GO,
+    client: "mmsp",
+    input_modalities: ["Text"],
+    output_modalities: ["Web"],
+    pricing: cny(5000.0, 0.0),
+  },
   // --- ModelScope API-Inference (3 rows; key MODELSCOPE_API_KEY, the account's access token; ids,
   // client and base URL from the penguin-harness catalog, all three listed by the public
   // https://api-inference.modelscope.cn/v1/models, and context windows and image input from each
   // model's card through the public model API, https://www.modelscope.cn/api/v1/models/<id>, read
   // 2026-10-24; unverified: no live call was made, for want of a key). The windows are the cards'
-  // native lengths. ModelScope publishes no per-token price for API-Inference, so the rows carry
-  // none.
+  // native lengths. API-Inference is free within the limits ModelScope sets
+  // (https://www.modelscope.cn/docs/model-service/API-Inference/limits, read 2026-11-28), so the
+  // rows store 0.
   {
     // the card states contexts of up to one million tokens
     model: "deepseek-ai/DeepSeek-V4.1-Flash",
@@ -3834,6 +4041,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
     context_window: 1000000,
+    pricing: usd(0.0, 0.0),
   },
   {
     model: "Qwen/Qwen3.8-27B",
@@ -3842,6 +4050,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
     context_window: 262144,
+    pricing: usd(0.0, 0.0),
   },
   {
     model: "Qwen/Qwen3.8-Flash-Next",
@@ -3850,6 +4059,7 @@ const SUPPORTED_MODELS: SupportedModel[] = [
     input_modalities: ["Text", "Image"],
     output_modalities: ["Text"],
     context_window: 262144,
+    pricing: usd(0.0, 0.0),
   },
   // --- vLLM (8 rows; key VLLM_API_KEY, only when the server is started with one; ids, native
   // context windows and image input from the penguin-harness catalog, which reads them from
@@ -3942,11 +4152,10 @@ function convertPricing(
   const round = (v: number): number => Math.round(v * CNY_PER_USD * 1e6) / 1e6;
   return {
     currency: "CNY",
+    cached_tokens: round(pricing.cached_tokens),
     prompt_tokens: round(pricing.prompt_tokens),
+    thoughts_tokens: round(pricing.thoughts_tokens),
     response_tokens: round(pricing.response_tokens),
-    ...(pricing.cached_tokens !== undefined
-      ? { cached_tokens: round(pricing.cached_tokens) }
-      : {}),
   };
 }
 
@@ -3958,11 +4167,10 @@ function convertPricing(
  * Vertex AI, Amazon Bedrock, TokenDance, OpenCode Go, Fireworks AI, DashScope,
  * Qwen Token Plan, Atlas Cloud, Penguin Go, ModelScope and a local vLLM server;
  * `client` is the `clientType` token that routes the model to its protocol
- * client. Prices are per million tokens for MMSP's usage buckets
- * (cached_tokens, prompt_tokens, response_tokens; thoughts_tokens are billed at
- * the response_tokens price), stored in USD and converted to `currency` at
- * 7 CNY/USD on request; `SupportedModel` says which price each platform's rows
- * store.
+ * client. Every entry is priced per million tokens for each of MMSP's four
+ * usage buckets (cached_tokens, prompt_tokens, thoughts_tokens,
+ * response_tokens), stored in USD and converted to `currency` at 7 CNY/USD on
+ * request; `SupportedModel` says which price each platform's rows store.
  */
 export function listSupportedModels(
   currency: Currency = "USD",
@@ -3971,8 +4179,6 @@ export function listSupportedModels(
     ...entry,
     input_modalities: [...entry.input_modalities],
     output_modalities: [...entry.output_modalities],
-    ...(entry.pricing
-      ? { pricing: convertPricing(entry.pricing, currency) }
-      : {}),
+    pricing: convertPricing(entry.pricing, currency),
   }));
 }
