@@ -3,6 +3,7 @@
 - **Date:** 2026-11-28
 - **Type:** feature
 - **Scope:** `registry`, `tests`, `site`, `skills`, `.github`
+- **PR:** [#367](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/367)
 - **Breaking:** yes — `ModelPricing.cached_tokens` 与 `SupportedModel.pricing` 改为必填，缺少它们的 TypeScript 对象无法再通过编译
 
 [English](2026-11-28-modality-prices.md)

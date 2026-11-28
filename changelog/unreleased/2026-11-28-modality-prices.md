@@ -3,6 +3,7 @@
 - **Date:** 2026-11-28
 - **Type:** feature
 - **Scope:** `registry`, `tests`, `site`, `skills`, `.github`
+- **PR:** [#367](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/367)
 - **Breaking:** yes — `ModelPricing.cached_tokens` and `SupportedModel.pricing` became required, so a TypeScript object of either type built without them no longer compiles
 
 [中文版](2026-11-28-modality-prices.zh.md)
