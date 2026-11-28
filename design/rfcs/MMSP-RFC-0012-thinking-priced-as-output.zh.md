@@ -5,6 +5,7 @@
 - RFC PR: [#359](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/359)
 - Implementation PR: [#360](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/360)
 - Kind: change
+- Superseded by: [MMSP-RFC-0013](MMSP-RFC-0013-output-priced-by-modality.zh.md)
 
 [English](MMSP-RFC-0012-thinking-priced-as-output.md)
 
