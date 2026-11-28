@@ -2,7 +2,7 @@
 
 - Feature Name: `modality_prices`
 - Start Date: 2026-11-28
-- RFC PR: [#N](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/N)
+- RFC PR: [#365](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/365)
 - Kind: change
 - Supersedes: [MMSP-RFC-0012](MMSP-RFC-0012-thinking-priced-as-output.md)
 

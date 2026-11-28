@@ -3,7 +3,7 @@
 - **Date:** 2026-11-28
 - **Type:** process
 - **Scope:** `design`
-- **PR:** [#N](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/N)
+- **PR:** [#365](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/365)
 
 [中文版](2026-11-28-modality-prices-rfc.zh.md)
 
