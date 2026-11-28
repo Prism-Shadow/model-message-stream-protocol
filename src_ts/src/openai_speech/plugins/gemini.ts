@@ -21,6 +21,12 @@ import type { UniConfig } from "../../types";
  * OpenRouter's `/api/v1/audio/speech` refuses a Gemini TTS request without `voice` (`400 "An
  * explicit voice is required for this TTS provider."`, verified live 2026-11-19), so an unset
  * `tts_config` speaks in `"Kore"`, matching the Gemini clients.
+ *
+ * The speech is billed by its audio tokens, which the raw audio of the answer does not report, so
+ * each response counts Google's 25 audio tokens a second (llmsdk_docs/gemini4/docs/pricing.md) of
+ * its 16-bit PCM, the seconds from its byte length and the rate and channels of its content type,
+ * rounded up (MMSP-RFC-0013 §6). OpenRouter billed 46 audio tokens for 88,320 bytes of 24 kHz mono,
+ * 1.84 s (verified live 2026-11-28).
  */
 export class GeminiPlugin extends ClientPlugin {
   static readonly models = "gemini-.*tts";
@@ -33,5 +39,24 @@ export class GeminiPlugin extends ClientPlugin {
     if (!config.tts_config || config.tts_config.length === 0) {
       request.voice = "Kore";
     }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onWireEvent(wireEvent: any): void {
+    const contentType: string = wireEvent.content_type;
+    const rate = /rate=(\d+)/.exec(contentType);
+    if (
+      contentType.split(";")[0].trim().toLowerCase() !== "audio/pcm" ||
+      rate === null
+    ) {
+      return;
+    }
+
+    const channels = /channels=(\d+)/.exec(contentType);
+    const bytesPerSecond =
+      2 * (channels ? Number(channels[1]) : 1) * Number(rate[1]);
+    wireEvent.response_tokens = Math.ceil(
+      (wireEvent.audio_bytes * 25) / bytesPerSecond,
+    );
   }
 }

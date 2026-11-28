@@ -688,6 +688,24 @@ describe("media clients", () => {
     ]);
   });
 
+  test("Gemini speech counts 25 audio tokens a second of each answer, rounded up", async () => {
+    const events = await run(
+      "google/gemini-3.8-flash-tts",
+      "openai-speech",
+      [text("Hi"), text("Héllo")],
+      {},
+    );
+
+    // each answer is 2,048 bytes of 16-bit PCM at 24 kHz mono, 0.043 s or 1.07 audio tokens,
+    // which counts 2; the input is still counted in UTF-8 bytes, 2 + 6
+    expect(events[events.length - 1].usage_metadata).toEqual({
+      cached_tokens: null,
+      prompt_tokens: 8,
+      thoughts_tokens: null,
+      response_tokens: 4,
+    });
+  });
+
   test.each(
     (
       [

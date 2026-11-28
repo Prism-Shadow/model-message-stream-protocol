@@ -783,6 +783,21 @@ export class GoogleGenaiClient extends LLMClient {
         thoughts_tokens: usage.thoughtsTokenCount ?? null,
         response_tokens: usage.candidatesTokenCount ?? null,
       };
+      // Output priced by modality (MMSP-RFC-0013 §5): the image, video or audio tokens of the
+      // details are the response, and the rest of candidatesTokenCount, the text, is counted with
+      // the thoughts, whose price it shares
+      const mediaTokens = (usage.candidatesTokensDetails ?? [])
+        .filter((detail) =>
+          ["IMAGE", "VIDEO", "AUDIO"].includes(detail.modality ?? ""),
+        )
+        .reduce((sum, detail) => sum + (detail.tokenCount ?? 0), 0);
+      if (mediaTokens) {
+        usageMetadata.thoughts_tokens =
+          (usage.thoughtsTokenCount ?? 0) +
+          (usage.candidatesTokenCount ?? 0) -
+          mediaTokens;
+        usageMetadata.response_tokens = mediaTokens;
+      }
     }
 
     return {

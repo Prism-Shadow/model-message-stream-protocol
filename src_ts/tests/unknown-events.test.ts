@@ -1325,3 +1325,123 @@ describe.each(USAGE_CASES)(
     });
   },
 );
+
+function interactionsUsage(
+  output: number,
+  thought: number,
+  byModality: Array<[string, number]>,
+): unknown {
+  return {
+    total_input_tokens: 25,
+    total_cached_tokens: 0,
+    total_thought_tokens: thought,
+    total_output_tokens: output,
+    output_tokens_by_modality: byModality.map(([modality, tokens]) => ({
+      modality,
+      tokens,
+    })),
+  };
+}
+
+function generateContentUsage(
+  candidates: number,
+  thoughts: number | undefined,
+  details: Array<[string, number]>,
+): unknown {
+  return {
+    promptTokenCount: 25,
+    cachedContentTokenCount: 0,
+    thoughtsTokenCount: thoughts,
+    candidatesTokenCount: candidates,
+    candidatesTokensDetails: details.map(([modality, tokenCount]) => ({
+      modality,
+      tokenCount,
+    })),
+  };
+}
+
+// The usage of media answers as the live APIs reported it (api_captures/, 2026-11-06 and
+// 2026-11-28), with the thoughts and response counted from it: the image, video or audio tokens
+// of the modality details are the response, and the rest of the output, the text, is counted
+// with the thoughts (MMSP-RFC-0013 §5); details listing text alone change nothing.
+const MODALITY_USAGE_CASES: Array<{
+  testCase: StreamCase;
+  name: string;
+  install: (client: StreamClient, events: unknown[]) => void;
+  stream: () => unknown[];
+  counts: [number, number];
+}> = [
+  ...GEMINI_STREAM_CASES.flatMap((testCase) =>
+    (
+      [
+        // Nano Banana streamed with thought summaries: total_output_tokens leaves the image out
+        [
+          "image-left-out",
+          interactionsUsage(193, 898, [["image", 1120]]),
+          [1091, 1120],
+        ],
+        ["image", interactionsUsage(1253, 0, [["image", 1120]]), [133, 1120]],
+        [
+          "video",
+          interactionsUsage(57920, 586, [["video", 57920]]),
+          [586, 57920],
+        ],
+        ["audio", interactionsUsage(68, 0, [["audio", 68]]), [0, 68]],
+        ["text", interactionsUsage(27, 230, [["text", 27]]), [230, 27]],
+      ] as Array<[string, unknown, [number, number]]>
+    ).map(([name, usage, counts]) => ({
+      testCase,
+      name,
+      install: installFakeGeminiStream,
+      stream: () => geminiStreamReporting(usage),
+      counts,
+    })),
+  ),
+  ...GENERATE_CONTENT_STREAM_CASES.flatMap((testCase) =>
+    (
+      [
+        [
+          "image",
+          generateContentUsage(1154, 633, [
+            ["TEXT", 34],
+            ["IMAGE", 1120],
+          ]),
+          [667, 1120],
+        ],
+        [
+          "audio",
+          generateContentUsage(76, undefined, [["AUDIO", 76]]),
+          [0, 76],
+        ],
+        ["text", generateContentUsage(27, 230, [["TEXT", 27]]), [230, 27]],
+      ] as Array<[string, unknown, [number, number]]>
+    ).map(([name, usage, counts]) => ({
+      testCase,
+      name,
+      install: installFakeGenerateContentStream,
+      stream: () => generateContentStreamReporting(usage),
+      counts,
+    })),
+  ),
+];
+
+describe.each(MODALITY_USAGE_CASES)(
+  "Usage by output modality for $testCase.clientType ($name)",
+  ({ testCase, install, stream, counts }) => {
+    test("counts the media output as the response and the text with the thoughts", async () => {
+      const client = createAutoClient(testCase);
+      install(client, stream());
+
+      const events = await collectEvents(
+        client.streamingResponse({ messages, config: {} }),
+      );
+      assertStreamGrammar(events);
+      expect(events[events.length - 1].usage_metadata).toEqual({
+        cached_tokens: 0,
+        prompt_tokens: 25,
+        thoughts_tokens: counts[0],
+        response_tokens: counts[1],
+      });
+    });
+  },
+);

@@ -642,6 +642,21 @@ class GoogleOfficialClient(LLMClient):
                 "thoughts_tokens": usage.total_thought_tokens,
                 "response_tokens": usage.total_output_tokens,
             }
+            # Output priced by modality (MMSP-RFC-0013 §5): the image, video or audio tokens of the details are
+            # the response, and the rest of the output, the text, is counted with the thoughts, whose price it
+            # shares. total_output_tokens holds the media tokens, except that an image streamed with thought
+            # summaries is left out of it (193 output tokens beside 1,120 image tokens, verified live
+            # 2026-11-28), so a total below the media tokens is the text alone.
+            media_tokens = sum(
+                modality.tokens or 0
+                for modality in usage.output_tokens_by_modality or []
+                if modality.modality in ("image", "video", "audio")
+            )
+            if media_tokens:
+                output_tokens = usage.total_output_tokens or 0
+                text_tokens = output_tokens - media_tokens if output_tokens >= media_tokens else output_tokens
+                usage_metadata["thoughts_tokens"] = (usage.total_thought_tokens or 0) + text_tokens
+                usage_metadata["response_tokens"] = media_tokens
 
         elif model_output.event_type == "error" and model_output.error is not None:
             # Neither Interactions SDK raises on an error event inside an open stream, so the provider's

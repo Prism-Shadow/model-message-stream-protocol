@@ -191,6 +191,7 @@ export class OpenaiSpeechClient extends LLMClient {
   }): AsyncGenerator<UniEvent> {
     const params = this.transformUniConfigToModelConfig(options.config);
     let promptTokens = 0;
+    let responseTokens = 0;
     for (const [messageIndex, text] of this.transformUniMessageToModelInput(
       options.messages,
     ).entries()) {
@@ -211,6 +212,7 @@ export class OpenaiSpeechClient extends LLMClient {
       const isPcm =
         contentType.split(";")[0].trim().toLowerCase() === "audio/pcm";
       let pending = Buffer.alloc(0);
+      let audioBytes = 0;
       const reader = response.body!.getReader();
       try {
         for (;;) {
@@ -218,6 +220,7 @@ export class OpenaiSpeechClient extends LLMClient {
           if (done) {
             break;
           }
+          audioBytes += value.length;
           pending = Buffer.concat([pending, value]);
           const whole = isPcm
             ? pending.length - (pending.length % frameSize)
@@ -240,8 +243,20 @@ export class OpenaiSpeechClient extends LLMClient {
         // closes the body when this generator is closed before the audio ends
         await reader.cancel().catch(() => {});
       }
-      // the endpoint reports no usage; Fish Audio bills the input's UTF-8 bytes
-      promptTokens += Buffer.byteLength(text, "utf8");
+      // The endpoint reports no usage, so each response is counted here: the input's UTF-8 bytes, as
+      // Fish Audio bills them, and no output, which a plugin counts for a model billed by its audio
+      // from the audio the response returned (MMSP-RFC-0013 §6)
+      const usage = {
+        content_type: contentType,
+        audio_bytes: audioBytes,
+        prompt_tokens: Buffer.byteLength(text, "utf8"),
+        response_tokens: 0,
+      };
+      for (const plugin of this._plugins) {
+        plugin.onWireEvent(usage);
+      }
+      promptTokens += usage.prompt_tokens;
+      responseTokens += usage.response_tokens;
     }
 
     yield {
@@ -252,7 +267,7 @@ export class OpenaiSpeechClient extends LLMClient {
         cached_tokens: null,
         prompt_tokens: promptTokens,
         thoughts_tokens: null,
-        response_tokens: 0,
+        response_tokens: responseTokens,
       },
       finish_reason: "stop",
     };

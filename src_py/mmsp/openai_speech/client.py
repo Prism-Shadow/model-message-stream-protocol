@@ -144,6 +144,7 @@ class OpenaiSpeechClient(LLMClient):
         """Speak each message using an OpenAI Audio Speech-compatible API, streaming the audio as it arrives."""
         params = self.transform_uni_config_to_model_config(config)
         prompt_tokens = 0
+        response_tokens = 0
         for message_index, text in enumerate(self.transform_uni_message_to_model_input(messages)):
             request = {**params, "input": text}
             for plugin in self._plugins:
@@ -157,15 +158,28 @@ class OpenaiSpeechClient(LLMClient):
                 frame_size = 2 * int(channels.group(1)) if channels else 2
                 is_pcm = content_type.partition(";")[0].strip().lower() == "audio/pcm"
                 pending = b""
+                audio_bytes = 0
                 async for chunk in response.iter_bytes():
+                    audio_bytes += len(chunk)
                     pending += chunk
                     whole = len(pending) - len(pending) % frame_size if is_pcm else len(pending)
                     yield self.transform_model_output_to_uni_event((message_index, content_type, pending[:whole]))
                     pending = pending[whole:]
                 if pending:
                     yield self.transform_model_output_to_uni_event((message_index, content_type, pending))
-            # the endpoint reports no usage; Fish Audio bills the input's UTF-8 bytes
-            prompt_tokens += len(text.encode("utf-8"))
+            # The endpoint reports no usage, so each response is counted here: the input's UTF-8 bytes, as Fish
+            # Audio bills them, and no output, which a plugin counts for a model billed by its audio from the
+            # audio the response returned (MMSP-RFC-0013 §6)
+            usage = {
+                "content_type": content_type,
+                "audio_bytes": audio_bytes,
+                "prompt_tokens": len(text.encode("utf-8")),
+                "response_tokens": 0,
+            }
+            for plugin in self._plugins:
+                plugin.on_wire_event(usage)
+            prompt_tokens += usage["prompt_tokens"]
+            response_tokens += usage["response_tokens"]
 
         yield {
             "role": "assistant",
@@ -175,7 +189,7 @@ class OpenaiSpeechClient(LLMClient):
                 "cached_tokens": None,
                 "prompt_tokens": prompt_tokens,
                 "thoughts_tokens": None,
-                "response_tokens": 0,
+                "response_tokens": response_tokens,
             },
             "finish_reason": "stop",
         }
