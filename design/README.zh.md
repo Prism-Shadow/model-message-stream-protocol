@@ -19,7 +19,8 @@ MMSP 遵守的每项**规范**，以及每个修改**协议或公开 API 的决�
 | [MMSP-RFC-0009](rfcs/MMSP-RFC-0009-protocol-conversion.zh.md) | 协议转换 | spec | 已采纳 |
 | [MMSP-RFC-0010](rfcs/MMSP-RFC-0010-trace-recording.zh.md) | 轨迹记录 | spec | 已采纳 |
 | [MMSP-RFC-0011](rfcs/MMSP-RFC-0011-prompt-cache-sessions.zh.md) | 提示缓存会话 | change | 已采纳 |
-| [MMSP-RFC-0012](rfcs/MMSP-RFC-0012-thinking-priced-as-output.zh.md) | 思考按输出计价 | change | 已采纳 |
+| [MMSP-RFC-0012](rfcs/MMSP-RFC-0012-thinking-priced-as-output.zh.md) | 思考按输出计价 | change | 被 MMSP-RFC-0013 取代 |
+| [MMSP-RFC-0013](rfcs/MMSP-RFC-0013-output-priced-by-modality.zh.md) | 输出按模态计价 | change | 已采纳 |
 
 - **类别**：`spec` 固定代码遵守的概念、协议或算法；`change` 修改协议或公开 API；`process` 定义本目录的运作方式。
 - **状态**：取值为「已采纳」或「被 MMSP-RFC-NNNN 取代」。现行规范即状态为「已采纳」的 `spec` 行。
