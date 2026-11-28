@@ -287,7 +287,11 @@ def _gemini_completed_event(status: str = "completed") -> object:
         interaction=SimpleNamespace(
             status=status,
             usage=SimpleNamespace(
-                total_input_tokens=2, total_cached_tokens=0, total_thought_tokens=1, total_output_tokens=3
+                total_input_tokens=2,
+                total_cached_tokens=0,
+                total_thought_tokens=1,
+                total_output_tokens=3,
+                output_tokens_by_modality=None,
             ),
         ),
     )
@@ -324,6 +328,7 @@ def _generate_content_stop_chunk() -> object:
             cached_content_token_count=0,
             thoughts_token_count=1,
             candidates_token_count=3,
+            candidates_tokens_details=None,
         ),
     )
 
@@ -1087,7 +1092,11 @@ USAGE_CASES = [
             _install_fake_gemini_stream,
             _gemini_stream_reporting(
                 SimpleNamespace(
-                    total_input_tokens=0, total_cached_tokens=0, total_thought_tokens=0, total_output_tokens=0
+                    total_input_tokens=0,
+                    total_cached_tokens=0,
+                    total_thought_tokens=0,
+                    total_output_tokens=0,
+                    output_tokens_by_modality=None,
                 )
             ),
             ZERO_USAGE,
@@ -1105,6 +1114,7 @@ USAGE_CASES = [
                     total_cached_tokens=None,
                     total_thought_tokens=None,
                     total_output_tokens=None,
+                    output_tokens_by_modality=None,
                 )
             ),
             {"cached_tokens": None, "prompt_tokens": None, "thoughts_tokens": None, "response_tokens": None},
@@ -1122,6 +1132,7 @@ USAGE_CASES = [
                     cached_content_token_count=0,
                     thoughts_token_count=0,
                     candidates_token_count=0,
+                    candidates_tokens_details=None,
                 )
             ),
             ZERO_USAGE,
@@ -1139,6 +1150,7 @@ USAGE_CASES = [
                     cached_content_token_count=None,
                     thoughts_token_count=None,
                     candidates_token_count=None,
+                    candidates_tokens_details=None,
                 )
             ),
             {"cached_tokens": None, "prompt_tokens": 2, "thoughts_tokens": None, "response_tokens": None},
@@ -1163,3 +1175,82 @@ async def test_clients_report_each_count_as_sent_and_a_count_not_sent_as_none(
     events = [event async for event in client.streaming_response(MESSAGES, {})]
     assert_stream_grammar(events)
     assert events[-1]["usage_metadata"] == usage_metadata
+
+
+def _interactions_usage(output: int, thought: int, by_modality: list[tuple[str, int]]) -> object:
+    return SimpleNamespace(
+        total_input_tokens=25,
+        total_cached_tokens=0,
+        total_thought_tokens=thought,
+        total_output_tokens=output,
+        output_tokens_by_modality=[SimpleNamespace(modality=name, tokens=tokens) for name, tokens in by_modality],
+    )
+
+
+def _generate_content_usage(candidates: int, thoughts: int | None, details: list[tuple[str, int]]) -> object:
+    return SimpleNamespace(
+        prompt_token_count=25,
+        cached_content_token_count=0,
+        thoughts_token_count=thoughts,
+        candidates_token_count=candidates,
+        candidates_tokens_details=[SimpleNamespace(modality=name, token_count=tokens) for name, tokens in details],
+    )
+
+
+# The usage of media answers as the live APIs reported it (api_captures/, 2026-11-06 and 2026-11-28), with the
+# thoughts and response counted from it: the image, video or audio tokens of the modality details are the response,
+# and the rest of the output, the text, is counted with the thoughts (MMSP-RFC-0013 §5); details listing text alone
+# change nothing.
+MODALITY_USAGE_CASES = [
+    *[
+        pytest.param(
+            case, _install_fake_gemini_stream, _gemini_stream_reporting(usage), counts, id=f"{case.client_type}-{name}"
+        )
+        for case in GEMINI_STREAM_CASES
+        for name, usage, counts in [
+            # Nano Banana streamed with thought summaries: total_output_tokens leaves the image out
+            ("image-left-out", _interactions_usage(193, 898, [("image", 1120)]), (1091, 1120)),
+            ("image", _interactions_usage(1253, 0, [("image", 1120)]), (133, 1120)),
+            ("video", _interactions_usage(57920, 586, [("video", 57920)]), (586, 57920)),
+            ("audio", _interactions_usage(68, 0, [("audio", 68)]), (0, 68)),
+            ("text", _interactions_usage(27, 230, [("text", 27)]), (230, 27)),
+        ]
+    ],
+    *[
+        pytest.param(
+            case,
+            _install_fake_generate_content_stream,
+            _generate_content_stream_reporting(usage),
+            counts,
+            id=f"{case.client_type}-{name}",
+        )
+        for case in GENERATE_CONTENT_STREAM_CASES
+        for name, usage, counts in [
+            ("image", _generate_content_usage(1154, 633, [("TEXT", 34), ("IMAGE", 1120)]), (667, 1120)),
+            ("audio", _generate_content_usage(76, None, [("AUDIO", 76)]), (0, 76)),
+            ("text", _generate_content_usage(27, 230, [("TEXT", 27)]), (230, 27)),
+        ]
+    ],
+]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("case", "installer", "stream", "counts"), MODALITY_USAGE_CASES)
+async def test_gemini_clients_count_media_output_as_the_response_and_the_text_with_the_thoughts(
+    case: StreamCase,
+    installer: Callable[[AutoLLMClient, list[object]], None],
+    stream: list[object],
+    counts: tuple[int, int],
+):
+    client = _create_auto_client(case)
+    installer(client, stream)
+
+    events = [event async for event in client.streaming_response(MESSAGES, {})]
+    assert_stream_grammar(events)
+    thoughts_tokens, response_tokens = counts
+    assert events[-1]["usage_metadata"] == {
+        "cached_tokens": 0,
+        "prompt_tokens": 25,
+        "thoughts_tokens": thoughts_tokens,
+        "response_tokens": response_tokens,
+    }

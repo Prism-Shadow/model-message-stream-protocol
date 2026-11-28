@@ -587,6 +587,19 @@ class GoogleGenaiClient(LLMClient):
                 "thoughts_tokens": usage.thoughts_token_count,
                 "response_tokens": usage.candidates_token_count,
             }
+            # Output priced by modality (MMSP-RFC-0013 §5): the image, video or audio tokens of the details are
+            # the response, and the rest of candidates_token_count, the text, is counted with the thoughts,
+            # whose price it shares
+            media_tokens = sum(
+                detail.token_count or 0
+                for detail in usage.candidates_tokens_details or []
+                if detail.modality in (types.MediaModality.IMAGE, types.MediaModality.VIDEO, types.MediaModality.AUDIO)
+            )
+            if media_tokens:
+                usage_metadata["thoughts_tokens"] = (
+                    (usage.thoughts_token_count or 0) + (usage.candidates_token_count or 0) - media_tokens
+                )
+                usage_metadata["response_tokens"] = media_tokens
 
         return {
             "role": "assistant",

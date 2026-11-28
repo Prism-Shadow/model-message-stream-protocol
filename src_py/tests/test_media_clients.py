@@ -455,6 +455,22 @@ async def test_gemini_speech_on_an_openai_compatible_endpoint_defaults_its_voice
     ]
 
 
+@pytest.mark.asyncio
+async def test_gemini_speech_counts_25_audio_tokens_a_second_of_each_answer_rounded_up(media_server: str):
+    events = await _run(
+        "google/gemini-3.8-flash-tts", "openai-speech", media_server, [_text("Hi"), _text("Héllo")], {}
+    )
+
+    # each answer is 2,048 bytes of 16-bit PCM at 24 kHz mono, 0.043 s or 1.07 audio tokens, which counts 2; the
+    # input is still counted in UTF-8 bytes, 2 + 6
+    assert events[-1]["usage_metadata"] == {
+        "cached_tokens": None,
+        "prompt_tokens": 8,
+        "thoughts_tokens": None,
+        "response_tokens": 4,
+    }
+
+
 @pytest.mark.parametrize("config", [{}, {"tts_config": None}, {"tts_config": []}], ids=["absent", "none", "empty"])
 @pytest.mark.parametrize(
     ("model", "client_type", "base_path", "sent"),

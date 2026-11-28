@@ -832,6 +832,26 @@ export class GoogleOfficialClient extends LLMClient {
         thoughts_tokens: usage?.total_thought_tokens ?? null,
         response_tokens: usage?.total_output_tokens ?? null,
       };
+      // Output priced by modality (MMSP-RFC-0013 §5): the image, video or audio tokens of the
+      // details are the response, and the rest of the output, the text, is counted with the
+      // thoughts, whose price it shares. total_output_tokens holds the media tokens, except that an
+      // image streamed with thought summaries is left out of it (193 output tokens beside 1,120
+      // image tokens, verified live 2026-11-28), so a total below the media tokens is the text alone.
+      const mediaTokens = (usage?.output_tokens_by_modality ?? [])
+        .filter((modality) =>
+          ["image", "video", "audio"].includes(modality.modality ?? ""),
+        )
+        .reduce((sum, modality) => sum + (modality.tokens ?? 0), 0);
+      if (mediaTokens) {
+        const outputTokens = usage?.total_output_tokens ?? 0;
+        const textTokens =
+          outputTokens >= mediaTokens
+            ? outputTokens - mediaTokens
+            : outputTokens;
+        usageMetadata.thoughts_tokens =
+          (usage?.total_thought_tokens ?? 0) + textTokens;
+        usageMetadata.response_tokens = mediaTokens;
+      }
     } else if (modelOutput.event_type === "error" && modelOutput.error) {
       // Neither Interactions SDK raises on an error event inside an open stream, so the provider's
       // failure is raised here rather than lost; an error event without an error, which the Python

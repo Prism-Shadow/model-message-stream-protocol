@@ -100,7 +100,19 @@ The snapshot describes the `steps` schema introduced by the May 2026 breaking ch
   (or a copy of the turn's own signature).
 - `usage.total_tokens = total_input_tokens + total_output_tokens + total_thought_tokens`;
   `total_input_tokens` includes `total_cached_tokens`.
-- `gemini-embedding-2` is rejected by the Interactions endpoint (404 model not found).
+- Usage of media answers (verified 2026-11-28; Omni 2026-11-06): `output_tokens_by_modality`
+  lists the image, audio or video tokens and never the text. `gemini-3.8-flash-tts` reports its
+  audio there and in `total_output_tokens`, 25 a second (68 for 2.72 s of 24 kHz PCM), and
+  `gemini-omni-1.2-flash` its video (5,793 for a 3 s 360p clip). `gemini-nano-banana-2.1` reports
+  1,120 image tokens for a 1K image, and its `total_output_tokens` holds them plus 126 to 249 other
+  output tokens (the text, if any), except with `thinking_summaries: "auto"`, where
+  `total_output_tokens` (193, 220, 221) and `total_tokens` leave the image out. A reference image
+  in `user_input` counts as 1,120 `image` input tokens and is edited as asked.
+- `gemini-embedding-2` is rejected by the Interactions endpoint (404 model not found). On
+  `embedContent` and `batchEmbedContents`, which the SDKs call, the API-key endpoint answers
+  `usageMetadata.promptTokenCount` (9 for one text, 17 for two) and no `metadata` (verified
+  2026-11-28); `google-genai` and `@google/genai` hand it on as `usage_metadata` /
+  `usageMetadata` from 3.1.0 and drop it before.
 
 ## Vertex AI (verified 2026-09-17)
 
@@ -126,6 +138,11 @@ The snapshot describes the `steps` schema introduced by the May 2026 breaking ch
 - `streamGenerateContent` serves `gemini-3.8-flash` (thinking, a tool call and its replayed
   turn), `gemini-3.1-flash-image` and `gemini-3.1-flash-tts-preview`. Every chunk carries a
   `usageMetadata` holding only `trafficType`; the token counts arrive with the finish reason.
+- Its `candidatesTokensDetails` list every output modality and `candidatesTokenCount` sums them
+  (verified 2026-11-28): `gemini-3.1-flash-image` reported `TEXT` 34 and `IMAGE` 1,120 (1K) beside
+  `thoughtsTokenCount` 633, and `IMAGE` 747 for a 512 image edited from a reference image (1,120
+  `IMAGE` prompt tokens); `gemini-3.8-flash-tts` reported `AUDIO` 76 for 3.04 s of 24 kHz PCM and
+  no `thoughtsTokenCount`.
 - `embedContent` takes one content per request: two `contents` → 400
   `Unknown name "contents"`, and both SDKs refuse a second content before sending. The response
   carries no `metadata`; its `usageMetadata.promptTokenCount` reaches the SDKs as
