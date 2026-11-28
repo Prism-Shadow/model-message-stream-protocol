@@ -3,6 +3,7 @@
 - **Date:** 2026-11-28
 - **Type:** feature
 - **Scope:** `google_official`, `google_genai`, `openai_speech`, `llmsdk_docs`, `tests`
+- **PR:** [#366](https://github.com/Prism-Shadow/model-message-stream-protocol/pull/366)
 
 [中文版](2026-11-28-modality-usage.zh.md)
 
