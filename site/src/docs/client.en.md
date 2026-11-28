@@ -133,5 +133,5 @@ messages = normalize_legacy_messages(stored_messages)
 
 </div>
 
-- `list_supported_models` returns one entry per model and endpoint: the model id, the base URL, the client, the input and output modalities, the context window, and the list price per million tokens.
+- `list_supported_models` returns one entry per model and endpoint: the model id, the base URL, the client, the input and output modalities, the context window, and its four prices per million tokens: cached, input, thinking and output ([Token usage](/docs/usage/#multimodal-and-non-token-billing)).
 - `normalize_legacy_messages` converts [messages saved before 0.5.0](/docs/messages/#messages-saved-before-050). It is removed in 0.6.0.

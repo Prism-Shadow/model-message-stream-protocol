@@ -133,5 +133,5 @@ messages = normalize_legacy_messages(stored_messages)
 
 </div>
 
-- `list_supported_models` 为每个模型和端点返回一条记录，包含模型 id、base URL、客户端类型、输入输出模态、上下文窗口以及每百万 token 的标价。
+- `list_supported_models` 为每个模型和端点返回一条记录，包含模型 id、base URL、客户端类型、输入输出模态、上下文窗口，以及缓存、输入、推理、输出四档每百万 token 的价格（见 [Token 用量](/zh/docs/usage/#多模态与非-token-计费)）。
 - `normalize_legacy_messages` 用于转换 [0.5.0 之前保存的消息](/zh/docs/messages/#050-之前保存的消息)。该函数将在 0.6.0 版本中移除。

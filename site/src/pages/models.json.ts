@@ -5,14 +5,14 @@ import { STATUS_DATA_URL } from "../shared/status";
 import { REPO_URL } from "../shared/site";
 
 // the catalog for agents: every registry entry with its provider, key variable, modalities, context
-// window and list price, one row per line so an agent can grep it, and one constructor call that
+// window and its four list prices, one row per line so an agent can grep it, and one constructor call that
 // fits every row; an absent value is left out, not written as null. The page's programs are not
 // repeated per row: `call` with a row's fields is the code, and status.key says how a row's
 // status is keyed.
 export const GET: APIRoute = ({ site }) => {
   const rows = listSupportedModels("USD").map((entry) => {
     const provider = providerOf(entry.base_url);
-    const pricing = entry.pricing;
+    const { cached_tokens, prompt_tokens, thoughts_tokens, response_tokens } = entry.pricing;
     return {
       model: entry.model,
       base_url: entry.base_url,
@@ -21,7 +21,7 @@ export const GET: APIRoute = ({ site }) => {
       input_modalities: entry.input_modalities,
       output_modalities: entry.output_modalities,
       context_window: entry.context_window,
-      pricing: pricing && { prompt_tokens: pricing.prompt_tokens, response_tokens: pricing.response_tokens, cached_tokens: pricing.cached_tokens },
+      pricing: { cached_tokens, prompt_tokens, thoughts_tokens, response_tokens },
       api_key_env: provider.keyEnv,
       api_key_format: provider.keyHint?.en,
     };
@@ -35,7 +35,7 @@ export const GET: APIRoute = ({ site }) => {
       docs: new URL("/docs/quickstart/", site).href,
     },
     pricing:
-      "USD per 1M tokens: the vendor's list price on its own endpoint, and on a gateway the rate the gateway bills; prompt_tokens is the uncached input, cached_tokens a cache hit, and response_tokens the output, at which thoughts are billed too",
+      "USD per 1M of each usage_metadata count: the vendor's list price on its own endpoint, and on a gateway the rate the gateway bills; cost = (cached_tokens * pricing.cached_tokens + prompt_tokens * pricing.prompt_tokens + thoughts_tokens * pricing.thoughts_tokens + response_tokens * pricing.response_tokens) / 1e6, a null count read as 0",
     status: {
       page: new URL("/status/", site).href,
       files: ["latest.json", "history.json", "monthly.json"].map((name) => STATUS_DATA_URL + name),

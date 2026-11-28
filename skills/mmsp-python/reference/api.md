@@ -57,8 +57,9 @@ def list_supported_models(currency: Literal["USD", "CNY"] = "USD") -> list[Suppo
     """List supported models covering official endpoints plus OpenRouter and SiliconFlow.
     Each entry carries (model, base_url, client) - mapping onto the AutoLLMClient
     constructor (model, base_url, client_type) - plus input/output modalities
-    (Text/Image/Video/Audio/Embed/Web), context_window, and per-million-token pricing in the
-    requested currency (official list prices, converted at 7 CNY/USD)."""
+    (Text/Image/Video/Audio/Embed/Web), context_window, and pricing in the requested currency
+    (list prices, converted at 7 CNY/USD): a price per million for each usage_metadata field,
+    cached_tokens, prompt_tokens, thoughts_tokens and response_tokens, on every entry."""
 
 def normalize_legacy_messages(messages: list[UniMessage]) -> list[UniMessage]:
     """Convert messages saved before 0.5.0 to the `.done` item types; messages already

@@ -53,7 +53,12 @@ export function kitEntry(entry: SupportedModel): KitEntry {
     input_modalities,
     output_modalities,
     context_window,
-    pricing: pricing && { prompt_tokens: pricing.prompt_tokens, response_tokens: pricing.response_tokens, cached_tokens: pricing.cached_tokens },
+    pricing: {
+      cached_tokens: pricing.cached_tokens,
+      prompt_tokens: pricing.prompt_tokens,
+      thoughts_tokens: pricing.thoughts_tokens,
+      response_tokens: pricing.response_tokens,
+    },
   };
 }
 
@@ -62,7 +67,7 @@ export interface CatalogRow extends SupportedModel {
   provider: Provider;
   vendor: Vendor | null;
   // the registry's prices in CNY, converted by the registry itself
-  pricing_cny?: SupportedModel["pricing"];
+  pricing_cny: SupportedModel["pricing"];
 }
 
 export function catalogRows(): CatalogRow[] {
