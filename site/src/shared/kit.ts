@@ -36,8 +36,8 @@ export interface KitEntry {
   input_modalities: Modality[];
   output_modalities: Modality[];
   context_window?: number;
-  // USD per 1M tokens
-  pricing?: { prompt_tokens: number; response_tokens: number; cached_tokens?: number };
+  // USD per 1M of each usage count
+  pricing: { cached_tokens: number; prompt_tokens: number; thoughts_tokens: number; response_tokens: number };
 }
 
 export interface ServerRow {
@@ -295,7 +295,7 @@ const PROMPT = {
     modalities: "Modalities",
     context: (window: string, tokens: string) => `Context window: ${window} tokens (${tokens})`,
     prices: "List prices per 1M tokens, USD",
-    price: { input: "input", output: "output", cached: "cached" },
+    price: { cached: "cached", input: "input", thoughts: "thinking", output: "output" },
     code: "Code",
     program: (language: string, file: string) => `${language}, \`${file}\`:`,
     steps: "Steps",
@@ -322,7 +322,7 @@ const PROMPT = {
     modalities: "模态",
     context: (window: string, tokens: string) => `上下文窗口：${window} tokens（${tokens}）`,
     prices: "每百万 tokens 标价（美元）",
-    price: { input: "输入", output: "输出", cached: "缓存" },
+    price: { cached: "缓存", input: "输入", thoughts: "推理", output: "输出" },
     code: "代码",
     program: (language: string, file: string) => `${language}，\`${file}\`：`,
     steps: "步骤",
@@ -351,18 +351,16 @@ export function agentPromptFor(entry: KitEntry, provider: KitProvider, locale: L
   const words = PROMPT[locale];
   const kit = kitFor(entry, provider);
   const pricing = entry.pricing;
-  const prices = pricing
-    ? (
-        [
-          ["input", pricing.prompt_tokens],
-          ["output", pricing.response_tokens],
-          ["cached", pricing.cached_tokens],
-        ] as const
-      )
-        .filter(([, value]) => value !== undefined)
-        .map(([name, value]) => `${words.price[name]} ${formatPrice(value!)}`)
-        .join(words.separator)
-    : null;
+  const prices = (
+    [
+      ["cached", pricing.cached_tokens],
+      ["input", pricing.prompt_tokens],
+      ["thoughts", pricing.thoughts_tokens],
+      ["output", pricing.response_tokens],
+    ] as const
+  )
+    .map(([name, value]) => `${words.price[name]} ${formatPrice(value)}`)
+    .join(words.separator);
   return [
     words.goal(entry.model, provider.name, entry.base_url),
     "",
@@ -375,7 +373,7 @@ export function agentPromptFor(entry: KitEntry, provider: KitProvider, locale: L
     `- ${words.key(provider.keyEnv, provider.keyHint?.[locale] ?? words.keyOf(provider.name))}`,
     `- ${words.modalities}${words.colon}${entry.input_modalities.map((name) => modality[name]).join(words.separator)} → ${entry.output_modalities.map((name) => modality[name]).join(words.separator)}`,
     ...(entry.context_window ? [`- ${words.context(formatContext(entry.context_window), entry.context_window.toLocaleString("en-US"))}`] : []),
-    ...(prices ? [`- ${words.prices}${words.colon}${prices}`] : []),
+    `- ${words.prices}${words.colon}${prices}`,
     "",
     `## ${words.code}`,
     "",

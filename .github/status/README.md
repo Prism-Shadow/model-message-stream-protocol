@@ -21,7 +21,7 @@ To add a target, copy the triple of a registry entry and name its key variable. 
 - **TTFT**: from the request to the first non-empty text or thinking delta.
 - **TPS**: thoughts plus response tokens, over the time from the first such delta to the last.
 - **Status**: `up` when every sample answered, `degraded` when some did, `down` when none did or the client could not be built, `nokey` when the key variable is empty (configuration, not an outage). A sample fails on any error or after 120 s, with one exception: an answer that is all thinking and stopped at `max_tokens` (`EmptyResponseError` with finish reason `length`) means the budget was too small for that answer, not that the channel failed, so the sample is asked once more with twice the `max_tokens`, and only that second answer decides it.
-- **Cost**: the summed usage at the registry's USD list price per million tokens, both answers of a retried sample included. Cached input is billed at the cache-hit price, or at the input price where the platform publishes none, and thinking at the output price. Promotions and peak-hour rates are not counted.
+- **Cost**: the summed usage at the registry's USD list price, both answers of a retried sample included: `(cached_tokens × cached price + prompt_tokens × prompt price + thoughts_tokens × thoughts price + response_tokens × response price) / 1,000,000`, a missing count read as 0. Every registry row prices all four buckets. Promotions and peak-hour rates are not counted.
 - **Errors**: `Class: message` on one line, at most 200 characters. Every `*_API_KEY` value in the environment, every `key=` URL parameter and every masked key tail a provider quotes (`****cdef`) is replaced by `***`.
 
 ## Data files

@@ -58,8 +58,9 @@ clearHistory(): void;
  * SiliconFlow. Each entry carries (model, base_url, client) - mapping onto the
  * AutoLLMClient constructor (model, baseUrl, clientType) - plus input/output
  * modalities (Text/Image/Video/Audio/Embed/Web), context_window, and
- * per-million-token pricing in the requested currency (official list prices,
- * converted at 7 CNY/USD).
+ * pricing in the requested currency (list prices, converted at 7 CNY/USD): a
+ * price per million for each usage_metadata field, cached_tokens,
+ * prompt_tokens, thoughts_tokens and response_tokens, on every entry.
  */
 function listSupportedModels(currency?: "USD" | "CNY"): SupportedModel[];
 

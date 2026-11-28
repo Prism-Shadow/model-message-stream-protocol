@@ -52,7 +52,6 @@ const ROW_ICONS = {
   page: '<path d="M15 3h6v6"></path><path d="M10 14 21 3"></path><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>',
 };
 
-const price = (value: number | undefined) => (value === undefined ? undefined : formatPrice(value));
 // the providers the rows name, once each, in the order they first appear; a row points at its
 // provider by index (data-p), and the dialog reads the name and key variable of its kit from here
 const kitProviders: KitProvider[] = [];
@@ -71,6 +70,21 @@ const sortButton =
 // a right-aligned header holds its label at the cell's right edge, over the numbers, so a label
 // wider than a narrow column runs into its own padding on the left instead of under the next header
 const sortRight = "flex w-full flex-row-reverse";
+// the names and units the stacked rows of a narrow screen print before each figure, set once on the
+// table rather than on every cell; the price unit follows the switch
+const cellWords = Object.entries({
+  "l-cached": columns.cached,
+  "l-input": columns.input,
+  "l-thoughts": columns.thoughts,
+  "l-output": columns.output,
+  "l-latency": columns.latency,
+  "l-throughput": columns.throughput,
+  "u-price": units.price,
+  "u-latency": units.latency,
+  "u-throughput": units.throughput,
+})
+  .map(([name, value]) => `--${name}:${JSON.stringify(value)}`)
+  .join(";");
 const icon = "h-3.5 w-3.5";
 const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round" } as const;
 ---
@@ -79,7 +93,7 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
   class:list={["catalog", className]}
   data-catalog
   data-currency={currency}
-  data-words={JSON.stringify({ ...s.status, ...s.kit, models: s.models, perMillion: s.perMillion, modality: s.modality })}
+  data-words={JSON.stringify({ ...s.status, ...s.kit, models: s.models, perMillion: s.perMillion, modality: s.modality, columns })}
   data-status-page={statusPage}
   data-run-id={latest?.run_id}
   data-site={import.meta.env.SITE}
@@ -132,15 +146,16 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
     {Object.entries(ROW_ICONS).map(([name, paths]) => <symbol id={`catalog-${name}`} viewBox="0 0 24 24" {...stroke} set:html={paths} />)}
   </svg>
 
-  <table class="catalog-table mt-4 w-full text-sm">
+  <table class="catalog-table mt-4 w-full text-sm" style={cellWords}>
     <colgroup>
       <col />
       <col class="w-40" />
       <col class="w-28" />
       <col class="w-16" />
-      {/* a price is up to seven characters, 0.00286 */}
+      {/* a price is up to seven characters, 0.00286; "Thinking" is the widest of their names */}
       <col class="w-20" />
       <col class="w-20" />
+      <col class="w-24" />
       <col class="w-20" />
       <col class="w-24" />
       {/* "Throughput" and its unit, tok/s, are the widest header */}
@@ -157,9 +172,10 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
               ["provider", columns.provider, "left", null],
               [null, columns.modalities, "left", null],
               ["context", columns.context, "right", null],
-              ["input", columns.input, "right", "price"],
-              ["output", columns.output, "right", "price"],
               ["cached", columns.cached, "right", "price"],
+              ["input", columns.input, "right", "price"],
+              ["thoughts", columns.thoughts, "right", "price"],
+              ["output", columns.output, "right", "price"],
               ["latency", columns.latency, "right", "latency"],
               ["throughput", columns.throughput, "right", "throughput"],
             ] as const
@@ -202,9 +218,10 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
           const usd = row.pricing;
           const cny = row.pricing_cny;
           const prices = [
-            ["input", columns.input, usd?.prompt_tokens, cny?.prompt_tokens],
-            ["output", columns.output, usd?.response_tokens, cny?.response_tokens],
-            ["cached", columns.cached, usd?.cached_tokens, cny?.cached_tokens],
+            ["cached", usd.cached_tokens, cny.cached_tokens],
+            ["input", usd.prompt_tokens, cny.prompt_tokens],
+            ["thoughts", usd.thoughts_tokens, cny.thoughts_tokens],
+            ["output", usd.response_tokens, cny.response_tokens],
           ] as const;
           const target = targets[index];
           const probe = isProbed(target) ? target : undefined;
@@ -224,9 +241,6 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
               data-in={modalityCode(row.input_modalities)}
               data-out={modalityCode(row.output_modalities)}
               data-context={row.context_window}
-              data-input={usd?.prompt_tokens}
-              data-output={usd?.response_tokens}
-              data-cached={usd?.cached_tokens}
               data-status={probe?.status}
               data-ttft={probe?.ttft_ms ?? undefined}
               data-tps={probe?.tps ?? undefined}
@@ -260,24 +274,16 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
                   ))}
                 </span>
               </td>
-              <td data-cell="context" class="mono text-right text-[13px] tabular-nums" title={row.context_window?.toLocaleString("en-US")} data-label={columns.context}>
+              <td data-cell="context" class="mono text-right text-[13px] tabular-nums" title={row.context_window?.toLocaleString("en-US")}>
                 {row.context_window ? formatContext(row.context_window) : <span class="text-gray-300 dark:text-gray-600">—</span>}
               </td>
-              {prices.map(([cell, label, inUsd, inCny]) => (
-                <td
-                  data-cell={cell}
-                  data-price
-                  data-usd={price(inUsd)}
-                  data-cny={price(inCny)}
-                  data-label={label}
-                  data-unit={units.price}
-                  class:list={["mono text-right text-[13px] tabular-nums", inUsd === undefined && "text-gray-300 dark:text-gray-600"]}
-                >
-                  {(currency === "CNY" ? price(inCny) : price(inUsd)) ?? "—"}
+              {prices.map(([cell, inUsd, inCny]) => (
+                <td data-cell={cell} data-price data-usd={formatPrice(inUsd)} data-cny={formatPrice(inCny)}>
+                  {formatPrice(currency === "CNY" ? inCny : inUsd)}
                 </td>
               ))}
-              <td data-cell="latency" data-label={columns.latency} data-unit={units.latency} class={metric} set:html={cells.latency} />
-              <td data-cell="throughput" data-label={columns.throughput} data-unit={units.throughput} class={metric} set:html={cells.throughput} />
+              <td data-cell="latency" class={metric} set:html={cells.latency} />
+              <td data-cell="throughput" class={metric} set:html={cells.throughput} />
               <td data-cell="kit" class="text-right">
                 <button type="button" class="catalog-kit" aria-haspopup="dialog" aria-label={s.kit.show.replace("{model}", row.model)}>
                   <svg class={icon} aria-hidden="true"><use href="#catalog-code" /></svg>
@@ -426,6 +432,13 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
   .dark .catalog-unit {
     color: var(--color-gray-500);
   }
+  /* the look of .mono text-right text-[13px] tabular-nums, written once for every price cell */
+  .catalog-table td[data-price] {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
   .modality {
     display: inline-flex;
     width: 0.875rem;
@@ -498,12 +511,13 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
     .catalog-table tr[data-row] {
       display: grid;
       /* the first column is the mark and its gap, so the lines under the model id start where it
-         does; an entry the probe has not reached has no fourth line */
-      grid-template-columns: 1.5rem auto auto minmax(0, 1fr) 4.25rem;
+         does; the last price runs on under the buttons; an entry the probe has not reached has no
+         fourth line */
+      grid-template-columns: 1.5rem auto auto auto minmax(0, 1fr) 4.25rem;
       grid-template-areas:
-        "model model model model kit"
-        ". provider context modalities modalities"
-        ". input output cached cached";
+        "model model model model model kit"
+        ". provider context modalities modalities modalities"
+        ". cached input thoughts output output";
       row-gap: 0.25rem;
       padding: 0.625rem 0;
     }
@@ -511,10 +525,10 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
        column above it */
     .catalog-table tr[data-row][data-status] {
       grid-template-areas:
-        "model model model model kit"
-        ". provider context modalities modalities"
-        ". input output cached cached"
-        ". latency throughput throughput throughput";
+        "model model model model model kit"
+        ". provider context modalities modalities modalities"
+        ". cached input thoughts output output"
+        ". latency throughput throughput throughput throughput";
     }
     .catalog-table tr[data-row]:not([data-status]) td[data-cell="latency"],
     .catalog-table tr[data-row]:not([data-status]) td[data-cell="throughput"] {
@@ -556,16 +570,20 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
     .catalog-table td[data-cell="modalities"] {
       grid-area: modalities;
     }
+    .catalog-table td[data-cell="cached"] {
+      grid-area: cached;
+      padding-right: 0.5rem;
+    }
     .catalog-table td[data-cell="input"] {
       grid-area: input;
       padding-right: 0.5rem;
     }
-    .catalog-table td[data-cell="output"] {
-      grid-area: output;
+    .catalog-table td[data-cell="thoughts"] {
+      grid-area: thoughts;
       padding-right: 0.5rem;
     }
-    .catalog-table td[data-cell="cached"] {
-      grid-area: cached;
+    .catalog-table td[data-cell="output"] {
+      grid-area: output;
     }
     .catalog-table td[data-cell="latency"] {
       grid-area: latency;
@@ -575,7 +593,7 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
       grid-area: throughput;
     }
     /* each figure after its column's name and unit, the unit small as in the desktop's headers; a line
-       too narrow for its three prices puts a value under its name rather than past the row */
+       too narrow for its four prices puts a value under its name rather than past the row */
     .catalog-table td[data-price],
     .catalog-table td[data-cell="latency"],
     .catalog-table td[data-cell="throughput"] {
@@ -596,7 +614,7 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
     .catalog-table td[data-price]::before,
     .catalog-table td[data-cell="latency"]::before,
     .catalog-table td[data-cell="throughput"]::before {
-      content: attr(data-label);
+      content: var(--label);
       order: -2;
       margin-right: 0.125rem;
       font-size: 11px;
@@ -604,10 +622,53 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
     .catalog-table td[data-price]::after,
     .catalog-table td[data-cell="latency"]::after,
     .catalog-table td[data-cell="throughput"]::after {
-      content: attr(data-unit);
+      content: var(--unit);
       order: -1;
       margin-right: 0.25rem;
       font-size: 8.5px;
+    }
+    .catalog-table td[data-cell="cached"] {
+      --label: var(--l-cached);
+    }
+    .catalog-table td[data-cell="input"] {
+      --label: var(--l-input);
+    }
+    .catalog-table td[data-cell="thoughts"] {
+      --label: var(--l-thoughts);
+    }
+    .catalog-table td[data-cell="output"] {
+      --label: var(--l-output);
+    }
+    .catalog-table td[data-price] {
+      --unit: var(--u-price);
+    }
+    .catalog-table td[data-cell="latency"] {
+      --label: var(--l-latency);
+      --unit: var(--u-latency);
+    }
+    .catalog-table td[data-cell="throughput"] {
+      --label: var(--l-throughput);
+      --unit: var(--u-throughput);
+    }
+  }
+
+  /* on a phone each price puts its figure under its name and unit, so the four fit one line */
+  @media (max-width: 639.98px) {
+    .catalog-table td[data-price] {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .catalog-table td[data-price]::before {
+      content: var(--label) " " var(--unit);
+      margin-right: 0;
+    }
+    .catalog-table td[data-price]::after {
+      content: none;
+    }
+    .catalog-table td[data-cell="cached"],
+    .catalog-table td[data-cell="input"],
+    .catalog-table td[data-cell="thoughts"] {
+      padding-right: 0.75rem;
     }
   }
 
@@ -750,7 +811,15 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
   import type { Modality } from "../../../src_ts/src/registry.ts";
 
   type Tab = keyof CatalogKit["run"];
-  type Words = MetricWords & { copied: string; copyFailed: string; page: string; models: string; perMillion: string; modality: Record<Modality, string> };
+  type Words = MetricWords & {
+    copied: string;
+    copyFailed: string;
+    page: string;
+    models: string;
+    perMillion: string;
+    modality: Record<Modality, string>;
+    columns: Record<string, string>;
+  };
 
   const stored = (key: string) => {
     try {
@@ -815,6 +884,11 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
       link.setAttribute("aria-label", link.title);
       row.querySelector(".catalog-kit")!.before(link);
     }
+    // a row's four prices in USD, as its cells carry them
+    const pricesOf = (row: HTMLTableRowElement) => {
+      const usd = (cell: string) => Number(row.querySelector<HTMLElement>(`[data-cell="${cell}"]`)!.dataset.usd);
+      return { cached_tokens: usd("cached"), prompt_tokens: usd("input"), thoughts_tokens: usd("thoughts"), response_tokens: usd("output") };
+    };
     const entryOf = (row: HTMLTableRowElement, model: string, url: string): KitEntry => {
       const data = row.dataset;
       const number = (value: string | undefined) => (value === undefined ? undefined : Number(value));
@@ -826,8 +900,7 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
         input_modalities: modalitiesOf(data.in!),
         output_modalities: modalitiesOf(data.out!),
         context_window: number(data.context),
-        pricing:
-          data.input === undefined ? undefined : { prompt_tokens: Number(data.input), response_tokens: Number(data.output), cached_tokens: number(data.cached) },
+        pricing: pricesOf(row),
       };
     };
 
@@ -867,10 +940,8 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
       }
       slot("modalities").replaceChildren(...clones(row.querySelector('[data-cell="modalities"] > span')));
       slot("context").textContent = row.querySelector('[data-cell="context"]')!.textContent!.trim();
-      const prices = [...row.querySelectorAll<HTMLElement>("[data-price]")].filter((cell) => cell.textContent !== "—");
-      slot("prices").textContent = prices.length
-        ? `${prices.map((cell) => `${cell.dataset.label} ${cell.textContent}`).join(" · ")} ${segmented.dataset.value} ${words.perMillion}`
-        : "";
+      const prices = [...row.querySelectorAll<HTMLElement>("[data-price]")];
+      slot("prices").textContent = `${prices.map((cell) => `${words.columns[cell.dataset.cell!]} ${cell.textContent}`).join(" · ")} ${segmented.dataset.value} ${words.perMillion}`;
       // a probed entry's latency and throughput, each after its column's name as the context is,
       // with their units, since the dialog has no headers to carry them
       const status = row.dataset.status as Status | undefined;
@@ -883,7 +954,7 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
           const item = document.createElement("span");
           const label = document.createElement("span");
           label.className = "text-gray-400 dark:text-gray-500";
-          label.textContent = row.querySelector<HTMLElement>(`[data-cell="${name}"]`)!.dataset.label!;
+          label.textContent = words.columns[name];
           const value = document.createElement("span");
           value.className = "mono tabular-nums";
           value.innerHTML = figures![name];
@@ -972,8 +1043,11 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
     let sortKey: string | null = null;
     let direction = 0;
     const PROBED: Record<string, string> = { latency: "ttft", throughput: "tps" };
+    const PRICED: Record<string, keyof KitEntry["pricing"]> = { cached: "cached_tokens", input: "prompt_tokens", thoughts: "thoughts_tokens", output: "response_tokens" };
+    const priced = new Map(rows.map((row) => [row, pricesOf(row)]));
     const value = (row: HTMLTableRowElement, key: string): number | string | undefined => {
       if (key === "model" || key === "provider") return row.dataset[key];
+      if (key in PRICED) return priced.get(row)![PRICED[key]];
       const raw = row.dataset[PROBED[key] ?? key];
       return raw === undefined || raw === "" ? undefined : Number(raw);
     };
@@ -1010,6 +1084,7 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
 
     // ---------- USD or CNY, kept for the next visit
     const segmented = root.querySelector<HTMLElement>("[data-segmented]")!;
+    const table = root.querySelector<HTMLElement>(".catalog-table")!;
     const prices = [...root.querySelectorAll<HTMLElement>("[data-price]")];
     const priceUnits = [...root.querySelectorAll<HTMLElement>("[data-price-unit]")];
     const applyCurrency = (currency: "USD" | "CNY") => {
@@ -1022,10 +1097,8 @@ const stroke = { fill: "none", stroke: "currentColor", "stroke-width": "2", "str
         unit.textContent = PRICE_UNITS[currency];
         unit.title = `${currency} ${words.perMillion}`;
       }
-      for (const cell of prices) {
-        cell.textContent = (currency === "CNY" ? cell.dataset.cny : cell.dataset.usd) ?? "—";
-        cell.dataset.unit = PRICE_UNITS[currency];
-      }
+      for (const cell of prices) cell.textContent = (currency === "CNY" ? cell.dataset.cny : cell.dataset.usd)!;
+      table.style.setProperty("--u-price", JSON.stringify(PRICE_UNITS[currency]));
     };
     for (const button of segmented.querySelectorAll<HTMLButtonElement>("button")) {
       button.addEventListener("click", () => {

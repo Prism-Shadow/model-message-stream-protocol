@@ -133,19 +133,10 @@ def zero_usage() -> dict[str, int]:
 
 
 def cost_usd(usage: dict[str, int], pricing: dict[str, Any] | None) -> float | None:
-    """The cost of the usage at the registry's USD list price per million tokens."""
+    """The cost of the usage at the registry's USD list price: each bucket's count times its price, per million."""
     if pricing is None:
         return None
-    total = 0.0
-    for field in USAGE_FIELDS:
-        if field == "thoughts_tokens":
-            # thinking is output, billed at the output price
-            rate = pricing["response_tokens"]
-        else:
-            # a platform that publishes no cache-hit price bills cached input as ordinary input
-            rate = pricing.get(field, pricing["prompt_tokens"])
-        total += usage[field] * rate
-    return round(total / 1e6, 8)
+    return round(sum(usage[field] * pricing[field] for field in USAGE_FIELDS) / 1e6, 8)
 
 
 def utc_stamp(moment: datetime) -> str:

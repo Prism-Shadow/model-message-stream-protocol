@@ -1,6 +1,6 @@
 # Model Selection
 
-Use exact model IDs, and pass the model's client type as `clientType`. If a model ID is not listed, ask the user to confirm the exact ID before using it. A model ID that begins with a known family (`gpt-`, `text-embedding-`, `claude-`, `gemini-`, `glm-`, `kimi-`, `deepseek-`, `minimax-`, `jina-`) names its official client on its own, so `clientType` may be omitted for it; any other ID, such as a gateway's `moonshotai/kimi-k3` or Bedrock's `global.anthropic.claude-fable-5`, raises without one. The supported model entries (base URL, client, modalities, context window, USD/CNY pricing) are also available at runtime via `listSupportedModels()`.
+Use exact model IDs, and pass the model's client type as `clientType`. If a model ID is not listed, ask the user to confirm the exact ID before using it. A model ID that begins with a known family (`gpt-`, `text-embedding-`, `claude-`, `gemini-`, `glm-`, `kimi-`, `deepseek-`, `minimax-`, `jina-`) names its official client on its own, so `clientType` may be omitted for it; any other ID, such as a gateway's `moonshotai/kimi-k3` or Bedrock's `global.anthropic.claude-fable-5`, raises without one. The supported model entries (base URL, client, modalities, context window, and USD/CNY prices for cached, input, thinking and output) are also available at runtime via `listSupportedModels()`.
 
 | Family | Provider | Model IDs | Client type | API Key | Base URL |
 | --- | --- | --- | --- | --- | --- |
